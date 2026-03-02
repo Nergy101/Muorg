@@ -1,0 +1,171 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set.outputs.version }}
+      tag: ${{ steps.set.outputs.tag }}
+      prerelease: ${{ steps.set.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            TAG="${{ github.ref_name }}"
+            PRERELEASE="false"
+          else
+            VERSION="0.1.0-alpha.${{ github.run_number }}"
+            TAG="v${VERSION}"
+            PRERELEASE="true"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: aarch64-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: x86_64-darwin
+          - platform: windows-latest
+            target: ""
+            artifact_name: x86_64-windows
+          - platform: ubuntu-22.04
+            target: ""
+            artifact_name: x86_64-linux
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version
+        shell: bash
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const v = process.env.VERSION;
+            const p = require('./package.json');
+            p.version = v;
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
+            const tauri = require('./src-tauri/tauri.conf.json');
+            tauri.version = v;
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(tauri, null, 2));
+            const cargo = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+            fs.writeFileSync('src-tauri/Cargo.toml', cargo.replace(/^version = \".*\"$/m, 'version = \"' + v + '\"'));
+          "
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            pnpm tauri build --target ${{ matrix.target }}
+          else
+            pnpm tauri build
+          fi
+        shell: bash
+        env:
+          CI: true
+
+      - name: Set bundle path
+        id: bundle
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            echo "path=src-tauri/target/${{ matrix.target }}/release/bundle" >> $GITHUB_OUTPUT
+          else
+            echo "path=src-tauri/target/release/bundle" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifacts (macOS)
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+          path: |
+            ${{ steps.bundle.outputs.path }}/dmg/*.dmg
+            ${{ steps.bundle.outputs.path }}/macos/*.app
+
+      - name: Upload artifacts (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+          path: |
+            ${{ steps.bundle.outputs.path }}/msi/*.msi
+            ${{ steps.bundle.outputs.path }}/nsis/*.exe
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+          path: |
+            ${{ steps.bundle.outputs.path }}/appimage/*.AppImage
+            ${{ steps.bundle.outputs.path }}/deb/*.deb
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: muorg-*
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Muorg ${{ needs.version.outputs.tag }}
+          prerelease: ${{ needs.version.outputs.prerelease }}
+          generate_release_notes: true
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
