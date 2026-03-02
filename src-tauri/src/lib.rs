@@ -42,6 +42,7 @@ pub fn run() {
             commands::write_track_metadata,
             commands::path_to_folder,
             commands::get_track_cover,
+            commands::read_audio_file,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

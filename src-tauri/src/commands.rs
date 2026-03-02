@@ -1,5 +1,6 @@
 use crate::catalog::{Catalog, CatalogTrack};
 use crate::metadata::{read_metadata, write_metadata, MetadataUpdate};
+use base64::Engine;
 use serde::Serialize;
 use std::path::Path;
 use std::sync::Arc;
@@ -85,6 +86,22 @@ pub async fn remove_folder(
 pub async fn get_track_cover(path: String) -> Result<Option<String>, String> {
     let meta = read_metadata(Path::new(&path))?;
     Ok(meta.picture_base64)
+}
+
+/// Read an audio file and return its contents as base64 so the frontend can create a blob URL for playback.
+#[tauri::command]
+pub async fn read_audio_file(path: String) -> Result<String, String> {
+    let path = Path::new(&path);
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
+    if ext.as_deref() != Some("mp3") && ext.as_deref() != Some("flac") {
+        return Err("Unsupported format".to_string());
+    }
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(b64)
 }
 
 #[tauri::command]

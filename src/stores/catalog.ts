@@ -2,6 +2,15 @@ import { defineStore } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import type { CatalogTrack } from "../types";
 
+const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
+
+function loadStoredDefaultGroupBy(): "none" | "artist" | "album" {
+  if (typeof window === "undefined") return "album";
+  const stored = window.localStorage.getItem(DEFAULT_GROUP_BY_KEY);
+  if (stored === "none" || stored === "artist" || stored === "album") return stored;
+  return "album";
+}
+
 export const useCatalogStore = defineStore("catalog", {
   state: () => ({
     roots: [] as string[],
@@ -10,7 +19,7 @@ export const useCatalogStore = defineStore("catalog", {
     loading: false,
     error: null as string | null,
     searchQuery: "",
-    groupBy: "none" as "none" | "artist" | "album",
+    groupBy: loadStoredDefaultGroupBy(),
     /** Cache of track path -> album art base64 (or null if no art). */
     coverCache: {} as Record<string, string | null>,
   }),

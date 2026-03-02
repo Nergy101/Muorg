@@ -25,7 +25,71 @@ const coverDimensions = ref<{ width: number; height: number } | null>(null);
 const coverSizeBytes = ref<number | null>(null);
 const largeImageWarning = ref(false);
 
+const tooltipPopover = ref<{ text: string; x: number; y: number; position?: "left" | "below" } | null>(null);
+let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function showTooltip(text: string, e: MouseEvent, position: "left" | "below" = "below") {
+  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
+  tooltipHideTimeout = null;
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  if (position === "left") {
+    tooltipPopover.value = { text, x: rect.left - 8, y: rect.top + rect.height / 2, position: "left" };
+  } else {
+    tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.bottom + 6, position: "below" };
+  }
+}
+
+function scheduleHideTooltip() {
+  tooltipHideTimeout = setTimeout(() => {
+    tooltipPopover.value = null;
+    tooltipHideTimeout = null;
+  }, 100);
+}
+
+function cancelHideTooltip() {
+  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
+  tooltipHideTimeout = null;
+}
+
+function hideTooltip() {
+  tooltipPopover.value = null;
+  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
+  tooltipHideTimeout = null;
+}
+
+/** Snapshot of form state when last synced from tracks (used to detect changes). */
+const baseline = ref<{
+  title: string;
+  artist: string;
+  album: string;
+  albumArtist: string;
+  year: number | "";
+  genre: string;
+  trackNumber: number | "";
+  discNumber: number | "";
+  pictureBase64: string | null;
+} | null>(null);
+
+/** In bulk mode, only these fields are written on save (user has edited them). */
+const editedFields = ref<Set<keyof NonNullable<typeof baseline.value>>>(new Set());
+
 const ONE_MB = 1024 * 1024;
+
+const hasFormChanges = computed(() => {
+  const b = baseline.value;
+  if (!b) return false;
+  return (
+    title.value !== b.title ||
+    artist.value !== b.artist ||
+    album.value !== b.album ||
+    albumArtist.value !== b.albumArtist ||
+    year.value !== b.year ||
+    genre.value !== b.genre ||
+    trackNumber.value !== b.trackNumber ||
+    discNumber.value !== b.discNumber ||
+    pictureBase64.value !== b.pictureBase64
+  );
+});
 
 function onCoverPopupKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") showCoverPopup.value = false;
@@ -91,6 +155,18 @@ function syncFromTracks() {
     pictureBase64.value = null;
     if (tracks.length > 0) store.fetchCover(tracks[0].path);
   }
+  baseline.value = {
+    title: title.value,
+    artist: artist.value,
+    album: album.value,
+    albumArtist: albumArtist.value,
+    year: year.value,
+    genre: genre.value,
+    trackNumber: trackNumber.value,
+    discNumber: discNumber.value,
+    pictureBase64: pictureBase64.value,
+  };
+  editedFields.value = new Set();
 }
 
 watch(selectedTracks, syncFromTracks, { immediate: true });
@@ -119,18 +195,38 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onCoverPopupKeydown);
 });
 
+function markEdited(field: keyof NonNullable<typeof baseline.value>) {
+  editedFields.value = new Set(editedFields.value).add(field);
+}
+
+/** Build update for save. In bulk mode, only includes fields the user has edited so other fields stay per-track. */
 function buildUpdate(): MetadataUpdate {
-  return {
-    title: title.value || undefined,
-    artist: artist.value || undefined,
-    album: album.value || undefined,
-    album_artist: albumArtist.value || undefined,
-    year: year.value === "" ? undefined : Number(year.value),
-    genre: genre.value || undefined,
-    track_number: trackNumber.value === "" ? undefined : Number(trackNumber.value),
-    disc_number: discNumber.value === "" ? undefined : Number(discNumber.value),
-    picture_base64: pictureBase64.value ?? undefined,
-  };
+  const tracks = selectedTracks.value;
+  const isBulk = tracks.length > 1;
+  const edited = editedFields.value;
+
+  const titleVal = title.value || undefined;
+  const artistVal = artist.value || undefined;
+  const albumVal = album.value || undefined;
+  const albumArtistVal = albumArtist.value || undefined;
+  const yearVal = year.value === "" ? undefined : Number(year.value);
+  const genreVal = genre.value || undefined;
+  const trackNumVal = trackNumber.value === "" ? undefined : Number(trackNumber.value);
+  const discNumVal = discNumber.value === "" ? undefined : Number(discNumber.value);
+  const pictureVal = pictureBase64.value ?? undefined;
+
+  const update: MetadataUpdate = {};
+  if (!isBulk || edited.has("title")) update.title = titleVal ?? null;
+  if (!isBulk || edited.has("artist")) update.artist = artistVal ?? null;
+  if (!isBulk || edited.has("album")) update.album = albumVal ?? null;
+  if (!isBulk || edited.has("albumArtist")) update.album_artist = albumArtistVal ?? null;
+  if (!isBulk || edited.has("year")) update.year = yearVal ?? null;
+  if (!isBulk || edited.has("genre")) update.genre = genreVal ?? null;
+  if (!isBulk || edited.has("trackNumber")) update.track_number = trackNumVal ?? null;
+  if (!isBulk || edited.has("discNumber")) update.disc_number = discNumVal ?? null;
+  if (!isBulk || edited.has("pictureBase64")) update.picture_base64 = pictureVal ?? undefined;
+
+  return update;
 }
 
 async function save() {
@@ -155,6 +251,11 @@ async function save() {
 function clearCover() {
   pictureBase64.value = null;
   largeImageWarning.value = false;
+  markEdited("pictureBase64");
+}
+
+function discard() {
+  syncFromTracks();
 }
 
 function onCoverFile(e: Event) {
@@ -168,6 +269,7 @@ function onCoverFile(e: Event) {
     const base64 = data.includes(",") ? data.split(",")[1] : data;
     pictureBase64.value = base64 ?? null;
     loadCoverMeta(base64 ?? "", file.size);
+    markEdited("pictureBase64");
   };
   reader.readAsDataURL(file);
   input.value = "";
@@ -177,23 +279,42 @@ function onCoverFile(e: Event) {
 <template>
   <div
     v-if="selectedTracks.length"
-    class="border-t border-stone-700 bg-stone-800/90 p-4"
+    class="border-t border-stone-700 bg-stone-800/90 p-3"
   >
-    <h3 class="mb-1 text-sm font-medium text-stone-300">
-      Edit metadata ({{ selectedTracks.length }} selected)
-    </h3>
-    <p v-if="selectedTracks.length > 1" class="mb-3 text-xs text-stone-500">
-      Set these fields for all selected tracks. Shared values are pre-filled; change only what you want to update.
+    <div class="mb-0.5 flex items-center gap-2">
+      <span
+        class="inline-flex"
+        @mouseenter="showTooltip('Close (discard changes)', $event)"
+        @mouseleave="scheduleHideTooltip"
+      >
+        <button
+          type="button"
+          class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+          aria-label="Close (discard changes)"
+          @click="discard(); store.clearSelection()"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </span>
+      <h3 class="text-sm font-medium text-stone-300">
+        Edit metadata ({{ selectedTracks.length }} selected)
+      </h3>
+    </div>
+    <p v-if="selectedTracks.length > 1" class="mb-2 text-xs text-stone-500">
+      Set these fields for all selected tracks. Shared values are pre-filled; change only what you want to update. Only the fields you edit are written—others (e.g. title) stay as-is per track.
     </p>
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
       <div class="min-w-0 flex-1">
-        <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        <div class="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
           <div>
             <label class="block text-stone-500">Title</label>
             <input
               v-model="title"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('title')"
             />
           </div>
           <div>
@@ -201,7 +322,8 @@ function onCoverFile(e: Event) {
             <input
               v-model="artist"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('artist')"
             />
           </div>
           <div>
@@ -209,7 +331,8 @@ function onCoverFile(e: Event) {
             <input
               v-model="album"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('album')"
             />
           </div>
           <div>
@@ -217,7 +340,8 @@ function onCoverFile(e: Event) {
             <input
               v-model="albumArtist"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('albumArtist')"
             />
           </div>
           <div>
@@ -227,7 +351,8 @@ function onCoverFile(e: Event) {
               type="number"
               min="1"
               max="9999"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('year')"
             />
           </div>
           <div>
@@ -235,7 +360,8 @@ function onCoverFile(e: Event) {
             <input
               v-model="genre"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('genre')"
             />
           </div>
           <div>
@@ -244,7 +370,8 @@ function onCoverFile(e: Event) {
               v-model.number="trackNumber"
               type="number"
               min="0"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('trackNumber')"
             />
           </div>
           <div>
@@ -253,11 +380,12 @@ function onCoverFile(e: Event) {
               v-model.number="discNumber"
               type="number"
               min="0"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-stone-200"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('discNumber')"
             />
           </div>
         </div>
-        <div class="mt-3 flex items-center gap-2">
+        <div class="mt-2 flex flex-wrap items-center gap-2">
           <button
             type="button"
             class="rounded border border-stone-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
@@ -269,16 +397,21 @@ function onCoverFile(e: Event) {
           </button>
           <button
             type="button"
-            class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600"
-            @click="store.clearSelection()"
+            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-50 disabled:pointer-events-none"
+            title="Discard unsaved changes"
+            :disabled="saving || !hasFormChanges"
+            @click="discard"
           >
-            Cancel
+            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+            Discard
           </button>
         </div>
       </div>
-      <div class="shrink-0 border-t border-stone-700 pt-4 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-        <label class="block text-stone-500">Album cover</label>
-        <div class="mt-1 flex flex-col items-start gap-2">
+      <div class="shrink-0 border-t border-stone-700 pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+        <div class="flex items-center gap-1.5">
+          <label class="text-stone-500">Album cover</label>
           <input
             ref="fileInputRef"
             type="file"
@@ -286,16 +419,26 @@ function onCoverFile(e: Event) {
             class="hidden"
             @change="onCoverFile"
           />
-          <div class="flex items-center gap-2">
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Choose image', $event, 'left')"
+            @mouseleave="scheduleHideTooltip"
+          >
             <button
               type="button"
-              class="rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-300 hover:bg-stone-600"
+              class="rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Choose image"
               @click="fileInputRef?.click()"
             >
-              Choose image
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
             </button>
+          </span>
+        </div>
+        <div class="mt-0.5 flex flex-col items-start gap-1.5">
+          <div v-if="pictureBase64" class="flex items-center gap-2">
             <button
-              v-if="pictureBase64"
               type="button"
               class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600"
               @click="clearCover"
@@ -318,13 +461,13 @@ function onCoverFile(e: Event) {
               <img
                 :src="`data:image/jpeg;base64,${displayCover}`"
                 alt="Album cover"
-                class="h-40 w-40 rounded object-cover border border-stone-600 shadow-md"
+                class="h-28 w-28 rounded object-cover border border-stone-600 shadow-md"
               />
               <div
                 class="magnify absolute inset-0 flex items-center justify-center rounded bg-stone-900/60 opacity-0 transition-opacity group-hover:opacity-100"
                 aria-hidden="true"
               >
-                <svg class="h-10 w-10 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-8 w-8 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                 </svg>
               </div>
@@ -347,7 +490,7 @@ function onCoverFile(e: Event) {
         </div>
       </div>
     </div>
-    <p v-if="saveError" class="mt-2 text-xs text-red-400">{{ saveError }}</p>
+    <p v-if="saveError" class="mt-1.5 text-xs text-red-400">{{ saveError }}</p>
 
     <!-- Cover art popup -->
     <Teleport to="body">
@@ -367,6 +510,22 @@ function onCoverFile(e: Event) {
           class="max-h-[90vh] max-w-[90vw] rounded-lg shadow-xl object-contain"
           @click="showCoverPopup = false"
         />
+      </div>
+    </Teleport>
+    <!-- Tooltip popover -->
+    <Teleport to="body">
+      <div
+        v-if="tooltipPopover"
+        class="fixed z-[200] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+        :style="
+          tooltipPopover.position === 'left'
+            ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-100%, -50%)' }
+            : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }
+        "
+        @mouseenter="cancelHideTooltip"
+        @mouseleave="hideTooltip"
+      >
+        {{ tooltipPopover.text }}
       </div>
     </Teleport>
   </div>

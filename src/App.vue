@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import Sidebar from "./components/Sidebar.vue";
 import LibraryTable from "./components/LibraryTable.vue";
+import PlayerBar from "./components/PlayerBar.vue";
 import MetadataEditor from "./components/MetadataEditor.vue";
 import { useCatalogStore } from "./stores/catalog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -69,6 +70,7 @@ onUnmounted(() => {
         </div>
       </div>
       <LibraryTable />
+      <PlayerBar />
       <MetadataEditor v-if="showEditor" />
     </main>
     <div

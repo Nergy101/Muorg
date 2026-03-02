@@ -2,14 +2,19 @@
 import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
+import { useSettingsStore } from "../stores/settings";
 import type { CatalogTrack } from "../types";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 
 const store = useCatalogStore();
-const { filteredTracks, selectedTrackIds, searchQuery, groupBy } = storeToRefs(store);
+const settingsStore = useSettingsStore();
+const { filteredTracks, selectedTrackIds, searchQuery, groupBy, coverCache } = storeToRefs(store);
+const { defaultGroupsExpanded } = storeToRefs(settingsStore);
 
-/** Set of group keys that are expanded. When groupBy changes, reset to all expanded. */
+/** Set of group keys that are expanded. */
 const expandedGroups = ref<Set<string>>(new Set());
+/** True after we've applied defaultGroupsExpanded once for the current groupBy (so we don't re-apply on every groupedRows update). */
+const appliedDefaultForSession = ref(false);
 const multiSelectMode = ref(false);
 
 function formatDuration(secs: number | null): string {
@@ -52,22 +57,61 @@ const groupedRows = computed(() => {
   return keys.map((key) => ({ key, label: key, tracks: map.get(key)! }));
 });
 
+/** When grouping by album, per-group cover to show in header (same for all tracks, or null if mixed/none). */
+const groupCovers = computed(() => {
+  if (groupBy.value !== "album") return {} as Record<string, string | null>;
+  const cache = coverCache.value;
+  const groups = groupedRows.value;
+  if (!groups) return {};
+  const result: Record<string, string | null> = {};
+  for (const group of groups) {
+    const covers = group.tracks
+      .map((t) => cache[t.path])
+      .filter((c): c is string => c != null && c !== "");
+    const unique = [...new Set(covers)];
+    result[group.key] = unique.length <= 1 ? (unique[0] ?? null) : null;
+  }
+  return result;
+});
+
 watch(groupBy, (by) => {
   if (by === "none") return;
+  appliedDefaultForSession.value = false;
   const groups = groupedRows.value;
-  if (groups) {
-    expandedGroups.value = new Set(groups.map((g) => g.key));
-  }
+  expandedGroups.value = defaultGroupsExpanded.value && groups?.length
+    ? new Set(groups.map((g) => g.key))
+    : new Set();
+  if (groups?.length) appliedDefaultForSession.value = true;
 }, { immediate: true });
 
 watch(groupedRows, (groups) => {
   if (!groups?.length) return;
-  const next = new Set(expandedGroups.value);
-  for (const g of groups) {
-    if (!next.has(g.key)) next.add(g.key);
+  const keys = new Set(groups.map((g) => g.key));
+  if (!appliedDefaultForSession.value) {
+    appliedDefaultForSession.value = true;
+    expandedGroups.value = defaultGroupsExpanded.value
+      ? new Set(keys)
+      : new Set();
+    return;
+  }
+  const next = new Set<string>();
+  for (const key of expandedGroups.value) {
+    if (keys.has(key)) next.add(key);
   }
   expandedGroups.value = next;
 });
+
+/** Fetch covers for all tracks in album groups so group header art can show. */
+watch(
+  () => (groupBy.value === "album" ? groupedRows.value : null),
+  (groups) => {
+    if (!groups) return;
+    for (const g of groups) {
+      for (const t of g.tracks) store.fetchCover(t.path);
+    }
+  },
+  { immediate: true }
+);
 
 function isGroupExpanded(key: string): boolean {
   return expandedGroups.value.has(key);
@@ -161,11 +205,23 @@ function expandAll() {
                 @click="toggleGroup(group.key)"
               >
                 <td colspan="9" class="border-b border-stone-600 p-2">
-                  <span class="inline-block w-4 text-stone-500" aria-hidden="true">
-                    {{ isGroupExpanded(group.key) ? "▼" : "▶" }}
+                  <span class="inline-flex items-center gap-2">
+                    <span
+                      v-if="groupBy === 'album' && groupCovers[group.key]"
+                      class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
+                    >
+                      <img
+                        :src="`data:image/jpeg;base64,${groupCovers[group.key]}`"
+                        alt=""
+                        class="h-full w-full object-cover"
+                      />
+                    </span>
+                    <span class="inline-block w-4 shrink-0 text-stone-500" aria-hidden="true">
+                      {{ isGroupExpanded(group.key) ? "▼" : "▶" }}
+                    </span>
+                    {{ group.label }}
+                    <span class="ml-1 text-stone-500">({{ group.tracks.length }})</span>
                   </span>
-                  {{ group.label }}
-                  <span class="ml-1 text-stone-500">({{ group.tracks.length }})</span>
                 </td>
               </tr>
               <template v-if="isGroupExpanded(group.key)">

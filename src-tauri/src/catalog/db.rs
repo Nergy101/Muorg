@@ -209,25 +209,56 @@ pub fn remove_root(conn: &rusqlite::Connection, root_path: &str) -> Result<(), S
 }
 
 /// Update a track's metadata in the catalog after writing to file.
+/// Only touches columns for which the update has a value (Some); others are left unchanged.
 pub fn update_track_metadata(
     conn: &rusqlite::Connection,
     path: &str,
     update: &crate::metadata::MetadataUpdate,
 ) -> Result<(), String> {
-    conn.execute(
-        "UPDATE tracks SET title = ?, artist = ?, album = ?, album_artist = ?, year = ?, genre = ?, track_number = ?, disc_number = ? WHERE path = ?",
-        rusqlite::params![
-            update.title,
-            update.artist,
-            update.album,
-            update.album_artist,
-            update.year.map(|y| y as i64),
-            update.genre,
-            update.track_number.map(|n| n as i64),
-            update.disc_number.map(|n| n as i64),
-            path,
-        ],
-    )
-    .map_err(|e| e.to_string())?;
+    let mut sets = Vec::new();
+    let mut params: Vec<rusqlite::types::Value> = Vec::new();
+
+    if let Some(ref t) = update.title {
+        sets.push("title = ?");
+        params.push(rusqlite::types::Value::Text(t.clone()));
+    }
+    if let Some(ref a) = update.artist {
+        sets.push("artist = ?");
+        params.push(rusqlite::types::Value::Text(a.clone()));
+    }
+    if let Some(ref a) = update.album {
+        sets.push("album = ?");
+        params.push(rusqlite::types::Value::Text(a.clone()));
+    }
+    if let Some(ref a) = update.album_artist {
+        sets.push("album_artist = ?");
+        params.push(rusqlite::types::Value::Text(a.clone()));
+    }
+    if let Some(y) = update.year {
+        sets.push("year = ?");
+        params.push(rusqlite::types::Value::Integer(y as i64));
+    }
+    if let Some(ref g) = update.genre {
+        sets.push("genre = ?");
+        params.push(rusqlite::types::Value::Text(g.clone()));
+    }
+    if let Some(n) = update.track_number {
+        sets.push("track_number = ?");
+        params.push(rusqlite::types::Value::Integer(n as i64));
+    }
+    if let Some(n) = update.disc_number {
+        sets.push("disc_number = ?");
+        params.push(rusqlite::types::Value::Integer(n as i64));
+    }
+
+    if sets.is_empty() {
+        return Ok(());
+    }
+
+    let sql = format!("UPDATE tracks SET {} WHERE path = ?", sets.join(", "));
+    params.push(rusqlite::types::Value::Text(path.to_string()));
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    stmt.execute(rusqlite::params_from_iter(params.iter()))
+        .map_err(|e| e.to_string())?;
     Ok(())
 }

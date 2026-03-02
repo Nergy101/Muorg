@@ -11,7 +11,10 @@
     "build:linux": "tauri build",
     "build:macos": "tauri build",
     "build:windows": "tauri build",
-    "icon": "tauri icon public/favicon.svg -o src-tauri/icons"
+    "icon": "tauri icon public/favicon.svg -o src-tauri/icons",
+    "check:frontend": "pnpm build",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "check": "pnpm run check:frontend && pnpm run check:rust"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

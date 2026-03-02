@@ -115,7 +115,13 @@ The **Build and Lint** workflow (`.github/workflows/build.yml`) runs on every pu
 - **Frontend:** `pnpm install --frozen-lockfile`, then `pnpm build` (TypeScript check + Vite build).
 - **Rust:** `cargo check` and `cargo clippy` (with `-D warnings`).
 
-Use it to validate changes before merging to `main`.
+Use it to validate changes before merging to `main`. You can run the same checks locally:
+
+```bash
+pnpm run check          # frontend + Rust (TypeScript build, cargo check, clippy)
+pnpm run check:frontend # TypeScript check + Vite build only
+pnpm run check:rust     # cargo check + clippy (requires Rust) only
+```
 
 ---
 
