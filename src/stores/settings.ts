@@ -9,10 +9,10 @@ const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
 const DEFAULT_GROUPS_EXPANDED_KEY = "muorg-default-groups-expanded";
 
 function loadTheme(): ThemeId {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "auto";
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   if (stored === "light" || stored === "doom" || stored === "dark" || stored === "auto") return stored;
-  return "dark";
+  return "auto";
 }
 
 /** Resolve theme to the actual value applied to the document (dark/light/doom). */
