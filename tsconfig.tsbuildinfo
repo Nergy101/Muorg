@@ -1,1 +1,1 @@
-{"root":["./src/main.ts","./src/types.ts","./src/vite-env.d.ts","./src/stores/catalog.ts","./src/app.vue","./src/components/librarytable.vue","./src/components/metadataeditor.vue","./src/components/sidebar.vue"],"version":"5.6.3"}
+{"root":["./src/main.ts","./src/types.ts","./src/vite-env.d.ts","./src/stores/catalog.ts","./src/stores/settings.ts","./src/app.vue","./src/components/librarytable.vue","./src/components/metadataeditor.vue","./src/components/playerbar.vue","./src/components/sidebar.vue","./src/components/trackalbumart.vue"],"version":"5.6.3"}

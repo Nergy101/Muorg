@@ -28,10 +28,6 @@ function isSelected(id: number): boolean {
   return selectedTrackIds.value.includes(id);
 }
 
-function toggle(t: CatalogTrack) {
-  store.toggleSelection(t.id);
-}
-
 /** Select a row: in multi-select mode toggle; otherwise select only this track. */
 function selectRow(t: CatalogTrack) {
   if (multiSelectMode.value) {

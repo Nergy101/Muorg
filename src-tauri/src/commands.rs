@@ -38,7 +38,7 @@ pub async fn add_folder(
 ) -> Result<AddFolderResult, String> {
     let folder = normalize_to_folder(&path)?;
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::save_roots(&conn, &[folder.clone()])?;
+    crate::catalog::save_roots(&conn, std::slice::from_ref(&folder))?;
     let tracks_added = crate::catalog::scan_and_insert(&conn, &folder)?;
     let roots = crate::catalog::load_roots(&conn)?;
     Ok(AddFolderResult {
@@ -110,7 +110,7 @@ pub async fn write_track_metadata(
     path: String,
     update: MetadataUpdate,
 ) -> Result<(), String> {
-    write_metadata(&std::path::Path::new(&path), &update)?;
+    write_metadata(std::path::Path::new(&path), &update)?;
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
     crate::catalog::update_track_metadata(&conn, &path, &update)?;
     Ok(())
