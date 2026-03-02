@@ -16,7 +16,8 @@ const themeOptions: { value: ThemeId; label: string }[] = [
   { value: "auto", label: "Auto" },
   { value: "dark", label: "Dark" },
   { value: "light", label: "Light" },
-  { value: "doom", label: "DOOM (easter egg)" },
+  { value: "orkish", label: "Orkish" },
+  { value: "doom", label: "DOOM" },
 ];
 
 const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [

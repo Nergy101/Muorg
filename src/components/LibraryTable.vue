@@ -357,7 +357,7 @@ onUnmounted(() => {
                 v-if="row.type === 'group'"
                 :data-row-index="i"
                 class="cursor-pointer font-medium text-stone-400 hover:bg-stone-700/80"
-                :class="focusedRowIndex === i ? 'bg-stone-700/80 ring-1 ring-inset ring-stone-400' : 'bg-stone-800/80'"
+                :class="focusedRowIndex === i ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80'"
                 @click="focusedRowIndex = i; toggleGroup(row.key)"
               >
                 <td colspan="9" class="border-b border-stone-600 p-2">
@@ -386,8 +386,8 @@ onUnmounted(() => {
                 class="border-b border-stone-700/50 hover:bg-stone-800/50"
                 :class="[
                   { 'bg-stone-700/40': isSelected(row.track.id) && focusedRowIndex !== i },
-                  { 'bg-stone-600/50 ring-1 ring-inset ring-stone-400': isSelected(row.track.id) && focusedRowIndex === i },
-                  { 'bg-stone-800 ring-1 ring-inset ring-stone-400': !isSelected(row.track.id) && focusedRowIndex === i },
+                  { 'bg-stone-600/50 table-row-focused': isSelected(row.track.id) && focusedRowIndex === i },
+                  { 'bg-stone-800 table-row-focused': !isSelected(row.track.id) && focusedRowIndex === i },
                 ]"
                 @click="focusedRowIndex = i; selectRow(row.track)"
               >

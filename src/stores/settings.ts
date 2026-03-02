@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-export type ThemeId = "dark" | "light" | "doom" | "auto";
+export type ThemeId = "dark" | "light" | "doom" | "orkish" | "auto";
 
 export type DefaultGroupBy = "none" | "artist" | "album";
 
@@ -11,12 +11,12 @@ const DEFAULT_GROUPS_EXPANDED_KEY = "muorg-default-groups-expanded";
 function loadTheme(): ThemeId {
   if (typeof window === "undefined") return "auto";
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === "light" || stored === "doom" || stored === "dark" || stored === "auto") return stored;
+  if (stored === "light" || stored === "doom" || stored === "orkish" || stored === "dark" || stored === "auto") return stored;
   return "auto";
 }
 
-/** Resolve theme to the actual value applied to the document (dark/light/doom). */
-function getEffectiveTheme(theme: ThemeId): "dark" | "light" | "doom" {
+/** Resolve theme to the actual value applied to the document (dark/light/doom/orkish). */
+function getEffectiveTheme(theme: ThemeId): "dark" | "light" | "doom" | "orkish" {
   if (theme !== "auto") return theme;
   if (typeof window === "undefined") return "dark";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";

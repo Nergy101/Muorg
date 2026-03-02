@@ -11,6 +11,12 @@ input[type="checkbox"] {
   accent-color: #5b7c32;
 }
 
+/* Focused table row highlight (works across themes) */
+.table-row-focused {
+  @apply ring-1 ring-inset;
+  --tw-ring-color: #5b7c32;
+}
+
 /* Light theme */
 [data-theme="light"] body {
   background-color: #fafaf9;
@@ -25,6 +31,8 @@ input[type="checkbox"] {
 [data-theme="light"] .bg-stone-700 { background-color: #e7e5e4 !important; }
 [data-theme="light"] .bg-stone-600 { background-color: #d6d3d1 !important; }
 [data-theme="light"] .bg-stone-700\/40 { background-color: rgba(231, 229, 228, 0.4) !important; }
+[data-theme="light"] .bg-stone-700\/80 { background-color: rgba(231, 229, 228, 0.9) !important; }
+[data-theme="light"] .bg-stone-600\/50 { background-color: rgba(232, 245, 233, 0.85) !important; }
 [data-theme="light"] .bg-stone-900\/60 { background-color: rgba(250, 250, 249, 0.6) !important; }
 [data-theme="light"] .bg-stone-900\/70 { background-color: rgba(250, 250, 249, 0.7) !important; }
 [data-theme="light"] .bg-stone-950\/80 { background-color: rgba(250, 250, 249, 0.8) !important; }
@@ -45,6 +53,7 @@ input[type="checkbox"] {
 [data-theme="light"] .hover\:text-stone-300:hover { color: #44403c !important; }
 [data-theme="light"] input[type="checkbox"] { accent-color: #4d7c2c; }
 [data-theme="light"] [style*="5b7c32"] { background-color: #4d7c2c !important; }
+[data-theme="light"] .table-row-focused { --tw-ring-color: #4d7c2c; }
 [data-theme="light"] .table-scroll-container { scrollbar-color: #4d7c2c #e7e5e4; }
 [data-theme="light"] .table-scroll-container::-webkit-scrollbar-thumb { background: #4d7c2c; }
 [data-theme="light"] .table-scroll-container::-webkit-scrollbar-track { background: #e7e5e4; }
@@ -87,6 +96,7 @@ input[type="checkbox"] {
 [data-theme="doom"] .hover\:text-stone-300:hover { color: #c4a035 !important; }
 [data-theme="doom"] input[type="checkbox"] { accent-color: #8b0000; }
 [data-theme="doom"] [style*="5b7c32"] { background-color: #8b0000 !important; }
+[data-theme="doom"] .table-row-focused { --tw-ring-color: #8b0000; }
 [data-theme="doom"] .text-amber-200 { color: #c4a035 !important; }
 [data-theme="doom"] .text-amber-400 { color: #b8860b !important; }
 [data-theme="doom"] .border-amber-500\/80 { border-color: rgba(180, 134, 11, 0.8) !important; }
@@ -102,3 +112,54 @@ input[type="checkbox"] {
 [data-theme="doom"] .player-progress-slider { accent-color: #8b0000; }
 [data-theme="doom"] .player-volume-slider::-webkit-slider-thumb,
 [data-theme="doom"] .player-progress-slider::-webkit-slider-thumb { background: #8b0000; }
+
+/* Orkish theme: dark green-black, green tints (DOOM-style but green) */
+[data-theme="orkish"] body {
+  background-color: #020d02;
+  color: #8bc34a;
+}
+[data-theme="orkish"] .bg-stone-900 { background-color: #020d02 !important; }
+[data-theme="orkish"] .bg-stone-800\/80 { background-color: #0d1f0d !important; }
+[data-theme="orkish"] .bg-stone-800\/95 { background-color: #0d1f0d !important; }
+[data-theme="orkish"] .bg-stone-800\/90 { background-color: #0d1f0d !important; }
+[data-theme="orkish"] .bg-stone-800\/50 { background-color: rgba(13, 31, 13, 0.5) !important; }
+[data-theme="orkish"] .bg-stone-800 { background-color: #0d1f0d !important; }
+[data-theme="orkish"] .bg-stone-700 { background-color: #1a331a !important; }
+[data-theme="orkish"] .bg-stone-600 { background-color: #2d4a2d !important; }
+[data-theme="orkish"] .bg-stone-700\/40 { background-color: rgba(26, 51, 26, 0.4) !important; }
+[data-theme="orkish"] .bg-stone-900\/60 { background-color: rgba(2, 13, 2, 0.6) !important; }
+[data-theme="orkish"] .bg-stone-900\/70 { background-color: rgba(2, 13, 2, 0.7) !important; }
+[data-theme="orkish"] .bg-stone-950\/80 { background-color: rgba(2, 13, 2, 0.8) !important; }
+[data-theme="orkish"] .bg-stone-900\/90 { background-color: rgba(2, 13, 2, 0.9) !important; }
+[data-theme="orkish"] .text-stone-200 { color: #8bc34a !important; }
+[data-theme="orkish"] .text-stone-300 { color: #689f38 !important; }
+[data-theme="orkish"] .text-stone-400 { color: #558b2f !important; }
+[data-theme="orkish"] .text-stone-500 { color: #33691e !important; }
+[data-theme="orkish"] .border-stone-600 { border-color: #2d4a2d !important; }
+[data-theme="orkish"] .border-stone-700 { border-color: #1a331a !important; }
+[data-theme="orkish"] .border-stone-700\/50 { border-color: rgba(26, 51, 26, 0.5) !important; }
+[data-theme="orkish"] .border-t-stone-300 { border-top-color: #689f38 !important; }
+[data-theme="orkish"] .placeholder-stone-500::placeholder { color: #33691e !important; }
+[data-theme="orkish"] .hover\:bg-stone-600:hover { background-color: #2d4a2d !important; }
+[data-theme="orkish"] .hover\:bg-stone-700:hover { background-color: #1a331a !important; }
+[data-theme="orkish"] .hover\:bg-stone-800\/50:hover { background-color: rgba(13, 31, 13, 0.5) !important; }
+[data-theme="orkish"] .hover\:text-stone-200:hover { color: #aed581 !important; }
+[data-theme="orkish"] .hover\:text-stone-300:hover { color: #8bc34a !important; }
+[data-theme="orkish"] input[type="checkbox"] { accent-color: #2e7d32; }
+[data-theme="orkish"] [style*="5b7c32"] { background-color: #2e7d32 !important; }
+[data-theme="orkish"] .table-row-focused { --tw-ring-color: #2e7d32; }
+[data-theme="orkish"] .text-amber-200 { color: #8bc34a !important; }
+[data-theme="orkish"] .text-amber-400 { color: #689f38 !important; }
+[data-theme="orkish"] .border-amber-500\/80 { border-color: rgba(46, 125, 50, 0.8) !important; }
+[data-theme="orkish"] .bg-amber-950\/20 { background-color: rgba(2, 13, 2, 0.5) !important; }
+[data-theme="orkish"] .text-red-400 { color: #66bb6a !important; }
+[data-theme="orkish"] .hover\:bg-red-600:hover { background-color: #2e7d32 !important; }
+[data-theme="orkish"] .hover\:text-white:hover { color: #020d02 !important; }
+[data-theme="orkish"] .ring-amber-500\/80 { --tw-ring-color: rgba(46, 125, 50, 0.8) !important; }
+[data-theme="orkish"] .table-scroll-container { scrollbar-color: #2e7d32 #1a331a; }
+[data-theme="orkish"] .table-scroll-container::-webkit-scrollbar-thumb { background: #2e7d32; }
+[data-theme="orkish"] .table-scroll-container::-webkit-scrollbar-track { background: #1a331a; }
+[data-theme="orkish"] .player-volume-slider,
+[data-theme="orkish"] .player-progress-slider { accent-color: #2e7d32; }
+[data-theme="orkish"] .player-volume-slider::-webkit-slider-thumb,
+[data-theme="orkish"] .player-progress-slider::-webkit-slider-thumb { background: #2e7d32; }

@@ -1,5 +1,7 @@
 # Muorg — The Music Organizer from Hell
 
+![Muorg logo](./assets/favicon.svg)
+
 A cross-platform desktop app that organizes your music library with a dense, library-style UI. Add folders of MP3 and FLAC files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
 
 *Pronounced “Mu-Ork” - Think of a Musical Ork who organizes your music.*
@@ -17,6 +19,18 @@ A cross-platform desktop app that organizes your music library with a dense, lib
 - **Planned (P2/P3):** Search, album/artist grouping, bulk edit, drag-and-drop, optional playback, export/reports, and theming (including a DOOM-themed easter egg).
 
 See [plan.md](./plan.md) for the full roadmap and priorities.
+
+---
+
+## Screenshots
+
+Main library view:
+
+![Muorg main view](./assets/scr-main.png)
+
+Key map and shortcuts:
+
+![Muorg key map](./assets/scr-keymap.png)
 
 ---
 
@@ -107,6 +121,24 @@ Releases are built and published via GitHub Actions.
 | Push to `main`       | `0.1.0-alpha.<run_number>` | Prerelease   |
 | Manual run           | same as above            | Prerelease   |
 | Push tag `v*` (e.g. `v0.2.0`) | From tag (e.g. `0.2.0`) | Full release |
+
+### macOS: “App is damaged” when opening
+
+Releases are not signed or notarized with an Apple Developer certificate. After downloading the `.app` (from a DMG or the release assets), macOS may say **“Muorg.app is damaged and can’t be opened”**. This is Gatekeeper quarantining the app.
+
+**Fix:** Remove the quarantine attribute, then open the app as usual:
+
+```bash
+xattr -cr /path/to/Muorg.app
+```
+
+Example if you moved the app to Applications:
+
+```bash
+xattr -cr /Applications/Muorg.app
+```
+
+After that, open Muorg from Finder or Spotlight as normal. To avoid the warning in the future, you can right‑click the app → **Open** the first time; macOS may then allow it without the “damaged” message.
 
 ### Pre-merge checks (Build and Lint)
 
