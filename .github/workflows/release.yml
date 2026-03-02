@@ -42,9 +42,6 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             artifact_name: aarch64-darwin
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: x86_64-darwin
           - platform: windows-latest
             target: ""
             artifact_name: x86_64-windows
@@ -86,6 +83,10 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Rust target (cross-compilation)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
 
       - name: Install dependencies (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
