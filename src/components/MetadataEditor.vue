@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import type { MetadataUpdate } from "../types";
@@ -191,8 +191,13 @@ watch(showCoverPopup, async (open) => {
   }
 });
 
+onMounted(() => {
+  document.addEventListener("keydown", onPanelKeydown);
+});
+
 onUnmounted(() => {
   document.removeEventListener("keydown", onCoverPopupKeydown);
+  document.removeEventListener("keydown", onPanelKeydown);
 });
 
 function markEdited(field: keyof NonNullable<typeof baseline.value>) {
@@ -256,6 +261,16 @@ function clearCover() {
 
 function discard() {
   syncFromTracks();
+}
+
+function onPanelKeydown(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  if (showCoverPopup.value) {
+    showCoverPopup.value = false;
+  } else {
+    discard();
+    store.clearSelection();
+  }
 }
 
 function onCoverFile(e: Event) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import { invoke } from "@tauri-apps/api/core";
@@ -176,6 +176,23 @@ function hideTooltip() {
   if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
   tooltipHideTimeout = null;
 }
+
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key !== "Enter" || !singleTrack.value) return;
+  const target = e.target as HTMLElement;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) return;
+  e.preventDefault();
+  togglePlay();
+}
+
+onMounted(() => {
+  document.addEventListener("keydown", onGlobalKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", onGlobalKeydown);
+});
 </script>
 
 <template>

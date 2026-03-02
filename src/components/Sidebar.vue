@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from "vue";
+import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import { useSettingsStore } from "../stores/settings";
@@ -27,6 +27,8 @@ const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
 
 const showSettingsModal = ref(false);
 const settingsModalRef = ref<HTMLDivElement | null>(null);
+const showKeyMapModal = ref(false);
+const keyMapModalRef = ref<HTMLDivElement | null>(null);
 const tooltipPopover = ref<{
   text: string;
   x: number;
@@ -40,6 +42,13 @@ watch(showSettingsModal, async (open) => {
   if (open) {
     await nextTick();
     settingsModalRef.value?.focus();
+  }
+});
+
+watch(showKeyMapModal, async (open) => {
+  if (open) {
+    await nextTick();
+    keyMapModalRef.value?.focus();
   }
 });
 
@@ -84,6 +93,7 @@ function hideTooltip() {
 }
 
 onMounted(async () => {
+  document.addEventListener("keydown", onDocumentKeydown);
   await store.loadRoots();
   await store.loadTracks();
 });
@@ -129,6 +139,45 @@ function onSettingsKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") closeSettingsModal();
 }
 
+function openKeyMapModal() {
+  hideTooltip();
+  showKeyMapModal.value = true;
+}
+
+function closeKeyMapModal() {
+  showKeyMapModal.value = false;
+}
+
+function onKeyMapKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") closeKeyMapModal();
+}
+
+function onDocumentKeydown(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  if (showKeyMapModal.value) {
+    closeKeyMapModal();
+    e.preventDefault();
+    e.stopPropagation();
+  } else if (showSettingsModal.value) {
+    closeSettingsModal();
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", onDocumentKeydown);
+});
+
+const keyMapEntries: { keys: string; description: string }[] = [
+  { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
+  { keys: "Escape", description: "Close metadata panel (discard changes)" },
+  { keys: "↓ Arrow Down", description: "Move focus down in track list" },
+  { keys: "↑ Arrow Up", description: "Move focus up in track list" },
+  { keys: "Space", description: "On group row: expand or collapse. On track row: select (add to selection in multi-select)" },
+  { keys: "Enter", description: "With one track selected: start playback or pause if already playing" },
+];
+
 function setDefaultGroupBy(value: DefaultGroupBy) {
   settingsStore.setDefaultGroupBy(value);
   store.groupBy = value;
@@ -142,23 +191,48 @@ function setDefaultGroupsExpanded(value: boolean) {
 <template>
   <aside class="flex w-56 flex-col border-r border-stone-700 bg-stone-800/80">
     <div class="border-b border-stone-700 p-3">
-      <div class="flex items-center justify-between gap-2">
+      <div class="relative z-[210] flex items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-2">
           <img src="/favicon.svg" alt="" class="h-6 w-6 shrink-0" />
           <h1 class="text-sm font-semibold text-stone-200">Muorg</h1>
         </div>
-        <button
-          type="button"
-          class="shrink-0 rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
-          aria-label="Application settings"
-          title="Settings"
-          @click="showSettingsModal = true"
-        >
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
+        <div class="flex shrink-0 items-center gap-0.5">
+          <span
+            class="relative z-[220] inline-flex"
+            @mouseenter="showTooltip('Key map', $event)"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Key map"
+              @mousedown.stop="openKeyMapModal"
+              @click.stop="openKeyMapModal"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 10h2M11 10h2M15 10h2M7 14h2M11 14h2M15 14h2" />
+              </svg>
+            </button>
+          </span>
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Settings', $event)"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Application settings"
+              @click="showSettingsModal = true"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          </span>
+        </div>
       </div>
       <p class="mt-0.5 text-xs text-stone-500">Library</p>
     </div>
@@ -312,6 +386,47 @@ function setDefaultGroupsExpanded(value: boolean) {
               </label>
               <p class="mt-0.5 text-xs text-stone-500">When grouping is on, expand all groups by default.</p>
             </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+    <!-- Key map modal -->
+    <Teleport to="body">
+      <div
+        v-if="showKeyMapModal"
+        ref="keyMapModalRef"
+        class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keymap-modal-title"
+        tabindex="-1"
+        @keydown="onKeyMapKeydown"
+        @click.self="closeKeyMapModal"
+      >
+        <div
+          class="w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
+          @click.stop
+        >
+          <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
+            <h2 id="keymap-modal-title" class="text-sm font-semibold text-stone-200">Key map</h2>
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Close"
+              @click="closeKeyMapModal"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div class="max-h-[70vh] overflow-y-auto p-4">
+            <dl class="space-y-3">
+              <div v-for="entry in keyMapEntries" :key="entry.keys" class="flex gap-3 text-sm">
+                <dt class="w-36 shrink-0 font-mono text-stone-400">{{ entry.keys }}</dt>
+                <dd class="min-w-0 text-stone-300">{{ entry.description }}</dd>
+              </div>
+            </dl>
           </div>
         </div>
       </div>
