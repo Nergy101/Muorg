@@ -1,10 +1,13 @@
 # Muorg — The Music Organizer from Hell
 
-![Muorg logo](./assets/favicon.svg)
+<div align="center">
+  <img src="./public/favicon.svg" alt="Muorg logo" width="64" />
+  <br /><br />
+  <em>Pronounced “Mu-Ork” — think of a Musical Ork who organizes your music.</em>
+</div>
 
 A cross-platform desktop app that organizes your music library with a dense, library-style UI. Add folders of MP3 and FLAC files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
 
-*Pronounced “Mu-Ork” - Think of a Musical Ork who organizes your music.*
 
 **Platforms:** macOS, Windows, Linux
 
@@ -12,13 +15,13 @@ A cross-platform desktop app that organizes your music library with a dense, lib
 
 ## Features
 
-- **Add folders** — Pick one or more directories; Muorg scans for `.mp3` and `.flac` and builds a persistent catalog in SQLite.
-- **Library view** — Table of tracks with sortable columns (Title, Artist, Album, Year, Duration, Format, Path) and basic filtering.
-- **Metadata editor** — Edit tags (title, artist, album, album artist, year, genre, track/disc number) and embed or clear album art. Save changes back to the files.
-- **Persistence** — Catalog and last-added folders are stored in SQLite; the app loads your library on startup. Use **Rescan** to refresh when files change.
-- **Planned (P2/P3):** Search, album/artist grouping, bulk edit, drag-and-drop, optional playback, export/reports, and theming (including a DOOM-themed easter egg).
+- **Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3` and `.flac` and builds a persistent catalog in SQLite. Rescan or remove folders from the sidebar.
+- **Library view** — Table with album art, title, artist, album, year, duration, format, and path. Full-text search across title, artist, and album. Group by album or artist (collapsible; album art in group header when all tracks share the same art).
+- **Metadata editor** — Edit tags (title, artist, album, album artist, year, genre, track/disc number) and embed or clear album art. Save to files; catalog updates automatically. **Bulk edit:** select multiple tracks and change only the fields you edit—other fields stay per-track.
+- **Playback** — When one track is selected, a player bar offers play/pause, seek, volume, and mute. Press Enter to start or pause.
+- **Theming** — Auto (follow system), Dark, Light, Orkish (green tints), and DOOM. Settings and key map (keyboard shortcuts) live in the sidebar.
 
-See [plan.md](./plan.md) for the full roadmap and priorities.
+See [plan.md](./plan.md) for the roadmap and priorities.
 
 ---
 
@@ -27,6 +30,10 @@ See [plan.md](./plan.md) for the full roadmap and priorities.
 Main library view:
 
 ![Muorg main view](./assets/scr-main.png)
+
+Metadata editor (single track selected):
+
+![Muorg metadata editor](./assets/scr-metadata-1.png)
 
 Key map and shortcuts:
 
