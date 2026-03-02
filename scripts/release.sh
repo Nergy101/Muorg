@@ -40,3 +40,4 @@ git push origin "$TAG"
 echo "Pushing $TAG commit to origin..."
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 git commit -m "chore: release v$VERSION"
+git push origin
