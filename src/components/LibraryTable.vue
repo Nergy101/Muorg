@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import { useSettingsStore } from "../stores/settings";
@@ -7,6 +7,7 @@ import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField } from
 import type { CatalogTrack } from "../types";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { open as openShell } from "@tauri-apps/plugin-shell";
 import type { Update } from "@tauri-apps/plugin-updater";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 import packageJson from "../../package.json";
@@ -135,7 +136,8 @@ const showKeyMapModal = ref(false);
   const feedbackEmail = ref("");
 
   const updateCheckStatus = ref<"idle" | "checking" | "up-to-date" | "available" | "error">("idle");
-  const availableUpdate = ref<Update | null>(null);
+  /** Use shallowRef so the Tauri Update instance is not proxied; its methods use private fields. */
+  const availableUpdate = shallowRef<Update | null>(null);
   const updateError = ref<string | null>(null);
   const updateDownloadProgress = ref<number | null>(null);
   const showUpdateCompleteModal = ref(false);
@@ -262,6 +264,10 @@ async function installUpdate() {
 function closeUpdateCompleteModal() {
   showUpdateCompleteModal.value = false;
   updateCompleteVersion.value = "";
+}
+
+function openReleaseUrl(url: string) {
+  openShell(url);
 }
 
 async function restartAfterUpdate() {
@@ -1109,14 +1115,13 @@ onUnmounted(() => {
                     >
                       {{ updateDownloadProgress != null ? `Downloading ${updateDownloadProgress}%...` : 'Download and install' }}
                     </button>
-                    <a
-                      :href="`${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-xs text-stone-400 underline hover:text-stone-300"
+                    <button
+                      type="button"
+                      class="text-xs text-stone-400 underline hover:text-stone-300 text-left"
+                      @click="openReleaseUrl(`${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`)"
                     >
                       See release
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>

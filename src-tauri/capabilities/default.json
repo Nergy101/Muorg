@@ -9,6 +9,7 @@
     "fs:default",
     "core:path:default",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "shell:allow-open"
   ]
 }
