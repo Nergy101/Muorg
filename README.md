@@ -13,19 +13,37 @@ A cross-platform desktop app that organizes your music library with a dense, lib
 
 ---
 
-## Features
+## Table of contents
 
-- **Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3` and `.flac` and builds a persistent catalog in SQLite. Rescan or remove folders from the sidebar.
-- **Library view** — Table with album art, title, artist, album, year, duration, format, and path. Full-text search across title, artist, and album. Group by album or artist (collapsible; album art in group header when all tracks share the same art).
-- **Metadata editor** — Edit tags (title, artist, album, album artist, year, genre, track/disc number) and embed or clear album art. Save to files; catalog updates automatically. **Bulk edit:** select multiple tracks and change only the fields you edit—other fields stay per-track.
-- **Playback** — When one track is selected, a player bar offers play/pause, seek, volume, and mute. Press Enter to start or pause.
-- **Theming** — Auto (follow system), Dark, Light, Orkish (green tints), and DOOM. Settings and key map (keyboard shortcuts) live in the sidebar.
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Tech stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Getting started](#getting-started)
+- [Running Muorg](#running-muorg)
+  - [Mac](#mac)
+  - [Linux](#linux)
+  - [Windows](#windows)
+- [Project structure](#project-structure)
+- [Creating a release (GitHub)](#creating-a-release-github)
+- [Documentation](#documentation)
+- [License](#license)
+
+---
+
+## ✨ Features
+
+- 📁 **Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3` and `.flac` and builds a persistent catalog in SQLite. Rescan or remove folders from the sidebar.
+- 📋 **Library view** — Table with album art, title, artist, album, year, duration, format, and path. Full-text search across title, artist, and album. Group by album or artist (collapsible; album art in group header when all tracks share the same art).
+- ✏️ **Metadata editor** — Edit tags (title, artist, album, album artist, year, genre, track/disc number) and embed or clear album art. Save to files; catalog updates automatically. **Bulk edit:** select multiple tracks and change only the fields you edit—other fields stay per-track.
+- ▶️ **Playback** — When one track is selected, a player bar offers play/pause, seek, volume, and mute. Press Enter to start or pause.
+- 🎨 **Theming** — Auto (follow system), Dark, Light, Orkish (green tints), and DOOM. Settings and key map (keyboard shortcuts) live in the sidebar.
 
 See [plan.md](./plan.md) for the roadmap and priorities.
 
 ---
 
-## Screenshots
+## 📸 Screenshots
 
 Main library view:
 
@@ -41,7 +59,7 @@ Key map and shortcuts:
 
 ---
 
-## Tech stack
+## 🛠️ Tech stack
 
 | Layer      | Choice              |
 |-----------|----------------------|
@@ -54,7 +72,7 @@ Key map and shortcuts:
 
 ---
 
-## Prerequisites
+## 📋 Prerequisites
 
 - [Node.js](https://nodejs.org/) (LTS) and [pnpm](https://pnpm.io/)
 - [Rust](https://www.rust-lang.org/) (latest stable)
@@ -62,7 +80,7 @@ Key map and shortcuts:
 
 ---
 
-## Getting started
+## 🚀 Getting started
 
 ```bash
 # Install dependencies (from project root)
@@ -77,7 +95,42 @@ pnpm tauri build
 
 ---
 
-## Project structure
+## ▶️ Running Muorg
+
+### 🍎 Mac
+
+If macOS says **“Muorg.app is damaged and can’t be opened”** (Gatekeeper quarantine on unsigned builds), remove the quarantine attribute and open the app as usual:
+
+```bash
+sudo xattr -cr /path/to/Muorg.app
+```
+
+Example if the app is in your Applications folder:
+
+```bash
+sudo xattr -cr /Applications/Muorg.app
+```
+
+Then open Muorg from Finder or Spotlight. You can also right‑click the app → **Open** the first time; macOS may then allow it without the “damaged” message.
+
+### 🐧 Linux
+
+Install or run the build artifact for your distro (e.g. **AppImage** or **.deb** from [releases](https://github.com/your-repo/Muorg/releases)). For an AppImage, make it executable and run it:
+
+```bash
+chmod +x Muorg-*.AppImage
+./Muorg-*.AppImage
+```
+
+For a .deb package, install with your package manager and start Muorg from your application menu.
+
+### 🪟 Windows
+
+Download the **MSI** or **EXE** installer from [releases](https://github.com/your-repo/Muorg/releases), run the installer, then launch Muorg from the Start menu or desktop shortcut.
+
+---
+
+## 📁 Project structure
 
 ```
 muorg/
@@ -99,18 +152,18 @@ muorg/
 
 ---
 
-## Creating a release (GitHub)
+## 🏷️ Creating a release (GitHub)
 
 Releases are built and published via GitHub Actions.
 
-### Alpha builds (automatic)
+### 🔄 Alpha builds (automatic)
 
 - **Push to `main`** or run the workflow manually (**Actions → Build and Release → Run workflow**).
 - The workflow builds the app for macOS (Apple Silicon + Intel), Windows, and Linux.
 - Version is set to `0.1.0-alpha.<run_number>` (e.g. `0.1.0-alpha.42`). The run number increments with each workflow run.
 - A **prerelease** is created with that version; installers (DMG, MSI/EXE, AppImage/Deb) are attached.
 
-### Stable releases (tagged)
+### 🏷️ Stable releases (tagged)
 
 1. Bump the version in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` (e.g. to `0.2.0`).
 2. Commit and push.
@@ -121,7 +174,7 @@ Releases are built and published via GitHub Actions.
    ```
 4. The **Build and Release** workflow runs on the new tag, builds all platforms, and creates a **full release** (not prerelease) with that version and the installers attached.
 
-### Pipeline summary
+### 📊 Pipeline summary
 
 | Trigger              | Version format           | Release type |
 |----------------------|--------------------------|--------------|
@@ -129,7 +182,7 @@ Releases are built and published via GitHub Actions.
 | Manual run           | same as above            | Prerelease   |
 | Push tag `v*` (e.g. `v0.2.0`) | From tag (e.g. `0.2.0`) | Full release |
 
-### macOS: “App is damaged” when opening
+### ⚠️ macOS: “App is damaged” when opening
 
 Releases are not signed or notarized with an Apple Developer certificate. After downloading the `.app` (from a DMG or the release assets), macOS may say **“Muorg.app is damaged and can’t be opened”**. This is Gatekeeper quarantining the app.
 
@@ -147,7 +200,7 @@ xattr -cr /Applications/Muorg.app
 
 After that, open Muorg from Finder or Spotlight as normal. To avoid the warning in the future, you can right‑click the app → **Open** the first time; macOS may then allow it without the “damaged” message.
 
-### Pre-merge checks (Build and Lint)
+### ✅ Pre-merge checks (Build and Lint)
 
 The **Build and Lint** workflow (`.github/workflows/build.yml`) runs on every push to `main` and on every pull request targeting `main`. It runs in parallel:
 
@@ -164,13 +217,13 @@ pnpm run check:rust     # cargo check + clippy (requires Rust) only
 
 ---
 
-## Documentation
+## 📚 Documentation
 
 - **[plan.md](./plan.md)** — Vision, goals, feature list (P1/P2/P3), UI concept, risks, success criteria.
 - **[agent.md](./agent.md)** — Tech stack, repo layout, conventions, run/build, and guidance for contributors and AI agents.
 
 ---
 
-## License
+## 📄 License
 
 See repository for license information.

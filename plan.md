@@ -14,7 +14,6 @@
 ## Non-Goals (for initial scope)
 
 - Streaming or cloud sync.
-- Audio playback (focus on organization and metadata; playback can be added later).
 - Mobile or web versions.
 - Ripping CDs or downloading from services.
 
@@ -24,109 +23,60 @@
 
 ### Stack
 
-- **UI framework**: **Tauri 2** (Rust backend + web frontend) for:
-  - Single codebase for macOS, Windows, and Linux.
-  - Small binary size and good performance.
-  - Safe, fast file and metadata handling in Rust.
-- **Frontend**: **Vue** + **TypeScript** for the library UI (tables, filters, forms, dialogs).
-- **Styling**: **Tailwind CSS** with a “library/archivist” theme (readable typography, clear hierarchy, high information density).
-
-### Why Tauri
-
-- Native desktop on Mac, Windows, and Linux without Electron’s weight.
-- Rust backend for file I/O and metadata libraries (e.g. `id3`, `lofty`, `metaflac` or equivalent) with no Node bridge.
-- Frontend stays in TypeScript/Vue for rapid UI iteration.
+- **UI framework**: **Tauri 2** (Rust backend + web frontend) for a single codebase, small binaries, and fast file/metadata handling in Rust.
+- **Frontend**: **Vue 3** + **TypeScript** for the library UI (tables, filters, forms, dialogs).
+- **Styling**: **Tailwind CSS** with themeable “library/archivist” look (readable typography, clear hierarchy, high information density).
 
 ### Metadata & file handling (Rust)
 
-- **MP3**: `id3` crate (ID3v2) for read/write of tags and embedded pictures.
-- **FLAC**: `lofty` (or dedicated FLAC crate) for Vorbis comments and picture blocks.
-- **Paths**: Use `tauri::api::dialog` and `tauri::api::fs` (or Rust `std::fs`) for open/save; respect sandbox where applicable.
+- **MP3**: ID3v2 for read/write of tags and embedded pictures.
+- **FLAC**: Vorbis comments and picture blocks.
+- **Paths**: Tauri dialog/fs for open/save; respect sandbox where applicable.
 - **Safety**: Validate paths, avoid overwriting non-music files; optional backup-before-write for metadata.
 
 ---
 
-## Features (prioritized)
+## Features — Not yet completed
 
-### P1 — Core
+Prioritized work still to do: Phase 4 and remaining items.
 
-1. **Add folder(s)**  
-   User picks one or more directories; app recursively scans for `.mp3` and `.flac`, then builds the catalog in **SQLite** (selected directories and all items therein).
+### Phase 4 — Next horizon
 
-2. **Library view**  
-   Table/grid of tracks with columns: Title, Artist, Album, Year, Duration, Format, Path. Sort and basic filter (e.g. by artist, album).
+1. **Export catalog**  
+   Export full catalog or current view to **CSV** or **JSON** (e.g. for backup, analysis, or use in other tools).
 
-3. **Metadata editor**  
-   Select a track (or multiple); open a side panel or modal to edit:
-   - Title, Artist, Album, Album Artist  
-   - Release year, Genre  
-   - Track number, Disc number  
-   - **Album cover**: load image from file (or paste?), embed in file, clear existing.
+2. **Tag-from-filename**  
+   Parse track path/filename (e.g. `Artist - Album/01 - Title.mp3`) and offer to auto-fill or suggest title, artist, album, track number.
 
-4. **Save metadata**  
-   Write changes back to the files (ID3 for MP3, Vorbis/picture for FLAC). Show success/error feedback.
+3. **Backup before write**  
+   Optional “backup before modifying metadata” (e.g. copy file or save tag backup) so users can revert bad writes.
 
-5. **Persistence**  
-   Store the catalog in **SQLite**: selected directory roots and all tracks therein. Remember last added folders so reopening the app loads the existing catalog without a full rescan. Provide a **rescan** action to refresh directories (e.g. new files, changed metadata, or removed paths).
+4. **Undo / redo**  
+   Undo (and redo) for metadata edits in the current session (in-memory or limited history).
 
-### P2 — Polish
+5. **Virtualization / large libraries**  
+   Lazy-load or virtualize table rows so libraries with 100k+ tracks stay responsive (scroll, search, sort without loading everything into the DOM).
 
-6. **Search**  
-   Full-text or column filter across title, artist, album.
+6. **Auto-tagging (MusicBrainz / acoustic fingerprint)**  
+   Optional integration with MusicBrainz or acoustic fingerprinting to suggest or apply metadata from an online database.
 
-7. **Album / artist grouping**  
-   Group by album or artist in the UI (e.g. expandable rows or separate “Album” view).
+7. **Multiple libraries / workspaces**  
+   Support more than one catalog (e.g. “Home”, “External drive”) and switch or merge views.
 
-8. **Bulk edit**  
-   Select multiple tracks and set common fields (e.g. same album, same year, same cover).
+8. **Custom columns / saved views**  
+   Let users choose which columns to show and save table layout (sort, column order, visibility) per session or as a preference.
 
-9. **Drag-and-drop**  
-   Add folders or files by dropping onto the window.
-
-### P3 — Later
-
-10. **Playback**  
-    Optional in-app preview (e.g. via Tauri command + system/default player or embedded audio).
-
-11. **Export / reports**  
-    Export catalog to CSV/JSON; simple “missing metadata” or “duplicate” reports.
-
-12. **Theming**  
-    “Library from Hell” dark/light theme (e.g. dim, high-contrast, slightly oppressive aesthetic). Easter egg: **DOOM** themed-theme (inspired by the classic game: reds, ambers, dark grays, terminal/green-monitor vibes).
+9. **ReplayGain / loudness**  
+   Read and display ReplayGain or loudness metadata where present; optional write support later.
 
 ---
 
 ## UI concept (library-like)
 
-- **Sidebar**: “Library” (list of added roots or saved sessions), “Albums”, “Artists”, “Search”.
-- **Main area**: Table of tracks (or albums) with sortable columns; multi-select for bulk edit.
-- **Detail panel**: When a track (or album) is selected, show metadata form + current artwork; “Save” writes to file(s).
-- **Visual tone**: Dense tables, clear typography, limited decoration; optional “archivist” color palette (dark greens/grays, or sepia-like).
-
----
-
-## Project structure (suggested)
-
-```text
-muorg/
-├── src-tauri/          # Tauri (Rust) backend
-│   ├── src/
-│   │   ├── main.rs
-│   │   ├── lib.rs
-│   │   ├── metadata/   # MP3/FLAC read/write
-│   │   ├── catalog/    # Scan, index, store
-│   │   └── commands.rs # Tauri commands (scan, get_tracks, write_metadata, …)
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── src/                # Frontend (Vue + TS)
-│   ├── components/     # LibraryTable, MetadataEditor, AlbumCover, …
-│   ├── composables/    # useCatalog, useSelection, …
-│   ├── stores/         # Catalog state (Pinia)
-│   └── App.vue
-├── plan.md
-├── agent.md
-└── README.md
-```
+- **Sidebar**: Library roots, add/remove folders, rescan, reports (missing metadata, duplicates), collapse/expand.
+- **Main area**: Table of tracks (or grouped by album/artist) with sortable columns, multi-select, search, grouping controls.
+- **Detail panel**: When a track (or selection) is chosen, metadata form + album art; Save writes to file(s). Optional player bar for single-track playback.
+- **Visual tone**: Dense tables, clear typography, themeable (Dark, Light, Orkish, DOOM, Auto).
 
 ---
 
@@ -135,7 +85,7 @@ muorg/
 | Risk | Mitigation |
 |------|------------|
 | FLAC/ID3 edge cases (corrupt or non-standard tags) | Use well-tested crates; catch errors per-file; show “failed” list instead of crashing. |
-| Large libraries (100k+ files) | Scan in chunks; store catalog in SQLite; lazy-load table rows / virtualize list. |
+| Large libraries (100k+ files) | Scan in chunks; store catalog in SQLite; add virtualization (Phase 4). |
 | Overwriting user data | Only write tag blocks; optional “backup before write”; confirm on bulk save. |
 
 ---
@@ -143,7 +93,7 @@ muorg/
 ## Success criteria
 
 - User can add folders, see all MP3/FLAC in a table, edit metadata (including album art), and save back to files on **macOS**, **Windows**, and **Linux**.
-- UI feels like a “library” (structured, catalog-first) and supports at least basic search/filter and bulk edit.
+- UI feels like a “library” (structured, catalog-first) and supports search/filter, grouping, bulk edit, reports, and theming.
 - No data loss: metadata writes are bounded to tag updates with clear feedback.
 
 ---
@@ -156,4 +106,39 @@ muorg/
 
 ---
 
-*Next step: set up Tauri 2 + Vue + TypeScript + Tailwind, implement folder scan and catalog in Rust, then build the library table and metadata editor in the frontend.*
+## Completed features
+
+Items below are implemented and maintained as a checklist.
+
+### P1 — Core
+
+- [x] **Add folder(s)** — User picks directories; app recursively scans for `.mp3` and `.flac`, builds catalog in **SQLite** (roots + all tracks).
+- [x] **Library view** — Table of tracks with columns: Title, Artist, Album, Year, Duration, Format, Path; optional album art; sort and filter.
+- [x] **Metadata editor** — Select one or more tracks; side panel to edit title, artist, album, album artist, year, genre, track/disc number, and **album cover** (load from file, embed, clear).
+- [x] **Save metadata** — Write changes to files (ID3 for MP3, Vorbis/picture for FLAC); success/error feedback; catalog refresh after save.
+- [x] **Persistence** — Catalog in **SQLite**; remember roots; **rescan** per folder to refresh.
+
+### P2 — Polish
+
+- [x] **Search** — Full-text filter across title, artist, album.
+- [x] **Album / artist grouping** — Group by album or artist in the UI; expandable/collapsible rows; album art in group header when shared.
+- [x] **Bulk edit** — Select multiple tracks; set common fields only (other fields stay per-track).
+- [x] **Drag-and-drop** — Add folders or files by dropping onto the window.
+
+### P3 — Later
+
+- [x] **Playback** — In-app player bar (play/pause, seek, volume, mute); Enter to start/pause; optional auto-play on select.
+- [x] **Reports** — “Missing metadata” and “duplicate” reports (configurable fields); open in modal; jump to track / expand group.
+- [x] **Theming** — Dark, Light, Orkish, DOOM, and Auto (follow system); settings and key map in UI.
+
+### Additional (implemented)
+
+- [x] **Settings** — Theme, default grouping, groups expanded by default, playback behavior, keyboard navigation, table density/columns, report fields.
+- [x] **Key map** — Modal listing keyboard shortcuts (navigation, search, play, etc.).
+- [x] **Collapsible sidebar** — Collapse library panel; logo/title/keymap/settings in main toolbar.
+- [x] **Playing / selection highlight** — Clear row styling for “now playing” and selection across themes.
+- [x] **Refresh reports** — Button to reload tracks (and thus report counts) from the sidebar.
+
+---
+
+*Next: tackle Phase 4 items (export, tag-from-filename, backup, undo, virtualization, auto-tagging, workspaces, custom views, ReplayGain) as needed.*
