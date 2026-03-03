@@ -29,6 +29,7 @@ const TABLE_COL_DURATION_KEY = "muorg-table-col-duration";
 const TABLE_COL_FORMAT_KEY = "muorg-table-col-format";
 const TABLE_COL_PATH_KEY = "muorg-table-col-path";
 const MISSING_METADATA_FIELDS_KEY = "muorg-missing-metadata-fields";
+const GROUP_HEADER_ALBUM_ART_KEY = "muorg-group-header-album-art";
 
 function loadTheme(): ThemeId {
   if (typeof window === "undefined") return "auto";
@@ -173,6 +174,8 @@ export const useSettingsStore = defineStore("settings", {
     tableColFormat: loadBoolWithDefault(TABLE_COL_FORMAT_KEY, true),
     tableColPath: loadBoolWithDefault(TABLE_COL_PATH_KEY, true),
     missingMetadataFields: loadMissingMetadataFields() as MissingMetadataField[],
+    /** Show album art in the group header when grouping by album. */
+    groupHeaderAlbumArt: loadBoolWithDefault(GROUP_HEADER_ALBUM_ART_KEY, true),
   }),
   actions: {
     setTheme(theme: ThemeId) {
@@ -236,6 +239,10 @@ export const useSettingsStore = defineStore("settings", {
     setMissingMetadataFields(fields: MissingMetadataField[]) {
       this.missingMetadataFields = fields;
       persistMissingMetadataFields(fields);
+    },
+    setGroupHeaderAlbumArt(value: boolean) {
+      this.groupHeaderAlbumArt = value;
+      persistBool(GROUP_HEADER_ALBUM_ART_KEY, value);
     },
   },
 });

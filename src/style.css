@@ -299,3 +299,52 @@ input[type="checkbox"] {
 [data-theme="orkish"] .report-modal thead {
   background-color: #c5e1a5;
 }
+
+/* Settings modal tabs: ensure visibility in all themes */
+[data-theme="light"] .settings-tab-nav {
+  background-color: #f5f5f4 !important;
+  border-color: #d6d3d1 !important;
+}
+[data-theme="light"] .settings-tab-btn {
+  color: #57534e !important;
+}
+[data-theme="light"] .settings-tab-btn:hover {
+  background-color: #e7e5e4 !important;
+  color: #1c1917 !important;
+}
+[data-theme="light"] .settings-tab-btn--active {
+  background-color: #4d7c2c !important;
+  color: #fafaf9 !important;
+}
+
+[data-theme="doom"] .settings-tab-nav {
+  background-color: #1a0505 !important;
+  border-color: #4a1515 !important;
+}
+[data-theme="doom"] .settings-tab-btn {
+  color: #8b6914 !important;
+}
+[data-theme="doom"] .settings-tab-btn:hover {
+  background-color: #2d0a0a !important;
+  color: #c4a035 !important;
+}
+[data-theme="doom"] .settings-tab-btn--active {
+  background-color: #8b0000 !important;
+  color: #e0b040 !important;
+}
+
+[data-theme="orkish"] .settings-tab-nav {
+  background-color: #c5e1a5 !important;
+  border-color: #aed581 !important;
+}
+[data-theme="orkish"] .settings-tab-btn {
+  color: #33691e !important;
+}
+[data-theme="orkish"] .settings-tab-btn:hover {
+  background-color: #aed581 !important;
+  color: #1b5e20 !important;
+}
+[data-theme="orkish"] .settings-tab-btn--active {
+  background-color: #2e7d32 !important;
+  color: #f1f8e9 !important;
+}

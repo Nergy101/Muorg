@@ -16,7 +16,7 @@ onMounted(() => {
   <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800">
     <img
       v-if="cover"
-      :src="`data:image/jpeg;base64,${cover}`"
+      :src="`data:${cover.mime};base64,${cover.base64}`"
       alt=""
       class="h-full w-full object-cover"
     />

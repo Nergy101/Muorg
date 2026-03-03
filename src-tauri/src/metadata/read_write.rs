@@ -18,6 +18,10 @@ pub struct TrackMetadata {
     pub disc_number: Option<u32>,
     pub duration_secs: Option<u64>,
     pub picture_base64: Option<String>,
+    /// MIME type for the picture (e.g. "image/jpeg", "image/png") so the frontend can use the correct data URL.
+    pub picture_mime: Option<String>,
+    /// Size in bytes of the picture data.
+    pub picture_size_bytes: Option<u32>,
 }
 
 /// Detect format from path (extension) and read metadata. Returns None if unsupported or error.
@@ -56,6 +60,10 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
                 &base64::engine::general_purpose::STANDARD,
                 pic.data(),
             ));
+            meta.picture_mime = pic
+                .mime_type()
+                .map(|m| m.as_str().to_string());
+            meta.picture_size_bytes = Some(pic.data().len() as u32);
         }
     }
 

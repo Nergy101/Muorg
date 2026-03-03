@@ -100,21 +100,24 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(0)} KB`;
 }
 
-function loadCoverMeta(base64: string, sizeBytes?: number) {
+/** Load dimensions (and optionally size) from a data URL. Using the correct MIME in the URL ensures PNG/other types decode. */
+function loadCoverMeta(dataUrl: string, sizeBytes?: number) {
   coverDimensions.value = null;
-  coverSizeBytes.value = sizeBytes ?? Math.round((base64.length * 3) / 4);
+  const base64Part = dataUrl.includes(",") ? dataUrl.split(",")[1] : "";
+  coverSizeBytes.value =
+    sizeBytes ?? (base64Part ? Math.round((base64Part.length * 3) / 4) : null);
   const img = new Image();
   img.onload = () => {
     coverDimensions.value = { width: img.naturalWidth, height: img.naturalHeight };
   };
-  img.src = `data:image/jpeg;base64,${base64}`;
+  img.src = dataUrl;
 }
 
-/** Cover to display: new selection or current track(s) art from store. */
+/** Data URL for the cover image (correct MIME so dimensions load and display is consistent). */
 const displayCover = computed(() => {
-  if (pictureBase64.value) return pictureBase64.value;
+  if (pictureBase64.value) return `data:image/jpeg;base64,${pictureBase64.value}`;
   const tracks = selectedTracks.value;
-  if (tracks.length > 0) return store.getCover(tracks[0].path) ?? null;
+  if (tracks.length > 0) return store.getCoverDataUrl(tracks[0].path);
   return null;
 });
 
@@ -171,14 +174,17 @@ function syncFromTracks() {
 
 watch(selectedTracks, syncFromTracks, { immediate: true });
 
-watch(displayCover, (base64) => {
-  if (!base64) {
+watch(displayCover, (dataUrl) => {
+  if (!dataUrl) {
     coverDimensions.value = null;
     coverSizeBytes.value = null;
     largeImageWarning.value = false;
     return;
   }
-  loadCoverMeta(base64);
+  const tracks = selectedTracks.value;
+  const coverInfo = tracks.length ? store.getCover(tracks[0].path) : null;
+  const sizeBytes = coverInfo && "size_bytes" in coverInfo ? coverInfo.size_bytes : undefined;
+  loadCoverMeta(dataUrl, sizeBytes);
 });
 
 watch(showCoverPopup, async (open) => {
@@ -283,7 +289,7 @@ function onCoverFile(e: Event) {
     const data = reader.result as string;
     const base64 = data.includes(",") ? data.split(",")[1] : data;
     pictureBase64.value = base64 ?? null;
-    loadCoverMeta(base64 ?? "", file.size);
+    loadCoverMeta(data, file.size);
     markEdited("pictureBase64");
   };
   reader.readAsDataURL(file);
@@ -474,7 +480,7 @@ function onCoverFile(e: Event) {
               @keydown.space.prevent="showCoverPopup = true"
             >
               <img
-                :src="`data:image/jpeg;base64,${displayCover}`"
+                :src="displayCover"
                 alt="Album cover"
                 class="h-28 w-28 rounded object-cover border border-stone-600 shadow-md"
               />
@@ -520,7 +526,7 @@ function onCoverFile(e: Event) {
         @click.self="showCoverPopup = false"
       >
         <img
-          :src="`data:image/jpeg;base64,${displayCover}`"
+          :src="displayCover"
           alt="Album cover (enlarged)"
           class="max-h-[90vh] max-w-[90vw] rounded-lg shadow-xl object-contain"
           @click="showCoverPopup = false"

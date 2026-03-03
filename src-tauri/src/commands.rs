@@ -82,10 +82,32 @@ pub async fn remove_folder(
     crate::catalog::remove_root(&conn, &root_path)
 }
 
+/// Cover art data returned to the frontend so it can use the correct MIME type in data URLs
+/// (e.g. image/png) and show dimensions/size. Using the wrong MIME type (e.g. image/jpeg for PNG)
+/// can prevent dimensions from loading and cause inconsistent display in table vs group headers.
+#[derive(Serialize)]
+pub struct CoverInfo {
+    pub base64: String,
+    pub mime: String,
+    pub size_bytes: u32,
+}
+
 #[tauri::command]
-pub async fn get_track_cover(path: String) -> Result<Option<String>, String> {
+pub async fn get_track_cover(path: String) -> Result<Option<CoverInfo>, String> {
     let meta = read_metadata(Path::new(&path))?;
-    Ok(meta.picture_base64)
+    let base64 = match meta.picture_base64 {
+        Some(b) => b,
+        None => return Ok(None),
+    };
+    let mime = meta
+        .picture_mime
+        .unwrap_or_else(|| "image/jpeg".to_string());
+    let size_bytes = meta.picture_size_bytes.unwrap_or(0);
+    Ok(Some(CoverInfo {
+        base64,
+        mime,
+        size_bytes,
+    }))
 }
 
 /// Read an audio file and return its contents as base64 so the frontend can create a blob URL for playback.

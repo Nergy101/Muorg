@@ -9,7 +9,7 @@ import TrackAlbumArt from "./TrackAlbumArt.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { filteredTracks, selectedTrackIds, searchQuery, groupBy, coverCache, currentPlayingTrackId, reportFilter } =
+const { filteredTracks, selectedTrackIds, searchQuery, groupBy, albumCoverCache, currentPlayingTrackId, reportFilter } =
   storeToRefs(store);
 const {
   defaultGroupsExpanded,
@@ -25,6 +25,7 @@ const {
   tableColFormat,
   tableColPath,
   missingMetadataFields,
+  groupHeaderAlbumArt,
 } = storeToRefs(settingsStore);
 
 const tableDensityOptions: { value: TableDensity; label: string }[] = [
@@ -107,8 +108,22 @@ const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
 
 const showSettingsModal = ref(false);
 const settingsModalRef = ref<HTMLDivElement | null>(null);
+type SettingsTabId = "general" | "playback" | "keyboard" | "grouping" | "table" | "reports";
+const settingsTab = ref<SettingsTabId>("general");
+const settingsTabs: { id: SettingsTabId; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "playback", label: "Playback" },
+  { id: "keyboard", label: "Keyboard" },
+  { id: "grouping", label: "Grouping" },
+  { id: "table", label: "Table" },
+  { id: "reports", label: "Reports" },
+];
 const showKeyMapModal = ref(false);
-const keyMapModalRef = ref<HTMLDivElement | null>(null);
+  const keyMapModalRef = ref<HTMLDivElement | null>(null);
+
+  const showFeedbackModal = ref(false);
+  const feedbackMessage = ref("");
+  const feedbackEmail = ref("");
 
 const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
@@ -154,10 +169,41 @@ function onKeyMapKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") closeKeyMapModal();
 }
 
+function openFeedbackModal() {
+  hideTooltip();
+  feedbackMessage.value = "";
+  feedbackEmail.value = "";
+  showFeedbackModal.value = true;
+}
+
+function closeFeedbackModal() {
+  showFeedbackModal.value = false;
+}
+
+function onFeedbackKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") closeFeedbackModal();
+}
+
+function sendFeedback() {
+  const subject = "Muorg Feedback";
+  const lines = [feedbackMessage.value.trim()];
+  if (feedbackEmail.value.trim()) {
+    lines.push("", "Reply to: " + feedbackEmail.value.trim());
+  }
+  const body = lines.join("\n");
+  const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailto, "_blank", "noopener,noreferrer");
+  closeFeedbackModal();
+}
+
 function onDocumentKeydown(e: KeyboardEvent) {
   if (e.key !== "Escape") return;
   if (showKeyMapModal.value) {
     closeKeyMapModal();
+    e.preventDefault();
+    e.stopPropagation();
+  } else if (showFeedbackModal.value) {
+    closeFeedbackModal();
     e.preventDefault();
     e.stopPropagation();
   } else if (showSettingsModal.value) {
@@ -192,10 +238,21 @@ function selectTrackFromReport(t: CatalogTrack) {
   store.clearSelection();
   store.toggleSelection(t.id);
   store.setReportFilter(null);
-  nextTick(() => {
-    const row = document.querySelector(`[data-track-id="${t.id}"]`);
-    row?.scrollIntoView({ block: "center", behavior: "smooth" });
-  });
+  const rows = visibleRows.value;
+  const index = rows.findIndex((r) => r.type === "track" && r.track.id === t.id);
+  if (index >= 0) {
+    focusedRowIndex.value = index;
+    if (useVirtualization.value) {
+      nextTick(() => {
+        scrollToRowIndex(index);
+      });
+    } else {
+      nextTick(() => {
+        const row = document.querySelector(`[data-track-id="${t.id}"]`);
+        row?.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+    }
+  }
 }
 
 /** Set of group keys that are expanded. */
@@ -208,6 +265,17 @@ const multiSelectMode = ref(false);
 const focusedRowIndex = ref(-1);
 const tableContainerRef = ref<HTMLDivElement | null>(null);
 const searchInputRef = ref<HTMLInputElement | null>(null);
+
+/** Virtualization: only when row count exceeds this. */
+const VIRTUALIZATION_THRESHOLD = 500;
+const ROW_HEIGHT_GROUP = 40;
+const ROW_HEIGHT_TRACK_COMFORTABLE = 40;
+const ROW_HEIGHT_TRACK_COMPACT = 32;
+const OVERCAN_ROWS = 12;
+
+/** Scroll position and container height for virtual range (updated on scroll/resize). */
+const scrollTopRef = ref(0);
+const containerHeightRef = ref(0);
 
 type VisibleRow =
   | { type: "group"; key: string; group: { key: string; label: string; tracks: CatalogTrack[] } }
@@ -293,19 +361,15 @@ const groupedRows = computed(() => {
   return keys.map((key) => ({ key, label: key, tracks: map.get(key)! }));
 });
 
-/** When grouping by album, per-group cover to show in header (same for all tracks, or null if mixed/none). */
+/** When grouping by album, per-group cover to show in header. Uses albumCoverCache (set when any track in that album is fetched) so headers show as soon as track art loads. */
 const groupCovers = computed(() => {
-  if (groupBy.value !== "album") return {} as Record<string, string | null>;
-  const cache = coverCache.value;
+  if (groupBy.value !== "album") return {} as Record<string, import("../stores/catalog").CoverInfo | null>;
+  const albumCache = albumCoverCache.value;
   const groups = groupedRows.value;
   if (!groups) return {};
-  const result: Record<string, string | null> = {};
+  const result: Record<string, import("../stores/catalog").CoverInfo | null> = {};
   for (const group of groups) {
-    const covers = group.tracks
-      .map((t) => cache[t.path])
-      .filter((c): c is string => c != null && c !== "");
-    const unique = [...new Set(covers)];
-    result[group.key] = unique.length <= 1 ? (unique[0] ?? null) : null;
+    result[group.key] = albumCache[group.key] ?? null;
   }
   return result;
 });
@@ -321,6 +385,91 @@ const tableColCount = computed(() => {
   if (tableColFormat.value) n += 1;
   if (tableColPath.value) n += 1;
   return n;
+});
+
+/** Per-row height for virtualization (group vs track, density). */
+const rowHeights = computed(() => {
+  const rows = visibleRows.value;
+  const trackHeight =
+    tableDensity.value === "compact" ? ROW_HEIGHT_TRACK_COMPACT : ROW_HEIGHT_TRACK_COMFORTABLE;
+  return rows.map((r) => (r.type === "group" ? ROW_HEIGHT_GROUP : trackHeight));
+});
+
+const totalScrollHeight = computed(() => rowHeights.value.reduce((a, b) => a + b, 0));
+
+const useVirtualization = computed(
+  () => visibleRows.value.length >= VIRTUALIZATION_THRESHOLD
+);
+
+/** Cumulative offset from top for row i (sum of rowHeights[0..i-1]). */
+function getRowOffset(index: number): number {
+  const heights = rowHeights.value;
+  let sum = 0;
+  for (let i = 0; i < index && i < heights.length; i++) sum += heights[i];
+  return sum;
+}
+
+/** Visible range [start, end] (inclusive) with overscan. */
+const visibleRange = computed(() => {
+  const rows = visibleRows.value;
+  const heights = rowHeights.value;
+  if (!rows.length || !useVirtualization.value) {
+    return { start: 0, end: Math.max(0, rows.length - 1) };
+  }
+  const scrollTop = scrollTopRef.value;
+  const containerHeight = containerHeightRef.value;
+  if (containerHeight <= 0) return { start: 0, end: Math.min(OVERCAN_ROWS * 2, rows.length - 1) };
+  let offset = 0;
+  let start = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (offset + heights[i] > scrollTop) {
+      start = Math.max(0, i - OVERCAN_ROWS);
+      break;
+    }
+    offset += heights[i];
+  }
+  const bottom = scrollTop + containerHeight;
+  offset = 0;
+  let end = rows.length - 1;
+  for (let i = 0; i < rows.length; i++) {
+    const rowBottom = offset + heights[i];
+    if (offset < bottom && rowBottom > scrollTop) end = i;
+    offset = rowBottom;
+  }
+  end = Math.min(rows.length - 1, end + OVERCAN_ROWS);
+  return { start, end };
+});
+
+/** Rows to render: either full list or virtual slice. */
+const renderedRows = computed(() => {
+  const rows = visibleRows.value;
+  const { start, end } = visibleRange.value;
+  if (!useVirtualization.value) return rows.map((r, i) => ({ row: r, index: i }));
+  const result: { row: VisibleRow; index: number }[] = [];
+  for (let i = start; i <= end && i < rows.length; i++) {
+    result.push({ row: rows[i], index: i });
+  }
+  return result;
+});
+
+const topSpacerHeight = computed(() => {
+  if (!useVirtualization.value) return 0;
+  const { start } = visibleRange.value;
+  return getRowOffset(start);
+});
+
+const bottomSpacerHeight = computed(() => {
+  if (!useVirtualization.value) return 0;
+  const { start, end } = visibleRange.value;
+  const heights = rowHeights.value;
+  const total = totalScrollHeight.value;
+  let visibleSum = 0;
+  for (let i = start; i <= end && i < heights.length; i++) visibleSum += heights[i];
+  return Math.max(0, total - topSpacerHeight.value - visibleSum);
+});
+
+watch(useVirtualization, (use) => {
+  if (use) nextTick(updateScrollMeasurements);
 });
 
 watch(groupBy, (by) => {
@@ -422,7 +571,33 @@ function focusPrev() {
   scrollFocusedRowIntoView();
 }
 
+function updateScrollMeasurements() {
+  const el = tableContainerRef.value;
+  if (!el) return;
+  scrollTopRef.value = el.scrollTop;
+  containerHeightRef.value = el.clientHeight;
+}
+
+/** Scroll container so that row at index is in the visible virtual range, then scrollIntoView. */
+function scrollToRowIndex(index: number) {
+  const el = tableContainerRef.value;
+  if (!el) return;
+  const offset = getRowOffset(index);
+  const padding = 80;
+  const target = Math.max(0, offset - Math.min(padding, el.clientHeight / 3));
+  el.scrollTop = target;
+  scrollTopRef.value = target;
+  nextTick(() => {
+    const rowEl = el.querySelector(`[data-row-index="${index}"]`);
+    (rowEl as HTMLElement)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+}
+
 function scrollFocusedRowIntoView() {
+  if (useVirtualization.value) {
+    scrollToRowIndex(focusedRowIndex.value);
+    return;
+  }
   nextTick(() => {
     const el = tableContainerRef.value?.querySelector(`[data-row-index="${focusedRowIndex.value}"]`);
     (el as HTMLElement)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -463,14 +638,31 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+let resizeObserver: ResizeObserver | null = null;
+
 onMounted(() => {
   document.addEventListener("keydown", onGlobalKeydown);
   document.addEventListener("keydown", onDocumentKeydown);
+  nextTick(() => {
+    const container = tableContainerRef.value;
+    if (container) {
+      container.addEventListener("scroll", updateScrollMeasurements, { passive: true });
+      updateScrollMeasurements();
+      resizeObserver = new ResizeObserver(updateScrollMeasurements);
+      resizeObserver.observe(container);
+    }
+  });
 });
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
   document.removeEventListener("keydown", onDocumentKeydown);
+  const container = tableContainerRef.value;
+  if (container) {
+    container.removeEventListener("scroll", updateScrollMeasurements);
+  }
+  resizeObserver?.disconnect();
+  resizeObserver = null;
 });
 </script>
 
@@ -552,6 +744,25 @@ onUnmounted(() => {
           </button>
         </span>
         <span
+          v-if="false"
+          class="relative z-[220] inline-flex"
+          @mouseenter="showTooltip('Send feedback', $event)"
+          @mouseleave="scheduleHideTooltip"
+        >
+          <button
+            type="button"
+            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Send feedback"
+            @mousedown.stop="openFeedbackModal"
+            @click.stop="openFeedbackModal"
+          >
+            <!-- Chat bubble (feedback / report bug) icon -->
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+            </svg>
+          </button>
+        </span>
+        <span
           class="inline-flex"
           @mouseenter="showTooltip('Settings', $event)"
           @mouseleave="scheduleHideTooltip"
@@ -604,26 +815,35 @@ onUnmounted(() => {
         </thead>
         <tbody>
           <template v-if="visibleRows.length">
-            <template v-for="(row, i) in visibleRows" :key="row.type === 'group' ? row.key : row.track.id">
+            <!-- Virtualization: top spacer so total height matches scroll area -->
+            <tr
+              v-if="useVirtualization && topSpacerHeight > 0"
+              class="virtual-spacer-row"
+              aria-hidden="true"
+            >
+              <td :colspan="tableColCount" :style="{ height: topSpacerHeight + 'px' }" />
+            </tr>
+            <template v-for="{ row, index } in renderedRows" :key="row.type === 'group' ? row.key : row.track.id">
               <tr
                 v-if="row.type === 'group'"
-                :data-row-index="i"
+                :data-row-index="index"
                 class="cursor-pointer font-medium text-stone-400 hover:bg-stone-700/80"
                 :class="[
-                  focusedRowIndex === i ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80',
+                  focusedRowIndex === index ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80',
                   { 'group-row-with-selection': groupContainsSelection(row.group) },
                 ]"
-                @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = i) : undefined"
-                @click="focusedRowIndex = i; toggleGroup(row.key)"
+                :style="useVirtualization ? { height: rowHeights[index] + 'px' } : undefined"
+                @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = index) : undefined"
+                @click="focusedRowIndex = index; toggleGroup(row.key)"
               >
                 <td :colspan="tableColCount" class="border-b border-stone-600 p-2">
                   <span class="inline-flex items-center gap-2">
                     <span
-                      v-if="groupBy === 'album' && groupCovers[row.key]"
+                      v-if="groupBy === 'album' && groupCovers[row.key] && groupHeaderAlbumArt"
                       class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
                     >
                       <img
-                        :src="`data:image/jpeg;base64,${groupCovers[row.key]}`"
+                        :src="groupCovers[row.key] ? `data:${groupCovers[row.key]!.mime};base64,${groupCovers[row.key]!.base64}` : ''"
                         alt=""
                         class="h-full w-full object-cover"
                       />
@@ -638,26 +858,25 @@ onUnmounted(() => {
               </tr>
               <tr
                 v-else
-                :data-row-index="i"
+                :data-row-index="index"
                 :data-track-id="row.track.id"
                 class="border-b border-stone-700/50 hover:bg-stone-800/50"
                 :class="[
-                  // Selected (but not focused): subtle tint
-                  { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== i },
-                  // Selected + focused: combine focus ring with slightly stronger tint
-                  { 'bg-stone-600/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === i },
-                  { 'bg-stone-800 table-row-focused': !isSelected(row.track.id) && focusedRowIndex === i },
+                  { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== index },
+                  { 'bg-stone-600/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === index },
+                  { 'bg-stone-800 table-row-focused': !isSelected(row.track.id) && focusedRowIndex === index },
                   { 'table-row-playing': row.track.id === currentPlayingTrackId },
                 ]"
-                @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = i) : undefined"
-                @click="focusedRowIndex = i; selectRow(row.track)"
+                :style="useVirtualization ? { height: rowHeights[index] + 'px' } : undefined"
+                @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = index) : undefined"
+                @click="focusedRowIndex = index; selectRow(row.track)"
               >
                 <td class="border-r border-stone-700 p-2">
                   <input
                     type="checkbox"
                     :checked="isSelected(row.track.id)"
                     class="rounded border-stone-600"
-                    @click.stop="focusedRowIndex = i; selectRow(row.track)"
+                    @click.stop="focusedRowIndex = index; selectRow(row.track)"
                   />
                 </td>
                 <td v-if="tableColAlbumArt" class="border-r border-stone-700 p-2">
@@ -672,6 +891,14 @@ onUnmounted(() => {
                 <td v-if="tableColPath" class="max-w-[200px] truncate p-2 text-stone-500" :title="row.track.path">{{ row.track.path }}</td>
               </tr>
             </template>
+            <!-- Virtualization: bottom spacer -->
+            <tr
+              v-if="useVirtualization && bottomSpacerHeight > 0"
+              class="virtual-spacer-row"
+              aria-hidden="true"
+            >
+              <td :colspan="tableColCount" :style="{ height: bottomSpacerHeight + 'px' }" />
+            </tr>
           </template>
           <tr v-else class="text-stone-500">
             <td :colspan="tableColCount" class="p-6 text-center">
@@ -706,10 +933,10 @@ onUnmounted(() => {
         @click.self="closeSettingsModal"
       >
         <div
-          class="w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
+          class="settings-modal flex flex-col w-full max-w-2xl rounded-lg border border-stone-600 bg-stone-800 shadow-xl overflow-hidden"
           @click.stop
         >
-          <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
+          <div class="flex shrink-0 items-center justify-between border-b border-stone-700 px-4 py-3">
             <h2 id="settings-modal-title" class="text-sm font-semibold text-stone-200">Settings</h2>
             <button
               type="button"
@@ -722,47 +949,62 @@ onUnmounted(() => {
               </svg>
             </button>
           </div>
-          <div class="space-y-4 p-4">
-            <div>
-              <label class="block text-xs font-medium text-stone-500">Theme</label>
-              <select
-                :value="theme"
-                class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
-                @change="(e) => settingsStore.setTheme((e.target as HTMLSelectElement).value as ThemeId)"
-              >
-                <option v-for="opt in themeOptions" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
-              </select>
+          <div class="flex min-h-0 flex-1">
+          <nav class="settings-tab-nav flex flex-col w-36 shrink-0 border-r border-stone-700 bg-stone-800/90 py-2" aria-label="Settings sections">
+            <button
+              v-for="tab in settingsTabs"
+              :key="tab.id"
+              type="button"
+              class="settings-tab-btn px-3 py-2 text-left text-xs font-medium transition-colors"
+              :class="settingsTab === tab.id ? 'settings-tab-btn--active bg-stone-700 text-stone-100' : 'text-stone-400 hover:bg-stone-700/60 hover:text-stone-200'"
+              @click="settingsTab = tab.id"
+            >
+              {{ tab.label }}
+            </button>
+          </nav>
+          <div class="flex-1 min-w-0 overflow-y-auto max-h-[70vh] p-4">
+            <div v-show="settingsTab === 'general'" class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-stone-500">Theme</label>
+                <select
+                  :value="theme"
+                  class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
+                  @change="(e) => settingsStore.setTheme((e.target as HTMLSelectElement).value as ThemeId)"
+                >
+                  <option v-for="opt in themeOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-stone-500">Default grouping</label>
+                <select
+                  :value="defaultGroupBy"
+                  class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
+                  @change="(e) => setDefaultGroupBy((e.target as HTMLSelectElement).value as DefaultGroupBy)"
+                >
+                  <option v-for="opt in defaultGroupByOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+                <p class="mt-0.5 text-xs text-stone-500">Applied when the app starts.</p>
+              </div>
+              <div>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="defaultGroupsExpanded"
+                    class="rounded border-stone-600"
+                    @change="(e) => setDefaultGroupsExpanded((e.target as HTMLInputElement).checked)"
+                  />
+                  Groups start expanded
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">When grouping is on, expand all groups by default.</p>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-medium text-stone-500">Default grouping</label>
-              <select
-                :value="defaultGroupBy"
-                class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
-                @change="(e) => setDefaultGroupBy((e.target as HTMLSelectElement).value as DefaultGroupBy)"
-              >
-                <option v-for="opt in defaultGroupByOptions" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
-              </select>
-              <p class="mt-0.5 text-xs text-stone-500">Applied when the app starts.</p>
-            </div>
-            <div>
-              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                <input
-                  type="checkbox"
-                  :checked="defaultGroupsExpanded"
-                  class="rounded border-stone-600"
-                  @change="(e) => setDefaultGroupsExpanded((e.target as HTMLInputElement).checked)"
-                />
-                Groups start expanded
-              </label>
-              <p class="mt-0.5 text-xs text-stone-500">When grouping is on, expand all groups by default.</p>
-            </div>
-            <div class="border-t border-stone-700 pt-4">
+            <div v-show="settingsTab === 'playback'" class="space-y-4">
               <p class="text-xs font-semibold text-stone-400">Playback</p>
-              <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                 <input
                   type="checkbox"
                   :checked="autoplayOnSelect"
@@ -773,9 +1015,9 @@ onUnmounted(() => {
               </label>
               <p class="mt-0.5 text-xs text-stone-500">If enabled, selecting a single track immediately starts playback.</p>
             </div>
-            <div class="border-t border-stone-700 pt-4">
+            <div v-show="settingsTab === 'keyboard'" class="space-y-4">
               <p class="text-xs font-semibold text-stone-400">Keyboard</p>
-              <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                 <input
                   type="checkbox"
                   :checked="navWrap"
@@ -784,7 +1026,7 @@ onUnmounted(() => {
                 />
                 Wrap focus at ends (↑/↓)
               </label>
-              <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                 <input
                   type="checkbox"
                   :checked="navFocusFollowsMouse"
@@ -794,9 +1036,22 @@ onUnmounted(() => {
                 Focus follows mouse hover
               </label>
             </div>
-            <div class="border-t border-stone-700 pt-4">
+            <div v-show="settingsTab === 'grouping'" class="space-y-4">
+              <p class="text-xs font-semibold text-stone-400">Grouping headers</p>
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="groupHeaderAlbumArt"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setGroupHeaderAlbumArt((e.target as HTMLInputElement).checked)"
+                />
+                Show album art in album group header
+              </label>
+              <p class="mt-0.5 text-xs text-stone-500">When grouping by album, show the cover in the group row (if all tracks share the same art).</p>
+            </div>
+            <div v-show="settingsTab === 'table'" class="space-y-4">
               <p class="text-xs font-semibold text-stone-400">Table</p>
-              <div class="mt-2">
+              <div>
                 <label class="block text-xs font-medium text-stone-500">Density</label>
                 <select
                   :value="tableDensity"
@@ -856,7 +1111,7 @@ onUnmounted(() => {
                 </label>
               </div>
             </div>
-            <div class="border-t border-stone-700 pt-4">
+            <div v-show="settingsTab === 'reports'" class="space-y-4">
               <p class="text-xs font-semibold text-stone-400">Reports</p>
               <p class="mt-1 text-xs text-stone-500">Fields to consider missing for the "Missing metadata" report:</p>
               <div class="mt-2 grid grid-cols-2 gap-2">
@@ -881,6 +1136,7 @@ onUnmounted(() => {
                 </label>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -923,6 +1179,76 @@ onUnmounted(() => {
               </div>
             </dl>
           </div>
+        </div>
+      </div>
+    </Teleport>
+    <!-- Feedback modal -->
+    <Teleport to="body">
+      <div
+        v-if="showFeedbackModal"
+        class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedback-modal-title"
+        tabindex="-1"
+        @keydown="onFeedbackKeydown"
+        @click.self="closeFeedbackModal"
+      >
+        <div
+          class="feedback-modal w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
+          @click.stop
+        >
+          <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
+            <h2 id="feedback-modal-title" class="text-sm font-semibold text-stone-200">Send feedback</h2>
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Close"
+              @click="closeFeedbackModal"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <form class="p-4 space-y-4" @submit.prevent="sendFeedback">
+            <div>
+              <label for="feedback-message" class="block text-xs font-medium text-stone-500 mb-1">Your feedback</label>
+              <textarea
+                id="feedback-message"
+                v-model="feedbackMessage"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200 placeholder-stone-500 resize-y min-h-[120px]"
+                placeholder="Tell us what you think, report a bug, or suggest an improvement..."
+                rows="4"
+              />
+            </div>
+            <div>
+              <label for="feedback-email" class="block text-xs font-medium text-stone-500 mb-1">Your email (optional)</label>
+              <input
+                id="feedback-email"
+                v-model="feedbackEmail"
+                type="email"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200 placeholder-stone-500"
+                placeholder="So we can reply if needed"
+              />
+            </div>
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                class="rounded border border-stone-600 px-3 py-1.5 text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+                @click="closeFeedbackModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="rounded bg-stone-600 px-3 py-1.5 text-sm font-medium text-stone-100 hover:bg-stone-500"
+                :disabled="!feedbackMessage.trim()"
+              >
+                Send feedback
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </Teleport>
@@ -1006,6 +1332,15 @@ onUnmounted(() => {
   scrollbar-gutter: stable;
   scrollbar-color: #5b7c32 #2d2d2d;
 }
+
+/* Virtualization: spacer rows have no visible content or borders */
+.virtual-spacer-row td {
+  padding: 0 !important;
+  border: none !important;
+  line-height: 0;
+  vertical-align: top;
+}
+
 
 /* Keep table (and sticky header) left of the scrollbar so nothing overlaps it */
 .table-with-scroll-gutter {

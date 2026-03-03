@@ -97,6 +97,44 @@ const duplicateCount = computed(() => {
   return total;
 });
 
+const totalTrackCount = computed(() => tracks.value.length);
+
+/** Normalize path for prefix match (forward slashes, no trailing slash except for root). */
+function pathNorm(p: string): string {
+  const s = p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+  return s;
+}
+
+/** Track count per library root (folder path). */
+const trackCountByRoot = computed(() => {
+  const list = tracks.value;
+  const rootsList = roots.value;
+  const out: Record<string, number> = {};
+  for (const r of rootsList) out[r] = 0;
+  const normRoots = rootsList.map((r) => pathNorm(r));
+  for (const t of list) {
+    const tNorm = pathNorm(t.path);
+    for (let i = 0; i < normRoots.length; i++) {
+      const r = normRoots[i];
+      if (tNorm === r || tNorm.startsWith(r + "/")) {
+        out[rootsList[i]] += 1;
+        break;
+      }
+    }
+  }
+  return out;
+});
+
+/** Tooltip text for folder info (i): full path + track count. */
+function folderInfoTooltip(root: string): string {
+  const count = trackCountByRoot.value[root];
+  const pathLine = root;
+  if (count !== undefined) {
+    return `${pathLine}\n${count.toLocaleString()} tracks`;
+  }
+  return pathLine;
+}
+
 function openMissingMetadataReport() {
   const kind = reportFilter.value === "missing_metadata" ? null : "missing_metadata";
   store.setReportFilter(kind);
@@ -125,14 +163,19 @@ onMounted(async () => {
 async function handleAddFolder() {
   const selected = await open({
     directory: true,
-    multiple: false,
+    multiple: true,
   });
-  if (selected && typeof selected === "string") {
-    try {
-      await store.addFolder(selected);
-    } catch {
-      // error shown in store
+  if (!selected) return;
+  const paths = Array.isArray(selected) ? selected : [selected];
+  if (paths.length === 0) return;
+  try {
+    if (paths.length === 1) {
+      await store.addFolder(paths[0]);
+    } else {
+      await store.addFolders(paths);
     }
+  } catch {
+    // error shown in store
   }
 }
 
@@ -185,7 +228,10 @@ async function handleRemoveFolder(rootPath: string) {
     <!-- Expanded: Library header + list -->
     <template v-else>
       <div class="flex items-center justify-between border-b border-stone-700 px-3 py-2">
-        <span class="text-xs text-stone-500">Library</span>
+        <span class="text-xs text-stone-500">
+          Library
+          <span v-if="totalTrackCount > 0" class="ml-1 text-stone-400">({{ totalTrackCount.toLocaleString() }})</span>
+        </span>
         <span
           class="inline-flex"
           @mouseenter="showTooltip('Collapse library', $event)"
@@ -227,8 +273,8 @@ async function handleRemoveFolder(rootPath: string) {
               </span>
               <span
                 class="flex shrink-0 cursor-help rounded p-0.5 text-stone-500 hover:text-stone-300"
-                aria-label="Show full path"
-                @mouseenter="showTooltip(root, $event, true)"
+                aria-label="Show full path and track count"
+                @mouseenter="showTooltip(folderInfoTooltip(root), $event, true)"
                 @mouseleave="scheduleHideTooltip"
               >
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -328,7 +374,7 @@ async function handleRemoveFolder(rootPath: string) {
       <div
         v-if="tooltipPopover"
         class="fixed z-[200] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-        :class="{ 'max-w-[320px] break-all font-mono text-stone-300': tooltipPopover.isPath }"
+        :class="{ 'max-w-[320px] break-all font-mono text-stone-300 whitespace-pre-line': tooltipPopover.isPath }"
         :style="
           tooltipPopover.position === 'right'
             ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateY(-50%)' }
