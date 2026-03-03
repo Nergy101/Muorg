@@ -9,6 +9,7 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Update } from "@tauri-apps/plugin-updater";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
+import packageJson from "../../package.json";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -109,6 +110,11 @@ const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
   { value: "album", label: "By album" },
 ];
 
+/** Base URL for GitHub releases (used for "See release" link). */
+const GITHUB_RELEASE_BASE = "https://github.com/Nergy101/Muorg/releases";
+
+const appVersion = packageJson.version;
+
 const showSettingsModal = ref(false);
 const settingsModalRef = ref<HTMLDivElement | null>(null);
 type SettingsTabId = "general" | "playback" | "keyboard" | "grouping" | "table" | "reports";
@@ -132,6 +138,8 @@ const showKeyMapModal = ref(false);
   const availableUpdate = ref<Update | null>(null);
   const updateError = ref<string | null>(null);
   const updateDownloadProgress = ref<number | null>(null);
+  const showUpdateCompleteModal = ref(false);
+  const updateCompleteVersion = ref("");
 
 const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
@@ -241,11 +249,24 @@ async function installUpdate() {
         updateDownloadProgress.value = 100;
       }
     });
-    await relaunch();
+    updateDownloadProgress.value = null;
+    updateCompleteVersion.value = update.version;
+    showUpdateCompleteModal.value = true;
   } catch (e) {
     updateError.value = e instanceof Error ? e.message : String(e);
     updateDownloadProgress.value = null;
+    updateCheckStatus.value = "error";
   }
+}
+
+function closeUpdateCompleteModal() {
+  showUpdateCompleteModal.value = false;
+  updateCompleteVersion.value = "";
+}
+
+async function restartAfterUpdate() {
+  closeUpdateCompleteModal();
+  await relaunch();
 }
 
 function onDocumentKeydown(e: KeyboardEvent) {
@@ -260,6 +281,10 @@ function onDocumentKeydown(e: KeyboardEvent) {
     e.stopPropagation();
   } else if (showSettingsModal.value) {
     closeSettingsModal();
+    e.preventDefault();
+    e.stopPropagation();
+  } else if (showUpdateCompleteModal.value) {
+    closeUpdateCompleteModal();
     e.preventDefault();
     e.stopPropagation();
   }
@@ -774,7 +799,11 @@ onUnmounted(() => {
           </span>
         </template>
       </div>
-      <div class="relative z-[210] flex shrink-0 items-center gap-2">
+      <div
+        class="relative z-[210] flex shrink-0 items-center gap-2"
+        @mouseenter="showTooltip('Version ' + appVersion, $event)"
+        @mouseleave="scheduleHideTooltip"
+      >
         <img src="/favicon.svg" alt="" class="h-6 w-6 shrink-0" />
         <span class="text-sm font-semibold text-stone-200">Muorg</span>
         <span
@@ -1071,15 +1100,23 @@ onUnmounted(() => {
                     <span v-if="availableUpdate.date" class="text-stone-500"> · {{ availableUpdate.date }}</span>
                   </p>
                   <p v-if="availableUpdate.body" class="text-xs text-stone-400 whitespace-pre-line">{{ availableUpdate.body }}</p>
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-3">
                     <button
                       type="button"
-                      class="rounded bg-stone-600 px-3 py-1.5 text-sm font-medium text-stone-100 hover:bg-stone-500 disabled:opacity-50"
+                      class="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50"
                       :disabled="updateDownloadProgress != null"
                       @click="installUpdate"
                     >
                       {{ updateDownloadProgress != null ? `Downloading ${updateDownloadProgress}%...` : 'Download and install' }}
                     </button>
+                    <a
+                      :href="`${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-xs text-stone-400 underline hover:text-stone-300"
+                    >
+                      See release
+                    </a>
                   </div>
                 </div>
               </div>
@@ -1331,6 +1368,44 @@ onUnmounted(() => {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </Teleport>
+    <!-- Update complete: prompt to restart -->
+    <Teleport to="body">
+      <div
+        v-if="showUpdateCompleteModal"
+        class="fixed inset-0 z-[305] flex items-center justify-center bg-stone-950/70 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="update-complete-title"
+        @keydown.escape="closeUpdateCompleteModal"
+        @click.self="closeUpdateCompleteModal"
+      >
+        <div
+          class="w-full max-w-sm rounded-lg border border-stone-600 bg-stone-800 shadow-xl p-4"
+          @click.stop
+        >
+          <h2 id="update-complete-title" class="text-sm font-semibold text-stone-200">Update installed</h2>
+          <p class="mt-2 text-xs text-stone-400">
+            Version {{ updateCompleteVersion }} has been installed. Restart the app to use the new version.
+          </p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded border border-stone-600 px-3 py-1.5 text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+              @click="closeUpdateCompleteModal"
+            >
+              Later
+            </button>
+            <button
+              type="button"
+              class="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+              @click="restartAfterUpdate"
+            >
+              Restart now
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>
