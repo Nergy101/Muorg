@@ -111,8 +111,10 @@ watch(
         audioSrc.value = "";
       }
       isPlaying.value = false;
+      store.setCurrentPlaying(null);
       return;
     }
+    store.setCurrentPlaying(track.id);
     loadAudioBlob(track.path);
   },
   { immediate: true }

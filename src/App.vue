@@ -9,6 +9,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
+const sidebarCollapsed = ref(false);
 const showEditor = computed(() => store.selectedTrackIds.length > 0);
 const isDropTarget = ref(false);
 let unlistenDragDrop: (() => void) | null = null;
@@ -56,7 +57,7 @@ onUnmounted(() => {
 
 <template>
   <div class="flex h-screen overflow-hidden relative">
-    <Sidebar />
+    <Sidebar :collapsed="sidebarCollapsed" @toggle="sidebarCollapsed = !sidebarCollapsed" />
     <main
       class="flex flex-1 flex-col min-w-0 transition-colors duration-150"
       :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"

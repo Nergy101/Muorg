@@ -3,13 +3,99 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import { useSettingsStore } from "../stores/settings";
+import type { ThemeId, DefaultGroupBy } from "../stores/settings";
 import type { CatalogTrack } from "../types";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { filteredTracks, selectedTrackIds, searchQuery, groupBy, coverCache } = storeToRefs(store);
-const { defaultGroupsExpanded } = storeToRefs(settingsStore);
+const { filteredTracks, selectedTrackIds, searchQuery, groupBy, coverCache, currentPlayingTrackId } = storeToRefs(store);
+const { defaultGroupsExpanded, theme, defaultGroupBy } = storeToRefs(settingsStore);
+
+const themeOptions: { value: ThemeId; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "dark", label: "Dark" },
+  { value: "light", label: "Light" },
+  { value: "orkish", label: "Orkish" },
+  { value: "doom", label: "DOOM" },
+];
+
+const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
+  { value: "none", label: "No grouping" },
+  { value: "artist", label: "By artist" },
+  { value: "album", label: "By album" },
+];
+
+const showSettingsModal = ref(false);
+const settingsModalRef = ref<HTMLDivElement | null>(null);
+const showKeyMapModal = ref(false);
+const keyMapModalRef = ref<HTMLDivElement | null>(null);
+
+const keyMapEntries: { keys: string; description: string }[] = [
+  { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
+  { keys: "Escape", description: "Close metadata panel (discard changes)" },
+  { keys: "↓ Arrow Down", description: "Move focus down in track list" },
+  { keys: "↑ Arrow Up", description: "Move focus up in track list" },
+  { keys: "Space", description: "On group row: expand or collapse. On track row: select (add to selection in multi-select)" },
+  { keys: "Enter", description: "With one track selected: start playback or pause if already playing" },
+];
+
+watch(showSettingsModal, async (open) => {
+  if (open) {
+    await nextTick();
+    settingsModalRef.value?.focus();
+  }
+});
+
+watch(showKeyMapModal, async (open) => {
+  if (open) {
+    await nextTick();
+    keyMapModalRef.value?.focus();
+  }
+});
+
+function closeSettingsModal() {
+  showSettingsModal.value = false;
+}
+
+function onSettingsKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") closeSettingsModal();
+}
+
+function openKeyMapModal() {
+  hideTooltip();
+  showKeyMapModal.value = true;
+}
+
+function closeKeyMapModal() {
+  showKeyMapModal.value = false;
+}
+
+function onKeyMapKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") closeKeyMapModal();
+}
+
+function onDocumentKeydown(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  if (showKeyMapModal.value) {
+    closeKeyMapModal();
+    e.preventDefault();
+    e.stopPropagation();
+  } else if (showSettingsModal.value) {
+    closeSettingsModal();
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
+function setDefaultGroupBy(value: DefaultGroupBy) {
+  settingsStore.setDefaultGroupBy(value);
+  store.groupBy = value;
+}
+
+function setDefaultGroupsExpanded(value: boolean) {
+  settingsStore.setDefaultGroupsExpanded(value);
+}
 
 /** Set of group keys that are expanded. */
 const expandedGroups = ref<Set<string>>(new Set());
@@ -259,67 +345,110 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener("keydown", onGlobalKeydown);
+  document.addEventListener("keydown", onDocumentKeydown);
 });
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
+  document.removeEventListener("keydown", onDocumentKeydown);
 });
 </script>
 
 <template>
   <div class="flex flex-1 flex-col overflow-hidden">
-    <div class="flex flex-wrap items-center gap-3 border-b border-stone-700 px-4 py-2">
-      <input
-        ref="searchInputRef"
-        :value="searchQuery"
-        type="search"
-        placeholder="Search title, artist, album…"
-        class="min-w-[200px] rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 placeholder-stone-500"
-        @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
-      />
-      <select
-        :value="groupBy"
-        class="rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200"
-        @change="store.setGroupBy(($event.target as HTMLSelectElement).value as 'none' | 'artist' | 'album')"
-      >
-        <option value="none">No grouping</option>
-        <option value="artist">Group by artist</option>
-        <option value="album">Group by album</option>
-      </select>
-      <template v-if="groupedRows?.length">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-700 px-4 py-2">
+      <div class="flex flex-wrap items-center gap-3">
+        <input
+          ref="searchInputRef"
+          :value="searchQuery"
+          type="search"
+          placeholder="Search title, artist, album…"
+          class="min-w-[200px] rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 placeholder-stone-500"
+          @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
+        />
+        <select
+          :value="groupBy"
+          class="rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200"
+          @change="store.setGroupBy(($event.target as HTMLSelectElement).value as 'none' | 'artist' | 'album')"
+        >
+          <option value="none">No grouping</option>
+          <option value="artist">Group by artist</option>
+          <option value="album">Group by album</option>
+        </select>
+        <template v-if="groupedRows?.length">
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Expand all groups', $event)"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded border border-stone-600 bg-stone-800 p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+              aria-label="Expand all groups"
+              @click="expandAll"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 10l5 5 5-5M7 16l5 5 5-5" />
+              </svg>
+            </button>
+          </span>
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Collapse all groups', $event)"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded border border-stone-600 bg-stone-800 p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+              aria-label="Collapse all groups"
+              @click="collapseAll"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 14l5-5 5 5M7 8l5-5 5 5" />
+              </svg>
+            </button>
+          </span>
+        </template>
+      </div>
+      <div class="relative z-[210] flex shrink-0 items-center gap-2">
+        <img src="/favicon.svg" alt="" class="h-6 w-6 shrink-0" />
+        <span class="text-sm font-semibold text-stone-200">Muorg</span>
         <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Expand all groups', $event)"
+          class="relative z-[220] inline-flex"
+          @mouseenter="showTooltip('Key map', $event)"
           @mouseleave="scheduleHideTooltip"
         >
           <button
             type="button"
-            class="rounded border border-stone-600 bg-stone-800 p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
-            aria-label="Expand all groups"
-            @click="expandAll"
+            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Key map"
+            @mousedown.stop="openKeyMapModal"
+            @click.stop="openKeyMapModal"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7 10l5 5 5-5M7 16l5 5 5-5" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 10h2M11 10h2M15 10h2M7 14h2M11 14h2M15 14h2" />
             </svg>
           </button>
         </span>
         <span
           class="inline-flex"
-          @mouseenter="showTooltip('Collapse all groups', $event)"
+          @mouseenter="showTooltip('Settings', $event)"
           @mouseleave="scheduleHideTooltip"
         >
           <button
             type="button"
-            class="rounded border border-stone-600 bg-stone-800 p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
-            aria-label="Collapse all groups"
-            @click="collapseAll"
+            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Application settings"
+            @click="showSettingsModal = true"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7 14l5-5 5 5M7 8l5-5 5 5" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
         </span>
-      </template>
+      </div>
     </div>
     <div
       ref="tableContainerRef"
@@ -388,6 +517,7 @@ onUnmounted(() => {
                   { 'bg-stone-700/40': isSelected(row.track.id) && focusedRowIndex !== i },
                   { 'bg-stone-600/50 table-row-focused': isSelected(row.track.id) && focusedRowIndex === i },
                   { 'bg-stone-800 table-row-focused': !isSelected(row.track.id) && focusedRowIndex === i },
+                  { 'table-row-playing': row.track.id === currentPlayingTrackId },
                 ]"
                 @click="focusedRowIndex = i; selectRow(row.track)"
               >
@@ -429,6 +559,119 @@ onUnmounted(() => {
         @mouseleave="hideTooltip"
       >
         {{ tooltipPopover.text }}
+      </div>
+    </Teleport>
+    <!-- Settings modal -->
+    <Teleport to="body">
+      <div
+        v-if="showSettingsModal"
+        ref="settingsModalRef"
+        class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
+        tabindex="-1"
+        @keydown="onSettingsKeydown"
+        @click.self="closeSettingsModal"
+      >
+        <div
+          class="w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
+          @click.stop
+        >
+          <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
+            <h2 id="settings-modal-title" class="text-sm font-semibold text-stone-200">Settings</h2>
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Close"
+              @click="closeSettingsModal"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div class="space-y-4 p-4">
+            <div>
+              <label class="block text-xs font-medium text-stone-500">Theme</label>
+              <select
+                :value="theme"
+                class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
+                @change="(e) => settingsStore.setTheme((e.target as HTMLSelectElement).value as ThemeId)"
+              >
+                <option v-for="opt in themeOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-stone-500">Default grouping</label>
+              <select
+                :value="defaultGroupBy"
+                class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
+                @change="(e) => setDefaultGroupBy((e.target as HTMLSelectElement).value as DefaultGroupBy)"
+              >
+                <option v-for="opt in defaultGroupByOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+              <p class="mt-0.5 text-xs text-stone-500">Applied when the app starts.</p>
+            </div>
+            <div>
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="defaultGroupsExpanded"
+                  class="rounded border-stone-600"
+                  @change="(e) => setDefaultGroupsExpanded((e.target as HTMLInputElement).checked)"
+                />
+                Groups start expanded
+              </label>
+              <p class="mt-0.5 text-xs text-stone-500">When grouping is on, expand all groups by default.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+    <!-- Key map modal -->
+    <Teleport to="body">
+      <div
+        v-if="showKeyMapModal"
+        ref="keyMapModalRef"
+        class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keymap-modal-title"
+        tabindex="-1"
+        @keydown="onKeyMapKeydown"
+        @click.self="closeKeyMapModal"
+      >
+        <div
+          class="w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
+          @click.stop
+        >
+          <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
+            <h2 id="keymap-modal-title" class="text-sm font-semibold text-stone-200">Key map</h2>
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Close"
+              @click="closeKeyMapModal"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div class="max-h-[70vh] overflow-y-auto p-4">
+            <dl class="space-y-3">
+              <div v-for="entry in keyMapEntries" :key="entry.keys" class="flex gap-3 text-sm">
+                <dt class="w-36 shrink-0 font-mono text-stone-400">{{ entry.keys }}</dt>
+                <dd class="min-w-0 text-stone-300">{{ entry.description }}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
       </div>
     </Teleport>
   </div>

@@ -16,6 +16,7 @@ export const useCatalogStore = defineStore("catalog", {
     roots: [] as string[],
     tracks: [] as CatalogTrack[],
     selectedTrackIds: [] as number[],
+    currentPlayingTrackId: null as number | null,
     loading: false,
     error: null as string | null,
     searchQuery: "",
@@ -40,6 +41,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
   },
   actions: {
+    setCurrentPlaying(id: number | null) {
+      this.currentPlayingTrackId = id;
+    },
     async loadRoots() {
       this.loading = true;
       this.error = null;
