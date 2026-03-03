@@ -100,13 +100,16 @@ jobs:
       - name: Build Tauri
         run: |
           if [ -n "${{ matrix.target }}" ]; then
-            pnpm tauri build --target ${{ matrix.target }}
+            ./scripts/build-with-updater.sh --target ${{ matrix.target }}
           else
-            pnpm tauri build
+            ./scripts/build-with-updater.sh
           fi
         shell: bash
         env:
           CI: true
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
 
       - name: Set bundle path
         id: bundle
@@ -126,6 +129,8 @@ jobs:
           path: |
             ${{ steps.bundle.outputs.path }}/dmg/*.dmg
             ${{ steps.bundle.outputs.path }}/macos/*.app
+            ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz
+            ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz.sig
 
       - name: Upload artifacts (Windows)
         if: matrix.platform == 'windows-latest'
@@ -135,6 +140,8 @@ jobs:
           path: |
             ${{ steps.bundle.outputs.path }}/msi/*.msi
             ${{ steps.bundle.outputs.path }}/nsis/*.exe
+            ${{ steps.bundle.outputs.path }}/msi/*.msi.sig
+            ${{ steps.bundle.outputs.path }}/nsis/*.exe.sig
 
       - name: Upload artifacts (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -144,6 +151,7 @@ jobs:
           path: |
             ${{ steps.bundle.outputs.path }}/appimage/*.AppImage
             ${{ steps.bundle.outputs.path }}/deb/*.deb
+            ${{ steps.bundle.outputs.path }}/appimage/*.AppImage.sig
 
   release:
     needs: [version, build]
@@ -159,6 +167,60 @@ jobs:
         with:
           path: artifacts
           pattern: muorg-*
+
+      - name: Generate latest.json for updater
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG="${{ needs.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+
+          cd artifacts
+
+          linux_sig="$(find . -path '*appimage/*.AppImage.sig' -print | head -n 1)"
+          win_msi_sig="$(find . -path '*msi/*.msi.sig' -print | head -n 1)"
+          mac_sig="$(find . -path '*macos/*.app.tar.gz.sig' -print | head -n 1)"
+
+          if [ -z "$linux_sig" ] || [ -z "$win_msi_sig" ] || [ -z "$mac_sig" ]; then
+            echo "Missing one or more updater signatures; cannot generate latest.json" >&2
+            exit 1
+          fi
+
+          linux_file="${linux_sig%.sig}"
+          win_msi="${win_msi_sig%.sig}"
+          mac_file="${mac_sig%.sig}"
+
+          linux_sig_content="$(tr -d '\n' < "$linux_sig")"
+          win_sig_content="$(tr -d '\n' < "$win_msi_sig")"
+          mac_sig_content="$(tr -d '\n' < "$mac_sig")"
+
+          linux_name="$(basename "$linux_file")"
+          win_name="$(basename "$win_msi")"
+          mac_name="$(basename "$mac_file")"
+
+          pub_date="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+          cat > latest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "notes": "Muorg ${VERSION}",
+            "pub_date": "${pub_date}",
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "${linux_sig_content}",
+                "url": "${BASE_URL}/${linux_name}"
+              },
+              "windows-x86_64": {
+                "signature": "${win_sig_content}",
+                "url": "${BASE_URL}/${win_name}"
+              },
+              "darwin-aarch64": {
+                "signature": "${mac_sig_content}",
+                "url": "${BASE_URL}/${mac_name}"
+              }
+            }
+          }
+          EOF
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

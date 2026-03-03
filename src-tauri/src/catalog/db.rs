@@ -63,7 +63,8 @@ pub fn save_roots(conn: &rusqlite::Connection, paths: &[String]) -> Result<(), S
         .prepare("INSERT OR IGNORE INTO roots (path, added_at) VALUES (?1, ?2)")
         .map_err(|e| e.to_string())?;
     for p in paths {
-        stmt.execute(rusqlite::params![p, now]).map_err(|e| e.to_string())?;
+        stmt.execute(rusqlite::params![p, now])
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -128,7 +129,9 @@ fn format_from_path(path: &Path) -> Option<&'static str> {
 /// Scan directory for mp3/flac, read metadata, insert into DB. Returns number of tracks added.
 pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u64, String> {
     let root_id: i64 = conn
-        .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| r.get(0))
+        .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| {
+            r.get(0)
+        })
         .map_err(|e| e.to_string())?;
 
     let _root = Path::new(root_path);
@@ -153,10 +156,7 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
             Some(f) => f,
             None => continue,
         };
-        let path_str = path
-            .to_str()
-            .ok_or("Invalid path encoding")?
-            .to_string();
+        let path_str = path.to_str().ok_or("Invalid path encoding")?.to_string();
         let mtime_secs = std::fs::metadata(path)
             .ok()
             .and_then(|m| m.modified().ok())
@@ -199,7 +199,9 @@ pub fn rescan_root(conn: &rusqlite::Connection, root_path: &str) -> Result<u64, 
 /// Remove a root and its tracks from the catalog. Does not delete anything on disk.
 pub fn remove_root(conn: &rusqlite::Connection, root_path: &str) -> Result<(), String> {
     let root_id: i64 = conn
-        .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| r.get(0))
+        .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| {
+            r.get(0)
+        })
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM tracks WHERE root_id = ?1", [root_id])
         .map_err(|e| e.to_string())?;

@@ -19,9 +19,7 @@ fn normalize_to_folder(path: &str) -> Result<String, String> {
         return Err("Path does not exist".to_string());
     }
     let folder = if p.is_file() {
-        p.parent()
-            .ok_or("Invalid file path")?
-            .to_path_buf()
+        p.parent().ok_or("Invalid file path")?.to_path_buf()
     } else {
         p.to_path_buf()
     };
@@ -65,10 +63,7 @@ pub async fn get_tracks(catalog: State<'_, Arc<Catalog>>) -> Result<Vec<CatalogT
 }
 
 #[tauri::command]
-pub async fn rescan(
-    catalog: State<'_, Arc<Catalog>>,
-    root_path: String,
-) -> Result<u64, String> {
+pub async fn rescan(catalog: State<'_, Arc<Catalog>>, root_path: String) -> Result<u64, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
     crate::catalog::rescan_root(&conn, &root_path)
 }

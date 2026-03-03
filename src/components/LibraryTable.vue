@@ -5,6 +5,9 @@ import { useCatalogStore } from "../stores/catalog";
 import { useSettingsStore } from "../stores/settings";
 import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField } from "../stores/settings";
 import type { CatalogTrack } from "../types";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+import type { Update } from "@tauri-apps/plugin-updater";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 
 const store = useCatalogStore();
@@ -125,6 +128,11 @@ const showKeyMapModal = ref(false);
   const feedbackMessage = ref("");
   const feedbackEmail = ref("");
 
+  const updateCheckStatus = ref<"idle" | "checking" | "up-to-date" | "available" | "error">("idle");
+  const availableUpdate = ref<Update | null>(null);
+  const updateError = ref<string | null>(null);
+  const updateDownloadProgress = ref<number | null>(null);
+
 const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
   { keys: "Escape", description: "Close metadata panel (discard changes)" },
@@ -194,6 +202,50 @@ function sendFeedback() {
   const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.open(mailto, "_blank", "noopener,noreferrer");
   closeFeedbackModal();
+}
+
+async function checkForUpdates() {
+  updateCheckStatus.value = "checking";
+  updateError.value = null;
+  availableUpdate.value = null;
+  try {
+    const update = await check();
+    if (update) {
+      availableUpdate.value = update;
+      updateCheckStatus.value = "available";
+    } else {
+      updateCheckStatus.value = "up-to-date";
+    }
+  } catch (e) {
+    updateError.value = e instanceof Error ? e.message : String(e);
+    updateCheckStatus.value = "error";
+  }
+}
+
+async function installUpdate() {
+  const update = availableUpdate.value;
+  if (!update) return;
+  updateDownloadProgress.value = 0;
+  let downloaded = 0;
+  let contentLength: number | null = null;
+  try {
+    await update.downloadAndInstall((event) => {
+      if (event.event === "Started" && event.data.contentLength != null) {
+        contentLength = event.data.contentLength;
+      } else if (event.event === "Progress") {
+        downloaded += event.data.chunkLength;
+        if (contentLength != null && contentLength > 0) {
+          updateDownloadProgress.value = Math.min(100, Math.round((downloaded / contentLength) * 100));
+        }
+      } else if (event.event === "Finished") {
+        updateDownloadProgress.value = 100;
+      }
+    });
+    await relaunch();
+  } catch (e) {
+    updateError.value = e instanceof Error ? e.message : String(e);
+    updateDownloadProgress.value = null;
+  }
 }
 
 function onDocumentKeydown(e: KeyboardEvent) {
@@ -1000,6 +1052,36 @@ onUnmounted(() => {
                   Groups start expanded
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">When grouping is on, expand all groups by default.</p>
+              </div>
+              <div class="border-t border-stone-700 pt-4">
+                <p class="text-xs font-semibold text-stone-400 mb-2">Updates</p>
+                <button
+                  type="button"
+                  class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-sm text-stone-200 hover:bg-stone-700 disabled:opacity-50"
+                  :disabled="updateCheckStatus === 'checking' || updateDownloadProgress != null"
+                  @click="checkForUpdates"
+                >
+                  {{ updateCheckStatus === 'checking' ? 'Checking...' : updateDownloadProgress != null ? 'Downloading...' : 'Check for updates' }}
+                </button>
+                <p v-if="updateCheckStatus === 'up-to-date'" class="mt-2 text-xs text-stone-500">You're up to date.</p>
+                <p v-else-if="updateCheckStatus === 'error'" class="mt-2 text-xs text-red-400">{{ updateError }}</p>
+                <div v-else-if="updateCheckStatus === 'available' && availableUpdate" class="mt-3 space-y-2">
+                  <p class="text-xs text-stone-300">
+                    <strong>Version {{ availableUpdate.version }}</strong>
+                    <span v-if="availableUpdate.date" class="text-stone-500"> · {{ availableUpdate.date }}</span>
+                  </p>
+                  <p v-if="availableUpdate.body" class="text-xs text-stone-400 whitespace-pre-line">{{ availableUpdate.body }}</p>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="rounded bg-stone-600 px-3 py-1.5 text-sm font-medium text-stone-100 hover:bg-stone-500 disabled:opacity-50"
+                      :disabled="updateDownloadProgress != null"
+                      @click="installUpdate"
+                    >
+                      {{ updateDownloadProgress != null ? `Downloading ${updateDownloadProgress}%...` : 'Download and install' }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             <div v-show="settingsTab === 'playback'" class="space-y-4">

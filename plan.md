@@ -54,20 +54,20 @@ Prioritized work still to do: Phase 4 and remaining items.
 4. **Undo / redo**  
    Undo (and redo) for metadata edits in the current session (in-memory or limited history).
 
-5. **Virtualization / large libraries**  
-   Lazy-load or virtualize table rows so libraries with 100k+ tracks stay responsive (scroll, search, sort without loading everything into the DOM).
-
-6. **Auto-tagging (MusicBrainz / acoustic fingerprint)**  
+5. **Auto-tagging (MusicBrainz / acoustic fingerprint)**  
    Optional integration with MusicBrainz or acoustic fingerprinting to suggest or apply metadata from an online database.
 
-7. **Multiple libraries / workspaces**  
+6. **Multiple libraries / workspaces**  
    Support more than one catalog (e.g. “Home”, “External drive”) and switch or merge views.
 
-8. **Custom columns / saved views**  
+7. **Custom columns / saved views**  
    Let users choose which columns to show and save table layout (sort, column order, visibility) per session or as a preference.
 
-9. **ReplayGain / loudness**  
+8. **ReplayGain / loudness**  
    Read and display ReplayGain or loudness metadata where present; optional write support later.
+
+9. **Auto-updating**  
+    Check for new releases (e.g. GitHub Releases or a version endpoint) and notify the user or offer in-app download/install of updates (Tauri updater or similar).
 
 ---
 
@@ -138,7 +138,8 @@ Items below are implemented and maintained as a checklist.
 - [x] **Collapsible sidebar** — Collapse library panel; logo/title/keymap/settings in main toolbar.
 - [x] **Playing / selection highlight** — Clear row styling for “now playing” and selection across themes.
 - [x] **Refresh reports** — Button to reload tracks (and thus report counts) from the sidebar.
+- [x] **Virtualization / large libraries** — Virtual-scroll table rows so 100k+ tracks stay responsive (scroll, search, sort without loading everything into the DOM).
 
 ---
 
-*Next: tackle Phase 4 items (export, tag-from-filename, backup, undo, virtualization, auto-tagging, workspaces, custom views, ReplayGain) as needed.*
+*Next: tackle Phase 4 items (export, tag-from-filename, backup, undo, auto-tagging, workspaces, custom views, ReplayGain, auto-updating) as needed.*

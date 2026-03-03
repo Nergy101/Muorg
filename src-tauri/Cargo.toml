@@ -18,7 +18,11 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 lofty = "0.19"
 walkdir = "2"
 base64 = "0.22"
+tauri-plugin-process = "2"
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"

@@ -182,6 +182,21 @@ Releases are built and published via GitHub Actions.
 | Manual run           | same as above            | Prerelease   |
 | Push tag `v*` (e.g. `v0.2.0`) | From tag (e.g. `0.2.0`) | Full release |
 
+### 🔄 Auto-updates
+
+The app can check for updates from **Settings → General → Check for updates**. It uses the [Tauri updater plugin](https://v2.tauri.app/plugin/updater/) and the endpoints configured in `src-tauri/tauri.conf.json` (e.g. a `latest.json` on GitHub Releases).
+
+To **build signed updater artifacts** (required for the in-app updater to install them), use the script and set the signing key in the environment (do **not** use `.env` files; Tauri will not read them):
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat /path/to/your/private-key.pem)"
+# Optional: inject public key so you don't commit it
+export TAURI_SIGNING_PUBLIC_KEY="$(cat /path/to/your/public-key.pub)"
+./scripts/build-with-updater.sh
+```
+
+Generate keys once with: `pnpm tauri signer generate -w ~/.tauri/muorg.key`. Put the **public key** content in `tauri.conf.json` under `plugins.updater.pubkey` (or use `TAURI_SIGNING_PUBLIC_KEY` when running the script). Each release that should be installable via “Check for updates” must include a `latest.json` (or equivalent) in the format expected by the Tauri updater (see the plugin docs).
+
 ### ⚠️ macOS: “App is damaged” when opening
 
 Releases are not signed or notarized with an Apple Developer certificate. After downloading the `.app` (from a DMG or the release assets), macOS may say **“Muorg.app is damaged and can’t be opened”**. This is Gatekeeper quarantining the app.

@@ -41,7 +41,9 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         .read()
         .map_err(|e| e.to_string())?;
 
-    let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag());
+    let tag = tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag());
     let mut meta = TrackMetadata::default();
 
     if let Some(tag) = tag {
@@ -60,9 +62,7 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
                 &base64::engine::general_purpose::STANDARD,
                 pic.data(),
             ));
-            meta.picture_mime = pic
-                .mime_type()
-                .map(|m| m.as_str().to_string());
+            meta.picture_mime = pic.mime_type().map(|m| m.as_str().to_string());
             meta.picture_size_bytes = Some(pic.data().len() as u32);
         }
     }
@@ -153,7 +153,8 @@ pub fn write_metadata(path: &Path, update: &MetadataUpdate) -> Result<(), String
         }
     }
 
-    tag.save_to_path(path, WriteOptions::default()).map_err(|e| e.to_string())?;
+    tag.save_to_path(path, WriteOptions::default())
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
