@@ -11,13 +11,30 @@ input[type="checkbox"] {
   accent-color: #5b7c32;
 }
 
+/* Group row that contains a selected track */
+.group-row-with-selection {
+  background-color: rgba(91, 124, 50, 0.25) !important;
+}
+
+[data-theme="light"] .group-row-with-selection {
+  background-color: rgba(77, 124, 44, 0.2) !important;
+}
+
+[data-theme="doom"] .group-row-with-selection {
+  background-color: rgba(139, 0, 0, 0.35) !important;
+}
+
+[data-theme="orkish"] .group-row-with-selection {
+  background-color: rgba(46, 125, 50, 0.35) !important;
+}
+
 /* Focused table row highlight (works across themes) */
 .table-row-focused {
   @apply ring-2 ring-inset;
   --tw-ring-color: #5b7c32;
   position: relative;
   z-index: 1;
-  background-color: rgba(91, 124, 50, 0.22) !important; /* subtle dark-focus tint */
+  background-color: rgba(91, 124, 50, 0.12) !important; /* softer dark-focus tint */
 }
 
 /* Currently playing track row – strong dark-primary background */
@@ -86,7 +103,7 @@ input[type="checkbox"] {
 [data-theme="light"] [style*="5b7c32"] { background-color: #4d7c2c !important; }
 [data-theme="light"] .table-row-focused {
   --tw-ring-color: #4d7c2c;
-  background-color: rgba(77, 124, 44, 0.18) !important;
+  background-color: rgba(77, 124, 44, 0.10) !important; /* lighter, less obtrusive */
 }
 [data-theme="light"] .table-scroll-container { scrollbar-color: #4d7c2c #e7e5e4; }
 [data-theme="light"] .table-scroll-container::-webkit-scrollbar-thumb { background: #4d7c2c; }
@@ -244,4 +261,41 @@ input[type="checkbox"] {
 [data-theme="light"] tr.table-row-playing .text-stone-400,
 [data-theme="light"] tr.table-row-playing .text-stone-500 {
   color: #f9fafb !important;
+}
+
+/* Reports modal base styling */
+.report-modal {
+  background-color: #020617; /* slate-950 */
+  border-color: #4b5563; /* stone-600 */
+  color: #e5e7eb; /* gray-200 */
+}
+
+[data-theme="light"] .report-modal {
+  background-color: #fefce8; /* light warm */
+  border-color: #e5e7eb;
+  color: #1c1917;
+}
+
+[data-theme="light"] .report-modal thead {
+  background-color: #fef9c3;
+}
+
+[data-theme="doom"] .report-modal {
+  background-color: #1a0505;
+  border-color: #4a1515;
+  color: #facc15;
+}
+
+[data-theme="doom"] .report-modal thead {
+  background-color: #2d0a0a;
+}
+
+[data-theme="orkish"] .report-modal {
+  background-color: #dcedc8;
+  border-color: #c5e1a5;
+  color: #1b5e20;
+}
+
+[data-theme="orkish"] .report-modal thead {
+  background-color: #c5e1a5;
 }

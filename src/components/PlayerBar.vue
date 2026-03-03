@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
+import { useSettingsStore } from "../stores/settings";
 import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
+const settingsStore = useSettingsStore();
 const { selectedTracks } = storeToRefs(store);
+const { autoplayOnSelect } = storeToRefs(settingsStore);
 
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
@@ -115,7 +118,14 @@ watch(
       return;
     }
     store.setCurrentPlaying(track.id);
-    loadAudioBlob(track.path);
+    loadAudioBlob(track.path).then(() => {
+      if (!autoplayOnSelect.value) return;
+      nextTick(() => {
+        const el = audioRef.value;
+        if (!el) return;
+        el.play().catch(() => {});
+      });
+    });
   },
   { immediate: true }
 );

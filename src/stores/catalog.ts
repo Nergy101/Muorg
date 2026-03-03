@@ -17,6 +17,7 @@ export const useCatalogStore = defineStore("catalog", {
     tracks: [] as CatalogTrack[],
     selectedTrackIds: [] as number[],
     currentPlayingTrackId: null as number | null,
+    reportFilter: null as null | "missing_metadata" | "duplicates",
     loading: false,
     error: null as string | null,
     searchQuery: "",
@@ -43,6 +44,9 @@ export const useCatalogStore = defineStore("catalog", {
   actions: {
     setCurrentPlaying(id: number | null) {
       this.currentPlayingTrackId = id;
+    },
+    setReportFilter(kind: null | "missing_metadata" | "duplicates") {
+      this.reportFilter = kind;
     },
     async loadRoots() {
       this.loading = true;

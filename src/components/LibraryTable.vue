@@ -3,14 +3,93 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import { useSettingsStore } from "../stores/settings";
-import type { ThemeId, DefaultGroupBy } from "../stores/settings";
+import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField } from "../stores/settings";
 import type { CatalogTrack } from "../types";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { filteredTracks, selectedTrackIds, searchQuery, groupBy, coverCache, currentPlayingTrackId } = storeToRefs(store);
-const { defaultGroupsExpanded, theme, defaultGroupBy } = storeToRefs(settingsStore);
+const { filteredTracks, selectedTrackIds, searchQuery, groupBy, coverCache, currentPlayingTrackId, reportFilter } =
+  storeToRefs(store);
+const {
+  defaultGroupsExpanded,
+  theme,
+  defaultGroupBy,
+  autoplayOnSelect,
+  navWrap,
+  navFocusFollowsMouse,
+  tableDensity,
+  tableColAlbumArt,
+  tableColYear,
+  tableColDuration,
+  tableColFormat,
+  tableColPath,
+  missingMetadataFields,
+} = storeToRefs(settingsStore);
+
+const tableDensityOptions: { value: TableDensity; label: string }[] = [
+  { value: "comfortable", label: "Comfortable" },
+  { value: "compact", label: "Compact" },
+];
+
+const missingMetadataFieldOptions: { value: MissingMetadataField; label: string }[] = [
+  { value: "title", label: "Title" },
+  { value: "artist", label: "Artist" },
+  { value: "album", label: "Album" },
+  { value: "album_artist", label: "Album artist" },
+  { value: "year", label: "Year" },
+  { value: "genre", label: "Genre" },
+  { value: "track_number", label: "Track #" },
+  { value: "disc_number", label: "Disc #" },
+];
+
+function isFieldMissing(track: CatalogTrack, field: MissingMetadataField): boolean {
+  const v = track[field as keyof CatalogTrack];
+  if (field === "year" || field === "track_number" || field === "disc_number") {
+    return v == null;
+  }
+  return v == null || String(v).trim() === "";
+}
+
+const activeReportTracks = computed(() => {
+  const kind = reportFilter.value;
+  if (!kind) return [];
+  const base = filteredTracks.value;
+
+  if (kind === "missing_metadata") {
+    const fields = missingMetadataFields.value;
+    if (!fields.length) return [];
+    return base.filter((t) => fields.some((f) => isFieldMissing(t, f)));
+  }
+
+  // duplicates: same normalized artist + album + title
+  const keyFor = (t: CatalogTrack) =>
+    `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
+  const map = new Map<string, CatalogTrack[]>();
+  for (const t of base) {
+    const key = keyFor(t);
+    if (!key.trim()) continue;
+    const list = map.get(key);
+    if (list) list.push(t);
+    else map.set(key, [t]);
+  }
+  const dupIds = new Set<number>();
+  for (const list of map.values()) {
+    if (list.length > 1) {
+      for (const t of list) dupIds.add(t.id);
+    }
+  }
+  if (!dupIds.size) return [];
+  return base.filter((t) => dupIds.has(t.id));
+});
+
+const activeReportTitle = computed(() => {
+  if (reportFilter.value === "missing_metadata") return "Missing metadata";
+  if (reportFilter.value === "duplicates") return "Duplicates";
+  return "";
+});
+
+const showReportModal = computed(() => !!reportFilter.value && !!activeReportTitle.value);
 
 const themeOptions: { value: ThemeId; label: string }[] = [
   { value: "auto", label: "Auto" },
@@ -97,6 +176,28 @@ function setDefaultGroupsExpanded(value: boolean) {
   settingsStore.setDefaultGroupsExpanded(value);
 }
 
+/** True if this group contains any currently selected track. */
+function groupContainsSelection(group: { key: string; label: string; tracks: CatalogTrack[] }): boolean {
+  return group.tracks.some((tr) => selectedTrackIds.value.includes(tr.id));
+}
+
+/** Select a track from the report modal: expand its group, select the track, close the report. */
+function selectTrackFromReport(t: CatalogTrack) {
+  if (groupBy.value !== "none") {
+    const key = groupBy.value === "artist" ? (t.artist ?? "—") : (t.album ?? "—");
+    const next = new Set(expandedGroups.value);
+    next.add(key);
+    expandedGroups.value = next;
+  }
+  store.clearSelection();
+  store.toggleSelection(t.id);
+  store.setReportFilter(null);
+  nextTick(() => {
+    const row = document.querySelector(`[data-track-id="${t.id}"]`);
+    row?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+}
+
 /** Set of group keys that are expanded. */
 const expandedGroups = ref<Set<string>>(new Set());
 /** True after we've applied defaultGroupsExpanded once for the current groupBy (so we don't re-apply on every groupedRows update). */
@@ -180,10 +281,10 @@ function selectRow(t: CatalogTrack) {
 /** Groups for table: { key, label, tracks }[] when groupBy !== 'none', else null. */
 const groupedRows = computed(() => {
   const by = groupBy.value;
-  const tracks = filteredTracks.value;
-  if (by === "none" || !tracks.length) return null;
+  const base = filteredTracks.value;
+  if (by === "none" || !base.length) return null;
   const map = new Map<string, CatalogTrack[]>();
-  for (const t of tracks) {
+  for (const t of base) {
     const key = by === "artist" ? (t.artist ?? "—") : by === "album" ? (t.album ?? "—") : "";
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(t);
@@ -207,6 +308,19 @@ const groupCovers = computed(() => {
     result[group.key] = unique.length <= 1 ? (unique[0] ?? null) : null;
   }
   return result;
+});
+
+const tableColCount = computed(() => {
+  // Selection checkbox column is always present.
+  let n = 1;
+  if (tableColAlbumArt.value) n += 1;
+  // Title, Artist, Album always present.
+  n += 3;
+  if (tableColYear.value) n += 1;
+  if (tableColDuration.value) n += 1;
+  if (tableColFormat.value) n += 1;
+  if (tableColPath.value) n += 1;
+  return n;
 });
 
 watch(groupBy, (by) => {
@@ -287,18 +401,24 @@ watch(visibleRows, (rows) => {
 function focusNext() {
   const rows = visibleRows.value;
   if (!rows.length) return;
-  focusedRowIndex.value = Math.min(focusedRowIndex.value + 1, rows.length - 1);
+  if (focusedRowIndex.value < 0) {
+    focusedRowIndex.value = 0;
+  } else if (focusedRowIndex.value >= rows.length - 1) {
+    focusedRowIndex.value = navWrap.value ? 0 : rows.length - 1;
+  } else {
+    focusedRowIndex.value += 1;
+  }
   scrollFocusedRowIntoView();
 }
 
 function focusPrev() {
   const rows = visibleRows.value;
   if (!rows.length) return;
-  if (focusedRowIndex.value <= 0) {
-    focusedRowIndex.value = 0;
-  } else {
-    focusedRowIndex.value -= 1;
-  }
+  if (focusedRowIndex.value < 0) {
+    focusedRowIndex.value = rows.length - 1;
+  } else if (focusedRowIndex.value <= 0) {
+    focusedRowIndex.value = navWrap.value ? rows.length - 1 : 0;
+  } else focusedRowIndex.value -= 1;
   scrollFocusedRowIntoView();
 }
 
@@ -456,7 +576,10 @@ onUnmounted(() => {
       class="table-scroll-container flex-1 overflow-auto outline-none"
       @keydown="onTableKeydown"
     >
-      <table class="table-with-scroll-gutter w-full min-w-[800px] border-collapse text-left text-sm">
+      <table
+        class="table-with-scroll-gutter w-full min-w-[800px] border-collapse text-left text-sm"
+        :class="{ 'table-density-compact': tableDensity === 'compact' }"
+      >
         <thead class="sticky top-0 z-10 bg-stone-800">
           <tr class="border-b border-stone-600">
             <th class="w-8 border-r border-stone-700 p-2">
@@ -469,14 +592,14 @@ onUnmounted(() => {
                 Multi-select
               </label>
             </th>
-            <th class="w-10 border-r border-stone-700 p-2"></th>
+            <th v-if="tableColAlbumArt" class="w-10 border-r border-stone-700 p-2"></th>
             <th class="border-r border-stone-700 p-2 font-medium text-stone-400">Title</th>
             <th class="border-r border-stone-700 p-2 font-medium text-stone-400">Artist</th>
             <th class="border-r border-stone-700 p-2 font-medium text-stone-400">Album</th>
-            <th class="w-20 border-r border-stone-700 p-2 font-medium text-stone-400">Year</th>
-            <th class="w-16 border-r border-stone-700 p-2 font-medium text-stone-400">Duration</th>
-            <th class="w-16 border-r border-stone-700 p-2 font-medium text-stone-400">Format</th>
-            <th class="max-w-[200px] truncate border-stone-700 p-2 font-medium text-stone-400">Path</th>
+            <th v-if="tableColYear" class="w-20 border-r border-stone-700 p-2 font-medium text-stone-400">Year</th>
+            <th v-if="tableColDuration" class="w-16 border-r border-stone-700 p-2 font-medium text-stone-400">Duration</th>
+            <th v-if="tableColFormat" class="w-16 border-r border-stone-700 p-2 font-medium text-stone-400">Format</th>
+            <th v-if="tableColPath" class="max-w-[200px] truncate border-stone-700 p-2 font-medium text-stone-400">Path</th>
           </tr>
         </thead>
         <tbody>
@@ -486,10 +609,14 @@ onUnmounted(() => {
                 v-if="row.type === 'group'"
                 :data-row-index="i"
                 class="cursor-pointer font-medium text-stone-400 hover:bg-stone-700/80"
-                :class="focusedRowIndex === i ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80'"
+                :class="[
+                  focusedRowIndex === i ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80',
+                  { 'group-row-with-selection': groupContainsSelection(row.group) },
+                ]"
+                @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = i) : undefined"
                 @click="focusedRowIndex = i; toggleGroup(row.key)"
               >
-                <td colspan="9" class="border-b border-stone-600 p-2">
+                <td :colspan="tableColCount" class="border-b border-stone-600 p-2">
                   <span class="inline-flex items-center gap-2">
                     <span
                       v-if="groupBy === 'album' && groupCovers[row.key]"
@@ -512,13 +639,17 @@ onUnmounted(() => {
               <tr
                 v-else
                 :data-row-index="i"
+                :data-track-id="row.track.id"
                 class="border-b border-stone-700/50 hover:bg-stone-800/50"
                 :class="[
-                  { 'bg-stone-700/40': isSelected(row.track.id) && focusedRowIndex !== i },
-                  { 'bg-stone-600/50 table-row-focused': isSelected(row.track.id) && focusedRowIndex === i },
+                  // Selected (but not focused): subtle tint
+                  { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== i },
+                  // Selected + focused: combine focus ring with slightly stronger tint
+                  { 'bg-stone-600/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === i },
                   { 'bg-stone-800 table-row-focused': !isSelected(row.track.id) && focusedRowIndex === i },
                   { 'table-row-playing': row.track.id === currentPlayingTrackId },
                 ]"
+                @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = i) : undefined"
                 @click="focusedRowIndex = i; selectRow(row.track)"
               >
                 <td class="border-r border-stone-700 p-2">
@@ -529,21 +660,21 @@ onUnmounted(() => {
                     @click.stop="focusedRowIndex = i; selectRow(row.track)"
                   />
                 </td>
-                <td class="border-r border-stone-700 p-2">
+                <td v-if="tableColAlbumArt" class="border-r border-stone-700 p-2">
                   <TrackAlbumArt :path="row.track.path" />
                 </td>
                 <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.title ?? "—" }}</td>
                 <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.artist ?? "—" }}</td>
                 <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.album ?? "—" }}</td>
-                <td class="border-r border-stone-700 p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
-                <td class="border-r border-stone-700 p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
-                <td class="border-r border-stone-700 p-2 text-stone-400">{{ row.track.format }}</td>
-                <td class="max-w-[200px] truncate p-2 text-stone-500" :title="row.track.path">{{ row.track.path }}</td>
+                <td v-if="tableColYear" class="border-r border-stone-700 p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
+                <td v-if="tableColDuration" class="border-r border-stone-700 p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
+                <td v-if="tableColFormat" class="border-r border-stone-700 p-2 text-stone-400">{{ row.track.format }}</td>
+                <td v-if="tableColPath" class="max-w-[200px] truncate p-2 text-stone-500" :title="row.track.path">{{ row.track.path }}</td>
               </tr>
             </template>
           </template>
           <tr v-else class="text-stone-500">
-            <td colspan="9" class="p-6 text-center">
+            <td :colspan="tableColCount" class="p-6 text-center">
               {{ store.searchQuery.trim() ? "No tracks match the search." : "No tracks. Add a folder to scan MP3/FLAC files." }}
             </td>
           </tr>
@@ -629,6 +760,127 @@ onUnmounted(() => {
               </label>
               <p class="mt-0.5 text-xs text-stone-500">When grouping is on, expand all groups by default.</p>
             </div>
+            <div class="border-t border-stone-700 pt-4">
+              <p class="text-xs font-semibold text-stone-400">Playback</p>
+              <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="autoplayOnSelect"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setAutoplayOnSelect((e.target as HTMLInputElement).checked)"
+                />
+                Auto-play when selecting a single track
+              </label>
+              <p class="mt-0.5 text-xs text-stone-500">If enabled, selecting a single track immediately starts playback.</p>
+            </div>
+            <div class="border-t border-stone-700 pt-4">
+              <p class="text-xs font-semibold text-stone-400">Keyboard</p>
+              <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="navWrap"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setNavWrap((e.target as HTMLInputElement).checked)"
+                />
+                Wrap focus at ends (↑/↓)
+              </label>
+              <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="navFocusFollowsMouse"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setNavFocusFollowsMouse((e.target as HTMLInputElement).checked)"
+                />
+                Focus follows mouse hover
+              </label>
+            </div>
+            <div class="border-t border-stone-700 pt-4">
+              <p class="text-xs font-semibold text-stone-400">Table</p>
+              <div class="mt-2">
+                <label class="block text-xs font-medium text-stone-500">Density</label>
+                <select
+                  :value="tableDensity"
+                  class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
+                  @change="(e) => settingsStore.setTableDensity((e.target as HTMLSelectElement).value as TableDensity)"
+                >
+                  <option v-for="opt in tableDensityOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColAlbumArt"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColAlbumArt((e.target as HTMLInputElement).checked)"
+                  />
+                  Album art column
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColYear"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColYear((e.target as HTMLInputElement).checked)"
+                  />
+                  Year
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColDuration"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColDuration((e.target as HTMLInputElement).checked)"
+                  />
+                  Duration
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColFormat"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColFormat((e.target as HTMLInputElement).checked)"
+                  />
+                  Format
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColPath"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColPath((e.target as HTMLInputElement).checked)"
+                  />
+                  Path
+                </label>
+              </div>
+            </div>
+            <div class="border-t border-stone-700 pt-4">
+              <p class="text-xs font-semibold text-stone-400">Reports</p>
+              <p class="mt-1 text-xs text-stone-500">Fields to consider missing for the "Missing metadata" report:</p>
+              <div class="mt-2 grid grid-cols-2 gap-2">
+                <label
+                  v-for="opt in missingMetadataFieldOptions"
+                  :key="opt.value"
+                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="missingMetadataFields.includes(opt.value)"
+                    class="rounded border-stone-600"
+                    @change="(e) => {
+                      const checked = (e.target as HTMLInputElement).checked;
+                      const set = new Set(missingMetadataFields);
+                      if (checked) set.add(opt.value);
+                      else set.delete(opt.value);
+                      settingsStore.setMissingMetadataFields(Array.from(set));
+                    }"
+                  />
+                  {{ opt.label }}
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -674,6 +926,78 @@ onUnmounted(() => {
         </div>
       </div>
     </Teleport>
+    <!-- Reports modal -->
+    <Teleport to="body">
+      <div
+        v-if="showReportModal"
+        class="fixed inset-0 z-[310] flex items-center justify-center bg-stone-950/75 p-4"
+        role="dialog"
+        aria-modal="true"
+        @click.self="store.setReportFilter(null)"
+      >
+        <div
+          class="report-modal flex max-h-[80vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border shadow-xl"
+        >
+          <div class="flex items-center justify-between border-b px-4 py-3">
+            <div class="min-w-0">
+              <h2 class="truncate text-sm font-semibold text-stone-100">{{ activeReportTitle }}</h2>
+              <p class="mt-0.5 text-xs text-stone-400">
+                {{ activeReportTracks.length }} track{{ activeReportTracks.length === 1 ? "" : "s" }} in this report.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-700 hover:text-stone-100"
+              aria-label="Close report"
+              @click="store.setReportFilter(null)"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-xs">
+            <table class="w-full border-collapse text-left">
+              <thead class="sticky top-0 bg-stone-900/95">
+                <tr class="border-b border-stone-700 text-[0.7rem] uppercase tracking-wide text-stone-500">
+                  <th class="px-2 py-1 font-medium">Title</th>
+                  <th class="px-2 py-1 font-medium">Artist</th>
+                  <th class="px-2 py-1 font-medium">Album</th>
+                  <th class="px-2 py-1 font-medium">Path</th>
+                  <th class="px-2 py-1 text-right font-medium">Go</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="t in activeReportTracks"
+                  :key="t.id"
+                  class="border-b border-stone-800/70 hover:bg-stone-800/70"
+                >
+                  <td class="min-w-0 max-w-[220px] truncate px-2 py-1 text-stone-100" :title="t.title || '—'">{{ t.title || "—" }}</td>
+                  <td class="min-w-0 max-w-[200px] truncate px-2 py-1 text-stone-200" :title="t.artist || '—'">{{ t.artist || "—" }}</td>
+                  <td class="min-w-0 max-w-[320px] truncate px-2 py-1 text-stone-200" :title="t.album || '—'">{{ t.album || "—" }}</td>
+                  <td class="min-w-0 max-w-[320px] truncate px-2 py-1 text-stone-500" :title="t.path">{{ t.path }}</td>
+                  <td class="px-2 py-1 text-right">
+                    <button
+                      type="button"
+                      class="rounded border border-stone-600 px-2 py-0.5 text-[0.7rem] text-stone-200 hover:bg-stone-700"
+                      @click="selectTrackFromReport(t)"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="!activeReportTracks.length">
+                  <td colspan="5" class="px-2 py-4 text-center text-stone-500">
+                    No tracks currently match this report.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -706,6 +1030,12 @@ onUnmounted(() => {
 
 .table-scroll-container::-webkit-scrollbar-thumb:hover {
   background: #6d8f3d;
+}
+
+/* Table density */
+.table-density-compact th,
+.table-density-compact td {
+  padding: 0.375rem 0.5rem !important;
 }
 
 </style>
