@@ -7,5 +7,10 @@ import "./style.css";
 const pinia = createPinia();
 const app = createApp(App);
 app.use(pinia);
-useSettingsStore().initTheme();
-app.mount("#app");
+
+(async () => {
+  const settings = useSettingsStore();
+  await settings.loadFromFile();
+  settings.initTheme();
+  app.mount("#app");
+})();

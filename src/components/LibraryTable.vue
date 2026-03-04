@@ -8,6 +8,7 @@ import type { CatalogTrack } from "../types";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { open as openShell } from "@tauri-apps/plugin-shell";
+import { appConfigDir, join } from "@tauri-apps/api/path";
 import type { Update } from "@tauri-apps/plugin-updater";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 import packageJson from "../../package.json";
@@ -39,6 +40,18 @@ const {
   pathFormatExamplePath,
   openSettingsAtTab,
 } = storeToRefs(settingsStore);
+
+// Full path to the YAML settings file in the app config directory (for display + copy).
+const settingsFilePath = ref<string | null>(null);
+
+onMounted(async () => {
+  try {
+    const dir = await appConfigDir();
+    settingsFilePath.value = await join(dir, "settings.yml");
+  } catch {
+    settingsFilePath.value = null;
+  }
+});
 
 const tableDensityOptions: { value: TableDensity; label: string }[] = [
   { value: "comfortable", label: "Comfortable" },
@@ -1128,7 +1141,7 @@ onUnmounted(() => {
         @click.self="closeSettingsModal"
       >
         <div
-          class="settings-modal flex h-[70vh] min-h-[400px] flex-col w-full max-w-2xl rounded-lg border border-stone-600 bg-stone-800 shadow-xl overflow-hidden"
+          class="settings-modal flex h-[70vh] min-h-[400px] flex-col w-full max-w-3xl rounded-lg border border-stone-600 bg-stone-800 shadow-xl overflow-hidden"
           @click.stop
         >
           <div class="flex shrink-0 items-center justify-between border-b border-stone-700 px-4 py-3">
@@ -1208,7 +1221,28 @@ onUnmounted(() => {
                 </button>
                 <p v-if="updateCheckStatus === 'up-to-date'" class="mt-2 text-xs text-stone-500">You're up to date.</p>
                 <p v-else-if="updateCheckStatus === 'error'" class="mt-2 text-xs text-red-400">{{ updateError }}</p>
-                <div v-else-if="updateCheckStatus === 'available' && availableUpdate" class="mt-3 space-y-2">
+                <div class="border-t border-stone-700 pt-4 mt-4">
+                  <p class="text-xs font-semibold text-stone-400 mb-2">Settings</p>
+                  <div class="flex items-center gap-2">
+                    <button
+                      v-if="settingsFilePath"
+                      type="button"
+                      class="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-300 hover:bg-stone-700"
+                      aria-label="Copy settings file path"
+                      @click="copyPathToClipboard(settingsFilePath)"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 8h8a2 2 0 012 2v8a2 2 0 01-2 2h-8a2 2 0 01-2-2v-8a2 2 0 012-2z" />
+                      </svg>
+                    </button>
+                    <p class="min-w-0 text-xs text-stone-500">
+                      <span v-if="settingsFilePath" class="font-mono break-all">{{ settingsFilePath }}</span>
+                      <span v-else>Settings file path not available.</span>
+                    </p>
+                  </div>
+                </div>
+                <div v-if="updateCheckStatus === 'available' && availableUpdate" class="mt-3 space-y-2">
                   <p class="text-xs text-stone-300">
                     <strong>Version {{ availableUpdate.version }}</strong>
                     <span v-if="availableUpdate.date" class="text-stone-500"> · {{ availableUpdate.date }}</span>

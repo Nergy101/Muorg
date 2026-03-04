@@ -51,8 +51,14 @@ CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
 ";
 
-fn schema_has_column(conn: &rusqlite::Connection, table: &str, column: &str) -> Result<bool, String> {
-    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table)).map_err(|e| e.to_string())?;
+fn schema_has_column(
+    conn: &rusqlite::Connection,
+    table: &str,
+    column: &str,
+) -> Result<bool, String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table))
+        .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |r| r.get::<_, String>(1))
         .map_err(|e| e.to_string())?;
@@ -67,8 +73,11 @@ fn schema_has_column(conn: &rusqlite::Connection, table: &str, column: &str) -> 
 pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     conn.execute_batch(SCHEMA).map_err(|e| e.to_string())?;
     if !schema_has_column(conn, "tracks", "has_cover")? {
-        conn.execute("ALTER TABLE tracks ADD COLUMN has_cover INTEGER NOT NULL DEFAULT 0", [])
-            .map_err(|e| e.to_string())?;
+        conn.execute(
+            "ALTER TABLE tracks ADD COLUMN has_cover INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -283,7 +292,11 @@ pub fn update_track_metadata(
     }
     if let Some(ref b64) = update.picture_base64 {
         sets.push("has_cover = ?");
-        params.push(rusqlite::types::Value::Integer(if b64.is_empty() { 0 } else { 1 }));
+        params.push(rusqlite::types::Value::Integer(if b64.is_empty() {
+            0
+        } else {
+            1
+        }));
     }
 
     if sets.is_empty() {

@@ -1,4 +1,6 @@
 import { defineStore } from "pinia";
+import { readTextFile, writeTextFile, BaseDirectory } from "@tauri-apps/plugin-fs";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 export type ThemeId = "dark" | "light" | "doom" | "orkish" | "auto";
 
@@ -16,35 +18,25 @@ export type MissingMetadataField =
   | "track_number"
   | "disc_number";
 
-const THEME_STORAGE_KEY = "muorg-theme";
-const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
-const DEFAULT_GROUPS_EXPANDED_KEY = "muorg-default-groups-expanded";
-const AUTOPLAY_ON_SELECT_KEY = "muorg-autoplay-on-select";
-const CONTINUOUS_PLAYBACK_KEY = "muorg-continuous-playback";
-const NAV_WRAP_KEY = "muorg-nav-wrap";
-const NAV_FOCUS_FOLLOWS_MOUSE_KEY = "muorg-nav-focus-follows-mouse";
-const TABLE_DENSITY_KEY = "muorg-table-density";
-const TABLE_COL_ALBUM_ART_KEY = "muorg-table-col-album-art";
-const TABLE_COL_YEAR_KEY = "muorg-table-col-year";
-const TABLE_COL_DURATION_KEY = "muorg-table-col-duration";
-const TABLE_COL_FORMAT_KEY = "muorg-table-col-format";
-const TABLE_COL_PATH_KEY = "muorg-table-col-path";
-const MISSING_METADATA_FIELDS_KEY = "muorg-missing-metadata-fields";
-const GROUP_HEADER_ALBUM_ART_KEY = "muorg-group-header-album-art";
-const HIDE_WIKIPEDIA_COVER_KEY = "muorg-hide-wikipedia-cover";
-const PATH_FORMAT_TEMPLATE_KEY = "muorg-path-format-template";
-const PATH_FORMAT_EXAMPLE_PATH_KEY = "muorg-path-format-example-path";
+const SETTINGS_FILENAME = "settings.yml";
 
 /** Default example path for Smart Suggestions path-format preview (reset button). */
 export const DEFAULT_PATH_FORMAT_EXAMPLE_PATH =
   "/library/music/Enter Shikari/A Kiss for the Whole World/04 - Leap into the Lightning.flac";
 
-function loadTheme(): ThemeId {
-  if (typeof window === "undefined") return "auto";
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === "light" || stored === "doom" || stored === "orkish" || stored === "dark" || stored === "auto") return stored;
-  return "auto";
-}
+const ALLOWED_THEMES: ThemeId[] = ["dark", "light", "doom", "orkish", "auto"];
+const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
+const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact"];
+const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
+  "title",
+  "artist",
+  "album",
+  "album_artist",
+  "year",
+  "genre",
+  "track_number",
+  "disc_number",
+];
 
 /** Resolve theme to the actual value applied to the document (dark/light/doom/orkish). */
 function getEffectiveTheme(theme: ThemeId): "dark" | "light" | "doom" | "orkish" {
@@ -53,158 +45,131 @@ function getEffectiveTheme(theme: ThemeId): "dark" | "light" | "doom" | "orkish"
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function loadDefaultGroupBy(): DefaultGroupBy {
-  if (typeof window === "undefined") return "album";
-  const stored = window.localStorage.getItem(DEFAULT_GROUP_BY_KEY);
-  if (stored === "none" || stored === "artist" || stored === "album") return stored;
-  return "album";
-}
-
-function loadDefaultGroupsExpanded(): boolean {
-  if (typeof window === "undefined") return false;
-  const stored = window.localStorage.getItem(DEFAULT_GROUPS_EXPANDED_KEY);
-  return stored === "true";
-}
-
-function loadAutoplayOnSelect(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(AUTOPLAY_ON_SELECT_KEY) === "true";
-}
-
-function loadNavWrap(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(NAV_WRAP_KEY) === "true";
-}
-
-function loadNavFocusFollowsMouse(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(NAV_FOCUS_FOLLOWS_MOUSE_KEY) === "true";
-}
-
-function loadTableDensity(): TableDensity {
-  if (typeof window === "undefined") return "comfortable";
-  const stored = window.localStorage.getItem(TABLE_DENSITY_KEY);
-  return stored === "compact" ? "compact" : "comfortable";
-}
-
-function loadBoolWithDefault(key: string, defaultValue: boolean): boolean {
-  if (typeof window === "undefined") return defaultValue;
-  const stored = window.localStorage.getItem(key);
-  if (stored == null) return defaultValue;
-  return stored === "true";
-}
-
-function loadString(key: string, defaultValue: string): string {
-  if (typeof window === "undefined") return defaultValue;
-  const stored = window.localStorage.getItem(key);
-  return stored ?? defaultValue;
-}
-
-function loadMissingMetadataFields(): MissingMetadataField[] {
-  if (typeof window === "undefined") return ["title", "artist", "album"];
-  const stored = window.localStorage.getItem(MISSING_METADATA_FIELDS_KEY);
-  if (!stored) return ["title", "artist", "album"];
-  try {
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return ["title", "artist", "album"];
-    const allowed: MissingMetadataField[] = [
-      "title",
-      "artist",
-      "album",
-      "album_artist",
-      "year",
-      "genre",
-      "track_number",
-      "disc_number",
-    ];
-    return parsed.filter((v: unknown): v is MissingMetadataField => allowed.includes(v as MissingMetadataField));
-  } catch {
-    return ["title", "artist", "album"];
-  }
-}
-
-function persistTheme(theme: ThemeId) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-}
-
-function persistDefaultGroupBy(value: DefaultGroupBy) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(DEFAULT_GROUP_BY_KEY, value);
-}
-
-function persistDefaultGroupsExpanded(value: boolean) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(DEFAULT_GROUPS_EXPANDED_KEY, String(value));
-}
-
-function persistAutoplayOnSelect(value: boolean) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(AUTOPLAY_ON_SELECT_KEY, String(value));
-}
-
-function persistNavWrap(value: boolean) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(NAV_WRAP_KEY, String(value));
-}
-
-function persistNavFocusFollowsMouse(value: boolean) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(NAV_FOCUS_FOLLOWS_MOUSE_KEY, String(value));
-}
-
-function persistTableDensity(value: TableDensity) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(TABLE_DENSITY_KEY, value);
-}
-
-function persistBool(key: string, value: boolean) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, String(value));
-}
-
-function persistMissingMetadataFields(fields: MissingMetadataField[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(MISSING_METADATA_FIELDS_KEY, JSON.stringify(fields));
-}
-
 function applyThemeToDocument(theme: ThemeId) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = getEffectiveTheme(theme);
 }
 
+/** Weakly-typed record from settings file (unknown keys ignored). */
+type SettingsRecord = Record<string, unknown>;
+
+function coerceTheme(v: unknown): ThemeId {
+  if (typeof v === "string" && ALLOWED_THEMES.includes(v as ThemeId)) return v as ThemeId;
+  return "auto";
+}
+function coerceGroupBy(v: unknown): DefaultGroupBy {
+  if (typeof v === "string" && ALLOWED_GROUP_BY.includes(v as DefaultGroupBy)) return v as DefaultGroupBy;
+  return "album";
+}
+function coerceBool(v: unknown, def: boolean): boolean {
+  if (v === true || v === false) return v;
+  if (v === "true") return true;
+  if (v === "false") return false;
+  return def;
+}
+function coerceString(v: unknown, def: string): string {
+  if (typeof v === "string") return v;
+  return def;
+}
+function coerceDensity(v: unknown): TableDensity {
+  if (typeof v === "string" && ALLOWED_DENSITY.includes(v as TableDensity)) return v as TableDensity;
+  return "comfortable";
+}
+function coerceMissingFields(v: unknown): MissingMetadataField[] {
+  if (!Array.isArray(v)) return ["title", "artist", "album"];
+  return v.filter((x): x is MissingMetadataField =>
+    typeof x === "string" && ALLOWED_MISSING_FIELDS.includes(x as MissingMetadataField)
+  );
+}
+
 export const useSettingsStore = defineStore("settings", {
   state: () => ({
-    theme: loadTheme() as ThemeId,
-    defaultGroupBy: loadDefaultGroupBy() as DefaultGroupBy,
-    defaultGroupsExpanded: loadDefaultGroupsExpanded(),
-    autoplayOnSelect: loadAutoplayOnSelect(),
-    continuousPlayback: loadBoolWithDefault(CONTINUOUS_PLAYBACK_KEY, false),
-    navWrap: loadNavWrap(),
-    navFocusFollowsMouse: loadNavFocusFollowsMouse(),
-    tableDensity: loadTableDensity() as TableDensity,
-    tableColAlbumArt: loadBoolWithDefault(TABLE_COL_ALBUM_ART_KEY, true),
-    tableColYear: loadBoolWithDefault(TABLE_COL_YEAR_KEY, true),
-    tableColDuration: loadBoolWithDefault(TABLE_COL_DURATION_KEY, true),
-    tableColFormat: loadBoolWithDefault(TABLE_COL_FORMAT_KEY, true),
-    tableColPath: loadBoolWithDefault(TABLE_COL_PATH_KEY, true),
-    missingMetadataFields: loadMissingMetadataFields() as MissingMetadataField[],
-    /** Show album art in the group header when grouping by album. */
-    groupHeaderAlbumArt: loadBoolWithDefault(GROUP_HEADER_ALBUM_ART_KEY, true),
-    /** Hide Wikipedia album cover search (globe button and "From Wikipedia" on group headers). */
-    hideWikipediaCoverSearch: loadBoolWithDefault(HIDE_WIKIPEDIA_COVER_KEY, false),
-    /** Path format template for smart metadata suggestions, e.g. "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>". */
-    pathFormatTemplate: loadString(PATH_FORMAT_TEMPLATE_KEY, "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>"),
-    /** Example path for path-format preview in Smart Suggestions (editable). */
-    pathFormatExamplePath: loadString(PATH_FORMAT_EXAMPLE_PATH_KEY, DEFAULT_PATH_FORMAT_EXAMPLE_PATH),
-    /** When set, the settings modal should open and switch to this tab (e.g. from MetadataEditor). Cleared after opening. */
+    theme: "auto" as ThemeId,
+    defaultGroupBy: "album" as DefaultGroupBy,
+    defaultGroupsExpanded: false,
+    autoplayOnSelect: false,
+    continuousPlayback: false,
+    navWrap: false,
+    navFocusFollowsMouse: false,
+    tableDensity: "comfortable" as TableDensity,
+    tableColAlbumArt: true,
+    tableColYear: true,
+    tableColDuration: true,
+    tableColFormat: true,
+    tableColPath: true,
+    missingMetadataFields: ["title", "artist", "album"] as MissingMetadataField[],
+    groupHeaderAlbumArt: true,
+    hideWikipediaCoverSearch: false,
+    pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>",
+    pathFormatExamplePath: DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
     openSettingsAtTab: null as string | null,
   }),
   actions: {
+    /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
+    async loadFromFile() {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = await readTextFile(SETTINGS_FILENAME, { baseDir: BaseDirectory.AppConfig });
+        const data = parseYaml(raw) as SettingsRecord | null;
+        if (!data || typeof data !== "object") return;
+        if ("theme" in data) this.theme = coerceTheme(data.theme);
+        if ("defaultGroupBy" in data) this.defaultGroupBy = coerceGroupBy(data.defaultGroupBy);
+        if ("defaultGroupsExpanded" in data) this.defaultGroupsExpanded = coerceBool(data.defaultGroupsExpanded, false);
+        if ("autoplayOnSelect" in data) this.autoplayOnSelect = coerceBool(data.autoplayOnSelect, false);
+        if ("continuousPlayback" in data) this.continuousPlayback = coerceBool(data.continuousPlayback, false);
+        if ("navWrap" in data) this.navWrap = coerceBool(data.navWrap, false);
+        if ("navFocusFollowsMouse" in data) this.navFocusFollowsMouse = coerceBool(data.navFocusFollowsMouse, false);
+        if ("tableDensity" in data) this.tableDensity = coerceDensity(data.tableDensity);
+        if ("tableColAlbumArt" in data) this.tableColAlbumArt = coerceBool(data.tableColAlbumArt, true);
+        if ("tableColYear" in data) this.tableColYear = coerceBool(data.tableColYear, true);
+        if ("tableColDuration" in data) this.tableColDuration = coerceBool(data.tableColDuration, true);
+        if ("tableColFormat" in data) this.tableColFormat = coerceBool(data.tableColFormat, true);
+        if ("tableColPath" in data) this.tableColPath = coerceBool(data.tableColPath, true);
+        if ("missingMetadataFields" in data) this.missingMetadataFields = coerceMissingFields(data.missingMetadataFields);
+        if ("groupHeaderAlbumArt" in data) this.groupHeaderAlbumArt = coerceBool(data.groupHeaderAlbumArt, true);
+        if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
+        if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
+        if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
+      } catch {
+        // file missing or invalid: keep defaults
+      }
+    },
+
+    /** Persist whole settings to AppConfig/settings.yml (call after any change). */
+    async saveToFile() {
+      if (typeof window === "undefined") return;
+      try {
+        const data: SettingsRecord = {
+          theme: this.theme,
+          defaultGroupBy: this.defaultGroupBy,
+          defaultGroupsExpanded: this.defaultGroupsExpanded,
+          autoplayOnSelect: this.autoplayOnSelect,
+          continuousPlayback: this.continuousPlayback,
+          navWrap: this.navWrap,
+          navFocusFollowsMouse: this.navFocusFollowsMouse,
+          tableDensity: this.tableDensity,
+          tableColAlbumArt: this.tableColAlbumArt,
+          tableColYear: this.tableColYear,
+          tableColDuration: this.tableColDuration,
+          tableColFormat: this.tableColFormat,
+          tableColPath: this.tableColPath,
+          missingMetadataFields: this.missingMetadataFields,
+          groupHeaderAlbumArt: this.groupHeaderAlbumArt,
+          hideWikipediaCoverSearch: this.hideWikipediaCoverSearch,
+          pathFormatTemplate: this.pathFormatTemplate,
+          pathFormatExamplePath: this.pathFormatExamplePath,
+        };
+        const yaml = stringifyYaml(data, { lineWidth: 0 });
+        await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
+      } catch {
+        // e.g. permission or disk error
+      }
+    },
+
     setTheme(theme: ThemeId) {
       this.theme = theme;
-      persistTheme(theme);
       applyThemeToDocument(theme);
+      this.saveToFile();
     },
     initTheme() {
       applyThemeToDocument(this.theme);
@@ -217,75 +182,71 @@ export const useSettingsStore = defineStore("settings", {
     },
     setDefaultGroupBy(value: DefaultGroupBy) {
       this.defaultGroupBy = value;
-      persistDefaultGroupBy(value);
+      this.saveToFile();
     },
     setDefaultGroupsExpanded(value: boolean) {
       this.defaultGroupsExpanded = value;
-      persistDefaultGroupsExpanded(value);
+      this.saveToFile();
     },
     setAutoplayOnSelect(value: boolean) {
       this.autoplayOnSelect = value;
-      persistAutoplayOnSelect(value);
+      this.saveToFile();
     },
     setContinuousPlayback(value: boolean) {
       this.continuousPlayback = value;
-      persistBool(CONTINUOUS_PLAYBACK_KEY, value);
+      this.saveToFile();
     },
     setNavWrap(value: boolean) {
       this.navWrap = value;
-      persistNavWrap(value);
+      this.saveToFile();
     },
     setNavFocusFollowsMouse(value: boolean) {
       this.navFocusFollowsMouse = value;
-      persistNavFocusFollowsMouse(value);
+      this.saveToFile();
     },
     setTableDensity(value: TableDensity) {
       this.tableDensity = value;
-      persistTableDensity(value);
+      this.saveToFile();
     },
     setTableColAlbumArt(value: boolean) {
       this.tableColAlbumArt = value;
-      persistBool(TABLE_COL_ALBUM_ART_KEY, value);
+      this.saveToFile();
     },
     setTableColYear(value: boolean) {
       this.tableColYear = value;
-      persistBool(TABLE_COL_YEAR_KEY, value);
+      this.saveToFile();
     },
     setTableColDuration(value: boolean) {
       this.tableColDuration = value;
-      persistBool(TABLE_COL_DURATION_KEY, value);
+      this.saveToFile();
     },
     setTableColFormat(value: boolean) {
       this.tableColFormat = value;
-      persistBool(TABLE_COL_FORMAT_KEY, value);
+      this.saveToFile();
     },
     setTableColPath(value: boolean) {
       this.tableColPath = value;
-      persistBool(TABLE_COL_PATH_KEY, value);
+      this.saveToFile();
     },
     setMissingMetadataFields(fields: MissingMetadataField[]) {
       this.missingMetadataFields = fields;
-      persistMissingMetadataFields(fields);
+      this.saveToFile();
     },
     setGroupHeaderAlbumArt(value: boolean) {
       this.groupHeaderAlbumArt = value;
-      persistBool(GROUP_HEADER_ALBUM_ART_KEY, value);
+      this.saveToFile();
     },
     setHideWikipediaCoverSearch(value: boolean) {
       this.hideWikipediaCoverSearch = value;
-      persistBool(HIDE_WIKIPEDIA_COVER_KEY, value);
+      this.saveToFile();
     },
     setPathFormatTemplate(value: string) {
       this.pathFormatTemplate = value;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(PATH_FORMAT_TEMPLATE_KEY, value);
-      }
+      this.saveToFile();
     },
     setPathFormatExamplePath(value: string) {
       this.pathFormatExamplePath = value;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(PATH_FORMAT_EXAMPLE_PATH_KEY, value);
-      }
+      this.saveToFile();
     },
     setOpenSettingsAtTab(tab: string | null) {
       this.openSettingsAtTab = tab;

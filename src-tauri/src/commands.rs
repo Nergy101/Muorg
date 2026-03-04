@@ -148,11 +148,7 @@ pub async fn fetch_image_url(url: String) -> Result<FetchedImage, String> {
         .user_agent(USER_AGENT)
         .build()
         .map_err(|e| e.to_string())?;
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+    let response = client.get(&url).send().await.map_err(|e| e.to_string())?;
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status()));
     }

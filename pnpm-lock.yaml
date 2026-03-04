@@ -14,6 +14,9 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.0.0
         version: 2.6.0
+      '@tauri-apps/plugin-fs':
+        specifier: ^2.4.5
+        version: 2.4.5
       '@tauri-apps/plugin-process':
         specifier: ~2.3.1
         version: 2.3.1
@@ -29,6 +32,9 @@ importers:
       vue:
         specifier: ^3.5.13
         version: 3.5.29(typescript@5.6.3)
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
     devDependencies:
       '@tauri-apps/cli':
         specifier: ^2.0.0
@@ -38,7 +44,7 @@ importers:
         version: 22.19.13
       '@vitejs/plugin-vue':
         specifier: ^5.2.0
-        version: 5.2.4(vite@6.4.1(@types/node@22.19.13)(jiti@1.21.7))(vue@3.5.29(typescript@5.6.3))
+        version: 5.2.4(vite@6.4.1(@types/node@22.19.13)(jiti@1.21.7)(yaml@2.8.2))(vue@3.5.29(typescript@5.6.3))
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.27(postcss@8.5.6)
@@ -47,13 +53,13 @@ importers:
         version: 8.5.6
       tailwindcss:
         specifier: ^3.4.15
-        version: 3.4.19
+        version: 3.4.19(yaml@2.8.2)
       typescript:
         specifier: ~5.6.2
         version: 5.6.3
       vite:
         specifier: ^6.0.1
-        version: 6.4.1(@types/node@22.19.13)(jiti@1.21.7)
+        version: 6.4.1(@types/node@22.19.13)(jiti@1.21.7)(yaml@2.8.2)
       vue-tsc:
         specifier: ^2.1.10
         version: 2.2.12(typescript@5.6.3)
@@ -481,6 +487,9 @@ packages:
 
   '@tauri-apps/plugin-dialog@2.6.0':
     resolution: {integrity: sha512-q4Uq3eY87TdcYzXACiYSPhmpBA76shgmQswGkSVio4C82Sz2W4iehe9TnKYwbq7weHiL88Yw19XZm7v28+Micg==}
+
+  '@tauri-apps/plugin-fs@2.4.5':
+    resolution: {integrity: sha512-dVxWWGE6VrOxC7/jlhyE+ON/Cc2REJlM35R3PJX3UvFw2XwYhLGQVAIyrehenDdKjotipjYEVc4YjOl3qq90fA==}
 
   '@tauri-apps/plugin-process@2.3.1':
     resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
@@ -999,6 +1008,11 @@ packages:
       typescript:
         optional: true
 
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
@@ -1248,6 +1262,10 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.10.1
 
+  '@tauri-apps/plugin-fs@2.4.5':
+    dependencies:
+      '@tauri-apps/api': 2.10.1
+
   '@tauri-apps/plugin-process@2.3.1':
     dependencies:
       '@tauri-apps/api': 2.10.1
@@ -1266,9 +1284,9 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
-  '@vitejs/plugin-vue@5.2.4(vite@6.4.1(@types/node@22.19.13)(jiti@1.21.7))(vue@3.5.29(typescript@5.6.3))':
+  '@vitejs/plugin-vue@5.2.4(vite@6.4.1(@types/node@22.19.13)(jiti@1.21.7)(yaml@2.8.2))(vue@3.5.29(typescript@5.6.3))':
     dependencies:
-      vite: 6.4.1(@types/node@22.19.13)(jiti@1.21.7)
+      vite: 6.4.1(@types/node@22.19.13)(jiti@1.21.7)(yaml@2.8.2)
       vue: 3.5.29(typescript@5.6.3)
 
   '@volar/language-core@2.4.15':
@@ -1596,12 +1614,13 @@ snapshots:
       camelcase-css: 2.0.1
       postcss: 8.5.6
 
-  postcss-load-config@6.0.1(jiti@1.21.7)(postcss@8.5.6):
+  postcss-load-config@6.0.1(jiti@1.21.7)(postcss@8.5.6)(yaml@2.8.2):
     dependencies:
       lilconfig: 3.1.3
     optionalDependencies:
       jiti: 1.21.7
       postcss: 8.5.6
+      yaml: 2.8.2
 
   postcss-nested@6.2.0(postcss@8.5.6):
     dependencies:
@@ -1688,7 +1707,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  tailwindcss@3.4.19:
+  tailwindcss@3.4.19(yaml@2.8.2):
     dependencies:
       '@alloc/quick-lru': 5.2.0
       arg: 5.0.2
@@ -1707,7 +1726,7 @@ snapshots:
       postcss: 8.5.6
       postcss-import: 15.1.0(postcss@8.5.6)
       postcss-js: 4.1.0(postcss@8.5.6)
-      postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.6)
+      postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.6)(yaml@2.8.2)
       postcss-nested: 6.2.0(postcss@8.5.6)
       postcss-selector-parser: 6.1.2
       resolve: 1.22.11
@@ -1747,7 +1766,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite@6.4.1(@types/node@22.19.13)(jiti@1.21.7):
+  vite@6.4.1(@types/node@22.19.13)(jiti@1.21.7)(yaml@2.8.2):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -1759,6 +1778,7 @@ snapshots:
       '@types/node': 22.19.13
       fsevents: 2.3.3
       jiti: 1.21.7
+      yaml: 2.8.2
 
   vscode-uri@3.1.0: {}
 
@@ -1781,3 +1801,5 @@ snapshots:
       '@vue/shared': 3.5.29
     optionalDependencies:
       typescript: 5.6.3
+
+  yaml@2.8.2: {}

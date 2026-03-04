@@ -31,6 +31,10 @@ pub fn run() {
                 .app_data_dir()
                 .map_err(|e| format!("Could not determine app data directory: {}", e))?;
             std::fs::create_dir_all(&app_data).ok();
+            // Ensure app config dir exists for settings.yml and path display in Settings.
+            if let Ok(app_config) = app.path().app_config_dir() {
+                std::fs::create_dir_all(&app_config).ok();
+            }
             let db_path = app_data.join("muorg.db");
             let catalog = Catalog::new(&db_path).map_err(|e| e.to_string())?;
             app.manage(Arc::new(catalog));
