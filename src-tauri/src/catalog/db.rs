@@ -196,7 +196,7 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
             Err(_) => continue,
         };
 
-        let has_cover = meta.picture_base64.as_ref().map_or(false, |s| !s.is_empty());
+        let has_cover = meta.picture_base64.as_ref().is_some_and(|s| !s.is_empty());
         insert
             .execute(rusqlite::params![
                 root_id,
