@@ -13,6 +13,8 @@ export interface CatalogTrack {
   duration_secs: number | null;
   format: string;
   mtime_secs: number;
+  /** True if the track has embedded album cover art. */
+  has_cover: boolean;
 }
 
 export interface MetadataUpdate {

@@ -24,7 +24,7 @@ export const useCatalogStore = defineStore("catalog", {
     tracks: [] as CatalogTrack[],
     selectedTrackIds: [] as number[],
     currentPlayingTrackId: null as number | null,
-    reportFilter: null as null | "missing_metadata" | "duplicates",
+    reportFilter: null as null | "missing_metadata" | "duplicates" | "missing_album_cover",
     loading: false,
     error: null as string | null,
     searchQuery: "",
@@ -33,6 +33,10 @@ export const useCatalogStore = defineStore("catalog", {
     coverCache: {} as Record<string, CoverInfo | null>,
     /** Album key -> cover; updated when any track in that album gets its cover fetched. Used for group headers. */
     albumCoverCache: {} as Record<string, CoverInfo | null>,
+    /** When true, MetadataEditor opens the Wikipedia cover modal (e.g. from group header "From Wikipedia"). */
+    openWikipediaModal: false,
+    /** When true, clicking rows adds to selection (multi-select); header shows "Edit metadata (N selected)". */
+    multiSelectMode: false,
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -54,7 +58,10 @@ export const useCatalogStore = defineStore("catalog", {
     setCurrentPlaying(id: number | null) {
       this.currentPlayingTrackId = id;
     },
-    setReportFilter(kind: null | "missing_metadata" | "duplicates") {
+    setOpenWikipediaModal(value: boolean) {
+      this.openWikipediaModal = value;
+    },
+    setReportFilter(kind: null | "missing_metadata" | "duplicates" | "missing_album_cover") {
       this.reportFilter = kind;
     },
     async loadRoots() {
@@ -138,6 +145,24 @@ export const useCatalogStore = defineStore("catalog", {
         this.loading = false;
       }
     },
+    /** Rescan all roots and reload tracks (e.g. for Ctrl/Cmd+R refresh). */
+    async refreshAll() {
+      const roots = [...this.roots];
+      if (!roots.length) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        for (const rootPath of roots) {
+          await invoke<number>("rescan", { rootPath });
+        }
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
     async removeFolder(rootPath: string) {
       this.loading = true;
       this.error = null;
@@ -154,7 +179,35 @@ export const useCatalogStore = defineStore("catalog", {
     },
     async writeMetadata(path: string, update: import("../types").MetadataUpdate) {
       await invoke("write_track_metadata", { path, update });
+      // Invalidate cached cover so subsequent fetches reflect newly written artwork.
+      const nextCoverCache = { ...this.coverCache };
+      if (path in nextCoverCache) {
+        delete nextCoverCache[path];
+      }
+      this.coverCache = nextCoverCache;
       await this.loadTracks();
+    },
+    /** Write the same metadata to multiple tracks, then reload catalog once. Shows global loader until done to avoid flicker. */
+    async writeMetadataBulk(paths: string[], update: import("../types").MetadataUpdate) {
+      if (paths.length === 0) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        for (const path of paths) {
+          await invoke("write_track_metadata", { path, update });
+          const nextCoverCache = { ...this.coverCache };
+          if (path in nextCoverCache) {
+            delete nextCoverCache[path];
+          }
+          this.coverCache = nextCoverCache;
+        }
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
     },
     toggleSelection(id: number) {
       const i = this.selectedTrackIds.indexOf(id);
@@ -166,6 +219,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
     clearSelection() {
       this.selectedTrackIds = [];
+    },
+    setMultiSelectMode(value: boolean) {
+      this.multiSelectMode = value;
     },
     setSearchQuery(q: string) {
       this.searchQuery = q;

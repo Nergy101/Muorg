@@ -18,6 +18,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 lofty = "0.19"
 walkdir = "2"
 base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tauri-plugin-process = "2"
 tauri-plugin-shell = "2"
 

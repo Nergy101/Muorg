@@ -132,3 +132,44 @@ pub async fn write_track_metadata(
     crate::catalog::update_track_metadata(&conn, &path, &update)?;
     Ok(())
 }
+
+/// Download an image from a URL and return base64-encoded data plus MIME type (e.g. for Wikipedia album art).
+#[derive(serde::Serialize)]
+pub struct FetchedImage {
+    pub base64: String,
+    pub mime: String,
+}
+
+static USER_AGENT: &str = "Muorg/1.0 (music organizer; album art from Wikipedia)";
+
+#[tauri::command]
+pub async fn fetch_image_url(url: String) -> Result<FetchedImage, String> {
+    let client = reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("HTTP {}", response.status()));
+    }
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .split(';')
+        .next()
+        .unwrap_or("image/jpeg")
+        .trim()
+        .to_string();
+    let bytes = response.bytes().await.map_err(|e| e.to_string())?;
+    let base64 = base64::engine::general_purpose::STANDARD.encode(bytes.as_ref());
+    Ok(FetchedImage {
+        base64,
+        mime: content_type,
+    })
+}

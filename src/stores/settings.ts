@@ -20,6 +20,7 @@ const THEME_STORAGE_KEY = "muorg-theme";
 const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
 const DEFAULT_GROUPS_EXPANDED_KEY = "muorg-default-groups-expanded";
 const AUTOPLAY_ON_SELECT_KEY = "muorg-autoplay-on-select";
+const CONTINUOUS_PLAYBACK_KEY = "muorg-continuous-playback";
 const NAV_WRAP_KEY = "muorg-nav-wrap";
 const NAV_FOCUS_FOLLOWS_MOUSE_KEY = "muorg-nav-focus-follows-mouse";
 const TABLE_DENSITY_KEY = "muorg-table-density";
@@ -30,6 +31,13 @@ const TABLE_COL_FORMAT_KEY = "muorg-table-col-format";
 const TABLE_COL_PATH_KEY = "muorg-table-col-path";
 const MISSING_METADATA_FIELDS_KEY = "muorg-missing-metadata-fields";
 const GROUP_HEADER_ALBUM_ART_KEY = "muorg-group-header-album-art";
+const HIDE_WIKIPEDIA_COVER_KEY = "muorg-hide-wikipedia-cover";
+const PATH_FORMAT_TEMPLATE_KEY = "muorg-path-format-template";
+const PATH_FORMAT_EXAMPLE_PATH_KEY = "muorg-path-format-example-path";
+
+/** Default example path for Smart Suggestions path-format preview (reset button). */
+export const DEFAULT_PATH_FORMAT_EXAMPLE_PATH =
+  "/library/music/Enter Shikari/A Kiss for the Whole World/04 - Leap into the Lightning.flac";
 
 function loadTheme(): ThemeId {
   if (typeof window === "undefined") return "auto";
@@ -84,6 +92,12 @@ function loadBoolWithDefault(key: string, defaultValue: boolean): boolean {
   const stored = window.localStorage.getItem(key);
   if (stored == null) return defaultValue;
   return stored === "true";
+}
+
+function loadString(key: string, defaultValue: string): string {
+  if (typeof window === "undefined") return defaultValue;
+  const stored = window.localStorage.getItem(key);
+  return stored ?? defaultValue;
 }
 
 function loadMissingMetadataFields(): MissingMetadataField[] {
@@ -165,6 +179,7 @@ export const useSettingsStore = defineStore("settings", {
     defaultGroupBy: loadDefaultGroupBy() as DefaultGroupBy,
     defaultGroupsExpanded: loadDefaultGroupsExpanded(),
     autoplayOnSelect: loadAutoplayOnSelect(),
+    continuousPlayback: loadBoolWithDefault(CONTINUOUS_PLAYBACK_KEY, false),
     navWrap: loadNavWrap(),
     navFocusFollowsMouse: loadNavFocusFollowsMouse(),
     tableDensity: loadTableDensity() as TableDensity,
@@ -176,6 +191,14 @@ export const useSettingsStore = defineStore("settings", {
     missingMetadataFields: loadMissingMetadataFields() as MissingMetadataField[],
     /** Show album art in the group header when grouping by album. */
     groupHeaderAlbumArt: loadBoolWithDefault(GROUP_HEADER_ALBUM_ART_KEY, true),
+    /** Hide Wikipedia album cover search (globe button and "From Wikipedia" on group headers). */
+    hideWikipediaCoverSearch: loadBoolWithDefault(HIDE_WIKIPEDIA_COVER_KEY, false),
+    /** Path format template for smart metadata suggestions, e.g. "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>". */
+    pathFormatTemplate: loadString(PATH_FORMAT_TEMPLATE_KEY, "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>"),
+    /** Example path for path-format preview in Smart Suggestions (editable). */
+    pathFormatExamplePath: loadString(PATH_FORMAT_EXAMPLE_PATH_KEY, DEFAULT_PATH_FORMAT_EXAMPLE_PATH),
+    /** When set, the settings modal should open and switch to this tab (e.g. from MetadataEditor). Cleared after opening. */
+    openSettingsAtTab: null as string | null,
   }),
   actions: {
     setTheme(theme: ThemeId) {
@@ -203,6 +226,10 @@ export const useSettingsStore = defineStore("settings", {
     setAutoplayOnSelect(value: boolean) {
       this.autoplayOnSelect = value;
       persistAutoplayOnSelect(value);
+    },
+    setContinuousPlayback(value: boolean) {
+      this.continuousPlayback = value;
+      persistBool(CONTINUOUS_PLAYBACK_KEY, value);
     },
     setNavWrap(value: boolean) {
       this.navWrap = value;
@@ -243,6 +270,25 @@ export const useSettingsStore = defineStore("settings", {
     setGroupHeaderAlbumArt(value: boolean) {
       this.groupHeaderAlbumArt = value;
       persistBool(GROUP_HEADER_ALBUM_ART_KEY, value);
+    },
+    setHideWikipediaCoverSearch(value: boolean) {
+      this.hideWikipediaCoverSearch = value;
+      persistBool(HIDE_WIKIPEDIA_COVER_KEY, value);
+    },
+    setPathFormatTemplate(value: string) {
+      this.pathFormatTemplate = value;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(PATH_FORMAT_TEMPLATE_KEY, value);
+      }
+    },
+    setPathFormatExamplePath(value: string) {
+      this.pathFormatExamplePath = value;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(PATH_FORMAT_EXAMPLE_PATH_KEY, value);
+      }
+    },
+    setOpenSettingsAtTab(tab: string | null) {
+      this.openSettingsAtTab = tab;
     },
   },
 });

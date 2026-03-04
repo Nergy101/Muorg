@@ -11,16 +11,19 @@ import { open as openShell } from "@tauri-apps/plugin-shell";
 import type { Update } from "@tauri-apps/plugin-updater";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 import packageJson from "../../package.json";
+import { extractMetadataFromPath } from "../utils/pathFormat";
+import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../stores/settings";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { filteredTracks, selectedTrackIds, searchQuery, groupBy, albumCoverCache, currentPlayingTrackId, reportFilter } =
+const { filteredTracks, selectedTrackIds, searchQuery, groupBy, albumCoverCache, currentPlayingTrackId, reportFilter, multiSelectMode } =
   storeToRefs(store);
 const {
   defaultGroupsExpanded,
   theme,
   defaultGroupBy,
   autoplayOnSelect,
+  continuousPlayback,
   navWrap,
   navFocusFollowsMouse,
   tableDensity,
@@ -31,6 +34,10 @@ const {
   tableColPath,
   missingMetadataFields,
   groupHeaderAlbumArt,
+  hideWikipediaCoverSearch,
+  pathFormatTemplate,
+  pathFormatExamplePath,
+  openSettingsAtTab,
 } = storeToRefs(settingsStore);
 
 const tableDensityOptions: { value: TableDensity; label: string }[] = [
@@ -68,6 +75,10 @@ const activeReportTracks = computed(() => {
     return base.filter((t) => fields.some((f) => isFieldMissing(t, f)));
   }
 
+  if (kind === "missing_album_cover") {
+    return base.filter((t) => !t.has_cover);
+  }
+
   // duplicates: same normalized artist + album + title
   const keyFor = (t: CatalogTrack) =>
     `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
@@ -92,6 +103,7 @@ const activeReportTracks = computed(() => {
 const activeReportTitle = computed(() => {
   if (reportFilter.value === "missing_metadata") return "Missing metadata";
   if (reportFilter.value === "duplicates") return "Duplicates";
+  if (reportFilter.value === "missing_album_cover") return "Missing album cover";
   return "";
 });
 
@@ -118,7 +130,7 @@ const appVersion = packageJson.version;
 
 const showSettingsModal = ref(false);
 const settingsModalRef = ref<HTMLDivElement | null>(null);
-type SettingsTabId = "general" | "playback" | "keyboard" | "grouping" | "table" | "reports";
+type SettingsTabId = "general" | "playback" | "keyboard" | "grouping" | "table" | "reports" | "smart_suggestions";
 const settingsTab = ref<SettingsTabId>("general");
 const settingsTabs: { id: SettingsTabId; label: string }[] = [
   { id: "general", label: "General" },
@@ -127,6 +139,7 @@ const settingsTabs: { id: SettingsTabId; label: string }[] = [
   { id: "grouping", label: "Grouping" },
   { id: "table", label: "Table" },
   { id: "reports", label: "Reports" },
+  { id: "smart_suggestions", label: "Smart Suggestions" },
 ];
 const showKeyMapModal = ref(false);
   const keyMapModalRef = ref<HTMLDivElement | null>(null);
@@ -145,6 +158,7 @@ const showKeyMapModal = ref(false);
 
 const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
+  { keys: "Ctrl+R / ⌘R", description: "Refresh whole library (all folders, all reports)" },
   { keys: "Escape", description: "Close metadata panel (discard changes)" },
   { keys: "↓ Arrow Down", description: "Move focus down in track list" },
   { keys: "↑ Arrow Up", description: "Move focus up in track list" },
@@ -156,6 +170,14 @@ watch(showSettingsModal, async (open) => {
   if (open) {
     await nextTick();
     settingsModalRef.value?.focus();
+  }
+});
+
+watch(openSettingsAtTab, (tab) => {
+  if (tab) {
+    showSettingsModal.value = true;
+    settingsTab.value = tab as SettingsTabId;
+    nextTick(() => settingsStore.setOpenSettingsAtTab(null));
   }
 });
 
@@ -310,6 +332,33 @@ function groupContainsSelection(group: { key: string; label: string; tracks: Cat
   return group.tracks.some((tr) => selectedTrackIds.value.includes(tr.id));
 }
 
+/** Select all tracks in a group and expand it (for editing cover on the whole album). */
+function selectGroupTracksForCoverEdit(groupKey: string, group: { key: string; label: string; tracks: CatalogTrack[] }) {
+  store.clearSelection();
+  for (const t of group.tracks) store.toggleSelection(t.id);
+  expandedGroups.value = new Set([...expandedGroups.value, groupKey]);
+}
+
+/** Select all tracks in group, expand, and open the Wikipedia cover modal in the metadata panel. */
+function selectGroupAndOpenWikipedia(groupKey: string, group: { key: string; label: string; tracks: CatalogTrack[] }) {
+  selectGroupTracksForCoverEdit(groupKey, group);
+  store.setOpenWikipediaModal(true);
+}
+
+/** Example path format expressions (click to use). */
+const pathFormatExamples = [
+  "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>",
+  "<Artist>/Albums/<Year> - <Album>/<TrackNumber> - <TrackTitle>.<ext>",
+];
+
+/** Extracted metadata from the example path using the current path format template (for Smart Suggestions preview). */
+const pathFormatExampleExtracted = computed(() => {
+  const fmt = pathFormatTemplate.value?.trim();
+  const examplePath = pathFormatExamplePath.value?.trim();
+  if (!fmt || !examplePath) return null;
+  return extractMetadataFromPath(fmt, examplePath);
+});
+
 /** Select a track from the report modal: expand its group, select the track, close the report. */
 function selectTrackFromReport(t: CatalogTrack) {
   if (groupBy.value !== "none") {
@@ -342,8 +391,6 @@ function selectTrackFromReport(t: CatalogTrack) {
 const expandedGroups = ref<Set<string>>(new Set());
 /** True after we've applied defaultGroupsExpanded once for the current groupBy (so we don't re-apply on every groupedRows update). */
 const appliedDefaultForSession = ref(false);
-const multiSelectMode = ref(false);
-
 /** Index into visibleRows for keyboard focus. -1 when no row focused. */
 const focusedRowIndex = ref(-1);
 const tableContainerRef = ref<HTMLDivElement | null>(null);
@@ -380,14 +427,21 @@ const visibleRows = computed((): VisibleRow[] => {
   return out;
 });
 
-const tooltipPopover = ref<{ text: string; x: number; y: number } | null>(null);
+type TooltipPosition = "left" | "below" | "below-left";
+const tooltipPopover = ref<{ text: string; x: number; y: number; position?: TooltipPosition } | null>(null);
 let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
 
-function showTooltip(text: string, e: MouseEvent) {
+function showTooltip(text: string, e: MouseEvent, position: TooltipPosition = "below") {
   if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
   tooltipHideTimeout = null;
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.bottom + 6 };
+  if (position === "left") {
+    tooltipPopover.value = { text, x: rect.left - 8, y: rect.top + rect.height / 2, position: "left" };
+  } else if (position === "below-left") {
+    tooltipPopover.value = { text, x: rect.left, y: rect.bottom + 6, position: "below-left" };
+  } else {
+    tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.bottom + 6, position: "below" };
+  }
 }
 
 function scheduleHideTooltip() {
@@ -406,6 +460,14 @@ function hideTooltip() {
   tooltipPopover.value = null;
   if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
   tooltipHideTimeout = null;
+}
+
+async function copyPathToClipboard(path: string) {
+  try {
+    await navigator.clipboard.writeText(path);
+  } catch {
+    // ignore
+  }
 }
 
 function formatDuration(secs: number | null): string {
@@ -718,6 +780,9 @@ function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === "f") {
     e.preventDefault();
     searchInputRef.value?.focus();
+  } else if ((e.ctrlKey || e.metaKey) && e.key === "r") {
+    e.preventDefault();
+    store.refreshAll();
   }
 }
 
@@ -807,14 +872,14 @@ onUnmounted(() => {
       </div>
       <div
         class="relative z-[210] flex shrink-0 items-center gap-2"
-        @mouseenter="showTooltip('Version ' + appVersion, $event)"
+        @mouseenter="showTooltip('Version ' + appVersion, $event, 'left')"
         @mouseleave="scheduleHideTooltip"
       >
         <img src="/favicon.svg" alt="" class="h-6 w-6 shrink-0" />
         <span class="text-sm font-semibold text-stone-200">Muorg</span>
         <span
           class="relative z-[220] inline-flex"
-          @mouseenter="showTooltip('Key map', $event)"
+          @mouseenter="showTooltip('Key map', $event, 'left')"
           @mouseleave="scheduleHideTooltip"
         >
           <button
@@ -851,7 +916,7 @@ onUnmounted(() => {
         </span>
         <span
           class="inline-flex"
-          @mouseenter="showTooltip('Settings', $event)"
+          @mouseenter="showTooltip('Settings', $event, 'left')"
           @mouseleave="scheduleHideTooltip"
         >
           <button
@@ -883,9 +948,10 @@ onUnmounted(() => {
             <th class="w-8 border-r border-stone-700 p-2">
               <label class="flex cursor-pointer items-center gap-1.5 text-xs text-stone-400">
                 <input
-                  v-model="multiSelectMode"
+                  :checked="multiSelectMode"
                   type="checkbox"
                   class="rounded border-stone-600"
+                  @change="store.setMultiSelectMode(($event.target as HTMLInputElement).checked)"
                 />
                 Multi-select
               </label>
@@ -924,7 +990,7 @@ onUnmounted(() => {
                 @click="focusedRowIndex = index; toggleGroup(row.key)"
               >
                 <td :colspan="tableColCount" class="border-b border-stone-600 p-2">
-                  <span class="inline-flex items-center gap-2">
+                  <span class="inline-flex flex-wrap items-center gap-2">
                     <span
                       v-if="groupBy === 'album' && groupCovers[row.key] && groupHeaderAlbumArt"
                       class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
@@ -940,6 +1006,28 @@ onUnmounted(() => {
                     </span>
                     {{ row.group.label }}
                     <span class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
+                    <template v-if="groupBy === 'album'">
+                      <button
+                        type="button"
+                        class="rounded border border-stone-600 px-1.5 py-0.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                        @click.stop="selectGroupTracksForCoverEdit(row.key, row.group)"
+                      >
+                        Edit cover image
+                      </button>
+                      <button
+                        v-if="!groupCovers[row.key] && !hideWikipediaCoverSearch"
+                        type="button"
+                        class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                        title="From Wikipedia"
+                        aria-label="From Wikipedia"
+                        @click.stop="selectGroupAndOpenWikipedia(row.key, row.group)"
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                      </button>
+                    </template>
                   </span>
                 </td>
               </tr>
@@ -975,7 +1063,26 @@ onUnmounted(() => {
                 <td v-if="tableColYear" class="border-r border-stone-700 p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
                 <td v-if="tableColDuration" class="border-r border-stone-700 p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
                 <td v-if="tableColFormat" class="border-r border-stone-700 p-2 text-stone-400">{{ row.track.format }}</td>
-                <td v-if="tableColPath" class="max-w-[200px] truncate p-2 text-stone-500" :title="row.track.path">{{ row.track.path }}</td>
+                <td v-if="tableColPath" class="max-w-[200px] p-2 text-stone-500">
+                  <div class="flex min-w-0 items-center gap-1">
+                    <button
+                      type="button"
+                      class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300"
+                      aria-label="Copy path"
+                      title="Copy path"
+                      @click.stop="copyPathToClipboard(row.track.path)"
+                    >
+                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <span
+                      class="min-w-0 truncate cursor-default"
+                      @mouseenter="showTooltip(row.track.path, $event, 'left')"
+                      @mouseleave="scheduleHideTooltip"
+                    >{{ row.track.path }}</span>
+                  </div>
+                </td>
               </tr>
             </template>
             <!-- Virtualization: bottom spacer -->
@@ -998,8 +1105,9 @@ onUnmounted(() => {
     <Teleport to="body">
       <div
         v-if="tooltipPopover"
-        class="fixed z-[200] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-        :style="{ left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }"
+        class="fixed z-[500] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+        :class="[tooltipPopover.position === 'left' ? 'whitespace-nowrap' : 'break-all max-w-[min(90vw,420px)]']"
+        :style="tooltipPopover.position === 'left' ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-100%, -50%)' } : tooltipPopover.position === 'below-left' ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px' } : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }"
         @mouseenter="cancelHideTooltip"
         @mouseleave="hideTooltip"
       >
@@ -1020,7 +1128,7 @@ onUnmounted(() => {
         @click.self="closeSettingsModal"
       >
         <div
-          class="settings-modal flex flex-col w-full max-w-2xl rounded-lg border border-stone-600 bg-stone-800 shadow-xl overflow-hidden"
+          class="settings-modal flex h-[70vh] min-h-[400px] flex-col w-full max-w-2xl rounded-lg border border-stone-600 bg-stone-800 shadow-xl overflow-hidden"
           @click.stop
         >
           <div class="flex shrink-0 items-center justify-between border-b border-stone-700 px-4 py-3">
@@ -1049,7 +1157,7 @@ onUnmounted(() => {
               {{ tab.label }}
             </button>
           </nav>
-          <div class="flex-1 min-w-0 overflow-y-auto max-h-[70vh] p-4">
+          <div class="flex-1 min-h-0 min-w-0 overflow-y-auto p-4">
             <div v-show="settingsTab === 'general'" class="space-y-4">
               <div>
                 <label class="block text-xs font-medium text-stone-500">Theme</label>
@@ -1138,6 +1246,18 @@ onUnmounted(() => {
                 Auto-play when selecting a single track
               </label>
               <p class="mt-0.5 text-xs text-stone-500">If enabled, selecting a single track immediately starts playback.</p>
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="continuousPlayback"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setContinuousPlayback((e.target as HTMLInputElement).checked)"
+                />
+                Continuous playback
+              </label>
+              <p class="mt-0.5 text-xs text-stone-500">
+                When enabled, playback automatically advances to the next track when the current track finishes.
+              </p>
             </div>
             <div v-show="settingsTab === 'keyboard'" class="space-y-4">
               <p class="text-xs font-semibold text-stone-400">Keyboard</p>
@@ -1258,6 +1378,84 @@ onUnmounted(() => {
                   />
                   {{ opt.label }}
                 </label>
+              </div>
+            </div>
+            <div v-show="settingsTab === 'smart_suggestions'" class="space-y-4">
+              <p class="text-xs font-semibold text-stone-400">Smart Suggestions</p>
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="hideWikipediaCoverSearch"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setHideWikipediaCoverSearch((e.target as HTMLInputElement).checked)"
+                />
+                Hide Wikipedia album cover search
+              </label>
+              <p class="mt-1 text-xs text-stone-500">When enabled, the "From Wikipedia" (globe) button for album art is hidden in the metadata editor and on album group headers.</p>
+              <div class="pt-2 border-t border-stone-700">
+                <label class="block text-xs font-medium text-stone-500">Path format (for metadata suggestions)</label>
+                <p class="mt-0.5 text-xs text-stone-500">Use placeholders in angle brackets to describe how your file paths are structured. Matching uses the last segments of each path.</p>
+                <p class="mt-1.5 text-xs font-medium text-stone-500">Examples:</p>
+                <ul class="mt-0.5 space-y-0.5 text-xs">
+                  <li v-for="(ex, i) in pathFormatExamples" :key="i">
+                    <button
+                      type="button"
+                      class="path-format-example-btn w-full break-all rounded border px-2 py-1 font-mono text-left"
+                      :title="'Use this format'"
+                      @click="settingsStore.setPathFormatTemplate(ex)"
+                    >
+                      {{ ex }}
+                    </button>
+                  </li>
+                </ul>
+                <input
+                  type="text"
+                  :value="pathFormatTemplate"
+                  class="mt-2 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-200"
+                  @input="(e) => settingsStore.setPathFormatTemplate((e.target as HTMLInputElement).value)"
+                />
+                <div class="mt-3 rounded border border-stone-600 bg-stone-900/70 p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs font-medium text-stone-400">Try your path</p>
+                    <button
+                      type="button"
+                      class="shrink-0 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                      title="Restore default example path"
+                      @click="settingsStore.setPathFormatExamplePath(DEFAULT_PATH_FORMAT_EXAMPLE_PATH)"
+                    >
+                      Reset to default
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    :value="pathFormatExamplePath"
+                    class="mt-1.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200 placeholder:text-stone-500"
+                    placeholder="e.g. /path/to/Artist/Album/01 - Title.flac"
+                    @input="(e) => settingsStore.setPathFormatExamplePath((e.target as HTMLInputElement).value)"
+                  />
+                  <div v-if="pathFormatTemplate.trim()" class="mt-2">
+                    <p class="text-xs font-medium text-stone-400">Extracted fields</p>
+                    <table v-if="pathFormatExampleExtracted" class="mt-1.5 w-full border-collapse text-xs">
+                      <thead>
+                        <tr class="border-b border-stone-600">
+                          <th class="py-1.5 pr-3 text-left font-medium text-stone-500">Field</th>
+                          <th class="py-1.5 text-left font-medium text-stone-500">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="(val, key) in pathFormatExampleExtracted"
+                          :key="key"
+                          class="border-b border-stone-700/50"
+                        >
+                          <td class="py-1.5 pr-3 font-mono text-stone-400">{{ key }}</td>
+                          <td class="py-1.5 text-stone-300">{{ val || '—' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p v-else class="mt-1 text-xs text-amber-500">Format does not match the example path. Adjust placeholders or path structure.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1418,24 +1616,24 @@ onUnmounted(() => {
     <Teleport to="body">
       <div
         v-if="showReportModal"
-        class="fixed inset-0 z-[310] flex items-center justify-center bg-stone-950/75 p-4"
+        class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4"
         role="dialog"
         aria-modal="true"
         @click.self="store.setReportFilter(null)"
       >
         <div
-          class="report-modal flex max-h-[80vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border shadow-xl"
+          class="report-modal flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
         >
-          <div class="flex items-center justify-between border-b px-4 py-3">
+          <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
             <div class="min-w-0">
-              <h2 class="truncate text-sm font-semibold text-stone-100">{{ activeReportTitle }}</h2>
-              <p class="mt-0.5 text-xs text-stone-400">
+              <h2 class="truncate text-sm font-semibold">{{ activeReportTitle }}</h2>
+              <p class="mt-0.5 text-xs">
                 {{ activeReportTracks.length }} track{{ activeReportTracks.length === 1 ? "" : "s" }} in this report.
               </p>
             </div>
             <button
               type="button"
-              class="rounded p-1.5 text-stone-500 hover:bg-stone-700 hover:text-stone-100"
+              class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
               aria-label="Close report"
               @click="store.setReportFilter(null)"
             >
@@ -1444,9 +1642,9 @@ onUnmounted(() => {
               </svg>
             </button>
           </div>
-          <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-xs">
+          <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-xs bg-stone-900/60">
             <table class="w-full border-collapse text-left">
-              <thead class="sticky top-0 bg-stone-900/95">
+              <thead class="sticky top-0 bg-stone-900">
                 <tr class="border-b border-stone-700 text-[0.7rem] uppercase tracking-wide text-stone-500">
                   <th class="px-2 py-1 font-medium">Title</th>
                   <th class="px-2 py-1 font-medium">Artist</th>

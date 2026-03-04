@@ -19,6 +19,8 @@ pub struct CatalogTrack {
     pub duration_secs: Option<i64>,
     pub format: String,
     pub mtime_secs: i64,
+    /// True if the track has embedded album cover art (CoverFront).
+    pub has_cover: bool,
 }
 
 const SCHEMA: &str = "
@@ -49,8 +51,25 @@ CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
 ";
 
+fn schema_has_column(conn: &rusqlite::Connection, table: &str, column: &str) -> Result<bool, String> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table)).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| r.get::<_, String>(1))
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        if row.map_err(|e| e.to_string())? == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     conn.execute_batch(SCHEMA).map_err(|e| e.to_string())?;
+    if !schema_has_column(conn, "tracks", "has_cover")? {
+        conn.execute("ALTER TABLE tracks ADD COLUMN has_cover INTEGER NOT NULL DEFAULT 0", [])
+            .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -84,13 +103,20 @@ pub fn load_roots(conn: &rusqlite::Connection) -> Result<Vec<String>, String> {
 }
 
 pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs FROM tracks ORDER BY artist, album, track_number, title",
-        )
-        .map_err(|e| e.to_string())?;
+    let has_cover_col = schema_has_column(conn, "tracks", "has_cover")?;
+    let sql = if has_cover_col {
+        "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover FROM tracks ORDER BY artist, album, track_number, title"
+    } else {
+        "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs FROM tracks ORDER BY artist, album, track_number, title"
+    };
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |r| {
+            let has_cover = if has_cover_col {
+                r.get::<_, i64>(14).map(|n| n != 0).unwrap_or(false)
+            } else {
+                false
+            };
             Ok(CatalogTrack {
                 id: r.get(0)?,
                 path: r.get(1)?,
@@ -106,6 +132,7 @@ pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, Str
                 duration_secs: r.get(11)?,
                 format: r.get(12)?,
                 mtime_secs: r.get(13)?,
+                has_cover,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -138,8 +165,8 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
     let mut count = 0u64;
     let mut insert = conn
         .prepare(
-            "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         )
         .map_err(|e| e.to_string())?;
 
@@ -169,6 +196,7 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
             Err(_) => continue,
         };
 
+        let has_cover = meta.picture_base64.as_ref().map_or(false, |s| !s.is_empty());
         insert
             .execute(rusqlite::params![
                 root_id,
@@ -184,6 +212,7 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
                 meta.duration_secs.map(|d| d as i64),
                 format,
                 mtime_secs,
+                if has_cover { 1i64 } else { 0i64 },
             ])
             .map_err(|e| e.to_string())?;
         count += 1;
@@ -251,6 +280,10 @@ pub fn update_track_metadata(
     if let Some(n) = update.disc_number {
         sets.push("disc_number = ?");
         params.push(rusqlite::types::Value::Integer(n as i64));
+    }
+    if let Some(ref b64) = update.picture_base64 {
+        sets.push("has_cover = ?");
+        params.push(rusqlite::types::Value::Integer(if b64.is_empty() { 0 } else { 1 }));
     }
 
     if sets.is_empty() {

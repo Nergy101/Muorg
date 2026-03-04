@@ -7,8 +7,8 @@ import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks } = storeToRefs(store);
-const { autoplayOnSelect } = storeToRefs(settingsStore);
+const { selectedTracks, filteredTracks } = storeToRefs(store);
+const { autoplayOnSelect, continuousPlayback } = storeToRefs(settingsStore);
 
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
@@ -18,6 +18,7 @@ const audioSrc = ref("");
 const currentTime = ref(0);
 const duration = ref(0);
 const isSeeking = ref(false);
+let shouldAutoplayNextSelection = false;
 
 function onVolumeInput(e: Event) {
   const v = parseFloat((e.target as HTMLInputElement).value);
@@ -62,6 +63,24 @@ function onSeekInput(e: Event) {
   if (audioRef.value) audioRef.value.currentTime = val;
 }
 
+/** Inset (px) so click math matches the visible track (thumb is 12px so half on each end). */
+const PROGRESS_THUMB_HALF = 6;
+
+/** Seek to the position under the click; use same inset as track so thumb ends exactly to the left of the click. */
+function onProgressBarClick(e: MouseEvent) {
+  const input = e.currentTarget as HTMLInputElement;
+  const rect = input.getBoundingClientRect();
+  const trackWidth = rect.width - 2 * PROGRESS_THUMB_HALF;
+  if (trackWidth <= 0) return;
+  const x = e.clientX - rect.left - PROGRESS_THUMB_HALF;
+  const ratio = Math.max(0, Math.min(1, x / trackWidth));
+  const d = displayDuration.value;
+  if (!d || !Number.isFinite(d)) return;
+  const newTime = ratio * d;
+  currentTime.value = newTime;
+  if (audioRef.value) audioRef.value.currentTime = newTime;
+}
+
 function onSeekMouseDown() {
   isSeeking.value = true;
 }
@@ -85,6 +104,14 @@ const displayDuration = computed(() => {
   if (fromTrack != null && Number.isFinite(fromTrack) && fromTrack >= 0) return fromTrack;
   return duration.value;
 });
+
+/** Progress 0–100 for filling the progress bar (elapsed portion). */
+const progressPercent = computed(() => {
+  const d = displayDuration.value;
+  if (!d || !Number.isFinite(d)) return 0;
+  return Math.min(100, (currentTime.value / d) * 100);
+});
+
 
 async function loadAudioBlob(path: string) {
   if (audioSrc.value) {
@@ -119,7 +146,9 @@ watch(
     }
     store.setCurrentPlaying(track.id);
     loadAudioBlob(track.path).then(() => {
-      if (!autoplayOnSelect.value) return;
+      const shouldAutoplay = autoplayOnSelect.value || shouldAutoplayNextSelection;
+      if (!shouldAutoplay) return;
+      shouldAutoplayNextSelection = false;
       nextTick(() => {
         const el = audioRef.value;
         if (!el) return;
@@ -152,6 +181,16 @@ function onAudioPause() {
 
 function onAudioEnded() {
   isPlaying.value = false;
+  if (!continuousPlayback.value) return;
+  const current = singleTrack.value;
+  const list = filteredTracks.value;
+  if (!current || !list.length) return;
+  const idx = list.findIndex((t) => t.id === current.id);
+  if (idx < 0 || idx + 1 >= list.length) return;
+  const next = list[idx + 1];
+  shouldAutoplayNextSelection = true;
+  store.clearSelection();
+  store.toggleSelection(next.id);
 }
 
 function restart() {
@@ -210,7 +249,7 @@ onUnmounted(() => {
 <template>
   <div
     v-if="singleTrack"
-    class="flex shrink-0 flex-col gap-2 border-t border-stone-700 bg-stone-800/95 px-3 py-2"
+    class="flex shrink-0 flex-col gap-2 border-t border-stone-700 px-3 py-2"
   >
     <audio
       ref="audioRef"
@@ -276,7 +315,9 @@ onUnmounted(() => {
           step="0.1"
           :value="currentTime"
           class="player-progress-slider h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-stone-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
+          :style="{ '--progress-percent': progressPercent + '%' }"
           aria-label="Seek"
+          @click="onProgressBarClick"
           @input="onSeekInput"
           @mousedown="onSeekMouseDown"
           @mouseup="onSeekMouseUp"
@@ -339,5 +380,33 @@ onUnmounted(() => {
 .player-volume-slider::-webkit-slider-thumb,
 .player-progress-slider::-webkit-slider-thumb {
   background: #5b7c32;
+}
+/* Progress bar: fill the elapsed (left) portion; fill ends at thumb so click position matches. */
+.player-progress-slider {
+  background: linear-gradient(
+    to right,
+    #5b7c32 0%,
+    #5b7c32 var(--progress-percent, 0%),
+    rgb(87 83 78) var(--progress-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+.player-progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #5b7c32 0%,
+    #5b7c32 var(--progress-percent, 0%),
+    rgb(87 83 78) var(--progress-percent, 0%),
+    rgb(87 83 78) 100%
+  );
+}
+/* Firefox: filled portion before thumb */
+.player-progress-slider::-moz-range-progress {
+  background: #5b7c32;
+  border-radius: 9999px;
+}
+.player-progress-slider::-moz-range-track {
+  background: rgb(87 83 78);
+  border-radius: 9999px;
 }
 </style>

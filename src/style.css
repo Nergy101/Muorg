@@ -113,6 +113,23 @@ input[type="checkbox"] {
 [data-theme="light"] .player-volume-slider::-webkit-slider-thumb,
 [data-theme="light"] .player-progress-slider::-webkit-slider-thumb { background: #4d7c2c; }
 
+/* Path format example buttons (Smart Suggestions) – theme-aware */
+.path-format-example-btn {
+  @apply border border-stone-600 bg-stone-800 text-stone-400 transition-colors;
+}
+.path-format-example-btn:hover {
+  @apply bg-stone-700 text-stone-300;
+}
+[data-theme="light"] .path-format-example-btn {
+  border-color: #d6d3d1 !important;
+  background-color: #e7e5e4 !important;
+  color: #57534e !important;
+}
+[data-theme="light"] .path-format-example-btn:hover {
+  background-color: #d6d3d1 !important;
+  color: #44403c !important;
+}
+
 /* DOOM easter-egg theme: reds, ambers, dark grays, terminal green */
 [data-theme="doom"] body {
   background-color: #0d0202;

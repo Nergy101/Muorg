@@ -97,6 +97,10 @@ const duplicateCount = computed(() => {
   return total;
 });
 
+const missingAlbumCoverCount = computed(() =>
+  tracks.value.filter((t) => !(t.has_cover ?? false)).length
+);
+
 const totalTrackCount = computed(() => tracks.value.length);
 
 /** Normalize path for prefix match (forward slashes, no trailing slash except for root). */
@@ -143,6 +147,12 @@ function openMissingMetadataReport() {
 
 function openDuplicateReport() {
   const kind = reportFilter.value === "duplicates" ? null : "duplicates";
+  store.setReportFilter(kind);
+  store.clearSelection();
+}
+
+function openMissingAlbumCoverReport() {
+  const kind = reportFilter.value === "missing_album_cover" ? null : "missing_album_cover";
   store.setReportFilter(kind);
   store.clearSelection();
 }
@@ -362,6 +372,20 @@ async function handleRemoveFolder(rootPath: string) {
                 <span>Duplicates</span>
               </span>
               <span class="text-[0.7rem] text-stone-400">{{ duplicateCount }}</span>
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
+              :class="reportFilter === 'missing_album_cover' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+              @click="openMissingAlbumCoverReport"
+            >
+              <span class="flex items-center gap-1.5">
+                <span class="inline-flex h-4 w-4 items-center justify-center rounded bg-stone-500/20 text-stone-300">
+                  🖼
+                </span>
+                <span>Missing album cover</span>
+              </span>
+              <span class="text-[0.7rem] text-stone-400">{{ missingAlbumCoverCount }}</span>
             </button>
           </div>
         </div>

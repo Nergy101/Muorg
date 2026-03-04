@@ -46,6 +46,7 @@ pub fn run() {
             commands::path_to_folder,
             commands::get_track_cover,
             commands::read_audio_file,
+            commands::fetch_image_url,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
