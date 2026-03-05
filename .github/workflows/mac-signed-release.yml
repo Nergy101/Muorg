@@ -1,0 +1,145 @@
+# Build signed and notarized macOS release only.
+# Run manually (workflow_dispatch) when you want to publish a signed Mac build.
+# Creates a release with tag v<VERSION>-macos-signed containing only the signed macOS artifacts.
+
+name: macOS Signed Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to build (branch or tag, e.g. main or v0.3.2)'
+        required: true
+        default: 'main'
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set.outputs.version }}
+      tag: ${{ steps.set.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set version
+        id: set
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}-macos-signed"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set version in manifests
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const v = process.env.VERSION;
+            const p = require('./package.json');
+            p.version = v;
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
+            const tauri = require('./src-tauri/tauri.conf.json');
+            tauri.version = v;
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(tauri, null, 2));
+            const cargo = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+            fs.writeFileSync('src-tauri/Cargo.toml', cargo.replace(/^version = \".*\"$/m, 'version = \"' + v + '\"'));
+          "
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Rust target
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Import Apple Developer Certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 -D > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" || true)
+          CERT_ID=$(echo "$CERT_INFO" | head -1 | awk -F'"' '{print $2}')
+          if [ -z "$CERT_ID" ]; then echo "::error::Developer ID Application certificate not found in keychain"; exit 1; fi
+          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported. Signing identity: $CERT_ID"
+
+      - name: Build Tauri (signed and notarized)
+        run: pnpm tauri build --target aarch64-apple-darwin
+        env:
+          CI: true
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: muorg-${{ needs.version.outputs.version }}-aarch64-darwin-signed
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: muorg-${{ needs.version.outputs.version }}-aarch64-darwin-signed
+          path: artifacts
+
+      - name: Create Release (macOS signed)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Muorg ${{ needs.version.outputs.version }} (macOS signed)
+          body: |
+            Signed and notarized macOS build for Muorg ${{ needs.version.outputs.version }}.
+            No Gatekeeper warning when opening.
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
