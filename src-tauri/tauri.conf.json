@@ -11,7 +11,16 @@
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": []
+    "windows": [
+      {
+        "label": "main",
+        "title": "Muorg — The Music Organizer from Hell",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
   },
   "bundle": {
     "active": true,
