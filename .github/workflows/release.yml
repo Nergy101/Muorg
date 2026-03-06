@@ -42,12 +42,12 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             artifact_name: aarch64-darwin
-          - platform: windows-latest
-            target: ""
-            artifact_name: x86_64-windows
-          - platform: ubuntu-22.04
-            target: ""
-            artifact_name: x86_64-linux
+          # - platform: windows-latest
+          #   target: ""
+          #   artifact_name: x86_64-windows
+          # - platform: ubuntu-22.04
+          #   target: ""
+          #   artifact_name: x86_64-linux
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
