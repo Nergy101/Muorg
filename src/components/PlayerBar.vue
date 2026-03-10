@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import { useSettingsStore } from "../stores/settings";
+import TrackAlbumArt from "./TrackAlbumArt.vue";
 import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
@@ -193,6 +194,30 @@ function onAudioEnded() {
   store.toggleSelection(next.id);
 }
 
+function playNext() {
+  const current = singleTrack.value;
+  const list = filteredTracks.value;
+  if (!current || !list.length) return;
+  const idx = list.findIndex((t) => t.id === current.id);
+  if (idx < 0 || idx + 1 >= list.length) return;
+  const next = list[idx + 1];
+  shouldAutoplayNextSelection = true;
+  store.clearSelection();
+  store.toggleSelection(next.id);
+}
+
+function playPrevious() {
+  const current = singleTrack.value;
+  const list = filteredTracks.value;
+  if (!current || !list.length) return;
+  const idx = list.findIndex((t) => t.id === current.id);
+  if (idx <= 0) return;
+  const prev = list[idx - 1];
+  shouldAutoplayNextSelection = true;
+  store.clearSelection();
+  store.toggleSelection(prev.id);
+}
+
 function restart() {
   const el = audioRef.value;
   if (!el) return;
@@ -249,7 +274,7 @@ onUnmounted(() => {
 <template>
   <div
     v-if="singleTrack"
-    class="flex shrink-0 flex-col gap-2 border-t border-stone-700 px-3 py-2"
+    class="flex shrink-0 flex-col items-center gap-2 border-t border-stone-700 px-3 py-2"
   >
     <audio
       ref="audioRef"
@@ -262,13 +287,44 @@ onUnmounted(() => {
       @loadedmetadata="onDurationChange"
       @durationchange="onDurationChange"
     />
-    <div class="flex min-w-0 items-center gap-3">
-      <!-- Track title (left) -->
-      <span class="min-w-0 max-w-[180px] shrink-0 truncate text-xs font-medium text-stone-300" :title="singleTrack?.title || singleTrack?.path">
-        {{ singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || "Track" }}
-      </span>
+    <div class="flex min-w-0 w-full max-w-2xl items-center gap-3">
+      <!-- Track artwork + title/artist (left) -->
+      <div class="flex min-w-0 max-w-[220px] shrink-0 items-center gap-2">
+        <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" />
+        <span
+          class="min-w-0 truncate text-xs font-medium"
+          :title="singleTrack?.title || singleTrack?.path"
+        >
+          <span class="text-stone-200">
+            {{ singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || "Track" }}
+          </span>
+          <span
+            v-if="singleTrack?.artist"
+            class="ml-1 text-[11px] font-normal text-stone-500"
+          >
+            — {{ singleTrack.artist }}
+          </span>
+        </span>
+      </div>
       <!-- Playback controls -->
       <div class="flex shrink-0 items-center gap-0.5">
+        <span
+          class="inline-flex"
+          @mouseenter="showTooltip('Previous track', $event)"
+          @mouseleave="scheduleHideTooltip"
+        >
+          <button
+            type="button"
+            class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
+            aria-label="Previous track"
+            @click="playPrevious"
+            :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack.id) <= 0"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />
+            </svg>
+          </button>
+        </span>
         <span
           class="inline-flex"
           @mouseenter="showTooltip('Restart from beginning', $event)"
@@ -301,6 +357,23 @@ onUnmounted(() => {
             </svg>
             <svg v-else class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+            </svg>
+          </button>
+        </span>
+        <span
+          class="inline-flex"
+          @mouseenter="showTooltip('Next track', $event)"
+          @mouseleave="scheduleHideTooltip"
+        >
+          <button
+            type="button"
+            class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
+            aria-label="Next track"
+            @click="playNext"
+            :disabled="!singleTrack || (() => { const list = filteredTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" />
             </svg>
           </button>
         </span>
