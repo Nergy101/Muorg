@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
 import { useSettingsStore } from "../stores/settings";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
+import VolumeControl from "./VolumeControl.vue";
 import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
@@ -13,32 +14,15 @@ const { autoplayOnSelect, continuousPlayback } = storeToRefs(settingsStore);
 
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
-const volume = ref(0.25);
-const volumeBeforeMute = ref(0.25);
 const audioSrc = ref("");
 const currentTime = ref(0);
 const duration = ref(0);
 const isSeeking = ref(false);
 let shouldAutoplayNextSelection = false;
 
-function onVolumeInput(e: Event) {
-  const v = parseFloat((e.target as HTMLInputElement).value);
-  volume.value = v;
-  if (audioRef.value) audioRef.value.volume = v;
-  if (v > 0) volumeBeforeMute.value = v;
-}
-
-function toggleMute() {
-  if (volume.value > 0) {
-    volumeBeforeMute.value = volume.value;
-    volume.value = 0;
-    if (audioRef.value) audioRef.value.volume = 0;
-  } else {
-    const v = volumeBeforeMute.value || 0.25;
-    volume.value = v;
-    if (audioRef.value) audioRef.value.volume = v;
-  }
-}
+const marqueeContainerRef = ref<HTMLDivElement | null>(null);
+const shouldScrollMarquee = ref(false);
+const marqueeDistance = ref(0);
 
 function formatTime(secs: number): string {
   if (!Number.isFinite(secs) || secs < 0) return "0:00";
@@ -90,13 +74,15 @@ function onSeekMouseUp() {
   isSeeking.value = false;
 }
 
-watch(audioRef, (el) => {
-  if (el) el.volume = volume.value;
-});
-
 const singleTrack = computed(() => {
   const tracks = selectedTracks.value;
   return tracks.length === 1 ? tracks[0] : null;
+});
+
+const marqueeTitle = computed(() => {
+  const t = singleTrack.value;
+  if (!t) return "";
+  return t.title || t.path.split(/[/\\]/).pop() || "Track";
 });
 
 /** Display duration: prefer catalog value (reliable); fall back to audio element when loaded. */
@@ -112,6 +98,25 @@ const progressPercent = computed(() => {
   if (!d || !Number.isFinite(d)) return 0;
   return Math.min(100, (currentTime.value / d) * 100);
 });
+
+function recomputeMarquee() {
+  nextTick(() => {
+    const el = marqueeContainerRef.value;
+    if (!el) {
+      shouldScrollMarquee.value = false;
+      marqueeDistance.value = 0;
+      return;
+    }
+    const diff = el.scrollWidth - el.clientWidth;
+    if (diff > 4) {
+      shouldScrollMarquee.value = true;
+      marqueeDistance.value = diff;
+    } else {
+      shouldScrollMarquee.value = false;
+      marqueeDistance.value = 0;
+    }
+  });
+}
 
 
 async function loadAudioBlob(path: string) {
@@ -143,6 +148,8 @@ watch(
       }
       isPlaying.value = false;
       store.setCurrentPlaying(null);
+      shouldScrollMarquee.value = false;
+      marqueeDistance.value = 0;
       return;
     }
     store.setCurrentPlaying(track.id);
@@ -156,6 +163,7 @@ watch(
         el.play().catch(() => {});
       });
     });
+    recomputeMarquee();
   },
   { immediate: true }
 );
@@ -264,10 +272,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener("keydown", onGlobalKeydown);
+  recomputeMarquee();
+  window.addEventListener("resize", recomputeMarquee);
 });
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
+  window.removeEventListener("resize", recomputeMarquee);
 });
 </script>
 
@@ -280,6 +291,7 @@ onUnmounted(() => {
       ref="audioRef"
       :src="audioSrc"
       class="hidden"
+      data-muorg-player="true"
       @play="onAudioPlay"
       @pause="onAudioPause"
       @ended="onAudioEnded"
@@ -287,148 +299,143 @@ onUnmounted(() => {
       @loadedmetadata="onDurationChange"
       @durationchange="onDurationChange"
     />
-    <div class="flex min-w-0 w-full max-w-2xl items-center gap-3">
+    <div class="flex min-w-0 w-full items-center gap-3">
       <!-- Track artwork + title/artist (left) -->
-      <div class="flex min-w-0 max-w-[220px] shrink-0 items-center gap-2">
+      <div class="flex min-w-0 max-w-[260px] shrink-0 items-center gap-2">
         <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" />
-        <span
-          class="min-w-0 truncate text-xs font-medium"
-          :title="singleTrack?.title || singleTrack?.path"
-        >
-          <span class="text-stone-200">
-            {{ singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || "Track" }}
+        <div class="min-w-0 flex-1">
+          <div
+            ref="marqueeContainerRef"
+            class="metadata-marquee text-xs font-medium"
+            :title="singleTrack?.title || singleTrack?.path"
+          >
+            <template v-if="!shouldScrollMarquee">
+              <span class="text-stone-200">
+                {{ marqueeTitle }}
+              </span>
+              <span
+                v-if="singleTrack?.artist"
+                class="ml-1 text-[11px] font-normal text-stone-500"
+              >
+                — {{ singleTrack.artist }}
+              </span>
+            </template>
+            <div
+              v-else
+              class="metadata-marquee-inner"
+              :style="{ '--marquee-distance': marqueeDistance + 'px' }"
+            >
+              <span class="text-stone-200">
+                {{ marqueeTitle }}
+              </span>
+              <span
+                v-if="singleTrack?.artist"
+                class="ml-1 text-[11px] font-normal text-stone-500"
+              >
+                — {{ singleTrack.artist }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Center: playback controls + progress -->
+      <div class="flex min-w-0 flex-1 items-center gap-3">
+        <!-- Playback controls -->
+        <div class="flex shrink-0 items-center gap-0.5">
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Previous track', $event)"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
+              aria-label="Previous track"
+              @click="playPrevious"
+              :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack.id) <= 0"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />
+              </svg>
+            </button>
           </span>
           <span
-            v-if="singleTrack?.artist"
-            class="ml-1 text-[11px] font-normal text-stone-500"
+            class="inline-flex"
+            @mouseenter="showTooltip('Restart from beginning', $event)"
+            @mouseleave="scheduleHideTooltip"
           >
-            — {{ singleTrack.artist }}
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Restart from beginning"
+              @click="restart"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
           </span>
-        </span>
-      </div>
-      <!-- Playback controls -->
-      <div class="flex shrink-0 items-center gap-0.5">
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Previous track', $event)"
-          @mouseleave="scheduleHideTooltip"
-        >
-          <button
-            type="button"
-            class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
-            aria-label="Previous track"
-            @click="playPrevious"
-            :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack.id) <= 0"
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip(isPlaying ? 'Pause' : 'Play', $event)"
+            @mouseleave="scheduleHideTooltip"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />
-            </svg>
-          </button>
-        </span>
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Restart from beginning', $event)"
-          @mouseleave="scheduleHideTooltip"
-        >
-          <button
-            type="button"
-            class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-            aria-label="Restart from beginning"
-            @click="restart"
+            <button
+              type="button"
+              class="rounded bg-[#5b7c32] p-1.5 text-stone-50 hover:bg-[#6d8f3d]"
+              :aria-label="isPlaying ? 'Pause' : 'Play'"
+              @click="togglePlay"
+            >
+              <svg v-if="!isPlaying" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              <svg v-else class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+              </svg>
+            </button>
+          </span>
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Next track', $event)"
+            @mouseleave="scheduleHideTooltip"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-        </span>
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip(isPlaying ? 'Pause' : 'Play', $event)"
-          @mouseleave="scheduleHideTooltip"
-        >
-          <button
-            type="button"
-            class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-            :aria-label="isPlaying ? 'Pause' : 'Play'"
-            @click="togglePlay"
-          >
-            <svg v-if="!isPlaying" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            <svg v-else class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-            </svg>
-          </button>
-        </span>
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Next track', $event)"
-          @mouseleave="scheduleHideTooltip"
-        >
-          <button
-            type="button"
-            class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
-            aria-label="Next track"
-            @click="playNext"
-            :disabled="!singleTrack || (() => { const list = filteredTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
-          >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" />
-            </svg>
-          </button>
-        </span>
-      </div>
-      <!-- Progress bar + times (center: time left, bar, time right) -->
-      <div class="flex min-w-0 flex-1 items-center gap-2">
-        <span class="shrink-0 w-8 text-right text-xs text-stone-500 tabular-nums">{{ formatTime(currentTime) }}</span>
-        <input
-          type="range"
-          min="0"
-          :max="displayDuration > 0 ? displayDuration : 0.01"
-          step="0.1"
-          :value="currentTime"
-          class="player-progress-slider h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-stone-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
-          :style="{ '--progress-percent': progressPercent + '%' }"
-          aria-label="Seek"
-          @click="onProgressBarClick"
-          @input="onSeekInput"
-          @mousedown="onSeekMouseDown"
-          @mouseup="onSeekMouseUp"
-          @mouseleave="onSeekMouseUp"
-        />
-        <span class="shrink-0 w-8 text-left text-xs text-stone-500 tabular-nums">{{ formatTime(displayDuration) }}</span>
+            <button
+              type="button"
+              class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
+              aria-label="Next track"
+              @click="playNext"
+              :disabled="!singleTrack || (() => { const list = filteredTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" />
+              </svg>
+            </button>
+          </span>
+        </div>
+        <!-- Progress bar + times -->
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+          <span class="shrink-0 w-8 text-right text-xs text-stone-500 tabular-nums">{{ formatTime(currentTime) }}</span>
+          <input
+            type="range"
+            min="0"
+            :max="displayDuration > 0 ? displayDuration : 0.01"
+            step="0.1"
+            :value="currentTime"
+            class="player-progress-slider h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-stone-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
+            :style="{ '--progress-percent': progressPercent + '%' }"
+            aria-label="Seek"
+            @click="onProgressBarClick"
+            @input="onSeekInput"
+            @mousedown="onSeekMouseDown"
+            @mouseup="onSeekMouseUp"
+            @mouseleave="onSeekMouseUp"
+          />
+          <span class="shrink-0 w-8 text-left text-xs text-stone-500 tabular-nums">{{ formatTime(displayDuration) }}</span>
+        </div>
       </div>
       <!-- Volume (right) -->
-      <div class="flex w-24 shrink-0 items-center gap-2">
-        <button
-          type="button"
-          class="flex shrink-0 rounded p-1 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-          :aria-label="volume === 0 ? 'Unmute' : 'Mute'"
-          :title="volume === 0 ? 'Unmute' : 'Mute'"
-          @click="toggleMute"
-        >
-          <svg v-if="volume === 0" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M11 5L6 9H2v6h4l5 4V5z" />
-            <path d="M23 9l-6 6" />
-            <path d="M17 9l6 6" />
-          </svg>
-          <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M11 5L6 9H2v6h4l5 4V5z" />
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-          </svg>
-        </button>
-        <label class="sr-only" for="player-volume">Volume</label>
-        <input
-          id="player-volume"
-          type="range"
-          min="0"
-          max="1"
-          step="0.05"
-          :value="volume"
-          class="player-volume-slider h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-stone-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
-          title="Volume"
-          @input="onVolumeInput"
-        />
+      <div class="ml-3 flex w-32 shrink-0 items-center justify-end">
+        <VolumeControl mode="metadata" />
       </div>
     </div>
     <Teleport to="body">
@@ -481,5 +488,28 @@ onUnmounted(() => {
 .player-progress-slider::-moz-range-track {
   background: rgb(87 83 78);
   border-radius: 9999px;
+}
+
+.metadata-marquee {
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.metadata-marquee-inner {
+  display: inline-block;
+  will-change: transform;
+  animation: metadata-marquee-bounce 4s ease-in-out infinite alternate;
+}
+
+@keyframes metadata-marquee-bounce {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  85%,
+  100% {
+    transform: translateX(calc(-1 * var(--marquee-distance)));
+  }
 }
 </style>

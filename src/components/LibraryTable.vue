@@ -15,6 +15,14 @@ import packageJson from "../../package.json";
 import { extractMetadataFromPath } from "../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../stores/settings";
 
+const props = defineProps<{
+  activeTab: "library" | "play";
+}>();
+
+const emit = defineEmits<{
+  (e: "update:activeTab", value: "library" | "play"): void;
+}>();
+
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const { filteredTracks, selectedTrackIds, searchQuery, groupBy, albumCoverCache, currentPlayingTrackId, reportFilter, multiSelectMode } =
@@ -830,7 +838,7 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-1 flex-col overflow-hidden">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-700 px-4 py-2">
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="flex flex-1 flex-wrap items-center gap-3">
         <input
           ref="searchInputRef"
           :value="searchQuery"
@@ -883,9 +891,31 @@ onUnmounted(() => {
           </span>
         </template>
       </div>
+      <div class="flex items-center justify-center gap-2">
+        <button
+          type="button"
+          class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          :class="props.activeTab === 'library'
+            ? 'bg-stone-700 text-stone-100'
+            : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-stone-100'"
+          @click="emit('update:activeTab', 'library')"
+        >
+          Metadata
+        </button>
+        <button
+          type="button"
+          class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          :class="props.activeTab === 'play'
+            ? 'bg-stone-700 text-stone-100'
+            : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-stone-100'"
+          @click="emit('update:activeTab', 'play')"
+        >
+          Player
+        </button>
+      </div>
       <div
         class="relative z-[210] flex shrink-0 items-center gap-2"
-        @mouseenter="showTooltip('Version ' + appVersion, $event, 'left')"
+        @mouseenter="showTooltip('Version ' + appVersion, $event)"
         @mouseleave="scheduleHideTooltip"
       >
         <img src="/favicon.svg" alt="" class="h-6 w-6 shrink-0" />
@@ -1119,7 +1149,7 @@ onUnmounted(() => {
       <div
         v-if="tooltipPopover"
         class="fixed z-[500] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-        :class="[tooltipPopover.position === 'left' ? 'whitespace-nowrap' : 'break-all max-w-[min(90vw,420px)]']"
+        :class="'whitespace-nowrap'"
         :style="tooltipPopover.position === 'left' ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-100%, -50%)' } : tooltipPopover.position === 'below-left' ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px' } : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }"
         @mouseenter="cancelHideTooltip"
         @mouseleave="hideTooltip"

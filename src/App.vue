@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import Sidebar from "./components/Sidebar.vue";
 import LibraryTable from "./components/LibraryTable.vue";
 import PlayerBar from "./components/PlayerBar.vue";
+import PlayScreenPlayBar from "./components/PlayScreenPlayBar.vue";
 import MetadataEditor from "./components/MetadataEditor.vue";
 import { useCatalogStore } from "./stores/catalog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -12,6 +13,7 @@ const store = useCatalogStore();
 const sidebarCollapsed = ref(false);
 const showEditor = computed(() => store.selectedTrackIds.length > 0);
 const isDropTarget = ref(false);
+const activeTab = ref<"library" | "play">("library");
 let unlistenDragDrop: (() => void) | null = null;
 
 onMounted(async () => {
@@ -70,9 +72,10 @@ onUnmounted(() => {
           Drop folder(s) to add to library
         </div>
       </div>
-      <LibraryTable />
-      <PlayerBar />
-      <MetadataEditor v-if="showEditor" />
+      <LibraryTable v-model:activeTab="activeTab" />
+      <PlayerBar :class="activeTab === 'play' ? 'sr-only h-0 overflow-hidden' : ''" />
+      <PlayScreenPlayBar v-if="activeTab === 'play'" />
+      <MetadataEditor v-if="showEditor && activeTab === 'library'" />
     </main>
     <div
       v-if="store.loading"
