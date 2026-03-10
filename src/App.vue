@@ -13,7 +13,7 @@ const store = useCatalogStore();
 const sidebarCollapsed = ref(false);
 const showEditor = computed(() => store.selectedTrackIds.length > 0);
 const isDropTarget = ref(false);
-const activeTab = ref<"library" | "play">("library");
+const activeTab = ref<"library" | "metadata" | "play">("library");
 let unlistenDragDrop: (() => void) | null = null;
 
 onMounted(async () => {
@@ -58,25 +58,41 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden relative">
-    <Sidebar :collapsed="sidebarCollapsed" @toggle="sidebarCollapsed = !sidebarCollapsed" />
+  <div
+    class="relative grid h-screen grid-rows-[minmax(0,1fr)_auto] grid-cols-[auto,1fr] overflow-hidden"
+    :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
+  >
+    <!-- Top row: sidebar + table view -->
+    <div class="row-start-1 row-end-2 col-start-1 col-end-2 h-full overflow-hidden">
+      <Sidebar :collapsed="sidebarCollapsed" @toggle="sidebarCollapsed = !sidebarCollapsed" />
+    </div>
     <main
-      class="flex flex-1 flex-col min-w-0 transition-colors duration-150"
-      :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
+      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150"
     >
-      <div
-        v-if="isDropTarget"
-        class="absolute inset-0 z-40 flex items-center justify-center pointer-events-none"
-      >
-        <div class="rounded-lg border-2 border-dashed border-amber-500/80 bg-stone-900/90 px-6 py-4 text-center text-sm font-medium text-amber-200 shadow-lg">
-          Drop folder(s) to add to library
-        </div>
-      </div>
       <LibraryTable v-model:activeTab="activeTab" />
+    </main>
+
+    <!-- Bottom row: metadata / player bar spanning full width -->
+    <div
+      class="row-start-2 row-end-3 col-span-2 flex shrink-0 flex-col min-w-0 border-t border-stone-700 bg-stone-900/95"
+    >
       <PlayerBar :class="activeTab === 'play' ? 'sr-only h-0 overflow-hidden' : ''" />
       <PlayScreenPlayBar v-if="activeTab === 'play'" />
-      <MetadataEditor v-if="showEditor && activeTab === 'library'" />
-    </main>
+      <MetadataEditor v-if="showEditor && activeTab === 'metadata'" />
+    </div>
+
+    <!-- Global drag-and-drop overlay -->
+    <div
+      v-if="isDropTarget"
+      class="pointer-events-none absolute inset-0 z-40 flex items-center justify-center"
+    >
+      <div
+        class="rounded-lg border-2 border-dashed border-amber-500/80 bg-stone-900/90 px-6 py-4 text-center text-sm font-medium text-amber-200 shadow-lg"
+      >
+        Drop folder(s) to add to library
+      </div>
+    </div>
+
     <div
       v-if="store.loading"
       class="absolute inset-0 z-50 flex items-center justify-center bg-stone-900/70"

@@ -16,6 +16,7 @@ const title = ref("");
 const artist = ref("");
 const album = ref("");
 const albumArtist = ref("");
+const featuring = ref("");
 const year = ref<number | "">("");
 const genre = ref("");
 const trackNumber = ref<number | "">("");
@@ -37,15 +38,17 @@ const wikipediaSearchLoading = ref(false);
 const wikipediaError = ref<string | null>(null);
 const wikipediaApplying = ref(false);
 
-const tooltipPopover = ref<{ text: string; x: number; y: number; position?: "left" | "below" } | null>(null);
+const tooltipPopover = ref<{ text: string; x: number; y: number; position?: "left" | "below" | "above" } | null>(null);
 let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
 
-function showTooltip(text: string, e: MouseEvent, position: "left" | "below" = "below") {
+function showTooltip(text: string, e: MouseEvent, position: "left" | "below" | "above" = "below") {
   if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
   tooltipHideTimeout = null;
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   if (position === "left") {
     tooltipPopover.value = { text, x: rect.left - 8, y: rect.top + rect.height / 2, position: "left" };
+  } else if (position === "above") {
+    tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.top - 6, position: "above" };
   } else {
     tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.bottom + 6, position: "below" };
   }
@@ -75,6 +78,7 @@ const baseline = ref<{
   artist: string;
   album: string;
   albumArtist: string;
+  featuring: string;
   year: number | "";
   genre: string;
   trackNumber: number | "";
@@ -95,6 +99,7 @@ const hasFormChanges = computed(() => {
     artist.value !== b.artist ||
     album.value !== b.album ||
     albumArtist.value !== b.albumArtist ||
+    featuring.value !== b.featuring ||
     year.value !== b.year ||
     genre.value !== b.genre ||
     trackNumber.value !== b.trackNumber ||
@@ -379,6 +384,7 @@ function syncFromTracks() {
     artist.value = t.artist ?? "";
     album.value = t.album ?? "";
     albumArtist.value = t.album_artist ?? "";
+    featuring.value = t.featuring ?? "";
     year.value = t.year ?? "";
     genre.value = t.genre ?? "";
     trackNumber.value = t.track_number ?? "";
@@ -391,6 +397,7 @@ function syncFromTracks() {
     artist.value = same(tracks, (t) => t.artist) || "";
     album.value = same(tracks, (t) => t.album) || "";
     albumArtist.value = same(tracks, (t) => t.album_artist) || "";
+    featuring.value = same(tracks, (t) => t.featuring) || "";
     year.value = same(tracks, (t) => t.year) ?? "";
     genre.value = same(tracks, (t) => t.genre) || "";
     const tn = same(tracks, (t) => t.track_number);
@@ -406,6 +413,7 @@ function syncFromTracks() {
     artist: artist.value,
     album: album.value,
     albumArtist: albumArtist.value,
+    featuring: featuring.value,
     year: year.value,
     genre: genre.value,
     trackNumber: trackNumber.value,
@@ -513,6 +521,7 @@ const PATH_FIELD_MAP: Record<string, keyof NonNullable<typeof baseline.value>> =
   genre: "genre",
   albumartist: "albumArtist",
   album_artist: "albumArtist",
+  featuring: "featuring",
   discnumber: "discNumber",
   disc_number: "discNumber",
 };
@@ -554,6 +563,7 @@ function applyFromPath() {
       else if (field === "artist") artist.value = s;
       else if (field === "album") album.value = s;
       else if (field === "albumArtist") albumArtist.value = s;
+      else if (field === "featuring") featuring.value = s;
       else if (field === "genre") genre.value = s;
       markEdited(field);
     }
@@ -581,6 +591,8 @@ function buildUpdate(): MetadataUpdate {
   if (!isBulk || edited.has("artist")) update.artist = artistVal ?? null;
   if (!isBulk || edited.has("album")) update.album = albumVal ?? null;
   if (!isBulk || edited.has("albumArtist")) update.album_artist = albumArtistVal ?? null;
+  const featuringVal = featuring.value || undefined;
+  if (!isBulk || edited.has("featuring")) update.featuring = featuringVal ?? null;
   if (!isBulk || edited.has("year")) update.year = yearVal ?? null;
   if (!isBulk || edited.has("genre")) update.genre = genreVal ?? null;
   if (!isBulk || edited.has("trackNumber")) update.track_number = trackNumVal ?? null;
@@ -606,7 +618,9 @@ async function save() {
       await store.writeMetadata(tracks[0].path, update);
     }
     clearCoverRequested.value = false;
-    store.clearSelection();
+    // Keep selection so panel stays open; store already reloads tracks so form will sync via watch(selectedTracks, syncFromTracks)
+    await nextTick();
+    syncFromTracks();
   } catch (e) {
     saveError.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -631,7 +645,6 @@ function onPanelKeydown(e: KeyboardEvent) {
     showCoverPopup.value = false;
   } else {
     discard();
-    store.clearSelection();
   }
 }
 
@@ -659,66 +672,6 @@ function onCoverFile(e: Event) {
     v-if="selectedTracks.length"
     class="border-t border-stone-700 bg-stone-800/90 p-3"
   >
-    <div class="mb-0.5 flex items-center gap-2">
-      <span
-        class="inline-flex"
-        @mouseenter="showTooltip('Close (discard changes)', $event)"
-        @mouseleave="scheduleHideTooltip"
-      >
-        <button
-          type="button"
-          class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-          aria-label="Close (discard changes)"
-          @click="discard(); store.clearSelection()"
-        >
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </span>
-      <h3 class="text-sm font-medium text-stone-300">
-        Edit metadata{{ multiSelectMode && selectedTracks.length ? ` (${selectedTracks.length} selected)` : '' }}
-      </h3>
-      <button
-        v-if="pathFormatTemplate.trim() && selectedTracks.length"
-        type="button"
-        class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-        title="Fill fields from the selected track path using the path format in Settings → Smart Suggestions"
-        @click="applyFromPath"
-      >
-        Apply from path
-      </button>
-      <span
-        v-if="pathFormatTemplate.trim() && selectedTracks.length"
-        class="flex shrink-0 cursor-help rounded p-0.5 text-stone-500 hover:text-stone-300"
-        aria-label="Show resolved values from path"
-        @mouseenter="showTooltip(applyFromPathPreviewText || 'No match', $event)"
-        @mouseleave="scheduleHideTooltip"
-      >
-        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <path stroke-linecap="round" d="M12 16v-4M12 8h.01" />
-        </svg>
-      </span>
-      <span
-        v-if="pathFormatTemplate.trim() && selectedTracks.length"
-        class="inline-flex"
-        @mouseenter="showTooltip('Open path format settings', $event)"
-        @mouseleave="scheduleHideTooltip"
-      >
-        <button
-          type="button"
-          class="flex shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300"
-          aria-label="Open path format settings"
-          @click="settingsStore.setOpenSettingsAtTab('smart_suggestions')"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
-      </span>
-    </div>
     <p v-if="selectedTracks.length > 1" class="mb-2 text-xs text-stone-500">
       Set these fields for all selected tracks. Shared values are pre-filled; change only what you want to update. Only the fields you edit are written—others (e.g. title) stay as-is per track.
     </p>
@@ -759,6 +712,16 @@ function onCoverFile(e: Event) {
               type="text"
               class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
               @input="markEdited('albumArtist')"
+            />
+          </div>
+          <div>
+            <label class="block text-stone-500">Featuring</label>
+            <input
+              v-model="featuring"
+              type="text"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              placeholder="Guest / second artist"
+              @input="markEdited('featuring')"
             />
           </div>
           <div>
@@ -806,11 +769,16 @@ function onCoverFile(e: Event) {
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            class="rounded border border-stone-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
+            class="accent-btn inline-flex items-center gap-1.5 rounded border border-stone-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
             style="background-color: #5b7c32"
             :disabled="saving"
             @click="save"
           >
+            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 4h10l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" />
+              <path d="M10 4v4h4" />
+              <path d="M8 15h8" />
+            </svg>
             {{
               saving
                 ? "Saving…"
@@ -831,6 +799,45 @@ function onCoverFile(e: Event) {
             </svg>
             Discard
           </button>
+          <template v-if="pathFormatTemplate.trim() && selectedTracks.length">
+            <span class="ml-1 border-l border-stone-600 pl-2" aria-hidden="true" />
+            <button
+              type="button"
+              class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              title="Fill fields from the selected track path using the path format in Settings → Smart Suggestions"
+              @click="applyFromPath"
+            >
+              Apply from path
+            </button>
+            <span
+              class="flex shrink-0 cursor-help rounded p-0.5 text-stone-500 hover:text-stone-300"
+              aria-label="Show resolved values from path"
+              @mouseenter="showTooltip(applyFromPathPreviewText || 'No match', $event, 'above')"
+              @mouseleave="scheduleHideTooltip"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path stroke-linecap="round" d="M12 16v-4M12 8h.01" />
+              </svg>
+            </span>
+            <span
+              class="inline-flex"
+              @mouseenter="showTooltip('Open path format settings', $event, 'above')"
+              @mouseleave="scheduleHideTooltip"
+            >
+              <button
+                type="button"
+                class="flex shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300"
+                aria-label="Open path format settings"
+                @click="settingsStore.setOpenSettingsAtTab('smart_suggestions')"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            </span>
+          </template>
         </div>
       </div>
       <div class="shrink-0 border-t border-stone-700 pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
@@ -998,7 +1005,7 @@ function onCoverFile(e: Event) {
               </button>
               <button
                 type="button"
-                class="rounded px-3 py-1.5 text-xs text-white disabled:opacity-50"
+                class="accent-btn rounded px-3 py-1.5 text-xs text-white disabled:opacity-50"
                 style="background-color: #5b7c32"
                 :disabled="wikipediaApplying"
                 @click="applyWikipediaImage"
@@ -1027,7 +1034,9 @@ function onCoverFile(e: Event) {
         :style="
           tooltipPopover.position === 'left'
             ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-100%, -50%)' }
-            : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }
+            : tooltipPopover.position === 'above'
+              ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-50%, -100%)' }
+              : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }
         "
         @mouseenter="cancelHideTooltip"
         @mouseleave="hideTooltip"

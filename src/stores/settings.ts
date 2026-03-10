@@ -89,6 +89,7 @@ export const useSettingsStore = defineStore("settings", {
     defaultGroupsExpanded: false,
     autoplayOnSelect: false,
     continuousPlayback: false,
+    shuffle: false,
     navWrap: false,
     navFocusFollowsMouse: false,
     tableDensity: "comfortable" as TableDensity,
@@ -100,7 +101,7 @@ export const useSettingsStore = defineStore("settings", {
     missingMetadataFields: ["title", "artist", "album"] as MissingMetadataField[],
     groupHeaderAlbumArt: true,
     hideWikipediaCoverSearch: false,
-    pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>",
+    pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
     pathFormatExamplePath: DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
     openSettingsAtTab: null as string | null,
   }),
@@ -117,6 +118,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("defaultGroupsExpanded" in data) this.defaultGroupsExpanded = coerceBool(data.defaultGroupsExpanded, false);
         if ("autoplayOnSelect" in data) this.autoplayOnSelect = coerceBool(data.autoplayOnSelect, false);
         if ("continuousPlayback" in data) this.continuousPlayback = coerceBool(data.continuousPlayback, false);
+        if ("shuffle" in data) this.shuffle = coerceBool(data.shuffle, false);
         if ("navWrap" in data) this.navWrap = coerceBool(data.navWrap, false);
         if ("navFocusFollowsMouse" in data) this.navFocusFollowsMouse = coerceBool(data.navFocusFollowsMouse, false);
         if ("tableDensity" in data) this.tableDensity = coerceDensity(data.tableDensity);
@@ -145,6 +147,7 @@ export const useSettingsStore = defineStore("settings", {
           defaultGroupsExpanded: this.defaultGroupsExpanded,
           autoplayOnSelect: this.autoplayOnSelect,
           continuousPlayback: this.continuousPlayback,
+          shuffle: this.shuffle,
           navWrap: this.navWrap,
           navFocusFollowsMouse: this.navFocusFollowsMouse,
           tableDensity: this.tableDensity,
@@ -194,6 +197,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setContinuousPlayback(value: boolean) {
       this.continuousPlayback = value;
+      this.saveToFile();
+    },
+    setShuffle(value: boolean) {
+      this.shuffle = value;
       this.saveToFile();
     },
     setNavWrap(value: boolean) {

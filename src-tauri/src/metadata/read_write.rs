@@ -12,6 +12,8 @@ pub struct TrackMetadata {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub album_artist: Option<String>,
+    /// Featuring / guest artist. FLAC: FEATURING; MP3: TPE2.
+    pub featuring: Option<String>,
     pub year: Option<u32>,
     pub genre: Option<String>,
     pub track_number: Option<u32>,
@@ -53,6 +55,16 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         meta.album_artist = tag
             .get_string(&lofty::tag::ItemKey::AlbumArtist)
             .map(|s| s.to_string());
+        // FLAC: custom key FEATURING; MP3: TPE2 (AlbumArtist in lofty)
+        if ext.as_deref() == Some("flac") {
+            meta.featuring = tag
+                .get_string(&lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
+                .map(|s| s.to_string());
+        } else if ext.as_deref() == Some("mp3") {
+            meta.featuring = tag
+                .get_string(&lofty::tag::ItemKey::AlbumArtist)
+                .map(|s| s.to_string());
+        }
         meta.year = tag.year();
         meta.genre = tag.genre().map(|s| s.to_string());
         meta.track_number = tag.track();
@@ -78,6 +90,8 @@ pub struct MetadataUpdate {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub album_artist: Option<String>,
+    /// Featuring / guest artist. FLAC: FEATURING; MP3: TPE2.
+    pub featuring: Option<String>,
     pub year: Option<u32>,
     pub genre: Option<String>,
     pub track_number: Option<u32>,
@@ -120,7 +134,19 @@ pub fn write_metadata(path: &Path, update: &MetadataUpdate) -> Result<(), String
     if let Some(ref a) = update.album {
         tag.set_album(a.clone());
     }
-    if let Some(ref a) = update.album_artist {
+    // FLAC: write FEATURING; MP3: write featuring (or album_artist) to TPE2
+    if tag_type == TagType::VorbisComments {
+        if let Some(ref f) = update.featuring {
+            tag.insert_text(lofty::tag::ItemKey::Unknown("FEATURING".to_string()), f.clone());
+        }
+    }
+    if tag_type == TagType::Id3v2 {
+        if let Some(ref f) = update.featuring {
+            tag.insert_text(lofty::tag::ItemKey::AlbumArtist, f.clone());
+        } else if let Some(ref a) = update.album_artist {
+            tag.insert_text(lofty::tag::ItemKey::AlbumArtist, a.clone());
+        }
+    } else if let Some(ref a) = update.album_artist {
         tag.insert_text(lofty::tag::ItemKey::AlbumArtist, a.clone());
     }
     if let Some(y) = update.year {

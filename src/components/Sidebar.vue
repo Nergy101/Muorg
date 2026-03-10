@@ -92,7 +92,7 @@ const duplicateCount = computed(() => {
   }
   let total = 0;
   for (const count of map.values()) {
-    if (count > 1) total += count;
+    if (count > 1) total += count - 1;
   }
   return total;
 });
@@ -100,8 +100,6 @@ const duplicateCount = computed(() => {
 const missingAlbumCoverCount = computed(() =>
   tracks.value.filter((t) => !(t.has_cover ?? false)).length
 );
-
-const totalTrackCount = computed(() => tracks.value.length);
 
 /** Normalize path for prefix match (forward slashes, no trailing slash except for root). */
 function pathNorm(p: string): string {
@@ -237,11 +235,7 @@ async function handleRemoveFolder(rootPath: string) {
     </template>
     <!-- Expanded: Library header + list -->
     <template v-else>
-      <div class="flex items-center justify-between border-b border-stone-700 px-3 py-2">
-        <span class="text-xs text-stone-500">
-          Library
-          <span v-if="totalTrackCount > 0" class="ml-1 text-stone-400">({{ totalTrackCount.toLocaleString() }})</span>
-        </span>
+      <div class="flex items-center justify-end border-b border-stone-700 px-3 py-2">
         <span
           class="inline-flex"
           @mouseenter="showTooltip('Collapse library', $event)"

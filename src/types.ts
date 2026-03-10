@@ -6,6 +6,7 @@ export interface CatalogTrack {
   artist: string | null;
   album: string | null;
   album_artist: string | null;
+  featuring: string | null;
   year: number | null;
   genre: string | null;
   track_number: number | null;
@@ -22,6 +23,7 @@ export interface MetadataUpdate {
   artist?: string | null;
   album?: string | null;
   album_artist?: string | null;
+  featuring?: string | null;
   year?: number | null;
   genre?: string | null;
   track_number?: number | null;

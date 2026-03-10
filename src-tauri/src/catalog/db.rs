@@ -12,6 +12,7 @@ pub struct CatalogTrack {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub album_artist: Option<String>,
+    pub featuring: Option<String>,
     pub year: Option<i64>,
     pub genre: Option<String>,
     pub track_number: Option<i64>,
@@ -79,6 +80,10 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     }
+    if !schema_has_column(conn, "tracks", "featuring")? {
+        conn.execute("ALTER TABLE tracks ADD COLUMN featuring TEXT", [])
+            .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -113,18 +118,48 @@ pub fn load_roots(conn: &rusqlite::Connection) -> Result<Vec<String>, String> {
 
 pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, String> {
     let has_cover_col = schema_has_column(conn, "tracks", "has_cover")?;
-    let sql = if has_cover_col {
-        "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover FROM tracks ORDER BY artist, album, track_number, title"
-    } else {
-        "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs FROM tracks ORDER BY artist, album, track_number, title"
+    let featuring_col = schema_has_column(conn, "tracks", "featuring")?;
+    let sql = match (has_cover_col, featuring_col) {
+        (true, true) => "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover FROM tracks ORDER BY artist, album, track_number, title",
+        (true, false) => "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover FROM tracks ORDER BY artist, album, track_number, title",
+        (false, true) => "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs FROM tracks ORDER BY artist, album, track_number, title",
+        (false, false) => "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs FROM tracks ORDER BY artist, album, track_number, title",
     };
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |r| {
-            let has_cover = if has_cover_col {
-                r.get::<_, i64>(14).map(|n| n != 0).unwrap_or(false)
+            let (has_cover, featuring) = match (has_cover_col, featuring_col) {
+                (true, true) => (
+                    r.get::<_, i64>(15).map(|n| n != 0).unwrap_or(false),
+                    r.get::<_, Option<String>>(7).ok().flatten(),
+                ),
+                (true, false) => (
+                    r.get::<_, i64>(14).map(|n| n != 0).unwrap_or(false),
+                    None,
+                ),
+                (false, true) => (false, r.get::<_, Option<String>>(7).ok().flatten()),
+                (false, false) => (false, None),
+            };
+            let (year, genre, track_number, disc_number, duration_secs, format, mtime_secs) = if featuring_col {
+                (
+                    r.get::<_, Option<i64>>(8)?,
+                    r.get::<_, Option<String>>(9)?,
+                    r.get::<_, Option<i64>>(10)?,
+                    r.get::<_, Option<i64>>(11)?,
+                    r.get::<_, Option<i64>>(12)?,
+                    r.get::<_, String>(13)?,
+                    r.get::<_, i64>(14)?,
+                )
             } else {
-                false
+                (
+                    r.get::<_, Option<i64>>(7)?,
+                    r.get::<_, Option<String>>(8)?,
+                    r.get::<_, Option<i64>>(9)?,
+                    r.get::<_, Option<i64>>(10)?,
+                    r.get::<_, Option<i64>>(11)?,
+                    r.get::<_, String>(12)?,
+                    r.get::<_, i64>(13)?,
+                )
             };
             Ok(CatalogTrack {
                 id: r.get(0)?,
@@ -134,13 +169,14 @@ pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, Str
                 artist: r.get(4)?,
                 album: r.get(5)?,
                 album_artist: r.get(6)?,
-                year: r.get(7)?,
-                genre: r.get(8)?,
-                track_number: r.get(9)?,
-                disc_number: r.get(10)?,
-                duration_secs: r.get(11)?,
-                format: r.get(12)?,
-                mtime_secs: r.get(13)?,
+                featuring,
+                year,
+                genre,
+                track_number,
+                disc_number,
+                duration_secs,
+                format,
+                mtime_secs,
                 has_cover,
             })
         })
@@ -172,12 +208,13 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
 
     let _root = Path::new(root_path);
     let mut count = 0u64;
-    let mut insert = conn
-        .prepare(
-            "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-        )
-        .map_err(|e| e.to_string())?;
+    let featuring_col = schema_has_column(conn, "tracks", "featuring")?;
+    let insert_sql = if featuring_col {
+        "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"
+    } else {
+        "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
+    };
+    let mut insert = conn.prepare(insert_sql).map_err(|e| e.to_string())?;
 
     for entry in WalkDir::new(root_path)
         .follow_links(false)
@@ -206,32 +243,74 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
         };
 
         let has_cover = meta.picture_base64.as_ref().is_some_and(|s| !s.is_empty());
-        insert
-            .execute(rusqlite::params![
-                root_id,
-                path_str,
-                meta.title,
-                meta.artist,
-                meta.album,
-                meta.album_artist,
-                meta.year.map(|y| y as i64),
-                meta.genre,
-                meta.track_number.map(|n| n as i64),
-                meta.disc_number.map(|n| n as i64),
-                meta.duration_secs.map(|d| d as i64),
-                format,
-                mtime_secs,
-                if has_cover { 1i64 } else { 0i64 },
-            ])
-            .map_err(|e| e.to_string())?;
+        if featuring_col {
+            insert
+                .execute(rusqlite::params![
+                    root_id,
+                    path_str,
+                    meta.title,
+                    meta.artist,
+                    meta.album,
+                    meta.album_artist,
+                    meta.featuring,
+                    meta.year.map(|y| y as i64),
+                    meta.genre,
+                    meta.track_number.map(|n| n as i64),
+                    meta.disc_number.map(|n| n as i64),
+                    meta.duration_secs.map(|d| d as i64),
+                    format,
+                    mtime_secs,
+                    if has_cover { 1i64 } else { 0i64 },
+                ])
+                .map_err(|e| e.to_string())?;
+        } else {
+            insert
+                .execute(rusqlite::params![
+                    root_id,
+                    path_str,
+                    meta.title,
+                    meta.artist,
+                    meta.album,
+                    meta.album_artist,
+                    meta.year.map(|y| y as i64),
+                    meta.genre,
+                    meta.track_number.map(|n| n as i64),
+                    meta.disc_number.map(|n| n as i64),
+                    meta.duration_secs.map(|d| d as i64),
+                    format,
+                    mtime_secs,
+                    if has_cover { 1i64 } else { 0i64 },
+                ])
+                .map_err(|e| e.to_string())?;
+        }
         count += 1;
     }
     Ok(count)
 }
 
-/// Rescan a root: re-read files from disk and update DB (add new, update changed, optionally remove missing).
+/// Rescan a root: re-read files from disk, update DB (add new, update changed), and remove tracks whose files no longer exist.
 pub fn rescan_root(conn: &rusqlite::Connection, root_path: &str) -> Result<u64, String> {
-    scan_and_insert(conn, root_path)
+    let count = scan_and_insert(conn, root_path)?;
+    let root_id: i64 = conn
+        .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, path FROM tracks WHERE root_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<(i64, String)> = stmt
+        .query_map([root_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    let mut del = conn
+        .prepare("DELETE FROM tracks WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+    for (id, path) in rows {
+        if !Path::new(&path).exists() {
+            del.execute([id]).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(count)
 }
 
 /// Remove a root and its tracks from the catalog. Does not delete anything on disk.
@@ -273,6 +352,12 @@ pub fn update_track_metadata(
     if let Some(ref a) = update.album_artist {
         sets.push("album_artist = ?");
         params.push(rusqlite::types::Value::Text(a.clone()));
+    }
+    if let Some(ref f) = update.featuring {
+        if schema_has_column(conn, "tracks", "featuring")? {
+            sets.push("featuring = ?");
+            params.push(rusqlite::types::Value::Text(f.clone()));
+        }
     }
     if let Some(y) = update.year {
         sets.push("year = ?");

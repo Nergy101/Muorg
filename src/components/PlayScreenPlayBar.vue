@@ -2,11 +2,14 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../stores/catalog";
+import { useSettingsStore } from "../stores/settings";
 import TrackAlbumArt from "./TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 
 const store = useCatalogStore();
+const settingsStore = useSettingsStore();
 const { selectedTracks, filteredTracks } = storeToRefs(store);
+const { shuffle } = storeToRefs(settingsStore);
 
 const isPlaying = ref(false);
 const currentTime = ref(0);
@@ -108,9 +111,16 @@ function playNext() {
   const current = singleTrack.value;
   const list = filteredTracks.value;
   if (!current || !list.length) return;
-  const idx = list.findIndex((t) => t.id === current.id);
-  if (idx < 0 || idx + 1 >= list.length) return;
-  const next = list[idx + 1];
+  let next: typeof list[0];
+  if (shuffle.value) {
+    const others = list.filter((t) => t.id !== current.id);
+    if (others.length === 0) return;
+    next = others[Math.floor(Math.random() * others.length)];
+  } else {
+    const idx = list.findIndex((t) => t.id === current.id);
+    if (idx < 0 || idx + 1 >= list.length) return;
+    next = list[idx + 1];
+  }
   store.clearSelection();
   store.toggleSelection(next.id);
 }
@@ -205,25 +215,17 @@ onUnmounted(() => {
 <template>
   <div
     v-if="singleTrack"
-    class="flex shrink-0 flex-col items-center gap-4 border-t border-stone-700 bg-stone-900/95 px-4 py-4"
+    class="flex shrink-0 flex-col items-center gap-1 border-t border-stone-700 bg-stone-900/95 px-4 py-2"
   >
-    <div class="flex w-full flex-col items-center gap-4">
+    <div class="flex w-full flex-col items-center gap-1">
       <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" />
-      <div class="mt-2 flex w-full flex-col items-center text-center">
-        <div
-          class="max-w-2xl truncate text-sm font-semibold text-stone-100"
-          :title="singleTrack?.title || singleTrack?.path"
-        >
-          {{ singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || "Track" }}
-        </div>
-        <div
-          v-if="singleTrack?.artist"
-          class="mt-1 max-w-2xl truncate text-xs text-stone-400"
-        >
-          {{ singleTrack.artist }}
-        </div>
+      <div
+        class="max-w-2xl truncate text-center text-sm font-semibold text-stone-100"
+        :title="[singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || 'Track', singleTrack?.album, singleTrack?.artist].filter(Boolean).join(' · ')"
+      >
+        {{ singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || "Track" }}<template v-if="singleTrack?.album"> · {{ singleTrack.album }}</template><template v-if="singleTrack?.artist"> · {{ singleTrack.artist }}</template>
       </div>
-      <div class="flex items-center justify-center gap-4">
+      <div class="flex items-center justify-center gap-2">
         <span
           class="inline-flex"
           @mouseenter="showTooltip('Previous track', $event)"
@@ -248,7 +250,7 @@ onUnmounted(() => {
         >
           <button
             type="button"
-            class="rounded-full bg-[#5b7c32] p-4 text-stone-50 shadow-lg hover:bg-[#6d8f3d]"
+            class="player-play-btn rounded-full bg-[#5b7c32] p-4 text-stone-50 shadow-lg hover:bg-[#6d8f3d]"
             :aria-label="isPlaying ? 'Pause' : 'Play'"
             @click="togglePlay"
           >
@@ -290,7 +292,7 @@ onUnmounted(() => {
           </button>
         </span>
       </div>
-      <div class="mt-2 flex w-full items-center gap-4">
+      <div class="mt-1 flex w-full items-center gap-3">
         <div class="flex min-w-0 flex-1 items-center gap-3">
           <span
             class="inline-flex"
@@ -329,6 +331,18 @@ onUnmounted(() => {
           <span class="w-10 shrink-0 text-left text-xs text-stone-400 tabular-nums">
             {{ formatTime(displayDuration) }}
           </span>
+          <button
+            type="button"
+            class="shrink-0 rounded p-2 hover:bg-stone-700 hover:text-stone-200"
+            :class="shuffle ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
+            aria-label="Shuffle next track"
+            :aria-pressed="shuffle"
+            @click="settingsStore.setShuffle(!shuffle)"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M2 16.25a.75.75 0 0 0 0 1.5zm8.748-2.163l-.643-.386zm2.504-4.174l.643.386zM22 7l.53.53a.75.75 0 0 0 0-1.06zm-2.53 1.47a.75.75 0 0 0 1.06 1.06zm1.06-4a.75.75 0 1 0-1.06 1.06zm-5.31 2.92l-.369-.653zM2 17.75h3.603v-1.5H2zm9.39-3.277l2.505-4.174l-1.286-.772l-2.504 4.174zm7.007-6.723H22v-1.5h-3.603zm3.073-1.28l-2 2l1.06 1.06l2-2zm1.06 0l-2-2l-1.06 1.06l2 2zm-8.635 3.829c.434-.724.734-1.22 1.006-1.589c.263-.355.468-.543.689-.668l-.739-1.305c-.467.264-.82.627-1.155 1.08c-.326.44-.668 1.011-1.087 1.71zm4.502-4.049c-.815 0-1.48 0-2.025.052c-.562.055-1.054.17-1.521.435l.739 1.305c.22-.125.487-.204.927-.247c.456-.044 1.036-.045 1.88-.045zM5.603 17.75c.815 0 1.48 0 2.025-.052c.562-.055 1.054-.17 1.521-.435l-.739-1.305c-.22.125-.487.204-.927.247c-.456.044-1.036.045-1.88.045zm4.502-4.049c-.435.724-.734 1.22-1.006 1.589c-.263.355-.468.543-.689.668l.74 1.305c.466-.264.819-.627 1.154-1.08c.326-.44.668-1.011 1.087-1.71zM2 6.25a.75.75 0 0 0 0 1.5zM22 17l.53.53a.75.75 0 0 0 0-1.06zm-1.47-2.53a.75.75 0 1 0-1.06 1.06zm-1.06 4a.75.75 0 1 0 1.06 1.06zm-3.345-1.525l.144-.736zm-1.682-2.33a.75.75 0 1 0-1.286.77zm.025 1.391l.558-.501zm-6.593-8.95l.143-.737zm1.682 2.33a.75.75 0 0 0 1.286-.772zm-.025-1.393l-.558.502zM2 7.75h4.668v-1.5H2zm15.332 10H22v-1.5h-4.668zm5.198-1.28l-2-2l-1.06 1.06l2 2zm-1.06 0l-2 2l1.06 1.06l2-2zm-4.138-.22c-.645 0-.867-.003-1.063-.041l-.287 1.472c.372.072.765.069 1.35.069zm-4.175-.864c.3.502.5.84.754 1.122l1.115-1.003c-.134-.149-.25-.337-.583-.89zm3.112.823a2.25 2.25 0 0 1-1.243-.704l-1.115 1.003a3.75 3.75 0 0 0 2.071 1.173zM6.668 7.75c.645 0 .867.003 1.063.041l.287-1.472c-.372-.072-.765-.069-1.35-.069zm4.175.864c-.3-.502-.5-.84-.754-1.122L8.974 8.495c.134.149.25.337.583.89zm-3.112-.823c.48.094.916.34 1.243.704l1.115-1.003a3.75 3.75 0 0 0-2.071-1.173z" />
+            </svg>
+          </button>
         </div>
         <div class="ml-auto flex shrink-0 items-center justify-end gap-2">
           <VolumeControl mode="playscreen" />
@@ -366,6 +380,7 @@ onUnmounted(() => {
     rgb(87 83 78) var(--progress-percent, 0%),
     rgb(87 83 78) 100%
   ) !important;
+  border-radius: 9999px;
 }
 .player-progress-slider::-webkit-slider-runnable-track {
   background: linear-gradient(
@@ -375,6 +390,7 @@ onUnmounted(() => {
     rgb(87 83 78) var(--progress-percent, 0%),
     rgb(87 83 78) 100%
   );
+  border-radius: 9999px;
 }
 .player-progress-slider::-moz-range-progress {
   background: #5b7c32;

@@ -16,11 +16,11 @@ import { extractMetadataFromPath } from "../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../stores/settings";
 
 const props = defineProps<{
-  activeTab: "library" | "play";
+  activeTab: "library" | "metadata" | "play";
 }>();
 
 const emit = defineEmits<{
-  (e: "update:activeTab", value: "library" | "play"): void;
+  (e: "update:activeTab", value: "library" | "metadata" | "play"): void;
 }>();
 
 const store = useCatalogStore();
@@ -126,6 +126,26 @@ const activeReportTitle = computed(() => {
   if (reportFilter.value === "duplicates") return "Duplicates";
   if (reportFilter.value === "missing_album_cover") return "Missing album cover";
   return "";
+});
+
+/** For duplicates report only: number of redundant copies (total tracks minus one per unique song). */
+const duplicateCountInReport = computed(() => {
+  if (reportFilter.value !== "duplicates") return null;
+  const list = activeReportTracks.value;
+  if (!list.length) return 0;
+  const keyFor = (t: CatalogTrack) =>
+    `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
+  const map = new Map<string, number>();
+  for (const t of list) {
+    const key = keyFor(t);
+    if (!key.trim()) continue;
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  let total = 0;
+  for (const count of map.values()) {
+    if (count > 1) total += count - 1;
+  }
+  return total;
 });
 
 const showReportModal = computed(() => !!reportFilter.value && !!activeReportTitle.value);
@@ -349,27 +369,27 @@ function setDefaultGroupsExpanded(value: boolean) {
 }
 
 /** True if this group contains any currently selected track. */
-function groupContainsSelection(group: { key: string; label: string; tracks: CatalogTrack[] }): boolean {
+function groupContainsSelection(group: GroupRow): boolean {
   return group.tracks.some((tr) => selectedTrackIds.value.includes(tr.id));
 }
 
 /** Select all tracks in a group and expand it (for editing cover on the whole album). */
-function selectGroupTracksForCoverEdit(groupKey: string, group: { key: string; label: string; tracks: CatalogTrack[] }) {
+function selectGroupTracksForCoverEdit(groupKey: string, group: GroupRow) {
   store.clearSelection();
   for (const t of group.tracks) store.toggleSelection(t.id);
   expandedGroups.value = new Set([...expandedGroups.value, groupKey]);
 }
 
 /** Select all tracks in group, expand, and open the Wikipedia cover modal in the metadata panel. */
-function selectGroupAndOpenWikipedia(groupKey: string, group: { key: string; label: string; tracks: CatalogTrack[] }) {
+function selectGroupAndOpenWikipedia(groupKey: string, group: GroupRow) {
   selectGroupTracksForCoverEdit(groupKey, group);
   store.setOpenWikipediaModal(true);
 }
 
 /** Example path format expressions (click to use). */
 const pathFormatExamples = [
-  "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>",
-  "<Artist>/Albums/<Year> - <Album>/<TrackNumber> - <TrackTitle>.<ext>",
+  "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
+  "<Artist>/Albums/<Year> - <Album>/<TrackNumber> - <TrackTitle>.<Format>",
 ];
 
 /** Extracted metadata from the example path using the current path format template (for Smart Suggestions preview). */
@@ -383,7 +403,10 @@ const pathFormatExampleExtracted = computed(() => {
 /** Select a track from the report modal: expand its group, select the track, close the report. */
 function selectTrackFromReport(t: CatalogTrack) {
   if (groupBy.value !== "none") {
-    const key = groupBy.value === "artist" ? (t.artist ?? "—") : (t.album ?? "—");
+    const key =
+      groupBy.value === "artist"
+        ? (t.artist ?? "—")
+        : `${t.album ?? "—"}|||${t.artist ?? "—"}`;
     const next = new Set(expandedGroups.value);
     next.add(key);
     expandedGroups.value = next;
@@ -428,8 +451,16 @@ const OVERCAN_ROWS = 12;
 const scrollTopRef = ref(0);
 const containerHeightRef = ref(0);
 
+type GroupRow = {
+  key: string;
+  label: string;
+  tracks: CatalogTrack[];
+  /** For album grouping, artist name for this album+artist group; undefined otherwise. */
+  artist?: string;
+};
+
 type VisibleRow =
-  | { type: "group"; key: string; group: { key: string; label: string; tracks: CatalogTrack[] } }
+  | { type: "group"; key: string; group: GroupRow }
   | { type: "track"; track: CatalogTrack };
 
 /** Flat list of focusable rows (group headers and tracks) in display order. */
@@ -517,14 +548,39 @@ const groupedRows = computed(() => {
   const by = groupBy.value;
   const base = filteredTracks.value;
   if (by === "none" || !base.length) return null;
-  const map = new Map<string, CatalogTrack[]>();
+  const map = new Map<string, GroupRow>();
+
   for (const t of base) {
-    const key = by === "artist" ? (t.artist ?? "—") : by === "album" ? (t.album ?? "—") : "";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(t);
+    if (by === "artist") {
+      const artist = t.artist ?? "—";
+      let group = map.get(artist);
+      if (!group) {
+        group = { key: artist, label: artist, tracks: [] };
+        map.set(artist, group);
+      }
+      group.tracks.push(t);
+    } else if (by === "album") {
+      const album = t.album ?? "—";
+      const artist = t.artist ?? "—";
+      const key = `${album}|||${artist}`;
+      let group = map.get(key);
+      if (!group) {
+        group = { key, label: album, artist, tracks: [] };
+        map.set(key, group);
+      }
+      group.tracks.push(t);
+    }
   }
-  const keys = [...map.keys()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  return keys.map((key) => ({ key, label: key, tracks: map.get(key)! }));
+
+  const groups = [...map.values()];
+  groups.sort((a, b) => {
+    const byLabel = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+    if (byLabel !== 0) return byLabel;
+    const aArtist = (a.artist ?? "").toLowerCase();
+    const bArtist = (b.artist ?? "").toLowerCase();
+    return aArtist.localeCompare(bArtist);
+  });
+  return groups;
 });
 
 /** When grouping by album, per-group cover to show in header. Uses albumCoverCache (set when any track in that album is fetched) so headers show as soon as track art loads. */
@@ -535,13 +591,14 @@ const groupCovers = computed(() => {
   if (!groups) return {};
   const result: Record<string, import("../stores/catalog").CoverInfo | null> = {};
   for (const group of groups) {
-    result[group.key] = albumCache[group.key] ?? null;
+    const albumKey = group.label;
+    result[group.key] = albumCache[albumKey] ?? null;
   }
   return result;
 });
 
 const tableColCount = computed(() => {
-  // Selection checkbox column is always present.
+  // First column: multi-select toggle (header) + checkboxes (rows) only when multiSelectMode.
   let n = 1;
   if (tableColAlbumArt.value) n += 1;
   // Title, Artist, Album always present.
@@ -891,7 +948,7 @@ onUnmounted(() => {
           </span>
         </template>
       </div>
-      <div class="flex items-center justify-center gap-2">
+      <div class="flex items-center justify-start gap-2">
         <button
           type="button"
           class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
@@ -899,6 +956,16 @@ onUnmounted(() => {
             ? 'bg-stone-700 text-stone-100'
             : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-stone-100'"
           @click="emit('update:activeTab', 'library')"
+        >
+          Library
+        </button>
+        <button
+          type="button"
+          class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          :class="props.activeTab === 'metadata'
+            ? 'bg-stone-700 text-stone-100'
+            : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-stone-100'"
+          @click="emit('update:activeTab', 'metadata')"
         >
           Metadata
         </button>
@@ -991,12 +1058,12 @@ onUnmounted(() => {
             <th class="w-8 border-r border-stone-700 p-2">
               <label class="flex cursor-pointer items-center gap-1.5 text-xs text-stone-400">
                 <input
-                  :checked="multiSelectMode"
                   type="checkbox"
+                  :checked="multiSelectMode"
                   class="rounded border-stone-600"
                   @change="store.setMultiSelectMode(($event.target as HTMLInputElement).checked)"
                 />
-                Multi-select
+                Multi
               </label>
             </th>
             <th v-if="tableColAlbumArt" class="w-10 border-r border-stone-700 p-2"></th>
@@ -1035,19 +1102,31 @@ onUnmounted(() => {
                 <td :colspan="tableColCount" class="border-b border-stone-600 p-2">
                   <span class="inline-flex flex-wrap items-center gap-2">
                     <span
-                      v-if="groupBy === 'album' && groupCovers[row.key] && groupHeaderAlbumArt"
+                      v-if="groupBy === 'album' && groupHeaderAlbumArt"
                       class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
                     >
                       <img
-                        :src="groupCovers[row.key] ? `data:${groupCovers[row.key]!.mime};base64,${groupCovers[row.key]!.base64}` : ''"
+                        v-if="groupCovers[row.key]"
+                        :src="`data:${groupCovers[row.key]!.mime};base64,${groupCovers[row.key]!.base64}`"
                         alt=""
                         class="h-full w-full object-cover"
                       />
+                      <span
+                        v-else
+                        class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-stone-500 border-t-stone-300"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <span class="inline-block w-4 shrink-0 text-stone-500" aria-hidden="true">
-                      {{ isGroupExpanded(row.key) ? "▼" : "▶" }}
+                    <span
+                      class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 bg-stone-900/60 transition-transform duration-150"
+                      :class="{ 'rotate-90': isGroupExpanded(row.key) }"
+                      aria-hidden="true"
+                    >
+                      <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M9 6l6 6-6 6" />
+                      </svg>
                     </span>
-                    {{ row.group.label }}
+                    {{ row.group.label }}<template v-if="groupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
                     <span class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
                     <template v-if="groupBy === 'album'">
                       <button
@@ -1091,6 +1170,7 @@ onUnmounted(() => {
               >
                 <td class="border-r border-stone-700 p-2">
                   <input
+                    v-if="multiSelectMode"
                     type="checkbox"
                     :checked="isSelected(row.track.id)"
                     class="rounded border-stone-600"
@@ -1692,7 +1772,7 @@ onUnmounted(() => {
             <div class="min-w-0">
               <h2 class="truncate text-sm font-semibold">{{ activeReportTitle }}</h2>
               <p class="mt-0.5 text-xs">
-                {{ activeReportTracks.length }} track{{ activeReportTracks.length === 1 ? "" : "s" }} in this report.
+                {{ activeReportTracks.length }} track{{ activeReportTracks.length === 1 ? "" : "s" }} in this report.<template v-if="duplicateCountInReport != null"> Of which {{ duplicateCountInReport }} duplicate{{ duplicateCountInReport === 1 ? "" : "s" }}.</template>
               </p>
             </div>
             <button
@@ -1726,7 +1806,22 @@ onUnmounted(() => {
                   <td class="min-w-0 max-w-[220px] truncate px-2 py-1 text-stone-100" :title="t.title || '—'">{{ t.title || "—" }}</td>
                   <td class="min-w-0 max-w-[200px] truncate px-2 py-1 text-stone-200" :title="t.artist || '—'">{{ t.artist || "—" }}</td>
                   <td class="min-w-0 max-w-[320px] truncate px-2 py-1 text-stone-200" :title="t.album || '—'">{{ t.album || "—" }}</td>
-                  <td class="min-w-0 max-w-[320px] truncate px-2 py-1 text-stone-500" :title="t.path">{{ t.path }}</td>
+                  <td class="min-w-0 max-w-[320px] px-2 py-1 text-stone-500">
+                    <div class="flex min-w-0 items-center gap-1">
+                      <button
+                        type="button"
+                        class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300"
+                        aria-label="Copy path"
+                        title="Copy path"
+                        @click.stop="copyPathToClipboard(t.path)"
+                      >
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                      <span class="min-w-0 truncate" :title="t.path">{{ t.path }}</span>
+                    </div>
+                  </td>
                   <td class="px-2 py-1 text-right">
                     <button
                       type="button"

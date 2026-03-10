@@ -1,6 +1,6 @@
 /**
  * Extracts metadata fields from a file path using a format template.
- * Format uses placeholders in angle brackets, e.g. <Artist>/<Album>/<TrackNumber> - <TrackTitle>.<ext>
+ * Format uses placeholders in angle brackets, e.g. <Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>
  * Path separators (/) in the format define segments; the last N segments of the path are matched
  * against the N segments of the format.
  */
@@ -8,7 +8,7 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Parse one format segment that may contain multiple placeholders, e.g. "<TrackNumber> - <TrackTitle>.<ext>". */
+/** Parse one format segment that may contain multiple placeholders, e.g. "<TrackNumber> - <TrackTitle>.<Format>". */
 function parseSegment(formatSegment: string, pathSegment: string): Record<string, string> | null {
   const placeholders = [...formatSegment.matchAll(/<([^>]+)>/g)].map((m) => m[1]);
   if (placeholders.length === 0) return null;
@@ -52,9 +52,33 @@ export function extractMetadataFromPath(
     const seg = pathTail[i];
     if (!seg) return null;
 
+    // Only the last '.<text>' in the path segment is the extension; the rest is part of the name.
+    const lastDot = seg.lastIndexOf(".");
+    const baseName = lastDot >= 0 ? seg.slice(0, lastDot) : seg;
+    const extValue = lastDot >= 0 ? seg.slice(lastDot + 1) : "";
+
+    const extPlaceholderMatch = fmt.match(/\.\s*<([^>]+)>\s*$/);
+    if (extPlaceholderMatch) {
+      const extPlaceholder = extPlaceholderMatch[1];
+      const fmtWithoutExt = fmt.slice(0, extPlaceholderMatch.index).trim();
+      result[extPlaceholder.toLowerCase() === "ext" ? "Format" : extPlaceholder] = extValue;
+      if (!fmtWithoutExt) {
+        continue;
+      }
+      const singlePlaceholder = /^<([^>]+)>$/.exec(fmtWithoutExt);
+      if (singlePlaceholder) {
+        result[singlePlaceholder[1]] = baseName;
+        continue;
+      }
+      const parsed = parseSegment(fmtWithoutExt, baseName);
+      if (!parsed) return null;
+      Object.assign(result, parsed);
+      continue;
+    }
+
     const singlePlaceholder = /^<([^>]+)>$/.exec(fmt);
     if (singlePlaceholder) {
-      result[singlePlaceholder[1]] = seg;
+      result[singlePlaceholder[1]] = baseName;
       continue;
     }
 
@@ -64,7 +88,10 @@ export function extractMetadataFromPath(
       continue;
     }
 
-    const parsed = parseSegment(fmt, seg);
+    // Use full segment only when format ends with a literal extension (e.g. .mp3); otherwise use baseName so dots in the name stay in the extracted value.
+    const endsWithLiteralExt = /\.(?!\s*<[^>]+>\s*$)[^<>*]+$/.test(fmt);
+    const pathForMatch = endsWithLiteralExt ? seg : baseName;
+    const parsed = parseSegment(fmt, pathForMatch);
     if (!parsed) return null;
     Object.assign(result, parsed);
   }
