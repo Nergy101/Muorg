@@ -236,7 +236,7 @@ onUnmounted(() => {
             class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
             aria-label="Previous track"
             @click="playPrevious"
-            :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack.id) <= 0"
+            :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack?.id) <= 0"
           >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />

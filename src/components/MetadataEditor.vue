@@ -9,7 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks, openWikipediaModal, multiSelectMode } = storeToRefs(store);
+const { selectedTracks, openWikipediaModal } = storeToRefs(store);
 const { hideWikipediaCoverSearch, pathFormatTemplate } = storeToRefs(settingsStore);
 
 const title = ref("");
