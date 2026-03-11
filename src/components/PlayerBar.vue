@@ -142,11 +142,6 @@ const progressPercent = computed(() => {
 
 function recomputeMarquee() {
   nextTick(() => {
-    if (playbarDisableMarquee.value) {
-      shouldScrollMarquee.value = false;
-      marqueeDistance.value = 0;
-      return;
-    }
     const el = marqueeContainerRef.value;
     if (!el) {
       shouldScrollMarquee.value = false;
@@ -343,25 +338,34 @@ onUnmounted(() => {
         <div class="min-w-0 flex-1">
           <div
             ref="marqueeContainerRef"
-            class="metadata-marquee text-xs font-medium"
-            :class="playbarDisableMarquee ? 'truncate' : ''"
-            @mouseenter="showTitlePopover(marqueeTitle, $event)"
-            @mouseleave="scheduleHideTitlePopover"
+            class="text-xs font-medium"
+            :class="playbarDisableMarquee ? 'truncate' : 'metadata-marquee w-48'"
           >
-            <template v-if="!shouldScrollMarquee">
-              <span class="text-stone-200">
+            <template v-if="playbarDisableMarquee">
+              <span
+                class="text-stone-200"
+                @mouseenter="showTitlePopover(marqueeTitle, $event)"
+                @mouseleave="scheduleHideTitlePopover"
+              >
                 {{ marqueeTitle }}
               </span>
             </template>
-            <div
-              v-else
-              class="metadata-marquee-inner"
-              :style="{ '--marquee-distance': marqueeDistance + 'px' }"
-            >
-              <span class="text-stone-200">
-                {{ marqueeTitle }}
-              </span>
-            </div>
+            <template v-else>
+              <template v-if="!shouldScrollMarquee">
+                <span class="text-stone-200">
+                  {{ marqueeTitle }}
+                </span>
+              </template>
+              <div
+                v-else
+                class="metadata-marquee-inner"
+                :style="{ '--marquee-distance': marqueeDistance + 'px' }"
+              >
+                <span class="text-stone-200">
+                  {{ marqueeTitle }}
+                </span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
