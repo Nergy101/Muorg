@@ -89,6 +89,8 @@ export const useSettingsStore = defineStore("settings", {
     defaultGroupsExpanded: false,
     autoplayOnSelect: false,
     continuousPlayback: false,
+    playbarShowAlbumInMarquee: false,
+    playbarDisableMarquee: false,
     shuffle: false,
     navWrap: false,
     navFocusFollowsMouse: false,
@@ -118,6 +120,12 @@ export const useSettingsStore = defineStore("settings", {
         if ("defaultGroupsExpanded" in data) this.defaultGroupsExpanded = coerceBool(data.defaultGroupsExpanded, false);
         if ("autoplayOnSelect" in data) this.autoplayOnSelect = coerceBool(data.autoplayOnSelect, false);
         if ("continuousPlayback" in data) this.continuousPlayback = coerceBool(data.continuousPlayback, false);
+        if ("playbarShowAlbumInMarquee" in data) {
+          this.playbarShowAlbumInMarquee = coerceBool(data.playbarShowAlbumInMarquee, false);
+        }
+        if ("playbarDisableMarquee" in data) {
+          this.playbarDisableMarquee = coerceBool(data.playbarDisableMarquee, false);
+        }
         if ("shuffle" in data) this.shuffle = coerceBool(data.shuffle, false);
         if ("navWrap" in data) this.navWrap = coerceBool(data.navWrap, false);
         if ("navFocusFollowsMouse" in data) this.navFocusFollowsMouse = coerceBool(data.navFocusFollowsMouse, false);
@@ -147,6 +155,8 @@ export const useSettingsStore = defineStore("settings", {
           defaultGroupsExpanded: this.defaultGroupsExpanded,
           autoplayOnSelect: this.autoplayOnSelect,
           continuousPlayback: this.continuousPlayback,
+          playbarShowAlbumInMarquee: this.playbarShowAlbumInMarquee,
+          playbarDisableMarquee: this.playbarDisableMarquee,
           shuffle: this.shuffle,
           navWrap: this.navWrap,
           navFocusFollowsMouse: this.navFocusFollowsMouse,
@@ -197,6 +207,14 @@ export const useSettingsStore = defineStore("settings", {
     },
     setContinuousPlayback(value: boolean) {
       this.continuousPlayback = value;
+      this.saveToFile();
+    },
+    setPlaybarShowAlbumInMarquee(value: boolean) {
+      this.playbarShowAlbumInMarquee = value;
+      this.saveToFile();
+    },
+    setPlaybarDisableMarquee(value: boolean) {
+      this.playbarDisableMarquee = value;
       this.saveToFile();
     },
     setShuffle(value: boolean) {

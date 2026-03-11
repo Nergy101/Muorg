@@ -10,7 +10,13 @@ import { invoke } from "@tauri-apps/api/core";
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const { selectedTracks, filteredTracks } = storeToRefs(store);
-const { autoplayOnSelect, continuousPlayback, shuffle } = storeToRefs(settingsStore);
+const {
+  autoplayOnSelect,
+  continuousPlayback,
+  shuffle,
+  playbarShowAlbumInMarquee,
+  playbarDisableMarquee,
+} = storeToRefs(settingsStore);
 
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
@@ -23,6 +29,36 @@ let shouldAutoplayNextSelection = false;
 const marqueeContainerRef = ref<HTMLDivElement | null>(null);
 const shouldScrollMarquee = ref(false);
 const marqueeDistance = ref(0);
+
+const titlePopover = ref<{ text: string; x: number; y: number } | null>(null);
+let titlePopoverHideTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function showTitlePopover(text: string, e: MouseEvent) {
+  if (!playbarDisableMarquee.value) return;
+  if (titlePopoverHideTimeout) clearTimeout(titlePopoverHideTimeout);
+  titlePopoverHideTimeout = null;
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  titlePopover.value = { text, x: rect.left + rect.width / 2, y: rect.top - 8 };
+}
+
+function scheduleHideTitlePopover() {
+  if (!playbarDisableMarquee.value) return;
+  titlePopoverHideTimeout = setTimeout(() => {
+    titlePopover.value = null;
+    titlePopoverHideTimeout = null;
+  }, 80);
+}
+
+function cancelHideTitlePopover() {
+  if (titlePopoverHideTimeout) clearTimeout(titlePopoverHideTimeout);
+  titlePopoverHideTimeout = null;
+}
+
+function hideTitlePopover() {
+  titlePopover.value = null;
+  if (titlePopoverHideTimeout) clearTimeout(titlePopoverHideTimeout);
+  titlePopoverHideTimeout = null;
+}
 
 function formatTime(secs: number): string {
   if (!Number.isFinite(secs) || secs < 0) return "0:00";
@@ -82,7 +118,12 @@ const singleTrack = computed(() => {
 const marqueeTitle = computed(() => {
   const t = singleTrack.value;
   if (!t) return "";
-  return t.title || t.path.split(/[/\\]/).pop() || "Track";
+  const parts: string[] = [];
+  const baseTitle = t.title || t.path.split(/[/\\]/).pop() || "Track";
+  if (baseTitle) parts.push(baseTitle);
+  if (playbarShowAlbumInMarquee.value && t.album) parts.push(t.album);
+  if (t.artist) parts.push(t.artist);
+  return parts.join(" · ");
 });
 
 /** Display duration: prefer catalog value (reliable); fall back to audio element when loaded. */
@@ -101,6 +142,11 @@ const progressPercent = computed(() => {
 
 function recomputeMarquee() {
   nextTick(() => {
+    if (playbarDisableMarquee.value) {
+      shouldScrollMarquee.value = false;
+      marqueeDistance.value = 0;
+      return;
+    }
     const el = marqueeContainerRef.value;
     if (!el) {
       shouldScrollMarquee.value = false;
@@ -117,6 +163,11 @@ function recomputeMarquee() {
     }
   });
 }
+
+watch(playbarDisableMarquee, () => {
+  hideTitlePopover();
+  recomputeMarquee();
+});
 
 
 async function loadAudioBlob(path: string) {
@@ -293,17 +344,13 @@ onUnmounted(() => {
           <div
             ref="marqueeContainerRef"
             class="metadata-marquee text-xs font-medium"
-            :title="singleTrack?.title || singleTrack?.path"
+            :class="playbarDisableMarquee ? 'truncate' : ''"
+            @mouseenter="showTitlePopover(marqueeTitle, $event)"
+            @mouseleave="scheduleHideTitlePopover"
           >
             <template v-if="!shouldScrollMarquee">
               <span class="text-stone-200">
                 {{ marqueeTitle }}
-              </span>
-              <span
-                v-if="singleTrack?.artist"
-                class="ml-1 text-[11px] font-normal text-stone-500"
-              >
-                · {{ singleTrack.artist }}
               </span>
             </template>
             <div
@@ -313,12 +360,6 @@ onUnmounted(() => {
             >
               <span class="text-stone-200">
                 {{ marqueeTitle }}
-              </span>
-              <span
-                v-if="singleTrack?.artist"
-                class="ml-1 text-[11px] font-normal text-stone-500"
-              >
-                · {{ singleTrack.artist }}
               </span>
             </div>
           </div>
@@ -412,6 +453,17 @@ onUnmounted(() => {
         <VolumeControl mode="metadata" />
       </div>
     </div>
+    <Teleport to="body">
+      <div
+        v-if="titlePopover"
+        class="fixed z-[250] max-w-[420px] whitespace-pre-line rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+        :style="{ left: titlePopover.x + 'px', top: titlePopover.y + 'px', transform: 'translate(-50%, -100%)' }"
+        @mouseenter="cancelHideTitlePopover"
+        @mouseleave="hideTitlePopover"
+      >
+        {{ titlePopover.text }}
+      </div>
+    </Teleport>
   </div>
 </template>
 

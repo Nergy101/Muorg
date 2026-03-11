@@ -217,7 +217,6 @@ async function handleRemoveFolder(rootPath: string) {
       <div class="flex flex-1 flex-col items-center justify-start pt-3">
         <span
           class="inline-flex"
-          @mouseenter="showTooltip('Expand library', $event, true)"
           @mouseleave="scheduleHideTooltip"
         >
           <button
@@ -226,9 +225,7 @@ async function handleRemoveFolder(rootPath: string) {
             aria-label="Expand library"
             @click="emit('toggle')"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm5-2v16"/><path d="m14 10l2 2l-2 2"/></g></svg>
           </button>
         </span>
       </div>
@@ -238,7 +235,6 @@ async function handleRemoveFolder(rootPath: string) {
       <div class="flex items-center justify-end border-b border-stone-700 px-3 py-2">
         <span
           class="inline-flex"
-          @mouseenter="showTooltip('Collapse library', $event)"
           @mouseleave="scheduleHideTooltip"
         >
           <button
@@ -247,9 +243,7 @@ async function handleRemoveFolder(rootPath: string) {
             aria-label="Collapse library"
             @click="emit('toggle')"
           >
-            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm11-2v16"/><path d="m10 10l-2 2l2 2"/></g></svg>
           </button>
         </span>
       </div>

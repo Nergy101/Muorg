@@ -33,6 +33,8 @@ const {
   defaultGroupBy,
   autoplayOnSelect,
   continuousPlayback,
+  playbarShowAlbumInMarquee,
+  playbarDisableMarquee,
   navWrap,
   navFocusFollowsMouse,
   tableDensity,
@@ -951,30 +953,24 @@ onUnmounted(() => {
       <div class="flex items-center justify-start gap-2">
         <button
           type="button"
-          class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-          :class="props.activeTab === 'library'
-            ? 'bg-stone-700 text-stone-100'
-            : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-stone-100'"
+          class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          :class="props.activeTab === 'library' ? 'primary-tab--active' : undefined"
           @click="emit('update:activeTab', 'library')"
         >
           Library
         </button>
         <button
           type="button"
-          class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-          :class="props.activeTab === 'metadata'
-            ? 'bg-stone-700 text-stone-100'
-            : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-stone-100'"
+          class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          :class="props.activeTab === 'metadata' ? 'primary-tab--active' : undefined"
           @click="emit('update:activeTab', 'metadata')"
         >
           Metadata
         </button>
         <button
           type="button"
-          class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-          :class="props.activeTab === 'play'
-            ? 'bg-stone-700 text-stone-100'
-            : 'bg-transparent text-stone-400 hover:bg-stone-800 hover:text-stone-100'"
+          class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          :class="props.activeTab === 'play' ? 'primary-tab--active' : undefined"
           @click="emit('update:activeTab', 'play')"
         >
           Player
@@ -1274,7 +1270,7 @@ onUnmounted(() => {
               :key="tab.id"
               type="button"
               class="settings-tab-btn px-3 py-2 text-left text-xs font-medium transition-colors"
-              :class="settingsTab === tab.id ? 'settings-tab-btn--active bg-stone-700 text-stone-100' : 'text-stone-400 hover:bg-stone-700/60 hover:text-stone-200'"
+              :class="settingsTab === tab.id ? 'settings-tab-btn--active' : undefined"
               @click="settingsTab = tab.id"
             >
               {{ tab.label }}
@@ -1401,6 +1397,30 @@ onUnmounted(() => {
               </label>
               <p class="mt-0.5 text-xs text-stone-500">
                 When enabled, playback automatically advances to the next track when the current track finishes.
+              </p>
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="playbarShowAlbumInMarquee"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setPlaybarShowAlbumInMarquee((e.target as HTMLInputElement).checked)"
+                />
+                Playbar: show album title in marquee
+              </label>
+              <p class="mt-0.5 text-xs text-stone-500">
+                When enabled, the small player bar and play screen show album between title and artist.
+              </p>
+              <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <input
+                  type="checkbox"
+                  :checked="playbarDisableMarquee"
+                  class="rounded border-stone-600"
+                  @change="(e) => settingsStore.setPlaybarDisableMarquee((e.target as HTMLInputElement).checked)"
+                />
+                Playbar: disable marquee animation
+              </label>
+              <p class="mt-0.5 text-xs text-stone-500">
+                When enabled, the title uses ellipsis and shows the full text in a popover on hover.
               </p>
             </div>
             <div v-show="settingsTab === 'keyboard'" class="space-y-4">

@@ -9,7 +9,7 @@ import VolumeControl from "./VolumeControl.vue";
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const { selectedTracks, filteredTracks } = storeToRefs(store);
-const { shuffle } = storeToRefs(settingsStore);
+const { shuffle, playbarShowAlbumInMarquee } = storeToRefs(settingsStore);
 
 const isPlaying = ref(false);
 const currentTime = ref(0);
@@ -70,6 +70,17 @@ function onSeekMouseUp() {
 const singleTrack = computed(() => {
   const tracks = selectedTracks.value;
   return tracks.length === 1 ? tracks[0] : null;
+});
+
+const playbarTitleLine = computed(() => {
+  const t = singleTrack.value;
+  if (!t) return "";
+  const parts: string[] = [];
+  const baseTitle = t.title || t.path.split(/[/\\]/).pop() || "Track";
+  if (baseTitle) parts.push(baseTitle);
+  if (playbarShowAlbumInMarquee.value && t.album) parts.push(t.album);
+  if (t.artist) parts.push(t.artist);
+  return parts.join(" · ");
 });
 
 const displayDuration = computed(() => {
@@ -221,9 +232,9 @@ onUnmounted(() => {
       <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" />
       <div
         class="max-w-2xl truncate text-center text-sm font-semibold text-stone-100"
-        :title="[singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || 'Track', singleTrack?.album, singleTrack?.artist].filter(Boolean).join(' · ')"
+        :title="playbarTitleLine"
       >
-        {{ singleTrack?.title || singleTrack?.path.split(/[/\\]/).pop() || "Track" }}<template v-if="singleTrack?.album"> · {{ singleTrack.album }}</template><template v-if="singleTrack?.artist"> · {{ singleTrack.artist }}</template>
+        {{ playbarTitleLine }}
       </div>
       <div class="flex items-center justify-center gap-2">
         <span
