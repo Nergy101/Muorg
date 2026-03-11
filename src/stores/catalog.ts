@@ -80,13 +80,20 @@ export const useCatalogStore = defineStore("catalog", {
       this.error = null;
       try {
         this.tracks = await invoke<CatalogTrack[]>("get_tracks");
-        // Rebuild album cover cache from existing coverCache so group headers keep showing after refresh (e.g. remove folder)
+        // Rebuild album cover cache from existing coverCache so group headers keep showing after refresh (e.g. remove folder).
+        // Preserve explicit "no cover" (null) entries so album headers stop showing a spinner once checked.
         const next: Record<string, CoverInfo | null> = {};
         for (const t of this.tracks) {
           const cover = this.coverCache[t.path];
           if (cover) {
             const key = t.album ?? "—";
             if (!(key in next)) next[key] = cover;
+          }
+        }
+        // Carry over any existing nulls (or other values) for albums that were already checked.
+        for (const [albumKey, cover] of Object.entries(this.albumCoverCache)) {
+          if (!(albumKey in next)) {
+            next[albumKey] = cover;
           }
         }
         this.albumCoverCache = next;
@@ -245,8 +252,9 @@ export const useCatalogStore = defineStore("catalog", {
         const cover = result ?? null;
         this.coverCache = { ...this.coverCache, [path]: cover };
         const track = this.tracks.find((t) => t.path === path);
-        if (track && cover) {
+        if (track) {
           const albumKey = track.album ?? "—";
+          // Store even null so album headers know we've checked and can stop showing a spinner.
           this.albumCoverCache = { ...this.albumCoverCache, [albumKey]: cover };
         }
       } catch {

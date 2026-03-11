@@ -375,11 +375,12 @@ function groupContainsSelection(group: GroupRow): boolean {
   return group.tracks.some((tr) => selectedTrackIds.value.includes(tr.id));
 }
 
-/** Select all tracks in a group and expand it (for editing cover on the whole album). */
+/** Select all tracks in a group, expand it, and switch to Metadata tab (for editing cover on the whole album). */
 function selectGroupTracksForCoverEdit(groupKey: string, group: GroupRow) {
   store.clearSelection();
   for (const t of group.tracks) store.toggleSelection(t.id);
   expandedGroups.value = new Set([...expandedGroups.value, groupKey]);
+  emit("update:activeTab", "metadata");
 }
 
 /** Select all tracks in group, expand, and open the Wikipedia cover modal in the metadata panel. */
@@ -585,16 +586,24 @@ const groupedRows = computed(() => {
   return groups;
 });
 
-/** When grouping by album, per-group cover to show in header. Uses albumCoverCache (set when any track in that album is fetched) so headers show as soon as track art loads. */
+/** When grouping by album, per-group cover to show in header.
+ * Uses albumCoverCache (set when any track in that album is fetched) so headers show as soon as track art loads.
+ * If an album has been checked and no cover was found, the cache stores null so we can stop showing a spinner.
+ */
 const groupCovers = computed(() => {
-  if (groupBy.value !== "album") return {} as Record<string, import("../stores/catalog").CoverInfo | null>;
+  if (groupBy.value !== "album")
+    return {} as Record<string, import("../stores/catalog").CoverInfo | null | undefined>;
   const albumCache = albumCoverCache.value;
   const groups = groupedRows.value;
   if (!groups) return {};
-  const result: Record<string, import("../stores/catalog").CoverInfo | null> = {};
+  const result: Record<string, import("../stores/catalog").CoverInfo | null | undefined> = {};
   for (const group of groups) {
     const albumKey = group.label;
-    result[group.key] = albumCache[albumKey] ?? null;
+    if (Object.prototype.hasOwnProperty.call(albumCache, albumKey)) {
+      result[group.key] = albumCache[albumKey];
+    } else {
+      result[group.key] = undefined;
+    }
   }
   return result;
 });
@@ -1108,6 +1117,13 @@ onUnmounted(() => {
                         class="h-full w-full object-cover"
                       />
                       <span
+                        v-else-if="groupCovers[row.key] === null"
+                        class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-stone-500 text-[0.6rem] text-stone-400"
+                        aria-hidden="true"
+                      >
+                        ♪
+                      </span>
+                      <span
                         v-else
                         class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-stone-500 border-t-stone-300"
                         aria-hidden="true"
@@ -1125,26 +1141,40 @@ onUnmounted(() => {
                     {{ row.group.label }}<template v-if="groupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
                     <span class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
                     <template v-if="groupBy === 'album'">
-                      <button
-                        type="button"
-                        class="rounded border border-stone-600 px-1.5 py-0.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-                        @click.stop="selectGroupTracksForCoverEdit(row.key, row.group)"
+                      <span
+                        class="inline-flex"
+                        @mouseenter="showTooltip('Edit all tracks', $event, 'below-left')"
+                        @mouseleave="scheduleHideTooltip"
                       >
-                        Edit cover image
-                      </button>
-                      <button
+                        <button
+                          type="button"
+                          class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                          aria-label="Edit cover image"
+                          @click.stop="selectGroupTracksForCoverEdit(row.key, row.group)"
+                        >
+                          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </span>
+                      <span
                         v-if="!groupCovers[row.key] && !hideWikipediaCoverSearch"
-                        type="button"
-                        class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-                        title="From Wikipedia"
-                        aria-label="From Wikipedia"
-                        @click.stop="selectGroupAndOpenWikipedia(row.key, row.group)"
+                        class="inline-flex"
+                        @mouseenter="showTooltip('Search cover image on Wikipedia', $event, 'below-left')"
+                        @mouseleave="scheduleHideTooltip"
                       >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                        </svg>
-                      </button>
+                        <button
+                          type="button"
+                          class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                          aria-label="From Wikipedia"
+                          @click.stop="selectGroupAndOpenWikipedia(row.key, row.group)"
+                        >
+                          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                          </svg>
+                        </button>
+                      </span>
                     </template>
                   </span>
                 </td>

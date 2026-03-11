@@ -333,8 +333,18 @@ const displayCover = computed(() => {
   if (clearCoverRequested.value) return null;
   if (pictureBase64.value) return `data:image/jpeg;base64,${pictureBase64.value}`;
   const tracks = selectedTracks.value;
-  if (tracks.length > 0) return store.getCoverDataUrl(tracks[0].path);
-  return null;
+  if (!tracks.length) return null;
+  return store.getCoverDataUrl(tracks[0].path);
+});
+
+/** True when multiple selected tracks all share the same existing cover art. */
+const multiSelectionSharedCover = computed(() => {
+  const tracks = selectedTracks.value;
+  if (tracks.length <= 1) return false;
+  const urls = new Set(
+    tracks.map((t) => store.getCoverDataUrl(t.path) ?? null),
+  );
+  return urls.size === 1 && urls.has(null) === false;
 });
 
 /** Refresh dimensions/size from current cover (single track or pictureBase64). Call after fetch so dimensions always show. */
@@ -925,7 +935,7 @@ function onCoverFile(e: Event) {
                 </svg>
               </button>
               <button
-                v-if="selectedTracks.length === 1"
+                v-if="selectedTracks.length === 1 || multiSelectionSharedCover"
                 type="button"
                 class="rounded border border-stone-600 p-1 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
                 aria-label="Remove album cover"
