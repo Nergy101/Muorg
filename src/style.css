@@ -396,6 +396,27 @@ textarea:focus {
   background-color: #c5e1a5;
 }
 
+/* Settings modal cards: theme-aware styling */
+.settings-modal .settings-section {
+  /* base (dark) theme already uses dark stone colors via scoped styles;
+     these overrides mainly target non-dark themes to keep cards readable */
+}
+
+[data-theme="light"] .settings-modal .settings-section {
+  border-color: #d6d3d1;        /* stone-300/400 */
+  background-color: #f5f5f4;    /* stone-100/200 */
+}
+
+[data-theme="doom"] .settings-modal .settings-section {
+  border-color: #4a1515;        /* deep red border */
+  background-color: #1a0505;    /* dark crimson panel */
+}
+
+[data-theme="orkish"] .settings-modal .settings-section {
+  border-color: #c5e1a5;        /* soft green border */
+  background-color: #dcedc8;    /* pale green card */
+}
+
 /* Settings modal tabs: ensure visibility in all themes */
 [data-theme]:root .primary-tab,
 .primary-tab {
@@ -421,10 +442,18 @@ textarea:focus {
   color: #57534e !important;
 }
 [data-theme="light"] .settings-tab-btn:hover {
-  background-color: #fafaf9 !important; /* very light, subtle hover */
+  /* Light primary-tinted hover, no extra border */
+  background-color: rgba(77, 124, 44, 0.12) !important; /* lighter primary */
   color: #1c1917 !important;
+  outline: none;
 }
 [data-theme="light"] .settings-tab-btn--active {
+  background-color: #4d7c2c !important;
+  color: #fafaf9 !important;
+}
+
+/* When a tab is active, keep the active styling even on hover */
+[data-theme="light"] .settings-tab-btn--active:hover {
   background-color: #4d7c2c !important;
   color: #fafaf9 !important;
 }

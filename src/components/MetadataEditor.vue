@@ -548,6 +548,15 @@ const applyFromPathPreviewText = computed(() => {
     .join("\n");
 });
 
+const applyFromPathHelpText =
+  "Fill fields from the selected track path using the path format in Settings → Smart Suggestions.";
+
+const applyFromPathPopoverText = computed(() => {
+  const preview = applyFromPathPreviewText.value;
+  if (!preview) return applyFromPathHelpText;
+  return `${applyFromPathHelpText}\n\n${preview}`;
+});
+
 function applyFromPath() {
   const tracks = selectedTracks.value;
   const format = pathFormatTemplate.value?.trim();
@@ -814,15 +823,16 @@ function onCoverFile(e: Event) {
             <button
               type="button"
               class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-              title="Fill fields from the selected track path using the path format in Settings → Smart Suggestions"
               @click="applyFromPath"
+              @mouseenter="showTooltip(applyFromPathPopoverText, $event, 'above')"
+              @mouseleave="scheduleHideTooltip"
             >
               Apply from path
             </button>
             <span
               class="flex shrink-0 cursor-help rounded p-0.5 text-stone-500 hover:text-stone-300"
               aria-label="Show resolved values from path"
-              @mouseenter="showTooltip(applyFromPathPreviewText || 'No match', $event, 'above')"
+              @mouseenter="showTooltip(applyFromPathPopoverText, $event, 'above')"
               @mouseleave="scheduleHideTooltip"
             >
               <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">

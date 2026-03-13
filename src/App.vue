@@ -6,14 +6,18 @@ import PlayerBar from "./components/PlayerBar.vue";
 import PlayScreenPlayBar from "./components/PlayScreenPlayBar.vue";
 import MetadataEditor from "./components/MetadataEditor.vue";
 import { useCatalogStore } from "./stores/catalog";
+import { useSettingsStore } from "./stores/settings";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
+const settingsStore = useSettingsStore();
 const sidebarCollapsed = ref(false);
 const showEditor = computed(() => store.selectedTrackIds.length > 0);
 const isDropTarget = ref(false);
-const activeTab = ref<"library" | "metadata" | "play">("library");
+const activeTab = ref<"library" | "metadata" | "play">(
+  (settingsStore.defaultBottomPanel as "library" | "metadata" | "play") ?? "library",
+);
 let unlistenDragDrop: (() => void) | null = null;
 
 onMounted(async () => {

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
+import { useSettingsStore } from "../stores/settings";
 
 const props = defineProps<{
   mode?: "metadata" | "playscreen";
 }>();
 
-const volume = ref(0.25);
-const volumeBeforeMute = ref(0.25);
+const settingsStore = useSettingsStore();
+const volume = ref(settingsStore.volume ?? 0.25);
+const volumeBeforeMute = ref(volume.value);
 
 function getAudio(): HTMLAudioElement | null {
   return document.querySelector('audio[data-muorg-player="true"]') as HTMLAudioElement | null;
@@ -17,6 +19,7 @@ function syncFromAudio() {
   if (!el) return;
   volume.value = el.volume;
   if (el.volume > 0) volumeBeforeMute.value = el.volume;
+  settingsStore.setVolume(el.volume);
 }
 
 function onVolumeInput(e: Event) {
@@ -28,6 +31,7 @@ function onVolumeInput(e: Event) {
   const el = getAudio();
   if (el) el.volume = v;
   if (v > 0) volumeBeforeMute.value = v;
+  settingsStore.setVolume(v);
 }
 
 function toggleMute() {
@@ -37,18 +41,24 @@ function toggleMute() {
     volumeBeforeMute.value = volume.value;
     volume.value = 0;
     el.volume = 0;
+    settingsStore.setVolume(0);
   } else {
-    const v = volumeBeforeMute.value || 0.25;
+    const v = volumeBeforeMute.value || settingsStore.volume || 0.25;
     volume.value = v;
     el.volume = v;
+    settingsStore.setVolume(v);
   }
 }
 
 onMounted(() => {
   const el = getAudio();
   if (el) {
-    volume.value = el.volume;
-    if (el.volume > 0) volumeBeforeMute.value = el.volume;
+    const initial = settingsStore.volume ?? el.volume ?? 0.25;
+    const v = Math.min(1, Math.max(0, initial));
+    el.volume = v;
+    volume.value = v;
+    if (v > 0) volumeBeforeMute.value = v;
+    settingsStore.setVolume(v);
     el.addEventListener("volumechange", syncFromAudio);
   }
 });

@@ -8,6 +8,8 @@ export type DefaultGroupBy = "none" | "artist" | "album";
 
 export type TableDensity = "comfortable" | "compact";
 
+export type BottomPanelId = "library" | "metadata" | "play";
+
 export type MissingMetadataField =
   | "title"
   | "artist"
@@ -22,11 +24,12 @@ const SETTINGS_FILENAME = "settings.yml";
 
 /** Default example path for Smart Suggestions path-format preview (reset button). */
 export const DEFAULT_PATH_FORMAT_EXAMPLE_PATH =
-  "/library/music/Enter Shikari/A Kiss for the Whole World/04 - Leap into the Lightning.flac";
+  "/library/music/Linkin Park/Meteora/04 - Faint.flac";
 
 const ALLOWED_THEMES: ThemeId[] = ["dark", "light", "doom", "orkish", "auto"];
 const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
 const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact"];
+const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "play"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",
   "artist",
@@ -67,6 +70,11 @@ function coerceBool(v: unknown, def: boolean): boolean {
   if (v === "false") return false;
   return def;
 }
+function coerceVolume(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 0.25;
+  return Math.min(1, Math.max(0, n));
+}
 function coerceString(v: unknown, def: string): string {
   if (typeof v === "string") return v;
   return def;
@@ -81,6 +89,12 @@ function coerceMissingFields(v: unknown): MissingMetadataField[] {
     typeof x === "string" && ALLOWED_MISSING_FIELDS.includes(x as MissingMetadataField)
   );
 }
+function coerceBottomPanel(v: unknown): BottomPanelId {
+  if (typeof v === "string" && ALLOWED_BOTTOM_PANELS.includes(v as BottomPanelId)) {
+    return v as BottomPanelId;
+  }
+  return "library";
+}
 
 export const useSettingsStore = defineStore("settings", {
   state: () => ({
@@ -94,6 +108,8 @@ export const useSettingsStore = defineStore("settings", {
     shuffle: false,
     navWrap: false,
     navFocusFollowsMouse: false,
+    volume: 0.25,
+    defaultBottomPanel: "library" as BottomPanelId,
     tableDensity: "comfortable" as TableDensity,
     tableColAlbumArt: true,
     tableColYear: true,
@@ -129,6 +145,8 @@ export const useSettingsStore = defineStore("settings", {
         if ("shuffle" in data) this.shuffle = coerceBool(data.shuffle, false);
         if ("navWrap" in data) this.navWrap = coerceBool(data.navWrap, false);
         if ("navFocusFollowsMouse" in data) this.navFocusFollowsMouse = coerceBool(data.navFocusFollowsMouse, false);
+        if ("volume" in data) this.volume = coerceVolume(data.volume);
+        if ("defaultBottomPanel" in data) this.defaultBottomPanel = coerceBottomPanel(data.defaultBottomPanel);
         if ("tableDensity" in data) this.tableDensity = coerceDensity(data.tableDensity);
         if ("tableColAlbumArt" in data) this.tableColAlbumArt = coerceBool(data.tableColAlbumArt, true);
         if ("tableColYear" in data) this.tableColYear = coerceBool(data.tableColYear, true);
@@ -160,6 +178,8 @@ export const useSettingsStore = defineStore("settings", {
           shuffle: this.shuffle,
           navWrap: this.navWrap,
           navFocusFollowsMouse: this.navFocusFollowsMouse,
+          volume: this.volume,
+          defaultBottomPanel: this.defaultBottomPanel,
           tableDensity: this.tableDensity,
           tableColAlbumArt: this.tableColAlbumArt,
           tableColYear: this.tableColYear,
@@ -227,6 +247,15 @@ export const useSettingsStore = defineStore("settings", {
     },
     setNavFocusFollowsMouse(value: boolean) {
       this.navFocusFollowsMouse = value;
+      this.saveToFile();
+    },
+    setDefaultBottomPanel(value: BottomPanelId) {
+      this.defaultBottomPanel = value;
+      this.saveToFile();
+    },
+    setVolume(value: number) {
+      const v = Math.min(1, Math.max(0, value));
+      this.volume = v;
       this.saveToFile();
     },
     setTableDensity(value: TableDensity) {

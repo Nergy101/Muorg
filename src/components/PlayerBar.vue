@@ -16,6 +16,7 @@ const {
   shuffle,
   playbarShowAlbumInMarquee,
   playbarDisableMarquee,
+  volume,
 } = storeToRefs(settingsStore);
 
 const audioRef = ref<HTMLAudioElement | null>(null);
@@ -306,6 +307,12 @@ onMounted(() => {
   document.addEventListener("keydown", onGlobalKeydown);
   recomputeMarquee();
   window.addEventListener("resize", recomputeMarquee);
+  nextTick(() => {
+    const el = audioRef.value;
+    if (!el) return;
+    const v = Math.min(1, Math.max(0, volume.value ?? 0.25));
+    el.volume = v;
+  });
 });
 
 onUnmounted(() => {
