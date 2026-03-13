@@ -1,9 +1,10 @@
 use lofty::config::WriteOptions;
-use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::file::{AudioFile, FileType, TaggedFileExt};
 use lofty::picture::PictureType;
 use lofty::probe::Probe;
-use lofty::tag::{Accessor, Tag, TagExt, TagType};
+use lofty::tag::{Accessor, Tag, TagType};
 use serde::Serialize;
+use std::io::BufReader;
 use std::path::Path;
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -36,10 +37,16 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         return Err("Unsupported format".to_string());
     }
 
-    let tagged_file = Probe::open(path)
-        .map_err(|e| e.to_string())?
-        .guess_file_type()
-        .map_err(|e| e.to_string())?
+    // Explicitly set format from extension to avoid "no format could be determined" when
+    // content-based detection fails (e.g. non-standard MP3 headers).
+    let file_type = match ext.as_deref() {
+        Some("mp3") => FileType::Mpeg,
+        Some("flac") => FileType::Flac,
+        _ => return Err("Unsupported format".to_string()),
+    };
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let reader = BufReader::new(file);
+    let tagged_file = Probe::with_file_type(reader, file_type)
         .read()
         .map_err(|e| e.to_string())?;
 
@@ -106,24 +113,26 @@ pub fn write_metadata(path: &Path, update: &MetadataUpdate) -> Result<(), String
         .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase());
-    let tag_type = match ext.as_deref() {
-        Some("mp3") => TagType::Id3v2,
-        Some("flac") => TagType::VorbisComments,
-        _ => return Err("Unsupported format".to_string()),
+    match ext.as_deref() {
+        Some("mp3") => write_metadata_mp3(path, update),
+        Some("flac") => write_metadata_flac(path, update),
+        _ => Err("Unsupported format".to_string()),
+    }
+}
+
+/// MP3 write via id3 crate – avoids lofty's guess_file_type which fails on non-standard headers.
+fn write_metadata_mp3(path: &Path, update: &MetadataUpdate) -> Result<(), String> {
+    use id3::frame::{Picture, PictureType};
+    use id3::{TagLike, Version};
+
+    let mut tag = match id3::Tag::read_from_path(path) {
+        Ok(t) => t,
+        Err(id3::Error {
+            kind: id3::ErrorKind::NoTag,
+            ..
+        }) => id3::Tag::new(),
+        Err(e) => return Err(e.to_string()),
     };
-
-    let tagged_file = Probe::open(path)
-        .map_err(|e| e.to_string())?
-        .guess_file_type()
-        .map_err(|e| e.to_string())?
-        .read()
-        .map_err(|e| e.to_string())?;
-
-    let mut tag: Tag = tagged_file
-        .primary_tag()
-        .or_else(|| tagged_file.first_tag())
-        .cloned()
-        .unwrap_or_else(|| Tag::new(tag_type));
 
     if let Some(ref t) = update.title {
         tag.set_title(t.clone());
@@ -134,19 +143,74 @@ pub fn write_metadata(path: &Path, update: &MetadataUpdate) -> Result<(), String
     if let Some(ref a) = update.album {
         tag.set_album(a.clone());
     }
-    // FLAC: write FEATURING; MP3: write featuring (or album_artist) to TPE2
-    if tag_type == TagType::VorbisComments {
-        if let Some(ref f) = update.featuring {
-            tag.insert_text(lofty::tag::ItemKey::Unknown("FEATURING".to_string()), f.clone());
+    if let Some(ref f) = update.featuring {
+        tag.set_album_artist(f.clone());
+    } else if let Some(ref a) = update.album_artist {
+        tag.set_album_artist(a.clone());
+    }
+    if let Some(y) = update.year {
+        tag.set_year(y as i32);
+    }
+    if let Some(ref g) = update.genre {
+        tag.set_genre(g.clone());
+    }
+    if let Some(t) = update.track_number {
+        tag.set_track(t);
+    }
+    if let Some(d) = update.disc_number {
+        tag.set_disc(d);
+    }
+    if let Some(ref b64) = update.picture_base64 {
+        tag.remove_picture_by_type(PictureType::CoverFront);
+        if !b64.is_empty() {
+            match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64) {
+                Ok(data) => {
+                    tag.add_frame(Picture {
+                        mime_type: "image/jpeg".to_string(),
+                        picture_type: PictureType::CoverFront,
+                        description: String::new(),
+                        data,
+                    });
+                }
+                Err(_) => return Err("Invalid base64 for picture".to_string()),
+            }
         }
     }
-    if tag_type == TagType::Id3v2 {
-        if let Some(ref f) = update.featuring {
-            tag.insert_text(lofty::tag::ItemKey::AlbumArtist, f.clone());
-        } else if let Some(ref a) = update.album_artist {
-            tag.insert_text(lofty::tag::ItemKey::AlbumArtist, a.clone());
-        }
-    } else if let Some(ref a) = update.album_artist {
+
+    tag.write_to_path(path, Version::Id3v24).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// FLAC write via lofty.
+fn write_metadata_flac(path: &Path, update: &MetadataUpdate) -> Result<(), String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let reader = BufReader::new(file);
+    let mut tagged_file = Probe::with_file_type(reader, FileType::Flac)
+        .read()
+        .map_err(|e| e.to_string())?;
+
+    let tag = if let Some(t) = tagged_file.primary_tag_mut() {
+        t
+    } else if let Some(t) = tagged_file.first_tag_mut() {
+        t
+    } else {
+        tagged_file.insert_tag(Tag::new(TagType::VorbisComments));
+        tagged_file.primary_tag_mut().unwrap()
+    };
+
+    if let Some(ref t) = update.title {
+        tag.set_title(t.clone());
+    }
+    if let Some(ref a) = update.artist {
+        tag.set_artist(a.clone());
+    }
+    if let Some(ref a) = update.album {
+        tag.set_album(a.clone());
+    }
+    if let Some(ref f) = update.featuring {
+        tag.insert_text(lofty::tag::ItemKey::Unknown("FEATURING".to_string()), f.clone());
+    }
+    if let Some(ref a) = update.album_artist {
         tag.insert_text(lofty::tag::ItemKey::AlbumArtist, a.clone());
     }
     if let Some(y) = update.year {
@@ -179,7 +243,8 @@ pub fn write_metadata(path: &Path, update: &MetadataUpdate) -> Result<(), String
         }
     }
 
-    tag.save_to_path(path, WriteOptions::default())
+    tagged_file
+        .save_to_path(path, WriteOptions::default())
         .map_err(|e| e.to_string())?;
 
     Ok(())

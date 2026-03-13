@@ -4,8 +4,35 @@ import type { Ref } from "vue";
 const SAMPLE_SIZE = 32;
 /** Multiply RGB by this so the glow isn't pure white on bright art (0–1). Slightly higher = more saturated/vibrant. */
 const DARKEN = 0.88;
+/** Edge colors: keep more saturated so orange/blue etc. stay punchy in blobs. */
+const EDGE_DARKEN = 0.95;
 
 const FALLBACK_RGB = "28,25,23";
+
+/** Primary green RGB – used when album color is bland. */
+export const PRIMARY_RGB = "91,124,50";
+
+/**
+ * Returns true if the color is close to white, gray, or brown – bland colors that don't work well
+ * for glow blobs. In those cases, hide blobs and use the primary color for controls.
+ */
+export function isColorBland(rgb: string): boolean {
+  const parts = rgb.split(",").map(Number);
+  if (parts.length !== 3) return true;
+  const [r, g, b] = parts;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const luminance = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+  const saturation = max === 0 ? 0 : (max - min) / max;
+
+  // White: very bright
+  if (luminance > 0.72) return true;
+  // Gray: low saturation, not near black
+  if (saturation < 0.15 && max > 50) return true;
+  // Brown: reddish (R ≥ G ≥ B), desaturated – tan, beige, brown, sepia
+  if (r >= g && g >= b && r > b && saturation < 0.65) return true;
+  return false;
+}
 
 /**
  * Estimate a dominant color from an image URL (e.g. album art data URL).
@@ -64,6 +91,133 @@ export function useDominantColor(imageUrl: Ref<string | null>) {
   return glowRgb;
 }
 
+/** Array of 4–6 vibrant RGB strings sampled from the album cover edge. */
+export type EdgeColors = string[];
+
+/** Saturation (0–1): how vibrant a color is. Higher = more "hard" / saturated. */
+function colorSaturation(r: number, g: number, b: number): number {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  return max === 0 ? 0 : (max - min) / max;
+}
+
+/**
+ * Sample colors around the perimeter of the album cover (every ~1/36 of circumference),
+ * then pick the top 4–6 most vibrant/saturated ones. Used for background tint when bland.
+ */
+export function useEdgeColors(imageUrl: Ref<string | null>) {
+  const edgeColors = ref<EdgeColors | null>(null);
+
+  watch(
+    imageUrl,
+    (url) => {
+      if (!url || !url.startsWith("data:")) {
+        edgeColors.value = null;
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const size = Math.min(SAMPLE_SIZE, img.width, img.height);
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          ctx.drawImage(img, 0, 0, size, size);
+          const data = ctx.getImageData(0, 0, size, size).data;
+
+          // Sample every ~1/36 of the perimeter (36 points around the rectangle)
+          const numSamples = 36;
+          const perimeter = 4 * size;
+          const step = perimeter / numSamples;
+          const strip = Math.max(1, Math.floor(size * 0.08)); // thin strip at edge
+
+          const samples: { rgb: string; sat: number }[] = [];
+
+          for (let i = 0; i < numSamples; i++) {
+            const t = (i * step) % perimeter;
+            let x0: number, y0: number;
+            if (t < size) {
+              x0 = t;
+              y0 = 0;
+            } else if (t < 2 * size) {
+              x0 = size - 1;
+              y0 = t - size;
+            } else if (t < 3 * size) {
+              x0 = 3 * size - 1 - t;
+              y0 = size - 1;
+            } else {
+              x0 = 0;
+              y0 = 4 * size - 1 - t;
+            }
+
+            // Sample a small region at this edge point (average a few pixels)
+            const xStart = Math.max(0, Math.floor(x0) - strip);
+            const xEnd = Math.min(size, Math.ceil(x0) + strip + 1);
+            const yStart = Math.max(0, Math.floor(y0) - strip);
+            const yEnd = Math.min(size, Math.ceil(y0) + strip + 1);
+
+            let r = 0, g = 0, b = 0, n = 0;
+            for (let y = yStart; y < yEnd; y++) {
+              for (let x = xStart; x < xEnd; x++) {
+                const idx = (y * size + x) * 4;
+                r += data[idx];
+                g += data[idx + 1];
+                b += data[idx + 2];
+                n++;
+              }
+            }
+            if (n === 0) continue;
+            r = Math.round((r / n) * EDGE_DARKEN);
+            g = Math.round((g / n) * EDGE_DARKEN);
+            b = Math.round((b / n) * EDGE_DARKEN);
+            const sat = colorSaturation(r, g, b);
+            samples.push({ rgb: `${r},${g},${b}`, sat });
+          }
+
+          // Sort by saturation descending, take top 4–6 (most vibrant)
+          samples.sort((a, b) => b.sat - a.sat);
+          const minSat = 0.08; // ignore nearly gray
+          const vibrant = samples.filter((s) => s.sat >= minSat);
+          const top = vibrant.slice(0, 6);
+          const count = Math.max(4, Math.min(6, top.length));
+
+          if (count === 0) {
+            // All same/bland (e.g. white) – use average edge color for a subtle glow
+            const n = samples.length;
+            if (n === 0) {
+              edgeColors.value = [];
+            } else {
+              let r = 0, g = 0, b = 0;
+              for (const s of samples) {
+                const [sr, sg, sb] = s.rgb.split(",").map(Number);
+                r += sr;
+                g += sg;
+                b += sb;
+              }
+              const rgb = `${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)}`;
+              edgeColors.value = [rgb];
+            }
+          } else {
+            edgeColors.value = top.slice(0, count).map((s) => s.rgb);
+          }
+        } catch {
+          edgeColors.value = null;
+        }
+      };
+      img.onerror = () => {
+        edgeColors.value = null;
+      };
+      img.src = url;
+    },
+    { immediate: true },
+  );
+
+  return edgeColors;
+}
+
 /** Simple string hash for seeding. */
 function hashString(s: string): number {
   let h = 0;
@@ -97,6 +251,21 @@ export interface GlowBlob {
 }
 
 /**
+ * Simple glow for uniform colors (e.g. all-white cover): few soft blobs, centered.
+ * Higher opacity so white/light colors are visible on dark background.
+ */
+export function getSimpleGlowBlobs(rgb: string, seedString: string): GlowBlob[] {
+  const seed = hashString(seedString || "simple");
+  const rnd = mulberry32(seed);
+  const color = rgb || FALLBACK_RGB_Gradient;
+  return [
+    { cx: 0.5, cy: 0.5, rx: 0.9, ry: 0.85, opacity: 0.35 + rnd() * 0.2, rgb: color },
+    { cx: 0.48 + rnd() * 0.08, cy: 0.5, rx: 0.6, ry: 0.55, opacity: 0.25 + rnd() * 0.15, rgb: color },
+    { cx: 0.5, cy: 0.48 + rnd() * 0.08, rx: 0.55, ry: 0.6, opacity: 0.2 + rnd() * 0.15, rgb: color },
+  ];
+}
+
+/**
  * Build blob data for procedural glow. Each blob has position (cx, cy), size (rx, ry), opacity, and rgb.
  * Mix of subdued and vibrant blobs for spectacle. Used for morphing when same album.
  */
@@ -124,28 +293,47 @@ export function getGlowBlobs(glowRgb: string, seedString: string): GlowBlob[] {
   return blobs;
 }
 
+export type DemoGlowShape =
+  | "ellipse"
+  | "square"
+  | "triangle"
+  | "rounded-triangle"
+  | "diamond"
+  | "wave"
+  | "blob";
+
+export interface DemoGlowBlob extends GlowBlob {
+  shape: DemoGlowShape;
+  /** Optional shade variation (0–1). Slightly darken/lighten the rgb for variety. */
+  shade?: number;
+}
+
 /**
- * Blobs for a small square demo (e.g. settings preview). Larger blobs, more like the real fullscreen glow.
+ * Demo blobs with varied shapes: ellipses, squares, triangles, waves, etc. Shadow/background look.
  */
-export function getGlowBlobsForDemo(glowRgb: string, _seedString: string): GlowBlob[] {
+export function getGlowBlobsForDemo(glowRgb: string, _seedString: string): DemoGlowBlob[] {
   const rgb = glowRgb || FALLBACK_RGB_Gradient;
 
-  // Manual layout: larger blobs like the real player, dark sides still visible
   return [
-    { cx: 0.5, cy: 0.5, rx: 0.85, ry: 0.8, opacity: 0.38, rgb },
-    { cx: 0.25, cy: 0.35, rx: 0.7, ry: 0.65, opacity: 0.22, rgb },
-    { cx: 0.75, cy: 0.4, rx: 0.65, ry: 0.7, opacity: 0.28, rgb },
-    { cx: 0.4, cy: 0.7, rx: 0.6, ry: 0.55, opacity: 0.18, rgb },
-    { cx: 0.65, cy: 0.65, rx: 0.55, ry: 0.6, opacity: 0.25, rgb },
-    { cx: 0.2, cy: 0.6, rx: 0.5, ry: 0.5, opacity: 0.2, rgb },
-    { cx: 0.8, cy: 0.25, rx: 0.55, ry: 0.5, opacity: 0.22, rgb },
-    { cx: 0.35, cy: 0.2, rx: 0.45, ry: 0.45, opacity: 0.15, rgb },
-    { cx: 0.7, cy: 0.75, rx: 0.5, ry: 0.55, opacity: 0.2, rgb },
-    { cx: 0.82, cy: 0.78, rx: 0.6, ry: 0.55, opacity: 0.28, rgb },
-    { cx: 0.9, cy: 0.65, rx: 0.5, ry: 0.5, opacity: 0.22, rgb },
-    { cx: 0.72, cy: 0.88, rx: 0.45, ry: 0.4, opacity: 0.2, rgb },
-    { cx: 0.88, cy: 0.5, rx: 0.5, ry: 0.55, opacity: 0.18, rgb },
-    { cx: 0.6, cy: 0.85, rx: 0.5, ry: 0.45, opacity: 0.2, rgb },
+    { cx: 0.5, cy: 0.5, rx: 0.85, ry: 0.8, opacity: 0.38, rgb, shape: "ellipse" },
+    { cx: 0.48, cy: 0.52, rx: 0.5, ry: 0.5, opacity: 0.2, rgb, shape: "blob", shade: 1.05 },
+    { cx: 0.52, cy: 0.48, rx: 0.45, ry: 0.45, opacity: 0.15, rgb, shape: "ellipse", shade: 0.95 },
+    { cx: 0.5, cy: 0.5, rx: 0.35, ry: 0.4, opacity: 0.2, rgb, shape: "wave", shade: 1.1 },
+    { cx: 0.25, cy: 0.35, rx: 0.7, ry: 0.65, opacity: 0.22, rgb, shape: "blob", shade: 0.9 },
+    { cx: 0.75, cy: 0.4, rx: 0.65, ry: 0.7, opacity: 0.28, rgb, shape: "square", shade: 1.1 },
+    { cx: 0.4, cy: 0.7, rx: 0.6, ry: 0.55, opacity: 0.18, rgb, shape: "triangle" },
+    { cx: 0.65, cy: 0.65, rx: 0.55, ry: 0.6, opacity: 0.25, rgb, shape: "rounded-triangle", shade: 0.85 },
+    { cx: 0.2, cy: 0.6, rx: 0.5, ry: 0.5, opacity: 0.2, rgb, shape: "diamond" },
+    { cx: 0.8, cy: 0.25, rx: 0.55, ry: 0.5, opacity: 0.22, rgb, shape: "wave", shade: 1.15 },
+    { cx: 0.35, cy: 0.2, rx: 0.45, ry: 0.45, opacity: 0.15, rgb, shape: "ellipse", shade: 0.8 },
+    { cx: 0.7, cy: 0.75, rx: 0.5, ry: 0.55, opacity: 0.2, rgb, shape: "square", shade: 0.9 },
+    { cx: 0.82, cy: 0.78, rx: 0.6, ry: 0.55, opacity: 0.28, rgb, shape: "blob", shade: 1.05 },
+    { cx: 0.9, cy: 0.65, rx: 0.5, ry: 0.5, opacity: 0.22, rgb, shape: "triangle", shade: 0.95 },
+    { cx: 0.72, cy: 0.88, rx: 0.45, ry: 0.4, opacity: 0.2, rgb, shape: "diamond", shade: 0.88 },
+    { cx: 0.88, cy: 0.5, rx: 0.5, ry: 0.55, opacity: 0.18, rgb, shape: "wave" },
+    { cx: 0.6, cy: 0.85, rx: 0.5, ry: 0.45, opacity: 0.2, rgb, shape: "rounded-triangle", shade: 1.1 },
+    { cx: 0.15, cy: 0.45, rx: 0.4, ry: 0.5, opacity: 0.16, rgb, shape: "ellipse", shade: 0.82 },
+    { cx: 0.5, cy: 0.2, rx: 0.55, ry: 0.4, opacity: 0.2, rgb, shape: "wave", shade: 0.9 },
   ];
 }
 

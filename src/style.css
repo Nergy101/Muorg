@@ -31,6 +31,18 @@ textarea:focus {
   background-color: #5b7c32;
 }
 
+/* Maximized player: blurred album art edge glow (bland covers). Every edge pixel bleeds outward. */
+.edge-blur-art {
+  width: min(72vmin, 420px);
+  height: min(72vmin, 420px);
+  background-size: 135%;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(70px);
+  inset: 0;
+  margin: auto;
+}
+
 /* Group row that contains a selected track */
 .group-row-with-selection {
   background-color: rgba(91, 124, 50, 0.25) !important;

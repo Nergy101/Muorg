@@ -6,7 +6,13 @@ import LibraryTable from "./components/library/LibraryTable.vue";
 import PlayerBar from "./components/playback/PlayerBar.vue";
 import PlayScreenPlayBar from "./components/playback/PlayScreenPlayBar.vue";
 import MetadataEditor from "./components/metadata/MetadataEditor.vue";
-import { getGlowBlobs, useDominantColor } from "./composables/useDominantColor";
+import {
+  getGlowBlobs,
+  getSimpleGlowBlobs,
+  useDominantColor,
+  useEdgeColors,
+  isColorBland,
+} from "./composables/useDominantColor";
 import type { GlowBlob } from "./composables/useDominantColor";
 import { useCatalogStore } from "./stores/catalog";
 import { useSettingsStore } from "./stores/settings";
@@ -26,6 +32,7 @@ const expandedCoverUrl = computed(() => {
   return store.getCoverDataUrl(tracks[0].path);
 });
 const glowRgb = useDominantColor(expandedCoverUrl);
+const edgeColors = useEdgeColors(expandedCoverUrl);
 const expandedTrack = computed(() =>
   playExpanded.value && store.selectedTracks.length === 1 ? store.selectedTracks[0] : null,
 );
@@ -33,21 +40,38 @@ const trackKey = computed(
   () => expandedTrack.value?.path ?? expandedTrack.value?.id ?? "",
 );
 
-const currentBlobs = computed(() => getGlowBlobs(glowRgb.value, String(trackKey.value)));
+/** Edge blur when bland center + vibrant edge colors. Blobs when bland center + uniform edge (e.g. white). */
+const useEdgeBlurMode = computed(
+  () =>
+    isColorBland(glowRgb.value) &&
+    !!expandedCoverUrl.value &&
+    !!edgeColors.value?.length &&
+    !isColorBland(edgeColors.value[0]),
+);
+
+const currentBlobs = computed(() => {
+  const key = String(trackKey.value);
+  if (useEdgeBlurMode.value) return [];
+  if (isColorBland(glowRgb.value)) {
+    const color = edgeColors.value?.[0] ?? glowRgb.value;
+    return getSimpleGlowBlobs(color, key);
+  }
+  return getGlowBlobs(glowRgb.value, key);
+});
 
 /** Opacity multiplier by intensity (off = 0, no blobs shown). */
 const glowOpacityScale = computed(() => {
   const v = playerGlowIntensity.value;
   if (v === "off") return 0;
   if (v === "subdued") return 0.4;
-  if (v === "vibrant") return 1.4;
-  return 1;
+  if (v === "vibrant") return 1.6;
+  return 1.2;
 });
 
-/** Blobs to display, scaled by intensity. Empty when off. */
+/** Blobs to display, scaled by intensity. */
 const displayCurrentBlobs = computed(() => {
   const scale = glowOpacityScale.value;
-  if (scale <= 0) return [];
+  if (scale <= 0 || useEdgeBlurMode.value) return [];
   const blobs = currentBlobs.value;
   return scale === 1 ? blobs : blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
 });
@@ -59,12 +83,50 @@ const displayOutgoingBlobs = computed(() => {
   return scale === 1 ? blobs : blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
 });
 
+/** Opacity for edge-blur layer (0.5–0.9 based on intensity). */
+const edgeBlurOpacity = computed(() => {
+  if (playerGlowIntensity.value === "off") return 0;
+  const v = playerGlowIntensity.value;
+  if (v === "subdued") return 0.45;
+  if (v === "vibrant") return 0.85;
+  return 0.65;
+});
+
 const showGlow = computed(() => playerGlowIntensity.value !== "off");
+
+/** Use album color for controls only when it's not bland; otherwise use primary. */
+const effectiveAccentRgb = computed(() =>
+  isColorBland(glowRgb.value) ? undefined : glowRgb.value,
+);
+
+/** Very dark tint for background – from center color (vivid) or blended edge colors (bland). */
+const glowBgColor = computed(() => {
+  if (!showGlow.value) return undefined;
+  if (isColorBland(glowRgb.value) && edgeColors.value) {
+    const ec = edgeColors.value;
+    const parts = ec.map((s) => s.split(",").map(Number));
+    const valid = parts.filter((p) => p.length === 3);
+    if (valid.length === 0) return undefined;
+    const r = Math.round(valid.reduce((a, p) => a + p[0], 0) / valid.length * 0.06);
+    const g = Math.round(valid.reduce((a, p) => a + p[1], 0) / valid.length * 0.06);
+    const b = Math.round(valid.reduce((a, p) => a + p[2], 0) / valid.length * 0.06);
+    return `rgb(${r},${g},${b})`;
+  }
+  if (!isColorBland(glowRgb.value)) {
+    const parts = glowRgb.value.split(",").map(Number);
+    if (parts.length !== 3) return undefined;
+    const [r, g, b] = parts;
+    return `rgb(${Math.round(r * 0.08)},${Math.round(g * 0.08)},${Math.round(b * 0.08)})`;
+  }
+  return undefined;
+});
 
 /** Previous blobs for transitions. */
 const lastBlobs = ref<GlowBlob[]>([]);
 /** Outgoing layer (crossfade when color changes). */
 const outgoingBlobs = ref<GlowBlob[]>([]);
+/** Outgoing cover URL for edge-blur crossfade (previous album). */
+const outgoingCoverUrl = ref<string | null>(null);
 const outgoingGlowOpacity = ref(0);
 const currentGlowOpacity = ref(1);
 const currentGlowRef = ref<HTMLElement | null>(null);
@@ -83,8 +145,6 @@ watch(
     const oldKey = oldTrack?.path ?? oldTrack?.id ?? null;
     if (!playExpanded.value || !newKey || !oldKey || newKey === oldKey || !showGlow.value) return;
     const prevBlobs = lastBlobs.value;
-    if (prevBlobs.length === 0) return;
-
     const sameAlbum = (newTrack?.album ?? "") === (oldTrack?.album ?? "");
 
     if (sameAlbum) {
@@ -95,6 +155,7 @@ watch(
       // Different album: crossfade (only opacity, no blob morph)
       isCrossfading.value = true;
       outgoingBlobs.value = prevBlobs;
+      outgoingCoverUrl.value = store.getCoverDataUrl(oldTrack.path) ?? null;
       outgoingGlowOpacity.value = 1;
       currentGlowOpacity.value = 0;
       lastBlobs.value = currentBlobs.value;
@@ -111,6 +172,7 @@ watch(
         setTimeout(() => {
           currentGlowOpacity.value = 1;
           outgoingGlowOpacity.value = 0;
+          outgoingCoverUrl.value = null;
           isCrossfading.value = false;
         }, GLOW_TRANSITION_MS);
       });
@@ -223,47 +285,74 @@ onUnmounted(() => {
     <Teleport to="body">
       <div
         v-if="playExpanded"
-        class="fixed inset-0 z-[350] flex h-screen w-screen flex-col bg-black"
+        class="fixed inset-0 z-[350] flex h-screen w-screen flex-col overflow-visible"
+        :style="{ backgroundColor: glowBgColor ?? '#000' }"
       >
-        <!-- Procedural glow: blob layers. Same album = morph (blobs move via transform). Different album = crossfade. -->
+        <!-- Glow: edge-blur (blurred album art) when bland, or procedural blobs when vivid. -->
         <div
           v-if="showGlow"
           ref="currentGlowRef"
-          class="glow-layer pointer-events-none fixed inset-0 z-0 bg-black"
-          :style="{ opacity: currentGlowOpacity }"
+          class="glow-layer pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-visible"
+          :style="{ opacity: currentGlowOpacity, backgroundColor: glowBgColor ?? '#000' }"
           aria-hidden="true"
         >
-          <div
-            v-for="(blob, i) in displayCurrentBlobs"
-            :key="`current-${i}`"
-            class="glow-blob absolute inset-0 origin-top-left"
+          <!-- Edge blur: every pixel at the edge bleeds outward via blur -->
+          <template v-if="useEdgeBlurMode && expandedCoverUrl && glowOpacityScale > 0">
+            <div
+              class="edge-blur-art absolute"
+              :style="{
+                backgroundImage: `url(${expandedCoverUrl})`,
+                opacity: edgeBlurOpacity,
+              }"
+            />
+          </template>
+          <template v-else>
+            <div
+              v-for="(blob, i) in displayCurrentBlobs"
+              :key="`current-${i}`"
+              class="glow-blob absolute inset-0 origin-top-left"
             :style="{
-              background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${blob.opacity.toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.6).toFixed(2)}) 35%, rgba(${blob.rgb},${(blob.opacity * 0.2).toFixed(2)}) 55%, transparent 80%)`,
+              background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${blob.opacity.toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.6).toFixed(2)}) 25%, rgba(${blob.rgb},${(blob.opacity * 0.2).toFixed(2)}) 45%, rgba(${blob.rgb},0.04) 70%, transparent 90%)`,
               transform: `translate(${blob.cx * 100}%, ${blob.cy * 100}%) translate(-50%, -50%) scale(${blob.rx}, ${blob.ry})`,
+              filter: 'blur(24px)',
               transition: isCrossfading ? 'none' : `transform ${BLOB_MORPH_MS}ms ease-in-out`,
               willChange: isCrossfading ? 'auto' : 'transform',
             }"
-          />
+            />
+          </template>
         </div>
         <div
           v-if="showGlow"
           ref="outgoingGlowRef"
-          class="glow-layer pointer-events-none fixed inset-0 z-0 bg-black"
-          :style="{ opacity: outgoingGlowOpacity }"
+          class="glow-layer pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-visible"
+          :style="{ opacity: outgoingGlowOpacity, backgroundColor: glowBgColor ?? '#000' }"
           aria-hidden="true"
         >
-          <div
-            v-for="(blob, i) in displayOutgoingBlobs"
-            :key="`outgoing-${i}`"
-            class="glow-blob absolute inset-0 origin-top-left"
+          <!-- Outgoing edge blur only when previous track was in edge-blur mode (had no blobs) -->
+          <template v-if="outgoingCoverUrl && glowOpacityScale > 0 && outgoingBlobs.length === 0">
+            <div
+              class="edge-blur-art absolute"
+              :style="{
+                backgroundImage: `url(${outgoingCoverUrl})`,
+                opacity: edgeBlurOpacity,
+              }"
+            />
+          </template>
+          <template v-else>
+            <div
+              v-for="(blob, i) in displayOutgoingBlobs"
+              :key="`outgoing-${i}`"
+              class="glow-blob absolute inset-0 origin-top-left"
             :style="{
-              background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${blob.opacity.toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.6).toFixed(2)}) 35%, rgba(${blob.rgb},${(blob.opacity * 0.2).toFixed(2)}) 55%, transparent 80%)`,
+              background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${blob.opacity.toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.6).toFixed(2)}) 25%, rgba(${blob.rgb},${(blob.opacity * 0.2).toFixed(2)}) 45%, rgba(${blob.rgb},0.04) 70%, transparent 90%)`,
               transform: `translate(${blob.cx * 100}%, ${blob.cy * 100}%) translate(-50%, -50%) scale(${blob.rx}, ${blob.ry})`,
+              filter: 'blur(24px)',
             }"
-          />
+            />
+          </template>
         </div>
         <div class="relative z-[1] flex min-h-0 flex-1 flex-col">
-          <PlayScreenPlayBar :hide-expand="true" :expanded-layout="true" :accent-rgb="glowRgb" @minimize="playExpanded = false" />
+          <PlayScreenPlayBar :hide-expand="true" :expanded-layout="true" :accent-rgb="effectiveAccentRgb" @minimize="playExpanded = false" />
         </div>
       </div>
     </Teleport>
