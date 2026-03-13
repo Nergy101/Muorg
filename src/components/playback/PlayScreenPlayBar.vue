@@ -6,7 +6,7 @@ import { useSettingsStore } from "../../stores/settings";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 
-const props = defineProps<{
+defineProps<{
   /** When true, hide the expand (fullscreen) button (e.g. when already in overlay). */
   hideExpand?: boolean;
   /** When true, use fullscreen layout: massive centered art, gradient background, controls at bottom. */
@@ -22,7 +22,7 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks, filteredTracks } = storeToRefs(store);
+const { selectedTracks, tableOrderedTracks } = storeToRefs(store);
 const { shuffle, playbarShowAlbumInMarquee } = storeToRefs(settingsStore);
 
 const isPlaying = ref(false);
@@ -134,7 +134,7 @@ function onAudioEnded() {
 
 function playNext() {
   const current = singleTrack.value;
-  const list = filteredTracks.value;
+  const list = tableOrderedTracks.value;
   if (!current || !list.length) return;
   let next: (typeof list)[number];
   if (shuffle.value) {
@@ -152,7 +152,7 @@ function playNext() {
 
 function playPrevious() {
   const current = singleTrack.value;
-  const list = filteredTracks.value;
+  const list = tableOrderedTracks.value;
   if (!current || !list.length) return;
   const idx = list.findIndex((t) => t.id === current.id);
   if (idx <= 0) return;
@@ -262,7 +262,7 @@ onUnmounted(() => {
       <div class="flex w-full flex-col items-center gap-3">
         <div class="flex items-center justify-center gap-2">
           <span class="inline-flex" @mouseenter="showTooltip('Previous track', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Previous track" @click="playPrevious" :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack?.id) <= 0">
+            <button type="button" class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Previous track" @click="playPrevious" :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0">
               <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" /></svg>
             </button>
           </span>
@@ -273,7 +273,7 @@ onUnmounted(() => {
             </button>
           </span>
           <span class="inline-flex" @mouseenter="showTooltip('Next track', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Next track" @click="playNext" :disabled="!singleTrack || (() => { const list = filteredTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()">
+            <button type="button" class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Next track" @click="playNext" :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()">
               <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" /></svg>
             </button>
           </span>
@@ -333,7 +333,7 @@ onUnmounted(() => {
             class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
             aria-label="Previous track"
             @click="playPrevious"
-            :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack?.id) <= 0"
+            :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0"
           >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />
@@ -381,7 +381,7 @@ onUnmounted(() => {
             class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
             aria-label="Next track"
             @click="playNext"
-            :disabled="!singleTrack || (() => { const list = filteredTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
+            :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
           >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" />

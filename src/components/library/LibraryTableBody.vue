@@ -98,7 +98,7 @@ const groupCovers = computed(() => {
   const groups = groupedRows.value;
   if (!groups) return {};
   // React to path-based cover cache so headers update when covers load.
-  const _cache = store.coverCache;
+  void store.coverCache;
   const result: Record<string, import("../../stores/catalog").CoverInfo | null | undefined> = {};
   for (const group of groups) {
     const firstTrack = group.tracks[0];

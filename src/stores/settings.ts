@@ -10,6 +10,8 @@ export type TableDensity = "comfortable" | "compact";
 
 export type BottomPanelId = "library" | "metadata" | "play";
 
+export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
+
 export type MissingMetadataField =
   | "title"
   | "artist"
@@ -30,6 +32,7 @@ const ALLOWED_THEMES: ThemeId[] = ["dark", "light", "doom", "orkish", "auto"];
 const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
 const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact"];
 const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "play"];
+const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",
   "artist",
@@ -95,9 +98,15 @@ function coerceBottomPanel(v: unknown): BottomPanelId {
   }
   return "library";
 }
+function coercePlayerGlow(v: unknown): PlayerGlowIntensity {
+  if (typeof v === "string" && ALLOWED_PLAYER_GLOW.includes(v as PlayerGlowIntensity)) {
+    return v as PlayerGlowIntensity;
+  }
+  return "default";
+}
 
 const DEFAULT_TABLE_COL_WIDTHS: Record<string, number> = {
-  albumArt: 40,
+  albumArt: 64,
   title: 220,
   artist: 150,
   album: 150,
@@ -116,6 +125,8 @@ function coerceTableColWidths(v: unknown): Record<string, number> {
     const n = typeof val === "number" ? val : Number(val);
     if (Number.isFinite(n) && n >= 40 && n <= 800) out[key] = Math.round(n);
   }
+  // Migration: old albumArt default was 40 (too narrow); bump to new default if unchanged
+  if (out.albumArt === 40) out.albumArt = DEFAULT_TABLE_COL_WIDTHS.albumArt;
   return out;
 }
 
@@ -148,6 +159,8 @@ export const useSettingsStore = defineStore("settings", {
     pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
     pathFormatExamplePath: DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
     openSettingsAtTab: null as string | null,
+    /** Maximized player: glow shadows from album art. "off" = disabled; subdued/default/vibrant = intensity. */
+    playerGlowIntensity: "default" as PlayerGlowIntensity,
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -186,6 +199,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("hideReportsSection" in data) this.hideReportsSection = coerceBool(data.hideReportsSection, false);
         if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
+        if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -221,6 +235,7 @@ export const useSettingsStore = defineStore("settings", {
           hideReportsSection: this.hideReportsSection,
           pathFormatTemplate: this.pathFormatTemplate,
           pathFormatExamplePath: this.pathFormatExamplePath,
+          playerGlowIntensity: this.playerGlowIntensity,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -345,6 +360,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setOpenSettingsAtTab(tab: string | null) {
       this.openSettingsAtTab = tab;
+    },
+    setPlayerGlowIntensity(value: PlayerGlowIntensity) {
+      this.playerGlowIntensity = value;
+      this.saveToFile();
     },
   },
 });

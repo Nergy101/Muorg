@@ -83,6 +83,47 @@ export const useCatalogStore = defineStore("catalog", {
         return title.includes(q) || artist.includes(q) || album.includes(q);
       });
     },
+    /**
+     * Tracks in the same order as the table view (groupBy, then group sort).
+     * Use this for play next/previous so playback order matches what the user sees.
+     */
+    tableOrderedTracks(): CatalogTrack[] {
+      const base = this.filteredTracks;
+      const by = this.groupBy;
+      if (by === "none" || !base.length) return base;
+      type Group = { key: string; label: string; artist?: string; tracks: CatalogTrack[] };
+      const map = new Map<string, Group>();
+      for (const t of base) {
+        if (by === "artist") {
+          const artist = t.artist ?? "—";
+          let group = map.get(artist);
+          if (!group) {
+            group = { key: artist, label: artist, tracks: [] };
+            map.set(artist, group);
+          }
+          group.tracks.push(t);
+        } else if (by === "album") {
+          const album = t.album ?? "—";
+          const artist = t.artist ?? "—";
+          const key = `${album}|||${artist}`;
+          let group = map.get(key);
+          if (!group) {
+            group = { key, label: album, artist, tracks: [] };
+            map.set(key, group);
+          }
+          group.tracks.push(t);
+        }
+      }
+      const groups = [...map.values()];
+      groups.sort((a, b) => {
+        const byLabel = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+        if (byLabel !== 0) return byLabel;
+        const aArtist = (a.artist ?? "").toLowerCase();
+        const bArtist = (b.artist ?? "").toLowerCase();
+        return aArtist.localeCompare(bArtist);
+      });
+      return groups.flatMap((g) => g.tracks);
+    },
   },
   actions: {
     setCurrentPlaying(id: number | null) {

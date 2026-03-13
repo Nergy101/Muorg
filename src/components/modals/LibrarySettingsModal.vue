@@ -8,9 +8,10 @@ import { open as openShell } from "@tauri-apps/plugin-shell";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
-import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField } from "../../stores/settings";
+import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField, PlayerGlowIntensity } from "../../stores/settings";
 import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
+import { getGlowBlobsForDemo } from "../../composables/useDominantColor";
 
 const props = defineProps<{
   open: boolean;
@@ -44,6 +45,7 @@ const {
   pathFormatTemplate,
   pathFormatExamplePath,
   openSettingsAtTab,
+  playerGlowIntensity,
 } = storeToRefs(settingsStore);
 
 type SettingsTabId = "general" | "theme" | "playback" | "keyboard" | "table" | "reports" | "smart_suggestions";
@@ -90,6 +92,24 @@ const themeOptions: { value: ThemeId; label: string; description: string; swatch
     swatchClass: "from-red-900 via-amber-700 to-yellow-400",
   },
 ];
+
+const playerGlowOptions: { value: PlayerGlowIntensity; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "subdued", label: "Subdued" },
+  { value: "default", label: "Default" },
+  { value: "vibrant", label: "Vibrant" },
+];
+
+/** Primary green RGB for glow demo. */
+const GLOW_DEMO_RGB = "91,124,50";
+
+const glowDemoBlobs = computed(() => {
+  const raw = getGlowBlobsForDemo(GLOW_DEMO_RGB, "settings-demo");
+  const v = playerGlowIntensity.value;
+  if (v === "off") return [];
+  const scale = v === "subdued" ? 0.4 : v === "vibrant" ? 1.4 : 1;
+  return raw.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
+});
 
 const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
   { value: "album", label: "By album" },
@@ -447,6 +467,55 @@ watch(openSettingsAtTab, (tab) => {
                   "Auto" follows your OS preference. "Orkish" uses a parchment-like light theme; "DOOM" is a high-contrast dark
                   theme.
                 </p>
+              </div>
+
+              <div class="settings-section space-y-2">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Maximized player glow</p>
+                <p class="text-[11px] text-stone-500">
+                  Colorful blurry shadows behind the album art in fullscreen mode, derived from the cover.
+                </p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button
+                    v-for="opt in playerGlowOptions"
+                    :key="opt.value"
+                    type="button"
+                    class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                    :class="playerGlowIntensity === opt.value
+                      ? 'border-emerald-500/80 bg-emerald-900/30'
+                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
+                    @click="settingsStore.setPlayerGlowIntensity(opt.value)"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+                <div class="mt-3 inline-block overflow-hidden rounded-lg border border-stone-600 bg-black shadow-lg">
+                  <div class="relative flex h-64 w-56 flex-col items-center justify-center">
+                    <template v-if="glowDemoBlobs.length">
+                      <div
+                        v-for="(blob, i) in glowDemoBlobs"
+                        :key="i"
+                        class="pointer-events-none absolute inset-0 origin-top-left"
+                        :style="{
+                          background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${blob.opacity.toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.6).toFixed(2)}) 35%, rgba(${blob.rgb},${(blob.opacity * 0.2).toFixed(2)}) 55%, transparent 80%)`,
+                          transform: `translate(${blob.cx * 100}%, ${blob.cy * 100}%) translate(-50%, -50%) scale(${blob.rx}, ${blob.ry})`,
+                        }"
+                      />
+                    </template>
+                    <div class="relative z-10 flex flex-col items-center gap-2">
+                      <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
+                        <span
+                          class="inline-flex items-center justify-center text-2xl text-stone-400"
+                          aria-hidden="true"
+                        >
+                          ♪
+                        </span>
+                      </div>
+                      <span class="max-w-[180px] truncate text-center text-xs font-medium text-stone-300 drop-shadow-md">
+                        Track title
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

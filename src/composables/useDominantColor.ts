@@ -2,8 +2,8 @@ import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
 const SAMPLE_SIZE = 32;
-/** Multiply RGB by this so the glow isn't pure white on bright art (0–1). */
-const DARKEN = 0.75;
+/** Multiply RGB by this so the glow isn't pure white on bright art (0–1). Slightly higher = more saturated/vibrant. */
+const DARKEN = 0.88;
 
 const FALLBACK_RGB = "28,25,23";
 
@@ -84,8 +84,70 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-const NUM_BLOBS = 8;
+const NUM_BLOBS = 11;
 const FALLBACK_RGB_Gradient = "28,25,23";
+
+export interface GlowBlob {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  opacity: number;
+  rgb: string;
+}
+
+/**
+ * Build blob data for procedural glow. Each blob has position (cx, cy), size (rx, ry), opacity, and rgb.
+ * Mix of subdued and vibrant blobs for spectacle. Used for morphing when same album.
+ */
+export function getGlowBlobs(glowRgb: string, seedString: string): GlowBlob[] {
+  const rgb = glowRgb || FALLBACK_RGB_Gradient;
+  const seed = hashString(seedString || "default");
+  const rnd = mulberry32(seed);
+  const blobs: GlowBlob[] = [];
+
+  for (let i = 0; i < NUM_BLOBS; i++) {
+    // ~40% subdued (soft ambient), ~60% vibrant (spectacle)
+    const isSubdued = rnd() < 0.4;
+    const opacity = isSubdued
+      ? 0.06 + rnd() * 0.12
+      : 0.22 + rnd() * 0.42;
+    blobs.push({
+      cx: 0.05 + rnd() * 0.9,
+      cy: 0.05 + rnd() * 0.9,
+      rx: 0.4 + rnd() * 0.5,
+      ry: 0.35 + rnd() * 0.5,
+      opacity,
+      rgb,
+    });
+  }
+  return blobs;
+}
+
+/**
+ * Blobs for a small square demo (e.g. settings preview). Larger blobs, more like the real fullscreen glow.
+ */
+export function getGlowBlobsForDemo(glowRgb: string, _seedString: string): GlowBlob[] {
+  const rgb = glowRgb || FALLBACK_RGB_Gradient;
+
+  // Manual layout: larger blobs like the real player, dark sides still visible
+  return [
+    { cx: 0.5, cy: 0.5, rx: 0.85, ry: 0.8, opacity: 0.38, rgb },
+    { cx: 0.25, cy: 0.35, rx: 0.7, ry: 0.65, opacity: 0.22, rgb },
+    { cx: 0.75, cy: 0.4, rx: 0.65, ry: 0.7, opacity: 0.28, rgb },
+    { cx: 0.4, cy: 0.7, rx: 0.6, ry: 0.55, opacity: 0.18, rgb },
+    { cx: 0.65, cy: 0.65, rx: 0.55, ry: 0.6, opacity: 0.25, rgb },
+    { cx: 0.2, cy: 0.6, rx: 0.5, ry: 0.5, opacity: 0.2, rgb },
+    { cx: 0.8, cy: 0.25, rx: 0.55, ry: 0.5, opacity: 0.22, rgb },
+    { cx: 0.35, cy: 0.2, rx: 0.45, ry: 0.45, opacity: 0.15, rgb },
+    { cx: 0.7, cy: 0.75, rx: 0.5, ry: 0.55, opacity: 0.2, rgb },
+    { cx: 0.82, cy: 0.78, rx: 0.6, ry: 0.55, opacity: 0.28, rgb },
+    { cx: 0.9, cy: 0.65, rx: 0.5, ry: 0.5, opacity: 0.22, rgb },
+    { cx: 0.72, cy: 0.88, rx: 0.45, ry: 0.4, opacity: 0.2, rgb },
+    { cx: 0.88, cy: 0.5, rx: 0.5, ry: 0.55, opacity: 0.18, rgb },
+    { cx: 0.6, cy: 0.85, rx: 0.5, ry: 0.45, opacity: 0.2, rgb },
+  ];
+}
 
 /**
  * Build a procedural glow background: dark base + several gradient blobs
@@ -93,22 +155,10 @@ const FALLBACK_RGB_Gradient = "28,25,23";
  * More blobs at random deterministic positions fill the screen with color.
  */
 export function buildProceduralGlow(glowRgb: string, seedString: string): string {
-  const rgb = glowRgb || FALLBACK_RGB_Gradient;
-  const seed = hashString(seedString || "default");
-  const rnd = mulberry32(seed);
-
-  const layers: string[] = [];
-
-  for (let i = 0; i < NUM_BLOBS; i++) {
-    const cx = 0.1 + rnd() * 0.8;
-    const cy = 0.1 + rnd() * 0.8;
-    const rx = 0.35 + rnd() * 0.45;
-    const ry = 0.3 + rnd() * 0.4;
-    const opacity = 0.12 + rnd() * 0.35;
-    layers.push(
-      `radial-gradient(ellipse ${rx * 100}% ${ry * 100}% at ${cx * 100}% ${cy * 100}%, rgba(${rgb},${opacity.toFixed(2)}) 0%, transparent 70%)`,
-    );
-  }
-
+  const blobs = getGlowBlobs(glowRgb, seedString);
+  const layers = blobs.map(
+    (b) =>
+      `radial-gradient(ellipse ${b.rx * 100}% ${b.ry * 100}% at ${b.cx * 100}% ${b.cy * 100}%, rgba(${b.rgb},${b.opacity.toFixed(2)}) 0%, transparent 70%)`,
+  );
   return `${layers.join(", ")}, linear-gradient(black, black)`;
 }

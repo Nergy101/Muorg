@@ -13,7 +13,7 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks, filteredTracks } = storeToRefs(store);
+const { selectedTracks, tableOrderedTracks } = storeToRefs(store);
 const {
   autoplayOnSelect,
   continuousPlayback,
@@ -238,7 +238,7 @@ function onAudioEnded() {
   isPlaying.value = false;
   if (!continuousPlayback.value) return;
   const current = singleTrack.value;
-  const list = filteredTracks.value;
+  const list = tableOrderedTracks.value;
   if (!current || !list.length) return;
   let next: (typeof list)[number];
   if (shuffle.value) {
@@ -257,7 +257,7 @@ function onAudioEnded() {
 
 function playNext() {
   const current = singleTrack.value;
-  const list = filteredTracks.value;
+  const list = tableOrderedTracks.value;
   if (!current || !list.length) return;
   let next: (typeof list)[number];
   if (shuffle.value) {
@@ -276,7 +276,7 @@ function playNext() {
 
 function playPrevious() {
   const current = singleTrack.value;
-  const list = filteredTracks.value;
+  const list = tableOrderedTracks.value;
   if (!current || !list.length) return;
   const idx = list.findIndex((t) => t.id === current.id);
   if (idx <= 0) return;
@@ -381,7 +381,7 @@ onUnmounted(() => {
             class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
             aria-label="Previous track"
             @click="playPrevious"
-            :disabled="!singleTrack || filteredTracks.findIndex((t) => t.id === singleTrack?.id) <= 0"
+            :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />
@@ -415,7 +415,7 @@ onUnmounted(() => {
             class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
             aria-label="Next track"
             @click="playNext"
-            :disabled="!singleTrack || (() => { const list = filteredTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
+            :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" />
