@@ -118,6 +118,7 @@ onUnmounted(() => {
       :value="volume"
       class="player-volume-slider h-1.5 cursor-pointer appearance-none rounded-full bg-stone-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
       :class="props.mode === 'playscreen' ? 'w-32' : 'w-full min-w-0'"
+      :style="{ '--volume-percent': volume * 100 + '%' }"
       title="Volume"
       @input="onVolumeInput"
     />
@@ -127,6 +128,32 @@ onUnmounted(() => {
 <style scoped>
 .player-volume-slider {
   accent-color: #5b7c32;
+  background: linear-gradient(
+    to right,
+    #5b7c32 0%,
+    #5b7c32 var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+  border-radius: 9999px;
+}
+.player-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #5b7c32 0%,
+    #5b7c32 var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  );
+  border-radius: 9999px;
+}
+.player-volume-slider::-moz-range-progress {
+  background: #5b7c32;
+  border-radius: 9999px;
+}
+.player-volume-slider::-moz-range-track {
+  background: rgb(87 83 78);
+  border-radius: 9999px;
 }
 .player-volume-slider::-webkit-slider-thumb {
   background: #5b7c32;

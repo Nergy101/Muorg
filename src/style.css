@@ -515,3 +515,252 @@ textarea:focus {
   background-color: #2e7d32 !important;
   color: #f1f8e9 !important;
 }
+
+/* Maximized player: use dark theme styling in light/orkish. Same rules as dark theme. */
+[data-theme="light"] .maximized-player-overlay .shuffle-active-bg,
+[data-theme="orkish"] .maximized-player-overlay .shuffle-active-bg {
+  background-color: var(--player-accent-shuffle, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-play-btn,
+[data-theme="orkish"] .maximized-player-overlay .player-play-btn {
+  background: var(--player-accent-play, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="light"] .maximized-player-overlay .expanded-nav-btn,
+[data-theme="orkish"] .maximized-player-overlay .expanded-nav-btn {
+  background-color: rgba(38 38 38 0.8) !important;
+}
+[data-theme="light"] .maximized-player-overlay .expanded-nav-btn:hover:not(:disabled),
+[data-theme="orkish"] .maximized-player-overlay .expanded-nav-btn:hover:not(:disabled) {
+  background-color: rgb(68 64 60) !important;
+}
+[data-theme="light"] .maximized-player-overlay .bg-stone-900,
+[data-theme="orkish"] .maximized-player-overlay .bg-stone-900 {
+  background-color: rgb(23 23 23) !important;
+}
+[data-theme="light"] .maximized-player-overlay .bg-stone-800\/80,
+[data-theme="orkish"] .maximized-player-overlay .bg-stone-800\/80 {
+  background-color: rgba(38 38 38 0.8) !important;
+}
+[data-theme="light"] .maximized-player-overlay .bg-stone-700,
+[data-theme="orkish"] .maximized-player-overlay .bg-stone-700 {
+  background-color: rgb(68 64 60) !important;
+}
+[data-theme="light"] .maximized-player-overlay .bg-stone-600,
+[data-theme="orkish"] .maximized-player-overlay .bg-stone-600 {
+  background-color: rgb(87 83 78) !important;
+}
+[data-theme="light"] .maximized-player-overlay .text-stone-100,
+[data-theme="light"] .maximized-player-overlay .text-stone-50,
+[data-theme="orkish"] .maximized-player-overlay .text-stone-100,
+[data-theme="orkish"] .maximized-player-overlay .text-stone-50 {
+  color: rgb(245 245 244) !important;
+}
+[data-theme="light"] .maximized-player-overlay .text-stone-200,
+[data-theme="orkish"] .maximized-player-overlay .text-stone-200 {
+  color: rgb(250 250 249) !important;
+}
+[data-theme="light"] .maximized-player-overlay .text-stone-300,
+[data-theme="orkish"] .maximized-player-overlay .text-stone-300 {
+  color: rgb(214 211 209) !important;
+}
+[data-theme="light"] .maximized-player-overlay .text-stone-400,
+[data-theme="orkish"] .maximized-player-overlay .text-stone-400 {
+  color: rgb(168 162 158) !important;
+}
+[data-theme="light"] .maximized-player-overlay .text-stone-500,
+[data-theme="orkish"] .maximized-player-overlay .text-stone-500 {
+  color: rgb(120 113 108) !important;
+}
+[data-theme="light"] .maximized-player-overlay .border-stone-600,
+[data-theme="orkish"] .maximized-player-overlay .border-stone-600 {
+  border-color: rgb(87 83 78) !important;
+}
+[data-theme="light"] .maximized-player-overlay .border-stone-700,
+[data-theme="orkish"] .maximized-player-overlay .border-stone-700 {
+  border-color: rgb(68 64 60) !important;
+}
+[data-theme="light"] .maximized-player-overlay .border-stone-800\/80,
+[data-theme="orkish"] .maximized-player-overlay .border-stone-800\/80 {
+  border-color: rgba(38 38 38 0.8) !important;
+}
+[data-theme="light"] .maximized-player-overlay .border-t-stone-300,
+[data-theme="orkish"] .maximized-player-overlay .border-t-stone-300 {
+  border-top-color: rgb(214 211 209) !important;
+}
+[data-theme="light"] .maximized-player-overlay .hover\:bg-stone-600:hover,
+[data-theme="orkish"] .maximized-player-overlay .hover\:bg-stone-600:hover {
+  background-color: rgb(87 83 78) !important;
+}
+[data-theme="light"] .maximized-player-overlay .hover\:bg-stone-700:hover,
+[data-theme="orkish"] .maximized-player-overlay .hover\:bg-stone-700:hover {
+  background-color: rgb(68 64 60) !important;
+}
+[data-theme="light"] .maximized-player-overlay .hover\:text-stone-100:hover,
+[data-theme="light"] .maximized-player-overlay .hover\:text-stone-200:hover,
+[data-theme="orkish"] .maximized-player-overlay .hover\:text-stone-100:hover,
+[data-theme="orkish"] .maximized-player-overlay .hover\:text-stone-200:hover {
+  color: rgb(245 245 244) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-volume-slider,
+[data-theme="orkish"] .maximized-player-overlay .player-volume-slider {
+  accent-color: var(--player-accent-volume, var(--player-accent, #5b7c32));
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-volume-slider::-webkit-slider-runnable-track,
+[data-theme="orkish"] .maximized-player-overlay .player-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-volume-slider::-moz-range-progress,
+[data-theme="orkish"] .maximized-player-overlay .player-volume-slider::-moz-range-progress {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-progress-slider,
+[data-theme="orkish"] .maximized-player-overlay .player-progress-slider {
+  accent-color: var(--player-accent-progress, var(--player-accent, #5b7c32));
+}
+[data-theme="light"] .maximized-player-overlay .player-volume-slider::-webkit-slider-thumb,
+[data-theme="orkish"] .maximized-player-overlay .player-volume-slider::-webkit-slider-thumb {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-progress-slider::-webkit-slider-thumb,
+[data-theme="orkish"] .maximized-player-overlay .player-progress-slider::-webkit-slider-thumb {
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-volume-slider::-moz-range-thumb,
+[data-theme="orkish"] .maximized-player-overlay .player-volume-slider::-moz-range-thumb {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-progress-slider,
+[data-theme="orkish"] .maximized-player-overlay .player-progress-slider {
+  background: linear-gradient(
+    to right,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) var(--progress-percent, 0%),
+    rgb(87 83 78) var(--progress-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-progress-slider::-webkit-slider-runnable-track,
+[data-theme="orkish"] .maximized-player-overlay .player-progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) var(--progress-percent, 0%),
+    rgb(87 83 78) var(--progress-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="light"] .maximized-player-overlay .player-progress-slider::-moz-range-progress,
+[data-theme="orkish"] .maximized-player-overlay .player-progress-slider::-moz-range-progress {
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32)) !important;
+}
+
+/* Doom theme: maximized player uses neutral dark (not crimson) so glow effects pop */
+[data-theme="doom"] .maximized-player-overlay .bg-stone-900 {
+  background-color: rgb(23 23 23) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .bg-stone-800\/80 {
+  background-color: rgba(38 38 38 0.8) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .bg-stone-700 {
+  background-color: rgb(68 64 60) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .bg-stone-600 {
+  background-color: rgb(87 83 78) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .text-stone-100,
+[data-theme="doom"] .maximized-player-overlay .text-stone-50 {
+  color: rgb(245 245 244) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .text-stone-200 {
+  color: rgb(250 250 249) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .text-stone-300 {
+  color: rgb(214 211 209) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .text-stone-400 {
+  color: rgb(168 162 158) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .border-stone-800\/80 {
+  border-color: rgba(38 38 38 0.8) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .border-t-stone-300 {
+  border-top-color: rgb(68 64 60) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .hover\:bg-stone-600:hover {
+  background-color: rgb(87 83 78) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .hover\:bg-stone-700:hover {
+  background-color: rgb(68 64 60) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .hover\:text-stone-100:hover,
+[data-theme="doom"] .maximized-player-overlay .hover\:text-stone-200:hover {
+  color: rgb(245 245 244) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-volume-slider {
+  accent-color: var(--player-accent-volume, var(--player-accent, #5b7c32));
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-volume-slider::-moz-range-progress {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-progress-slider {
+  accent-color: var(--player-accent-progress, var(--player-accent, #5b7c32));
+}
+[data-theme="doom"] .maximized-player-overlay .player-volume-slider::-webkit-slider-thumb {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-progress-slider::-webkit-slider-thumb {
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-volume-slider::-moz-range-thumb {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-progress-slider {
+  background: linear-gradient(
+    to right,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) var(--progress-percent, 0%),
+    rgb(87 83 78) var(--progress-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) var(--progress-percent, 0%),
+    rgb(87 83 78) var(--progress-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+[data-theme="doom"] .maximized-player-overlay .player-progress-slider::-moz-range-progress {
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32)) !important;
+}

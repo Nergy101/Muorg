@@ -11,8 +11,8 @@ defineProps<{
   hideExpand?: boolean;
   /** When true, use fullscreen layout: massive centered art, gradient background, controls at bottom. */
   expandedLayout?: boolean;
-  /** Optional "r,g,b" string to tint controls (play button, progress bar) to match album art. Used in expanded layout. */
-  accentRgb?: string;
+  /** CSS vars for accent hues (--player-accent, --player-accent-play, etc.). Bland => primary; vivid => album variants. */
+  accentStyle?: Record<string, string>;
 }>();
 
 const emit = defineEmits<{
@@ -247,7 +247,7 @@ onUnmounted(() => {
   <div
     v-if="singleTrack && expandedLayout"
     class="expanded-accent flex min-h-full min-w-0 flex-col"
-    :style="accentRgb ? { '--player-accent': `rgb(${accentRgb})` } : undefined"
+    :style="accentStyle"
   >
     <div class="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-6">
       <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="xlarge" class="shrink-0 rounded-lg shadow-2xl ring-1 ring-black/40" />
@@ -262,7 +262,7 @@ onUnmounted(() => {
       <div class="flex w-full flex-col items-center gap-3">
         <div class="flex items-center justify-center gap-2">
           <span class="inline-flex" @mouseenter="showTooltip('Previous track', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Previous track" @click="playPrevious" :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0">
+            <button type="button" class="expanded-nav-btn rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Previous track" @click="playPrevious" :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0">
               <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" /></svg>
             </button>
           </span>
@@ -273,14 +273,14 @@ onUnmounted(() => {
             </button>
           </span>
           <span class="inline-flex" @mouseenter="showTooltip('Next track', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Next track" @click="playNext" :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()">
+            <button type="button" class="expanded-nav-btn rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Next track" @click="playNext" :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()">
               <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" /></svg>
             </button>
           </span>
         </div>
         <div class="flex w-full min-w-0 items-center gap-3">
           <span class="inline-flex" @mouseenter="showTooltip('Restart from beginning', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="rounded-full bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100" aria-label="Restart from beginning" @click="restart">
+            <button type="button" class="expanded-nav-btn rounded-full bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100" aria-label="Restart from beginning" @click="restart">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
             </button>
           </span>
@@ -294,7 +294,7 @@ onUnmounted(() => {
             <VolumeControl mode="playscreen" />
             <button
               type="button"
-              class="rounded p-2 text-stone-400 hover:bg-stone-600 hover:text-stone-100"
+              class="expanded-nav-btn rounded p-2 text-stone-400 hover:bg-stone-600 hover:text-stone-100"
               aria-label="Minimize player"
               title="Minimize player"
               @click="emit('minimize')"
@@ -517,29 +517,24 @@ onUnmounted(() => {
   border-radius: 9999px;
 }
 
-/* Expanded layout: tint controls with album-art accent */
+/* Expanded layout: tint controls with album-art accent (different hues per control) */
 .expanded-accent .player-play-btn {
-  background: var(--player-accent, #5b7c32);
+  background: var(--player-accent-play, var(--player-accent, #5b7c32));
 }
 .expanded-accent .player-play-btn:hover {
   filter: brightness(1.15);
 }
-.expanded-accent .player-progress-slider,
-.expanded-accent :deep(.player-volume-slider) {
-  accent-color: var(--player-accent, #5b7c32);
+.expanded-accent .player-progress-slider {
+  accent-color: var(--player-accent-progress, var(--player-accent, #5b7c32));
 }
-.expanded-accent .player-progress-slider::-webkit-slider-thumb,
-.expanded-accent :deep(.player-volume-slider)::-webkit-slider-thumb {
-  background: var(--player-accent, #5b7c32);
-}
-.expanded-accent :deep(.player-volume-slider)::-moz-range-thumb {
-  background: var(--player-accent, #5b7c32);
+.expanded-accent .player-progress-slider::-webkit-slider-thumb {
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32));
 }
 .expanded-accent .player-progress-slider {
   background: linear-gradient(
     to right,
-    var(--player-accent, #5b7c32) 0%,
-    var(--player-accent, #5b7c32) var(--progress-percent, 0%),
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) var(--progress-percent, 0%),
     rgb(87 83 78) var(--progress-percent, 0%),
     rgb(87 83 78) 100%
   ) !important;
@@ -547,17 +542,48 @@ onUnmounted(() => {
 .expanded-accent .player-progress-slider::-webkit-slider-runnable-track {
   background: linear-gradient(
     to right,
-    var(--player-accent, #5b7c32) 0%,
-    var(--player-accent, #5b7c32) var(--progress-percent, 0%),
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) var(--progress-percent, 0%),
     rgb(87 83 78) var(--progress-percent, 0%),
     rgb(87 83 78) 100%
   );
 }
 .expanded-accent .player-progress-slider::-moz-range-progress {
-  background: var(--player-accent, #5b7c32);
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32));
+}
+.expanded-accent :deep(.player-volume-slider) {
+  accent-color: var(--player-accent-volume, var(--player-accent, #5b7c32));
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  ) !important;
+}
+.expanded-accent :deep(.player-volume-slider)::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  );
+}
+.expanded-accent :deep(.player-volume-slider)::-moz-range-progress {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32));
+}
+.expanded-accent :deep(.player-volume-slider)::-webkit-slider-thumb {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32));
+}
+.expanded-accent :deep(.player-volume-slider)::-moz-range-thumb {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32));
 }
 .expanded-accent .shuffle-active-bg {
-  background-color: var(--player-accent, #5b7c32) !important;
+  background-color: var(--player-accent-shuffle, var(--player-accent, #5b7c32)) !important;
+}
+.expanded-accent .expanded-nav-btn:hover:not(:disabled) {
+  color: var(--player-accent-nav, var(--player-accent, #5b7c32)) !important;
 }
 </style>
 

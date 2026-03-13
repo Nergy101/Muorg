@@ -12,6 +12,8 @@ import {
   useDominantColor,
   useEdgeColors,
   isColorBland,
+  hasOpposingEdgeColors,
+  PRIMARY_RGB,
 } from "./composables/useDominantColor";
 import type { GlowBlob } from "./composables/useDominantColor";
 import { useCatalogStore } from "./stores/catalog";
@@ -40,20 +42,20 @@ const trackKey = computed(
   () => expandedTrack.value?.path ?? expandedTrack.value?.id ?? "",
 );
 
-/** Edge blur when bland center + vibrant edge colors. Blobs when bland center + uniform edge (e.g. white). */
-const useEdgeBlurMode = computed(
-  () =>
-    isColorBland(glowRgb.value) &&
-    !!expandedCoverUrl.value &&
-    !!edgeColors.value?.length &&
-    !isColorBland(edgeColors.value[0]),
-);
+/** Edge blur when bland center + vibrant edge colors, or when 2 opposing colors split the cover. */
+const useEdgeBlurMode = computed(() => {
+  if (!expandedCoverUrl.value || !edgeColors.value?.colors?.length) return false;
+  const blandCenterVibrantEdges =
+    isColorBland(glowRgb.value) && !isColorBland(edgeColors.value.colors[0]);
+  const opposingColors = hasOpposingEdgeColors(edgeColors.value.bySide);
+  return blandCenterVibrantEdges || opposingColors;
+});
 
 const currentBlobs = computed(() => {
   const key = String(trackKey.value);
   if (useEdgeBlurMode.value) return [];
   if (isColorBland(glowRgb.value)) {
-    const color = edgeColors.value?.[0] ?? glowRgb.value;
+    const color = edgeColors.value?.colors?.[0] ?? glowRgb.value;
     return getSimpleGlowBlobs(color, key);
   }
   return getGlowBlobs(glowRgb.value, key);
@@ -94,16 +96,90 @@ const edgeBlurOpacity = computed(() => {
 
 const showGlow = computed(() => playerGlowIntensity.value !== "off");
 
-/** Use album color for controls only when it's not bland; otherwise use primary. */
-const effectiveAccentRgb = computed(() =>
-  isColorBland(glowRgb.value) ? undefined : glowRgb.value,
-);
+/** Use album color for controls. When opposing edge colors (split design), use first hard edge color. */
+const effectiveAccentRgb = computed(() => {
+  if (hasOpposingEdgeColors(edgeColors.value?.bySide) && edgeColors.value?.colors?.length) {
+    const first = edgeColors.value.colors[0];
+    if (!isColorBland(first)) return first;
+  }
+  return isColorBland(glowRgb.value) ? undefined : glowRgb.value;
+});
+
+/** Default primary as rgb(r,g,b) for bland fallback. */
+const PRIMARY_RGB_FORMATTED = `rgb(${PRIMARY_RGB.replace(/,/g, ", ")})`;
+
+/** Derive hue variants from base RGB "r,g,b". Returns CSS-ready rgb() strings. */
+function accentHueVariants(rgb: string): Record<string, string> {
+  const [r, g, b] = rgb.split(",").map(Number);
+  if (!Number.isFinite(r + g + b)) return {};
+
+  function toHsl(rr: number, gg: number, bb: number): [number, number, number] {
+    rr /= 255; gg /= 255; bb /= 255;
+    const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
+    let h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === rr) h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6;
+      else if (max === gg) h = ((bb - rr) / d + 2) / 6;
+      else h = ((rr - gg) / d + 4) / 6;
+    }
+    return [h * 360, s * 100, l * 100];
+  }
+  function fromHsl(h: number, s: number, l: number): string {
+    h = ((h % 360) + 360) % 360;
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+      const k = (n + h / 30) % 12;
+      return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    };
+    const rr = Math.round(f(0) * 255);
+    const gg = Math.round(f(8) * 255);
+    const bb = Math.round(f(4) * 255);
+    return `rgb(${rr},${gg},${bb})`;
+  }
+
+  const [h, s, l] = toHsl(r, g, b);
+  return {
+    accent: fromHsl(h, s, l),
+    accentPlay: fromHsl(h, s, Math.min(100, l + 12)),
+    accentProgress: fromHsl(h, s, l),
+    accentVolume: fromHsl((h + 18) % 360, Math.max(0, s - 5), l),
+    accentShuffle: fromHsl((h - 12 + 360) % 360, s, l),
+    accentNav: fromHsl((h + 8) % 360, Math.max(0, s - 8), Math.min(100, l + 6)),
+  };
+}
+
+/** Accent CSS vars for maximized player. Bland => primary; vivid => album hue variants. */
+const expandedAccentStyle = computed(() => {
+  const rgb = effectiveAccentRgb.value;
+  if (!rgb) {
+    return {
+      "--player-accent": PRIMARY_RGB_FORMATTED,
+      "--player-accent-play": PRIMARY_RGB_FORMATTED,
+      "--player-accent-progress": PRIMARY_RGB_FORMATTED,
+      "--player-accent-volume": PRIMARY_RGB_FORMATTED,
+      "--player-accent-shuffle": PRIMARY_RGB_FORMATTED,
+      "--player-accent-nav": PRIMARY_RGB_FORMATTED,
+    };
+  }
+  const v = accentHueVariants(rgb);
+  return {
+    "--player-accent": v.accent,
+    "--player-accent-play": v.accentPlay,
+    "--player-accent-progress": v.accentProgress,
+    "--player-accent-volume": v.accentVolume,
+    "--player-accent-shuffle": v.accentShuffle,
+    "--player-accent-nav": v.accentNav,
+  };
+});
 
 /** Very dark tint for background – from center color (vivid) or blended edge colors (bland). */
 const glowBgColor = computed(() => {
   if (!showGlow.value) return undefined;
-  if (isColorBland(glowRgb.value) && edgeColors.value) {
-    const ec = edgeColors.value;
+  if (isColorBland(glowRgb.value) && edgeColors.value?.colors) {
+    const ec = edgeColors.value.colors;
     const parts = ec.map((s) => s.split(",").map(Number));
     const valid = parts.filter((p) => p.length === 3);
     if (valid.length === 0) return undefined;
@@ -285,8 +361,8 @@ onUnmounted(() => {
     <Teleport to="body">
       <div
         v-if="playExpanded"
-        class="fixed inset-0 z-[350] flex h-screen w-screen flex-col overflow-visible"
-        :style="{ backgroundColor: glowBgColor ?? '#000' }"
+        class="maximized-player-overlay fixed inset-0 z-[350] flex h-screen w-screen flex-col overflow-visible"
+        :style="{ backgroundColor: glowBgColor ?? '#000', colorScheme: 'dark' }"
       >
         <!-- Glow: edge-blur (blurred album art) when bland, or procedural blobs when vivid. -->
         <div
@@ -352,7 +428,7 @@ onUnmounted(() => {
           </template>
         </div>
         <div class="relative z-[1] flex min-h-0 flex-1 flex-col">
-          <PlayScreenPlayBar :hide-expand="true" :expanded-layout="true" :accent-rgb="effectiveAccentRgb" @minimize="playExpanded = false" />
+          <PlayScreenPlayBar :hide-expand="true" :expanded-layout="true" :accent-style="expandedAccentStyle" @minimize="playExpanded = false" />
         </div>
       </div>
     </Teleport>

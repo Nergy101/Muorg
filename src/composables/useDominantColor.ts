@@ -94,6 +94,14 @@ export function useDominantColor(imageUrl: Ref<string | null>) {
 /** Array of 4–6 vibrant RGB strings sampled from the album cover edge. */
 export type EdgeColors = string[];
 
+/** Edge colors grouped by side for opposing-color detection. */
+export interface EdgeColorsBySide {
+  left: string[];
+  right: string[];
+  top: string[];
+  bottom: string[];
+}
+
 /** Saturation (0–1): how vibrant a color is. Higher = more "hard" / saturated. */
 function colorSaturation(r: number, g: number, b: number): number {
   const max = Math.max(r, g, b);
@@ -101,12 +109,95 @@ function colorSaturation(r: number, g: number, b: number): number {
   return max === 0 ? 0 : (max - min) / max;
 }
 
+/** Hue in degrees 0–360 from RGB. */
+function rgbToHue(r: number, g: number, b: number): number {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (max === min) return 0;
+  const d = max - min;
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return h * 360;
+}
+
+/** Get the most saturated color from a side's samples, or null if none vibrant. */
+function dominantColorForSide(side: string[], minSat: number): string | null {
+  let best: { rgb: string; sat: number } | null = null;
+  for (const rgb of side) {
+    const [r, g, b] = rgb.split(",").map(Number);
+    if (!Number.isFinite(r + g + b)) continue;
+    const sat = colorSaturation(r, g, b);
+    if (sat >= minSat && (!best || sat > best.sat)) best = { rgb, sat };
+  }
+  return best?.rgb ?? null;
+}
+
+/** True when left vs right or top vs bottom have opposing vibrant colors (split design). */
+export function hasOpposingEdgeColors(bySide: EdgeColorsBySide | null): boolean {
+  if (!bySide) return false;
+  const minSat = 0.2;
+  const minHueDiff = 50;
+
+  const left = dominantColorForSide(bySide.left, minSat);
+  const right = dominantColorForSide(bySide.right, minSat);
+  const top = dominantColorForSide(bySide.top, minSat);
+  const bottom = dominantColorForSide(bySide.bottom, minSat);
+
+  const hueDiff = (a: string, b: string): number => {
+    const [ar, ag, ab] = a.split(",").map(Number);
+    const [br, bg, bb] = b.split(",").map(Number);
+    let d = Math.abs(rgbToHue(ar, ag, ab) - rgbToHue(br, bg, bb));
+    return d > 180 ? 360 - d : d;
+  };
+
+  if (left && right && hueDiff(left, right) >= minHueDiff) return true;
+  if (top && bottom && hueDiff(top, bottom) >= minHueDiff) return true;
+  return false;
+}
+
+/** Sample a small region (2x2) around a point a few pixels inside the image. */
+function sampleRegion(
+  data: Uint8ClampedArray,
+  size: number,
+  cx: number,
+  cy: number,
+): string {
+  const half = 1;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let dy = -half; dy <= half; dy++) {
+    for (let dx = -half; dx <= half; dx++) {
+      const x = Math.round(cx) + dx;
+      const y = Math.round(cy) + dy;
+      if (x >= 0 && x < size && y >= 0 && y < size) {
+        const idx = (y * size + x) * 4;
+        r += data[idx];
+        g += data[idx + 1];
+        b += data[idx + 2];
+        n++;
+      }
+    }
+  }
+  if (n === 0) return "0,0,0";
+  r = Math.round((r / n) * EDGE_DARKEN);
+  g = Math.round((g / n) * EDGE_DARKEN);
+  b = Math.round((b / n) * EDGE_DARKEN);
+  return `${r},${g},${b}`;
+}
+
+export interface EdgeColorsResult {
+  colors: EdgeColors;
+  bySide: EdgeColorsBySide;
+}
+
 /**
- * Sample colors around the perimeter of the album cover (every ~1/36 of circumference),
- * then pick the top 4–6 most vibrant/saturated ones. Used for background tint when bland.
+ * Sample colors around the perimeter of the album cover, a few pixels inside the edge
+ * (not the literal edge pixels). Returns flat top 4–6 vibrant colors + by-side groups
+ * for opposing-color detection (left/right, top/bottom).
  */
 export function useEdgeColors(imageUrl: Ref<string | null>) {
-  const edgeColors = ref<EdgeColors | null>(null);
+  const edgeColors = ref<EdgeColorsResult | null>(null);
 
   watch(
     imageUrl,
@@ -128,81 +219,57 @@ export function useEdgeColors(imageUrl: Ref<string | null>) {
           ctx.drawImage(img, 0, 0, size, size);
           const data = ctx.getImageData(0, 0, size, size).data;
 
-          // Sample every ~1/36 of the perimeter (36 points around the rectangle)
-          const numSamples = 36;
-          const perimeter = 4 * size;
-          const step = perimeter / numSamples;
-          const strip = Math.max(1, Math.floor(size * 0.08)); // thin strip at edge
+          const inset = Math.max(2, Math.floor(size * 0.06));
+          const numPerSide = 9;
+          const bySide: EdgeColorsBySide = {
+            left: [],
+            right: [],
+            top: [],
+            bottom: [],
+          };
 
-          const samples: { rgb: string; sat: number }[] = [];
-
-          for (let i = 0; i < numSamples; i++) {
-            const t = (i * step) % perimeter;
-            let x0: number, y0: number;
-            if (t < size) {
-              x0 = t;
-              y0 = 0;
-            } else if (t < 2 * size) {
-              x0 = size - 1;
-              y0 = t - size;
-            } else if (t < 3 * size) {
-              x0 = 3 * size - 1 - t;
-              y0 = size - 1;
-            } else {
-              x0 = 0;
-              y0 = 4 * size - 1 - t;
-            }
-
-            // Sample a small region at this edge point (average a few pixels)
-            const xStart = Math.max(0, Math.floor(x0) - strip);
-            const xEnd = Math.min(size, Math.ceil(x0) + strip + 1);
-            const yStart = Math.max(0, Math.floor(y0) - strip);
-            const yEnd = Math.min(size, Math.ceil(y0) + strip + 1);
-
-            let r = 0, g = 0, b = 0, n = 0;
-            for (let y = yStart; y < yEnd; y++) {
-              for (let x = xStart; x < xEnd; x++) {
-                const idx = (y * size + x) * 4;
-                r += data[idx];
-                g += data[idx + 1];
-                b += data[idx + 2];
-                n++;
-              }
-            }
-            if (n === 0) continue;
-            r = Math.round((r / n) * EDGE_DARKEN);
-            g = Math.round((g / n) * EDGE_DARKEN);
-            b = Math.round((b / n) * EDGE_DARKEN);
-            const sat = colorSaturation(r, g, b);
-            samples.push({ rgb: `${r},${g},${b}`, sat });
+          for (let i = 0; i < numPerSide; i++) {
+            const t = (i + 1) / (numPerSide + 1);
+            bySide.left.push(sampleRegion(data, size, inset, inset + t * (size - 2 * inset)));
+            bySide.right.push(sampleRegion(data, size, size - 1 - inset, inset + t * (size - 2 * inset)));
+            bySide.top.push(sampleRegion(data, size, inset + t * (size - 2 * inset), inset));
+            bySide.bottom.push(sampleRegion(data, size, inset + t * (size - 2 * inset), size - 1 - inset));
           }
 
-          // Sort by saturation descending, take top 4–6 (most vibrant)
-          samples.sort((a, b) => b.sat - a.sat);
-          const minSat = 0.08; // ignore nearly gray
-          const vibrant = samples.filter((s) => s.sat >= minSat);
+          const allSamples: { rgb: string; sat: number }[] = [];
+          for (const side of Object.values(bySide)) {
+            for (const rgb of side) {
+              const [r, g, b] = rgb.split(",").map(Number);
+              allSamples.push({ rgb, sat: colorSaturation(r, g, b) });
+            }
+          }
+
+          allSamples.sort((a, b) => b.sat - a.sat);
+          const minSat = 0.08;
+          const vibrant = allSamples.filter((s) => s.sat >= minSat);
           const top = vibrant.slice(0, 6);
           const count = Math.max(4, Math.min(6, top.length));
 
+          let flatColors: EdgeColors;
           if (count === 0) {
-            // All same/bland (e.g. white) – use average edge color for a subtle glow
-            const n = samples.length;
+            const n = allSamples.length;
             if (n === 0) {
-              edgeColors.value = [];
+              flatColors = [];
             } else {
               let r = 0, g = 0, b = 0;
-              for (const s of samples) {
+              for (const s of allSamples) {
                 const [sr, sg, sb] = s.rgb.split(",").map(Number);
                 r += sr;
                 g += sg;
                 b += sb;
               }
-              const rgb = `${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)}`;
-              edgeColors.value = [rgb];
+              flatColors = [`${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)}`];
             }
           } else {
-            edgeColors.value = top.slice(0, count).map((s) => s.rgb);
+            flatColors = top.slice(0, count).map((s) => s.rgb);
           }
+
+          edgeColors.value = { colors: flatColors, bySide };
         } catch {
           edgeColors.value = null;
         }
