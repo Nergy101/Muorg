@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
-import { useCatalogStore } from "../stores/catalog";
-import { useSettingsStore } from "../stores/settings";
-import type { CatalogTrack } from "../types";
-import type { MissingMetadataField } from "../stores/settings";
+import { useCatalogStore } from "../../stores/catalog";
+import { useSettingsStore } from "../../stores/settings";
+import type { CatalogTrack } from "../../types";
+import type { MissingMetadataField } from "../../stores/settings";
 import LibraryHeader from "./LibraryHeader.vue";
 import LibraryTableBody from "./LibraryTableBody.vue";
-import LibrarySettingsModal from "./LibrarySettingsModal.vue";
-import LibraryKeyMapModal from "./LibraryKeyMapModal.vue";
-import LibraryReportsModal from "./LibraryReportsModal.vue";
+import LibrarySettingsModal from "../modals/LibrarySettingsModal.vue";
+import LibraryKeyMapModal from "../modals/LibraryKeyMapModal.vue";
+import LibraryReportsModal from "../modals/LibraryReportsModal.vue";
 
 const props = defineProps<{
   activeTab: "library" | "metadata" | "play";
@@ -105,6 +105,8 @@ function selectTrackFromReport(t: CatalogTrack) {
       @update:activeTab="emit('update:activeTab', $event)"
       @openSettings="showSettingsModal = true"
       @openKeyMap="showKeyMapModal = true"
+      @expandAllGroups="tableBodyRef?.expandAllGroups?.()"
+      @collapseAllGroups="tableBodyRef?.collapseAllGroups?.()"
     />
 
     <LibraryTableBody ref="tableBodyRef" />

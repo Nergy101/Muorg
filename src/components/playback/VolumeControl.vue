@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
-import { useSettingsStore } from "../stores/settings";
+import { useSettingsStore } from "../../stores/settings";
 
 const props = defineProps<{
   mode?: "metadata" | "playscreen";
@@ -135,5 +135,4 @@ onUnmounted(() => {
   background: #5b7c32;
 }
 </style>
-
 

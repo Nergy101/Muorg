@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
-import { useCatalogStore } from "../stores/catalog";
-import { useSettingsStore } from "../stores/settings";
+import { useCatalogStore } from "../../stores/catalog";
+import { useSettingsStore } from "../../stores/settings";
 import { open } from "@tauri-apps/plugin-dialog";
 
 defineProps<{ collapsed: boolean }>();
@@ -11,7 +11,7 @@ const emit = defineEmits<{ toggle: [] }>();
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const { roots, loading, error, tracks, reportFilter } = storeToRefs(store);
-const { missingMetadataFields } = storeToRefs(settingsStore);
+const { missingMetadataFields, hideReportsSection } = storeToRefs(settingsStore);
 
 const tooltipPopover = ref<{
   text: string;
@@ -63,8 +63,8 @@ function hideTooltip() {
 }
 
 function isFieldMissing(
-  track: import("../types").CatalogTrack,
-  field: import("../stores/settings").MissingMetadataField,
+  track: import("../../types").CatalogTrack,
+  field: import("../../stores/settings").MissingMetadataField,
 ): boolean {
   const v = track[field as keyof typeof track];
   if (field === "year" || field === "track_number" || field === "disc_number") {
@@ -82,7 +82,7 @@ const missingMetadataCount = computed(() => {
 const duplicateCount = computed(() => {
   const list = tracks.value;
   if (!list.length) return 0;
-  const keyFor = (t: import("../types").CatalogTrack) =>
+  const keyFor = (t: import("../../types").CatalogTrack) =>
     `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
   const map = new Map<string, number>();
   for (const t of list) {
@@ -107,6 +107,15 @@ function pathNorm(p: string): string {
   return s;
 }
 
+/** Roots sorted alphabetically by folder name (last path segment). */
+const sortedRoots = computed(() =>
+  [...roots.value].sort((a, b) => {
+    const nameA = a.split(/[/\\]/).pop() || a;
+    const nameB = b.split(/[/\\]/).pop() || b;
+    return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+  }),
+);
+
 /** Track count per library root (folder path). */
 const trackCountByRoot = computed(() => {
   const list = tracks.value;
@@ -125,6 +134,12 @@ const trackCountByRoot = computed(() => {
     }
   }
   return out;
+});
+
+/** True when every folder is hidden from the table (so we show "Show all" instead of "Hide all"). */
+const allRootsHidden = computed(() => {
+  const rootsList = roots.value;
+  return rootsList.length > 0 && rootsList.every((r) => store.isRootHidden(r));
 });
 
 /** Tooltip text for folder info (i): full path + track count. */
@@ -206,11 +221,35 @@ async function handleRemoveFolder(rootPath: string) {
   }
 }
 
+function handleHideAll() {
+  store.hideAllRoots();
+}
+
+function handleShowAll() {
+  store.showAllRoots();
+}
+
+async function handleRefreshAll() {
+  try {
+    await store.refreshAll();
+  } catch {
+    // error shown in store
+  }
+}
+
+async function handleRemoveAll() {
+  if (!confirm("Remove all folders from the library? Files on disk are not deleted.")) return;
+  try {
+    await store.removeAllFolders();
+  } catch {
+    // error shown in store
+  }
+}
 </script>
 
 <template>
   <aside
-    :class="['flex flex-col border-r border-stone-700 bg-stone-800/80 transition-[width] duration-200', collapsed ? 'w-12' : 'w-56']"
+    :class="['flex h-full min-h-0 flex-col border-r border-stone-700 bg-stone-800/80 transition-[width] duration-200', collapsed ? 'w-12' : 'w-64']"
   >
     <!-- Collapsed: only expand button -->
     <template v-if="collapsed">
@@ -232,22 +271,84 @@ async function handleRemoveFolder(rootPath: string) {
     </template>
     <!-- Expanded: Library header + list -->
     <template v-else>
-      <div class="flex items-center justify-end border-b border-stone-700 px-3 py-2">
-        <span
-          class="inline-flex"
-          @mouseleave="scheduleHideTooltip"
+      <div class="flex min-w-0 shrink-0 items-center gap-2 border-b border-stone-700 px-2 py-1.5">
+        <div class="min-w-0 flex-1" />
+        <div
+          v-if="roots.length"
+          class="flex shrink-0 items-center gap-0.5"
         >
-          <button
-            type="button"
-            class="rounded p-1 text-stone-500 hover:bg-stone-700 hover:text-stone-200"
-            aria-label="Collapse library"
-            @click="emit('toggle')"
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip(allRootsHidden ? 'Show all in table' : 'Hide all from table', $event)"
+            @mouseleave="scheduleHideTooltip"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm11-2v16"/><path d="m10 10l-2 2l2 2"/></g></svg>
-          </button>
-        </span>
+            <button
+              type="button"
+              class="rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              :aria-label="allRootsHidden ? 'Show all in table' : 'Hide all from table'"
+              @click="allRootsHidden ? handleShowAll() : handleHideAll()"
+            >
+              <svg v-if="allRootsHidden" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <svg v-else class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+              </svg>
+            </button>
+          </span>
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Refresh all folders', $event)"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              :disabled="loading"
+              aria-label="Refresh all folders"
+              @click="handleRefreshAll"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </span>
+          <span
+            class="inline-flex"
+            @mouseenter="showTooltip('Remove all folders from library', $event)"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded p-0.5 text-stone-500 hover:bg-red-600 hover:text-white"
+              :disabled="loading"
+              aria-label="Remove all folders from library"
+              @click="handleRemoveAll"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </span>
+        </div>
+        <div class="flex min-w-0 flex-1 justify-end">
+          <span
+            class="inline-flex"
+            @mouseleave="scheduleHideTooltip"
+          >
+            <button
+              type="button"
+              class="rounded p-1 text-stone-500 hover:bg-stone-700 hover:text-stone-200"
+              aria-label="Collapse library"
+              @click="emit('toggle')"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm11-2v16"/><path d="m10 10l-2 2l2 2"/></g></svg>
+            </button>
+          </span>
+        </div>
       </div>
-      <div class="flex-1 overflow-y-auto p-2 space-y-3">
+      <div class="min-h-0 flex-1 overflow-y-auto p-2 space-y-3">
         <div>
           <button
             type="button"
@@ -262,12 +363,34 @@ async function handleRemoveFolder(rootPath: string) {
           </button>
           <ul v-if="roots.length" class="space-y-1">
             <li
-              v-for="root in roots"
+              v-for="root in sortedRoots"
               :key="root"
               class="group/parent flex items-center gap-1 rounded border border-stone-700 bg-stone-800/50 px-2 py-1.5"
             >
               <span class="min-w-0 flex-1 truncate text-xs text-stone-300">
                 {{ root.split(/[/\\]/).pop() || root }}
+              </span>
+              <span
+                class="inline-flex shrink-0"
+                @mouseenter="showTooltip(store.isRootHidden(root) ? 'Show in table' : 'Hide from table', $event)"
+                @mouseleave="scheduleHideTooltip"
+              >
+                <button
+                  type="button"
+                  class="rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                  :class="{ 'opacity-50': store.isRootHidden(root) }"
+                  :aria-label="store.isRootHidden(root) ? 'Show folder in table' : 'Hide folder from table'"
+                  @click="store.toggleRootVisibility(root)"
+                >
+                  <!-- Eye when visible (show), eye-off when hidden -->
+                  <svg v-if="!store.isRootHidden(root)" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <svg v-else class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  </svg>
+                </button>
               </span>
               <span
                 class="flex shrink-0 cursor-help rounded p-0.5 text-stone-500 hover:text-stone-300"
@@ -311,7 +434,7 @@ async function handleRemoveFolder(rootPath: string) {
             </li>
           </ul>
         </div>
-        <div class="border-t border-stone-700 pt-2">
+        <div v-if="!hideReportsSection" class="border-t border-stone-700 pt-2">
           <div class="mb-1 flex items-center justify-between">
             <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Reports</p>
             <span
@@ -400,3 +523,4 @@ async function handleRemoveFolder(rootPath: string) {
     </Teleport>
   </aside>
 </template>
+

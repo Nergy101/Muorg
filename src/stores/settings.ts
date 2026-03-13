@@ -96,6 +96,29 @@ function coerceBottomPanel(v: unknown): BottomPanelId {
   return "library";
 }
 
+const DEFAULT_TABLE_COL_WIDTHS: Record<string, number> = {
+  albumArt: 40,
+  title: 220,
+  artist: 150,
+  album: 150,
+  year: 80,
+  duration: 64,
+  format: 64,
+  path: 200,
+};
+
+function coerceTableColWidths(v: unknown): Record<string, number> {
+  if (!v || typeof v !== "object") return { ...DEFAULT_TABLE_COL_WIDTHS };
+  const out = { ...DEFAULT_TABLE_COL_WIDTHS };
+  const obj = v as Record<string, unknown>;
+  for (const key of Object.keys(DEFAULT_TABLE_COL_WIDTHS)) {
+    const val = obj[key];
+    const n = typeof val === "number" ? val : Number(val);
+    if (Number.isFinite(n) && n >= 40 && n <= 800) out[key] = Math.round(n);
+  }
+  return out;
+}
+
 export const useSettingsStore = defineStore("settings", {
   state: () => ({
     theme: "auto" as ThemeId,
@@ -116,9 +139,12 @@ export const useSettingsStore = defineStore("settings", {
     tableColDuration: true,
     tableColFormat: true,
     tableColPath: true,
+    /** Resizable column widths (px). Keys: albumArt, title, artist, album, year, duration, format, path. */
+    tableColWidths: { ...DEFAULT_TABLE_COL_WIDTHS },
     missingMetadataFields: ["title", "artist", "album"] as MissingMetadataField[],
     groupHeaderAlbumArt: true,
     hideWikipediaCoverSearch: false,
+    hideReportsSection: false,
     pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
     pathFormatExamplePath: DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
     openSettingsAtTab: null as string | null,
@@ -153,9 +179,11 @@ export const useSettingsStore = defineStore("settings", {
         if ("tableColDuration" in data) this.tableColDuration = coerceBool(data.tableColDuration, true);
         if ("tableColFormat" in data) this.tableColFormat = coerceBool(data.tableColFormat, true);
         if ("tableColPath" in data) this.tableColPath = coerceBool(data.tableColPath, true);
+        if ("tableColWidths" in data) this.tableColWidths = coerceTableColWidths(data.tableColWidths);
         if ("missingMetadataFields" in data) this.missingMetadataFields = coerceMissingFields(data.missingMetadataFields);
         if ("groupHeaderAlbumArt" in data) this.groupHeaderAlbumArt = coerceBool(data.groupHeaderAlbumArt, true);
         if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
+        if ("hideReportsSection" in data) this.hideReportsSection = coerceBool(data.hideReportsSection, false);
         if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
       } catch {
@@ -186,9 +214,11 @@ export const useSettingsStore = defineStore("settings", {
           tableColDuration: this.tableColDuration,
           tableColFormat: this.tableColFormat,
           tableColPath: this.tableColPath,
+          tableColWidths: this.tableColWidths,
           missingMetadataFields: this.missingMetadataFields,
           groupHeaderAlbumArt: this.groupHeaderAlbumArt,
           hideWikipediaCoverSearch: this.hideWikipediaCoverSearch,
+          hideReportsSection: this.hideReportsSection,
           pathFormatTemplate: this.pathFormatTemplate,
           pathFormatExamplePath: this.pathFormatExamplePath,
         };
@@ -280,6 +310,17 @@ export const useSettingsStore = defineStore("settings", {
     },
     setTableColPath(value: boolean) {
       this.tableColPath = value;
+      this.saveToFile();
+    },
+    setTableColWidth(columnId: string, width: number, persist = true) {
+      const clamped = Math.round(Math.min(800, Math.max(40, width)));
+      if (Object.prototype.hasOwnProperty.call(this.tableColWidths, columnId)) {
+        this.tableColWidths[columnId] = clamped;
+        if (persist) this.saveToFile();
+      }
+    },
+    setHideReportsSection(value: boolean) {
+      this.hideReportsSection = value;
       this.saveToFile();
     },
     setMissingMetadataFields(fields: MissingMetadataField[]) {

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useCatalogStore } from "../stores/catalog";
-import { useSettingsStore } from "../stores/settings";
-import type { MetadataUpdate } from "../types";
-import { extractMetadataFromPath } from "../utils/pathFormat";
+import { useCatalogStore } from "../../stores/catalog";
+import { useSettingsStore } from "../../stores/settings";
+import type { MetadataUpdate } from "../../types";
+import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
@@ -41,6 +41,41 @@ const wikipediaApplying = ref(false);
 const tooltipPopover = ref<{ text: string; x: number; y: number; position?: "left" | "below" | "above" } | null>(null);
 let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
 
+const baseline = ref<{
+  title: string;
+  artist: string;
+  album: string;
+  albumArtist: string;
+  featuring: string;
+  year: number | "";
+  genre: string;
+  trackNumber: number | "";
+  discNumber: number | "";
+  pictureBase64: string | null;
+} | null>(null);
+
+const editedFields = ref<Set<keyof NonNullable<typeof baseline.value>>>(new Set());
+
+const ONE_MB = 1024 * 1024;
+
+const hasFormChanges = computed(() => {
+  const b = baseline.value;
+  if (!b) return false;
+  return (
+    title.value !== b.title ||
+    artist.value !== b.artist ||
+    album.value !== b.album ||
+    albumArtist.value !== b.albumArtist ||
+    featuring.value !== b.featuring ||
+    year.value !== b.year ||
+    genre.value !== b.genre ||
+    trackNumber.value !== b.trackNumber ||
+    discNumber.value !== b.discNumber ||
+    pictureBase64.value !== b.pictureBase64 ||
+    clearCoverRequested.value
+  );
+});
+
 function showTooltip(text: string, e: MouseEvent, position: "left" | "below" | "above" = "below") {
   if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
   tooltipHideTimeout = null;
@@ -72,43 +107,6 @@ function hideTooltip() {
   tooltipHideTimeout = null;
 }
 
-/** Snapshot of form state when last synced from tracks (used to detect changes). */
-const baseline = ref<{
-  title: string;
-  artist: string;
-  album: string;
-  albumArtist: string;
-  featuring: string;
-  year: number | "";
-  genre: string;
-  trackNumber: number | "";
-  discNumber: number | "";
-  pictureBase64: string | null;
-} | null>(null);
-
-/** In bulk mode, only these fields are written on save (user has edited them). */
-const editedFields = ref<Set<keyof NonNullable<typeof baseline.value>>>(new Set());
-
-const ONE_MB = 1024 * 1024;
-
-const hasFormChanges = computed(() => {
-  const b = baseline.value;
-  if (!b) return false;
-  return (
-    title.value !== b.title ||
-    artist.value !== b.artist ||
-    album.value !== b.album ||
-    albumArtist.value !== b.albumArtist ||
-    featuring.value !== b.featuring ||
-    year.value !== b.year ||
-    genre.value !== b.genre ||
-    trackNumber.value !== b.trackNumber ||
-    discNumber.value !== b.discNumber ||
-    pictureBase64.value !== b.pictureBase64 ||
-    clearCoverRequested.value
-  );
-});
-
 function onCoverPopupKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") showCoverPopup.value = false;
 }
@@ -119,7 +117,6 @@ function onWikipediaModalKeydown(e: KeyboardEvent) {
 
 const WIKI_API = "https://en.wikipedia.org/w/api.php";
 
-/** Normalize for matching: lowercase, strip "File:", remove extension, collapse non-alphanumeric. */
 function normalizeFileTitle(title: string): { name: string; ext: string } {
   const withoutPrefix = title.replace(/^File:/i, "").trim();
   const lastDot = withoutPrefix.lastIndexOf(".");
@@ -130,7 +127,6 @@ function normalizeFileTitle(title: string): { name: string; ext: string } {
   return { name, ext };
 }
 
-/** Score image as likely album art: +album name in filename, +cover/album, -icons/svg. */
 function scoreImageAsAlbumArt(fileTitle: string, albumName: string): number {
   const { name, ext } = normalizeFileTitle(fileTitle);
   const albumNorm = albumName
@@ -146,7 +142,6 @@ function scoreImageAsAlbumArt(fileTitle: string, albumName: string): number {
   return score;
 }
 
-/** Pick best image from list: prefer filename containing album name or "cover"/"album", skip obvious icons. */
 function pickBestAlbumImage(imageTitles: { title: string }[], albumName: string): string | null {
   if (!imageTitles?.length) return null;
   const scored = imageTitles
@@ -156,7 +151,6 @@ function pickBestAlbumImage(imageTitles: { title: string }[], albumName: string)
   return scored[0]?.title ?? null;
 }
 
-/** Search Wikipedia for the album page, pick best image (by album name / cover keywords), resolve its URL. */
 async function openFromWikipedia() {
   const albumName = album.value.trim();
   const artistName = artist.value.trim();
@@ -172,7 +166,6 @@ async function openFromWikipedia() {
   showWikipediaModal.value = true;
   wikipediaSearchLoading.value = true;
   try {
-    // 1) Search for the album page (prefer "AlbumName (album)" to hit the album article)
     const searchQuery = albumName ? `${albumName} (album)` : query;
     const searchParams = new URLSearchParams({
       action: "query",
@@ -196,7 +189,6 @@ async function openFromWikipedia() {
       return;
     }
 
-    // 2) Get images on that page and pick the best match (album name / cover in filename, skip icons)
     const imagesParams = new URLSearchParams({
       action: "query",
       pageids: String(firstPage.pageid),
@@ -216,7 +208,6 @@ async function openFromWikipedia() {
       return;
     }
 
-    // 3) Get the image URL (prefer 800px width for album art)
     const imageInfoParams = new URLSearchParams({
       action: "query",
       titles: firstImageTitle,
@@ -252,13 +243,11 @@ function closeWikipediaModal() {
   wikipediaError.value = null;
 }
 
-/** Convert image data URL (e.g. from canvas) to JPEG base64 only (for backend which expects JPEG). */
 function dataUrlToJpegBase64(dataUrl: string): string {
   const i = dataUrl.indexOf(",");
   return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
 }
 
-/** Download image via backend and set as album cover. Backend expects JPEG base64; we convert PNG if needed. */
 async function applyWikipediaImage() {
   const url = wikipediaImageUrl.value;
   if (!url) return;
@@ -298,7 +287,7 @@ async function applyWikipediaImage() {
     }
     loadCoverMeta(
       pictureBase64.value ? `data:image/jpeg;base64,${pictureBase64.value}` : "",
-      undefined
+      undefined,
     );
     markEdited("pictureBase64");
     closeWikipediaModal();
@@ -315,7 +304,6 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(0)} KB`;
 }
 
-/** Load dimensions (and optionally size) from a data URL. Using the correct MIME in the URL ensures PNG/other types decode. */
 function loadCoverMeta(dataUrl: string, sizeBytes?: number) {
   coverDimensions.value = null;
   const base64Part = dataUrl.includes(",") ? dataUrl.split(",")[1] : "";
@@ -328,7 +316,6 @@ function loadCoverMeta(dataUrl: string, sizeBytes?: number) {
   img.src = dataUrl;
 }
 
-/** Data URL for the cover image (correct MIME so dimensions load and display is consistent). */
 const displayCover = computed(() => {
   if (clearCoverRequested.value) return null;
   if (pictureBase64.value) return `data:image/jpeg;base64,${pictureBase64.value}`;
@@ -337,7 +324,6 @@ const displayCover = computed(() => {
   return store.getCoverDataUrl(tracks[0].path);
 });
 
-/** True when multiple selected tracks all share the same existing cover art. */
 const multiSelectionSharedCover = computed(() => {
   const tracks = selectedTracks.value;
   if (tracks.length <= 1) return false;
@@ -347,7 +333,6 @@ const multiSelectionSharedCover = computed(() => {
   return urls.size === 1 && urls.has(null) === false;
 });
 
-/** Refresh dimensions/size from current cover (single track or pictureBase64). Call after fetch so dimensions always show. */
 function refreshCoverMetaForSelection() {
   const tracks = selectedTracks.value;
   if (clearCoverRequested.value) {
@@ -377,7 +362,6 @@ function refreshCoverMetaForSelection() {
   loadCoverMeta(dataUrl, sizeBytes);
 }
 
-/** If all items have the same value for key(), return it; otherwise return "". */
 function same<T, V>(arr: T[], key: (t: T) => V | null | undefined): V | "" {
   if (arr.length === 0) return "" as V;
   const first = key(arr[0]);
@@ -404,15 +388,15 @@ function syncFromTracks() {
     store.fetchCover(t.path);
   } else {
     title.value = "";
-    artist.value = same(tracks, (t) => t.artist) || "";
-    album.value = same(tracks, (t) => t.album) || "";
-    albumArtist.value = same(tracks, (t) => t.album_artist) || "";
-    featuring.value = same(tracks, (t) => t.featuring) || "";
-    year.value = same(tracks, (t) => t.year) ?? "";
-    genre.value = same(tracks, (t) => t.genre) || "";
-    const tn = same(tracks, (t) => t.track_number);
+    artist.value = same(tracks, (tr) => tr.artist) || "";
+    album.value = same(tracks, (tr) => tr.album) || "";
+    albumArtist.value = same(tracks, (tr) => tr.album_artist) || "";
+    featuring.value = same(tracks, (tr) => tr.featuring) || "";
+    year.value = same(tracks, (tr) => tr.year) ?? "";
+    genre.value = same(tracks, (tr) => tr.genre) || "";
+    const tn = same(tracks, (tr) => tr.track_number);
     trackNumber.value = tn === "" || tn == null ? "" : tn;
-    const dn = same(tracks, (t) => t.disc_number);
+    const dn = same(tracks, (tr) => tr.disc_number);
     discNumber.value = dn === "" || dn == null ? "" : dn;
     pictureBase64.value = null;
     clearCoverRequested.value = false;
@@ -448,7 +432,6 @@ watch(displayCover, (dataUrl) => {
   loadCoverMeta(dataUrl, sizeBytes);
 });
 
-/** When a single track is selected, ensure cover is fetched then refresh dimensions/size so they always show. */
 watch(
   selectedTracks,
   async (tracks) => {
@@ -457,7 +440,7 @@ watch(
     await nextTick();
     refreshCoverMetaForSelection();
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 watch(showCoverPopup, async (open) => {
@@ -478,12 +461,16 @@ watch(showWikipediaModal, (open) => {
   }
 });
 
-watch(openWikipediaModal, (requested) => {
-  if (requested) {
-    store.setOpenWikipediaModal(false);
-    nextTick(() => openFromWikipedia());
-  }
-}, { immediate: true });
+watch(
+  openWikipediaModal,
+  (requested) => {
+    if (requested) {
+      store.setOpenWikipediaModal(false);
+      nextTick(() => openFromWikipedia());
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   document.addEventListener("keydown", onPanelKeydown);
@@ -499,7 +486,6 @@ function markEdited(field: keyof NonNullable<typeof baseline.value>) {
   editedFields.value = new Set(editedFields.value).add(field);
 }
 
-/** Track # display with single 0-padding (1 → "01", 10 → "10"). */
 const trackNumberPadded = computed({
   get() {
     const v = trackNumber.value;
@@ -519,7 +505,6 @@ const trackNumberPadded = computed({
   },
 });
 
-/** Map extracted path placeholders (e.g. Artist, TrackTitle) to form field names. */
 const PATH_FIELD_MAP: Record<string, keyof NonNullable<typeof baseline.value>> = {
   artist: "artist",
   album: "album",
@@ -536,7 +521,6 @@ const PATH_FIELD_MAP: Record<string, keyof NonNullable<typeof baseline.value>> =
   disc_number: "discNumber",
 };
 
-/** Resolved key/value pairs from the first selected track's path (for tooltip preview). */
 const applyFromPathPreviewText = computed(() => {
   const tracks = selectedTracks.value;
   const format = pathFormatTemplate.value?.trim();
@@ -589,7 +573,6 @@ function applyFromPath() {
   }
 }
 
-/** Build update for save. In bulk mode, only includes fields the user has edited so other fields stay per-track. */
 function buildUpdate(): MetadataUpdate {
   const tracks = selectedTracks.value;
   const isBulk = tracks.length > 1;
@@ -631,13 +614,12 @@ async function save() {
     if (tracks.length > 1) {
       await store.writeMetadataBulk(
         tracks.map((t) => t.path),
-        update
+        update,
       );
     } else {
       await store.writeMetadata(tracks[0].path, update);
     }
     clearCoverRequested.value = false;
-    // Keep selection so panel stays open; store already reloads tracks so form will sync via watch(selectedTracks, syncFromTracks)
     await nextTick();
     syncFromTracks();
   } catch (e) {
@@ -1066,3 +1048,4 @@ function onCoverFile(e: Event) {
     </Teleport>
   </div>
 </template>
+

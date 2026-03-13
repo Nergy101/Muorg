@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useCatalogStore } from "../stores/catalog";
-import packageJson from "../../package.json";
+import { useCatalogStore } from "../../stores/catalog";
+import packageJson from "../../../package.json";
 
 const props = defineProps<{
   activeTab: "library" | "metadata" | "play";
@@ -12,10 +12,12 @@ const emit = defineEmits<{
   (e: "update:activeTab", value: "library" | "metadata" | "play"): void;
   (e: "openSettings"): void;
   (e: "openKeyMap"): void;
+  (e: "expandAllGroups"): void;
+  (e: "collapseAllGroups"): void;
 }>();
 
 const store = useCatalogStore();
-const { searchQuery, groupBy } = storeToRefs(store);
+const { searchQuery, groupBy, filteredTracks } = storeToRefs(store);
 
 const appVersion = packageJson.version;
 
@@ -55,9 +57,53 @@ function hideTooltip() {
 }
 
 function onGlobalKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-    e.preventDefault();
-    nextTick(() => searchInputRef.value?.focus());
+  if (e.ctrlKey || e.metaKey) {
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName;
+    const isEditable =
+      !!target &&
+      (tag === "INPUT" || tag === "TEXTAREA" || (target as HTMLElement).isContentEditable);
+
+    if (e.key === "f") {
+      e.preventDefault();
+      nextTick(() => searchInputRef.value?.focus());
+      return;
+    }
+
+    if (isEditable) return;
+
+    if (e.key === "a") {
+      e.preventDefault();
+      const ids = filteredTracks.value.map((t) => t.id);
+      store.setSelection(ids);
+      store.setMultiSelectMode(true);
+      return;
+    }
+
+    if (e.key === "m") {
+      e.preventDefault();
+      const nextTab = props.activeTab === "metadata" ? "library" : "metadata";
+      emit("update:activeTab", nextTab);
+      return;
+    }
+
+    if (e.key === "l") {
+      e.preventDefault();
+      emit("update:activeTab", "library");
+      return;
+    }
+
+    if (e.key === "p") {
+      e.preventDefault();
+      const nextTab = props.activeTab === "play" ? "library" : "play";
+      emit("update:activeTab", nextTab);
+      return;
+    }
+
+    if (e.key === "k") {
+      e.preventDefault();
+      emit("openKeyMap");
+    }
   }
 }
 
@@ -101,6 +147,26 @@ const groupByValue = computed(() => groupBy.value);
         <option value="artist">Group by artist</option>
         <option value="none">No grouping</option>
       </select>
+
+      <div
+        v-if="groupByValue !== 'none'"
+        class="flex items-center gap-1"
+      >
+        <button
+          type="button"
+          class="rounded border border-stone-600 px-2 py-0.5 text-[11px] text-stone-300 hover:bg-stone-600 hover:text-stone-50"
+          @click="$emit('expandAllGroups')"
+        >
+          Expand all
+        </button>
+        <button
+          type="button"
+          class="rounded border border-stone-600 px-2 py-0.5 text-[11px] text-stone-300 hover:bg-stone-600 hover:text-stone-50"
+          @click="$emit('collapseAllGroups')"
+        >
+          Collapse all
+        </button>
+      </div>
     </div>
 
     <div class="flex items-center justify-start gap-2">
@@ -191,3 +257,4 @@ const groupByValue = computed(() => groupBy.value);
     </div>
   </Teleport>
 </template>
+

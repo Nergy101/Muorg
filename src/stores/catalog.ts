@@ -10,12 +10,25 @@ export interface CoverInfo {
 }
 
 const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
+const HIDDEN_ROOTS_KEY = "muorg-hidden-roots";
 
 function loadStoredDefaultGroupBy(): "none" | "artist" | "album" {
   if (typeof window === "undefined") return "album";
   const stored = window.localStorage.getItem(DEFAULT_GROUP_BY_KEY);
   if (stored === "none" || stored === "artist" || stored === "album") return stored;
   return "album";
+}
+
+function loadStoredHiddenRoots(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = window.localStorage.getItem(HIDDEN_ROOTS_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored) as unknown;
+    return Array.isArray(parsed) && parsed.every((x) => typeof x === "string") ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export const useCatalogStore = defineStore("catalog", {
@@ -37,6 +50,8 @@ export const useCatalogStore = defineStore("catalog", {
     openWikipediaModal: false,
     /** When true, clicking rows adds to selection (multi-select); header shows "Edit metadata (N selected)". */
     multiSelectMode: false,
+    /** Root paths that are hidden from the table (tracks from these folders are filtered out). Persisted to localStorage. */
+    hiddenRoots: loadStoredHiddenRoots(),
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -44,9 +59,24 @@ export const useCatalogStore = defineStore("catalog", {
       return state.tracks.filter((t) => set.has(t.id));
     },
     filteredTracks(state): CatalogTrack[] {
+      const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+      const hiddenSet = new Set(state.hiddenRoots.map(norm));
+      let list = state.tracks;
+      if (hiddenSet.size > 0) {
+        list = list.filter((t) => {
+          const tNorm = norm(t.path);
+          for (const r of state.roots) {
+            const rNorm = norm(r);
+            if (tNorm === rNorm || tNorm.startsWith(rNorm + "/")) {
+              return !hiddenSet.has(rNorm);
+            }
+          }
+          return true;
+        });
+      }
       const q = state.searchQuery.trim().toLowerCase();
-      if (!q) return state.tracks;
-      return state.tracks.filter((t) => {
+      if (!q) return list;
+      return list.filter((t) => {
         const title = (t.title ?? "").toLowerCase();
         const artist = (t.artist ?? "").toLowerCase();
         const album = (t.album ?? "").toLowerCase();
@@ -63,6 +93,44 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setReportFilter(kind: null | "missing_metadata" | "duplicates" | "missing_album_cover") {
       this.reportFilter = kind;
+    },
+    toggleRootVisibility(rootPath: string) {
+      const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+      const key = norm(rootPath);
+      const current = this.hiddenRoots.map(norm);
+      const idx = current.indexOf(key);
+      if (idx >= 0) {
+        this.hiddenRoots = this.hiddenRoots.filter((_, i) => i !== idx);
+      } else {
+        this.hiddenRoots = [...this.hiddenRoots, rootPath];
+      }
+      this.persistHiddenRoots();
+    },
+    isRootHidden(rootPath: string): boolean {
+      const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+      const key = norm(rootPath);
+      return this.hiddenRoots.some((r) => norm(r) === key);
+    },
+    /** Hide all roots from the library table (all folders get the "hidden" state). */
+    hideAllRoots() {
+      const rootsList = this.roots;
+      if (!rootsList.length) return;
+      this.hiddenRoots = rootsList.slice();
+      this.persistHiddenRoots();
+    },
+    /** Show all roots in the table (clear hidden state so every folder is visible). */
+    showAllRoots() {
+      if (this.hiddenRoots.length === 0) return;
+      this.hiddenRoots = [];
+      this.persistHiddenRoots();
+    },
+    persistHiddenRoots() {
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(HIDDEN_ROOTS_KEY, JSON.stringify(this.hiddenRoots));
+      } catch {
+        // ignore
+      }
     },
     async loadRoots() {
       this.loading = true;
@@ -184,6 +252,28 @@ export const useCatalogStore = defineStore("catalog", {
         this.loading = false;
       }
     },
+    /** Remove all folders from the library (files on disk are not deleted). */
+    async removeAllFolders() {
+      const list = [...this.roots];
+      if (!list.length) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        for (const rootPath of list) {
+          await invoke("remove_folder", { rootPath });
+        }
+        this.roots = [];
+        this.hiddenRoots = [];
+        this.persistHiddenRoots();
+        await this.loadRoots();
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
     async writeMetadata(path: string, update: import("../types").MetadataUpdate) {
       await invoke("write_track_metadata", { path, update });
       // Invalidate cached cover so subsequent fetches reflect newly written artwork.
@@ -226,6 +316,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
     clearSelection() {
       this.selectedTrackIds = [];
+    },
+    setSelection(ids: number[]) {
+      this.selectedTrackIds = [...ids];
     },
     setMultiSelectMode(value: boolean) {
       this.multiSelectMode = value;

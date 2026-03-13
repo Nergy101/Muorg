@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useCatalogStore } from "../stores/catalog";
-import { useSettingsStore } from "../stores/settings";
-import TrackAlbumArt from "./TrackAlbumArt.vue";
+import { useCatalogStore } from "../../stores/catalog";
+import { useSettingsStore } from "../../stores/settings";
+import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import { invoke } from "@tauri-apps/api/core";
+
+const emit = defineEmits<{
+  (e: "expand"): void;
+}>();
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -85,10 +89,8 @@ function onSeekInput(e: Event) {
   if (audioRef.value) audioRef.value.currentTime = val;
 }
 
-/** Inset (px) so click math matches the visible track (thumb is 12px so half on each end). */
 const PROGRESS_THUMB_HALF = 6;
 
-/** Seek to the position under the click; use same inset as track so thumb ends exactly to the left of the click. */
 function onProgressBarClick(e: MouseEvent) {
   const input = e.currentTarget as HTMLInputElement;
   const rect = input.getBoundingClientRect();
@@ -127,14 +129,12 @@ const marqueeTitle = computed(() => {
   return parts.join(" · ");
 });
 
-/** Display duration: prefer catalog value (reliable); fall back to audio element when loaded. */
 const displayDuration = computed(() => {
   const fromTrack = singleTrack.value?.duration_secs;
   if (fromTrack != null && Number.isFinite(fromTrack) && fromTrack >= 0) return fromTrack;
   return duration.value;
 });
 
-/** Progress 0–100 for filling the progress bar (elapsed portion). */
 const progressPercent = computed(() => {
   const d = displayDuration.value;
   if (!d || !Number.isFinite(d)) return 0;
@@ -164,7 +164,6 @@ watch(playbarDisableMarquee, () => {
   hideTitlePopover();
   recomputeMarquee();
 });
-
 
 async function loadAudioBlob(path: string) {
   if (audioSrc.value) {
@@ -241,7 +240,7 @@ function onAudioEnded() {
   const current = singleTrack.value;
   const list = filteredTracks.value;
   if (!current || !list.length) return;
-  let next: typeof list[0];
+  let next: (typeof list)[number];
   if (shuffle.value) {
     const others = list.filter((t) => t.id !== current.id);
     if (others.length === 0) return;
@@ -260,7 +259,7 @@ function playNext() {
   const current = singleTrack.value;
   const list = filteredTracks.value;
   if (!current || !list.length) return;
-  let next: typeof list[0];
+  let next: (typeof list)[number];
   if (shuffle.value) {
     const others = list.filter((t) => t.id !== current.id);
     if (others.length === 0) return;
@@ -339,9 +338,8 @@ onUnmounted(() => {
       @durationchange="onDurationChange"
     />
     <div class="flex min-w-0 w-full items-center gap-3">
-      <!-- Track artwork + title/artist (left) -->
       <div class="flex min-w-0 max-w-[260px] shrink-0 items-center gap-2">
-        <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" />
+        <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="medium" />
         <div class="min-w-0 flex-1">
           <div
             ref="marqueeContainerRef"
@@ -376,9 +374,7 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-      <!-- Center: playback controls + progress -->
       <div class="flex min-w-0 flex-1 items-center gap-3">
-        <!-- Playback controls -->
         <div class="flex shrink-0 items-center gap-0.5">
           <button
             type="button"
@@ -426,7 +422,6 @@ onUnmounted(() => {
             </svg>
           </button>
         </div>
-        <!-- Progress bar + times -->
         <div class="flex min-w-0 flex-1 items-center gap-2">
           <span class="shrink-0 w-8 text-right text-xs text-stone-500 tabular-nums">{{ formatTime(currentTime) }}</span>
           <input
@@ -459,9 +454,19 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-      <!-- Volume (right) -->
-      <div class="ml-3 flex w-32 shrink-0 items-center justify-end">
+      <div class="ml-3 flex w-32 shrink-0 items-center justify-end gap-1.5">
         <VolumeControl mode="metadata" />
+        <button
+          type="button"
+          class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-100"
+          aria-label="Expand player"
+          title="Expand player"
+          @click="emit('expand')"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3m0 8v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
+          </svg>
+        </button>
       </div>
     </div>
     <Teleport to="body">
@@ -487,7 +492,6 @@ onUnmounted(() => {
 .player-progress-slider::-webkit-slider-thumb {
   background: #5b7c32;
 }
-/* Progress bar: fill the elapsed (left) portion; fill ends at thumb so click position matches. Rounded start/end. */
 .player-progress-slider {
   background: linear-gradient(
     to right,
@@ -508,7 +512,6 @@ onUnmounted(() => {
   );
   border-radius: 9999px;
 }
-/* Firefox: filled portion before thumb */
 .player-progress-slider::-moz-range-progress {
   background: #5b7c32;
   border-radius: 9999px;
@@ -517,19 +520,16 @@ onUnmounted(() => {
   background: rgb(87 83 78);
   border-radius: 9999px;
 }
-
 .metadata-marquee {
   position: relative;
   overflow: hidden;
   white-space: nowrap;
 }
-
 .metadata-marquee-inner {
   display: inline-block;
   will-change: transform;
   animation: metadata-marquee-bounce 4s ease-in-out infinite alternate;
 }
-
 @keyframes metadata-marquee-bounce {
   0%,
   15% {
@@ -541,3 +541,5 @@ onUnmounted(() => {
   }
 }
 </style>
+
+

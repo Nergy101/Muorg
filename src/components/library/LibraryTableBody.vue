@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useCatalogStore } from "../stores/catalog";
-import { useSettingsStore } from "../stores/settings";
-import type { CatalogTrack } from "../types";
-import TrackAlbumArt from "./TrackAlbumArt.vue";
+import { useCatalogStore } from "../../stores/catalog";
+import { useSettingsStore } from "../../stores/settings";
+import type { CatalogTrack } from "../../types";
+import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 
-const { filteredTracks, selectedTrackIds, groupBy, albumCoverCache, currentPlayingTrackId, multiSelectMode } = storeToRefs(store);
+const { filteredTracks, selectedTrackIds, groupBy, currentPlayingTrackId, multiSelectMode } = storeToRefs(store);
 const {
   defaultGroupsExpanded,
   navWrap,
@@ -20,6 +20,7 @@ const {
   tableColDuration,
   tableColFormat,
   tableColPath,
+  tableColWidths,
   groupHeaderAlbumArt,
   hideWikipediaCoverSearch,
 } = storeToRefs(settingsStore);
@@ -93,18 +94,15 @@ const groupedRows = computed(() => {
 });
 
 const groupCovers = computed(() => {
-  if (groupBy.value !== "album") return {} as Record<string, import("../stores/catalog").CoverInfo | null | undefined>;
-  const albumCache = albumCoverCache.value;
+  if (groupBy.value !== "album") return {} as Record<string, import("../../stores/catalog").CoverInfo | null | undefined>;
   const groups = groupedRows.value;
   if (!groups) return {};
-  const result: Record<string, import("../stores/catalog").CoverInfo | null | undefined> = {};
+  // React to path-based cover cache so headers update when covers load.
+  const _cache = store.coverCache;
+  const result: Record<string, import("../../stores/catalog").CoverInfo | null | undefined> = {};
   for (const group of groups) {
-    const albumKey = group.label;
-    if (Object.prototype.hasOwnProperty.call(albumCache, albumKey)) {
-      result[group.key] = albumCache[albumKey];
-    } else {
-      result[group.key] = undefined;
-    }
+    const firstTrack = group.tracks[0];
+    result[group.key] = firstTrack ? store.getCover(firstTrack.path) : undefined;
   }
   return result;
 });
@@ -172,9 +170,47 @@ const tableColCount = computed(() => {
   return n;
 });
 
-const ROW_HEIGHT_GROUP = 40;
-const ROW_HEIGHT_TRACK_COMFORTABLE = 40;
-const ROW_HEIGHT_TRACK_COMPACT = 32;
+const CHECKBOX_COL_WIDTH = 32;
+
+function colWidth(columnId: string): number {
+  return tableColWidths.value[columnId] ?? 120;
+}
+
+const resizeState = ref<{ columnId: string; startX: number; startWidth: number } | null>(null);
+
+function onResizeStart(columnId: string, e: MouseEvent) {
+  e.preventDefault();
+  const w = tableColWidths.value[columnId];
+  if (w == null) return;
+  resizeState.value = { columnId, startX: e.clientX, startWidth: w };
+}
+
+function onResizeMove(e: MouseEvent) {
+  const state = resizeState.value;
+  if (!state) return;
+  const delta = e.clientX - state.startX;
+  settingsStore.setTableColWidth(state.columnId, state.startWidth + delta, false);
+}
+
+function onResizeEnd() {
+  if (resizeState.value) settingsStore.saveToFile();
+  resizeState.value = null;
+}
+
+watch(resizeState, (state) => {
+  if (typeof document === "undefined") return;
+  if (state) {
+    document.body.classList.add("select-none");
+    document.body.style.cursor = "col-resize";
+  } else {
+    document.body.classList.remove("select-none");
+    document.body.style.cursor = "";
+  }
+}, { immediate: true });
+
+const ROW_HEIGHT_GROUP = 44;
+const ROW_HEIGHT_TRACK_COMFORTABLE = 48;
+const ROW_HEIGHT_TRACK_COMPACT = 26;
 const OVERCAN_ROWS = 12;
 const VIRTUALIZATION_THRESHOLD = 500;
 
@@ -286,6 +322,30 @@ function copyPathToClipboard(path: string) {
   navigator.clipboard.writeText(path).catch(() => {});
 }
 
+function editGroup(group: GroupRow) {
+  const ids = group.tracks.map((t) => t.id);
+  if (!ids.length) return;
+  store.setSelection(ids);
+  store.setMultiSelectMode(true);
+}
+
+function expandAllGroups() {
+  const groups = groupedRows.value;
+  if (!groups?.length) {
+    expandedGroups.value = new Set();
+    return;
+  }
+  const keys = new Set(groups.map((g) => g.key));
+  prevGroupKeys.value = keys;
+  expandedGroups.value = new Set(keys);
+  appliedDefaultForSession.value = true;
+}
+
+function collapseAllGroups() {
+  expandedGroups.value = new Set();
+  appliedDefaultForSession.value = true;
+}
+
 function onTableKeydown(e: KeyboardEvent) {
   const rows = visibleRows.value;
   if (!rows.length) return;
@@ -364,6 +424,8 @@ watch(useVirtualization, (use) => {
 let resizeObserver: ResizeObserver | null = null;
 
 onMounted(() => {
+  document.addEventListener("mousemove", onResizeMove);
+  document.addEventListener("mouseup", onResizeEnd);
   nextTick(() => {
     const container = tableContainerRef.value;
     if (!container) return;
@@ -375,6 +437,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  document.removeEventListener("mousemove", onResizeMove);
+  document.removeEventListener("mouseup", onResizeEnd);
   const container = tableContainerRef.value;
   if (container) container.removeEventListener("scroll", updateScrollMeasurements);
   resizeObserver?.disconnect();
@@ -390,7 +454,7 @@ function scrollToTrackId(id: number) {
   else scrollFocusedRowIntoView();
 }
 
-defineExpose({ scrollToTrackId });
+defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
 </script>
 
 <template>
@@ -400,10 +464,21 @@ defineExpose({ scrollToTrackId });
     class="table-scroll-container flex-1 overflow-auto outline-none"
     @keydown="onTableKeydown"
   >
-    <table class="table-with-scroll-gutter w-full min-w-[800px] border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact' }">
+    <table class="table-with-scroll-gutter table-fixed w-full min-w-[800px] border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact' }">
+      <colgroup>
+        <col :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
+        <col v-if="tableColAlbumArt" :style="{ width: colWidth('albumArt') + 'px' }" />
+        <col :style="{ width: colWidth('title') + 'px' }" />
+        <col :style="{ width: colWidth('artist') + 'px' }" />
+        <col :style="{ width: colWidth('album') + 'px' }" />
+        <col v-if="tableColYear" :style="{ width: colWidth('year') + 'px' }" />
+        <col v-if="tableColDuration" :style="{ width: colWidth('duration') + 'px' }" />
+        <col v-if="tableColFormat" :style="{ width: colWidth('format') + 'px' }" />
+        <col v-if="tableColPath" :style="{ width: colWidth('path') + 'px' }" />
+      </colgroup>
       <thead class="sticky top-0 z-10 bg-stone-800">
         <tr class="border-b border-stone-600">
-          <th class="w-8 border-r border-stone-700 p-2">
+          <th class="border-r border-stone-700 p-2" style="width: 32px">
             <label class="flex cursor-pointer items-center gap-1.5 text-xs text-stone-400">
               <input
                 type="checkbox"
@@ -414,14 +489,69 @@ defineExpose({ scrollToTrackId });
               Multi
             </label>
           </th>
-          <th v-if="tableColAlbumArt" class="w-10 border-r border-stone-700 p-2"></th>
-          <th class="border-r border-stone-700 p-2 font-medium text-stone-400">Title</th>
-          <th class="border-r border-stone-700 p-2 font-medium text-stone-400">Artist</th>
-          <th class="border-r border-stone-700 p-2 font-medium text-stone-400">Album</th>
-          <th v-if="tableColYear" class="w-20 border-r border-stone-700 p-2 font-medium text-stone-400">Year</th>
-          <th v-if="tableColDuration" class="w-16 border-r border-stone-700 p-2 font-medium text-stone-400">Duration</th>
-          <th v-if="tableColFormat" class="w-16 border-r border-stone-700 p-2 font-medium text-stone-400">Format</th>
-          <th v-if="tableColPath" class="max-w-[200px] truncate border-stone-700 p-2 font-medium text-stone-400">Path</th>
+          <th v-if="tableColAlbumArt" class="relative border-r border-stone-700 p-2">
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('albumArt', $event)"
+            />
+          </th>
+          <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+            Title
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('title', $event)"
+            />
+          </th>
+          <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+            Artist
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('artist', $event)"
+            />
+          </th>
+          <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+            Album
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('album', $event)"
+            />
+          </th>
+          <th v-if="tableColYear" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+            Year
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('year', $event)"
+            />
+          </th>
+          <th v-if="tableColDuration" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+            Duration
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('duration', $event)"
+            />
+          </th>
+          <th v-if="tableColFormat" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+            Format
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('format', $event)"
+            />
+          </th>
+          <th v-if="tableColPath" class="relative truncate border-r border-stone-700 p-2 font-medium text-stone-400">
+            Path
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('path', $event)"
+            />
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -475,6 +605,18 @@ defineExpose({ scrollToTrackId });
                   </span>
                   {{ row.group.label }}<template v-if="groupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
                   <span class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
+                  <button
+                    v-if="groupBy === 'album'"
+                    type="button"
+                    class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                    aria-label="Edit album"
+                    title="Edit album"
+                    @click.stop="editGroup(row.group)"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
                   <template v-if="groupBy === 'album' && !hideWikipediaCoverSearch">
                     <!-- cover prefetching is triggered elsewhere; this just keeps parity with previous UI -->
                   </template>
@@ -506,7 +648,10 @@ defineExpose({ scrollToTrackId });
                 />
               </td>
               <td v-if="tableColAlbumArt" class="border-r border-stone-700 p-2">
-                <TrackAlbumArt :path="row.track.path" />
+                <TrackAlbumArt
+                  :path="row.track.path"
+                  :size="tableDensity === 'comfortable' ? 'medium' : 'small'"
+                />
               </td>
               <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.title ?? "—" }}</td>
               <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.artist ?? "—" }}</td>
@@ -514,7 +659,7 @@ defineExpose({ scrollToTrackId });
               <td v-if="tableColYear" class="border-r border-stone-700 p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
               <td v-if="tableColDuration" class="border-r border-stone-700 p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
               <td v-if="tableColFormat" class="border-r border-stone-700 p-2 text-stone-400">{{ row.track.format }}</td>
-              <td v-if="tableColPath" class="max-w-[200px] p-2 text-stone-500">
+              <td v-if="tableColPath" class="min-w-0 p-2 text-stone-500">
                 <div class="flex min-w-0 items-center gap-1">
                   <button type="button" class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300" aria-label="Copy path" title="Copy path" @click.stop="copyPathToClipboard(row.track.path)">
                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -532,7 +677,7 @@ defineExpose({ scrollToTrackId });
         </template>
         <tr v-else class="text-stone-500">
           <td :colspan="tableColCount" class="p-6 text-center">
-            {{ store.searchQuery.trim() ? "No tracks match the search." : "No tracks. Add a folder to scan MP3/FLAC files." }}
+            {{ store.searchQuery.trim() ? "No tracks match the search." : "No tracks to show. Add or unhide a folder to show MP3/FLAC files." }}
           </td>
         </tr>
       </tbody>
@@ -579,7 +724,6 @@ defineExpose({ scrollToTrackId });
 
 .table-density-compact th,
 .table-density-compact td {
-  padding: 0.375rem 0.5rem !important;
+  padding: 0.2rem 0.375rem !important;
 }
 </style>
-

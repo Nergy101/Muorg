@@ -6,11 +6,11 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { open as openShell } from "@tauri-apps/plugin-shell";
 import type { Update } from "@tauri-apps/plugin-updater";
-import { useCatalogStore } from "../stores/catalog";
-import { useSettingsStore } from "../stores/settings";
-import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField } from "../stores/settings";
-import { extractMetadataFromPath } from "../utils/pathFormat";
-import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../stores/settings";
+import { useCatalogStore } from "../../stores/catalog";
+import { useSettingsStore } from "../../stores/settings";
+import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField } from "../../stores/settings";
+import { extractMetadataFromPath } from "../../utils/pathFormat";
+import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
 
 const props = defineProps<{
   open: boolean;
@@ -58,12 +58,37 @@ const settingsTabs: { id: SettingsTabId; label: string }[] = [
   { id: "smart_suggestions", label: "Smart Suggestions" },
 ];
 
-const themeOptions: { value: ThemeId; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "dark", label: "Dark" },
-  { value: "light", label: "Light" },
-  { value: "orkish", label: "Orkish" },
-  { value: "doom", label: "DOOM" },
+const themeOptions: { value: ThemeId; label: string; description: string; swatchClass: string }[] = [
+  {
+    value: "auto",
+    label: "Auto",
+    description: "Follow system appearance (dark or light).",
+    swatchClass: "from-stone-900 via-stone-700 to-stone-400",
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    description: "High-contrast dark library view.",
+    swatchClass: "from-stone-900 via-stone-800 to-stone-600",
+  },
+  {
+    value: "light",
+    label: "Light",
+    description: "Bright, paper-like library theme.",
+    swatchClass: "from-stone-50 via-stone-100 to-stone-300",
+  },
+  {
+    value: "orkish",
+    label: "Orkish",
+    description: "Parchment-like greenish light theme.",
+    swatchClass: "from-lime-800 via-lime-500 to-amber-300",
+  },
+  {
+    value: "doom",
+    label: "DOOM",
+    description: "High-contrast crimson terminal theme.",
+    swatchClass: "from-red-900 via-amber-700 to-yellow-400",
+  },
 ];
 
 const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
@@ -72,9 +97,9 @@ const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
   { value: "none", label: "No grouping" },
 ];
 
-const tableDensityOptions: { value: TableDensity; label: string }[] = [
-  { value: "comfortable", label: "Comfortable" },
-  { value: "compact", label: "Compact" },
+const tableDensityOptions: { value: TableDensity; label: string; description: string }[] = [
+  { value: "comfortable", label: "Comfortable", description: "More spacing between rows; easier to scan." },
+  { value: "compact", label: "Compact", description: "Tighter rows; more tracks visible at once." },
 ];
 
 const missingMetadataFieldOptions: { value: MissingMetadataField; label: string }[] = [
@@ -89,15 +114,10 @@ const missingMetadataFieldOptions: { value: MissingMetadataField; label: string 
 ];
 
 const pathFormatExamples = [
-  // Simple artist/album/track layout
   "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
-  // Year inside album folder
   "<Artist>/Albums/<Year> - <Album>/<TrackNumber> - <TrackTitle>.<Format>",
-  // Album artist with disc + track numbers
   "<AlbumArtist>/<Album>/<DiscNumber>-<TrackNumber> <TrackTitle>.<Format>",
-  // Genre grouped, year in album folder
   "<Genre>/<Artist>/<Year> - <Album>/<TrackNumber> - <TrackTitle>.<Format>",
-  // Flat artist-album structure
   "<Artist> - <Album>/<TrackNumber> - <TrackTitle>.<Format>",
 ];
 
@@ -116,7 +136,6 @@ const pathFormatExampleExtracted = computed(() => {
   return extractMetadataFromPath(fmt, examplePath);
 });
 
-// Updates
 const updateCheckStatus = ref<"idle" | "checking" | "up-to-date" | "available" | "error">("idle");
 const availableUpdate = shallowRef<Update | null>(null);
 const updateError = ref<string | null>(null);
@@ -187,7 +206,6 @@ async function restartAfterUpdate() {
   await relaunch();
 }
 
-// Settings file path
 const settingsFilePath = ref<string | null>(null);
 onMounted(async () => {
   try {
@@ -202,7 +220,6 @@ async function copyPathToClipboard(path: string) {
   try {
     await navigator.clipboard.writeText(path);
   } catch {
-    // ignore
   }
 }
 
@@ -296,105 +313,148 @@ watch(openSettingsAtTab, (tab) => {
                 <p class="mb-2 text-xs font-semibold text-stone-400">Updates</p>
                 <button
                   type="button"
-                  class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-sm text-stone-200 hover:bg-stone-700 disabled:opacity-50"
-                  :disabled="updateCheckStatus === 'checking' || updateDownloadProgress != null"
+                  class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 hover:bg-stone-700"
+                  :disabled="updateCheckStatus === 'checking'"
                   @click="checkForUpdates"
                 >
-                  {{ updateCheckStatus === 'checking' ? 'Checking...' : updateDownloadProgress != null ? 'Downloading...' : 'Check for updates' }}
+                  <span v-if="updateCheckStatus === 'idle'">Check for updates</span>
+                  <span v-else-if="updateCheckStatus === 'checking'">Checking…</span>
+                  <span v-else-if="updateCheckStatus === 'up-to-date'">Up to date</span>
+                  <span v-else-if="updateCheckStatus === 'available'">Update available</span>
+                  <span v-else-if="updateCheckStatus === 'error'">Check failed</span>
                 </button>
-                <p v-if="updateCheckStatus === 'up-to-date'" class="mt-2 text-xs text-stone-500">You're up to date.</p>
-                <p v-else-if="updateCheckStatus === 'error'" class="mt-2 text-xs text-red-400">{{ updateError }}</p>
-                <div v-if="updateCheckStatus === 'available' && availableUpdate" class="mt-3 space-y-2">
-                  <p class="text-xs text-stone-300">
-                    <strong>Version {{ availableUpdate.version }}</strong>
-                    <span v-if="availableUpdate.date" class="text-stone-500"> · {{ availableUpdate.date }}</span>
+                <p v-if="updateError" class="mt-1 text-xs text-amber-400">
+                  {{ updateError }}
+                </p>
+                <div v-if="availableUpdate" class="mt-3 rounded border border-emerald-600/60 bg-emerald-900/10 p-2.5">
+                  <p class="text-xs font-medium text-emerald-300">
+                    New version available: {{ availableUpdate.version }}
                   </p>
-                  <p v-if="availableUpdate.body" class="text-xs text-stone-400 whitespace-pre-line">{{ availableUpdate.body }}</p>
-                  <div class="flex items-center gap-3">
+                  <p class="mt-0.5 text-[11px] text-emerald-200/90">
+                    Current version: {{ availableUpdate.currentVersion }}.
                     <button
+                      v-if="availableUpdate.body || availableUpdate.date"
                       type="button"
-                      class="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50"
-                      :disabled="updateDownloadProgress != null"
-                      @click="installUpdate"
-                    >
-                      {{ updateDownloadProgress != null ? `Downloading ${updateDownloadProgress}%...` : 'Download and install' }}
-                    </button>
-                    <button
-                      type="button"
-                      class="text-left text-xs text-stone-400 underline hover:text-stone-300"
+                      class="underline decoration-dotted underline-offset-2 hover:text-emerald-100"
                       @click="openReleaseUrl(`${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`)"
                     >
-                      See release
+                      View release notes
+                    </button>
+                  </p>
+                  <div class="mt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="updateDownloadProgress !== null"
+                      @click="installUpdate"
+                    >
+                      <span v-if="updateDownloadProgress === null">Download and install</span>
+                      <span v-else>Downloading… {{ updateDownloadProgress }}%</span>
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div class="settings-section">
-                <p class="mb-2 text-xs font-semibold text-stone-400">Settings file</p>
-                <div class="flex items-center gap-2">
+              <div v-if="settingsFilePath" class="settings-section">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Settings file</p>
+                <p class="break-all font-mono text-[11px] text-stone-400">
+                  {{ settingsFilePath }}
+                </p>
+                <div class="mt-1 flex gap-2">
                   <button
-                    v-if="settingsFilePath"
                     type="button"
-                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-300 hover:bg-stone-700"
-                    aria-label="Copy settings file path"
+                    class="rounded border border-stone-600 px-2.5 py-1 text-[11px] text-stone-300 hover:bg-stone-700"
                     @click="copyPathToClipboard(settingsFilePath)"
                   >
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M10 8h8a2 2 0 012 2v8a2 2 0 01-2 2h-8a2 2 0 01-2-2v-8a2 2 0 012-2z" />
-                    </svg>
+                    Copy path
                   </button>
-                  <p class="min-w-0 text-xs text-stone-500">
-                    <span v-if="settingsFilePath" class="break-all font-mono">{{ settingsFilePath }}</span>
-                    <span v-else>Settings file path not available.</span>
-                  </p>
+                  <button
+                    type="button"
+                    class="rounded border border-stone-600 px-2.5 py-1 text-[11px] text-stone-300 hover:bg-stone-700"
+                    @click="openReleaseUrl(`file://${settingsFilePath}`)"
+                  >
+                    Open in file manager
+                  </button>
                 </div>
+              </div>
+
+              <div class="settings-section">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Navigation</p>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="navWrap"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setNavWrap((e.target as HTMLInputElement).checked)"
+                  />
+                  Wrap keyboard navigation
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  When enabled, moving past the last item with the keyboard wraps around to the start (and vice versa).
+                </p>
+                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="navFocusFollowsMouse"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setNavFocusFollowsMouse((e.target as HTMLInputElement).checked)"
+                  />
+                  Focus follows mouse
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  When enabled, moving the mouse over items also updates the keyboard focus target.
+                </p>
               </div>
             </div>
 
             <div v-show="settingsTab === 'theme'" class="space-y-3">
               <p class="text-xs font-semibold text-stone-400">Theme</p>
               <div class="settings-section">
-                <p class="mb-1 text-xs font-medium text-stone-500">Select theme</p>
-                <div class="mt-1 flex flex-wrap gap-2">
+                <p class="mb-1 text-xs font-medium text-stone-500">Choose your palette</p>
+                <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                   <button
                     v-for="opt in themeOptions"
                     :key="opt.value"
                     type="button"
-                    class="rounded-full border px-3 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-900"
-                    :class="[
-                      opt.value === 'dark'
-                        ? (theme === 'dark'
-                            ? 'bg-black text-stone-50 border-stone-300'
-                            : 'bg-black text-stone-50 border-stone-500 hover:bg-stone-900')
-                        : opt.value === 'light'
-                          ? (theme === 'light'
-                              ? 'bg-stone-50 text-stone-900 border-stone-700'
-                              : 'bg-stone-200 text-stone-900 border-stone-400 hover:bg-stone-100')
-                          : opt.value === 'orkish'
-                            ? (theme === 'orkish'
-                                ? 'bg-lime-600 text-stone-950 border-lime-300'
-                                : 'bg-lime-700 text-lime-50 border-lime-400 hover:bg-lime-600')
-                            : opt.value === 'doom'
-                              ? (theme === 'doom'
-                                  ? 'bg-red-700 text-stone-50 border-red-300'
-                                  : 'bg-red-800 text-red-100 border-red-500 hover:bg-red-700')
-                              : theme === 'auto'
-                                ? 'bg-sky-700 text-stone-50 border-sky-300'
-                                : 'bg-sky-800 text-sky-100 border-sky-400 hover:bg-sky-700',
-                    ]"
+                    class="group flex items-center gap-3 rounded-md border px-2.5 py-2 text-left text-xs transition"
+                    :class="theme === opt.value
+                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
                     @click="settingsStore.setTheme(opt.value)"
                   >
-                    {{ opt.label }}
+                    <div
+                      class="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br shadow-sm ring-1 ring-black/40"
+                      :class="opt.swatchClass"
+                      aria-hidden="true"
+                    />
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold text-stone-100">
+                        {{ opt.label }}
+                        <span
+                          v-if="theme === opt.value"
+                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                        >
+                          Active
+                        </span>
+                      </p>
+                      <p class="mt-0.5 text-[11px] text-stone-400 line-clamp-2">
+                        {{ opt.description }}
+                      </p>
+                    </div>
                   </button>
                 </div>
+                <p class="mt-2 text-[11px] text-stone-500">
+                  "Auto" follows your OS preference. "Orkish" uses a parchment-like light theme; "DOOM" is a high-contrast dark
+                  theme.
+                </p>
               </div>
             </div>
 
             <div v-show="settingsTab === 'playback'" class="space-y-3">
               <p class="text-xs font-semibold text-stone-400">Playback</p>
-              <div class="settings-section">
+
+              <div class="settings-section space-y-2">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Behavior</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -402,14 +462,12 @@ watch(openSettingsAtTab, (tab) => {
                     class="rounded border-stone-600"
                     @change="(e) => settingsStore.setAutoplayOnSelect((e.target as HTMLInputElement).checked)"
                   />
-                  Auto-play when selecting a single track
+                  Autoplay on track selection
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  If enabled, selecting a single track immediately starts playback.
+                  When enabled, selecting a track immediately starts playback.
                 </p>
-              </div>
-              <div class="settings-section">
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
                     :checked="continuousPlayback"
@@ -419,10 +477,12 @@ watch(openSettingsAtTab, (tab) => {
                   Continuous playback
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, playback automatically advances to the next track when the current track finishes.
+                  When enabled, playback continues to the next track automatically.
                 </p>
               </div>
-              <div class="settings-section">
+
+              <div class="settings-section space-y-2">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Playbar</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -430,51 +490,89 @@ watch(openSettingsAtTab, (tab) => {
                     class="rounded border-stone-600"
                     @change="(e) => settingsStore.setPlaybarShowAlbumInMarquee((e.target as HTMLInputElement).checked)"
                   />
-                  Playbar: show album title in marquee
+                  Show album in scrolling title
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, the small player bar and play screen show album between title and artist.
+                  When enabled, the album name is shown next to the track title in the scrolling marquee.
                 </p>
-              </div>
-              <div class="settings-section">
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
                     :checked="playbarDisableMarquee"
                     class="rounded border-stone-600"
                     @change="(e) => settingsStore.setPlaybarDisableMarquee((e.target as HTMLInputElement).checked)"
                   />
-                  Playbar: disable marquee animation
+                  Disable scrolling title
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, the title uses ellipsis and shows the full text in a popover on hover.
+                  When enabled, the track title is truncated instead of scrolling.
                 </p>
               </div>
             </div>
 
             <div v-show="settingsTab === 'keyboard'" class="space-y-3">
               <p class="text-xs font-semibold text-stone-400">Keyboard</p>
-              <div class="settings-section">
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="navWrap"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setNavWrap((e.target as HTMLInputElement).checked)"
-                  />
-                  Wrap focus at ends (↑/↓)
-                </label>
-              </div>
-              <div class="settings-section">
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="navFocusFollowsMouse"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setNavFocusFollowsMouse((e.target as HTMLInputElement).checked)"
-                  />
-                  Focus follows mouse hover
-                </label>
+              <div class="settings-section space-y-2">
+                <p class="text-xs text-stone-400">
+                  Keyboard shortcuts are currently fixed. Planned improvements include per-action customization and profile export/import.
+                </p>
+                <p class="text-[11px] text-stone-500">
+                  These are the same shortcuts shown in the key map:
+                </p>
+                <dl class="mt-1 space-y-2 text-xs">
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+F / ⌘F</dt>
+                    <dd class="min-w-0 text-stone-300">Focus search bar</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+R / ⌘R</dt>
+                    <dd class="min-w-0 text-stone-300">Refresh whole library (all folders, all reports)</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+M / ⌘M</dt>
+                    <dd class="min-w-0 text-stone-300">Toggle metadata editor panel for current selection</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+L / ⌘L</dt>
+                    <dd class="min-w-0 text-stone-300">Show library panel</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+P / ⌘P</dt>
+                    <dd class="min-w-0 text-stone-300">Toggle full player panel</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+A / ⌘A</dt>
+                    <dd class="min-w-0 text-stone-300">Select all tracks in current view and enable multi-select</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+K / ⌘K</dt>
+                    <dd class="min-w-0 text-stone-300">Open key map</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Escape</dt>
+                    <dd class="min-w-0 text-stone-300">Close metadata editor panel or cover popup</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">↓ Arrow Down</dt>
+                    <dd class="min-w-0 text-stone-300">Move focus down in track list</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">↑ Arrow Up</dt>
+                    <dd class="min-w-0 text-stone-300">Move focus up in track list</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Space</dt>
+                    <dd class="min-w-0 text-stone-300">
+                      On group row: expand or collapse. On track row: select (add to selection in multi-select).
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">Enter</dt>
+                    <dd class="min-w-0 text-stone-300">
+                      With one track selected: start playback or pause if already playing.
+                    </dd>
+                  </div>
+                </dl>
               </div>
             </div>
 
@@ -482,181 +580,170 @@ watch(openSettingsAtTab, (tab) => {
               <p class="text-xs font-semibold text-stone-400">Layout</p>
 
               <div class="settings-section">
-                <label class="block text-xs font-medium text-stone-500">Density</label>
+                <p class="mb-1 text-xs font-semibold text-stone-400">Library grouping</p>
+                <label class="block text-xs font-medium text-stone-500">Default grouping</label>
                 <select
-                  :value="tableDensity"
-                  class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
-                  @change="(e) => settingsStore.setTableDensity((e.target as HTMLSelectElement).value as TableDensity)"
+                  :value="defaultGroupBy"
+                  class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-xs text-stone-200"
+                  @change="(e) => setDefaultGroupBy((e.target as HTMLSelectElement).value as DefaultGroupBy)"
                 >
-                  <option v-for="opt in tableDensityOptions" :key="opt.value" :value="opt.value">
+                  <option v-for="opt in defaultGroupByOptions" :key="opt.value" :value="opt.value">
                     {{ opt.label }}
                   </option>
                 </select>
+                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="defaultGroupsExpanded"
+                    class="rounded border-stone-600"
+                    @change="(e) => setDefaultGroupsExpanded((e.target as HTMLInputElement).checked)"
+                  />
+                  Expand groups by default
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  Controls how your library is grouped and whether groups start expanded when you open Muorg.
+                </p>
               </div>
 
               <div class="settings-section">
-                <p class="text-xs font-semibold text-stone-400">Default bottom panel</p>
-                <p class="mt-0.5 text-xs text-stone-500">Which panel shows in the bottom bar when Muorg starts.</p>
-                <div class="mt-2 flex flex-wrap gap-2">
+                <p class="mb-2 text-xs font-semibold text-stone-400">Table density</p>
+                <div class="flex flex-wrap gap-2">
                   <button
+                    v-for="opt in tableDensityOptions"
+                    :key="opt.value"
                     type="button"
-                    class="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                    :class="settingsStore.defaultBottomPanel === 'library'
-                      ? (theme === 'orkish'
-                          ? 'border-lime-500 bg-lime-700 text-white'
-                          : theme === 'doom'
-                            ? 'border-red-500 bg-red-700 text-white'
-                            : 'border-[#5b7c32] bg-[#5b7c32] text-white')
-                      : (theme === 'orkish'
-                          ? 'border-lime-500 bg-transparent text-lime-400 hover:bg-lime-900/20'
-                          : theme === 'doom'
-                            ? 'border-red-500 bg-transparent text-red-400 hover:bg-red-900/20'
-                            : 'border-[#5b7c32] bg-transparent text-[#5b7c32] hover:bg-stone-900/10')"
-                    @click="settingsStore.setDefaultBottomPanel('library')"
+                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] items-start gap-3 rounded-lg border px-3 py-2.5 text-left text-xs transition"
+                    :class="tableDensity === opt.value
+                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
+                    @click="settingsStore.setTableDensity(opt.value)"
                   >
-                    Library
+                    <div
+                      class="mt-0.5 flex shrink-0 flex-col gap-0.5"
+                      aria-hidden="true"
+                    >
+                      <span
+                        class="block h-1.5 w-6 rounded-sm"
+                        :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
+                      />
+                      <span
+                        class="block h-1.5 w-6 rounded-sm"
+                        :class="opt.value === 'comfortable' ? 'my-1 bg-stone-500' : 'bg-stone-600'"
+                      />
+                      <span
+                        class="block h-1.5 w-6 rounded-sm"
+                        :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
+                      />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="font-semibold text-stone-100">
+                        {{ opt.label }}
+                        <span
+                          v-if="tableDensity === opt.value"
+                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                        >
+                          Active
+                        </span>
+                      </p>
+                      <p class="mt-0.5 text-[11px] text-stone-400">
+                        {{ opt.description }}
+                      </p>
+                    </div>
                   </button>
-                  <button
-                    type="button"
-                    class="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                    :class="settingsStore.defaultBottomPanel === 'metadata'
-                      ? (theme === 'orkish'
-                          ? 'border-lime-500 bg-lime-700 text-white'
-                          : theme === 'doom'
-                            ? 'border-red-500 bg-red-700 text-white'
-                            : 'border-[#5b7c32] bg-[#5b7c32] text-white')
-                      : (theme === 'orkish'
-                          ? 'border-lime-500 bg-transparent text-lime-400 hover:bg-lime-900/20'
-                          : theme === 'doom'
-                            ? 'border-red-500 bg-transparent text-red-400 hover:bg-red-900/20'
-                            : 'border-[#5b7c32] bg-transparent text-[#5b7c32] hover:bg-stone-900/10')"
-                    @click="settingsStore.setDefaultBottomPanel('metadata')"
-                  >
-                    Metadata
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                    :class="settingsStore.defaultBottomPanel === 'play'
-                      ? (theme === 'orkish'
-                          ? 'border-lime-500 bg-lime-700 text-white'
-                          : theme === 'doom'
-                            ? 'border-red-500 bg-red-700 text-white'
-                            : 'border-[#5b7c32] bg-[#5b7c32] text-white')
-                      : (theme === 'orkish'
-                          ? 'border-lime-500 bg-transparent text-lime-400 hover:bg-lime-900/20'
-                          : theme === 'doom'
-                            ? 'border-red-500 bg-transparent text-red-400 hover:bg-red-900/20'
-                            : 'border-[#5b7c32] bg-transparent text-[#5b7c32] hover:bg-stone-900/10')"
-                    @click="settingsStore.setDefaultBottomPanel('play')"
-                  >
-                    Player
-                  </button>
-                </div>
-              </div>
-
-              <div class="settings-section space-y-3">
-                <p class="text-xs font-semibold text-stone-400">Grouping</p>
-                <div>
-                  <label class="block text-xs font-medium text-stone-500">Default grouping</label>
-                  <select
-                    :value="defaultGroupBy"
-                    class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 text-sm text-stone-200"
-                    @change="(e) => setDefaultGroupBy((e.target as HTMLSelectElement).value as DefaultGroupBy)"
-                  >
-                    <option v-for="opt in defaultGroupByOptions" :key="opt.value" :value="opt.value">
-                      {{ opt.label }}
-                    </option>
-                  </select>
-                  <p class="mt-0.5 text-xs text-stone-500">Applied when the app starts.</p>
-                </div>
-                <div>
-                  <p class="text-xs font-semibold text-stone-400">Grouping headers</p>
-                  <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                    <input
-                      type="checkbox"
-                      :checked="groupHeaderAlbumArt"
-                      class="rounded border-stone-600"
-                      @change="(e) => settingsStore.setGroupHeaderAlbumArt((e.target as HTMLInputElement).checked)"
-                    />
-                    Show album art in album group header
-                  </label>
-                  <p class="mt-0.5 text-xs text-stone-500">
-                    When grouping by album, show the cover in the group row (if all tracks share the same art).
-                  </p>
-                </div>
-                <div>
-                  <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                    <input
-                      type="checkbox"
-                      :checked="defaultGroupsExpanded"
-                      class="rounded border-stone-600"
-                      @change="(e) => setDefaultGroupsExpanded((e.target as HTMLInputElement).checked)"
-                    />
-                    Groups start expanded
-                  </label>
-                  <p class="mt-0.5 text-xs text-stone-500">When grouping is on, expand all groups by default.</p>
                 </div>
               </div>
 
               <div class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Columns</p>
-                <div class="mt-1 grid grid-cols-2 gap-2">
-                  <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                    <input
-                      type="checkbox"
-                      :checked="tableColAlbumArt"
-                      class="rounded border-stone-600"
-                      @change="(e) => settingsStore.setTableColAlbumArt((e.target as HTMLInputElement).checked)"
-                    />
-                    Album art column
-                  </label>
-                  <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                    <input
-                      type="checkbox"
-                      :checked="tableColYear"
-                      class="rounded border-stone-600"
-                      @change="(e) => settingsStore.setTableColYear((e.target as HTMLInputElement).checked)"
-                    />
-                    Year
-                  </label>
-                  <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                    <input
-                      type="checkbox"
-                      :checked="tableColDuration"
-                      class="rounded border-stone-600"
-                      @change="(e) => settingsStore.setTableColDuration((e.target as HTMLInputElement).checked)"
-                    />
-                    Duration
-                  </label>
-                  <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                    <input
-                      type="checkbox"
-                      :checked="tableColFormat"
-                      class="rounded border-stone-600"
-                      @change="(e) => settingsStore.setTableColFormat((e.target as HTMLInputElement).checked)"
-                    />
-                    Format
-                  </label>
-                  <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                    <input
-                      type="checkbox"
-                      :checked="tableColPath"
-                      class="rounded border-stone-600"
-                      @change="(e) => settingsStore.setTableColPath((e.target as HTMLInputElement).checked)"
-                    />
-                    Path
-                  </label>
-                </div>
+                <p class="mb-1 text-xs font-semibold text-stone-400">Sidebar</p>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="settingsStore.hideReportsSection"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setHideReportsSection((e.target as HTMLInputElement).checked)"
+                  />
+                  Hide reports section in sidebar
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  When enabled, the reports block (Missing metadata, Duplicates, Missing album cover) is hidden from the main sidebar layout.
+                </p>
+              </div>
+
+              <div class="settings-section">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Table columns</p>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColAlbumArt"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColAlbumArt((e.target as HTMLInputElement).checked)"
+                  />
+                  Show album art
+                </label>
+                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColYear"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColYear((e.target as HTMLInputElement).checked)"
+                  />
+                  Show year
+                </label>
+                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColDuration"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColDuration((e.target as HTMLInputElement).checked)"
+                  />
+                  Show duration
+                </label>
+                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColFormat"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColFormat((e.target as HTMLInputElement).checked)"
+                  />
+                  Show file format
+                </label>
+                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="tableColPath"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setTableColPath((e.target as HTMLInputElement).checked)"
+                  />
+                  Show file path
+                </label>
               </div>
             </div>
 
             <div v-show="settingsTab === 'reports'" class="space-y-3">
               <p class="text-xs font-semibold text-stone-400">Reports</p>
+
               <div class="settings-section">
-                <p class="mb-1 text-xs font-medium text-stone-500">Missing metadata fields</p>
-                <p class="mt-0.5 text-xs text-stone-500">Fields to consider missing for the "Missing metadata" report:</p>
-                <div class="mt-2 grid grid-cols-2 gap-2">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Group header album art</p>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="groupHeaderAlbumArt"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setGroupHeaderAlbumArt((e.target as HTMLInputElement).checked)"
+                  />
+                  Show album art on "Missing metadata" groups
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  When enabled, album art is shown next to each album in the "Missing metadata" report.
+                </p>
+              </div>
+
+              <div class="settings-section">
+                <p class="mb-1 text-xs font-semibold text-stone-400">Missing metadata fields</p>
+                <p class="mb-1 text-xs text-stone-500">
+                  Choose which fields must be present for a track to be considered "complete". Tracks missing any of these fields will appear in the "Missing metadata" report.
+                </p>
+                <div class="grid grid-cols-2 gap-1">
                   <label v-for="opt in missingMetadataFieldOptions" :key="opt.value" class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                     <input
                       type="checkbox"
@@ -694,7 +781,6 @@ watch(openSettingsAtTab, (tab) => {
                 </p>
               </div>
 
-              <!-- Path format: patterns + active pattern -->
               <div class="settings-section space-y-3">
                 <div>
                   <label class="block text-xs font-medium text-stone-500">Path format (for metadata suggestions)</label>
@@ -727,7 +813,6 @@ watch(openSettingsAtTab, (tab) => {
                 </div>
               </div>
 
-              <!-- Path format: matching examples + try your path + extracted fields -->
               <div class="settings-section space-y-3">
                 <div>
                   <p class="text-xs font-medium text-stone-500">Matching path examples (click to try):</p>
@@ -853,18 +938,18 @@ watch(openSettingsAtTab, (tab) => {
 }
 /* Theme-aware settings cards */
 ::global(html[data-theme="light"] .settings-modal .settings-section) {
-  border-color: #d6d3d1; /* stone-300/400 */
-  background-color: #f5f5f4; /* stone-100/200 */
+  border-color: #d6d3d1;
+  background-color: #f5f5f4;
 }
 
 ::global(html[data-theme="doom"] .settings-modal .settings-section) {
-  border-color: #4a1515; /* deep red border */
-  background-color: #1a0505; /* dark crimson panel */
+  border-color: #4a1515;
+  background-color: #1a0505;
 }
 
 ::global(html[data-theme="orkish"] .settings-modal .settings-section) {
-  border-color: #c5e1a5; /* soft green border */
-  background-color: #dcedc8; /* pale green card */
+  border-color: #c5e1a5;
+  background-color: #dcedc8;
 }
 </style>
 

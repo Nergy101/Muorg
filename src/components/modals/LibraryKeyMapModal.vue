@@ -14,6 +14,11 @@ const keyMapModalRef = ref<HTMLDivElement | null>(null);
 const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
   { keys: "Ctrl+R / ⌘R", description: "Refresh whole library (all folders, all reports)" },
+  { keys: "Ctrl+M / ⌘M", description: "Toggle metadata editor panel for current selection" },
+  { keys: "Ctrl+L / ⌘L", description: "Show library panel" },
+  { keys: "Ctrl+P / ⌘P", description: "Toggle full player panel" },
+  { keys: "Ctrl+A / ⌘A", description: "Select all tracks in current view and enable multi-select" },
+  { keys: "Ctrl+K / ⌘K", description: "Open key map" },
   { keys: "Escape", description: "Close metadata panel (discard changes)" },
   { keys: "↓ Arrow Down", description: "Move focus down in track list" },
   { keys: "↑ Arrow Up", description: "Move focus up in track list" },
