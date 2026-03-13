@@ -75,14 +75,14 @@ const displayCurrentBlobs = computed(() => {
   const scale = glowOpacityScale.value;
   if (scale <= 0 || useEdgeBlurMode.value) return [];
   const blobs = currentBlobs.value;
-  return scale === 1 ? blobs : blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
+  return blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
 });
 
 const displayOutgoingBlobs = computed(() => {
   const scale = glowOpacityScale.value;
   if (scale <= 0) return [];
   const blobs = outgoingBlobs.value;
-  return scale === 1 ? blobs : blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
+  return blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
 });
 
 /** Opacity for edge-blur layer (0.5–0.9 based on intensity). */
@@ -98,7 +98,7 @@ const showGlow = computed(() => playerGlowIntensity.value !== "off");
 
 /** Use album color for controls. When opposing edge colors (split design), use first hard edge color. */
 const effectiveAccentRgb = computed(() => {
-  if (hasOpposingEdgeColors(edgeColors.value?.bySide) && edgeColors.value?.colors?.length) {
+  if (hasOpposingEdgeColors(edgeColors.value?.bySide ?? null) && edgeColors.value?.colors?.length) {
     const first = edgeColors.value.colors[0];
     if (!isColorBland(first)) return first;
   }
@@ -227,7 +227,7 @@ watch(
       // Same album art: blobs just move, no crossfade. Vue updates currentBlobs,
       // CSS transition on blob positions animates the morph.
       lastBlobs.value = currentBlobs.value;
-    } else {
+    } else if (oldTrack) {
       // Different album: crossfade (only opacity, no blob morph)
       isCrossfading.value = true;
       outgoingBlobs.value = prevBlobs;
