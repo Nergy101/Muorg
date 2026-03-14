@@ -19,6 +19,12 @@
 
 ---
 
+## Current state
+
+The core app is **shipped**: add folders, catalog in SQLite, library table with search/grouping, metadata editor with bulk edit and album art, playback, reports (missing metadata, duplicates), theming, key map, path-format / “Apply from path,” and in-app update check. **Next** is Phase 4 (export, backup, undo, auto-tagging, workspaces, custom views, ReplayGain).
+
+---
+
 ## Technical direction
 
 ### Stack
@@ -36,38 +42,30 @@
 
 ---
 
-## Features — Not yet completed
+## Features — Next (Phase 4)
 
-Prioritized work still to do: Phase 4 and remaining items.
-
-### Phase 4 — Next horizon
+Prioritized work still to do.
 
 1. **Export catalog**  
    Export full catalog or current view to **CSV** or **JSON** (e.g. for backup, analysis, or use in other tools).
 
-2. **Tag-from-filename**  
-   Parse track path/filename (e.g. `Artist - Album/01 - Title.mp3`) and offer to auto-fill or suggest title, artist, album, track number.
-
-3. **Backup before write**  
+2. **Backup before write**  
    Optional “backup before modifying metadata” (e.g. copy file or save tag backup) so users can revert bad writes.
 
-4. **Undo / redo**  
+3. **Undo / redo**  
    Undo (and redo) for metadata edits in the current session (in-memory or limited history).
 
-5. **Auto-tagging (MusicBrainz / acoustic fingerprint)**  
+4. **Auto-tagging (MusicBrainz / acoustic fingerprint)**  
    Optional integration with MusicBrainz or acoustic fingerprinting to suggest or apply metadata from an online database.
 
-6. **Multiple libraries / workspaces**  
+5. **Multiple libraries / workspaces**  
    Support more than one catalog (e.g. “Home”, “External drive”) and switch or merge views.
 
-7. **Custom columns / saved views**  
+6. **Custom columns / saved views**  
    Let users choose which columns to show and save table layout (sort, column order, visibility) per session or as a preference.
 
-8. **ReplayGain / loudness**  
+7. **ReplayGain / loudness**  
    Read and display ReplayGain or loudness metadata where present; optional write support later.
-
-9. **Auto-updating**  
-    Check for new releases (e.g. GitHub Releases or a version endpoint) and notify the user or offer in-app download/install of updates (Tauri updater or similar).
 
 ---
 
@@ -85,7 +83,7 @@ Prioritized work still to do: Phase 4 and remaining items.
 | Risk | Mitigation |
 |------|------------|
 | FLAC/ID3 edge cases (corrupt or non-standard tags) | Use well-tested crates; catch errors per-file; show “failed” list instead of crashing. |
-| Large libraries (100k+ files) | Scan in chunks; store catalog in SQLite; add virtualization (Phase 4). |
+| Large libraries (100k+ files) | Scan in chunks; store catalog in SQLite; virtual-scroll table for 100k+ rows. |
 | Overwriting user data | Only write tag blocks; optional “backup before write”; confirm on bulk save. |
 
 ---
@@ -106,9 +104,9 @@ Prioritized work still to do: Phase 4 and remaining items.
 
 ---
 
-## Completed features
+## Archived — Completed features
 
-Items below are implemented and maintained as a checklist.
+Items below are implemented; kept for reference.
 
 ### P1 — Core
 
@@ -139,7 +137,9 @@ Items below are implemented and maintained as a checklist.
 - [x] **Playing / selection highlight** — Clear row styling for “now playing” and selection across themes.
 - [x] **Refresh reports** — Button to reload tracks (and thus report counts) from the sidebar.
 - [x] **Virtualization / large libraries** — Virtual-scroll table rows so 100k+ tracks stay responsive (scroll, search, sort without loading everything into the DOM).
+- [x] **Tag-from-filename** — Path format template in Settings; “Apply from path” in metadata editor to parse track path and fill/suggest title, artist, album, track number, etc.
+- [x] **Auto-updating** — Check for new releases (Settings → General → Check for updates); Tauri updater with download/install from GitHub Releases.
 
 ---
 
-*Next: tackle Phase 4 items (export, tag-from-filename, backup, undo, auto-tagging, workspaces, custom views, ReplayGain, auto-updating) as needed.*
+*Next: tackle remaining Phase 4 items (export, backup, undo, auto-tagging, workspaces, custom views, ReplayGain) as needed.*

@@ -99,19 +99,7 @@ pnpm tauri build
 
 ### 🍎 Mac
 
-If macOS says **“Muorg.app is damaged and can’t be opened”** (Gatekeeper quarantine on unsigned builds), remove the quarantine attribute and open the app as usual:
-
-```bash
-sudo xattr -cr /path/to/Muorg.app
-```
-
-Example if the app is in your Applications folder:
-
-```bash
-sudo xattr -cr /Applications/Muorg.app
-```
-
-Then open Muorg from Finder or Spotlight. You can also right‑click the app → **Open** the first time; macOS may then allow it without the “damaged” message.
+If macOS says **“Muorg.app is damaged and can’t be opened”** (Gatekeeper quarantine on unsigned builds), allow it via System Settings: open **System Settings → Privacy & Security**, scroll down to the security message about Muorg, then click **Open Muorg** (or **Open Anyway**). After that, open Muorg from Finder or Spotlight as usual.
 
 ### 🐧 Linux
 
@@ -165,14 +153,13 @@ Releases are built and published via GitHub Actions.
 
 ### 🏷️ Stable releases (tagged)
 
-1. Bump the version in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` (e.g. to `0.2.0`).
-2. Commit and push.
-3. Create and push a **tag** matching `v*` (e.g. `v0.2.0`):
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-4. The **Build and Release** workflow runs on the new tag, builds all platforms, and creates a **full release** (not prerelease) with that version and the installers attached.
+Use the release script in `scripts/` to bump the version in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`, commit, create a `v*` tag, and push:
+
+```bash
+./scripts/release.sh 0.2.0
+```
+
+The **Build and Release** workflow runs on the new tag, builds all platforms, and creates a **full release** (not prerelease) with that version and the installers attached.
 
 ### 📊 Pipeline summary
 
@@ -201,19 +188,7 @@ Generate keys once with: `pnpm tauri signer generate -w ~/.tauri/muorg.key`. Put
 
 Releases are not signed or notarized with an Apple Developer certificate. After downloading the `.app` (from a DMG or the release assets), macOS may say **“Muorg.app is damaged and can’t be opened”**. This is Gatekeeper quarantining the app.
 
-**Fix:** Remove the quarantine attribute, then open the app as usual:
-
-```bash
-xattr -cr /path/to/Muorg.app
-```
-
-Example if you moved the app to Applications:
-
-```bash
-xattr -cr /Applications/Muorg.app
-```
-
-After that, open Muorg from Finder or Spotlight as normal. To avoid the warning in the future, you can right‑click the app → **Open** the first time; macOS may then allow it without the “damaged” message.
+**Fix:** Open **System Settings → Privacy & Security**, scroll down to the security message about Muorg, then click **Open Muorg** (or **Open Anyway**). After that, open Muorg from Finder or Spotlight as normal.
 
 ### ✅ Pre-merge checks (Build and Lint)
 
