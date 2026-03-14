@@ -47,15 +47,27 @@ See [plan.md](./plan.md) for the roadmap and priorities.
 
 Main library view:
 
-![Muorg main view](./assets/scr-main.png)
+![Muorg main view](./assets/library.png)
 
 Metadata editor (single track selected):
 
-![Muorg metadata editor](./assets/scr-metadata-1.png)
+![Muorg metadata editor](./assets/metadata.png)
 
 Key map and shortcuts:
 
-![Muorg key map](./assets/scr-keymap.png)
+![Muorg key map](./assets/keymap.png)
+
+Player bar (compact and expanded). The **expanded view** fills the screen with large album art and a gradient; play/pause, previous/next, seek, volume, and shuffle sit at the bottom, and accents are tinted from the current track’s album art.
+
+![Player bar](./assets/player_small.png) ![Player expanded](./assets/player_max.jpeg)
+
+Settings — theme picker and smart suggestions:
+
+![Settings theme](./assets/settings_theme.png)
+
+**Smart Suggestions** lets you define how your file paths are structured (e.g. `<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>`). In the metadata editor you can then **Apply from path** to fill title, artist, album, track number, and similar fields from a track’s path, so tags stay consistent with your folder layout. You can try example paths in settings to see the extracted fields before using them.
+
+![Smart suggestions](./assets/settings_smart_suggestions.png)
 
 ---
 
@@ -111,6 +123,16 @@ chmod +x Muorg-*.AppImage
 ```
 
 For a .deb package, install with your package manager and start Muorg from your application menu.
+
+### Mock mode (Tauri with fake data)
+
+To run the full Tauri app with a fixed fake catalog (no real library scan):
+
+```bash
+pnpm run dev:mock
+```
+
+This opens the desktop app with the album **A Kiss for the Whole World** (12 tracks) as the only catalog. The UI is viewable; playback and other features may be limited with mock data.
 
 ### 🪟 Windows
 

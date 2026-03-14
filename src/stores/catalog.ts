@@ -1,6 +1,9 @@
 import { defineStore } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import type { CatalogTrack } from "../types";
+import { MOCK_COVER_SOURCE_PATH, MOCK_ROOTS, MOCK_TRACKS } from "../mockTracks";
+
+const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
 
 /** Cover art from backend: base64 data, MIME type (e.g. image/jpeg, image/png), and size in bytes. */
 export interface CoverInfo {
@@ -174,6 +177,10 @@ export const useCatalogStore = defineStore("catalog", {
       }
     },
     async loadRoots() {
+      if (isMock()) {
+        this.roots = MOCK_ROOTS;
+        return;
+      }
       this.loading = true;
       this.error = null;
       try {
@@ -185,6 +192,10 @@ export const useCatalogStore = defineStore("catalog", {
       }
     },
     async loadTracks() {
+      if (isMock()) {
+        this.tracks = MOCK_TRACKS;
+        return;
+      }
       this.loading = true;
       this.error = null;
       try {
@@ -381,6 +392,37 @@ export const useCatalogStore = defineStore("catalog", {
     },
     async fetchCover(path: string) {
       if (path in this.coverCache) return;
+      if (isMock()) {
+        const existing = this.tracks.find((t) => t.path in this.coverCache);
+        const cached = existing ? this.coverCache[existing.path] : undefined;
+        if (cached !== undefined) {
+          this.coverCache = { ...this.coverCache, [path]: cached };
+          const track = this.tracks.find((t) => t.path === path);
+          if (track) {
+            const albumKey = track.album ?? "—";
+            this.albumCoverCache = { ...this.albumCoverCache, [albumKey]: cached };
+          }
+          return;
+        }
+        try {
+          const result = await invoke<CoverInfo | null>("get_track_cover", {
+            path: MOCK_COVER_SOURCE_PATH,
+          });
+          const cover = result ?? null;
+          const nextCover = { ...this.coverCache };
+          const nextAlbum = { ...this.albumCoverCache };
+          for (const t of this.tracks) {
+            nextCover[t.path] = cover;
+          }
+          const albumKey = this.tracks[0]?.album ?? "—";
+          nextAlbum[albumKey] = cover;
+          this.coverCache = nextCover;
+          this.albumCoverCache = nextAlbum;
+        } catch {
+          this.coverCache = { ...this.coverCache, [path]: null };
+        }
+        return;
+      }
       try {
         const result = await invoke<CoverInfo | null>("get_track_cover", { path });
         const cover = result ?? null;

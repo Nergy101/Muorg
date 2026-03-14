@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "VITE_MOCK=1 pnpm tauri dev",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "tauri": "tauri",

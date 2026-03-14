@@ -10,7 +10,11 @@ app.use(pinia);
 
 (async () => {
   const settings = useSettingsStore();
-  await settings.loadFromFile();
+  try {
+    await settings.loadFromFile();
+  } catch {
+    // In mock mode or when Tauri isn't available, use defaults
+  }
   settings.initTheme();
   app.mount("#app");
 })();
