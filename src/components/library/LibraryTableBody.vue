@@ -454,6 +454,50 @@ function scrollToTrackId(id: number) {
   else scrollFocusedRowIntoView();
 }
 
+const contextMenu = ref<{ x: number; y: number; tracks: CatalogTrack[] } | null>(null);
+const contextMenuRef = ref<HTMLElement | null>(null);
+
+function openContextMenu(e: MouseEvent, tracks: CatalogTrack[]) {
+  e.preventDefault();
+  if (!tracks.length) return;
+  contextMenu.value = { x: e.clientX, y: e.clientY, tracks };
+}
+
+function closeContextMenu() {
+  contextMenu.value = null;
+}
+
+function addToQueueFromContextMenu() {
+  if (contextMenu.value) {
+    store.addTracksToQueue(contextMenu.value.tracks);
+    closeContextMenu();
+  }
+}
+
+watch(contextMenu, (menu) => {
+  if (!menu) return;
+  const onOutside = (e: MouseEvent) => {
+    const target = e.target as Node;
+    if (contextMenuRef.value?.contains(target)) return;
+    closeContextMenu();
+    document.removeEventListener("click", onOutside);
+    document.removeEventListener("keydown", onEscape);
+  };
+  const onEscape = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      closeContextMenu();
+      document.removeEventListener("click", onOutside);
+      document.removeEventListener("keydown", onEscape);
+    }
+  };
+  nextTick(() => {
+    setTimeout(() => {
+      document.addEventListener("click", onOutside);
+      document.addEventListener("keydown", onEscape);
+    }, 0);
+  });
+});
+
 defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
 </script>
 
@@ -563,7 +607,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             <tr
               v-if="row.type === 'group'"
               :data-row-index="index"
-              class="cursor-pointer font-medium text-stone-400 hover:bg-stone-700/80"
+              class="cursor-context-menu font-medium text-stone-400 hover:bg-stone-700/80"
               :class="[
                 focusedRowIndex === index ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80',
                 { 'group-row-with-selection': groupContainsSelection(row.group) },
@@ -571,6 +615,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               :style="useVirtualization ? { height: rowHeights[index] + 'px' } : undefined"
               @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = index) : undefined"
               @click="focusedRowIndex = index; toggleGroup(row.key)"
+              @contextmenu.prevent="openContextMenu($event, row.group.tracks)"
             >
               <td :colspan="tableColCount" class="border-b border-stone-600 p-2">
                 <span class="inline-flex flex-wrap items-center gap-2">
@@ -627,7 +672,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               v-else
               :data-row-index="index"
               :data-track-id="row.track.id"
-              class="border-b border-stone-700/50 hover:bg-stone-800/50"
+              class="cursor-context-menu border-b border-stone-700/50 hover:bg-stone-800/50"
               :class="[
                 { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== index },
                 { 'bg-stone-600/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === index },
@@ -637,6 +682,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               :style="useVirtualization ? { height: rowHeights[index] + 'px' } : undefined"
               @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = index) : undefined"
               @click="focusedRowIndex = index; selectRow(row.track)"
+              @contextmenu.prevent="openContextMenu($event, [row.track])"
             >
               <td class="border-r border-stone-700 p-2">
                 <input
@@ -648,10 +694,12 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                 />
               </td>
               <td v-if="tableColAlbumArt" class="border-r border-stone-700 p-2">
-                <TrackAlbumArt
-                  :path="row.track.path"
-                  :size="tableDensity === 'comfortable' ? 'medium' : 'small'"
-                />
+                <div class="flex justify-center items-center">
+                  <TrackAlbumArt
+                    :path="row.track.path"
+                    :size="tableDensity === 'comfortable' ? 'medium' : 'small'"
+                  />
+                </div>
               </td>
               <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.title ?? "—" }}</td>
               <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.artist ?? "—" }}</td>
@@ -683,6 +731,26 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
       </tbody>
     </table>
   </div>
+  <Teleport to="body">
+    <div
+      v-if="contextMenu"
+      ref="contextMenuRef"
+      class="fixed z-[300] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      @click.stop
+    >
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        @click="addToQueueFromContextMenu"
+      >
+        <svg class="h-4 w-4 shrink-0 text-stone-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M16 20q-1.25 0-2.125-.875T13 17t.875-2.125T16 14q.275 0 .525.038T17 14.2V7q0-.425.288-.712T18 6h3q.425 0 .713.288T22 7t-.288.713T21 8h-2v9q0 1.25-.875 2.125T16 20M4 16q-.425 0-.712-.288T3 15t.288-.712T4 14h6q.425 0 .713.288T11 15t-.288.713T10 16zm0-4q-.425 0-.712-.288T3 11t.288-.712T4 10h10q.425 0 .713.288T15 11t-.288.713T14 12zm0-4q-.425 0-.712-.288T3 7t.288-.712T4 6h10q.425 0 .713.288T15 7t-.288.713T14 8z" />
+        </svg>
+        Add to queue
+      </button>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import type { CatalogTrack } from "../../types";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
@@ -22,8 +23,50 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks, tableOrderedTracks } = storeToRefs(store);
-const { shuffle, playbarShowAlbumInMarquee } = storeToRefs(settingsStore);
+const { selectedTracks, tableOrderedTracks, queueTracks } = storeToRefs(store);
+const { shuffle, continuousPlayback, playbarShowAlbumInMarquee } = storeToRefs(settingsStore);
+
+/** List used for next/previous: queue when filled and shuffle off, else table. */
+const playbackList = computed(() => {
+  if (shuffle.value) return tableOrderedTracks.value;
+  if (queueTracks.value.length > 0) return queueTracks.value;
+  return tableOrderedTracks.value;
+});
+
+function getNextTrack(): CatalogTrack | null {
+  const current = singleTrack.value;
+  const list = playbackList.value;
+  if (!current || !list.length) return null;
+  if (shuffle.value) {
+    const others = list.filter((t) => t.id !== current.id);
+    return others.length > 0 ? others[Math.floor(Math.random() * others.length)] : null;
+  }
+  const idx = list.findIndex((t) => t.id === current.id);
+  if (idx >= 0 && idx + 1 < list.length) return list[idx + 1];
+  if (idx < 0 && list.length > 0) return list[0];
+  if (idx >= 0 && idx === list.length - 1 && continuousPlayback.value) {
+    const table = tableOrderedTracks.value;
+    if (table.length === 0) return null;
+    const tableIdx = table.findIndex((t) => t.id === current.id);
+    if (tableIdx >= 0 && tableIdx + 1 < table.length) return table[tableIdx + 1];
+    return table[0];
+  }
+  return null;
+}
+
+function getPreviousTrack(): CatalogTrack | null {
+  const current = singleTrack.value;
+  const list = playbackList.value;
+  if (!current || !list.length) return null;
+  if (shuffle.value) {
+    const idx = list.findIndex((t) => t.id === current.id);
+    if (idx <= 0) return null;
+    return list[idx - 1];
+  }
+  const idx = list.findIndex((t) => t.id === current.id);
+  if (idx > 0) return list[idx - 1];
+  return null;
+}
 
 const isPlaying = ref(false);
 const currentTime = ref(0);
@@ -133,30 +176,17 @@ function onAudioEnded() {
 }
 
 function playNext() {
-  const current = singleTrack.value;
-  const list = tableOrderedTracks.value;
-  if (!current || !list.length) return;
-  let next: (typeof list)[number];
-  if (shuffle.value) {
-    const others = list.filter((t) => t.id !== current.id);
-    if (others.length === 0) return;
-    next = others[Math.floor(Math.random() * others.length)];
-  } else {
-    const idx = list.findIndex((t) => t.id === current.id);
-    if (idx < 0 || idx + 1 >= list.length) return;
-    next = list[idx + 1];
-  }
+  const next = getNextTrack();
+  if (!next) return;
+  const queueIdx = store.queueTrackIds.indexOf(next.id);
+  if (queueIdx >= 0) store.removeFromQueueAtIndex(queueIdx);
   store.clearSelection();
   store.toggleSelection(next.id);
 }
 
 function playPrevious() {
-  const current = singleTrack.value;
-  const list = tableOrderedTracks.value;
-  if (!current || !list.length) return;
-  const idx = list.findIndex((t) => t.id === current.id);
-  if (idx <= 0) return;
-  const prev = list[idx - 1];
+  const prev = getPreviousTrack();
+  if (!prev) return;
   store.clearSelection();
   store.toggleSelection(prev.id);
 }
@@ -262,7 +292,7 @@ onUnmounted(() => {
       <div class="flex w-full flex-col items-center gap-3">
         <div class="flex items-center justify-center gap-2">
           <span class="inline-flex" @mouseenter="showTooltip('Previous track', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="expanded-nav-btn rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Previous track" @click="playPrevious" :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0">
+            <button type="button" class="expanded-nav-btn rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Previous track" @click="playPrevious" :disabled="!singleTrack || !getPreviousTrack()">
               <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" /></svg>
             </button>
           </span>
@@ -273,7 +303,7 @@ onUnmounted(() => {
             </button>
           </span>
           <span class="inline-flex" @mouseenter="showTooltip('Next track', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="expanded-nav-btn rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Next track" @click="playNext" :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()">
+            <button type="button" class="expanded-nav-btn rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40" aria-label="Next track" @click="playNext" :disabled="!singleTrack || !getNextTrack()">
               <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" /></svg>
             </button>
           </span>
@@ -333,7 +363,7 @@ onUnmounted(() => {
             class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
             aria-label="Previous track"
             @click="playPrevious"
-            :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0"
+            :disabled="!singleTrack || !getPreviousTrack()"
           >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />
@@ -381,7 +411,7 @@ onUnmounted(() => {
             class="rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
             aria-label="Next track"
             @click="playNext"
-            :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
+            :disabled="!singleTrack || !getNextTrack()"
           >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" />

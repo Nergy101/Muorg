@@ -6,6 +6,7 @@ import { useSettingsStore } from "../../stores/settings";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import { invoke } from "@tauri-apps/api/core";
+import type { CatalogTrack } from "../../types";
 
 const emit = defineEmits<{
   (e: "expand"): void;
@@ -13,7 +14,7 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks, tableOrderedTracks } = storeToRefs(store);
+const { selectedTracks, tableOrderedTracks, queueTracks } = storeToRefs(store);
 const {
   autoplayOnSelect,
   continuousPlayback,
@@ -22,6 +23,48 @@ const {
   playbarDisableMarquee,
   volume,
 } = storeToRefs(settingsStore);
+
+/** List used for next/previous: queue when filled and shuffle off, else table. */
+const playbackList = computed(() => {
+  if (shuffle.value) return tableOrderedTracks.value;
+  if (queueTracks.value.length > 0) return queueTracks.value;
+  return tableOrderedTracks.value;
+});
+
+function getNextTrack(): CatalogTrack | null {
+  const current = singleTrack.value;
+  const list = playbackList.value;
+  if (!current || !list.length) return null;
+  if (shuffle.value) {
+    const others = list.filter((t) => t.id !== current.id);
+    return others.length > 0 ? others[Math.floor(Math.random() * others.length)] : null;
+  }
+  const idx = list.findIndex((t) => t.id === current.id);
+  if (idx >= 0 && idx + 1 < list.length) return list[idx + 1];
+  if (idx < 0 && list.length > 0) return list[0];
+  if (idx >= 0 && idx === list.length - 1 && continuousPlayback.value) {
+    const table = tableOrderedTracks.value;
+    if (table.length === 0) return null;
+    const tableIdx = table.findIndex((t) => t.id === current.id);
+    if (tableIdx >= 0 && tableIdx + 1 < table.length) return table[tableIdx + 1];
+    return table[0];
+  }
+  return null;
+}
+
+function getPreviousTrack(): CatalogTrack | null {
+  const current = singleTrack.value;
+  const list = playbackList.value;
+  if (!current || !list.length) return null;
+  if (shuffle.value) {
+    const idx = list.findIndex((t) => t.id === current.id);
+    if (idx <= 0) return null;
+    return list[idx - 1];
+  }
+  const idx = list.findIndex((t) => t.id === current.id);
+  if (idx > 0) return list[idx - 1];
+  return null;
+}
 
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
@@ -200,7 +243,9 @@ watch(
     }
     store.setCurrentPlaying(track.id);
     loadAudioBlob(track.path).then(() => {
-      const shouldAutoplay = autoplayOnSelect.value || shouldAutoplayNextSelection;
+      const shouldAutoplay =
+        autoplayOnSelect.value || shouldAutoplayNextSelection || store.playRequestTrackId === track.id;
+      if (store.playRequestTrackId === track.id) store.setPlayRequestTrackId(null);
       if (!shouldAutoplay) return;
       shouldAutoplayNextSelection = false;
       nextTick(() => {
@@ -236,51 +281,29 @@ function onAudioPause() {
 
 function onAudioEnded() {
   isPlaying.value = false;
-  if (!continuousPlayback.value) return;
-  const current = singleTrack.value;
-  const list = tableOrderedTracks.value;
-  if (!current || !list.length) return;
-  let next: (typeof list)[number];
-  if (shuffle.value) {
-    const others = list.filter((t) => t.id !== current.id);
-    if (others.length === 0) return;
-    next = others[Math.floor(Math.random() * others.length)];
-  } else {
-    const idx = list.findIndex((t) => t.id === current.id);
-    if (idx < 0 || idx + 1 >= list.length) return;
-    next = list[idx + 1];
-  }
+  if (playbackList.value === tableOrderedTracks.value && !continuousPlayback.value) return;
+  const next = getNextTrack();
+  if (!next) return;
+  const queueIdx = store.queueTrackIds.indexOf(next.id);
+  if (queueIdx >= 0) store.removeFromQueueAtIndex(queueIdx);
   shouldAutoplayNextSelection = true;
   store.clearSelection();
   store.toggleSelection(next.id);
 }
 
 function playNext() {
-  const current = singleTrack.value;
-  const list = tableOrderedTracks.value;
-  if (!current || !list.length) return;
-  let next: (typeof list)[number];
-  if (shuffle.value) {
-    const others = list.filter((t) => t.id !== current.id);
-    if (others.length === 0) return;
-    next = others[Math.floor(Math.random() * others.length)];
-  } else {
-    const idx = list.findIndex((t) => t.id === current.id);
-    if (idx < 0 || idx + 1 >= list.length) return;
-    next = list[idx + 1];
-  }
+  const next = getNextTrack();
+  if (!next) return;
+  const queueIdx = store.queueTrackIds.indexOf(next.id);
+  if (queueIdx >= 0) store.removeFromQueueAtIndex(queueIdx);
   shouldAutoplayNextSelection = true;
   store.clearSelection();
   store.toggleSelection(next.id);
 }
 
 function playPrevious() {
-  const current = singleTrack.value;
-  const list = tableOrderedTracks.value;
-  if (!current || !list.length) return;
-  const idx = list.findIndex((t) => t.id === current.id);
-  if (idx <= 0) return;
-  const prev = list[idx - 1];
+  const prev = getPreviousTrack();
+  if (!prev) return;
   shouldAutoplayNextSelection = true;
   store.clearSelection();
   store.toggleSelection(prev.id);
@@ -381,10 +404,20 @@ onUnmounted(() => {
             class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
             aria-label="Previous track"
             @click="playPrevious"
-            :disabled="!singleTrack || tableOrderedTracks.findIndex((t) => t.id === singleTrack?.id) <= 0"
+            :disabled="!singleTrack || !getPreviousTrack()"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7 5v14m2-7l10 7V5L9 12z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Restart from beginning"
+            @click="restart"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
             </svg>
           </button>
           <button
@@ -415,7 +448,7 @@ onUnmounted(() => {
             class="rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
             aria-label="Next track"
             @click="playNext"
-            :disabled="!singleTrack || (() => { const list = tableOrderedTracks; const current = singleTrack; const idx = list.findIndex((t) => t.id === current.id); return idx < 0 || idx + 1 >= list.length; })()"
+            :disabled="!singleTrack || !getNextTrack()"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 5v14m-2-7L5 19V5l10 7z" />

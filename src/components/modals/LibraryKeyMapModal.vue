@@ -17,6 +17,7 @@ const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+M / ⌘M", description: "Toggle metadata editor panel for current selection" },
   { keys: "Ctrl+L / ⌘L", description: "Show library panel" },
   { keys: "Ctrl+P / ⌘P", description: "Toggle full player panel" },
+  { keys: "Ctrl+Q / ⌘Q", description: "Toggle queue panel" },
   { keys: "Ctrl+A / ⌘A", description: "Select all tracks in current view and enable multi-select" },
   { keys: "Ctrl+K / ⌘K", description: "Open key map" },
   { keys: "Escape", description: "Close metadata panel (discard changes)" },

@@ -5,11 +5,11 @@ import { useCatalogStore } from "../../stores/catalog";
 import packageJson from "../../../package.json";
 
 const props = defineProps<{
-  activeTab: "library" | "metadata" | "play";
+  activeTab: "library" | "metadata" | "play" | "queue";
 }>();
 
 const emit = defineEmits<{
-  (e: "update:activeTab", value: "library" | "metadata" | "play"): void;
+  (e: "update:activeTab", value: "library" | "metadata" | "play" | "queue"): void;
   (e: "openSettings"): void;
   (e: "openKeyMap"): void;
   (e: "expandAllGroups"): void;
@@ -96,6 +96,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
     if (e.key === "p") {
       e.preventDefault();
       const nextTab = props.activeTab === "play" ? "library" : "play";
+      emit("update:activeTab", nextTab);
+      return;
+    }
+
+    if (e.key === "q") {
+      e.preventDefault();
+      const nextTab = props.activeTab === "queue" ? "library" : "queue";
       emit("update:activeTab", nextTab);
       return;
     }
@@ -193,6 +200,14 @@ const groupByValue = computed(() => groupBy.value);
         @click="emit('update:activeTab', 'play')"
       >
         Player
+      </button>
+      <button
+        type="button"
+        class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+        :class="props.activeTab === 'queue' ? 'primary-tab--active' : undefined"
+        @click="emit('update:activeTab', 'queue')"
+      >
+        Queue
       </button>
     </div>
 

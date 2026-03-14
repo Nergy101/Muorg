@@ -55,6 +55,12 @@ export const useCatalogStore = defineStore("catalog", {
     multiSelectMode: false,
     /** Root paths that are hidden from the table (tracks from these folders are filtered out). Persisted to localStorage. */
     hiddenRoots: loadStoredHiddenRoots(),
+    /** Ordered list of track IDs in the play queue (filled via "Add to queue" context menu). */
+    queueTrackIds: [] as number[],
+    /** When set, the player should start playback once this track is loaded (used by queue "play" button). Cleared after play(). */
+    playRequestTrackId: null as number | null,
+    /** True while the user is dragging a queue item (internal DnD). Used to avoid showing the "drop folders" overlay. */
+    isInternalQueueDrag: false,
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -127,10 +133,23 @@ export const useCatalogStore = defineStore("catalog", {
       });
       return groups.flatMap((g) => g.tracks);
     },
+    /** Tracks in the queue, in order (resolved from queueTrackIds). */
+    queueTracks(state): CatalogTrack[] {
+      const idToTrack = new Map(state.tracks.map((t) => [t.id, t]));
+      return state.queueTrackIds
+        .map((id) => idToTrack.get(id))
+        .filter((t): t is CatalogTrack => t != null);
+    },
   },
   actions: {
     setCurrentPlaying(id: number | null) {
       this.currentPlayingTrackId = id;
+      if (id != null) {
+        const idx = this.queueTrackIds.indexOf(id);
+        if (idx >= 0) {
+          this.queueTrackIds = this.queueTrackIds.filter((_, i) => i !== idx);
+        }
+      }
     },
     setOpenWikipediaModal(value: boolean) {
       this.openWikipediaModal = value;
@@ -380,6 +399,45 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setGroupBy(mode: "none" | "artist" | "album") {
       this.groupBy = mode;
+    },
+    /** Append one or more tracks to the play queue. */
+    addToQueue(trackIds: number[]) {
+      if (!trackIds.length) return;
+      const existing = new Set(this.queueTrackIds);
+      const toAdd = trackIds.filter((id) => !existing.has(id));
+      for (const id of toAdd) existing.add(id);
+      this.queueTrackIds = [...this.queueTrackIds, ...toAdd];
+    },
+    /** Append all tracks from an array (e.g. album/group) to the queue. */
+    addTracksToQueue(tracks: CatalogTrack[]) {
+      this.addToQueue(tracks.map((t) => t.id));
+    },
+    /** Remove a single item from the queue by index. */
+    removeFromQueueAtIndex(index: number) {
+      if (index < 0 || index >= this.queueTrackIds.length) return;
+      this.queueTrackIds = this.queueTrackIds.filter((_, i) => i !== index);
+    },
+    /** Move a queue item so it takes the index of the drop target (dragged item takes that position, others shift). */
+    reorderQueue(fromIndex: number, toIndex: number) {
+      if (fromIndex === toIndex) return;
+      if (fromIndex < 0 || fromIndex >= this.queueTrackIds.length) return;
+      if (toIndex < 0 || toIndex >= this.queueTrackIds.length) return;
+      const id = this.queueTrackIds[fromIndex];
+      const next = this.queueTrackIds.filter((_, i) => i !== fromIndex);
+      // toIndex is the final index the item should occupy; insert there in the shortened array.
+      next.splice(toIndex, 0, id);
+      this.queueTrackIds = next;
+    },
+    /** Clear the entire queue. */
+    clearQueue() {
+      this.queueTrackIds = [];
+    },
+    /** Request that the player start playback once the given track is loaded. Cleared by the player after play(). */
+    setPlayRequestTrackId(id: number | null) {
+      this.playRequestTrackId = id;
+    },
+    setInternalQueueDrag(value: boolean) {
+      this.isInternalQueueDrag = value;
     },
     getCover(path: string): CoverInfo | null | undefined {
       return this.coverCache[path];

@@ -5,6 +5,7 @@ import Sidebar from "./components/layout/Sidebar.vue";
 import LibraryTable from "./components/library/LibraryTable.vue";
 import PlayerBar from "./components/playback/PlayerBar.vue";
 import PlayScreenPlayBar from "./components/playback/PlayScreenPlayBar.vue";
+import QueueList from "./components/playback/QueueList.vue";
 import MetadataEditor from "./components/metadata/MetadataEditor.vue";
 import {
   getGlowBlobs,
@@ -268,17 +269,31 @@ watch(
 
 const showEditor = computed(() => store.selectedTrackIds.length > 0);
 const isDropTarget = ref(false);
-const activeTab = ref<"library" | "metadata" | "play">(
-  (settingsStore.defaultBottomPanel as "library" | "metadata" | "play") ?? "library",
+const activeTab = ref<"library" | "metadata" | "play" | "queue">(
+  (settingsStore.defaultBottomPanel as "library" | "metadata" | "play" | "queue") ?? "library",
 );
+/** Tab to restore when minimizing the fullscreen player. */
+const activeTabBeforeExpand = ref<"library" | "metadata" | "play" | "queue">("library");
 let unlistenDragDrop: (() => void) | null = null;
+
+function expandPlayer() {
+  activeTabBeforeExpand.value = activeTab.value;
+  playExpanded.value = true;
+  sidebarCollapsed.value = true;
+  activeTab.value = "play";
+}
+
+function minimizePlayer() {
+  playExpanded.value = false;
+  activeTab.value = activeTabBeforeExpand.value;
+}
 
 function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key !== "Escape" || !playExpanded.value) return;
   const target = e.target as HTMLElement;
   if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
   e.preventDefault();
-  playExpanded.value = false;
+  minimizePlayer();
 }
 
 onMounted(async () => {
@@ -286,7 +301,7 @@ onMounted(async () => {
   try {
     unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
       if (event.payload.type === "enter" || event.payload.type === "over") {
-        isDropTarget.value = true;
+        if (!store.isInternalQueueDrag) isDropTarget.value = true;
       } else if (event.payload.type === "leave") {
         isDropTarget.value = false;
       } else if (event.payload.type === "drop") {
@@ -339,22 +354,42 @@ onUnmounted(() => {
       <LibraryTable v-model:activeTab="activeTab" />
     </main>
 
-    <!-- Bottom row: metadata / player bar spanning full width -->
+    <!-- Bottom row: metadata / player bar spanning full width (or 75% / 25% when Queue tab). Fixed height when player or queue so both match. -->
     <div
-      class="row-start-2 row-end-3 col-span-2 flex shrink-0 flex-col min-w-0 border-t border-stone-700 bg-stone-900/95"
+      class="row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 border-t border-stone-700 bg-stone-900/95 overflow-hidden"
+      :class="[
+        activeTab === 'play' ? 'flex-col h-[260px]' : activeTab === 'queue' ? 'flex-row items-stretch h-[260px]' : 'flex-col',
+      ]"
     >
-      <PlayerBar
-        :class="activeTab === 'play' ? 'sr-only h-0 overflow-hidden' : ''"
-        @expand="() => { playExpanded = true; sidebarCollapsed = true; activeTab = 'play'; }"
-      />
-      <PlayScreenPlayBar
-        v-if="activeTab === 'play' && !playExpanded"
-        @expand="() => { playExpanded = true; sidebarCollapsed = true; }"
-      />
-      <MetadataEditor
-        v-if="showEditor && activeTab === 'metadata'"
-        :key="store.selectedTrackIds.join(',')"
-      />
+      <template v-if="activeTab === 'queue'">
+        <PlayerBar
+          class="sr-only h-0 overflow-hidden"
+          @expand="expandPlayer"
+        />
+        <div class="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden" style="flex: 3">
+          <PlayScreenPlayBar
+            v-if="!playExpanded"
+            @expand="expandPlayer"
+          />
+        </div>
+        <div class="flex min-h-0 min-w-0 flex-col overflow-hidden" style="flex: 1">
+          <QueueList />
+        </div>
+      </template>
+      <template v-else>
+        <PlayerBar
+          :class="activeTab === 'play' ? 'sr-only h-0 overflow-hidden' : ''"
+          @expand="expandPlayer"
+        />
+        <PlayScreenPlayBar
+          v-if="activeTab === 'play' && !playExpanded"
+          @expand="expandPlayer"
+        />
+        <MetadataEditor
+          v-if="showEditor && activeTab === 'metadata'"
+          :key="store.selectedTrackIds.join(',')"
+        />
+      </template>
     </div>
 
     <!-- Full-window player overlay ("focus" mode) -->
@@ -428,7 +463,7 @@ onUnmounted(() => {
           </template>
         </div>
         <div class="relative z-[1] flex min-h-0 flex-1 flex-col">
-          <PlayScreenPlayBar :hide-expand="true" :expanded-layout="true" :accent-style="expandedAccentStyle" @minimize="playExpanded = false" />
+          <PlayScreenPlayBar :hide-expand="true" :expanded-layout="true" :accent-style="expandedAccentStyle" @minimize="minimizePlayer" />
         </div>
       </div>
     </Teleport>
