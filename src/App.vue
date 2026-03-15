@@ -140,10 +140,12 @@ function accentHueVariants(rgb: string): Record<string, string> {
   }
 
   const [h, s, l] = toHsl(r, g, b);
+  const playL = Math.min(100, l + 12);
   return {
     accent: fromHsl(h, s, l),
-    accentPlay: fromHsl(h, s, Math.min(100, l + 12)),
+    accentPlay: fromHsl(h, s, playL),
     accentProgress: fromHsl(h, s, l),
+    accentVolume: fromHsl(h, Math.min(100, s + 10), Math.min(100, playL + 6)),
     accentShuffle: fromHsl((h - 12 + 360) % 360, s, l),
     accentNav: fromHsl((h + 8) % 360, Math.max(0, s - 8), Math.min(100, l + 6)),
   };
@@ -168,7 +170,7 @@ const expandedAccentStyle = computed(() => {
     "--player-accent": v.accent,
     "--player-accent-play": v.accentPlay,
     "--player-accent-progress": v.accentProgress,
-    "--player-accent-volume": v.accentPlay,
+    "--player-accent-volume": v.accentVolume,
     "--player-accent-shuffle": v.accentShuffle,
     "--player-accent-nav": v.accentNav,
   };
