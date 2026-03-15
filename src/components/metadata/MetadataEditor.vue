@@ -6,6 +6,7 @@ import { useSettingsStore } from "../../stores/settings";
 import type { MetadataUpdate } from "../../types";
 import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { invoke } from "@tauri-apps/api/core";
+import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -775,11 +776,7 @@ function onCoverFile(e: Event) {
             :disabled="saving"
             @click="save"
           >
-            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 4h10l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" />
-              <path d="M10 4v4h4" />
-              <path d="M8 15h8" />
-            </svg>
+            <FeatherIcon name="save" class="h-4 w-4 shrink-0" />
             {{
               saving
                 ? "Saving…"
@@ -795,20 +792,19 @@ function onCoverFile(e: Event) {
             :disabled="saving || !hasFormChanges"
             @click="discard"
           >
-            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
-            </svg>
+            <FeatherIcon name="rotate-ccw" class="h-4 w-4 shrink-0" />
             Discard
           </button>
           <template v-if="pathFormatTemplate.trim() && selectedTracks.length">
             <span class="ml-1 border-l border-stone-600 pl-2" aria-hidden="true" />
             <button
               type="button"
-              class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
               @click="applyFromPath"
               @mouseenter="showTooltip(applyFromPathPopoverText, $event, 'above')"
               @mouseleave="scheduleHideTooltip"
             >
+              <FeatherIcon name="pocket" class="h-3.5 w-3.5 shrink-0" />
               Apply from path
             </button>
             <span
@@ -817,10 +813,7 @@ function onCoverFile(e: Event) {
               @mouseenter="showTooltip(applyFromPathPopoverText, $event, 'above')"
               @mouseleave="scheduleHideTooltip"
             >
-              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <path stroke-linecap="round" d="M12 16v-4M12 8h.01" />
-              </svg>
+              <FeatherIcon name="info" class="h-3.5 w-3.5" />
             </span>
             <span
               class="inline-flex"
@@ -833,10 +826,7 @@ function onCoverFile(e: Event) {
                 aria-label="Open path format settings"
                 @click="settingsStore.setOpenSettingsAtTab('smart_suggestions')"
               >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <FeatherIcon name="settings" class="h-3.5 w-3.5" />
               </button>
             </span>
           </template>
@@ -855,28 +845,22 @@ function onCoverFile(e: Event) {
           <button
             v-if="!displayCover"
             type="button"
-            class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
             aria-label="Add image"
             title="Add image"
             @click="fileInputRef?.click()"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a2 2 0 012-2h4l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 13l2.5 3 3.5-5 4 6H7l2-4z" />
-            </svg>
+            <FeatherIcon name="image" class="h-4 w-4" />
           </button>
           <button
             v-if="!displayCover && !hideWikipediaCoverSearch"
             type="button"
-            class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
             aria-label="From Wikipedia"
             title="From Wikipedia"
             @click="openFromWikipedia"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
+            <FeatherIcon name="globe" class="h-4 w-4" />
           </button>
         </div>
         <div class="mt-0.5 flex flex-col items-start gap-1.5">
@@ -909,37 +893,28 @@ function onCoverFile(e: Event) {
                 class="magnify absolute inset-0 flex items-center justify-center rounded bg-stone-900/60 opacity-0 transition-opacity group-hover:opacity-100"
                 aria-hidden="true"
               >
-                <svg class="h-8 w-8 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                </svg>
+                <FeatherIcon name="zoom-in" class="h-8 w-8 text-stone-300" />
               </div>
             </div>
             <div class="mt-1 flex items-center gap-2">
               <button
                 type="button"
-                class="rounded border border-stone-600 p-1 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
                 aria-label="Choose image"
                 title="Choose image"
                 @click="fileInputRef?.click()"
               >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
+                <FeatherIcon name="edit-2" class="h-3.5 w-3.5" />
               </button>
               <button
                 v-if="selectedTracks.length === 1 || multiSelectionSharedCover"
                 type="button"
-                class="rounded border border-stone-600 p-1 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
                 aria-label="Remove album cover"
                 title="Remove album cover"
                 @click="clearCover"
               >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 6V4h8v2" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6M14 11v6" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" />
-                </svg>
+                <FeatherIcon name="trash-2" class="h-3.5 w-3.5" />
               </button>
             </div>
             <p

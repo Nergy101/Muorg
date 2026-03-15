@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useCatalogStore } from "../../stores/catalog";
+import FeatherIcon from "./FeatherIcon.vue";
 
 const props = defineProps<{
   path: string;
@@ -48,7 +49,7 @@ const iconSizeClass = computed(() => {
       :class="iconSizeClass"
       aria-hidden="true"
     >
-      ♪
+      <FeatherIcon name="music" class="h-full w-full" />
     </span>
   </div>
 </template>

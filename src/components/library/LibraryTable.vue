@@ -109,7 +109,7 @@ function selectTrackFromReport(t: CatalogTrack) {
       @collapseAllGroups="tableBodyRef?.collapseAllGroups?.()"
     />
 
-    <LibraryTableBody ref="tableBodyRef" />
+    <LibraryTableBody ref="tableBodyRef" @openMetadata="emit('update:activeTab', 'metadata')" />
 
     <LibrarySettingsModal v-model:open="showSettingsModal" />
     <LibraryKeyMapModal v-model:open="showKeyMapModal" />

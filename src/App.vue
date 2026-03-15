@@ -14,7 +14,6 @@ import {
   useEdgeColors,
   isColorBland,
   hasOpposingEdgeColors,
-  PRIMARY_RGB,
 } from "./composables/useDominantColor";
 import type { GlowBlob } from "./composables/useDominantColor";
 import { useCatalogStore } from "./stores/catalog";
@@ -108,9 +107,6 @@ const effectiveAccentRgb = computed(() => {
   return isColorBland(glowRgb.value) ? undefined : glowRgb.value;
 });
 
-/** Default primary as rgb(r,g,b) for bland fallback. */
-const PRIMARY_RGB_FORMATTED = `rgb(${PRIMARY_RGB.replace(/,/g, ", ")})`;
-
 /** Derive hue variants from base RGB "r,g,b". Returns CSS-ready rgb() strings. */
 function accentHueVariants(rgb: string): Record<string, string> {
   const [r, g, b] = rgb.split(",").map(Number);
@@ -148,23 +144,23 @@ function accentHueVariants(rgb: string): Record<string, string> {
     accent: fromHsl(h, s, l),
     accentPlay: fromHsl(h, s, Math.min(100, l + 12)),
     accentProgress: fromHsl(h, s, l),
-    accentVolume: fromHsl((h + 18) % 360, Math.max(0, s - 5), l),
     accentShuffle: fromHsl((h - 12 + 360) % 360, s, l),
     accentNav: fromHsl((h + 8) % 360, Math.max(0, s - 8), Math.min(100, l + 6)),
   };
 }
 
-/** Accent CSS vars for maximized player. Bland => primary; vivid => album hue variants. */
+/** Accent CSS vars for maximized player. Vivid album => picked color; bland cover => simple dark (neutral gray). */
+const NEUTRAL_ACCENT_RGB = "rgb(87 83 78)"; /* stone-600, no hue */
 const expandedAccentStyle = computed(() => {
   const rgb = effectiveAccentRgb.value;
   if (!rgb) {
     return {
-      "--player-accent": PRIMARY_RGB_FORMATTED,
-      "--player-accent-play": PRIMARY_RGB_FORMATTED,
-      "--player-accent-progress": PRIMARY_RGB_FORMATTED,
-      "--player-accent-volume": PRIMARY_RGB_FORMATTED,
-      "--player-accent-shuffle": PRIMARY_RGB_FORMATTED,
-      "--player-accent-nav": PRIMARY_RGB_FORMATTED,
+      "--player-accent": NEUTRAL_ACCENT_RGB,
+      "--player-accent-play": NEUTRAL_ACCENT_RGB,
+      "--player-accent-progress": NEUTRAL_ACCENT_RGB,
+      "--player-accent-volume": NEUTRAL_ACCENT_RGB,
+      "--player-accent-shuffle": NEUTRAL_ACCENT_RGB,
+      "--player-accent-nav": NEUTRAL_ACCENT_RGB,
     };
   }
   const v = accentHueVariants(rgb);
@@ -172,7 +168,7 @@ const expandedAccentStyle = computed(() => {
     "--player-accent": v.accent,
     "--player-accent-play": v.accentPlay,
     "--player-accent-progress": v.accentProgress,
-    "--player-accent-volume": v.accentVolume,
+    "--player-accent-volume": v.accentPlay,
     "--player-accent-shuffle": v.accentShuffle,
     "--player-accent-nav": v.accentNav,
   };
@@ -316,11 +312,24 @@ function onQueueDividerMouseUp() {
 }
 
 function onGlobalKeydown(e: KeyboardEvent) {
-  if (e.key !== "Escape" || !playExpanded.value) return;
   const target = e.target as HTMLElement;
-  if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
-  e.preventDefault();
-  minimizePlayer();
+  const isEditable =
+    target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+  if (e.key === "Escape" && playExpanded.value) {
+    if (!isEditable) {
+      e.preventDefault();
+      minimizePlayer();
+    }
+    return;
+  }
+
+  if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+    e.preventDefault();
+    if (!isEditable && store.selectedTracks.length >= 1 && !playExpanded.value) {
+      expandPlayer();
+    }
+  }
 }
 
 onMounted(async () => {
@@ -434,7 +443,9 @@ onUnmounted(() => {
     <Teleport to="body">
       <div
         v-if="playExpanded"
+        id="maximized-player-overlay"
         class="maximized-player-overlay fixed inset-0 z-[350] flex h-screen w-screen flex-col overflow-visible"
+        data-theme="dark"
         :style="{ backgroundColor: glowBgColor ?? '#000', colorScheme: 'dark' }"
       >
         <!-- Glow: edge-blur (blurred album art) when bland, or procedural blobs when vivid. -->

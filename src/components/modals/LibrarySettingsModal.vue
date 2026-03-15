@@ -12,6 +12,7 @@ import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField, Playe
 import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
 import { getGlowBlobs, getSimpleGlowBlobs } from "../../composables/useDominantColor";
+import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const props = defineProps<{
   open: boolean;
@@ -52,14 +53,14 @@ const glowSettingsDisabled = computed(() => playerGlowIntensity.value === "off")
 
 type SettingsTabId = "general" | "theme" | "playback" | "keyboard" | "table" | "reports" | "smart_suggestions";
 const settingsTab = ref<SettingsTabId>("general");
-const settingsTabs: { id: SettingsTabId; label: string }[] = [
-  { id: "general", label: "General" },
-  { id: "theme", label: "Theme" },
-  { id: "playback", label: "Playback" },
-  { id: "keyboard", label: "Keyboard" },
-  { id: "table", label: "Layout" },
-  { id: "reports", label: "Reports" },
-  { id: "smart_suggestions", label: "Smart Suggestions" },
+const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
+  { id: "general", label: "General", icon: "sliders" },
+  { id: "theme", label: "Theme", icon: "sun" },
+  { id: "playback", label: "Playback", icon: "play-circle" },
+  { id: "keyboard", label: "Keyboard", icon: "command" },
+  { id: "table", label: "Layout", icon: "layout" },
+  { id: "reports", label: "Reports", icon: "bar-chart-2" },
+  { id: "smart_suggestions", label: "Smart Suggestions", icon: "zap" },
 ];
 
 const themeOptions: { value: ThemeId; label: string; description: string; swatchClass: string }[] = [
@@ -340,11 +341,12 @@ watch(openSettingsAtTab, (tab) => {
     >
       <div class="settings-modal flex h-[85vh] min-h-[450px] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-stone-600 bg-stone-800 shadow-xl" @click.stop>
         <div class="flex shrink-0 items-center justify-between border-b border-stone-700 px-4 py-3">
-          <h2 id="settings-modal-title" class="text-sm font-semibold text-stone-200">Settings</h2>
+          <h2 id="settings-modal-title" class="flex items-center gap-2 text-sm font-semibold text-stone-200">
+            <FeatherIcon name="settings" class="h-4 w-4 shrink-0 text-stone-400" />
+            Settings
+          </h2>
           <button type="button" class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200" aria-label="Close" @click="close">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <FeatherIcon name="x" class="h-4 w-4" />
           </button>
         </div>
 
@@ -354,19 +356,26 @@ watch(openSettingsAtTab, (tab) => {
               v-for="tab in settingsTabs"
               :key="tab.id"
               type="button"
-              class="settings-tab-btn w-full px-3 py-2 text-left text-xs font-medium transition-colors"
+              class="settings-tab-btn flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors"
               :class="settingsTab === tab.id ? 'settings-tab-btn--active' : undefined"
               @click="settingsTab = tab.id"
             >
+              <FeatherIcon :name="tab.icon" class="h-3.5 w-3.5 shrink-0" />
               {{ tab.label }}
             </button>
           </nav>
 
           <div class="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
             <div v-show="settingsTab === 'general'" class="space-y-3">
-              <p class="text-xs font-semibold text-stone-400">General</p>
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="sliders" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                General
+              </p>
               <div class="settings-section">
-                <p class="mb-2 text-xs font-semibold text-stone-400">Updates</p>
+                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="download-cloud" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Updates
+                </p>
                 <button
                   type="button"
                   class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 hover:bg-stone-700"
@@ -412,7 +421,10 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div v-if="settingsFilePath" class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Settings file</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="file" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Settings file
+                </p>
                 <p class="break-all font-mono text-[11px] text-stone-400">
                   {{ settingsFilePath }}
                 </p>
@@ -435,7 +447,10 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Navigation</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="compass" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Navigation
+                </p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -464,7 +479,10 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'theme'" class="space-y-3">
-              <p class="text-xs font-semibold text-stone-400">Theme</p>
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="sun" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                Theme
+              </p>
               <div class="settings-section">
                 <p class="mb-1 text-xs font-medium text-stone-500">Choose your palette</p>
                 <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
@@ -506,7 +524,10 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section space-y-2">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Maximized player glow</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="sunrise" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Maximized player glow
+                </p>
                 <p class="text-[11px] text-stone-500">
                   Colorful blurry shadows behind the album art in fullscreen mode, derived from the cover.
                 </p>
@@ -642,10 +663,15 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'playback'" class="space-y-3">
-              <p class="text-xs font-semibold text-stone-400">Playback</p>
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="play-circle" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                Playback
+              </p>
 
               <div class="settings-section space-y-2">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Behavior</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="play" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Behavior</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -673,7 +699,9 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section space-y-2">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Playbar</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="music" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Playbar</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -702,7 +730,9 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'keyboard'" class="space-y-3">
-              <p class="text-xs font-semibold text-stone-400">Keyboard</p>
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="command" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                Keyboard</p>
               <div class="settings-section space-y-2">
                 <p class="text-xs text-stone-400">
                   Keyboard shortcuts are currently fixed. Planned improvements include per-action customization and profile export/import.
@@ -768,10 +798,14 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'table'" class="space-y-3">
-              <p class="text-xs font-semibold text-stone-400">Layout</p>
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="layout" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                Layout</p>
 
               <div class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Library grouping</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="layers" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Library grouping</p>
                 <label class="block text-xs font-medium text-stone-500">Default grouping</label>
                 <select
                   :value="defaultGroupBy"
@@ -797,40 +831,20 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section">
-                <p class="mb-2 text-xs font-semibold text-stone-400">Table density</p>
+                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="grid" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Table density</p>
                 <div class="flex flex-wrap gap-2">
                   <button
                     v-for="opt in tableDensityOptions"
                     :key="opt.value"
                     type="button"
-                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] items-start gap-3 rounded-lg border px-3 py-2.5 text-left text-xs transition"
+                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
                     :class="tableDensity === opt.value
                       ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
                       : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
                     @click="settingsStore.setTableDensity(opt.value)"
                   >
-                    <div
-                      class="mt-0.5 flex shrink-0 flex-col gap-0.5"
-                      aria-hidden="true"
-                    >
-                      <template v-if="opt.value === 'spacious'">
-                        <span class="block h-8 w-8 rounded bg-stone-500" />
-                      </template>
-                      <template v-else>
-                        <span
-                          class="block h-1.5 w-6 rounded-sm"
-                          :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
-                        />
-                        <span
-                          class="block h-1.5 w-6 rounded-sm"
-                          :class="opt.value === 'comfortable' ? 'my-1 bg-stone-500' : 'bg-stone-600'"
-                        />
-                        <span
-                          class="block h-1.5 w-6 rounded-sm"
-                          :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
-                        />
-                      </template>
-                    </div>
                     <div class="min-w-0 flex-1">
                       <p class="font-semibold text-stone-100">
                         {{ opt.label }}
@@ -850,7 +864,9 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Sidebar</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="sidebar" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Sidebar</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -866,7 +882,9 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Table columns</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="columns" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Table columns</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -916,10 +934,14 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'reports'" class="space-y-3">
-              <p class="text-xs font-semibold text-stone-400">Reports</p>
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="bar-chart-2" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                Reports</p>
 
               <div class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Group header album art</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Group header album art</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
@@ -935,7 +957,9 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section">
-                <p class="mb-1 text-xs font-semibold text-stone-400">Missing metadata fields</p>
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="list" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Missing metadata fields</p>
                 <p class="mb-1 text-xs text-stone-500">
                   Choose which fields must be present for a track to be considered "complete". Tracks missing any of these fields will appear in the "Missing metadata" report.
                 </p>
@@ -960,7 +984,9 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'smart_suggestions'" class="space-y-3">
-              <p class="text-xs font-semibold text-stone-400">Smart Suggestions</p>
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="zap" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                Smart Suggestions</p>
 
               <div class="settings-section space-y-1.5">
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">

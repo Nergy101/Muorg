@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
+import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const props = defineProps<{
   open: boolean;
@@ -17,6 +18,7 @@ const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+M / ⌘M", description: "Toggle metadata editor panel for current selection" },
   { keys: "Ctrl+L / ⌘L", description: "Show library panel" },
   { keys: "Ctrl+P / ⌘P", description: "Toggle full player panel" },
+  { keys: "Ctrl+S / ⌘S", description: "Open maximized player (requires at least one track selected)" },
   { keys: "Ctrl+Q / ⌘Q", description: "Toggle queue panel" },
   { keys: "Ctrl+A / ⌘A", description: "Select all tracks in current view and enable multi-select" },
   { keys: "Ctrl+K / ⌘K", description: "Open key map" },
@@ -67,9 +69,7 @@ function onKeydown(e: KeyboardEvent) {
             aria-label="Close"
             @click="close"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <FeatherIcon name="x" class="h-4 w-4" />
           </button>
         </div>
         <div class="max-h-[70vh] overflow-y-auto p-4">

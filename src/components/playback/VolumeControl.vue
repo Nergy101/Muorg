@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 import { useSettingsStore } from "../../stores/settings";
+import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const props = defineProps<{
   mode?: "metadata" | "playscreen";
@@ -75,40 +76,13 @@ onUnmounted(() => {
   <div class="flex items-center gap-2">
     <button
       type="button"
-      class="flex shrink-0 rounded p-1 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+      class="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
       :aria-label="volume === 0 ? 'Unmute' : 'Mute'"
       :title="volume === 0 ? 'Unmute' : 'Mute'"
       @click="toggleMute"
     >
-      <svg
-        v-if="volume === 0"
-        class="h-4 w-4"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path d="M11 5L6 9H2v6h4l5 4V5z" />
-        <path d="M23 9l-6 6" />
-        <path d="M17 9l6 6" />
-      </svg>
-      <svg
-        v-else
-        class="h-4 w-4"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path d="M11 5L6 9H2v6h4l5 4V5z" />
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-      </svg>
+      <FeatherIcon v-if="volume === 0" name="volume-x" class="h-4 w-4" />
+      <FeatherIcon v-else name="volume-2" class="h-4 w-4" />
     </button>
     <input
       type="range"

@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import packageJson from "../../../package.json";
+import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const props = defineProps<{
   activeTab: "library" | "metadata" | "play" | "queue";
@@ -225,15 +226,12 @@ const groupByValue = computed(() => groupBy.value);
       >
         <button
           type="button"
-          class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
           aria-label="Key map"
           @mousedown.stop="emit('openKeyMap')"
           @click.stop="emit('openKeyMap')"
         >
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M7 10h2M11 10h2M15 10h2M7 14h2M11 14h2M15 14h2" />
-          </svg>
+          <FeatherIcon name="command" class="h-4 w-4" />
         </button>
       </span>
       <span
@@ -241,17 +239,14 @@ const groupByValue = computed(() => groupBy.value);
         @mouseenter="showTooltip('Settings', $event, 'left')"
         @mouseleave="scheduleHideTooltip"
       >
-        <button
-          type="button"
-          class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
-          aria-label="Application settings"
-          @click="emit('openSettings')"
-        >
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
+<button
+        type="button"
+        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        aria-label="Application settings"
+        @click="emit('openSettings')"
+      >
+        <FeatherIcon name="settings" class="h-4 w-4" />
+      </button>
       </span>
     </div>
   </div>

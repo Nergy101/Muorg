@@ -5,6 +5,9 @@ import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import type { CatalogTrack } from "../../types";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
+import FeatherIcon from "../shared/FeatherIcon.vue";
+
+const emit = defineEmits<{ (e: "openMetadata"): void }>();
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -334,6 +337,7 @@ function editGroup(group: GroupRow) {
   if (!ids.length) return;
   store.setSelection(ids);
   store.setMultiSelectMode(true);
+  emit("openMetadata");
 }
 
 function expandAllGroups() {
@@ -664,23 +668,19 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                     :class="{ 'rotate-90': isGroupExpanded(row.key) }"
                     aria-hidden="true"
                   >
-                    <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                      <path d="M9 6l6 6-6 6" />
-                    </svg>
+                    <FeatherIcon name="chevron-right" class="h-2.5 w-2.5" />
                   </span>
                   {{ row.group.label }}<template v-if="groupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
                   <span class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
                   <button
                     v-if="groupBy === 'album'"
                     type="button"
-                    class="rounded border border-stone-600 p-0.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
                     aria-label="Edit album"
                     title="Edit album"
                     @click.stop="editGroup(row.group)"
                   >
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+                    <FeatherIcon name="edit-2" class="h-3.5 w-3.5" />
                   </button>
                   <template v-if="groupBy === 'album' && !hideWikipediaCoverSearch">
                     <!-- cover prefetching is triggered elsewhere; this just keeps parity with previous UI -->
@@ -730,9 +730,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               <td v-if="tableColPath" class="min-w-0 p-2 text-stone-500">
                 <div class="flex min-w-0 items-center gap-1">
                   <button type="button" class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300" aria-label="Copy path" title="Copy path" @click.stop="copyPathToClipboard(row.track.path)">
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
+                    <FeatherIcon name="copy" class="h-3.5 w-3.5" />
                   </button>
                   <span class="min-w-0 truncate cursor-default" :title="row.track.path">{{ row.track.path }}</span>
                 </div>
@@ -764,9 +762,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
         @click="addToQueueFromContextMenu"
       >
-        <svg class="h-4 w-4 shrink-0 text-stone-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M16 20q-1.25 0-2.125-.875T13 17t.875-2.125T16 14q.275 0 .525.038T17 14.2V7q0-.425.288-.712T18 6h3q.425 0 .713.288T22 7t-.288.713T21 8h-2v9q0 1.25-.875 2.125T16 20M4 16q-.425 0-.712-.288T3 15t.288-.712T4 14h6q.425 0 .713.288T11 15t-.288.713T10 16zm0-4q-.425 0-.712-.288T3 11t.288-.712T4 10h10q.425 0 .713.288T15 11t-.288.713T14 12zm0-4q-.425 0-.712-.288T3 7t.288-.712T4 6h10q.425 0 .713.288T15 7t-.288.713T14 8z" />
-        </svg>
+        <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-stone-400" />
         Add to queue
       </button>
     </div>

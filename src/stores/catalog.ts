@@ -236,6 +236,11 @@ export const useCatalogStore = defineStore("catalog", {
           }
         }
         this.albumCoverCache = next;
+        // On startup (or whenever we have tracks and nothing selected), select the first track in table order.
+        if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
+          const first = this.tableOrderedTracks[0];
+          if (first) this.selectedTrackIds = [first.id];
+        }
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
       } finally {
@@ -271,6 +276,10 @@ export const useCatalogStore = defineStore("catalog", {
         }
         this.roots = await invoke<string[]>("get_roots");
         this.tracks = await invoke<CatalogTrack[]>("get_tracks");
+        if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
+          const first = this.tableOrderedTracks[0];
+          if (first) this.selectedTrackIds = [first.id];
+        }
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
         throw e;
