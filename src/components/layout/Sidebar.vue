@@ -4,10 +4,14 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { open } from "@tauri-apps/plugin-dialog";
+import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
 defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ toggle: [] }>();
+
+const sidebarScrollRef = ref<HTMLElement | null>(null);
+useOverlayScrollbars(sidebarScrollRef);
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -340,7 +344,11 @@ async function handleRemoveAll() {
           </span>
         </div>
       </div>
-      <div class="table-scroll-container min-h-0 flex-1 overflow-y-auto p-2 space-y-3">
+      <div
+        ref="sidebarScrollRef"
+        class="table-scroll-container min-h-0 flex-1 overflow-y-auto p-2 space-y-3"
+        data-overlayscrollbars-initialize
+      >
         <div>
           <button
             type="button"

@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import type { CatalogTrack } from "../../types";
+import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
@@ -241,11 +242,16 @@ const totalScrollHeight = computed(() => rowHeights.value.reduce((a, b) => a + b
 const useVirtualization = computed(() => visibleRows.value.length >= VIRTUALIZATION_THRESHOLD);
 
 const tableContainerRef = ref<HTMLDivElement | null>(null);
+const { viewportRef: scrollViewportRef } = useOverlayScrollbars(tableContainerRef);
 const scrollTopRef = ref(0);
 const containerHeightRef = ref(0);
 
+function getScrollElement(): HTMLElement | null {
+  return scrollViewportRef.value ?? tableContainerRef.value;
+}
+
 function updateScrollMeasurements() {
-  const el = tableContainerRef.value;
+  const el = getScrollElement();
   if (!el) return;
   scrollTopRef.value = el.scrollTop;
   containerHeightRef.value = el.clientHeight;
@@ -400,7 +406,7 @@ function focusPrev() {
 }
 
 function scrollToRowIndex(index: number) {
-  const el = tableContainerRef.value;
+  const el = getScrollElement();
   if (!el) return;
   const offset = getRowOffset(index);
   const padding = 80;
@@ -419,7 +425,8 @@ function scrollFocusedRowIntoView() {
     return;
   }
   nextTick(() => {
-    const el = tableContainerRef.value?.querySelector(`[data-row-index="${focusedRowIndex.value}"]`);
+    const container = getScrollElement();
+    const el = container?.querySelector(`[data-row-index="${focusedRowIndex.value}"]`);
     (el as HTMLElement | null)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   });
 }
@@ -433,13 +440,15 @@ watch(useVirtualization, (use) => {
 });
 
 let resizeObserver: ResizeObserver | null = null;
+let scrollElementForCleanup: HTMLElement | null = null;
 
 onMounted(() => {
   document.addEventListener("mousemove", onResizeMove);
   document.addEventListener("mouseup", onResizeEnd);
   nextTick(() => {
-    const container = tableContainerRef.value;
+    const container = getScrollElement();
     if (!container) return;
+    scrollElementForCleanup = container;
     container.addEventListener("scroll", updateScrollMeasurements, { passive: true });
     updateScrollMeasurements();
     resizeObserver = new ResizeObserver(updateScrollMeasurements);
@@ -450,8 +459,10 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("mousemove", onResizeMove);
   document.removeEventListener("mouseup", onResizeEnd);
-  const container = tableContainerRef.value;
-  if (container) container.removeEventListener("scroll", updateScrollMeasurements);
+  if (scrollElementForCleanup) {
+    scrollElementForCleanup.removeEventListener("scroll", updateScrollMeasurements);
+    scrollElementForCleanup = null;
+  }
   resizeObserver?.disconnect();
   resizeObserver = null;
 });
@@ -517,6 +528,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
     ref="tableContainerRef"
     tabindex="0"
     class="table-scroll-container flex-1 overflow-auto outline-none"
+    data-overlayscrollbars-initialize
     @keydown="onTableKeydown"
   >
     <table class="table-fixed w-full min-w-0 border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">

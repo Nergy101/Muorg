@@ -167,31 +167,44 @@ textarea:focus {
   background-color: rgba(77, 124, 44, 0.10) !important; /* lighter, less obtrusive */
 }
 
-/* Themed scrollbar (table, sidebar, queue) – base dark theme. !important so WebView respects in production. */
+/* OverlayScrollbars: container keeps overflow for layout; plugin replaces native scrollbars. */
 .table-scroll-container {
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-gutter: stable;
-  scrollbar-color: #5b7c32 #2d2d2d !important;
-}
-.table-scroll-container::-webkit-scrollbar {
-  width: 12px !important;
-  height: 12px !important;
-}
-.table-scroll-container::-webkit-scrollbar-track {
-  background: #2d2d2d !important;
-}
-.table-scroll-container::-webkit-scrollbar-thumb {
-  background: #5b7c32 !important;
-  border-radius: 6px;
-}
-.table-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: #6d8f3d !important;
 }
 
-[data-theme="light"] .table-scroll-container { scrollbar-color: #4d7c2c #e7e5e4 !important; }
-[data-theme="light"] .table-scroll-container::-webkit-scrollbar-thumb { background: #4d7c2c !important; }
-[data-theme="light"] .table-scroll-container::-webkit-scrollbar-track { background: #e7e5e4 !important; }
+/* os-theme-muorg: app accent scrollbar (OverlayScrollbars). */
+.os-theme-muorg {
+  --os-size: 12px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 6px;
+  --os-handle-interactive-area-offset: 4px;
+  --os-handle-border-radius: 6px;
+  --os-track-bg: #2d2d2d;
+  --os-handle-bg: #5b7c32;
+  --os-handle-bg-hover: #6d8f3d;
+  --os-handle-bg-active: #7fa347;
+}
+[data-theme="light"] .os-theme-muorg {
+  --os-track-bg: #e7e5e4;
+  --os-handle-bg: #4d7c2c;
+  --os-handle-bg-hover: #5b8f35;
+  --os-handle-bg-active: #6ba33d;
+}
+[data-theme="doom"] .os-theme-muorg {
+  --os-track-bg: #2d0a0a;
+  --os-handle-bg: #8b0000;
+  --os-handle-bg-hover: #a52a2a;
+  --os-handle-bg-active: #b33333;
+}
+[data-theme="orkish"] .os-theme-muorg {
+  --os-track-bg: #dcedc8;
+  --os-handle-bg: #2e7d32;
+  --os-handle-bg-hover: #388e3c;
+  --os-handle-bg-active: #43a047;
+}
+
 [data-theme="light"] .player-volume-slider,
 [data-theme="light"] .player-progress-slider { accent-color: #4d7c2c; }
 [data-theme="light"] .player-volume-slider::-webkit-slider-thumb,
@@ -353,9 +366,6 @@ textarea:focus {
 [data-theme="doom"] .hover\:bg-red-600:hover { background-color: #8b0000 !important; }
 [data-theme="doom"] .hover\:text-white:hover { color: #0d0202 !important; }
 [data-theme="doom"] .ring-amber-500\/80 { --tw-ring-color: rgba(180, 134, 11, 0.8) !important; }
-[data-theme="doom"] .table-scroll-container { scrollbar-color: #8b0000 #2d0a0a !important; }
-[data-theme="doom"] .table-scroll-container::-webkit-scrollbar-thumb { background: #8b0000 !important; }
-[data-theme="doom"] .table-scroll-container::-webkit-scrollbar-track { background: #2d0a0a !important; }
 [data-theme="doom"] .player-volume-slider,
 [data-theme="doom"] .player-progress-slider { accent-color: #8b0000; }
 [data-theme="doom"] .player-volume-slider::-webkit-slider-thumb,
@@ -432,9 +442,6 @@ textarea:focus {
 [data-theme="orkish"] .hover\:bg-red-600:hover { background-color: #66bb6a !important; }
 [data-theme="orkish"] .hover\:text-white:hover { color: #1b5e20 !important; }
 [data-theme="orkish"] .ring-amber-500\/80 { --tw-ring-color: rgba(46, 125, 50, 0.7) !important; }
-[data-theme="orkish"] .table-scroll-container { scrollbar-color: #2e7d32 #dcedc8 !important; }
-[data-theme="orkish"] .table-scroll-container::-webkit-scrollbar-thumb { background: #2e7d32 !important; }
-[data-theme="orkish"] .table-scroll-container::-webkit-scrollbar-track { background: #dcedc8 !important; }
 [data-theme="orkish"] .player-volume-slider,
 [data-theme="orkish"] .player-progress-slider { accent-color: #2e7d32; }
 [data-theme="orkish"] .player-volume-slider::-webkit-slider-thumb,

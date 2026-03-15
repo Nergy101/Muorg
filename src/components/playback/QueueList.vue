@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import type { CatalogTrack } from "../../types";
+import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
@@ -18,6 +19,11 @@ const contextMenuRef = ref<HTMLElement | null>(null);
 const draggedIndex = ref<number | null>(null);
 const dropSlotIndex = ref<number | null>(null);
 const listContainerRef = ref<HTMLElement | null>(null);
+const { viewportRef: queueViewportRef } = useOverlayScrollbars(listContainerRef);
+
+function getQueueScrollElement(): HTMLElement | null {
+  return queueViewportRef.value ?? listContainerRef.value;
+}
 
 const DRAG_THRESHOLD_PX = 5;
 const AUTO_SCROLL_ZONE_PX = 48;
@@ -42,7 +48,7 @@ function autoScrollTick() {
     autoScrollRafId = null;
     return;
   }
-  const el = listContainerRef.value;
+  const el = getQueueScrollElement();
   if (!el) {
     autoScrollRafId = requestAnimationFrame(autoScrollTick);
     return;
@@ -87,7 +93,7 @@ const queueRows = computed(() => {
 });
 
 function updateDropSlotFromClientY(clientY: number) {
-  const el = listContainerRef.value;
+  const el = getQueueScrollElement();
   if (!el || !queueTracks.value.length) return;
   const containerRect = el.getBoundingClientRect();
   const mouseY = clientY - containerRect.top;
@@ -154,7 +160,7 @@ function onPointerMove(e: MouseEvent) {
   lastClientY = e.clientY;
   updateDropSlotFromClientY(e.clientY);
 
-  const el = listContainerRef.value;
+  const el = getQueueScrollElement();
   if (el) {
     const rect = el.getBoundingClientRect();
     const distFromTop = e.clientY - rect.top;
@@ -290,6 +296,7 @@ watch(contextMenu, (menu) => {
     <div
       ref="listContainerRef"
       class="queue-list-container table-scroll-container min-h-0 flex-1 overflow-auto p-2"
+      data-overlayscrollbars-initialize
     >
       <TransitionGroup
         v-if="queueTracks.length"

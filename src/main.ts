@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import { useSettingsStore } from "./stores/settings";
+import "overlayscrollbars/overlayscrollbars.css";
 import "./style.css";
 
 const pinia = createPinia();

@@ -404,17 +404,18 @@ onUnmounted(() => {
       ]"
       :style="activeTab === 'queue' ? { gridTemplateColumns: `${1 - queuePanelWidthFraction}fr 4px ${queuePanelWidthFraction}fr` } : undefined"
     >
+      <!-- Single player slot so the same audio element is used in all tabs (Library, Metadata, Play, Queue). -->
+      <div class="flex min-w-0 min-h-0 flex-col overflow-hidden">
+        <PlayerBar
+          :class="activeTab === 'play' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
+          @expand="expandPlayer"
+        />
+        <PlayScreenPlayBar
+          v-if="(activeTab === 'play' || activeTab === 'queue') && !playExpanded"
+          @expand="expandPlayer"
+        />
+      </div>
       <template v-if="activeTab === 'queue'">
-        <div class="flex min-w-0 min-h-0 flex-col overflow-hidden">
-          <PlayerBar
-            class="sr-only h-0 overflow-hidden"
-            @expand="expandPlayer"
-          />
-          <PlayScreenPlayBar
-            v-if="!playExpanded"
-            @expand="expandPlayer"
-          />
-        </div>
         <div
           role="separator"
           aria-orientation="vertical"
@@ -426,20 +427,10 @@ onUnmounted(() => {
           <QueueList />
         </div>
       </template>
-      <template v-else>
-        <PlayerBar
-          :class="activeTab === 'play' ? 'sr-only h-0 overflow-hidden' : ''"
-          @expand="expandPlayer"
-        />
-        <PlayScreenPlayBar
-          v-if="activeTab === 'play' && !playExpanded"
-          @expand="expandPlayer"
-        />
-        <MetadataEditor
-          v-if="showEditor && activeTab === 'metadata'"
-          :key="store.selectedTrackIds.join(',')"
-        />
-      </template>
+      <MetadataEditor
+        v-if="showEditor && activeTab === 'metadata'"
+        :key="store.selectedTrackIds.join(',')"
+      />
     </div>
 
     <!-- Full-window player overlay ("focus" mode) -->
