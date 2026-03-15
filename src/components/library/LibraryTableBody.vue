@@ -519,7 +519,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
     class="table-scroll-container flex-1 overflow-auto outline-none"
     @keydown="onTableKeydown"
   >
-    <table class="table-with-scroll-gutter table-fixed w-full min-w-[800px] border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
+    <table class="table-fixed w-full min-w-0 border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
       <colgroup>
         <col :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
         <col v-if="tableColAlbumArt" :style="{ width: colWidth('albumArt') + 'px' }" />
@@ -775,12 +775,6 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
   border: none !important;
   line-height: 0;
   vertical-align: top;
-}
-
-.table-with-scroll-gutter {
-  margin-right: 14px;
-  width: calc(100% - 14px);
-  max-width: calc(100% - 14px);
 }
 
 .table-density-compact th,

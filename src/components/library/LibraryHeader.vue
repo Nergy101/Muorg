@@ -136,8 +136,8 @@ const groupByValue = computed(() => groupBy.value);
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-700 px-4 py-2">
-    <div class="flex flex-1 flex-wrap items-center gap-3">
+  <div class="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-stone-700 px-4 py-2">
+    <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
       <input
         ref="searchInputRef"
         :value="searchQuery"
@@ -160,20 +160,34 @@ const groupByValue = computed(() => groupBy.value);
         v-if="groupByValue !== 'none'"
         class="flex items-center gap-1"
       >
-        <button
-          type="button"
-          class="rounded border border-stone-600 px-2 py-0.5 text-[11px] text-stone-300 hover:bg-stone-600 hover:text-stone-50"
-          @click="$emit('expandAllGroups')"
+        <span
+          class="inline-flex"
+          @mouseenter="showTooltip('Expand all groups to show every track', $event)"
+          @mouseleave="scheduleHideTooltip"
         >
-          Expand all
-        </button>
-        <button
-          type="button"
-          class="rounded border border-stone-600 px-2 py-0.5 text-[11px] text-stone-300 hover:bg-stone-600 hover:text-stone-50"
-          @click="$emit('collapseAllGroups')"
+          <button
+            type="button"
+            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Expand all"
+            @click="$emit('expandAllGroups')"
+          >
+            <FeatherIcon name="plus-square" class="h-3.5 w-3.5" />
+          </button>
+        </span>
+        <span
+          class="inline-flex"
+          @mouseenter="showTooltip('Collapse all groups to show only group headers', $event)"
+          @mouseleave="scheduleHideTooltip"
         >
-          Collapse all
-        </button>
+          <button
+            type="button"
+            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Collapse all"
+            @click="$emit('collapseAllGroups')"
+          >
+            <FeatherIcon name="minus-square" class="h-3.5 w-3.5" />
+          </button>
+        </span>
       </div>
     </div>
 

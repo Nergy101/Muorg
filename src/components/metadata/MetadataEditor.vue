@@ -804,7 +804,7 @@ function onCoverFile(e: Event) {
               @mouseenter="showTooltip(applyFromPathPopoverText, $event, 'above')"
               @mouseleave="scheduleHideTooltip"
             >
-              <FeatherIcon name="pocket" class="h-3.5 w-3.5 shrink-0" />
+              <FeatherIcon name="zap" class="h-3.5 w-3.5 shrink-0" />
               Apply from path
             </button>
             <span

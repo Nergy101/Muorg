@@ -335,6 +335,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
 }
 
 onMounted(async () => {
+  sidebarCollapsed.value = settingsStore.sidebarClosedOnStartup;
   document.addEventListener("keydown", onGlobalKeydown);
   try {
     unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
@@ -381,7 +382,7 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="relative grid h-screen grid-rows-[minmax(0,1fr)_minmax(72px,auto)] grid-cols-[auto,1fr] overflow-hidden"
+    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_minmax(72px,auto)] grid-cols-[auto,1fr] overflow-hidden"
     :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
   >
     <!-- Top row: sidebar + table view -->
@@ -397,7 +398,7 @@ onUnmounted(() => {
     <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Fixed height when player or queue so both match. -->
     <div
       ref="queueBarContainerRef"
-      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 border-t bg-stone-900/95 overflow-hidden"
+      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 border-t bg-stone-900/95 overflow-hidden mb-3"
       :class="[
         activeTab === 'play' ? 'flex-col h-[260px]' : activeTab === 'queue' ? 'grid items-stretch h-[260px]' : 'flex-col',
       ]"

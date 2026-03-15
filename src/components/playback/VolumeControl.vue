@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useSettingsStore } from "../../stores/settings";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
@@ -10,6 +10,14 @@ const props = defineProps<{
 const settingsStore = useSettingsStore();
 const volume = ref(settingsStore.volume ?? 0.25);
 const volumeBeforeMute = ref(volume.value);
+
+/** Icon by level: volume-x (muted), volume-1 (low), volume-2 (medium/high). */
+const volumeIconName = computed(() => {
+  const v = volume.value;
+  if (v <= 0) return "volume-x";
+  if (v < 0.5) return "volume-1";
+  return "volume-2";
+});
 
 function getAudio(): HTMLAudioElement | null {
   return document.querySelector('audio[data-muorg-player="true"]') as HTMLAudioElement | null;
@@ -81,8 +89,7 @@ onUnmounted(() => {
       :title="volume === 0 ? 'Unmute' : 'Mute'"
       @click="toggleMute"
     >
-      <FeatherIcon v-if="volume === 0" name="volume-x" class="h-4 w-4" />
-      <FeatherIcon v-else name="volume-2" class="h-4 w-4" />
+      <FeatherIcon :name="volumeIconName" class="h-4 w-4" />
     </button>
     <input
       type="range"

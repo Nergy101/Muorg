@@ -8,7 +8,7 @@ import { open as openShell } from "@tauri-apps/plugin-shell";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
-import type { ThemeId, DefaultGroupBy, TableDensity, MissingMetadataField, PlayerGlowIntensity } from "../../stores/settings";
+import type { ThemeId, DefaultGroupBy, TableDensity, BottomPanelId, MissingMetadataField, PlayerGlowIntensity } from "../../stores/settings";
 import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
 import { getGlowBlobs, getSimpleGlowBlobs } from "../../composables/useDominantColor";
@@ -47,6 +47,7 @@ const {
   pathFormatExamplePath,
   openSettingsAtTab,
   playerGlowIntensity,
+  defaultBottomPanel,
 } = storeToRefs(settingsStore);
 
 const glowSettingsDisabled = computed(() => playerGlowIntensity.value === "off");
@@ -151,6 +152,13 @@ const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
   { value: "album", label: "By album" },
   { value: "artist", label: "By artist" },
   { value: "none", label: "No grouping" },
+];
+
+const defaultBottomPanelOptions: { value: BottomPanelId; label: string; description: string }[] = [
+  { value: "library", label: "Library", description: "Track list and grouping." },
+  { value: "metadata", label: "Metadata", description: "Edit tags and album art." },
+  { value: "play", label: "Play", description: "Now playing and controls." },
+  { value: "queue", label: "Queue", description: "Up next and queue." },
 ];
 
 const tableDensityOptions: { value: TableDensity; label: string; description: string }[] = [
@@ -870,6 +878,18 @@ watch(openSettingsAtTab, (tab) => {
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
+                    :checked="settingsStore.sidebarClosedOnStartup"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setSidebarClosedOnStartup((e.target as HTMLInputElement).checked)"
+                  />
+                  Start with sidebar closed
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  When enabled, the library sidebar is collapsed when you open Muorg.
+                </p>
+                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
                     :checked="settingsStore.hideReportsSection"
                     class="rounded border-stone-600"
                     @change="(e) => settingsStore.setHideReportsSection((e.target as HTMLInputElement).checked)"
@@ -879,6 +899,40 @@ watch(openSettingsAtTab, (tab) => {
                 <p class="mt-0.5 text-xs text-stone-500">
                   When enabled, the reports block (Missing metadata, Duplicates, Missing album cover) is hidden from the main sidebar layout.
                 </p>
+              </div>
+
+              <div class="settings-section">
+                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="layout" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Bottom bar</p>
+                <p class="mb-2 text-xs text-stone-500">Default tab on startup</p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="opt in defaultBottomPanelOptions"
+                    :key="opt.value"
+                    type="button"
+                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
+                    :class="defaultBottomPanel === opt.value
+                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
+                    @click="settingsStore.setDefaultBottomPanel(opt.value)"
+                  >
+                    <div class="min-w-0 flex-1">
+                      <p class="font-semibold text-stone-100">
+                        {{ opt.label }}
+                        <span
+                          v-if="defaultBottomPanel === opt.value"
+                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                        >
+                          Active
+                        </span>
+                      </p>
+                      <p class="mt-0.5 text-[11px] text-stone-400">
+                        {{ opt.description }}
+                      </p>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               <div class="settings-section">

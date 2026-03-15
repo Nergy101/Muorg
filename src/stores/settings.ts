@@ -162,6 +162,8 @@ export const useSettingsStore = defineStore("settings", {
     groupHeaderAlbumArt: true,
     hideWikipediaCoverSearch: false,
     hideReportsSection: false,
+    /** When true, the library sidebar starts collapsed on app launch. */
+    sidebarClosedOnStartup: false,
     pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
     pathFormatExamplePath: DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
     openSettingsAtTab: null as string | null,
@@ -205,6 +207,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("groupHeaderAlbumArt" in data) this.groupHeaderAlbumArt = coerceBool(data.groupHeaderAlbumArt, true);
         if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
         if ("hideReportsSection" in data) this.hideReportsSection = coerceBool(data.hideReportsSection, false);
+        if ("sidebarClosedOnStartup" in data) this.sidebarClosedOnStartup = coerceBool(data.sidebarClosedOnStartup, false);
         if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
         if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
@@ -242,6 +245,7 @@ export const useSettingsStore = defineStore("settings", {
           groupHeaderAlbumArt: this.groupHeaderAlbumArt,
           hideWikipediaCoverSearch: this.hideWikipediaCoverSearch,
           hideReportsSection: this.hideReportsSection,
+          sidebarClosedOnStartup: this.sidebarClosedOnStartup,
           pathFormatTemplate: this.pathFormatTemplate,
           pathFormatExamplePath: this.pathFormatExamplePath,
           playerGlowIntensity: this.playerGlowIntensity,
@@ -346,6 +350,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setHideReportsSection(value: boolean) {
       this.hideReportsSection = value;
+      this.saveToFile();
+    },
+    setSidebarClosedOnStartup(value: boolean) {
+      this.sidebarClosedOnStartup = value;
       this.saveToFile();
     },
     setMissingMetadataFields(fields: MissingMetadataField[]) {
