@@ -111,6 +111,16 @@ function coerceQueuePanelWidthFraction(v: unknown): number {
   return Math.min(0.6, Math.max(0.15, n));
 }
 
+const BOTTOM_PANEL_HEIGHT_MIN = 260;
+const BOTTOM_PANEL_HEIGHT_MAX = 600;
+
+/** Bottom panel height in px when Player or Queue tab (260–600). */
+function coerceBottomPanelHeightPx(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 260;
+  return Math.round(Math.min(BOTTOM_PANEL_HEIGHT_MAX, Math.max(BOTTOM_PANEL_HEIGHT_MIN, n)));
+}
+
 const DEFAULT_TABLE_COL_WIDTHS: Record<string, number> = {
   albumArt: 64,
   title: 220,
@@ -171,6 +181,8 @@ export const useSettingsStore = defineStore("settings", {
     playerGlowIntensity: "default" as PlayerGlowIntensity,
     /** Queue panel width as fraction of bottom bar when queue tab is active (0.15–0.6). */
     queuePanelWidthFraction: 0.25,
+    /** Bottom panel height in px when Player or Queue tab is active (72–600). */
+    bottomPanelHeightPx: 260,
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -212,6 +224,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
         if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
         if ("queuePanelWidthFraction" in data) this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(data.queuePanelWidthFraction);
+        if ("bottomPanelHeightPx" in data) this.bottomPanelHeightPx = coerceBottomPanelHeightPx(data.bottomPanelHeightPx);
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -250,6 +263,7 @@ export const useSettingsStore = defineStore("settings", {
           pathFormatExamplePath: this.pathFormatExamplePath,
           playerGlowIntensity: this.playerGlowIntensity,
           queuePanelWidthFraction: this.queuePanelWidthFraction,
+          bottomPanelHeightPx: this.bottomPanelHeightPx,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -385,6 +399,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setQueuePanelWidthFraction(value: number) {
       this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(value);
+      this.saveToFile();
+    },
+    setBottomPanelHeightPx(value: number) {
+      this.bottomPanelHeightPx = coerceBottomPanelHeightPx(value);
       this.saveToFile();
     },
   },

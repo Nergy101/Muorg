@@ -8,14 +8,19 @@ import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
-defineProps<{
-  /** When true, hide the expand (fullscreen) button (e.g. when already in overlay). */
-  hideExpand?: boolean;
-  /** When true, use fullscreen layout: massive centered art, gradient background, controls at bottom. */
-  expandedLayout?: boolean;
-  /** CSS vars for accent hues (--player-accent, --player-accent-play, etc.). Bland => primary; vivid => album variants. */
-  accentStyle?: Record<string, string>;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** When true, hide the expand (fullscreen) button (e.g. when already in overlay). */
+    hideExpand?: boolean;
+    /** When true, use fullscreen layout: massive centered art, gradient background, controls at bottom. */
+    expandedLayout?: boolean;
+    /** CSS vars for accent hues (--player-accent, --player-accent-play, etc.). Bland => primary; vivid => album variants. */
+    accentStyle?: Record<string, string>;
+    /** When set (Player/Queue tab), bottom panel height in px; used to scale album art with panel. */
+    panelHeightPx?: number;
+  }>(),
+  { panelHeightPx: undefined }
+);
 
 const emit = defineEmits<{
   (e: "expand"): void;
@@ -26,6 +31,14 @@ const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const { selectedTracks, tableOrderedTracks, queueTracks } = storeToRefs(store);
 const { shuffle, continuousPlayback, playbarShowAlbumInMarquee } = storeToRefs(settingsStore);
+
+/** Album art size in px when panel height is provided; scales with panel up to full available height. */
+const playbarAlbumArtSizePx = computed(() => {
+  const h = props.panelHeightPx;
+  if (h == null || h <= 0) return undefined;
+  const reserved = 140; // handle, title, controls, progress, padding
+  return Math.max(128, h - reserved);
+});
 
 /** List used for next/previous: queue when filled and shuffle off, else table. */
 const playbackList = computed(() => {
@@ -331,13 +344,13 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <!-- Default bottom-panel layout -->
+  <!-- Default bottom-panel layout: pb-8 so progress/restart row isn't cut off by panel overflow -->
   <div
     v-else-if="singleTrack"
-    class="flex shrink-0 flex-col items-center gap-1 border-t border-stone-700 bg-stone-900/95 px-4 py-2"
+    class="flex shrink-0 flex-col items-center gap-1 border-t border-stone-700 bg-stone-900/95 px-4 py-2 pb-8"
   >
     <div class="flex w-full flex-col items-center gap-1">
-      <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" />
+      <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" :size-px="playbarAlbumArtSizePx" />
       <div
         class="max-w-2xl truncate text-center text-sm font-semibold text-stone-100"
         :title="playbarTitleLine"

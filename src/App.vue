@@ -23,9 +23,10 @@ import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { playerGlowIntensity, queuePanelWidthFraction } = storeToRefs(settingsStore);
+const { playerGlowIntensity, queuePanelWidthFraction, bottomPanelHeightPx } = storeToRefs(settingsStore);
 const queueBarContainerRef = ref<HTMLElement | null>(null);
 const isDraggingQueueDivider = ref(false);
+const isDraggingPanelDivider = ref(false);
 const sidebarCollapsed = ref(false);
 const playExpanded = ref(false);
 
@@ -313,6 +314,32 @@ function onQueueDividerMouseUp() {
   document.removeEventListener("mouseup", onQueueDividerMouseUp);
 }
 
+const bottomPanelResizable = computed(() => activeTab.value === "play" || activeTab.value === "queue");
+
+function onPanelDividerMouseDown() {
+  isDraggingPanelDivider.value = true;
+  document.body.style.cursor = "row-resize";
+  document.body.style.userSelect = "none";
+  document.addEventListener("mousemove", onPanelDividerMouseMove);
+  document.addEventListener("mouseup", onPanelDividerMouseUp);
+}
+
+function onPanelDividerMouseMove(e: MouseEvent) {
+  const el = queueBarContainerRef.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const heightPx = rect.bottom - e.clientY;
+  settingsStore.setBottomPanelHeightPx(heightPx);
+}
+
+function onPanelDividerMouseUp() {
+  isDraggingPanelDivider.value = false;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  document.removeEventListener("mousemove", onPanelDividerMouseMove);
+  document.removeEventListener("mouseup", onPanelDividerMouseUp);
+}
+
 function onGlobalKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement;
   const isEditable =
@@ -376,6 +403,8 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
   document.removeEventListener("mousemove", onQueueDividerMouseMove);
   document.removeEventListener("mouseup", onQueueDividerMouseUp);
+  document.removeEventListener("mousemove", onPanelDividerMouseMove);
+  document.removeEventListener("mouseup", onPanelDividerMouseUp);
   unlistenDragDrop?.();
 });
 </script>
@@ -395,42 +424,63 @@ onUnmounted(() => {
       <LibraryTable v-model:activeTab="activeTab" />
     </main>
 
-    <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Fixed height when player or queue so both match. -->
+    <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Resizable height when Player or Queue tab. -->
     <div
       ref="queueBarContainerRef"
-      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 border-t bg-stone-900/95 overflow-hidden mb-3"
-      :class="[
-        activeTab === 'play' ? 'flex-col h-[260px]' : activeTab === 'queue' ? 'grid items-stretch h-[260px]' : 'flex-col',
-      ]"
-      :style="activeTab === 'queue' ? { gridTemplateColumns: `${1 - queuePanelWidthFraction}fr 4px ${queuePanelWidthFraction}fr` } : undefined"
+      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col border-t bg-stone-900/95 overflow-hidden"
+      :style="{
+        ...(bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : {}),
+      }"
     >
-      <!-- Single player slot so the same audio element is used in all tabs (Library, Metadata, Play, Queue). -->
-      <div class="flex min-w-0 min-h-0 flex-col overflow-hidden">
-        <PlayerBar
-          :class="activeTab === 'play' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
-          @expand="expandPlayer"
-        />
-        <PlayScreenPlayBar
-          v-if="(activeTab === 'play' || activeTab === 'queue') && !playExpanded"
-          @expand="expandPlayer"
+      <!-- Resize handle at top when Player or Queue tab -->
+      <div
+        v-if="bottomPanelResizable"
+        role="separator"
+        aria-orientation="horizontal"
+        :aria-valuenow="bottomPanelHeightPx"
+        class="panel-height-divider shrink-0 h-1 min-w-0 cursor-row-resize border-b-2 border-primary bg-stone-600/50 hover:bg-stone-500/60"
+        @mousedown.prevent="onPanelDividerMouseDown"
+      />
+      <!-- Content: flex-col for play, grid for queue, flex-col for library/metadata -->
+      <div
+        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+        :class="activeTab === 'queue' ? 'grid items-stretch' : ''"
+        :style="activeTab === 'queue' ? { gridTemplateColumns: `${1 - queuePanelWidthFraction}fr 4px ${queuePanelWidthFraction}fr` } : undefined"
+      >
+        <!-- Single player slot: flex-1 so it gets height when content div is flex (Play tab); overflow-y-auto so bar can scroll if taller than panel. -->
+        <div
+          class="flex min-w-0 min-h-0 flex-col overflow-hidden"
+          :class="{
+            'flex-1 min-h-0 overflow-y-auto': activeTab === 'play' || activeTab === 'queue',
+          }"
+        >
+          <PlayerBar
+            :class="activeTab === 'play' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
+            @expand="expandPlayer"
+          />
+          <PlayScreenPlayBar
+            v-if="(activeTab === 'play' || activeTab === 'queue') && !playExpanded"
+            :panel-height-px="bottomPanelResizable ? bottomPanelHeightPx : undefined"
+            @expand="expandPlayer"
+          />
+        </div>
+        <template v-if="activeTab === 'queue'">
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            :aria-valuenow="Math.round(queuePanelWidthFraction * 100)"
+            class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize border-x-2 border-primary bg-stone-600/50"
+            @mousedown.prevent="onQueueDividerMouseDown"
+          />
+          <div class="flex min-h-0 min-w-0 flex-col overflow-hidden">
+            <QueueList />
+          </div>
+        </template>
+        <MetadataEditor
+          v-if="showEditor && activeTab === 'metadata'"
+          :key="store.selectedTrackIds.join(',')"
         />
       </div>
-      <template v-if="activeTab === 'queue'">
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          :aria-valuenow="Math.round(queuePanelWidthFraction * 100)"
-          class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize border-x-2 border-primary bg-stone-600/50"
-          @mousedown.prevent="onQueueDividerMouseDown"
-        />
-        <div class="flex min-h-0 min-w-0 flex-col overflow-hidden">
-          <QueueList />
-        </div>
-      </template>
-      <MetadataEditor
-        v-if="showEditor && activeTab === 'metadata'"
-        :key="store.selectedTrackIds.join(',')"
-      />
     </div>
 
     <!-- Full-window player overlay ("focus" mode) -->
