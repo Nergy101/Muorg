@@ -24,7 +24,9 @@ import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { playerGlowIntensity } = storeToRefs(settingsStore);
+const { playerGlowIntensity, queuePanelWidthFraction } = storeToRefs(settingsStore);
+const queueBarContainerRef = ref<HTMLElement | null>(null);
+const isDraggingQueueDivider = ref(false);
 const sidebarCollapsed = ref(false);
 const playExpanded = ref(false);
 
@@ -288,6 +290,31 @@ function minimizePlayer() {
   activeTab.value = activeTabBeforeExpand.value;
 }
 
+function onQueueDividerMouseDown() {
+  isDraggingQueueDivider.value = true;
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+  document.addEventListener("mousemove", onQueueDividerMouseMove);
+  document.addEventListener("mouseup", onQueueDividerMouseUp);
+}
+
+function onQueueDividerMouseMove(e: MouseEvent) {
+  const el = queueBarContainerRef.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const queueWidth = rect.right - e.clientX - 4;
+  const fraction = Math.min(0.6, Math.max(0.15, queueWidth / rect.width));
+  settingsStore.setQueuePanelWidthFraction(fraction);
+}
+
+function onQueueDividerMouseUp() {
+  isDraggingQueueDivider.value = false;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  document.removeEventListener("mousemove", onQueueDividerMouseMove);
+  document.removeEventListener("mouseup", onQueueDividerMouseUp);
+}
+
 function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key !== "Escape" || !playExpanded.value) return;
   const target = e.target as HTMLElement;
@@ -335,6 +362,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
+  document.removeEventListener("mousemove", onQueueDividerMouseMove);
+  document.removeEventListener("mouseup", onQueueDividerMouseUp);
   unlistenDragDrop?.();
 });
 </script>
@@ -354,25 +383,34 @@ onUnmounted(() => {
       <LibraryTable v-model:activeTab="activeTab" />
     </main>
 
-    <!-- Bottom row: metadata / player bar spanning full width (or 75% / 25% when Queue tab). Fixed height when player or queue so both match. -->
+    <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Fixed height when player or queue so both match. -->
     <div
-      class="row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 border-t border-stone-700 bg-stone-900/95 overflow-hidden"
+      ref="queueBarContainerRef"
+      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 border-t bg-stone-900/95 overflow-hidden"
       :class="[
-        activeTab === 'play' ? 'flex-col h-[260px]' : activeTab === 'queue' ? 'flex-row items-stretch h-[260px]' : 'flex-col',
+        activeTab === 'play' ? 'flex-col h-[260px]' : activeTab === 'queue' ? 'grid items-stretch h-[260px]' : 'flex-col',
       ]"
+      :style="activeTab === 'queue' ? { gridTemplateColumns: `${1 - queuePanelWidthFraction}fr 4px ${queuePanelWidthFraction}fr` } : undefined"
     >
       <template v-if="activeTab === 'queue'">
-        <PlayerBar
-          class="sr-only h-0 overflow-hidden"
-          @expand="expandPlayer"
-        />
-        <div class="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden" style="flex: 3">
+        <div class="flex min-w-0 min-h-0 flex-col overflow-hidden">
+          <PlayerBar
+            class="sr-only h-0 overflow-hidden"
+            @expand="expandPlayer"
+          />
           <PlayScreenPlayBar
             v-if="!playExpanded"
             @expand="expandPlayer"
           />
         </div>
-        <div class="flex min-h-0 min-w-0 flex-col overflow-hidden" style="flex: 1">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          :aria-valuenow="Math.round(queuePanelWidthFraction * 100)"
+          class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize border-x-2 border-primary bg-stone-600/50"
+          @mousedown.prevent="onQueueDividerMouseDown"
+        />
+        <div class="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <QueueList />
         </div>
       </template>

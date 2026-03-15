@@ -26,6 +26,21 @@ textarea:focus {
   outline-offset: 2px;
 }
 
+/* Primary border color (queue divider, bottom panel bar – theme-aware) */
+.border-primary {
+  border-color: #5b7c32;
+}
+.bottom-panel-bar {
+  border-top-width: 2px;
+  border-top-color: #5b7c32 !important;
+}
+[data-theme="light"] .border-primary { border-color: #4d7c2c; }
+[data-theme="light"] .bottom-panel-bar { border-top-color: #4d7c2c !important; }
+[data-theme="doom"] .border-primary { border-color: #8b0000; }
+[data-theme="doom"] .bottom-panel-bar { border-top-color: #8b0000 !important; }
+[data-theme="orkish"] .border-primary { border-color: #2e7d32; }
+[data-theme="orkish"] .bottom-panel-bar { border-top-color: #2e7d32 !important; }
+
 /* Shuffle button when active – primary accent background (themes override below) */
 .shuffle-active-bg {
   background-color: #5b7c32;
@@ -116,6 +131,7 @@ textarea:focus {
 [data-theme="light"] .bg-stone-900\/60 { background-color: rgba(250, 250, 249, 0.6) !important; }
 [data-theme="light"] .bg-stone-900\/70 { background-color: rgba(250, 250, 249, 0.7) !important; }
 [data-theme="light"] .bg-stone-950\/80 { background-color: rgba(250, 250, 249, 0.8) !important; }
+[data-theme="light"] .bg-stone-900\/80 { background-color: rgba(250, 250, 249, 0.8) !important; }
 [data-theme="light"] .bg-stone-900\/90 { background-color: rgba(250, 250, 249, 0.9) !important; }
 [data-theme="light"] .bg-stone-900\/95 { background-color: rgba(250, 250, 249, 0.95) !important; }
 [data-theme="light"] .text-stone-100 { color: #1c1917 !important; }
@@ -147,6 +163,27 @@ textarea:focus {
   --tw-ring-color: #4d7c2c;
   background-color: rgba(77, 124, 44, 0.10) !important; /* lighter, less obtrusive */
 }
+
+/* Themed scrollbar (table, sidebar, queue) – base dark theme */
+.table-scroll-container {
+  scrollbar-gutter: stable;
+  scrollbar-color: #5b7c32 #2d2d2d;
+}
+.table-scroll-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.table-scroll-container::-webkit-scrollbar-track {
+  background: #2d2d2d;
+}
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: #5b7c32;
+  border-radius: 6px;
+}
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #6d8f3d;
+}
+
 [data-theme="light"] .table-scroll-container { scrollbar-color: #4d7c2c #e7e5e4; }
 [data-theme="light"] .table-scroll-container::-webkit-scrollbar-thumb { background: #4d7c2c; }
 [data-theme="light"] .table-scroll-container::-webkit-scrollbar-track { background: #e7e5e4; }
@@ -154,6 +191,40 @@ textarea:focus {
 [data-theme="light"] .player-progress-slider { accent-color: #4d7c2c; }
 [data-theme="light"] .player-volume-slider::-webkit-slider-thumb,
 [data-theme="light"] .player-progress-slider::-webkit-slider-thumb { background: #4d7c2c; }
+/* Progress bar: light gray track in light theme */
+[data-theme="light"] .player-progress-slider {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--progress-percent, 0%), #e7e5e4 var(--progress-percent, 0%), #e7e5e4 100%) !important;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--progress-percent, 0%), #e7e5e4 var(--progress-percent, 0%), #e7e5e4 100%);
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-progress-slider::-moz-range-track {
+  background: #e7e5e4;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-progress-slider::-moz-range-progress {
+  background: #4d7c2c;
+  border-radius: 9999px;
+}
+/* Volume bar: light gray track in light theme */
+[data-theme="light"] .player-volume-slider {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--volume-percent, 0%), #e7e5e4 var(--volume-percent, 0%), #e7e5e4 100%) !important;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--volume-percent, 0%), #e7e5e4 var(--volume-percent, 0%), #e7e5e4 100%);
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-volume-slider::-moz-range-track {
+  background: #e7e5e4;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-volume-slider::-moz-range-progress {
+  background: #4d7c2c;
+  border-radius: 9999px;
+}
 [data-theme="light"] .shuffle-active-bg { background-color: #4d7c2c !important; }
 
 /* Path format example buttons (Smart Suggestions) – theme-aware */
@@ -173,6 +244,55 @@ textarea:focus {
   color: #44403c !important;
 }
 
+/* Queue panel & list – theme-aware (component uses scoped dark colors; these override for light/doom/orkish) */
+[data-theme="light"] .queue-item:hover {
+  background-color: rgba(231, 229, 228, 0.6) !important;
+}
+[data-theme="light"] .queue-item--current {
+  background-color: rgba(163, 191, 120, 0.4) !important;
+  color: #1c1917 !important;
+}
+[data-theme="light"] .queue-item:not(.queue-item--current) {
+  color: #44403c !important;
+}
+[data-theme="light"] .queue-item__num,
+[data-theme="light"] .queue-item__artist,
+[data-theme="light"] .queue-item__dur {
+  color: #57534e !important;
+}
+
+[data-theme="doom"] .queue-item:hover {
+  background-color: rgba(45, 10, 10, 0.6) !important;
+}
+[data-theme="doom"] .queue-item--current {
+  background-color: rgba(139, 0, 0, 0.55) !important;
+  color: #e0b040 !important;
+}
+[data-theme="doom"] .queue-item:not(.queue-item--current) {
+  color: #b8860b !important;
+}
+[data-theme="doom"] .queue-item__num,
+[data-theme="doom"] .queue-item__artist,
+[data-theme="doom"] .queue-item__dur {
+  color: #8b6914 !important;
+}
+
+[data-theme="orkish"] .queue-item:hover {
+  background-color: rgba(197, 225, 165, 0.6) !important;
+}
+[data-theme="orkish"] .queue-item--current {
+  background-color: rgba(46, 125, 50, 0.7) !important;
+  color: #1b5e20 !important;
+}
+[data-theme="orkish"] .queue-item:not(.queue-item--current) {
+  color: #2e7d32 !important;
+}
+[data-theme="orkish"] .queue-item__num,
+[data-theme="orkish"] .queue-item__artist,
+[data-theme="orkish"] .queue-item__dur {
+  color: #558b2f !important;
+}
+
 /* DOOM easter-egg theme: reds, ambers, dark grays, terminal green */
 [data-theme="doom"] body {
   background-color: #0d0202;
@@ -189,6 +309,7 @@ textarea:focus {
 [data-theme="doom"] .bg-stone-700\/40 { background-color: rgba(45, 10, 10, 0.4) !important; }
 [data-theme="doom"] .bg-stone-900\/60 { background-color: rgba(13, 2, 2, 0.6) !important; }
 [data-theme="doom"] .bg-stone-900\/70 { background-color: rgba(13, 2, 2, 0.7) !important; }
+[data-theme="doom"] .bg-stone-900\/80 { background-color: rgba(13, 2, 2, 0.8) !important; }
 [data-theme="doom"] .bg-stone-950\/80 { background-color: rgba(13, 2, 2, 0.8) !important; }
 [data-theme="doom"] .bg-stone-900\/90 { background-color: rgba(13, 2, 2, 0.9) !important; }
 [data-theme="doom"] .bg-stone-900\/95 { background-color: rgba(13, 2, 2, 0.95) !important; }
@@ -267,6 +388,7 @@ textarea:focus {
 [data-theme="orkish"] .bg-stone-700\/40 { background-color: rgba(197, 225, 165, 0.4) !important; }
 [data-theme="orkish"] .bg-stone-900\/60 { background-color: rgba(232, 245, 233, 0.6) !important; }
 [data-theme="orkish"] .bg-stone-900\/70 { background-color: rgba(232, 245, 233, 0.7) !important; }
+[data-theme="orkish"] .bg-stone-900\/80 { background-color: rgba(232, 245, 233, 0.8) !important; }
 [data-theme="orkish"] .bg-stone-950\/80 { background-color: rgba(232, 245, 233, 0.8) !important; }
 [data-theme="orkish"] .bg-stone-900\/90 { background-color: rgba(232, 245, 233, 0.9) !important; }
 [data-theme="orkish"] .bg-stone-900\/95 { background-color: rgba(232, 245, 233, 0.95) !important; }

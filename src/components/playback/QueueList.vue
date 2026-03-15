@@ -288,7 +288,7 @@ watch(contextMenu, (menu) => {
     </div>
     <div
       ref="listContainerRef"
-      class="queue-list-container min-h-0 flex-1 overflow-auto p-2"
+      class="queue-list-container table-scroll-container min-h-0 flex-1 overflow-auto p-2"
     >
       <TransitionGroup
         v-if="queueTracks.length"

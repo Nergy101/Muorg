@@ -209,6 +209,7 @@ watch(resizeState, (state) => {
 }, { immediate: true });
 
 const ROW_HEIGHT_GROUP = 44;
+const ROW_HEIGHT_GROUP_SPACIOUS = 100;
 const ROW_HEIGHT_TRACK_COMFORTABLE = 48;
 const ROW_HEIGHT_TRACK_COMPACT = 26;
 const OVERCAN_ROWS = 12;
@@ -216,8 +217,14 @@ const VIRTUALIZATION_THRESHOLD = 500;
 
 const rowHeights = computed(() => {
   const rows = visibleRows.value;
-  const trackHeight = tableDensity.value === "compact" ? ROW_HEIGHT_TRACK_COMPACT : ROW_HEIGHT_TRACK_COMFORTABLE;
-  return rows.map((r) => (r.type === "group" ? ROW_HEIGHT_GROUP : trackHeight));
+  const density = tableDensity.value;
+  const trackHeight =
+    density === "compact" ? ROW_HEIGHT_TRACK_COMPACT : ROW_HEIGHT_TRACK_COMFORTABLE;
+  const groupHeight =
+    density === "spacious" && groupBy.value === "album"
+      ? ROW_HEIGHT_GROUP_SPACIOUS
+      : ROW_HEIGHT_GROUP;
+  return rows.map((r) => (r.type === "group" ? groupHeight : trackHeight));
 });
 
 function getRowOffset(index: number): number {
@@ -508,7 +515,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
     class="table-scroll-container flex-1 overflow-auto outline-none"
     @keydown="onTableKeydown"
   >
-    <table class="table-with-scroll-gutter table-fixed w-full min-w-[800px] border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact' }">
+    <table class="table-with-scroll-gutter table-fixed w-full min-w-[800px] border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
       <colgroup>
         <col :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
         <col v-if="tableColAlbumArt" :style="{ width: colWidth('albumArt') + 'px' }" />
@@ -617,9 +624,20 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @click="focusedRowIndex = index; toggleGroup(row.key)"
               @contextmenu.prevent="openContextMenu($event, row.group.tracks)"
             >
-              <td :colspan="tableColCount" class="border-b border-stone-600 p-2">
-                <span class="inline-flex flex-wrap items-center gap-2">
-                  <span v-if="groupBy === 'album' && groupHeaderAlbumArt" class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800">
+              <td
+                :colspan="tableColCount"
+                class="border-b border-stone-600 p-2"
+                :class="{ 'py-3': tableDensity === 'spacious' && groupBy === 'album' }"
+              >
+                <span
+                  class="inline-flex flex-wrap items-center gap-2"
+                  :class="{ 'gap-3': tableDensity === 'spacious' && groupBy === 'album' }"
+                >
+                  <span
+                    v-if="groupBy === 'album' && groupHeaderAlbumArt"
+                    class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
+                    :class="tableDensity === 'spacious' ? 'h-20 w-20' : 'h-8 w-8'"
+                  >
                     <img
                       v-if="groupCovers[row.key]"
                       :src="`data:${groupCovers[row.key]!.mime};base64,${groupCovers[row.key]!.base64}`"
@@ -628,14 +646,16 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                     />
                     <span
                       v-else-if="groupCovers[row.key] === null"
-                      class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-stone-500 text-[0.6rem] text-stone-400"
+                      class="inline-flex items-center justify-center rounded-full border border-stone-500 text-stone-400"
+                      :class="tableDensity === 'spacious' ? 'h-8 w-8 text-lg' : 'h-4 w-4 text-[0.6rem]'"
                       aria-hidden="true"
                     >
                       ♪
                     </span>
                     <span
                       v-else
-                      class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-stone-500 border-t-stone-300"
+                      class="inline-block animate-spin rounded-full border-2 border-stone-500 border-t-stone-300"
+                      :class="tableDensity === 'spacious' ? 'h-8 w-8' : 'h-4 w-4'"
                       aria-hidden="true"
                     />
                   </span>
@@ -697,7 +717,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                 <div class="flex justify-center items-center">
                   <TrackAlbumArt
                     :path="row.track.path"
-                    :size="tableDensity === 'comfortable' ? 'medium' : 'small'"
+                    :size="tableDensity === 'compact' ? 'small' : 'medium'"
                   />
                 </div>
               </td>
@@ -754,11 +774,6 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
 </template>
 
 <style scoped>
-.table-scroll-container {
-  scrollbar-gutter: stable;
-  scrollbar-color: #5b7c32 #2d2d2d;
-}
-
 .virtual-spacer-row td {
   padding: 0 !important;
   border: none !important;
@@ -770,24 +785,6 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
   margin-right: 14px;
   width: calc(100% - 14px);
   max-width: calc(100% - 14px);
-}
-
-.table-scroll-container::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.table-scroll-container::-webkit-scrollbar-track {
-  background: #2d2d2d;
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb {
-  background: #5b7c32;
-  border-radius: 6px;
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: #6d8f3d;
 }
 
 .table-density-compact th,

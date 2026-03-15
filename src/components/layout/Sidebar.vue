@@ -348,7 +348,7 @@ async function handleRemoveAll() {
           </span>
         </div>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-2 space-y-3">
+      <div class="table-scroll-container min-h-0 flex-1 overflow-y-auto p-2 space-y-3">
         <div>
           <button
             type="button"

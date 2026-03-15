@@ -155,6 +155,7 @@ const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
 const tableDensityOptions: { value: TableDensity; label: string; description: string }[] = [
   { value: "comfortable", label: "Comfortable", description: "More spacing between rows; easier to scan." },
   { value: "compact", label: "Compact", description: "Tighter rows; more tracks visible at once." },
+  { value: "spacious", label: "Spacious", description: "Album headers show a large cover; relaxed layout." },
 ];
 
 const missingMetadataFieldOptions: { value: MissingMetadataField; label: string }[] = [
@@ -812,18 +813,23 @@ watch(openSettingsAtTab, (tab) => {
                       class="mt-0.5 flex shrink-0 flex-col gap-0.5"
                       aria-hidden="true"
                     >
-                      <span
-                        class="block h-1.5 w-6 rounded-sm"
-                        :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
-                      />
-                      <span
-                        class="block h-1.5 w-6 rounded-sm"
-                        :class="opt.value === 'comfortable' ? 'my-1 bg-stone-500' : 'bg-stone-600'"
-                      />
-                      <span
-                        class="block h-1.5 w-6 rounded-sm"
-                        :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
-                      />
+                      <template v-if="opt.value === 'spacious'">
+                        <span class="block h-8 w-8 rounded bg-stone-500" />
+                      </template>
+                      <template v-else>
+                        <span
+                          class="block h-1.5 w-6 rounded-sm"
+                          :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
+                        />
+                        <span
+                          class="block h-1.5 w-6 rounded-sm"
+                          :class="opt.value === 'comfortable' ? 'my-1 bg-stone-500' : 'bg-stone-600'"
+                        />
+                        <span
+                          class="block h-1.5 w-6 rounded-sm"
+                          :class="opt.value === 'comfortable' ? 'bg-stone-500' : 'bg-stone-600'"
+                        />
+                      </template>
                     </div>
                     <div class="min-w-0 flex-1">
                       <p class="font-semibold text-stone-100">

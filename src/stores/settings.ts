@@ -6,7 +6,7 @@ export type ThemeId = "dark" | "light" | "doom" | "orkish" | "auto";
 
 export type DefaultGroupBy = "none" | "artist" | "album";
 
-export type TableDensity = "comfortable" | "compact";
+export type TableDensity = "comfortable" | "compact" | "spacious";
 
 export type BottomPanelId = "library" | "metadata" | "play" | "queue";
 
@@ -30,7 +30,7 @@ export const DEFAULT_PATH_FORMAT_EXAMPLE_PATH =
 
 const ALLOWED_THEMES: ThemeId[] = ["dark", "light", "doom", "orkish", "auto"];
 const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
-const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact"];
+const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact", "spacious"];
 const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "play", "queue"];
 const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
@@ -104,6 +104,12 @@ function coercePlayerGlow(v: unknown): PlayerGlowIntensity {
   }
   return "default";
 }
+/** Queue panel width as fraction of bottom bar (0.15–0.6). */
+function coerceQueuePanelWidthFraction(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 0.25;
+  return Math.min(0.6, Math.max(0.15, n));
+}
 
 const DEFAULT_TABLE_COL_WIDTHS: Record<string, number> = {
   albumArt: 64,
@@ -161,6 +167,8 @@ export const useSettingsStore = defineStore("settings", {
     openSettingsAtTab: null as string | null,
     /** Maximized player: glow shadows from album art. "off" = disabled; subdued/default/vibrant = intensity. */
     playerGlowIntensity: "default" as PlayerGlowIntensity,
+    /** Queue panel width as fraction of bottom bar when queue tab is active (0.15–0.6). */
+    queuePanelWidthFraction: 0.25,
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -200,6 +208,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
         if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
+        if ("queuePanelWidthFraction" in data) this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(data.queuePanelWidthFraction);
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -236,6 +245,7 @@ export const useSettingsStore = defineStore("settings", {
           pathFormatTemplate: this.pathFormatTemplate,
           pathFormatExamplePath: this.pathFormatExamplePath,
           playerGlowIntensity: this.playerGlowIntensity,
+          queuePanelWidthFraction: this.queuePanelWidthFraction,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -363,6 +373,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setPlayerGlowIntensity(value: PlayerGlowIntensity) {
       this.playerGlowIntensity = value;
+      this.saveToFile();
+    },
+    setQueuePanelWidthFraction(value: number) {
+      this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(value);
       this.saveToFile();
     },
   },
