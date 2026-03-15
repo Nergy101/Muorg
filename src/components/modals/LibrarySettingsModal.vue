@@ -148,10 +148,10 @@ function getGlowDemoBlobStyle(blob: { cx: number; cy: number; rx: number; ry: nu
   };
 }
 
-const defaultGroupByOptions: { value: DefaultGroupBy; label: string }[] = [
-  { value: "album", label: "By album" },
-  { value: "artist", label: "By artist" },
-  { value: "none", label: "No grouping" },
+const defaultGroupByOptions: { value: DefaultGroupBy; label: string; description: string }[] = [
+  { value: "album", label: "By album", description: "Group tracks by album." },
+  { value: "artist", label: "By artist", description: "Group tracks by artist." },
+  { value: "none", label: "No grouping", description: "Flat list, no groups." },
 ];
 
 const defaultBottomPanelOptions: { value: BottomPanelId; label: string; description: string }[] = [
@@ -811,19 +811,35 @@ watch(openSettingsAtTab, (tab) => {
                 Layout</p>
 
               <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
                   <FeatherIcon name="layers" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
                   Library grouping</p>
-                <label class="block text-xs font-medium text-stone-500">Default grouping</label>
-                <select
-                  :value="defaultGroupBy"
-                  class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1 text-xs text-stone-200"
-                  @change="(e) => setDefaultGroupBy((e.target as HTMLSelectElement).value as DefaultGroupBy)"
-                >
-                  <option v-for="opt in defaultGroupByOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                  </option>
-                </select>
+                <p class="mb-1.5 text-xs font-medium text-stone-500">Default grouping</p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="opt in defaultGroupByOptions"
+                    :key="opt.value"
+                    type="button"
+                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
+                    :class="defaultGroupBy === opt.value
+                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
+                    @click="setDefaultGroupBy(opt.value)"
+                  >
+                    <div class="min-w-0 flex-1">
+                      <p class="font-medium text-stone-200">
+                        {{ opt.label }}
+                        <span
+                          v-if="defaultGroupBy === opt.value"
+                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                        >
+                          Active
+                        </span>
+                      </p>
+                      <p class="mt-0.5 text-stone-500">{{ opt.description }}</p>
+                    </div>
+                  </button>
+                </div>
                 <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
                   <input
                     type="checkbox"
