@@ -21,7 +21,7 @@
 
 ## Current state
 
-The core app is **shipped**: add folders, catalog in SQLite, library table with search/grouping, metadata editor with bulk edit and album art, playback, reports (missing metadata, duplicates), theming, key map, path-format / “Apply from path,” and in-app update check. **Next** is Phase 4 (export, backup, undo, auto-tagging, workspaces, custom views, ReplayGain).
+The app is **shipped** with: add folders, catalog in SQLite, library table with search/grouping and virtual scroll; metadata editor with bulk edit, album art, Apply from path, and Wikipedia cover search; **playlists** (create/rename/delete, add by context menu or drag, filter library by playlist, export to M3U); **queue** (add to queue, queue panel with reorder/clear/play); playback with shuffle, continuous playback, previous/next, restart, and maximized player; **reports** (missing metadata, duplicates, missing album cover) with configurable fields; theming, key map, Smart Suggestions; in-app update check; **hidden roots** (hide folders from table); bottom panel tabs (Library, Metadata, Play, Queue) with resizable layout. **Next** is Phase 4 (catalog export CSV/JSON, backup before write, undo, auto-tagging, workspaces, custom views, ReplayGain).
 
 ---
 
@@ -131,15 +131,23 @@ Items below are implemented; kept for reference.
 
 ### Additional (implemented)
 
-- [x] **Settings** — Theme, default grouping, groups expanded by default, playback behavior, keyboard navigation, table density/columns, report fields.
-- [x] **Key map** — Modal listing keyboard shortcuts (navigation, search, play, etc.).
-- [x] **Collapsible sidebar** — Collapse library panel; logo/title/keymap/settings in main toolbar.
+- [x] **Settings** — General (e.g. check for updates), Theme, Playback (autoplay, continuous, shuffle, volume, marquee, player glow), Keyboard (nav wrap, focus follows mouse), Layout (density, columns, default bottom panel, sidebar/reports visibility, column widths, queue panel width, bottom panel height), Reports (missing fields, group album art), Exports (Music Root Folder for playlist paths), Smart Suggestions (path format, hide Wikipedia cover). Persisted to AppConfig `settings.yml`.
+- [x] **Key map** — Modal (Ctrl+K) listing shortcuts: search, refresh, metadata/library/player/queue panels, maximized player, select all, navigation, play.
+- [x] **Collapsible sidebar** — Collapse library panel; logo/title/keymap/settings in main toolbar; optional “Start with sidebar closed.”
 - [x] **Playing / selection highlight** — Clear row styling for “now playing” and selection across themes.
 - [x] **Refresh reports** — Button to reload tracks (and thus report counts) from the sidebar.
 - [x] **Virtualization / large libraries** — Virtual-scroll table rows so 100k+ tracks stay responsive (scroll, search, sort without loading everything into the DOM).
-- [x] **Tag-from-filename** — Path format template in Settings; “Apply from path” in metadata editor to parse track path and fill/suggest title, artist, album, track number, etc.
+- [x] **Tag-from-filename** — Path format template in Settings (Smart Suggestions); “Apply from path” in metadata editor to parse track path and fill/suggest title, artist, album, track number, etc.
 - [x] **Auto-updating** — Check for new releases (Settings → General → Check for updates); Tauri updater with download/install from GitHub Releases.
+- [x] **Playlists** — Create, rename, delete playlists; add tracks via context menu or drag onto playlist; filter library by active playlist; duplicate handling when adding. Stored in SQLite.
+- [x] **Playlist export** — Export playlist to M3U with relative paths; Music Root Folder in Settings → Exports.
+- [x] **Queue** — Add to queue (context menu); queue panel (Ctrl+Q) with reorder (drag), play, clear; next/previous use queue when non-empty (unless shuffle); resizable queue panel and bottom panel height.
+- [x] **Playback extras** — Shuffle, continuous playback, previous/next, restart from beginning; maximized player (Ctrl+S) with large art and glow.
+- [x] **Reports (three)** — Missing metadata (configurable fields), Duplicates, Missing album cover; optional hide reports section; optional album art in Missing metadata groups.
+- [x] **Hidden roots** — Per-folder “hide from table” so tracks from that root are excluded from the library view; show/hide all.
+- [x] **Bottom panel tabs** — Library, Metadata, Play, Queue; default tab and sizes in Settings.
+- [x] **Wikipedia album art** — “From Wikipedia” in metadata editor and on album group headers (optional hide in Smart Suggestions).
 
 ---
 
-*Next: tackle remaining Phase 4 items (export, backup, undo, auto-tagging, workspaces, custom views, ReplayGain) as needed.*
+*Next: tackle remaining Phase 4 items (catalog export CSV/JSON, backup before write, undo, auto-tagging, workspaces, custom views, ReplayGain) as needed.*

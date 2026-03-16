@@ -28,19 +28,23 @@ See **plan.md** for full vision, features, and technical direction.
 
 ## Repo layout (high level)
 
-- **`src-tauri/`** — Tauri app (Rust): commands, metadata I/O, catalog/scan logic.
+- **`src-tauri/`** — Tauri app (Rust): commands, metadata I/O, catalog/scan logic, playlists (SQLite).
 - **`src/`** — Frontend: Vue app (components, composables, Pinia stores).
   - **`components/`** — UI building blocks.
-    - `layout/` — Shell & chrome (sidebar, settings modal, headers/toolbars).
-    - `library/` — Library table, reports modal, keymap modal, header.
-    - `shared/` — Reusable pieces (e.g. `TrackAlbumArt`).
-- **`plan.md`** — Product/technical plan.
+    - `layout/` — Sidebar (folders, playlists tabs, reports, add/remove/rescan, playlist export).
+    - `library/` — Library table (virtualized body), library header (search, tabs, expand/collapse all), reports modal, keymap modal.
+    - `playback/` — Player bar (compact), maximized play screen, queue list (reorder, play, clear), volume control.
+    - `metadata/` — Metadata editor (tags, album art, Apply from path, Wikipedia cover).
+    - `modals/` — LibrarySettingsModal (General, Theme, Playback, Keyboard, Layout, Reports, Exports, Smart Suggestions), LibraryReportsModal, LibraryKeyMapModal.
+    - `shared/` — TrackAlbumArt, FeatherIcon, PlaylistExportDialog, PlaylistDuplicateDialog.
+  - **`stores/`** — Pinia: `catalog` (roots, tracks, selection, queue, report filter, active playlist, hidden roots), `settings` (theme, playback, layout, etc.; persisted to AppConfig `settings.yml`), `playlists`.
+- **`plan.md`** — Product/technical plan; Phase 4 = catalog export, backup, undo, auto-tagging, workspaces, custom views, ReplayGain.
 - **`agent.md`** — This file; agent and contributor guide.
 
 When adding features, prefer:
 
-- **New Tauri commands** in `src-tauri/src/` for: scan folder, get tracks, write metadata, load/save catalog.
-- **New Vue components** in `src/components/` for UI (tables, editor, album art, reports, player).
+- **New Tauri commands** in `src-tauri/src/` for: scan folder, get tracks, write metadata, load/save catalog, playlists CRUD.
+- **New Vue components** in `src/components/` for UI (tables, editor, album art, reports, player, queue); place in the folder that matches the feature (layout, library, playback, metadata, modals, shared).
 - **Shared types**: define in Rust and mirror in TypeScript (or generate from Rust) for payloads between backend and frontend.
 
 ---
@@ -82,9 +86,12 @@ When adding features, prefer:
 
 7. **Component structure**
    - Follow the existing folder split:
-     - `layout/` for shell-level UI (sidebar, settings, global headers).
-     - `library/` for track table, library header, reports, and keymap.
-     - `shared/` for reusable visuals (e.g. cover art).
+    - `layout/` for shell-level UI (sidebar: folders, playlists, reports).
+    - `library/` for track table, library header, reports modal, keymap modal.
+    - `playback/` for player bar, maximized play screen, queue list, volume.
+    - `metadata/` for metadata editor.
+    - `modals/` for settings, reports, keymap (and other app-wide modals).
+    - `shared/` for reusable visuals and dialogs (cover art, icons, playlist export/duplicate).
    - Keep components focused: avoid “god components”; prefer passing data via Pinia stores and props/events rather than deep cross-imports.
 
 ---
@@ -100,13 +107,13 @@ When adding features, prefer:
 
 ## Feature priorities (for agents)
 
-When implementing, follow this order unless the user says otherwise:
+P1–P3 and the additional items in **plan.md** (Archived — Completed features) are **implemented**. Current roadmap is **Phase 4** in plan.md: catalog export (CSV/JSON), backup before write, undo, auto-tagging, workspaces, custom views, ReplayGain.
 
-1. **P1**: Add folder(s) → scan MP3/FLAC → build catalog in SQLite → library table → metadata editor (all main fields + album cover) → save to file. Persistence: load catalog from SQLite on startup; rescan action to refresh.
-2. **P2**: Search, album/artist grouping, bulk edit, drag-and-drop add.
-3. **P3**: Playback, export/reports, theming, advanced settings.
+When implementing something new:
 
-Stick to **plan.md** for scope; don’t add streaming, cloud, or mobile unless the user asks.
+1. Follow **plan.md** for scope and priorities; don't add streaming, cloud, or mobile unless the user asks.
+2. Reuse existing patterns: catalog store for tracks and selection, playlists store for playlists, settings store (and Settings modal tabs) for user preferences, queue in catalog store for play queue.
+3. Document new shortcuts in the Key map modal; add layout/behavior knobs to the appropriate Settings tab (Layout, Playback, Reports, etc.).
 
 ---
 
@@ -115,9 +122,12 @@ Stick to **plan.md** for scope; don’t add streaming, cloud, or mobile unless t
 | Task | Where | Hint |
 |------|--------|------|
 | New backend capability (e.g. “get artwork”) | `src-tauri/src/` | New Tauri command; expose via `invoke()`. |
-| New UI (e.g. “Album view”, new report, new modal) | `src/components/` | Place in `layout/`, `library/`, or `shared/` as appropriate; consume existing or new Tauri commands. |
-| New metadata field | Rust metadata layer + frontend form | Keep field names aligned with ID3/Vorbis. |
+| New UI (e.g. “Album view”, new report, new modal) | `src/components/` | Place in `layout/`, `library/`, `playback/`, `metadata/`, `modals/`, or `shared/` as appropriate; consume existing or new Tauri commands. |
+| New metadata field | Rust metadata layer + MetadataEditor | Keep field names aligned with ID3/Vorbis. |
 | Persist library | Rust + **SQLite** | Store directory roots and track records (paths, mtime, tag snapshot); load on startup; rescan action to refresh. |
+| Playlists | `src-tauri` (playlist commands) + `stores/playlists.ts` + Sidebar + catalog store `activePlaylistId` | Create/rename/delete, get entries; filter library by playlist; export M3U from shared/PlaylistExportDialog. |
+| Queue | Catalog store `queueTrackIds`, `addToQueue`, `removeFromQueueAtIndex`, `moveQueueItem` | Queue panel in playback/QueueList; context menu "Add to queue" in LibraryTableBody. |
+| Settings / layout | `stores/settings.ts` + LibrarySettingsModal | Persist to AppConfig `settings.yml`; add new keys and a Settings tab section if needed. |
 
 ---
 

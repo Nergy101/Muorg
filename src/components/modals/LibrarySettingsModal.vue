@@ -536,6 +536,58 @@ watch(openSettingsAtTab, (tab) => {
                   When enabled, moving the mouse over items also updates the keyboard focus target.
                 </p>
               </div>
+
+              <div class="settings-section border-t border-stone-700 pt-4">
+                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="heart" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Credits
+                </p>
+                <p class="text-xs text-stone-500">
+                  Made with ❤️ by
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1 underline decoration-dotted underline-offset-2 hover:text-stone-300"
+                    @click="openReleaseUrl('https://github.com/Nergy101')"
+                  >
+                    <FeatherIcon name="user" class="h-3.5 w-3.5 shrink-0" />
+                    Nergy101
+                  </button>
+                </p>
+                <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
+                    @click="openReleaseUrl('https://blog.nergy.space/')"
+                  >
+                    <FeatherIcon name="book-open" class="h-3.5 w-3.5 shrink-0" />
+                    Blog
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
+                    @click="openReleaseUrl('https://portfolio.nergy.space/')"
+                  >
+                    <FeatherIcon name="briefcase" class="h-3.5 w-3.5 shrink-0" />
+                    Portfolio
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
+                    @click="openReleaseUrl('https://retroranker.site')"
+                  >
+                    <FeatherIcon name="award" class="h-3.5 w-3.5 shrink-0" />
+                    RetroRanker
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
+                    @click="openReleaseUrl('https://ko-fi.com/nergy')"
+                  >
+                    <FeatherIcon name="gift" class="h-3.5 w-3.5 shrink-0" />
+                    Ko-fi
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div v-show="settingsTab === 'theme'" class="space-y-3">
