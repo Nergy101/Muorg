@@ -13,6 +13,9 @@ import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
 import { getGlowBlobs, getSimpleGlowBlobs } from "../../composables/useDominantColor";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import packageJson from "../../../package.json";
+
+const appVersion = packageJson.version;
 
 const props = defineProps<{
   open: boolean;
@@ -392,8 +395,8 @@ watch(openSettingsAtTab, (tab) => {
                 >
                   <span v-if="updateCheckStatus === 'idle'">Check for updates</span>
                   <span v-else-if="updateCheckStatus === 'checking'">Checking…</span>
-                  <span v-else-if="updateCheckStatus === 'up-to-date'">Up to date</span>
-                  <span v-else-if="updateCheckStatus === 'available'">Update available</span>
+                  <span v-else-if="updateCheckStatus === 'up-to-date'">Up to date <span class="text-stone-400">v{{ appVersion }}</span></span>
+                  <span v-else-if="updateCheckStatus === 'available'">Update available <span class="text-stone-400">v{{ appVersion }}</span></span>
                   <span v-else-if="updateCheckStatus === 'error'">Check failed</span>
                 </button>
                 <p v-if="updateError" class="mt-1 text-xs text-amber-400">
