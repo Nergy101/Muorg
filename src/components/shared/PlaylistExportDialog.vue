@@ -48,7 +48,7 @@ async function loadTracks() {
 
 watch(
   () => [props.open, props.playlist.id] as const,
-  async ([isOpen, playlistId]) => {
+  async ([isOpen]) => {
     if (!isOpen) return;
     musicRootFolder.value = defaultMusicRoot();
     outputDir.value = "";
