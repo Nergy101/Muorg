@@ -573,14 +573,17 @@ async function addToPlaylistFromContextMenu(playlistId: number) {
 }
 
 async function removeFromPlaylist() {
-  const entryId = contextMenu.value?.playlistEntryId;
-  if (entryId == null) return;
+  const menu = contextMenu.value;
+  const playlistId = store.activePlaylistId;
+  if (!menu?.tracks.length || playlistId == null) return;
   closeContextMenu();
-  await playlistStore.removePlaylistEntry(entryId);
-  if (store.activePlaylistId !== null) {
-    const entries = await playlistStore.getPlaylistEntries(store.activePlaylistId);
-    store.setActivePlaylist(store.activePlaylistId, entries);
+  if (menu.playlistEntryId != null) {
+    await playlistStore.removePlaylistEntry(menu.playlistEntryId);
+  } else {
+    await playlistStore.removeTracksFromPlaylist(playlistId, menu.tracks.map((t) => t.id));
   }
+  const entries = await playlistStore.getPlaylistEntries(playlistId);
+  store.setActivePlaylist(playlistId, entries);
 }
 
 // Playlist submenu open state
@@ -893,19 +896,6 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         Add to queue
       </button>
 
-      <!-- Remove from playlist (only when viewing a playlist and entry ID is known) -->
-      <template v-if="contextMenu.playlistEntryId != null">
-        <div class="my-1 border-t border-stone-700" />
-        <button
-          type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
-          @click="removeFromPlaylist"
-        >
-          <FeatherIcon name="trash-2" class="h-4 w-4 shrink-0" />
-          Remove from playlist
-        </button>
-      </template>
-
       <!-- Add to playlist section -->
       <div class="my-1 border-t border-stone-700" />
       <div
@@ -949,6 +939,19 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
           No playlists yet.
         </div>
       </div>
+
+      <!-- Remove from playlist (when viewing a playlist: single track or full album) -->
+      <template v-if="store.activePlaylistId != null && contextMenu.tracks.length">
+        <div class="my-1 border-t border-stone-700" />
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
+          @click="removeFromPlaylist"
+        >
+          <FeatherIcon name="trash-2" class="h-4 w-4 shrink-0" />
+          Remove from playlist
+        </button>
+      </template>
     </div>
   </Teleport>
 
