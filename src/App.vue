@@ -447,12 +447,9 @@ onUnmounted(() => {
         :class="activeTab === 'queue' ? 'grid items-stretch' : ''"
         :style="activeTab === 'queue' ? { gridTemplateColumns: `${1 - queuePanelWidthFraction}fr 4px ${queuePanelWidthFraction}fr` } : undefined"
       >
-        <!-- Single player slot: flex-1 so it gets height when content div is flex (Play tab); overflow-y-auto so bar can scroll if taller than panel. -->
+        <!-- Single player slot: shrink-to-content so it always hugs the bottom without its own scrollbar. -->
         <div
-          class="flex min-w-0 min-h-0 flex-col overflow-hidden"
-          :class="{
-            'flex-1 min-h-0 overflow-y-auto': activeTab === 'play' || activeTab === 'queue',
-          }"
+          class="flex min-w-0 flex-col shrink-0 overflow-hidden"
         >
           <PlayerBar
             :class="activeTab === 'play' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
