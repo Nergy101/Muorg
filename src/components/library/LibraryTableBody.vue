@@ -2,16 +2,23 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
+import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
+import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import type { CatalogTrack } from "../../types";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 
 const emit = defineEmits<{ (e: "openMetadata"): void }>();
 
 const store = useCatalogStore();
+const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
+const { playlists } = storeToRefs(playlistStore);
+const { pendingAdd, tryAddToPlaylist, confirmAddAll, confirmAddDeduped, cancelPendingAdd } = usePlaylistAdd();
+const { activePlaylistTrackIds, activePlaylistEntryIds } = storeToRefs(store);
 
 const { filteredTracks, selectedTrackIds, groupBy, currentPlayingTrackId, multiSelectMode } = storeToRefs(store);
 const {
@@ -38,7 +45,7 @@ type GroupRow = {
 
 type VisibleRow =
   | { type: "group"; key: string; group: GroupRow }
-  | { type: "track"; track: CatalogTrack };
+  | { type: "track"; track: CatalogTrack; playlistEntryId?: number };
 
 function formatDuration(secs: number | null): string {
   if (secs == null) return "—";
@@ -150,14 +157,69 @@ watch(groupedRows, (groups) => {
   expandedGroups.value = next;
 });
 
+/**
+ * When a playlist is active this maps each visible (filtered) track back to the
+ * `playlist_tracks.id` that corresponds to it — keyed by (trackId, occurrenceIndex)
+ * so duplicate entries in the same playlist are each resolvable to their own row.
+ *
+ * Built from the *filtered* entry list (respects the search query) so the occurrence
+ * indices stay in sync with what the user actually sees.
+ */
+const filteredEntryIdsByTrackOccurrence = computed((): Map<number, number[]> | null => {
+  const trackIds = activePlaylistTrackIds.value;
+  const entryIds = activePlaylistEntryIds.value;
+  if (!trackIds || !entryIds) return null;
+
+  const q = store.searchQuery.trim().toLowerCase();
+  const idToTrack = new Map(store.tracks.map((t) => [t.id, t]));
+
+  // Walk the full ordered playlist and collect entry IDs only for visible entries.
+  const map = new Map<number, number[]>(); // trackId → [entryId, ...]
+  for (let i = 0; i < trackIds.length; i++) {
+    const trackId = trackIds[i];
+    const track = idToTrack.get(trackId);
+    if (!track) continue;
+    if (q) {
+      const passes =
+        (track.title ?? "").toLowerCase().includes(q) ||
+        (track.artist ?? "").toLowerCase().includes(q) ||
+        (track.album ?? "").toLowerCase().includes(q);
+      if (!passes) continue;
+    }
+    if (!map.has(trackId)) map.set(trackId, []);
+    map.get(trackId)!.push(entryIds[i]);
+  }
+  return map;
+});
+
 const visibleRows = computed((): VisibleRow[] => {
   const groups = groupedRows.value;
-  if (!groups) return filteredTracks.value.map((track) => ({ type: "track", track }));
+  const entryMap = filteredEntryIdsByTrackOccurrence.value;
+
+  // Per-call occurrence counter so each duplicate gets the right entryId slot.
+  const occurrenceCount = new Map<number, number>();
+  function nextEntryId(trackId: number): number | undefined {
+    if (!entryMap) return undefined;
+    const n = occurrenceCount.get(trackId) ?? 0;
+    occurrenceCount.set(trackId, n + 1);
+    return entryMap.get(trackId)?.[n];
+  }
+
+  if (!groups) {
+    return filteredTracks.value.map((track) => ({
+      type: "track",
+      track,
+      playlistEntryId: nextEntryId(track.id),
+    }));
+  }
+
   const out: VisibleRow[] = [];
   for (const group of groups) {
     out.push({ type: "group", key: group.key, group });
     if (expandedGroups.value.has(group.key)) {
-      for (const t of group.tracks) out.push({ type: "track", track: t });
+      for (const t of group.tracks) {
+        out.push({ type: "track", track: t, playlistEntryId: nextEntryId(t.id) });
+      }
     }
   }
   return out;
@@ -476,13 +538,19 @@ function scrollToTrackId(id: number) {
   else scrollFocusedRowIntoView();
 }
 
-const contextMenu = ref<{ x: number; y: number; tracks: CatalogTrack[] } | null>(null);
+const contextMenu = ref<{
+  x: number;
+  y: number;
+  tracks: CatalogTrack[];
+  /** Set only for single-track rows in an active playlist — the playlist_tracks.id to remove. */
+  playlistEntryId?: number;
+} | null>(null);
 const contextMenuRef = ref<HTMLElement | null>(null);
 
-function openContextMenu(e: MouseEvent, tracks: CatalogTrack[]) {
+function openContextMenu(e: MouseEvent, tracks: CatalogTrack[], playlistEntryId?: number) {
   e.preventDefault();
   if (!tracks.length) return;
-  contextMenu.value = { x: e.clientX, y: e.clientY, tracks };
+  contextMenu.value = { x: e.clientX, y: e.clientY, tracks, playlistEntryId };
 }
 
 function closeContextMenu() {
@@ -496,8 +564,33 @@ function addToQueueFromContextMenu() {
   }
 }
 
+async function addToPlaylistFromContextMenu(playlistId: number) {
+  if (!contextMenu.value?.tracks.length) return;
+  const trackIds = contextMenu.value.tracks.map((t) => t.id);
+  const playlist = playlists.value.find((p) => p.id === playlistId);
+  closeContextMenu();
+  await tryAddToPlaylist(playlistId, trackIds, playlist?.name ?? "");
+}
+
+async function removeFromPlaylist() {
+  const entryId = contextMenu.value?.playlistEntryId;
+  if (entryId == null) return;
+  closeContextMenu();
+  await playlistStore.removePlaylistEntry(entryId);
+  if (store.activePlaylistId !== null) {
+    const entries = await playlistStore.getPlaylistEntries(store.activePlaylistId);
+    store.setActivePlaylist(store.activePlaylistId, entries);
+  }
+}
+
+// Playlist submenu open state
+const playlistSubmenuOpen = ref(false);
+
 watch(contextMenu, (menu) => {
-  if (!menu) return;
+  if (!menu) {
+    playlistSubmenuOpen.value = false;
+    return;
+  }
   const onOutside = (e: MouseEvent) => {
     const target = e.target as Node;
     if (contextMenuRef.value?.contains(target)) return;
@@ -519,6 +612,22 @@ watch(contextMenu, (menu) => {
     }, 0);
   });
 });
+
+// ── Drag-and-drop (tracks → playlists) ────────────────────────────────────
+
+function onTrackDragStart(e: DragEvent, tracks: CatalogTrack[]) {
+  if (!e.dataTransfer) return;
+  e.dataTransfer.setData(
+    "application/muorg-tracks",
+    JSON.stringify(tracks.map((t) => t.id))
+  );
+  e.dataTransfer.effectAllowed = "copy";
+  store.setInternalQueueDrag(true);
+}
+
+function onTrackDragEnd() {
+  store.setInternalQueueDrag(false);
+}
 
 defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
 </script>
@@ -630,6 +739,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             <tr
               v-if="row.type === 'group'"
               :data-row-index="index"
+              draggable="true"
               class="cursor-context-menu font-medium text-stone-400 hover:bg-stone-700/80"
               :class="[
                 focusedRowIndex === index ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80',
@@ -639,6 +749,8 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = index) : undefined"
               @click="focusedRowIndex = index; toggleGroup(row.key)"
               @contextmenu.prevent="openContextMenu($event, row.group.tracks)"
+              @dragstart="onTrackDragStart($event, row.group.tracks)"
+              @dragend="onTrackDragEnd"
             >
               <td
                 :colspan="tableColCount"
@@ -704,6 +816,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               v-else
               :data-row-index="index"
               :data-track-id="row.track.id"
+              draggable="true"
               class="cursor-context-menu border-b border-stone-700/50 hover:bg-stone-800/50"
               :class="[
                 { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== index },
@@ -714,7 +827,9 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               :style="useVirtualization ? { height: rowHeights[index] + 'px' } : undefined"
               @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = index) : undefined"
               @click="focusedRowIndex = index; selectRow(row.track)"
-              @contextmenu.prevent="openContextMenu($event, [row.track])"
+              @contextmenu.prevent="openContextMenu($event, [row.track], row.playlistEntryId)"
+              @dragstart="onTrackDragStart($event, [row.track])"
+              @dragend="onTrackDragEnd"
             >
               <td class="border-r border-stone-700 p-2">
                 <input
@@ -765,7 +880,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
     <div
       v-if="contextMenu"
       ref="contextMenuRef"
-      class="fixed z-[300] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+      class="fixed z-[300] min-w-[180px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
       :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
       @click.stop
     >
@@ -774,11 +889,72 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
         @click="addToQueueFromContextMenu"
       >
-        <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
         Add to queue
       </button>
+
+      <!-- Remove from playlist (only when viewing a playlist and entry ID is known) -->
+      <template v-if="contextMenu.playlistEntryId != null">
+        <div class="my-1 border-t border-stone-700" />
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
+          @click="removeFromPlaylist"
+        >
+          <FeatherIcon name="trash-2" class="h-4 w-4 shrink-0" />
+          Remove from playlist
+        </button>
+      </template>
+
+      <!-- Add to playlist section -->
+      <div class="my-1 border-t border-stone-700" />
+      <div class="relative">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          @click="playlistSubmenuOpen = !playlistSubmenuOpen"
+        >
+          <span class="flex items-center gap-2">
+            <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-stone-400" />
+            Add to playlist
+          </span>
+          <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+        </button>
+        <!-- Playlist submenu -->
+        <div
+          v-if="playlistSubmenuOpen && playlists.length"
+          class="absolute left-full top-0 z-[310] min-w-[160px] max-w-[220px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+          style="margin-left: 2px"
+        >
+          <button
+            v-for="pl in playlists"
+            :key="pl.id"
+            type="button"
+            class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+            @click="addToPlaylistFromContextMenu(pl.id)"
+          >
+            <FeatherIcon name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+            <span class="min-w-0 truncate">{{ pl.name }}</span>
+          </button>
+        </div>
+        <div
+          v-else-if="playlistSubmenuOpen && !playlists.length"
+          class="absolute left-full top-0 z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
+          style="margin-left: 2px"
+        >
+          No playlists yet.
+        </div>
+      </div>
     </div>
   </Teleport>
+
+  <PlaylistDuplicateDialog
+    v-if="pendingAdd"
+    :pending="pendingAdd"
+    @confirm-all="confirmAddAll"
+    @confirm-deduped="confirmAddDeduped"
+    @cancel="cancelPendingAdd"
+  />
 </template>
 
 <style scoped>

@@ -61,6 +61,13 @@ export const useCatalogStore = defineStore("catalog", {
     playRequestTrackId: null as number | null,
     /** True while the user is dragging a queue item (internal DnD). Used to avoid showing the "drop folders" overlay. */
     isInternalQueueDrag: false,
+    /** The ID of the currently active playlist filter (null = no filter / show all). */
+    activePlaylistId: null as number | null,
+    /** Track IDs belonging to the active playlist, in playlist order (null = no filter). */
+    activePlaylistTrackIds: null as number[] | null,
+    /** `playlist_tracks.id` values parallel to activePlaylistTrackIds — used to delete exactly
+     *  one entry when a track appears multiple times in the same playlist. */
+    activePlaylistEntryIds: null as number[] | null,
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -68,6 +75,21 @@ export const useCatalogStore = defineStore("catalog", {
       return state.tracks.filter((t) => set.has(t.id));
     },
     filteredTracks(state): CatalogTrack[] {
+      // When a playlist is active, show only its tracks in playlist order (ignoring hidden roots).
+      if (state.activePlaylistTrackIds !== null) {
+        const idToTrack = new Map(state.tracks.map((t) => [t.id, t]));
+        let list = state.activePlaylistTrackIds
+          .map((id) => idToTrack.get(id))
+          .filter((t): t is CatalogTrack => t != null);
+        const q = state.searchQuery.trim().toLowerCase();
+        if (!q) return list;
+        return list.filter((t) => {
+          const title = (t.title ?? "").toLowerCase();
+          const artist = (t.artist ?? "").toLowerCase();
+          const album = (t.album ?? "").toLowerCase();
+          return title.includes(q) || artist.includes(q) || album.includes(q);
+        });
+      }
       const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
       const hiddenSet = new Set(state.hiddenRoots.map(norm));
       let list = state.tracks;
@@ -447,6 +469,21 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setInternalQueueDrag(value: boolean) {
       this.isInternalQueueDrag = value;
+    },
+    setActivePlaylist(id: number, entries: { entryId: number; trackId: number }[]) {
+      this.activePlaylistId = id;
+      this.activePlaylistTrackIds = entries.map((e) => e.trackId);
+      this.activePlaylistEntryIds = entries.map((e) => e.entryId);
+      this.clearSelection();
+      if (entries.length > 0) {
+        this.selectedTrackIds = [entries[0].trackId];
+      }
+    },
+    clearActivePlaylist() {
+      this.activePlaylistId = null;
+      this.activePlaylistTrackIds = null;
+      this.activePlaylistEntryIds = null;
+      this.clearSelection();
     },
     getCover(path: string): CoverInfo | null | undefined {
       return this.coverCache[path];

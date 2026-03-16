@@ -4,6 +4,13 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize)]
+pub struct Playlist {
+    pub id: i64,
+    pub name: String,
+    pub track_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct CatalogTrack {
     pub id: i64,
     pub path: String,
@@ -50,6 +57,18 @@ CREATE TABLE IF NOT EXISTS tracks (
 CREATE INDEX IF NOT EXISTS idx_tracks_root ON tracks(root_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
+CREATE TABLE IF NOT EXISTS playlists (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS playlist_tracks (
+    id INTEGER PRIMARY KEY,
+    playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id);
 ";
 
 fn schema_has_column(
@@ -72,6 +91,7 @@ fn schema_has_column(
 }
 
 pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
+    conn.execute_batch("PRAGMA foreign_keys = ON;").map_err(|e| e.to_string())?;
     conn.execute_batch(SCHEMA).map_err(|e| e.to_string())?;
     if !schema_has_column(conn, "tracks", "has_cover")? {
         conn.execute(
@@ -326,6 +346,178 @@ pub fn remove_root(conn: &rusqlite::Connection, root_path: &str) -> Result<(), S
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+// ── Playlist functions ─────────────────────────────────────────────────────
+
+/// A single row in the `playlist_tracks` join table, returned so the frontend can
+/// target a specific entry (by `entry_id`) when removing one of several duplicates.
+#[derive(Debug, Clone, Serialize)]
+pub struct PlaylistTrackEntry {
+    pub entry_id: i64,
+    pub track_id: i64,
+}
+
+pub fn create_playlist(conn: &rusqlite::Connection, name: &str) -> Result<Playlist, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "time error")?
+        .as_secs() as i64;
+    conn.execute(
+        "INSERT INTO playlists (name, created_at) VALUES (?1, ?2)",
+        rusqlite::params![name, now],
+    )
+    .map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+    Ok(Playlist {
+        id,
+        name: name.to_string(),
+        track_count: 0,
+    })
+}
+
+pub fn load_playlists(conn: &rusqlite::Connection) -> Result<Vec<Playlist>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.name, COUNT(pt.id) as track_count \
+             FROM playlists p \
+             LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id \
+             GROUP BY p.id, p.name \
+             ORDER BY p.created_at",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(Playlist {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                track_count: r.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+pub fn rename_playlist(conn: &rusqlite::Connection, id: i64, name: &str) -> Result<(), String> {
+    conn.execute(
+        "UPDATE playlists SET name = ?1 WHERE id = ?2",
+        rusqlite::params![name, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn delete_playlist(conn: &rusqlite::Connection, id: i64) -> Result<(), String> {
+    conn.execute("DELETE FROM playlists WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_playlist_tracks(
+    conn: &rusqlite::Connection,
+    playlist_id: i64,
+) -> Result<Vec<i64>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT track_id FROM playlist_tracks \
+             WHERE playlist_id = ?1 ORDER BY position",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([playlist_id], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+/// Returns every entry for a playlist in position order, including the `playlist_tracks.id`
+/// primary key so the frontend can target a specific row when removing one of several duplicates.
+pub fn get_playlist_entries(
+    conn: &rusqlite::Connection,
+    playlist_id: i64,
+) -> Result<Vec<PlaylistTrackEntry>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, track_id FROM playlist_tracks \
+             WHERE playlist_id = ?1 ORDER BY position",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([playlist_id], |r| {
+            Ok(PlaylistTrackEntry {
+                entry_id: r.get(0)?,
+                track_id: r.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+/// Remove exactly one entry from a playlist by its `playlist_tracks.id` primary key.
+/// Safe to call even if the track appears multiple times — only the targeted row is deleted.
+pub fn remove_playlist_entry_by_id(
+    conn: &rusqlite::Connection,
+    entry_id: i64,
+) -> Result<(), String> {
+    conn.execute("DELETE FROM playlist_tracks WHERE id = ?1", [entry_id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn add_tracks_to_playlist(
+    conn: &rusqlite::Connection,
+    playlist_id: i64,
+    track_ids: &[i64],
+) -> Result<(), String> {
+    if track_ids.is_empty() {
+        return Ok(());
+    }
+    let max_pos: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM playlist_tracks WHERE playlist_id = ?1",
+            [playlist_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?1, ?2, ?3)",
+        )
+        .map_err(|e| e.to_string())?;
+    for (i, &track_id) in track_ids.iter().enumerate() {
+        let pos = max_pos + 1 + i as i64;
+        stmt.execute(rusqlite::params![playlist_id, track_id, pos])
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+pub fn remove_tracks_from_playlist(
+    conn: &rusqlite::Connection,
+    playlist_id: i64,
+    track_ids: &[i64],
+) -> Result<(), String> {
+    for &track_id in track_ids {
+        conn.execute(
+            "DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND track_id = ?2",
+            rusqlite::params![playlist_id, track_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+// ── Track metadata ─────────────────────────────────────────────────────────
 
 /// Update a track's metadata in the catalog after writing to file.
 /// Only touches columns for which the update has a value (Some); others are left unchanged.

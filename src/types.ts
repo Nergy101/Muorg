@@ -18,6 +18,12 @@ export interface CatalogTrack {
   has_cover: boolean;
 }
 
+export interface Playlist {
+  id: number;
+  name: string;
+  track_count: number;
+}
+
 export interface MetadataUpdate {
   title?: string | null;
   artist?: string | null;

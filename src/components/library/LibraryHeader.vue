@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
+import { usePlaylistStore } from "../../stores/playlists";
 import packageJson from "../../../package.json";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
@@ -18,7 +19,15 @@ const emit = defineEmits<{
 }>();
 
 const store = useCatalogStore();
-const { searchQuery, groupBy, filteredTracks } = storeToRefs(store);
+const playlistStore = usePlaylistStore();
+const { searchQuery, groupBy, filteredTracks, activePlaylistId } = storeToRefs(store);
+const { playlists } = storeToRefs(playlistStore);
+
+const activePlaylist = computed(() =>
+  activePlaylistId.value != null
+    ? playlists.value.find((p) => p.id === activePlaylistId.value) ?? null
+    : null
+);
 
 const appVersion = packageJson.version;
 
@@ -138,6 +147,22 @@ const groupByValue = computed(() => groupBy.value);
 <template>
   <div class="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-stone-700 px-4 py-2">
     <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+      <!-- Active playlist filter tag -->
+      <div
+        v-if="activePlaylistId !== null"
+        class="flex shrink-0 items-center gap-1 rounded-full border border-stone-600 bg-stone-700 pl-2 pr-1 py-0.5 text-xs text-stone-200"
+      >
+        <FeatherIcon name="list" class="h-3 w-3 shrink-0 text-stone-400" />
+        <span class="max-w-[140px] truncate">{{ activePlaylist?.name ?? "Playlist" }}</span>
+        <button
+          type="button"
+          class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+          aria-label="Clear playlist filter"
+          @click="store.clearActivePlaylist()"
+        >
+          <FeatherIcon name="x" class="h-3 w-3" />
+        </button>
+      </div>
       <input
         ref="searchInputRef"
         :value="searchQuery"
@@ -198,7 +223,7 @@ const groupByValue = computed(() => groupBy.value);
         :class="props.activeTab === 'library' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'library')"
       >
-        Library
+        Default
       </button>
       <button
         type="button"

@@ -155,7 +155,7 @@ const defaultGroupByOptions: { value: DefaultGroupBy; label: string; description
 ];
 
 const defaultBottomPanelOptions: { value: BottomPanelId; label: string; description: string }[] = [
-  { value: "library", label: "Library", description: "Track list and grouping." },
+  { value: "library", label: "Default", description: "Track list and grouping." },
   { value: "metadata", label: "Metadata", description: "Edit tags and album art." },
   { value: "play", label: "Play", description: "Now playing and controls." },
   { value: "queue", label: "Queue", description: "Up next and queue." },

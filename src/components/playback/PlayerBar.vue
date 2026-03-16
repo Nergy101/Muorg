@@ -75,6 +75,9 @@ const duration = ref(0);
 const isSeeking = ref(false);
 let shouldAutoplayNextSelection = false;
 
+/** Small cache of preloaded audio blobs (next track, maybe a couple more). Keyed by track path. */
+const audioCache = new Map<string, string>();
+
 const marqueeContainerRef = ref<HTMLDivElement | null>(null);
 const shouldScrollMarquee = ref(false);
 const marqueeDistance = ref(0);
@@ -209,14 +212,50 @@ watch(playbarDisableMarquee, () => {
   recomputeMarquee();
 });
 
-async function loadAudioBlob(path: string) {
-  if (audioSrc.value) {
-    URL.revokeObjectURL(audioSrc.value);
-    audioSrc.value = "";
+function revokeUrl(url: string | null) {
+  if (!url) return;
+  try {
+    URL.revokeObjectURL(url);
+  } catch {
+    // ignore
   }
+}
+
+function evictOldCacheEntries(maxEntries = 3) {
+  while (audioCache.size > maxEntries) {
+    const firstKey = audioCache.keys().next().value as string | undefined;
+    if (!firstKey) break;
+    const url = audioCache.get(firstKey) ?? null;
+    audioCache.delete(firstKey);
+    revokeUrl(url);
+  }
+}
+
+async function loadAudioBlobForCurrent(track: CatalogTrack) {
+  const path = track.path;
+  const cached = audioCache.get(path);
+
+  // Stop current playback and reset state.
+  if (audioRef.value) {
+    audioRef.value.pause();
+  }
+  if (audioSrc.value && audioSrc.value !== cached) {
+    // Only revoke if it's not the cached URL we are about to reuse.
+    revokeUrl(audioSrc.value);
+  }
+  audioSrc.value = "";
   isPlaying.value = false;
   currentTime.value = 0;
   duration.value = 0;
+
+  if (cached) {
+    // Fast path: reuse preloaded blob URL.
+    audioSrc.value = cached;
+    audioCache.delete(path);
+    return;
+  }
+
+  // Slow path: read from disk, then set src.
   try {
     const base64 = await invoke<string>("read_audio_file", { path });
     const binary = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -228,12 +267,35 @@ async function loadAudioBlob(path: string) {
   }
 }
 
+async function preloadTrack(track: CatalogTrack | null) {
+  if (!track) return;
+  const path = track.path;
+  if (audioCache.has(path) || path === singleTrack.value?.path) return;
+  try {
+    const base64 = await invoke<string>("read_audio_file", { path });
+    const binary = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const ext = path.toLowerCase().endsWith(".flac") ? "flac" : "mpeg";
+    const blob = new Blob([binary], { type: `audio/${ext}` });
+    const url = URL.createObjectURL(blob);
+    audioCache.set(path, url);
+    evictOldCacheEntries();
+  } catch {
+    // ignore preload failures; playback path will try again.
+  }
+}
+
+async function preloadNextTrack() {
+  const next = getNextTrack();
+  if (!next) return;
+  await preloadTrack(next);
+}
+
 watch(
   singleTrack,
   (track) => {
     if (!track) {
       if (audioSrc.value) {
-        URL.revokeObjectURL(audioSrc.value);
+        revokeUrl(audioSrc.value);
         audioSrc.value = "";
       }
       isPlaying.value = false;
@@ -243,7 +305,7 @@ watch(
       return;
     }
     store.setCurrentPlaying(track.id);
-    loadAudioBlob(track.path).then(() => {
+    loadAudioBlobForCurrent(track).then(() => {
       const shouldAutoplay =
         autoplayOnSelect.value || shouldAutoplayNextSelection || store.playRequestTrackId === track.id;
       if (store.playRequestTrackId === track.id) store.setPlayRequestTrackId(null);
@@ -254,6 +316,8 @@ watch(
         if (!el) return;
         el.play().catch(() => {});
       });
+      // Once the current track is ready, start preloading the upcoming one in the background.
+      preloadNextTrack();
     });
     recomputeMarquee();
   },
@@ -341,6 +405,13 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
   window.removeEventListener("resize", recomputeMarquee);
+  // Cleanup any cached object URLs to avoid leaks.
+  revokeUrl(audioSrc.value);
+  audioSrc.value = "";
+  for (const url of audioCache.values()) {
+    revokeUrl(url);
+  }
+  audioCache.clear();
 });
 </script>
 

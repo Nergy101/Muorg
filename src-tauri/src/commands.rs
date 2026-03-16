@@ -1,4 +1,4 @@
-use crate::catalog::{Catalog, CatalogTrack};
+use crate::catalog::{Catalog, CatalogTrack, Playlist, PlaylistTrackEntry};
 use crate::metadata::{read_metadata, write_metadata, MetadataUpdate};
 use base64::Engine;
 use serde::Serialize;
@@ -132,6 +132,91 @@ pub async fn write_track_metadata(
     crate::catalog::update_track_metadata(&conn, &path, &update)?;
     Ok(())
 }
+
+// ── Playlist commands ──────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_playlists(catalog: State<'_, Arc<Catalog>>) -> Result<Vec<Playlist>, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::load_playlists(&conn)
+}
+
+#[tauri::command]
+pub async fn create_playlist(
+    catalog: State<'_, Arc<Catalog>>,
+    name: String,
+) -> Result<Playlist, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::create_playlist(&conn, &name)
+}
+
+#[tauri::command]
+pub async fn rename_playlist(
+    catalog: State<'_, Arc<Catalog>>,
+    id: i64,
+    name: String,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::rename_playlist(&conn, id, &name)
+}
+
+#[tauri::command]
+pub async fn delete_playlist(
+    catalog: State<'_, Arc<Catalog>>,
+    id: i64,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::delete_playlist(&conn, id)
+}
+
+#[tauri::command]
+pub async fn get_playlist_tracks(
+    catalog: State<'_, Arc<Catalog>>,
+    playlist_id: i64,
+) -> Result<Vec<i64>, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::get_playlist_tracks(&conn, playlist_id)
+}
+
+#[tauri::command]
+pub async fn get_playlist_entries(
+    catalog: State<'_, Arc<Catalog>>,
+    playlist_id: i64,
+) -> Result<Vec<PlaylistTrackEntry>, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::get_playlist_entries(&conn, playlist_id)
+}
+
+#[tauri::command]
+pub async fn remove_playlist_entry(
+    catalog: State<'_, Arc<Catalog>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::remove_playlist_entry_by_id(&conn, entry_id)
+}
+
+#[tauri::command]
+pub async fn add_tracks_to_playlist(
+    catalog: State<'_, Arc<Catalog>>,
+    playlist_id: i64,
+    track_ids: Vec<i64>,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::add_tracks_to_playlist(&conn, playlist_id, &track_ids)
+}
+
+#[tauri::command]
+pub async fn remove_tracks_from_playlist(
+    catalog: State<'_, Arc<Catalog>>,
+    playlist_id: i64,
+    track_ids: Vec<i64>,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::remove_tracks_from_playlist(&conn, playlist_id, &track_ids)
+}
+
+// ── Image fetch ────────────────────────────────────────────────────────────
 
 /// Download an image from a URL and return base64-encoded data plus MIME type (e.g. for Wikipedia album art).
 #[derive(serde::Serialize)]

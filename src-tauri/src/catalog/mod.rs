@@ -1,8 +1,10 @@
 mod db;
 
 pub use db::{
-    load_roots, load_tracks, remove_root, rescan_root, save_roots, scan_and_insert,
-    update_track_metadata, CatalogTrack,
+    add_tracks_to_playlist, create_playlist, delete_playlist, get_playlist_entries,
+    get_playlist_tracks, load_playlists, load_roots, load_tracks, remove_playlist_entry_by_id,
+    remove_root, remove_tracks_from_playlist, rescan_root, rename_playlist, save_roots,
+    scan_and_insert, update_track_metadata, CatalogTrack, Playlist, PlaylistTrackEntry,
 };
 use std::path::Path;
 use std::sync::Mutex;

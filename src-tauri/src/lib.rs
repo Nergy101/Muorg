@@ -51,6 +51,15 @@ pub fn run() {
             commands::get_track_cover,
             commands::read_audio_file,
             commands::fetch_image_url,
+            commands::get_playlists,
+            commands::create_playlist,
+            commands::rename_playlist,
+            commands::delete_playlist,
+            commands::get_playlist_tracks,
+            commands::get_playlist_entries,
+            commands::add_tracks_to_playlist,
+            commands::remove_tracks_from_playlist,
+            commands::remove_playlist_entry,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
