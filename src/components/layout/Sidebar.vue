@@ -337,6 +337,7 @@ async function handleAddFolder() {
     } else {
       await store.addFolders(paths);
     }
+    await playlistStore.loadPlaylists();
   } catch {
     // error shown in store
   }
@@ -345,6 +346,7 @@ async function handleAddFolder() {
 async function handleRescan(rootPath: string) {
   try {
     await store.rescan(rootPath);
+    await playlistStore.loadPlaylists();
   } catch {
     // error shown in store
   }
@@ -356,6 +358,7 @@ async function handleRemoveFolder(rootPath: string) {
   }
   try {
     await store.removeFolder(rootPath);
+    await playlistStore.loadPlaylists();
   } catch {
     // error shown in store
   }
@@ -368,10 +371,14 @@ const allRootsHidden = computed(() => {
 
 function handleHideAll() { store.hideAllRoots(); }
 function handleShowAll() { store.showAllRoots(); }
-async function handleRefreshAll() { await store.refreshAll(); }
+async function handleRefreshAll() {
+  await store.refreshAll();
+  await playlistStore.loadPlaylists();
+}
 async function handleRemoveAll() {
   if (!confirm("Remove all folders from the library? Files on disk are not deleted.")) return;
   await store.removeAllFolders();
+  await playlistStore.loadPlaylists();
 }
 
 </script>

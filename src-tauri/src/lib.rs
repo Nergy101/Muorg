@@ -37,6 +37,12 @@ pub fn run() {
             }
             let db_path = app_data.join("muorg.db");
             let catalog = Catalog::new(&db_path).map_err(|e| e.to_string())?;
+            // Purge soft-deleted tracks and roots older than 30 days.
+            {
+                let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+                let thirty_days = 30 * 24 * 60 * 60;
+                let _ = catalog::gc_deleted_tracks(&conn, thirty_days);
+            }
             app.manage(Arc::new(catalog));
             Ok(())
         })
@@ -46,6 +52,7 @@ pub fn run() {
             commands::get_tracks,
             commands::rescan,
             commands::remove_folder,
+            commands::clear_cache,
             commands::write_track_metadata,
             commands::path_to_folder,
             commands::get_track_cover,

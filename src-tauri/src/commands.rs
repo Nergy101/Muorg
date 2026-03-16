@@ -77,6 +77,14 @@ pub async fn remove_folder(
     crate::catalog::remove_root(&conn, &root_path)
 }
 
+/// Hard-delete all soft-deleted tracks and their now-orphaned roots immediately,
+/// bypassing the 30-day grace period used at startup.
+#[tauri::command]
+pub async fn clear_cache(catalog: State<'_, Arc<Catalog>>) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::gc_deleted_tracks(&conn, 0)
+}
+
 /// Cover art data returned to the frontend so it can use the correct MIME type in data URLs
 /// (e.g. image/png) and show dimensions/size. Using the wrong MIME type (e.g. image/jpeg for PNG)
 /// can prevent dimensions from loading and cause inconsistent display in table vs group headers.
@@ -127,9 +135,15 @@ pub async fn write_track_metadata(
     path: String,
     update: MetadataUpdate,
 ) -> Result<(), String> {
-    write_metadata(std::path::Path::new(&path), &update)?;
+    let file_path = std::path::Path::new(&path);
+    write_metadata(file_path, &update)?;
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
     crate::catalog::update_track_metadata(&conn, &path, &update)?;
+    // Recompute the content hash after the file has been modified so that a future
+    // remove-and-re-add of the folder still matches this track's updated hash.
+    if let Ok(new_hash) = crate::catalog::compute_content_hash(file_path) {
+        let _ = crate::catalog::update_track_hash(&conn, &path, &new_hash);
+    }
     Ok(())
 }
 

@@ -108,12 +108,7 @@ export const usePlaylistStore = defineStore("playlists", {
       this.error = null;
       try {
         await invoke("add_tracks_to_playlist", { playlistId, trackIds });
-        // Refresh track count for this playlist.
-        this.playlists = this.playlists.map((p) =>
-          p.id === playlistId
-            ? { ...p, track_count: p.track_count + trackIds.length }
-            : p
-        );
+        await this.loadPlaylists();
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
       }
@@ -124,11 +119,7 @@ export const usePlaylistStore = defineStore("playlists", {
       this.error = null;
       try {
         await invoke("remove_tracks_from_playlist", { playlistId, trackIds });
-        this.playlists = this.playlists.map((p) =>
-          p.id === playlistId
-            ? { ...p, track_count: Math.max(0, p.track_count - trackIds.length) }
-            : p
-        );
+        await this.loadPlaylists();
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
       }

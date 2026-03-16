@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
 import { storeToRefs } from "pinia";
+import { invoke } from "@tauri-apps/api/core";
 import { appConfigDir, join } from "@tauri-apps/api/path";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -274,6 +275,21 @@ async function restartAfterUpdate() {
   await relaunch();
 }
 
+const clearCacheStatus = ref<"idle" | "clearing" | "done" | "error">("idle");
+const clearCacheError = ref<string | null>(null);
+
+async function clearCache() {
+  clearCacheStatus.value = "clearing";
+  clearCacheError.value = null;
+  try {
+    await invoke("clear_cache");
+    clearCacheStatus.value = "done";
+  } catch (e) {
+    clearCacheError.value = e instanceof Error ? e.message : String(e);
+    clearCacheStatus.value = "error";
+  }
+}
+
 const settingsFilePath = ref<string | null>(null);
 onMounted(async () => {
   try {
@@ -455,6 +471,28 @@ watch(openSettingsAtTab, (tab) => {
                     Open in file manager
                   </button>
                 </div>
+              </div>
+
+              <div class="settings-section">
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="database" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Database cache
+                </p>
+                <p class="mb-2 text-xs text-stone-500">
+                  Removed folders are kept in the database temporarily so playlists can be restored if the folder is re-added. Use this to free that space immediately.
+                </p>
+                <button
+                  type="button"
+                  class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="clearCacheStatus === 'clearing'"
+                  @click="clearCache"
+                >
+                  <span v-if="clearCacheStatus === 'idle'">Clear cache</span>
+                  <span v-else-if="clearCacheStatus === 'clearing'">Clearing…</span>
+                  <span v-else-if="clearCacheStatus === 'done'">Cache cleared</span>
+                  <span v-else-if="clearCacheStatus === 'error'">Failed</span>
+                </button>
+                <p v-if="clearCacheError" class="mt-1 text-xs text-amber-400">{{ clearCacheError }}</p>
               </div>
 
               <div class="settings-section">

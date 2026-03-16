@@ -908,7 +908,11 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
 
       <!-- Add to playlist section -->
       <div class="my-1 border-t border-stone-700" />
-      <div class="relative">
+      <div
+        class="relative"
+        @mouseenter="playlistSubmenuOpen = true"
+        @mouseleave="playlistSubmenuOpen = false"
+      >
         <button
           type="button"
           class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
