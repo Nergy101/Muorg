@@ -9,6 +9,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
+import PlaylistExportDialog from "../shared/PlaylistExportDialog.vue";
+import type { Playlist } from "../../types";
 
 defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ toggle: [] }>();
@@ -26,6 +28,8 @@ const { missingMetadataFields, hideReportsSection } = storeToRefs(settingsStore)
 
 type SidebarTabId = "folders" | "playlists";
 const activeSidebarTab = ref<SidebarTabId>("folders");
+
+const exportingPlaylist = ref<Playlist | null>(null);
 
 const tooltipPopover = ref<{
   text: string;
@@ -715,6 +719,14 @@ async function handleRemoveAll() {
                   </span>
                   <span class="shrink-0 text-[0.7rem] text-stone-500">{{ playlist.track_count }}</span>
                 </button>
+                <button
+                  type="button"
+                  class="mr-1 shrink-0 rounded p-1 text-stone-500 opacity-0 hover:text-stone-300 group-hover/pl:opacity-100"
+                  aria-label="Export playlist"
+                  @click.stop="exportingPlaylist = playlist"
+                >
+                  <FeatherIcon name="download" class="h-3.5 w-3.5" />
+                </button>
               </template>
             </li>
           </ul>
@@ -778,6 +790,12 @@ async function handleRemoveAll() {
       @confirm-all="confirmAddAll"
       @confirm-deduped="confirmAddDeduped"
       @cancel="cancelPendingAdd"
+    />
+    <PlaylistExportDialog
+      v-if="exportingPlaylist"
+      :playlist="exportingPlaylist"
+      :open="true"
+      @close="exportingPlaylist = null"
     />
   </aside>
 </template>

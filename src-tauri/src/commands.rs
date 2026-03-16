@@ -51,6 +51,11 @@ pub async fn path_to_folder(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub async fn write_text_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_roots(catalog: State<'_, Arc<Catalog>>) -> Result<Vec<String>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
     crate::catalog::load_roots(&conn)

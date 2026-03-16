@@ -52,11 +52,21 @@ const {
   openSettingsAtTab,
   playerGlowIntensity,
   defaultBottomPanel,
+  musicRootFolder,
 } = storeToRefs(settingsStore);
 
 const glowSettingsDisabled = computed(() => playerGlowIntensity.value === "off");
 
-type SettingsTabId = "general" | "theme" | "playback" | "keyboard" | "table" | "reports" | "smart_suggestions";
+/** Default for Music Root Folder when not set: single loaded folder name, else "Music". */
+function musicRootFolderBasename(path: string): string {
+  const segments = path.split(/[/\\]/).filter(Boolean);
+  return segments[segments.length - 1] ?? "Music";
+}
+const musicRootFolderPlaceholder = computed(() =>
+  store.roots.length === 1 ? musicRootFolderBasename(store.roots[0]) : "Music"
+);
+
+type SettingsTabId = "general" | "theme" | "playback" | "keyboard" | "table" | "reports" | "exports" | "smart_suggestions";
 const settingsTab = ref<SettingsTabId>("general");
 const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: "general", label: "General", icon: "sliders" },
@@ -65,6 +75,7 @@ const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: "keyboard", label: "Keyboard", icon: "command" },
   { id: "table", label: "Layout", icon: "layout" },
   { id: "reports", label: "Reports", icon: "bar-chart-2" },
+  { id: "exports", label: "Exports", icon: "download" },
   { id: "smart_suggestions", label: "Smart Suggestions", icon: "zap" },
 ];
 
@@ -1091,6 +1102,28 @@ watch(openSettingsAtTab, (tab) => {
                     {{ opt.label }}
                   </label>
                 </div>
+              </div>
+            </div>
+
+            <div v-show="settingsTab === 'exports'" class="space-y-3">
+              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+                <FeatherIcon name="download" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                Exports</p>
+
+              <div class="settings-section">
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="folder" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Music Root Folder</p>
+                <input
+                  :value="musicRootFolder"
+                  type="text"
+                  :placeholder="musicRootFolderPlaceholder"
+                  class="mt-1 w-full rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-xs text-stone-200 placeholder:text-stone-500 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+                  @input="settingsStore.setMusicRootFolder(($event.target as HTMLInputElement).value)"
+                />
+                <p class="mt-1.5 text-xs text-stone-500">
+                  Enter just the folder name (e.g. <code class="rounded bg-stone-700 px-1 font-mono text-[11px]">Music</code>), not a full path. This should be the root folder that is scanned into your library. It is used to generate relative paths inside exported playlist files.
+                </p>
               </div>
             </div>
 

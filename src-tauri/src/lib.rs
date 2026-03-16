@@ -55,6 +55,7 @@ pub fn run() {
             commands::clear_cache,
             commands::write_track_metadata,
             commands::path_to_folder,
+            commands::write_text_file,
             commands::get_track_cover,
             commands::read_audio_file,
             commands::fetch_image_url,

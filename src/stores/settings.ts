@@ -183,6 +183,8 @@ export const useSettingsStore = defineStore("settings", {
     queuePanelWidthFraction: 0.25,
     /** Bottom panel height in px when Player or Queue tab is active (72–600). */
     bottomPanelHeightPx: 260,
+    /** Folder name (e.g. "Music") used as root for exported playlist relative paths. */
+    musicRootFolder: "",
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -225,6 +227,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
         if ("queuePanelWidthFraction" in data) this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(data.queuePanelWidthFraction);
         if ("bottomPanelHeightPx" in data) this.bottomPanelHeightPx = coerceBottomPanelHeightPx(data.bottomPanelHeightPx);
+        if ("musicRootFolder" in data) this.musicRootFolder = coerceString(data.musicRootFolder, "");
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -264,6 +267,7 @@ export const useSettingsStore = defineStore("settings", {
           playerGlowIntensity: this.playerGlowIntensity,
           queuePanelWidthFraction: this.queuePanelWidthFraction,
           bottomPanelHeightPx: this.bottomPanelHeightPx,
+          musicRootFolder: this.musicRootFolder,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -403,6 +407,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setBottomPanelHeightPx(value: number) {
       this.bottomPanelHeightPx = coerceBottomPanelHeightPx(value);
+      this.saveToFile();
+    },
+    setMusicRootFolder(value: string) {
+      this.musicRootFolder = typeof value === "string" ? value : "";
       this.saveToFile();
     },
   },
