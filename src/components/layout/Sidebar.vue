@@ -361,6 +361,19 @@ async function handleRemoveFolder(rootPath: string) {
   }
 }
 
+const allRootsHidden = computed(() => {
+  const rootsList = roots.value;
+  return rootsList.length > 0 && rootsList.every((r) => store.isRootHidden(r));
+});
+
+function handleHideAll() { store.hideAllRoots(); }
+function handleShowAll() { store.showAllRoots(); }
+async function handleRefreshAll() { await store.refreshAll(); }
+async function handleRemoveAll() {
+  if (!confirm("Remove all folders from the library? Files on disk are not deleted.")) return;
+  await store.removeAllFolders();
+}
+
 </script>
 
 <template>
@@ -440,6 +453,51 @@ async function handleRemoveFolder(rootPath: string) {
               <FeatherIcon name="folder-plus" class="h-4 w-4 shrink-0 text-stone-400" />
               Add folder
             </button>
+            <div v-if="roots.length" class="mb-2 flex items-center justify-center gap-0.5">
+              <span
+                class="inline-flex"
+                @mouseenter="showTooltip(allRootsHidden ? 'Show all in table' : 'Hide all from table', $event)"
+                @mouseleave="scheduleHideTooltip"
+              >
+                <button
+                  type="button"
+                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-stone-200"
+                  :aria-label="allRootsHidden ? 'Show all in table' : 'Hide all from table'"
+                  @click="allRootsHidden ? handleShowAll() : handleHideAll()"
+                >
+                  <FeatherIcon v-if="allRootsHidden" name="eye" class="h-3.5 w-3.5" />
+                  <FeatherIcon v-else name="eye-off" class="h-3.5 w-3.5" />
+                </button>
+              </span>
+              <span
+                class="inline-flex"
+                @mouseenter="showTooltip('Refresh all folders', $event)"
+                @mouseleave="scheduleHideTooltip"
+              >
+                <button
+                  type="button"
+                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-stone-200"
+                  aria-label="Refresh all folders"
+                  @click="handleRefreshAll"
+                >
+                  <FeatherIcon name="refresh-cw" class="h-3.5 w-3.5" />
+                </button>
+              </span>
+              <span
+                class="inline-flex"
+                @mouseenter="showTooltip('Remove all folders from library', $event)"
+                @mouseleave="scheduleHideTooltip"
+              >
+                <button
+                  type="button"
+                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-red-400"
+                  aria-label="Remove all folders from library"
+                  @click="handleRemoveAll"
+                >
+                  <FeatherIcon name="x" class="h-3.5 w-3.5" />
+                </button>
+              </span>
+            </div>
             <ul v-if="roots.length" class="space-y-1">
               <li
                 v-for="root in sortedRoots"
@@ -489,13 +547,13 @@ async function handleRemoveFolder(rootPath: string) {
                 </span>
                 <span
                   class="inline-flex"
-                  @mouseenter="showTooltip('Remove from library (files stay on disk)', $event)"
+                  @mouseenter="showTooltip('Remove from library', $event)"
                   @mouseleave="scheduleHideTooltip"
                 >
                   <button
                     type="button"
                     class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-red-600 hover:text-white"
-                    aria-label="Remove from library (files stay on disk)"
+                    aria-label="Remove from library"
                     @click="handleRemoveFolder(root)"
                   >
                     <FeatherIcon name="x" class="h-3.5 w-3.5" />
