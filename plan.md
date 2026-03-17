@@ -44,28 +44,257 @@ The app is **shipped** with: add folders, catalog in SQLite, library table with 
 
 ## Features — Next (Phase 4)
 
-Prioritized work still to do.
+Phase 4 focuses on **safety**, **export interoperability**, and **workflow power** for larger libraries. The aim is to make changes reversible, data portable, and common “library cleanup” tasks faster.
 
-1. **Export catalog**  
-   Export full catalog or current view to **CSV** or **JSON** (e.g. for backup, analysis, or use in other tools).
+### Phase 4 epics (prioritized)
 
-2. **Backup before write**  
-   Optional “backup before modifying metadata” (e.g. copy file or save tag backup) so users can revert bad writes.
+#### P4-E1 — Catalog export (CSV / JSON)
 
-3. **Undo / redo**  
-   Undo (and redo) for metadata edits in the current session (in-memory or limited history).
+**User value**: “Let me get my library out of Muorg for backup, analysis, or migration.”
 
-4. **Auto-tagging (MusicBrainz / acoustic fingerprint)**  
-   Optional integration with MusicBrainz or acoustic fingerprinting to suggest or apply metadata from an online database.
+**Scope**
+- Export **entire catalog** or **current filtered/sorted view**.
+- Formats:
+  - **CSV**: human-friendly, spreadsheet-ready.
+  - **JSON**: tooling-friendly, preserves types and nested fields.
+- Include both:
+  - **Track-level fields** (title, artist, album, year, etc.)
+  - **File-level fields** (path, size, modified time, format, duration)
+- Optional “include artwork”:
+  - Default: **no embedded binary art in exports**
+  - If enabled: export **artwork as file references** (e.g. extracted thumbnails or “artwork hash”) rather than raw bytes.
 
-5. **Multiple libraries / workspaces**  
-   Support more than one catalog (e.g. “Home”, “External drive”) and switch or merge views.
+**UX / UI**
+- Export action available from:
+  - Library toolbar (Export…)
+  - Context menu (Export current view…)
+- Dialog options:
+  - Format selector (CSV / JSON)
+  - Scope selector (All tracks / Current view / Selected tracks)
+  - Column/field picker (reuse the existing column configuration where possible)
+  - File naming template (default: `muorg-catalog-YYYY-MM-DD`)
 
-6. **Custom columns / saved views**  
-   Let users choose which columns to show and save table layout (sort, column order, visibility) per session or as a preference.
+**Acceptance criteria**
+- Exported file is written successfully for large libraries (100k+ rows) without freezing UI (progress + cancel).
+- “Current view” export matches visible filters, search, grouping, and sort order.
+- CSV escapes correctly (commas, quotes, newlines, UTF-8).
+- JSON schema is stable and versioned (`schemaVersion`) so it can evolve without breaking tools.
 
-7. **ReplayGain / loudness**  
-   Read and display ReplayGain or loudness metadata where present; optional write support later.
+**Dependencies / notes**
+- Reuse catalog query layer used for library table and reports.
+- Consider streaming writes for CSV/JSON to avoid memory spikes.
+
+---
+
+#### P4-E2 — Playlist export upgrades (Rockbox / portable paths)
+
+**User value**: “Export playlists that work on my devices (Rockbox, DAPs, etc.).”
+
+**Scope**
+- Export:
+  - Existing playlist entities (current behavior)
+  - “Current view” as an ad-hoc playlist export
+- Add target presets:
+  - **Standard M3U / M3U8**
+  - **Rockbox-friendly** (path rules aligned with Rockbox expectations)
+- Path strategies:
+  - Relative to **Music Root Folder** (existing setting)
+  - Absolute paths
+  - Optional “normalize separators” (Windows `\` vs `/`) depending on target
+- Encoding:
+  - `.m3u8` always UTF-8
+  - `.m3u` optionally local/legacy encoding (default UTF-8 unless strong reason otherwise)
+
+**UX / UI**
+- Export dialog adds “Target device preset” and previews a few lines of output.
+- Clear errors when a track path cannot be made relative to the chosen root.
+
+**Acceptance criteria**
+- Rockbox preset produces playlists that load on Rockbox for common folder layouts.
+- Export is deterministic and stable (same input -> same output).
+- User can export either a named playlist or the current filtered view.
+
+**Dependencies / notes**
+- Builds on P4-E1 export dialog plumbing (shared “scope selection” patterns).
+
+---
+
+#### P4-E3 — Backup-before-write (metadata safety net)
+
+**User value**: “I can experiment with edits without fear of destroying my files.”
+
+**Scope**
+- Optional setting: **Backup before modifying metadata**
+- Backup modes (choose one, or phase in):
+  - **Copy file backup** (simplest/most reliable; largest disk cost)
+  - **Tag-only backup** (smaller but more complex; store original tag blocks)
+- Backup location:
+  - Default under app-managed directory (per-workspace or global)
+  - Optionally “next to file” (disabled by default to avoid clutter/perms issues)
+- Retention:
+  - Keep last \(N\) backups per file or time-based retention (configurable)
+
+**UX / UI**
+- Before Save: summary shows “Backups will be created: Yes/No”.
+- Provide “Reveal backup folder” action and a per-file “Restore from backup…” entry (even if restore is a later epic, design the backup format to support it).
+
+**Acceptance criteria**
+- When enabled, any successful tag write results in a restorable backup artifact.
+- Backup failures are surfaced clearly and do not silently proceed (user chooses: continue without backup / cancel).
+- Works across macOS/Windows/Linux paths and permissions.
+
+**Dependencies / notes**
+- Impacts write pipeline; should integrate with Undo (P4-E4) even if undo is session-only.
+
+---
+
+#### P4-E4 — Undo / redo (session-level edits)
+
+**User value**: “I can revert a bad bulk edit immediately.”
+
+**Scope**
+- Undo/redo for metadata edits made in the current app session.
+- Bound the history:
+  - Limit by count (e.g. 50 operations) and/or memory footprint.
+- Operation granularity:
+  - One “Save” action = one undo step (preferred; matches user mental model)
+  - Bulk edit = one step with per-file diffs stored
+
+**UX / UI**
+- Standard shortcuts (Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z).
+- Undo stack shown in a lightweight history popover (optional; can be later).
+
+**Acceptance criteria**
+- Undo reverts both:
+  - In-app catalog view state (SQLite + UI)
+  - File tags on disk (when a save has occurred), or clearly defines limitations if not implemented yet.
+
+**Dependencies / notes**
+- If “undo on disk” is too risky for first pass, do:
+  - Immediate session undo for **unsaved** changes first
+  - Then integrate with backups (P4-E3) to support “undo saved changes” by restore.
+
+---
+
+#### P4-E5 — Smart-tagging at album scope (path-based automation)
+
+**User value**: “I can normalize a whole album quickly using my folder conventions.”
+
+**Scope**
+- Extend “Apply from path” to operate on:
+  - Entire album group
+  - Entire selection
+- Support templates and rules already in Smart Suggestions:
+  - Artist/Album/Track parsing
+  - Optional inference of disc/track numbers
+  - “Do not overwrite existing fields” toggles
+
+**UX / UI**
+- On album group header: “Apply from path to album…”
+- Preview changes (diff) before applying to many files.
+
+**Acceptance criteria**
+- For a grouped album, applying uses the correct base path and produces consistent results.
+- User can review a change list and deselect outliers before applying.
+
+**Dependencies / notes**
+- Reuses bulk edit + diff/preview component patterns.
+
+---
+
+#### P4-E6 — Auto-tagging (MusicBrainz / fingerprint-assisted suggestions)
+
+**User value**: “Help me fix unknown tracks and fill in missing metadata reliably.”
+
+**Scope (incremental)**
+- Start with **suggest-only** (never auto-write without review).
+- Data sources:
+  - MusicBrainz lookup by metadata (artist/title/album)
+  - Optional acoustic fingerprinting (Chromaprint / AcoustID) for hard cases
+- Matching workflow:
+  - Candidate matches list with confidence signals
+  - Apply selected fields (title/artist/album/year/track#) with preview
+
+**UX / UI**
+- “Find matches…” action in metadata panel and/or report rows (missing metadata).
+- Side-by-side comparison: current tags vs suggested tags.
+
+**Acceptance criteria**
+- User can run lookup for a selection and apply chosen match safely.
+- Clear rate limits and caching to avoid hammering services.
+
+**Dependencies / notes**
+- Requires careful UX for trust and safety; tie into backups (P4-E3).
+
+---
+
+#### P4-E7 — Workspaces (separate libraries + settings profiles)
+
+**User value**: “Keep different collections (e.g. DAP sync, DJ crates, archive) separated.”
+
+**Scope**
+- Create/switch/delete workspaces.
+- Each workspace owns:
+  - Library roots
+  - SQLite catalog
+  - Playlists
+  - Layout preferences that affect catalog UX (columns, grouping defaults)
+- Global settings remain global (theme, keybindings) unless a strong reason to scope them.
+
+**UX / UI**
+- Workspace switcher in sidebar/header.
+- First-run flow: create default workspace automatically.
+
+**Acceptance criteria**
+- Switching workspaces cleanly swaps catalog and playlists without cross-contamination.
+- Export/backup paths include workspace name to avoid confusion.
+
+---
+
+#### P4-E8 — Custom views (saved filters + column presets)
+
+**User value**: “I can save ‘reports-as-views’ like a librarian’s index cards.”
+
+**Scope**
+- Save a “View” consisting of:
+  - Search query
+  - Filters
+  - Grouping mode
+  - Visible columns + widths + sort order
+  - Optional playlist filter
+- Views appear in sidebar under a “Views” section.
+
+**UX / UI**
+- “Save current view…” action and “Update saved view” when active.
+- Manage views (rename, reorder, delete).
+
+**Acceptance criteria**
+- Activating a view reproduces the exact library presentation reliably.
+- Views survive restarts and are workspace-scoped.
+
+---
+
+#### P4-E9 — ReplayGain (analysis + playback normalization)
+
+**User value**: “Consistent loudness across tracks/albums without manual volume riding.”
+
+**Scope (phased)**
+- Detect and display ReplayGain tags (track/album gain + peak).
+- Optional analysis pass to compute ReplayGain for selected tracks/albums.
+- Playback option:
+  - Off / Track / Album modes
+  - Preamp controls and clipping prevention
+
+**UX / UI**
+- Display gain fields in metadata panel (read-only initially).
+- Settings toggle for normalization behavior.
+
+**Acceptance criteria**
+- If tags exist, Muorg uses them during playback when enabled.
+- Analysis (if implemented) is cancellable and doesn’t block the UI.
+
+**Dependencies / notes**
+- Requires DSP decisions and careful cross-platform audio behavior; okay to ship read-only support first.
 
 ---
 
@@ -85,6 +314,8 @@ Prioritized work still to do.
 | FLAC/ID3 edge cases (corrupt or non-standard tags) | Use well-tested crates; catch errors per-file; show “failed” list instead of crashing. |
 | Large libraries (100k+ files) | Scan in chunks; store catalog in SQLite; virtual-scroll table for 100k+ rows. |
 | Overwriting user data | Only write tag blocks; optional “backup before write”; confirm on bulk save. |
+| External metadata trust (auto-tagging mismatches) | Suggest-only first; require preview/explicit apply; show confidence + provenance; integrate with backups/restore. |
+| Cross-platform path/encoding weirdness (exports/playlists) | UTF-8 by default; test Windows path separators; preview output; validate “Music Root Folder” relativity. |
 
 ---
 
@@ -93,6 +324,20 @@ Prioritized work still to do.
 - User can add folders, see all MP3/FLAC in a table, edit metadata (including album art), and save back to files on **macOS**, **Windows**, and **Linux**.
 - UI feels like a “library” (structured, catalog-first) and supports search/filter, grouping, bulk edit, reports, and theming.
 - No data loss: metadata writes are bounded to tag updates with clear feedback.
+- Phase 4 improvements make Muorg safer and more interoperable: exports are reliable, playlist exports work on target devices, and edits are reversible (undo and/or restore via backups).
+
+---
+
+## Phase 4 definition of done (backlog helper)
+
+For any Phase 4 item to be considered “done” (for a release), it should meet:
+
+- **Clear scope boundary**: The feature explicitly states what it does *not* do yet (e.g. ReplayGain read-only vs analysis).
+- **Progress + cancel**: Long-running tasks (scan/export/analysis/lookup) show progress and can be cancelled.
+- **No UI freeze**: Library remains responsive during background work.
+- **Per-file error reporting**: Failures are isolated and presented in a usable list (with copyable details).
+- **Safe defaults**: Any operation that touches files favors safety (preview-first, no silent overwrite, backups when enabled).
+- **Workspace-aware** (if workspaces exist): Data is stored and retrieved within the active workspace boundaries.
 
 ---
 
