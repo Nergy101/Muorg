@@ -955,51 +955,79 @@ pub fn update_track_metadata(
     let mut sets = Vec::new();
     let mut params: Vec<rusqlite::types::Value> = Vec::new();
 
-    if let Some(ref t) = update.title {
+    if let Some(v) = &update.title {
         sets.push("title = ?");
-        params.push(rusqlite::types::Value::Text(t.clone()));
+        params.push(match v {
+            Some(s) => rusqlite::types::Value::Text(s.clone()),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(ref a) = update.artist {
+    if let Some(v) = &update.artist {
         sets.push("artist = ?");
-        params.push(rusqlite::types::Value::Text(a.clone()));
+        params.push(match v {
+            Some(s) => rusqlite::types::Value::Text(s.clone()),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(ref a) = update.album {
+    if let Some(v) = &update.album {
         sets.push("album = ?");
-        params.push(rusqlite::types::Value::Text(a.clone()));
+        params.push(match v {
+            Some(s) => rusqlite::types::Value::Text(s.clone()),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(ref a) = update.album_artist {
+    if let Some(v) = &update.album_artist {
         sets.push("album_artist = ?");
-        params.push(rusqlite::types::Value::Text(a.clone()));
+        params.push(match v {
+            Some(s) => rusqlite::types::Value::Text(s.clone()),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(ref f) = update.featuring {
+    if let Some(v) = &update.featuring {
         if schema_has_column(conn, "tracks", "featuring")? {
             sets.push("featuring = ?");
-            params.push(rusqlite::types::Value::Text(f.clone()));
+            params.push(match v {
+                Some(s) => rusqlite::types::Value::Text(s.clone()),
+                None => rusqlite::types::Value::Null,
+            });
         }
     }
-    if let Some(y) = update.year {
+    if let Some(v) = update.year {
         sets.push("year = ?");
-        params.push(rusqlite::types::Value::Integer(y as i64));
+        params.push(match v {
+            Some(y) => rusqlite::types::Value::Integer(y as i64),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(ref g) = update.genre {
+    if let Some(v) = &update.genre {
         sets.push("genre = ?");
-        params.push(rusqlite::types::Value::Text(g.clone()));
+        params.push(match v {
+            Some(s) => rusqlite::types::Value::Text(s.clone()),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(n) = update.track_number {
+    if let Some(v) = update.track_number {
         sets.push("track_number = ?");
-        params.push(rusqlite::types::Value::Integer(n as i64));
+        params.push(match v {
+            Some(n) => rusqlite::types::Value::Integer(n as i64),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(n) = update.disc_number {
+    if let Some(v) = update.disc_number {
         sets.push("disc_number = ?");
-        params.push(rusqlite::types::Value::Integer(n as i64));
+        params.push(match v {
+            Some(n) => rusqlite::types::Value::Integer(n as i64),
+            None => rusqlite::types::Value::Null,
+        });
     }
-    if let Some(ref b64) = update.picture_base64 {
+    if let Some(v) = &update.picture_base64 {
+        // Clearing picture should also clear has_cover.
+        let has = match v {
+            Some(b64) => if b64.is_empty() { 0 } else { 1 },
+            None => 0,
+        };
         sets.push("has_cover = ?");
-        params.push(rusqlite::types::Value::Integer(if b64.is_empty() {
-            0
-        } else {
-            1
-        }));
+        params.push(rusqlite::types::Value::Integer(has));
     }
 
     if sets.is_empty() {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useCatalogStore } from "../../stores/catalog";
-import FeatherIcon from "./FeatherIcon.vue";
 
 const props = defineProps<{
   path: string;
@@ -54,7 +53,11 @@ const iconSizeClass = computed(() => {
 </script>
 
 <template>
-  <div class="flex items-center justify-center overflow-hidden rounded bg-stone-900 shrink-0" :class="sizeClass" :style="sizeStyle">
+  <div
+    class="flex items-center justify-center overflow-hidden rounded bg-stone-900 shrink-0"
+    :class="sizeClass"
+    :style="sizeStyle"
+  >
     <img
       v-if="cover"
       :src="store.getCoverDataUrl(props.path) || undefined"
@@ -67,7 +70,7 @@ const iconSizeClass = computed(() => {
       :class="iconSizeClass"
       aria-hidden="true"
     >
-      <FeatherIcon name="music" class="h-full w-full" />
+      ♪
     </span>
   </div>
 </template>

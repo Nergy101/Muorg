@@ -993,6 +993,24 @@ watch(openSettingsAtTab, (tab) => {
 
               <div class="settings-section">
                 <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Group header album art</p>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="groupHeaderAlbumArt"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setGroupHeaderAlbumArt((e.target as HTMLInputElement).checked)"
+                  />
+                  Show album art on "Missing metadata" groups
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  Simply showing or hiding album covers on Album-headers.
+                </p>
+              </div>
+
+              <div class="settings-section">
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
                   <FeatherIcon name="sidebar" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
                   Sidebar</p>
                 <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
@@ -1111,24 +1129,6 @@ watch(openSettingsAtTab, (tab) => {
               <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
                 <FeatherIcon name="bar-chart-2" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
                 Reports</p>
-
-              <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Group header album art</p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="groupHeaderAlbumArt"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setGroupHeaderAlbumArt((e.target as HTMLInputElement).checked)"
-                  />
-                  Show album art on "Missing metadata" groups
-                </label>
-                <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, album art is shown next to each album in the "Missing metadata" report.
-                </p>
-              </div>
 
               <div class="settings-section">
                 <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">

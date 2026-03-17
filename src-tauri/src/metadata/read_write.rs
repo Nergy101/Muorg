@@ -62,14 +62,14 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         meta.album_artist = tag
             .get_string(&lofty::tag::ItemKey::AlbumArtist)
             .map(|s| s.to_string());
-        // FLAC: custom key FEATURING; MP3: TPE2 (AlbumArtist in lofty)
+        // FEATURING is stored as a custom tag key ("FEATURING") across formats.
         if ext.as_deref() == Some("flac") {
             meta.featuring = tag
                 .get_string(&lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
                 .map(|s| s.to_string());
         } else if ext.as_deref() == Some("mp3") {
             meta.featuring = tag
-                .get_string(&lofty::tag::ItemKey::AlbumArtist)
+                .get_string(&lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
                 .map(|s| s.to_string());
         }
         meta.year = tag.year();
@@ -93,18 +93,19 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
 
 #[derive(serde::Deserialize)]
 pub struct MetadataUpdate {
-    pub title: Option<String>,
-    pub artist: Option<String>,
-    pub album: Option<String>,
-    pub album_artist: Option<String>,
+    /// None = leave unchanged; Some(None) = clear; Some(Some(v)) = set v.
+    pub title: Option<Option<String>>,
+    pub artist: Option<Option<String>>,
+    pub album: Option<Option<String>>,
+    pub album_artist: Option<Option<String>>,
     /// Featuring / guest artist. FLAC: FEATURING; MP3: TPE2.
-    pub featuring: Option<String>,
-    pub year: Option<u32>,
-    pub genre: Option<String>,
-    pub track_number: Option<u32>,
-    pub disc_number: Option<u32>,
+    pub featuring: Option<Option<String>>,
+    pub year: Option<Option<u32>>,
+    pub genre: Option<Option<String>>,
+    pub track_number: Option<Option<u32>>,
+    pub disc_number: Option<Option<u32>>,
     /// Base64-encoded image data for album cover; empty or null to clear
-    pub picture_base64: Option<String>,
+    pub picture_base64: Option<Option<String>>,
 }
 
 /// Write metadata to file. Creates tag if missing. Supports MP3 and FLAC.
@@ -122,7 +123,7 @@ pub fn write_metadata(path: &Path, update: &MetadataUpdate) -> Result<(), String
 
 /// MP3 write via id3 crate – avoids lofty's guess_file_type which fails on non-standard headers.
 fn write_metadata_mp3(path: &Path, update: &MetadataUpdate) -> Result<(), String> {
-    use id3::frame::{Picture, PictureType};
+    use id3::frame::{Content, ExtendedText, Frame, Picture, PictureType};
     use id3::{TagLike, Version};
 
     let mut tag = match id3::Tag::read_from_path(path) {
@@ -134,45 +135,103 @@ fn write_metadata_mp3(path: &Path, update: &MetadataUpdate) -> Result<(), String
         Err(e) => return Err(e.to_string()),
     };
 
-    if let Some(ref t) = update.title {
-        tag.set_title(t.clone());
+    if let Some(v) = &update.title {
+        match v {
+            Some(t) => tag.set_title(t.clone()),
+            None => {
+                tag.remove("TIT2");
+            }
+        }
     }
-    if let Some(ref a) = update.artist {
-        tag.set_artist(a.clone());
+    if let Some(v) = &update.artist {
+        match v {
+            Some(a) => tag.set_artist(a.clone()),
+            None => {
+                tag.remove("TPE1");
+            }
+        }
     }
-    if let Some(ref a) = update.album {
-        tag.set_album(a.clone());
+    if let Some(v) = &update.album {
+        match v {
+            Some(a) => tag.set_album(a.clone()),
+            None => {
+                tag.remove("TALB");
+            }
+        }
     }
-    if let Some(ref f) = update.featuring {
-        tag.set_album_artist(f.clone());
-    } else if let Some(ref a) = update.album_artist {
-        tag.set_album_artist(a.clone());
+    if let Some(v) = &update.album_artist {
+        match v {
+            Some(a) => tag.set_album_artist(a.clone()),
+            None => {
+                tag.remove("TPE2");
+            }
+        }
     }
-    if let Some(y) = update.year {
-        tag.set_year(y as i32);
+
+    // Featuring in MP3: store in TXXX:FEATURING (do NOT overload AlbumArtist).
+    if let Some(v) = &update.featuring {
+        // Remove any existing FEATURING frames (best-effort: remove all TXXX frames).
+        // This app only writes FEATURING as TXXX currently, so this is safe/simpler.
+        tag.remove("TXXX");
+        if let Some(f) = v {
+            tag.add_frame(Frame::with_content(
+                "TXXX",
+                Content::ExtendedText(ExtendedText {
+                    description: "FEATURING".to_string(),
+                    value: f.clone(),
+                }),
+            ));
+        }
     }
-    if let Some(ref g) = update.genre {
-        tag.set_genre(g.clone());
+
+    if let Some(v) = update.year {
+        match v {
+            Some(y) => tag.set_year(y as i32),
+            None => {
+                tag.remove("TYER");
+                tag.remove("TDRC");
+            }
+        }
     }
-    if let Some(t) = update.track_number {
-        tag.set_track(t);
+    if let Some(v) = &update.genre {
+        match v {
+            Some(g) => tag.set_genre(g.clone()),
+            None => {
+                tag.remove("TCON");
+            }
+        }
     }
-    if let Some(d) = update.disc_number {
-        tag.set_disc(d);
+    if let Some(v) = update.track_number {
+        match v {
+            Some(t) => tag.set_track(t),
+            None => {
+                tag.remove("TRCK");
+            }
+        }
     }
-    if let Some(ref b64) = update.picture_base64 {
+    if let Some(v) = update.disc_number {
+        match v {
+            Some(d) => tag.set_disc(d),
+            None => {
+                tag.remove("TPOS");
+            }
+        }
+    }
+    if let Some(v) = &update.picture_base64 {
         tag.remove_picture_by_type(PictureType::CoverFront);
-        if !b64.is_empty() {
-            match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64) {
-                Ok(data) => {
-                    tag.add_frame(Picture {
-                        mime_type: "image/jpeg".to_string(),
-                        picture_type: PictureType::CoverFront,
-                        description: String::new(),
-                        data,
-                    });
+        if let Some(b64) = v {
+            if !b64.is_empty() {
+                match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64) {
+                    Ok(data) => {
+                        tag.add_frame(Picture {
+                            mime_type: "image/jpeg".to_string(),
+                            picture_type: PictureType::CoverFront,
+                            description: String::new(),
+                            data,
+                        });
+                    }
+                    Err(_) => return Err("Invalid base64 for picture".to_string()),
                 }
-                Err(_) => return Err("Invalid base64 for picture".to_string()),
             }
         }
     }
@@ -198,47 +257,81 @@ fn write_metadata_flac(path: &Path, update: &MetadataUpdate) -> Result<(), Strin
         tagged_file.primary_tag_mut().unwrap()
     };
 
-    if let Some(ref t) = update.title {
-        tag.set_title(t.clone());
+    if let Some(v) = &update.title {
+        match v {
+            Some(t) => tag.set_title(t.clone()),
+            None => tag.remove_key(&lofty::tag::ItemKey::TrackTitle),
+        }
     }
-    if let Some(ref a) = update.artist {
-        tag.set_artist(a.clone());
+    if let Some(v) = &update.artist {
+        match v {
+            Some(a) => tag.set_artist(a.clone()),
+            None => tag.remove_key(&lofty::tag::ItemKey::TrackArtist),
+        }
     }
-    if let Some(ref a) = update.album {
-        tag.set_album(a.clone());
+    if let Some(v) = &update.album {
+        match v {
+            Some(a) => tag.set_album(a.clone()),
+            None => tag.remove_key(&lofty::tag::ItemKey::AlbumTitle),
+        }
     }
-    if let Some(ref f) = update.featuring {
-        tag.insert_text(lofty::tag::ItemKey::Unknown("FEATURING".to_string()), f.clone());
+    if let Some(v) = &update.featuring {
+        let key = lofty::tag::ItemKey::Unknown("FEATURING".to_string());
+        match v {
+            Some(f) => {
+                tag.insert_text(key, f.clone());
+            }
+            None => tag.remove_key(&key),
+        }
     }
-    if let Some(ref a) = update.album_artist {
-        tag.insert_text(lofty::tag::ItemKey::AlbumArtist, a.clone());
+    if let Some(v) = &update.album_artist {
+        match v {
+            Some(a) => {
+                tag.insert_text(lofty::tag::ItemKey::AlbumArtist, a.clone());
+            }
+            None => tag.remove_key(&lofty::tag::ItemKey::AlbumArtist),
+        }
     }
-    if let Some(y) = update.year {
-        tag.set_year(y);
+    if let Some(v) = update.year {
+        match v {
+            Some(y) => tag.set_year(y),
+            None => tag.remove_key(&lofty::tag::ItemKey::Year),
+        }
     }
-    if let Some(ref g) = update.genre {
-        tag.set_genre(g.clone());
+    if let Some(v) = &update.genre {
+        match v {
+            Some(g) => tag.set_genre(g.clone()),
+            None => tag.remove_key(&lofty::tag::ItemKey::Genre),
+        }
     }
-    if let Some(t) = update.track_number {
-        tag.set_track(t);
+    if let Some(v) = update.track_number {
+        match v {
+            Some(t) => tag.set_track(t),
+            None => tag.remove_key(&lofty::tag::ItemKey::TrackNumber),
+        }
     }
-    if let Some(d) = update.disc_number {
-        tag.set_disk(d);
+    if let Some(v) = update.disc_number {
+        match v {
+            Some(d) => tag.set_disk(d),
+            None => tag.remove_key(&lofty::tag::ItemKey::DiscNumber),
+        }
     }
-    if let Some(ref b64) = update.picture_base64 {
+    if let Some(v) = &update.picture_base64 {
         tag.remove_picture_type(PictureType::CoverFront);
-        if !b64.is_empty() {
-            match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64) {
-                Ok(data) => {
-                    let picture = lofty::picture::Picture::new_unchecked(
-                        PictureType::CoverFront,
-                        Some(lofty::picture::MimeType::Jpeg),
-                        None,
-                        data,
-                    );
-                    tag.push_picture(picture);
+        if let Some(b64) = v {
+            if !b64.is_empty() {
+                match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64) {
+                    Ok(data) => {
+                        let picture = lofty::picture::Picture::new_unchecked(
+                            PictureType::CoverFront,
+                            Some(lofty::picture::MimeType::Jpeg),
+                            None,
+                            data,
+                        );
+                        tag.push_picture(picture);
+                    }
+                    Err(_) => return Err("Invalid base64 for picture".to_string()),
                 }
-                Err(_) => return Err("Invalid base64 for picture".to_string()),
             }
         }
     }

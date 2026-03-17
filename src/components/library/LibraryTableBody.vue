@@ -408,6 +408,15 @@ function editGroup(group: GroupRow) {
   emit("openMetadata");
 }
 
+function openGroupCoverFromWikipedia(group: GroupRow) {
+  const ids = group.tracks.map((t) => t.id);
+  if (!ids.length) return;
+  store.setSelection(ids);
+  store.setMultiSelectMode(true);
+  emit("openMetadata");
+  nextTick(() => store.setOpenWikipediaModal(true));
+}
+
 function expandAllGroups() {
   const groups = groupedRows.value;
   if (!groups?.length) {
@@ -809,9 +818,16 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   >
                     <FeatherIcon name="edit-2" class="h-3.5 w-3.5" />
                   </button>
-                  <template v-if="groupBy === 'album' && !hideWikipediaCoverSearch">
-                    <!-- cover prefetching is triggered elsewhere; this just keeps parity with previous UI -->
-                  </template>
+                  <button
+                    v-if="groupBy === 'album' && groupCovers[row.key] === null && !hideWikipediaCoverSearch"
+                    type="button"
+                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                    aria-label="From Wikipedia"
+                    title="From Wikipedia"
+                    @click.stop="openGroupCoverFromWikipedia(row.group)"
+                  >
+                    <FeatherIcon name="globe" class="h-3.5 w-3.5" />
+                  </button>
                 </span>
               </td>
             </tr>

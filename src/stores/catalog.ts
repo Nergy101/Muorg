@@ -68,6 +68,8 @@ export const useCatalogStore = defineStore("catalog", {
     /** `playlist_tracks.id` values parallel to activePlaylistTrackIds — used to delete exactly
      *  one entry when a track appears multiple times in the same playlist. */
     activePlaylistEntryIds: null as number[] | null,
+    /** When set, MetadataEditor should load this image file path as the pending cover image. */
+    pendingCoverImagePath: null as string | null,
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -175,6 +177,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setOpenWikipediaModal(value: boolean) {
       this.openWikipediaModal = value;
+    },
+    setPendingCoverImagePath(path: string | null) {
+      this.pendingCoverImagePath = path;
     },
     setReportFilter(kind: null | "missing_metadata" | "duplicates" | "missing_album_cover") {
       this.reportFilter = kind;

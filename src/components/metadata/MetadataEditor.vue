@@ -6,11 +6,12 @@ import { useSettingsStore } from "../../stores/settings";
 import type { MetadataUpdate } from "../../types";
 import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { invoke } from "@tauri-apps/api/core";
+import { readFile } from "@tauri-apps/plugin-fs";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks, openWikipediaModal } = storeToRefs(store);
+const { selectedTracks, openWikipediaModal, pendingCoverImagePath } = storeToRefs(store);
 const { hideWikipediaCoverSearch, pathFormatTemplate } = storeToRefs(settingsStore);
 
 const title = ref("");
@@ -38,6 +39,9 @@ const wikipediaImageUrl = ref<string | null>(null);
 const wikipediaSearchLoading = ref(false);
 const wikipediaError = ref<string | null>(null);
 const wikipediaApplying = ref(false);
+
+const coverDragOver = ref(false);
+const coverDragDepth = ref(0);
 
 const tooltipPopover = ref<{ text: string; x: number; y: number; position?: "left" | "below" | "above" } | null>(null);
 let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -247,6 +251,48 @@ function closeWikipediaModal() {
 function dataUrlToJpegBase64(dataUrl: string): string {
   const i = dataUrl.indexOf(",");
   return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+}
+
+function guessImageMimeFromPath(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  if (ext === "bmp") return "image/bmp";
+  return "image/jpeg";
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function pngDataUrlToJpegBase64(dataUrl: string): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas not supported"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      try {
+        resolve(dataUrlToJpegBase64(canvas.toDataURL("image/jpeg", 0.92)));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error("Failed to decode image"));
+    img.src = dataUrl;
+  });
 }
 
 async function applyWikipediaImage() {
@@ -473,6 +519,16 @@ watch(
   { immediate: true },
 );
 
+watch(
+  pendingCoverImagePath,
+  (p) => {
+    if (!p) return;
+    store.setPendingCoverImagePath(null);
+    void applyCoverPath(p).catch(() => {});
+  },
+  { immediate: true },
+);
+
 onMounted(() => {
   document.addEventListener("keydown", onPanelKeydown);
 });
@@ -653,7 +709,13 @@ function onPanelKeydown(e: KeyboardEvent) {
 function onCoverFile(e: Event) {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
-  if (!file || !file.type.startsWith("image/")) return;
+  if (!file) return;
+  applyCoverFile(file);
+  input.value = "";
+}
+
+function applyCoverFile(file: File) {
+  if (!file.type.startsWith("image/")) return;
   if (file.size > ONE_MB) largeImageWarning.value = true;
   clearCoverRequested.value = false;
   const reader = new FileReader();
@@ -665,7 +727,70 @@ function onCoverFile(e: Event) {
     markEdited("pictureBase64");
   };
   reader.readAsDataURL(file);
-  input.value = "";
+}
+
+function onCoverDrop(e: DragEvent) {
+  e.preventDefault();
+  coverDragDepth.value = 0;
+  coverDragOver.value = false;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  applyCoverFile(file);
+}
+
+async function applyCoverPath(path: string) {
+  const bytes = await readFile(path);
+  const size = bytes.length;
+  if (size > ONE_MB) largeImageWarning.value = true;
+  clearCoverRequested.value = false;
+
+  const mime = guessImageMimeFromPath(path);
+  const base64 = bytesToBase64(bytes);
+
+  if (mime === "image/png") {
+    const dataUrl = `data:image/png;base64,${base64}`;
+    pictureBase64.value = await pngDataUrlToJpegBase64(dataUrl);
+    loadCoverMeta(`data:image/jpeg;base64,${pictureBase64.value}`, size);
+  } else {
+    pictureBase64.value = base64;
+    loadCoverMeta(`data:image/jpeg;base64,${pictureBase64.value}`, size);
+  }
+
+  markEdited("pictureBase64");
+}
+
+function isDraggingImage(e: DragEvent): boolean {
+  const dt = e.dataTransfer;
+  if (!dt) return false;
+  if (dt.files && dt.files.length > 0) {
+    const f = dt.files[0];
+    return !!f && f.type.startsWith("image/");
+  }
+  // Some browsers only expose types during dragover
+  return dt.types?.includes?.("Files") ?? false;
+}
+
+function onCoverDragEnter(e: DragEvent) {
+  if (!isDraggingImage(e)) return;
+  coverDragDepth.value += 1;
+  coverDragOver.value = true;
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+}
+
+function onCoverDragOver(e: DragEvent) {
+  if (!isDraggingImage(e)) return;
+  e.preventDefault();
+  coverDragOver.value = true;
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+}
+
+function onCoverDragLeave(e: DragEvent) {
+  // Ignore internal moves between children.
+  const current = e.currentTarget as HTMLElement | null;
+  const related = e.relatedTarget as Node | null;
+  if (current && related && current.contains(related)) return;
+  coverDragDepth.value = Math.max(0, coverDragDepth.value - 1);
+  if (coverDragDepth.value === 0) coverDragOver.value = false;
 }
 </script>
 
@@ -833,7 +958,7 @@ function onCoverFile(e: Event) {
         </div>
       </div>
       <div class="shrink-0 border-t border-stone-700 pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
-        <div class="flex items-center gap-1.5">
+        <div class="flex flex-col items-start gap-1">
           <label v-if="!displayCover" class="text-stone-500">Album cover</label>
           <input
             ref="fileInputRef"
@@ -842,26 +967,27 @@ function onCoverFile(e: Event) {
             class="hidden"
             @change="onCoverFile"
           />
-          <button
-            v-if="!displayCover"
-            type="button"
-            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-            aria-label="Add image"
-            title="Add image"
-            @click="fileInputRef?.click()"
-          >
-            <FeatherIcon name="image" class="h-4 w-4" />
-          </button>
-          <button
-            v-if="!displayCover && !hideWikipediaCoverSearch"
-            type="button"
-            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-            aria-label="From Wikipedia"
-            title="From Wikipedia"
-            @click="openFromWikipedia"
-          >
-            <FeatherIcon name="globe" class="h-4 w-4" />
-          </button>
+          <div v-if="!displayCover" class="flex items-center gap-1.5">
+            <button
+              type="button"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Add image"
+              title="Add image"
+              @click="fileInputRef?.click()"
+            >
+              <FeatherIcon name="image" class="h-4 w-4" />
+            </button>
+            <button
+              v-if="!hideWikipediaCoverSearch"
+              type="button"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="From Wikipedia"
+              title="From Wikipedia"
+              @click="openFromWikipedia"
+            >
+              <FeatherIcon name="globe" class="h-4 w-4" />
+            </button>
+          </div>
         </div>
         <div class="mt-0.5 flex flex-col items-start gap-1.5">
           <div
@@ -923,6 +1049,31 @@ function onCoverFile(e: Event) {
             >
               This image is over 1 MB. Embedding large artwork can degrade performance in media players and in Muorg, as it is stored inside each file.
             </p>
+          </div>
+          <div
+            v-else
+            class="group relative inline-flex h-28 w-28 items-center justify-center rounded border border-stone-600 bg-stone-900 shadow-md"
+            :class="coverDragOver ? 'ring-2 ring-inset ring-[#5b7c32]' : undefined"
+            role="button"
+            tabindex="0"
+            aria-label="Album cover placeholder"
+            @click="fileInputRef?.click()"
+            @keydown.enter="fileInputRef?.click()"
+            @keydown.space.prevent="fileInputRef?.click()"
+            @dragenter.prevent="onCoverDragEnter"
+            @dragover="onCoverDragOver"
+            @dragleave="onCoverDragLeave"
+            @drop="onCoverDrop"
+          >
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-500 text-stone-400">
+              ♪
+            </span>
+            <div
+              class="pointer-events-none absolute inset-0 flex items-center justify-center rounded bg-stone-900/60 opacity-0 transition-opacity group-hover:opacity-100"
+              aria-hidden="true"
+            >
+              <FeatherIcon name="upload" class="h-8 w-8 text-stone-300" />
+            </div>
           </div>
         </div>
       </div>

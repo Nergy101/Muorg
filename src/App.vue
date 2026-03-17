@@ -276,6 +276,12 @@ const activeTab = ref<"library" | "metadata" | "play" | "queue">(
 /** Tab to restore when minimizing the fullscreen player. */
 const activeTabBeforeExpand = ref<"library" | "metadata" | "play" | "queue">("library");
 let unlistenDragDrop: (() => void) | null = null;
+const lastDragWasOnlyImages = ref(false);
+
+function isImagePath(p: string): boolean {
+  const ext = p.split(".").pop()?.toLowerCase() ?? "";
+  return ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp" || ext === "gif" || ext === "bmp";
+}
 
 function expandPlayer() {
   activeTabBeforeExpand.value = activeTab.value;
@@ -366,14 +372,25 @@ onMounted(async () => {
   document.addEventListener("keydown", onGlobalKeydown);
   try {
     unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
-      if (event.payload.type === "enter" || event.payload.type === "over") {
-        if (!store.isInternalQueueDrag) isDropTarget.value = true;
+      if (event.payload.type === "enter") {
+        const paths = event.payload.paths ?? [];
+        lastDragWasOnlyImages.value = paths.length > 0 && paths.every(isImagePath);
+        if (!store.isInternalQueueDrag && !lastDragWasOnlyImages.value) isDropTarget.value = true;
+      } else if (event.payload.type === "over") {
+        if (!store.isInternalQueueDrag && !lastDragWasOnlyImages.value) isDropTarget.value = true;
       } else if (event.payload.type === "leave") {
         isDropTarget.value = false;
+        lastDragWasOnlyImages.value = false;
       } else if (event.payload.type === "drop") {
         isDropTarget.value = false;
+        lastDragWasOnlyImages.value = false;
         const paths = event.payload.paths ?? [];
         if (paths.length === 0) return;
+        const imagePaths = paths.filter(isImagePath);
+        if (imagePaths.length > 0 && activeTab.value === "metadata" && showEditor.value) {
+          store.setPendingCoverImagePath(imagePaths[0]);
+          return;
+        }
         (async () => {
           const folders = new Set<string>();
           for (const p of paths) {

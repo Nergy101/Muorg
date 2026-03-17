@@ -21,7 +21,7 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { filteredTracks, reportFilter } = storeToRefs(store);
+const { tracks, reportFilter } = storeToRefs(store);
 const { missingMetadataFields } = storeToRefs(settingsStore);
 
 const showSettingsModal = ref(false);
@@ -37,7 +37,9 @@ function isFieldMissing(track: CatalogTrack, field: MissingMetadataField): boole
 const activeReportTracks = computed(() => {
   const kind = reportFilter.value;
   if (!kind) return [];
-  const base = filteredTracks.value;
+  // Reports should be based on the full catalog, not the current table view
+  // (search query / playlist filter / hidden roots).
+  const base = tracks.value;
 
   if (kind === "missing_metadata") {
     const fields = missingMetadataFields.value;
@@ -91,10 +93,34 @@ const duplicateCountInReport = computed(() => {
 const showReportModal = computed(() => !!reportFilter.value && !!activeReportTitle.value);
 
 function selectTrackFromReport(t: CatalogTrack) {
-  store.clearSelection();
-  store.toggleSelection(t.id);
   store.setReportFilter(null);
-  tableBodyRef.value?.scrollToTrackId(t.id);
+
+  // Ensure the table can actually show the reported item.
+  store.clearActivePlaylist();
+
+  const albumName = (t.album ?? "").trim();
+  const artistKey = ((t.album_artist ?? t.artist) ?? "").trim();
+
+  if (albumName) {
+    // Select the whole album (best-effort) so cover/metadata fixes apply to all tracks.
+    const ids = tracks.value
+      .filter((x) => (x.album ?? "").trim() === albumName && (((x.album_artist ?? x.artist) ?? "").trim() === artistKey))
+      .map((x) => x.id);
+    store.setSelection(ids.length ? ids : [t.id]);
+    store.setMultiSelectMode((ids.length ? ids : [t.id]).length > 1);
+    store.setSearchQuery(albumName);
+  } else {
+    store.clearSelection();
+    store.toggleSelection(t.id);
+    store.setMultiSelectMode(false);
+    store.setSearchQuery((t.title ?? "").trim() || t.path.split(/[/\\]/).pop() || "");
+  }
+
+  emit("update:activeTab", "metadata");
+
+  // Scroll after the table updates from the search query/selection changes.
+  const targetId = t.id;
+  queueMicrotask(() => tableBodyRef.value?.scrollToTrackId(targetId));
 }
 </script>
 
