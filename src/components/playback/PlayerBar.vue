@@ -74,6 +74,7 @@ const currentTime = ref(0);
 const duration = ref(0);
 const isSeeking = ref(false);
 let shouldAutoplayNextSelection = false;
+const hasInitializedAutoplay = ref(false);
 
 /** Small cache of preloaded audio blobs (next track, maybe a couple more). Keyed by track path. */
 const audioCache = new Map<string, string>();
@@ -306,6 +307,11 @@ watch(
     }
     store.setCurrentPlaying(track.id);
     loadAudioBlobForCurrent(track).then(() => {
+      if (!hasInitializedAutoplay.value) {
+        hasInitializedAutoplay.value = true;
+        // On startup, don't auto-play the first selected track even if autoplay is enabled.
+        return;
+      }
       const shouldAutoplay =
         autoplayOnSelect.value || shouldAutoplayNextSelection || store.playRequestTrackId === track.id;
       if (store.playRequestTrackId === track.id) store.setPlayRequestTrackId(null);

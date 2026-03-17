@@ -9,10 +9,20 @@ import { open as openShell } from "@tauri-apps/plugin-shell";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
-import type { ThemeId, DefaultGroupBy, TableDensity, BottomPanelId, MissingMetadataField, PlayerGlowIntensity } from "../../stores/settings";
+import type {
+  ThemeId,
+  DefaultGroupBy,
+  TableDensity,
+  BottomPanelId,
+  MissingMetadataField,
+  PlayerGlowIntensity,
+} from "../../stores/settings";
 import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
-import { getGlowBlobs, getSimpleGlowBlobs } from "../../composables/useDominantColor";
+import {
+  getGlowBlobs,
+  getSimpleGlowBlobs,
+} from "../../composables/useDominantColor";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import packageJson from "../../../package.json";
 
@@ -55,7 +65,9 @@ const {
   musicRootFolder,
 } = storeToRefs(settingsStore);
 
-const glowSettingsDisabled = computed(() => playerGlowIntensity.value === "off");
+const glowSettingsDisabled = computed(
+  () => playerGlowIntensity.value === "off",
+);
 
 /** Default for Music Root Folder when not set: single loaded folder name, else "Music". */
 function musicRootFolderBasename(path: string): string {
@@ -63,23 +75,40 @@ function musicRootFolderBasename(path: string): string {
   return segments[segments.length - 1] ?? "Music";
 }
 const musicRootFolderPlaceholder = computed(() =>
-  store.roots.length === 1 ? musicRootFolderBasename(store.roots[0]) : "Music"
+  store.roots.length === 1 ? musicRootFolderBasename(store.roots[0]) : "Music",
 );
 
-type SettingsTabId = "general" | "theme" | "playback" | "keyboard" | "table" | "reports" | "exports" | "smart_suggestions";
+type SettingsTabId =
+  | "general"
+  | "theme"
+  | "playback"
+  | "table"
+  | "keyboard"
+  | "reports"
+  | "exports"
+  | "smart_suggestions";
 const settingsTab = ref<SettingsTabId>("general");
 const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: "general", label: "General", icon: "sliders" },
   { id: "theme", label: "Theme", icon: "sun" },
   { id: "playback", label: "Playback", icon: "play-circle" },
-  { id: "keyboard", label: "Keyboard", icon: "command" },
   { id: "table", label: "Layout", icon: "layout" },
+  { id: "smart_suggestions", label: "Smart Suggestions", icon: "zap" },
   { id: "reports", label: "Reports", icon: "bar-chart-2" },
   { id: "exports", label: "Exports", icon: "download" },
-  { id: "smart_suggestions", label: "Smart Suggestions", icon: "zap" },
+  { id: "keyboard", label: "Keyboard", icon: "command" },
 ];
 
-const themeOptions: { value: ThemeId; label: string; description: string; swatchClass: string }[] = [
+const mainPanelOpen = ref(false);
+const bottomPanelOpen = ref(false);
+const sidePanelOpen = ref(false);
+
+const themeOptions: {
+  value: ThemeId;
+  label: string;
+  description: string;
+  swatchClass: string;
+}[] = [
   {
     value: "auto",
     label: "Auto",
@@ -151,7 +180,14 @@ const edgeBlurDemoOpacity = computed(() => {
   return 0.65;
 });
 
-function getGlowDemoBlobStyle(blob: { cx: number; cy: number; rx: number; ry: number; opacity: number; rgb: string }): Record<string, string> {
+function getGlowDemoBlobStyle(blob: {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  opacity: number;
+  rgb: string;
+}): Record<string, string> {
   const o = blob.opacity;
   const o2 = (o * 0.6).toFixed(2);
   const o3 = (o * 0.2).toFixed(2);
@@ -163,26 +199,65 @@ function getGlowDemoBlobStyle(blob: { cx: number; cy: number; rx: number; ry: nu
   };
 }
 
-const defaultGroupByOptions: { value: DefaultGroupBy; label: string; description: string }[] = [
+const defaultGroupByOptions: {
+  value: DefaultGroupBy;
+  label: string;
+  description: string;
+}[] = [
   { value: "album", label: "By album", description: "Group tracks by album." },
-  { value: "artist", label: "By artist", description: "Group tracks by artist." },
+  {
+    value: "artist",
+    label: "By artist",
+    description: "Group tracks by artist.",
+  },
   { value: "none", label: "No grouping", description: "Flat list, no groups." },
 ];
 
-const defaultBottomPanelOptions: { value: BottomPanelId; label: string; description: string }[] = [
-  { value: "library", label: "Default", description: "Track list and grouping." },
-  { value: "metadata", label: "Metadata", description: "Edit tags and album art." },
+const defaultBottomPanelOptions: {
+  value: BottomPanelId;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "library",
+    label: "Default",
+    description: "Track list and grouping.",
+  },
+  {
+    value: "metadata",
+    label: "Metadata",
+    description: "Edit tags and album art.",
+  },
   { value: "play", label: "Play", description: "Now playing and controls." },
   { value: "queue", label: "Queue", description: "Up next and queue." },
 ];
 
-const tableDensityOptions: { value: TableDensity; label: string; description: string }[] = [
-  { value: "comfortable", label: "Comfortable", description: "More spacing between rows; easier to scan." },
-  { value: "compact", label: "Compact", description: "Tighter rows; more tracks visible at once." },
-  { value: "spacious", label: "Spacious", description: "Album headers show a large cover; relaxed layout." },
+const tableDensityOptions: {
+  value: TableDensity;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "comfortable",
+    label: "Comfortable",
+    description: "More spacing between rows; easier to scan.",
+  },
+  {
+    value: "compact",
+    label: "Compact",
+    description: "Tighter rows; more tracks visible at once.",
+  },
+  {
+    value: "spacious",
+    label: "Spacious",
+    description: "Album headers show a large cover; relaxed layout.",
+  },
 ];
 
-const missingMetadataFieldOptions: { value: MissingMetadataField; label: string }[] = [
+const missingMetadataFieldOptions: {
+  value: MissingMetadataField;
+  label: string;
+}[] = [
   { value: "title", label: "Title" },
   { value: "artist", label: "Artist" },
   { value: "album", label: "Album" },
@@ -216,7 +291,9 @@ const pathFormatExampleExtracted = computed(() => {
   return extractMetadataFromPath(fmt, examplePath);
 });
 
-const updateCheckStatus = ref<"idle" | "checking" | "up-to-date" | "available" | "error">("idle");
+const updateCheckStatus = ref<
+  "idle" | "checking" | "up-to-date" | "available" | "error"
+>("idle");
 const availableUpdate = shallowRef<Update | null>(null);
 const updateError = ref<string | null>(null);
 const updateDownloadProgress = ref<number | null>(null);
@@ -256,7 +333,10 @@ async function installUpdate() {
       } else if (event.event === "Progress") {
         downloaded += event.data.chunkLength;
         if (contentLength != null && contentLength > 0) {
-          updateDownloadProgress.value = Math.min(100, Math.round((downloaded / contentLength) * 100));
+          updateDownloadProgress.value = Math.min(
+            100,
+            Math.round((downloaded / contentLength) * 100),
+          );
         }
       } else if (event.event === "Finished") {
         updateDownloadProgress.value = 100;
@@ -314,8 +394,7 @@ onMounted(async () => {
 async function copyPathToClipboard(path: string) {
   try {
     await navigator.clipboard.writeText(path);
-  } catch {
-  }
+  } catch {}
 }
 
 function setDefaultGroupBy(value: DefaultGroupBy) {
@@ -377,25 +456,46 @@ watch(openSettingsAtTab, (tab) => {
       @keydown="onSettingsKeydown"
       @click.self="close"
     >
-      <div class="settings-modal flex h-[85vh] min-h-[450px] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-stone-600 bg-stone-800 shadow-xl" @click.stop>
-        <div class="flex shrink-0 items-center justify-between border-b border-stone-700 px-4 py-3">
-          <h2 id="settings-modal-title" class="flex items-center gap-2 text-sm font-semibold text-stone-200">
-            <FeatherIcon name="settings" class="h-4 w-4 shrink-0 text-stone-400" />
+      <div
+        class="settings-modal flex h-[85vh] min-h-[450px] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
+        @click.stop
+      >
+        <div
+          class="flex shrink-0 items-center justify-between border-b border-stone-700 px-4 py-3"
+        >
+          <h2
+            id="settings-modal-title"
+            class="flex items-center gap-2 text-sm font-semibold text-stone-200"
+          >
+            <FeatherIcon
+              name="settings"
+              class="h-4 w-4 shrink-0 text-stone-400"
+            />
             Settings
           </h2>
-          <button type="button" class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200" aria-label="Close" @click="close">
+          <button
+            type="button"
+            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Close"
+            @click="close"
+          >
             <FeatherIcon name="x" class="h-4 w-4" />
           </button>
         </div>
 
         <div class="flex min-h-0 flex-1">
-          <nav class="settings-tab-nav w-36 shrink-0 border-r border-stone-700 bg-stone-800/90 py-2" aria-label="Settings sections">
+          <nav
+            class="settings-tab-nav w-36 shrink-0 border-r border-stone-700 bg-stone-800/90 py-2"
+            aria-label="Settings sections"
+          >
             <button
               v-for="tab in settingsTabs"
               :key="tab.id"
               type="button"
               class="settings-tab-btn flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors"
-              :class="settingsTab === tab.id ? 'settings-tab-btn--active' : undefined"
+              :class="
+                settingsTab === tab.id ? 'settings-tab-btn--active' : undefined
+              "
               @click="settingsTab = tab.id"
             >
               <FeatherIcon :name="tab.icon" class="h-3.5 w-3.5 shrink-0" />
@@ -405,13 +505,23 @@ watch(openSettingsAtTab, (tab) => {
 
           <div class="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
             <div v-show="settingsTab === 'general'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="sliders" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="sliders"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
                 General
               </p>
               <div class="settings-section">
-                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="download-cloud" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                <p
+                  class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="download-cloud"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
                   Updates
                 </p>
                 <button
@@ -420,16 +530,31 @@ watch(openSettingsAtTab, (tab) => {
                   :disabled="updateCheckStatus === 'checking'"
                   @click="checkForUpdates"
                 >
-                  <span v-if="updateCheckStatus === 'idle'">Check for updates</span>
-                  <span v-else-if="updateCheckStatus === 'checking'">Checking…</span>
-                  <span v-else-if="updateCheckStatus === 'up-to-date'">Up to date <span class="text-stone-400">v{{ appVersion }}</span></span>
-                  <span v-else-if="updateCheckStatus === 'available'">Update available <span class="text-stone-400">v{{ appVersion }}</span></span>
-                  <span v-else-if="updateCheckStatus === 'error'">Check failed</span>
+                  <span v-if="updateCheckStatus === 'idle'"
+                    >Check for updates</span
+                  >
+                  <span v-else-if="updateCheckStatus === 'checking'"
+                    >Checking…</span
+                  >
+                  <span v-else-if="updateCheckStatus === 'up-to-date'"
+                    >Up to date
+                    <span class="text-stone-400">v{{ appVersion }}</span></span
+                  >
+                  <span v-else-if="updateCheckStatus === 'available'"
+                    >Update available
+                    <span class="text-stone-400">v{{ appVersion }}</span></span
+                  >
+                  <span v-else-if="updateCheckStatus === 'error'"
+                    >Check failed</span
+                  >
                 </button>
                 <p v-if="updateError" class="mt-1 text-xs text-amber-400">
                   {{ updateError }}
                 </p>
-                <div v-if="availableUpdate" class="mt-3 rounded border border-emerald-600/60 bg-emerald-900/10 p-2.5">
+                <div
+                  v-if="availableUpdate"
+                  class="mt-3 rounded border border-emerald-600/60 bg-emerald-900/10 p-2.5"
+                >
                   <p class="text-xs font-medium text-emerald-300">
                     New version available: {{ availableUpdate.version }}
                   </p>
@@ -439,7 +564,11 @@ watch(openSettingsAtTab, (tab) => {
                       v-if="availableUpdate.body || availableUpdate.date"
                       type="button"
                       class="underline decoration-dotted underline-offset-2 hover:text-emerald-100"
-                      @click="openReleaseUrl(`${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`)"
+                      @click="
+                        openReleaseUrl(
+                          `${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`,
+                        )
+                      "
                     >
                       View release notes
                     </button>
@@ -451,16 +580,25 @@ watch(openSettingsAtTab, (tab) => {
                       :disabled="updateDownloadProgress !== null"
                       @click="installUpdate"
                     >
-                      <span v-if="updateDownloadProgress === null">Download and install</span>
-                      <span v-else>Downloading… {{ updateDownloadProgress }}%</span>
+                      <span v-if="updateDownloadProgress === null"
+                        >Download and install</span
+                      >
+                      <span v-else
+                        >Downloading… {{ updateDownloadProgress }}%</span
+                      >
                     </button>
                   </div>
                 </div>
               </div>
 
               <div v-if="settingsFilePath" class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="file" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="file"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
                   Settings file
                 </p>
                 <p class="break-all font-mono text-[11px] text-stone-400">
@@ -485,12 +623,19 @@ watch(openSettingsAtTab, (tab) => {
               </div>
 
               <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="database" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="database"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
                   Database cache
                 </p>
                 <p class="mb-2 text-xs text-stone-500">
-                  Removed folders are kept in the database temporarily so playlists can be restored if the folder is re-added. Use this to free that space immediately.
+                  Removed folders are kept in the database temporarily so
+                  playlists can be restored if the folder is re-added. Use this
+                  to free that space immediately.
                 </p>
                 <button
                   type="button"
@@ -499,47 +644,79 @@ watch(openSettingsAtTab, (tab) => {
                   @click="clearCache"
                 >
                   <span v-if="clearCacheStatus === 'idle'">Clear cache</span>
-                  <span v-else-if="clearCacheStatus === 'clearing'">Clearing…</span>
-                  <span v-else-if="clearCacheStatus === 'done'">Cache cleared</span>
+                  <span v-else-if="clearCacheStatus === 'clearing'"
+                    >Clearing…</span
+                  >
+                  <span v-else-if="clearCacheStatus === 'done'"
+                    >Cache cleared</span
+                  >
                   <span v-else-if="clearCacheStatus === 'error'">Failed</span>
                 </button>
-                <p v-if="clearCacheError" class="mt-1 text-xs text-amber-400">{{ clearCacheError }}</p>
+                <p v-if="clearCacheError" class="mt-1 text-xs text-amber-400">
+                  {{ clearCacheError }}
+                </p>
               </div>
 
               <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="compass" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="compass"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
                   Navigation
                 </p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label
+                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
                   <input
                     type="checkbox"
                     :checked="navWrap"
                     class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setNavWrap((e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        settingsStore.setNavWrap(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   Wrap keyboard navigation
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, moving past the last item with the keyboard wraps around to the start (and vice versa).
+                  When enabled, moving past the last item with the keyboard
+                  wraps around to the start (and vice versa).
                 </p>
-                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label
+                  class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
                   <input
                     type="checkbox"
                     :checked="navFocusFollowsMouse"
                     class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setNavFocusFollowsMouse((e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        settingsStore.setNavFocusFollowsMouse(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   Focus follows mouse
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, moving the mouse over items also updates the keyboard focus target.
+                  When enabled, moving the mouse over items also updates the
+                  keyboard focus target.
                 </p>
               </div>
 
               <div class="settings-section border-t border-stone-700 pt-4">
-                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="heart" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                <p
+                  class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="heart"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
                   Credits
                 </p>
                 <p class="text-xs text-stone-500">
@@ -559,7 +736,10 @@ watch(openSettingsAtTab, (tab) => {
                     class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
                     @click="openReleaseUrl('https://blog.nergy.space/')"
                   >
-                    <FeatherIcon name="book-open" class="h-3.5 w-3.5 shrink-0" />
+                    <FeatherIcon
+                      name="book-open"
+                      class="h-3.5 w-3.5 shrink-0"
+                    />
                     Blog
                   </button>
                   <button
@@ -567,7 +747,10 @@ watch(openSettingsAtTab, (tab) => {
                     class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
                     @click="openReleaseUrl('https://portfolio.nergy.space/')"
                   >
-                    <FeatherIcon name="briefcase" class="h-3.5 w-3.5 shrink-0" />
+                    <FeatherIcon
+                      name="briefcase"
+                      class="h-3.5 w-3.5 shrink-0"
+                    />
                     Portfolio
                   </button>
                   <button
@@ -591,21 +774,32 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'theme'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="sun" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="sun"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
                 Theme
               </p>
               <div class="settings-section">
-                <p class="mb-1 text-xs font-medium text-stone-500">Choose your palette</p>
-                <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                <p class="mb-1 text-xs font-medium text-stone-500">
+                  Choose your palette
+                </p>
+                <div
+                  class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3"
+                >
                   <button
                     v-for="opt in themeOptions"
                     :key="opt.value"
                     type="button"
                     class="group flex items-center gap-3 rounded-md border px-2.5 py-2 text-left text-xs transition"
-                    :class="theme === opt.value
-                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
-                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
+                    :class="
+                      theme === opt.value
+                        ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                        : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                    "
                     @click="settingsStore.setTheme(opt.value)"
                   >
                     <div
@@ -630,18 +824,25 @@ watch(openSettingsAtTab, (tab) => {
                   </button>
                 </div>
                 <p class="mt-2 text-[11px] text-stone-500">
-                  "Auto" follows your OS preference. "Orkish" uses a parchment-like light theme; "DOOM" is a high-contrast dark
+                  "Auto" follows your OS preference. "Orkish" uses a
+                  parchment-like light theme; "DOOM" is a high-contrast dark
                   theme.
                 </p>
               </div>
 
               <div class="settings-section space-y-2">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="sunrise" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="sunrise"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
                   Maximized player glow
                 </p>
                 <p class="text-[11px] text-stone-500">
-                  Colorful blurry shadows behind the album art in fullscreen mode, derived from the cover.
+                  Colorful blurry shadows behind the album art in fullscreen
+                  mode, derived from the cover.
                 </p>
                 <div class="mt-2 flex flex-wrap gap-2">
                   <button
@@ -649,34 +850,53 @@ watch(openSettingsAtTab, (tab) => {
                     :key="opt.value"
                     type="button"
                     class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
-                    :class="playerGlowIntensity === opt.value
-                      ? 'border-emerald-500/80 bg-emerald-900/30'
-                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
+                    :class="
+                      playerGlowIntensity === opt.value
+                        ? 'border-emerald-500/80 bg-emerald-900/30'
+                        : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                    "
                     @click="settingsStore.setPlayerGlowIntensity(opt.value)"
                   >
                     {{ opt.label }}
                   </button>
                 </div>
-                <div
-                  v-if="!glowSettingsDisabled"
-                  class="mt-3 space-y-3"
-                >
-                  <p class="text-[11px] text-stone-500">The glow picks one of three modes, in order:</p>
-                  <ul class="list-inside list-decimal space-y-0.5 text-[11px] text-stone-500">
-                    <li><strong class="text-stone-400">Vivid</strong> uses the average album cover color if it's not bland.</li>
-                    <li>If the average is bland but the edges are colorful, we use <strong class="text-stone-400">Edge blur</strong>.</li>
-                    <li>Otherwise, if it's all bland (e.g. a white cover), we do a <strong class="text-stone-400">Bland</strong> soft glow.</li>
+                <div v-if="!glowSettingsDisabled" class="mt-3 space-y-3">
+                  <p class="text-[11px] text-stone-500">
+                    The glow picks one of three modes, in order:
+                  </p>
+                  <ul
+                    class="list-inside list-decimal space-y-0.5 text-[11px] text-stone-500"
+                  >
+                    <li>
+                      <strong class="text-stone-400">Vivid</strong> uses the
+                      average album cover color if it's not bland.
+                    </li>
+                    <li>
+                      If the average is bland but the edges are colorful, we use
+                      <strong class="text-stone-400">Edge blur</strong>.
+                    </li>
+                    <li>
+                      Otherwise, if it's all bland (e.g. a white cover), we do a
+                      <strong class="text-stone-400">Bland</strong> soft glow.
+                    </li>
                   </ul>
                   <div class="flex flex-wrap gap-4">
                     <div class="space-y-1">
-                      <p class="text-[11px] font-medium text-stone-500">Vivid</p>
-                      <p class="text-[10px] text-stone-600">Average cover color is vivid: procedural blobs from center</p>
+                      <p class="text-[11px] font-medium text-stone-500">
+                        Vivid
+                      </p>
+                      <p class="text-[10px] text-stone-600">
+                        Average cover color is vivid: procedural blobs from
+                        center
+                      </p>
                       <div
                         :key="`vivid-${playerGlowIntensity}`"
                         class="glow-demo-container inline-block rounded-lg border border-stone-600 p-6 shadow-lg"
                         :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
                       >
-                        <div class="relative flex h-48 w-40 flex-col items-center justify-center">
+                        <div
+                          class="relative flex h-48 w-40 flex-col items-center justify-center"
+                        >
                           <template v-if="glowDemoBlobs.length">
                             <div
                               v-for="(blob, i) in glowDemoBlobs"
@@ -685,24 +905,41 @@ watch(openSettingsAtTab, (tab) => {
                               :style="getGlowDemoBlobStyle(blob)"
                             />
                           </template>
-                          <div class="relative z-10 flex flex-col items-center gap-1">
-                            <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
-                              <span class="inline-flex items-center justify-center text-xl text-stone-400" aria-hidden="true">♪</span>
+                          <div
+                            class="relative z-10 flex flex-col items-center gap-1"
+                          >
+                            <div
+                              class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40"
+                            >
+                              <span
+                                class="inline-flex items-center justify-center text-xl text-stone-400"
+                                aria-hidden="true"
+                                >♪</span
+                              >
                             </div>
-                            <span class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md">Track title</span>
+                            <span
+                              class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md"
+                              >Track title</span
+                            >
                           </div>
                         </div>
                       </div>
                     </div>
                     <div class="space-y-1">
-                      <p class="text-[11px] font-medium text-stone-500">Edge blur</p>
-                      <p class="text-[10px] text-stone-600">Average bland, edges vivid: blurred album art</p>
+                      <p class="text-[11px] font-medium text-stone-500">
+                        Edge blur
+                      </p>
+                      <p class="text-[10px] text-stone-600">
+                        Average bland, edges vivid: blurred album art
+                      </p>
                       <div
                         :key="`edge-${playerGlowIntensity}`"
                         class="glow-demo-container inline-block rounded-lg border border-stone-600 p-6 shadow-lg"
                         :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
                       >
-                        <div class="relative flex h-48 w-40 flex-col items-center justify-center">
+                        <div
+                          class="relative flex h-48 w-40 flex-col items-center justify-center"
+                        >
                           <div
                             v-if="edgeBlurDemoOpacity > 0"
                             class="glow-demo-edge-blur pointer-events-none absolute inset-0 flex items-center justify-center"
@@ -710,27 +947,55 @@ watch(openSettingsAtTab, (tab) => {
                           >
                             <div
                               class="h-32 w-32 flex-shrink-0 rounded-lg"
-                              style="background: radial-gradient(ellipse at center, #d4d4d4 0%, #3b82f6 25%, #8b5cf6 45%, #ec4899 65%, #f59e0b 85%, #22c55e 100%); filter: blur(40px);"
+                              style="
+                                background: radial-gradient(
+                                  ellipse at center,
+                                  #d4d4d4 0%,
+                                  #3b82f6 25%,
+                                  #8b5cf6 45%,
+                                  #ec4899 65%,
+                                  #f59e0b 85%,
+                                  #22c55e 100%
+                                );
+                                filter: blur(40px);
+                              "
                             />
                           </div>
-                          <div class="relative z-10 flex flex-col items-center gap-1">
-                            <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
-                              <span class="inline-flex items-center justify-center text-xl text-stone-400" aria-hidden="true">♪</span>
+                          <div
+                            class="relative z-10 flex flex-col items-center gap-1"
+                          >
+                            <div
+                              class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40"
+                            >
+                              <span
+                                class="inline-flex items-center justify-center text-xl text-stone-400"
+                                aria-hidden="true"
+                                >♪</span
+                              >
                             </div>
-                            <span class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md">Track title</span>
+                            <span
+                              class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md"
+                              >Track title</span
+                            >
                           </div>
                         </div>
                       </div>
                     </div>
                     <div class="space-y-1">
-                      <p class="text-[11px] font-medium text-stone-500">Bland</p>
-                      <p class="text-[10px] text-stone-600">All bland (e.g. white cover): soft glow of that color</p>
+                      <p class="text-[11px] font-medium text-stone-500">
+                        Bland
+                      </p>
+                      <p class="text-[10px] text-stone-600">
+                        All bland (e.g. white cover): soft glow of that color
+                      </p>
                       <div
                         :key="`bland-${playerGlowIntensity}`"
                         class="glow-demo-container inline-block rounded-lg border border-stone-600 p-6 shadow-lg"
                         :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
                       >
-                        <div class="relative flex h-48 w-40 flex-col items-center justify-center">
+                        <div
+                          class="relative flex h-48 w-40 flex-col items-center justify-center"
+                        >
                           <template v-if="blandGlowDemoBlobs.length">
                             <div
                               v-for="(blob, i) in blandGlowDemoBlobs"
@@ -739,11 +1004,22 @@ watch(openSettingsAtTab, (tab) => {
                               :style="getGlowDemoBlobStyle(blob)"
                             />
                           </template>
-                          <div class="relative z-10 flex flex-col items-center gap-1">
-                            <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
-                              <span class="inline-flex items-center justify-center text-xl text-stone-400" aria-hidden="true">♪</span>
+                          <div
+                            class="relative z-10 flex flex-col items-center gap-1"
+                          >
+                            <div
+                              class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40"
+                            >
+                              <span
+                                class="inline-flex items-center justify-center text-xl text-stone-400"
+                                aria-hidden="true"
+                                >♪</span
+                              >
                             </div>
-                            <span class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md">Track title</span>
+                            <span
+                              class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md"
+                              >Track title</span
+                            >
                           </div>
                         </div>
                       </div>
@@ -755,9 +1031,13 @@ watch(openSettingsAtTab, (tab) => {
                   class="mt-3 inline-block overflow-hidden rounded-lg border border-stone-600 shadow-lg opacity-60"
                   :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
                 >
-                  <div class="relative flex h-64 w-56 flex-col items-center justify-center">
+                  <div
+                    class="relative flex h-64 w-56 flex-col items-center justify-center"
+                  >
                     <div class="relative z-10 flex flex-col items-center gap-2">
-                      <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
+                      <div
+                        class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40"
+                      >
                         <span
                           class="inline-flex items-center justify-center text-2xl text-stone-500"
                           aria-hidden="true"
@@ -765,7 +1045,9 @@ watch(openSettingsAtTab, (tab) => {
                           ♪
                         </span>
                       </div>
-                      <span class="max-w-[180px] truncate text-center text-xs font-medium text-stone-500 drop-shadow-md">
+                      <span
+                        class="max-w-[180px] truncate text-center text-xs font-medium text-stone-500 drop-shadow-md"
+                      >
                         Glow off
                       </span>
                     </div>
@@ -775,381 +1057,707 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'playback'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="play-circle" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="play-circle"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
                 Playback
               </p>
 
               <div class="settings-section space-y-2">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="play" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Behavior</p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="play"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
+                  Behavior
+                </p>
+                <label
+                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
                   <input
                     type="checkbox"
                     :checked="autoplayOnSelect"
                     class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setAutoplayOnSelect((e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        settingsStore.setAutoplayOnSelect(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   Autoplay on track selection
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
                   When enabled, selecting a track immediately starts playback.
                 </p>
-                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label
+                  class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
                   <input
                     type="checkbox"
                     :checked="continuousPlayback"
                     class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setContinuousPlayback((e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        settingsStore.setContinuousPlayback(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   Continuous playback
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, playback continues to the next track automatically.
+                  When enabled, playback continues to the next track
+                  automatically.
                 </p>
               </div>
 
               <div class="settings-section space-y-2">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="music" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Playbar</p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="music"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
+                  Playbar
+                </p>
+                <label
+                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
                   <input
                     type="checkbox"
                     :checked="playbarShowAlbumInMarquee"
                     class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setPlaybarShowAlbumInMarquee((e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        settingsStore.setPlaybarShowAlbumInMarquee(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   Show album in scrolling title
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, the album name is shown next to the track title in the scrolling marquee.
+                  When enabled, the album name is shown next to the track title
+                  in the scrolling marquee.
                 </p>
-                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label
+                  class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
                   <input
                     type="checkbox"
                     :checked="playbarDisableMarquee"
                     class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setPlaybarDisableMarquee((e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        settingsStore.setPlaybarDisableMarquee(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   Disable scrolling title
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, the track title is truncated instead of scrolling.
+                  When enabled, the track title is truncated instead of
+                  scrolling.
                 </p>
               </div>
             </div>
 
+            <div v-show="settingsTab === 'table'" class="space-y-3">
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="layout"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
+                Layout
+              </p>
+
+              <!-- 1: Main panel -->
+              <button
+                type="button"
+                class="mt-1 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-stone-500"
+                @click="mainPanelOpen = !mainPanelOpen"
+              >
+                <span>1 · Main panel</span>
+                <FeatherIcon
+                  name="chevron-down"
+                  class="h-3 w-3 transition-transform"
+                  :class="mainPanelOpen ? 'rotate-0' : '-rotate-90'"
+                />
+              </button>
+              <div v-show="mainPanelOpen" class="space-y-3">
+                <div class="settings-section">
+                  <p
+                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  >
+                    <FeatherIcon
+                      name="layers"
+                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    />
+                    Library grouping
+                  </p>
+                  <p class="mb-1.5 text-xs font-medium text-stone-500">
+                    Default grouping
+                  </p>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="opt in defaultGroupByOptions"
+                      :key="opt.value"
+                      type="button"
+                      class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
+                      :class="
+                        defaultGroupBy === opt.value
+                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                          : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                      "
+                      @click="setDefaultGroupBy(opt.value)"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <p class="font-medium text-stone-200">
+                          {{ opt.label }}
+                          <span
+                            v-if="defaultGroupBy === opt.value"
+                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                          >
+                            Active
+                          </span>
+                        </p>
+                        <p class="mt-0.5 text-stone-500">
+                          {{ opt.description }}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                  <label
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="defaultGroupsExpanded"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          setDefaultGroupsExpanded(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Expand groups by default
+                  </label>
+                  <p class="mt-0.5 text-xs text-stone-500">
+                    Controls how your library is grouped and whether groups
+                    start expanded when you open Muorg.
+                  </p>
+                </div>
+
+                <div class="settings-section">
+                  <p
+                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  >
+                    <FeatherIcon
+                      name="grid"
+                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    />
+                    Table density
+                  </p>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="opt in tableDensityOptions"
+                      :key="opt.value"
+                      type="button"
+                      class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
+                      :class="
+                        tableDensity === opt.value
+                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                          : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                      "
+                      @click="settingsStore.setTableDensity(opt.value)"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <p class="font-semibold text-stone-100">
+                          {{ opt.label }}
+                          <span
+                            v-if="tableDensity === opt.value"
+                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                          >
+                            Active
+                          </span>
+                        </p>
+                        <p class="mt-0.5 text-[11px] text-stone-400">
+                          {{ opt.description }}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="settings-section">
+                  <p
+                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  >
+                    <FeatherIcon
+                      name="image"
+                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    />
+                    Group header album art
+                  </p>
+                  <label
+                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="groupHeaderAlbumArt"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setGroupHeaderAlbumArt(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show album art on "Missing metadata" groups
+                  </label>
+                  <p class="mt-0.5 text-xs text-stone-500">
+                    Simply showing or hiding album covers on Album-headers.
+                  </p>
+                </div>
+                <div class="settings-section">
+                  <p
+                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  >
+                    <FeatherIcon
+                      name="columns"
+                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    />
+                    Table columns
+                  </p>
+                  <label
+                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="tableColAlbumArt"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setTableColAlbumArt(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show album art
+                  </label>
+                  <label
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="tableColYear"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setTableColYear(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show year
+                  </label>
+                  <label
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="tableColDuration"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setTableColDuration(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show duration
+                  </label>
+                  <label
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="tableColFormat"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setTableColFormat(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show file format
+                  </label>
+                  <label
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="tableColPath"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setTableColPath(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show file path
+                  </label>
+                </div>
+              </div>
+
+              <!-- 2: Bottom panel -->
+              <button
+                type="button"
+                class="mt-3 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-stone-500"
+                @click="bottomPanelOpen = !bottomPanelOpen"
+              >
+                <span>2 · Bottom panel</span>
+                <FeatherIcon
+                  name="chevron-down"
+                  class="h-3 w-3 transition-transform"
+                  :class="bottomPanelOpen ? 'rotate-0' : '-rotate-90'"
+                />
+              </button>
+              <div v-show="bottomPanelOpen" class="space-y-3">
+                <div class="settings-section">
+                  <p
+                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  >
+                    <FeatherIcon
+                      name="layout"
+                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    />
+                    Bottom bar
+                  </p>
+                  <p class="mb-2 text-xs text-stone-500">
+                    Default tab on startup
+                  </p>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="opt in defaultBottomPanelOptions"
+                      :key="opt.value"
+                      type="button"
+                      class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
+                      :class="
+                        defaultBottomPanel === opt.value
+                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                          : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                      "
+                      @click="settingsStore.setDefaultBottomPanel(opt.value)"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <p class="font-semibold text-stone-100">
+                          {{ opt.label }}
+                          <span
+                            v-if="defaultBottomPanel === opt.value"
+                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                          >
+                            Active
+                          </span>
+                        </p>
+                        <p class="mt-0.5 text-[11px] text-stone-400">
+                          {{ opt.description }}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <!-- 3: Side panel -->
+              <!-- 3: Side panel -->
+              <button
+                type="button"
+                class="mt-3 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-stone-500"
+                @click="sidePanelOpen = !sidePanelOpen"
+              >
+                <span>3 · Side panel</span>
+                <FeatherIcon
+                  name="chevron-down"
+                  class="h-3 w-3 transition-transform"
+                  :class="sidePanelOpen ? 'rotate-0' : '-rotate-90'"
+                />
+              </button>
+              <div v-show="sidePanelOpen" class="space-y-3">
+                <div class="settings-section">
+                  <p
+                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  >
+                    <FeatherIcon
+                      name="sidebar"
+                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    />
+                    Sidebar
+                  </p>
+                  <p class="mb-1 text-xs font-medium text-stone-500">
+                    Default sidebar panel
+                  </p>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="opt in [
+                        { value: 'folders', label: 'Folders' },
+                        { value: 'playlists', label: 'Playlists' },
+                      ]"
+                      :key="opt.value"
+                      type="button"
+                      class="flex min-w-0 flex-1 basis-[min(100%,10rem)] items-center justify-between rounded-lg border px-3 py-1.5 text-left text-xs transition"
+                      :class="
+                        settingsStore.sidebarDefaultTab === opt.value
+                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner text-stone-100'
+                          : 'border-stone-600 bg-stone-900/60 text-stone-300 hover:border-stone-400 hover:bg-stone-800'
+                      "
+                      @click="
+                        settingsStore.setSidebarDefaultTab(
+                          opt.value as 'folders' | 'playlists',
+                        )
+                      "
+                    >
+                      <div class="min-w-0 flex-1">
+                        <p class="font-medium text-stone-100">
+                          {{ opt.label }}
+                          <span
+                            v-if="settingsStore.sidebarDefaultTab === opt.value"
+                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                          >
+                            Active
+                          </span>
+                        </p>
+                        <p class="mt-0.5 text-[11px] text-stone-400">
+                          {{
+                            opt.value === "folders"
+                              ? "Show library folders by default."
+                              : "Show playlists by default."
+                          }}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                  <label
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="settingsStore.sidebarClosedOnStartup"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setSidebarClosedOnStartup(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Start with sidebar closed
+                  </label>
+                  <p class="mt-0.5 text-xs text-stone-500">
+                    When enabled, the library sidebar is collapsed when you open
+                    Muorg.
+                  </p>
+                  <label
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="settingsStore.hideReportsSection"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setHideReportsSection(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Hide reports section in sidebar
+                  </label>
+                  <p class="mt-0.5 text-xs text-stone-500">
+                    When enabled, the reports block (Missing metadata,
+                    Duplicates, Missing album cover) is hidden from the main
+                    sidebar layout.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div v-show="settingsTab === 'keyboard'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="command" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                Keyboard</p>
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="command"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
+                Keyboard
+              </p>
               <div class="settings-section space-y-2">
                 <p class="text-xs text-stone-400">
-                  Keyboard shortcuts are currently fixed. Planned improvements include per-action customization and profile export/import.
+                  Keyboard shortcuts are currently fixed. Planned improvements
+                  include per-action customization and profile export/import.
                 </p>
                 <p class="text-[11px] text-stone-500">
                   These are the same shortcuts shown in the key map:
                 </p>
                 <dl class="mt-1 space-y-2 text-xs">
                   <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+F / ⌘F</dt>
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Ctrl+F / ⌘F
+                    </dt>
                     <dd class="min-w-0 text-stone-300">Focus search bar</dd>
                   </div>
                   <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+R / ⌘R</dt>
-                    <dd class="min-w-0 text-stone-300">Refresh whole library (all folders, all reports)</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+M / ⌘M</dt>
-                    <dd class="min-w-0 text-stone-300">Toggle metadata editor panel for current selection</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+L / ⌘L</dt>
-                    <dd class="min-w-0 text-stone-300">Show library panel</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+P / ⌘P</dt>
-                    <dd class="min-w-0 text-stone-300">Toggle full player panel</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+A / ⌘A</dt>
-                    <dd class="min-w-0 text-stone-300">Select all tracks in current view and enable multi-select</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Ctrl+K / ⌘K</dt>
-                    <dd class="min-w-0 text-stone-300">Open key map</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Escape</dt>
-                    <dd class="min-w-0 text-stone-300">Close metadata editor panel or cover popup</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">↓ Arrow Down</dt>
-                    <dd class="min-w-0 text-stone-300">Move focus down in track list</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">↑ Arrow Up</dt>
-                    <dd class="min-w-0 text-stone-300">Move focus up in track list</dd>
-                  </div>
-                  <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Space</dt>
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Ctrl+R / ⌘R
+                    </dt>
                     <dd class="min-w-0 text-stone-300">
-                      On group row: expand or collapse. On track row: select (add to selection in multi-select).
+                      Refresh whole library (all folders, all reports)
                     </dd>
                   </div>
                   <div class="flex gap-3">
-                    <dt class="w-40 shrink-0 font-mono text-stone-400">Enter</dt>
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Ctrl+M / ⌘M
+                    </dt>
                     <dd class="min-w-0 text-stone-300">
-                      With one track selected: start playback or pause if already playing.
+                      Toggle metadata editor panel for current selection
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Ctrl+L / ⌘L
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">Show library panel</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Ctrl+P / ⌘P
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">
+                      Toggle full player panel
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Ctrl+A / ⌘A
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">
+                      Select all tracks in current view and enable multi-select
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Ctrl+K / ⌘K
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">Open key map</dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Escape
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">
+                      Close metadata editor panel or cover popup
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      ↓ Arrow Down
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">
+                      Move focus down in track list
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      ↑ Arrow Up
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">
+                      Move focus up in track list
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Space
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">
+                      On group row: expand or collapse. On track row: select
+                      (add to selection in multi-select).
+                    </dd>
+                  </div>
+                  <div class="flex gap-3">
+                    <dt class="w-40 shrink-0 font-mono text-stone-400">
+                      Enter
+                    </dt>
+                    <dd class="min-w-0 text-stone-300">
+                      With one track selected: start playback or pause if
+                      already playing.
                     </dd>
                   </div>
                 </dl>
               </div>
             </div>
 
-            <div v-show="settingsTab === 'table'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="layout" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                Layout</p>
-
-              <div class="settings-section">
-                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="layers" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Library grouping</p>
-                <p class="mb-1.5 text-xs font-medium text-stone-500">Default grouping</p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="opt in defaultGroupByOptions"
-                    :key="opt.value"
-                    type="button"
-                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
-                    :class="defaultGroupBy === opt.value
-                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
-                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
-                    @click="setDefaultGroupBy(opt.value)"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <p class="font-medium text-stone-200">
-                        {{ opt.label }}
-                        <span
-                          v-if="defaultGroupBy === opt.value"
-                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
-                        >
-                          Active
-                        </span>
-                      </p>
-                      <p class="mt-0.5 text-stone-500">{{ opt.description }}</p>
-                    </div>
-                  </button>
-                </div>
-                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="defaultGroupsExpanded"
-                    class="rounded border-stone-600"
-                    @change="(e) => setDefaultGroupsExpanded((e.target as HTMLInputElement).checked)"
-                  />
-                  Expand groups by default
-                </label>
-                <p class="mt-0.5 text-xs text-stone-500">
-                  Controls how your library is grouped and whether groups start expanded when you open Muorg.
-                </p>
-              </div>
-
-              <div class="settings-section">
-                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="grid" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Table density</p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="opt in tableDensityOptions"
-                    :key="opt.value"
-                    type="button"
-                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
-                    :class="tableDensity === opt.value
-                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
-                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
-                    @click="settingsStore.setTableDensity(opt.value)"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <p class="font-semibold text-stone-100">
-                        {{ opt.label }}
-                        <span
-                          v-if="tableDensity === opt.value"
-                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
-                        >
-                          Active
-                        </span>
-                      </p>
-                      <p class="mt-0.5 text-[11px] text-stone-400">
-                        {{ opt.description }}
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Group header album art</p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="groupHeaderAlbumArt"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setGroupHeaderAlbumArt((e.target as HTMLInputElement).checked)"
-                  />
-                  Show album art on "Missing metadata" groups
-                </label>
-                <p class="mt-0.5 text-xs text-stone-500">
-                  Simply showing or hiding album covers on Album-headers.
-                </p>
-              </div>
-
-              <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="sidebar" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Sidebar</p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="settingsStore.sidebarClosedOnStartup"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setSidebarClosedOnStartup((e.target as HTMLInputElement).checked)"
-                  />
-                  Start with sidebar closed
-                </label>
-                <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, the library sidebar is collapsed when you open Muorg.
-                </p>
-                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="settingsStore.hideReportsSection"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setHideReportsSection((e.target as HTMLInputElement).checked)"
-                  />
-                  Hide reports section in sidebar
-                </label>
-                <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, the reports block (Missing metadata, Duplicates, Missing album cover) is hidden from the main sidebar layout.
-                </p>
-              </div>
-
-              <div class="settings-section">
-                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="layout" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Bottom bar</p>
-                <p class="mb-2 text-xs text-stone-500">Default tab on startup</p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="opt in defaultBottomPanelOptions"
-                    :key="opt.value"
-                    type="button"
-                    class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
-                    :class="defaultBottomPanel === opt.value
-                      ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
-                      : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'"
-                    @click="settingsStore.setDefaultBottomPanel(opt.value)"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <p class="font-semibold text-stone-100">
-                        {{ opt.label }}
-                        <span
-                          v-if="defaultBottomPanel === opt.value"
-                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
-                        >
-                          Active
-                        </span>
-                      </p>
-                      <p class="mt-0.5 text-[11px] text-stone-400">
-                        {{ opt.description }}
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="columns" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Table columns</p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="tableColAlbumArt"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setTableColAlbumArt((e.target as HTMLInputElement).checked)"
-                  />
-                  Show album art
-                </label>
-                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="tableColYear"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setTableColYear((e.target as HTMLInputElement).checked)"
-                  />
-                  Show year
-                </label>
-                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="tableColDuration"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setTableColDuration((e.target as HTMLInputElement).checked)"
-                  />
-                  Show duration
-                </label>
-                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="tableColFormat"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setTableColFormat((e.target as HTMLInputElement).checked)"
-                  />
-                  Show file format
-                </label>
-                <label class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
-                  <input
-                    type="checkbox"
-                    :checked="tableColPath"
-                    class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setTableColPath((e.target as HTMLInputElement).checked)"
-                  />
-                  Show file path
-                </label>
-              </div>
-            </div>
-
             <div v-show="settingsTab === 'reports'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="bar-chart-2" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                Reports</p>
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="bar-chart-2"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
+                Reports
+              </p>
 
               <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="list" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Missing metadata fields</p>
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="list"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
+                  Missing metadata fields
+                </p>
                 <p class="mb-1 text-xs text-stone-500">
-                  Choose which fields must be present for a track to be considered "complete". Tracks missing any of these fields will appear in the "Missing metadata" report.
+                  Choose which fields must be present for a track to be
+                  considered "complete". Tracks missing any of these fields will
+                  appear in the "Missing metadata" report.
                 </p>
                 <div class="grid grid-cols-2 gap-1">
-                  <label v-for="opt in missingMetadataFieldOptions" :key="opt.value" class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <label
+                    v-for="opt in missingMetadataFieldOptions"
+                    :key="opt.value"
+                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
                     <input
                       type="checkbox"
                       :checked="missingMetadataFields.includes(opt.value)"
                       class="rounded border-stone-600"
-                      @change="(e) => {
-                        const checked = (e.target as HTMLInputElement).checked;
-                        const set = new Set(missingMetadataFields);
-                        if (checked) set.add(opt.value);
-                        else set.delete(opt.value);
-                        settingsStore.setMissingMetadataFields(Array.from(set));
-                      }"
+                      @change="
+                        (e) => {
+                          const checked = (e.target as HTMLInputElement)
+                            .checked;
+                          const set = new Set(missingMetadataFields);
+                          if (checked) set.add(opt.value);
+                          else set.delete(opt.value);
+                          settingsStore.setMissingMetadataFields(
+                            Array.from(set),
+                          );
+                        }
+                      "
                     />
                     {{ opt.label }}
                   </label>
@@ -1158,54 +1766,96 @@ watch(openSettingsAtTab, (tab) => {
             </div>
 
             <div v-show="settingsTab === 'exports'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="download" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                Exports</p>
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="download"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
+                Exports
+              </p>
 
               <div class="settings-section">
-                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
-                  <FeatherIcon name="folder" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                  Music Root Folder</p>
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="folder"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
+                  Music Root Folder
+                </p>
                 <input
                   :value="musicRootFolder"
                   type="text"
                   :placeholder="musicRootFolderPlaceholder"
                   class="mt-1 w-full rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-xs text-stone-200 placeholder:text-stone-500 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
-                  @input="settingsStore.setMusicRootFolder(($event.target as HTMLInputElement).value)"
+                  @input="
+                    settingsStore.setMusicRootFolder(
+                      ($event.target as HTMLInputElement).value,
+                    )
+                  "
                 />
                 <p class="mt-1.5 text-xs text-stone-500">
-                  Enter just the folder name (e.g. <code class="rounded bg-stone-700 px-1 font-mono text-[11px]">Music</code>), not a full path. This should be the root folder that is scanned into your library. It is used to generate relative paths inside exported playlist files.
+                  Enter just the folder name (e.g.
+                  <code class="rounded bg-stone-700 px-1 font-mono text-[11px]"
+                    >Music</code
+                  >), not a full path. This should be the root folder that is
+                  scanned into your library. It is used to generate relative
+                  paths inside exported playlist files.
                 </p>
               </div>
             </div>
 
             <div v-show="settingsTab === 'smart_suggestions'" class="space-y-3">
-              <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-                <FeatherIcon name="zap" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                Smart Suggestions</p>
+              <p
+                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+              >
+                <FeatherIcon
+                  name="zap"
+                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                />
+                Smart Suggestions
+              </p>
 
               <div class="settings-section space-y-1.5">
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label
+                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
                   <input
                     type="checkbox"
                     :checked="hideWikipediaCoverSearch"
                     class="rounded border-stone-600"
-                    @change="(e) => settingsStore.setHideWikipediaCoverSearch((e.target as HTMLInputElement).checked)"
+                    @change="
+                      (e) =>
+                        settingsStore.setHideWikipediaCoverSearch(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
                   />
                   Hide Wikipedia album cover search
                 </label>
                 <p class="mt-0.5 text-xs text-stone-500">
-                  When enabled, the "From Wikipedia" (globe) button for album art is hidden in the metadata editor and on album group headers.
+                  When enabled, the "From Wikipedia" (globe) button for album
+                  art is hidden in the metadata editor and on album group
+                  headers.
                 </p>
               </div>
 
               <div class="settings-section space-y-3">
                 <div>
-                  <label class="block text-xs font-medium text-stone-500">Path format (for metadata suggestions)</label>
+                  <label class="block text-xs font-medium text-stone-500"
+                    >Path format (for metadata suggestions)</label
+                  >
                   <p class="mt-0.5 text-xs text-stone-500">
-                    Use placeholders in angle brackets to describe how your file paths are structured. Matching starts from the end of the path and works upwards toward parent folders.
+                    Use placeholders in angle brackets to describe how your file
+                    paths are structured. Matching starts from the end of the
+                    path and works upwards toward parent folders.
                   </p>
-                  <p class="mt-1.5 text-xs font-medium text-stone-500">Example patterns (click to apply):</p>
+                  <p class="mt-1.5 text-xs font-medium text-stone-500">
+                    Example patterns (click to apply):
+                  </p>
                   <ul class="mt-0.5 space-y-0.5 text-xs">
                     <li v-for="(ex, i) in pathFormatExamples" :key="i">
                       <button
@@ -1219,13 +1869,20 @@ watch(openSettingsAtTab, (tab) => {
                     </li>
                   </ul>
                   <div class="mt-2">
-                    <label class="block text-xs font-medium text-stone-500">Active pattern</label>
+                    <label class="block text-xs font-medium text-stone-500"
+                      >Active pattern</label
+                    >
                     <input
                       type="text"
                       :value="pathFormatTemplate"
                       class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-200"
                       placeholder="Pattern currently used by Apply from path"
-                      @input="(e) => settingsStore.setPathFormatTemplate((e.target as HTMLInputElement).value)"
+                      @input="
+                        (e) =>
+                          settingsStore.setPathFormatTemplate(
+                            (e.target as HTMLInputElement).value,
+                          )
+                      "
                     />
                   </div>
                 </div>
@@ -1233,9 +1890,14 @@ watch(openSettingsAtTab, (tab) => {
 
               <div class="settings-section space-y-3">
                 <div>
-                  <p class="text-xs font-medium text-stone-500">Matching path examples (click to try):</p>
+                  <p class="text-xs font-medium text-stone-500">
+                    Matching path examples (click to try):
+                  </p>
                   <ul class="mt-0.5 space-y-0.5 text-xs">
-                    <li v-for="(p, i) in pathFormatExamplePaths" :key="'path-'+i">
+                    <li
+                      v-for="(p, i) in pathFormatExamplePaths"
+                      :key="'path-' + i"
+                    >
                       <button
                         type="button"
                         class="path-format-example-btn w-full break-all rounded border px-2 py-1 font-mono text-left"
@@ -1247,14 +1909,22 @@ watch(openSettingsAtTab, (tab) => {
                   </ul>
                 </div>
 
-                <div class="mt-2 rounded border border-stone-600 bg-stone-900/70 p-3">
+                <div
+                  class="mt-2 rounded border border-stone-600 bg-stone-900/70 p-3"
+                >
                   <div class="flex items-center justify-between gap-2">
-                    <p class="text-xs font-medium text-stone-400">Try your path</p>
+                    <p class="text-xs font-medium text-stone-400">
+                      Try your path
+                    </p>
                     <button
                       type="button"
                       class="shrink-0 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-600 hover:text-stone-200"
                       title="Restore default example path"
-                      @click="settingsStore.setPathFormatExamplePath(DEFAULT_PATH_FORMAT_EXAMPLE_PATH)"
+                      @click="
+                        settingsStore.setPathFormatExamplePath(
+                          DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
+                        )
+                      "
                     >
                       Reset to default
                     </button>
@@ -1264,29 +1934,63 @@ watch(openSettingsAtTab, (tab) => {
                     :value="pathFormatExamplePath"
                     class="mt-1.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200 placeholder:text-stone-500"
                     placeholder="e.g. /path/to/Artist/Album/01 - Title.flac"
-                    @input="(e) => settingsStore.setPathFormatExamplePath((e.target as HTMLInputElement).value)"
+                    @input="
+                      (e) =>
+                        settingsStore.setPathFormatExamplePath(
+                          (e.target as HTMLInputElement).value,
+                        )
+                    "
                   />
                   <p class="mt-1 text-[11px] text-stone-500">
                     Using pattern:
-                    <span class="font-mono text-stone-400">{{ pathFormatTemplate || '—' }}</span>
+                    <span class="font-mono text-stone-400">{{
+                      pathFormatTemplate || "—"
+                    }}</span>
                   </p>
-                  <div v-if="pathFormatTemplate.trim()" class="mt-2 border-t border-stone-700/60 pt-2">
-                    <p class="text-xs font-medium text-stone-400">Extracted fields</p>
-                    <table v-if="pathFormatExampleExtracted" class="mt-1.5 w-full border-collapse text-xs">
+                  <div
+                    v-if="pathFormatTemplate.trim()"
+                    class="mt-2 border-t border-stone-700/60 pt-2"
+                  >
+                    <p class="text-xs font-medium text-stone-400">
+                      Extracted fields
+                    </p>
+                    <table
+                      v-if="pathFormatExampleExtracted"
+                      class="mt-1.5 w-full border-collapse text-xs"
+                    >
                       <thead>
                         <tr class="border-b border-stone-600">
-                          <th class="py-1.5 pr-3 text-left font-medium text-stone-500">Field</th>
-                          <th class="py-1.5 text-left font-medium text-stone-500">Value</th>
+                          <th
+                            class="py-1.5 pr-3 text-left font-medium text-stone-500"
+                          >
+                            Field
+                          </th>
+                          <th
+                            class="py-1.5 text-left font-medium text-stone-500"
+                          >
+                            Value
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(val, key) in pathFormatExampleExtracted" :key="key" class="border-b border-stone-700/50">
-                          <td class="py-1.5 pr-3 font-mono text-stone-400">{{ key }}</td>
-                          <td class="py-1.5 text-stone-300">{{ val || '—' }}</td>
+                        <tr
+                          v-for="(val, key) in pathFormatExampleExtracted"
+                          :key="key"
+                          class="border-b border-stone-700/50"
+                        >
+                          <td class="py-1.5 pr-3 font-mono text-stone-400">
+                            {{ key }}
+                          </td>
+                          <td class="py-1.5 text-stone-300">
+                            {{ val || "—" }}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
-                    <p v-else class="mt-1 text-xs text-amber-500">Format does not match the example path. Adjust placeholders or path structure.</p>
+                    <p v-else class="mt-1 text-xs text-amber-500">
+                      Format does not match the example path. Adjust
+                      placeholders or path structure.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1307,16 +2011,33 @@ watch(openSettingsAtTab, (tab) => {
       @keydown.escape="closeUpdateCompleteModal"
       @click.self="closeUpdateCompleteModal"
     >
-      <div class="w-full max-w-sm rounded-lg border border-stone-600 bg-stone-800 p-4 shadow-xl" @click.stop>
-        <h2 id="update-complete-title" class="text-sm font-semibold text-stone-200">Update installed</h2>
+      <div
+        class="w-full max-w-sm rounded-lg border border-stone-600 bg-stone-800 p-4 shadow-xl"
+        @click.stop
+      >
+        <h2
+          id="update-complete-title"
+          class="text-sm font-semibold text-stone-200"
+        >
+          Update installed
+        </h2>
         <p class="mt-2 text-xs text-stone-400">
-          Version {{ updateCompleteVersion }} has been installed. Restart the app to use the new version.
+          Version {{ updateCompleteVersion }} has been installed. Restart the
+          app to use the new version.
         </p>
         <div class="mt-4 flex justify-end gap-2">
-          <button type="button" class="rounded border border-stone-600 px-3 py-1.5 text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200" @click="closeUpdateCompleteModal">
+          <button
+            type="button"
+            class="rounded border border-stone-600 px-3 py-1.5 text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            @click="closeUpdateCompleteModal"
+          >
             Later
           </button>
-          <button type="button" class="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500" @click="restartAfterUpdate">
+          <button
+            type="button"
+            class="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            @click="restartAfterUpdate"
+          >
             Restart now
           </button>
         </div>
@@ -1375,4 +2096,3 @@ watch(openSettingsAtTab, (tab) => {
   overflow: hidden;
 }
 </style>
-

@@ -9,6 +9,7 @@ export type DefaultGroupBy = "none" | "artist" | "album";
 export type TableDensity = "comfortable" | "compact" | "spacious";
 
 export type BottomPanelId = "library" | "metadata" | "play" | "queue";
+export type SidebarDefaultTab = "folders" | "playlists";
 
 export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
 
@@ -174,6 +175,8 @@ export const useSettingsStore = defineStore("settings", {
     hideReportsSection: false,
     /** When true, the library sidebar starts collapsed on app launch. */
     sidebarClosedOnStartup: false,
+    /** Which sidebar tab should be active by default ("Folders" or "Playlists"). */
+    sidebarDefaultTab: "folders" as SidebarDefaultTab,
     pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
     pathFormatExamplePath: DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
     openSettingsAtTab: null as string | null,
@@ -222,6 +225,9 @@ export const useSettingsStore = defineStore("settings", {
         if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
         if ("hideReportsSection" in data) this.hideReportsSection = coerceBool(data.hideReportsSection, false);
         if ("sidebarClosedOnStartup" in data) this.sidebarClosedOnStartup = coerceBool(data.sidebarClosedOnStartup, false);
+        if ("sidebarDefaultTab" in data && (data.sidebarDefaultTab === "folders" || data.sidebarDefaultTab === "playlists")) {
+          this.sidebarDefaultTab = data.sidebarDefaultTab;
+        }
         if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
         if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
@@ -262,6 +268,7 @@ export const useSettingsStore = defineStore("settings", {
           hideWikipediaCoverSearch: this.hideWikipediaCoverSearch,
           hideReportsSection: this.hideReportsSection,
           sidebarClosedOnStartup: this.sidebarClosedOnStartup,
+          sidebarDefaultTab: this.sidebarDefaultTab,
           pathFormatTemplate: this.pathFormatTemplate,
           pathFormatExamplePath: this.pathFormatExamplePath,
           playerGlowIntensity: this.playerGlowIntensity,
@@ -372,6 +379,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setSidebarClosedOnStartup(value: boolean) {
       this.sidebarClosedOnStartup = value;
+      this.saveToFile();
+    },
+    setSidebarDefaultTab(value: SidebarDefaultTab) {
+      this.sidebarDefaultTab = value;
       this.saveToFile();
     },
     setMissingMetadataFields(fields: MissingMetadataField[]) {

@@ -27,7 +27,7 @@ const { playlists, loading: playlistsLoading } = storeToRefs(playlistStore);
 const { missingMetadataFields, hideReportsSection } = storeToRefs(settingsStore);
 
 type SidebarTabId = "folders" | "playlists";
-const activeSidebarTab = ref<SidebarTabId>("folders");
+const activeSidebarTab = ref<SidebarTabId>(settingsStore.sidebarDefaultTab ?? "folders");
 
 const exportingPlaylist = ref<Playlist | null>(null);
 
