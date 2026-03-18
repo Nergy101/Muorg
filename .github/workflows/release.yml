@@ -94,22 +94,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install OpenSSL (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install openssl --yes --no-progress
-          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          echo "X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+           - name: Install OpenSSL via vcpkg (Windows)
+             if: runner.os == 'Windows'
+             run: |
+               # Clone vcpkg if not already present (GitHub runners are ephemeral, so we clone every time)
+               if (-Not (Test-Path C:\vcpkg)) {
+                 git clone https://github.com/microsoft/vcpkg C:\vcpkg
+                 C:\vcpkg\bootstrap-vcpkg.bat
+               }
 
-      - name: Install OpenSSL via vcpkg (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          git clone https://github.com/microsoft/vcpkg C:\vcpkg
-          C:\vcpkg\bootstrap-vcpkg.bat
-          C:\vcpkg\vcpkg.exe install openssl:x64-windows
-          C:\vcpkg\vcpkg.exe install openssl:x64-windows-static
-          C:\vcpkg\vcpkg.exe integrate install
-          echo "VCPKGRS_DYNAMIC=1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+               # Install static openssl (preferred for Rust to avoid DLL hell)
+               C:\vcpkg\vcpkg.exe install openssl:x64-windows-static
+
+               # Integrate vcpkg into the environment
+               C:\vcpkg\vcpkg.exe integrate install
+
+               # Set environment variables explicitly for the Rust build
+               # Point to the static installation
+               echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+               echo "X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+               # Optional: Force static linking if your Cargo.toml allows it
+               echo "VCPKGRS_DYNAMIC=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -172,7 +178,7 @@ jobs:
             ${{ steps.bundle.outputs.path }}/appimage/*.AppImage.sig
 
   release:
-    needs: [version, build]
+    needs: [ version, build ]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     permissions:
