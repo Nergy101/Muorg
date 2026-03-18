@@ -33,7 +33,7 @@ git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 git add src-tauri/gen/schemas/*.json 2>/dev/null || true
 
 if git status --porcelain | grep -q .; then
-  git commit -m "chore: release v$VERSION"
+  git commit -m "🔖 release v$VERSION"
   echo "Committed version bump for v$VERSION"
 else
   echo "No version file changes to commit (already clean?)."
