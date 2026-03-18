@@ -40,7 +40,10 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "",
+      "nsis": {
+        "installerHooks": "./nsis/installer-hooks.nsh"
+      }
     },
     "longDescription": "Organize your music library. Edit metadata for MP3 and FLAC files.",
     "shortDescription": "The Music Organizer from Hell",

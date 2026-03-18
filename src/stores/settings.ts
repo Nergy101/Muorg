@@ -161,6 +161,7 @@ export const useSettingsStore = defineStore("settings", {
     playbarShowAlbumInMarquee: false,
     playbarDisableMarquee: false,
     shuffle: false,
+    repeat: "none" as "none" | "one" | "all",
     navWrap: false,
     navFocusFollowsMouse: false,
     volume: 0.25,
@@ -213,6 +214,9 @@ export const useSettingsStore = defineStore("settings", {
           this.playbarDisableMarquee = coerceBool(data.playbarDisableMarquee, false);
         }
         if ("shuffle" in data) this.shuffle = coerceBool(data.shuffle, false);
+        if ("repeat" in data && (data.repeat === "none" || data.repeat === "one" || data.repeat === "all")) {
+          this.repeat = data.repeat;
+        }
         if ("navWrap" in data) this.navWrap = coerceBool(data.navWrap, false);
         if ("navFocusFollowsMouse" in data) this.navFocusFollowsMouse = coerceBool(data.navFocusFollowsMouse, false);
         if ("volume" in data) this.volume = coerceVolume(data.volume);
@@ -256,6 +260,7 @@ export const useSettingsStore = defineStore("settings", {
           playbarShowAlbumInMarquee: this.playbarShowAlbumInMarquee,
           playbarDisableMarquee: this.playbarDisableMarquee,
           shuffle: this.shuffle,
+          repeat: this.repeat,
           navWrap: this.navWrap,
           navFocusFollowsMouse: this.navFocusFollowsMouse,
           volume: this.volume,
@@ -327,6 +332,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setShuffle(value: boolean) {
       this.shuffle = value;
+      this.saveToFile();
+    },
+    setRepeat(value: "none" | "one" | "all") {
+      this.repeat = value;
       this.saveToFile();
     },
     setNavWrap(value: boolean) {

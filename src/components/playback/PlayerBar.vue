@@ -4,7 +4,10 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { useCastStore } from "../../stores/cast";
+import { usePlaylistStore } from "../../stores/playlists";
+import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
+import StarRating from "../shared/StarRating.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import CastButton from "./CastButton.vue";
@@ -25,6 +28,7 @@ const {
   autoplayOnSelect,
   continuousPlayback,
   shuffle,
+  repeat,
   playbarShowAlbumInMarquee,
   playbarDisableMarquee,
   volume,
@@ -37,10 +41,11 @@ const playbackList = computed(() => {
   return tableOrderedTracks.value;
 });
 
-function getNextTrack(): CatalogTrack | null {
+function getNextTrack(forAutoAdvance = false): CatalogTrack | null {
   const current = singleTrack.value;
   const list = playbackList.value;
   if (!current || !list.length) return null;
+  if (forAutoAdvance && repeat.value === "one") return current;
   if (shuffle.value) {
     const others = list.filter((t) => t.id !== current.id);
     return others.length > 0 ? others[Math.floor(Math.random() * others.length)] : null;
@@ -48,6 +53,7 @@ function getNextTrack(): CatalogTrack | null {
   const idx = list.findIndex((t) => t.id === current.id);
   if (idx >= 0 && idx + 1 < list.length) return list[idx + 1];
   if (idx < 0 && list.length > 0) return list[0];
+  if (forAutoAdvance && repeat.value === "all") return list[0];
   if (idx >= 0 && idx === list.length - 1 && continuousPlayback.value) {
     const table = tableOrderedTracks.value;
     if (table.length === 0) return null;
@@ -117,6 +123,82 @@ function hideTitlePopover() {
   titlePopover.value = null;
   if (titlePopoverHideTimeout) clearTimeout(titlePopoverHideTimeout);
   titlePopoverHideTimeout = null;
+}
+
+const playlistStore = usePlaylistStore();
+const { playlists } = storeToRefs(playlistStore);
+const { tryAddToPlaylist } = usePlaylistAdd();
+
+const contextMenu = ref<{ x: number; y: number } | null>(null);
+const contextMenuRef = ref<HTMLElement | null>(null);
+const playlistSubmenuOpen = ref(false);
+const playlistBtnContainerRef = ref<HTMLElement | null>(null);
+const playlistSubmenuFlipUp = computed(() => {
+  if (!playlistBtnContainerRef.value) return false;
+  const rect = playlistBtnContainerRef.value.getBoundingClientRect();
+  return rect.bottom + 220 > window.innerHeight;
+});
+
+function onAlbumArtContextMenu(e: MouseEvent) {
+  e.preventDefault();
+  if (!singleTrack.value) return;
+  contextMenu.value = { x: e.clientX, y: e.clientY };
+}
+
+function closeContextMenu() {
+  contextMenu.value = null;
+  playlistSubmenuOpen.value = false;
+}
+
+watch(contextMenu, (menu) => {
+  if (!menu) return;
+  const onOutside = (e: MouseEvent) => {
+    if (contextMenuRef.value?.contains(e.target as Node)) return;
+    closeContextMenu();
+    document.removeEventListener("click", onOutside);
+    document.removeEventListener("keydown", onEscapeMenu);
+  };
+  const onEscapeMenu = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      closeContextMenu();
+      document.removeEventListener("click", onOutside);
+      document.removeEventListener("keydown", onEscapeMenu);
+    }
+  };
+  nextTick(() => setTimeout(() => {
+    document.addEventListener("click", onOutside);
+    document.addEventListener("keydown", onEscapeMenu);
+  }, 0));
+});
+
+function viewSong() {
+  const track = singleTrack.value;
+  if (!track) return;
+  store.setRevealTrackId(track.id);
+  closeContextMenu();
+}
+
+
+async function setRating(rating: number | null) {
+  const track = singleTrack.value;
+  if (!track) return;
+  closeContextMenu();
+  await store.setRating([track.path], rating);
+}
+
+function addToQueue() {
+  const track = singleTrack.value;
+  if (!track) return;
+  store.addToQueue([track.id]);
+  closeContextMenu();
+}
+
+async function addToPlaylist(playlistId: number) {
+  const track = singleTrack.value;
+  if (!track) return;
+  const playlist = playlists.value.find((p) => p.id === playlistId);
+  closeContextMenu();
+  await tryAddToPlaylist(playlistId, [track.id], playlist?.name ?? "");
 }
 
 function formatTime(secs: number): string {
@@ -451,14 +533,21 @@ function onAudioPause() {
 
 function onAudioEnded() {
   isPlaying.value = false;
-  if (playbackList.value === tableOrderedTracks.value && !continuousPlayback.value) return;
-  const next = getNextTrack();
+  if (playbackList.value === tableOrderedTracks.value && !continuousPlayback.value && repeat.value === "none") return;
+  const next = getNextTrack(true);
   if (!next) return;
-  const queueIdx = store.queueTrackIds.indexOf(next.id);
-  if (queueIdx >= 0) store.removeFromQueueAtIndex(queueIdx);
+  if (next.id !== singleTrack.value?.id) {
+    const queueIdx = store.queueTrackIds.indexOf(next.id);
+    if (queueIdx >= 0) store.removeFromQueueAtIndex(queueIdx);
+    store.clearSelection();
+    store.toggleSelection(next.id);
+  } else {
+    // repeat one: restart in place
+    seekTo(0);
+    nextTick(() => audioRef.value?.play().catch(() => {}));
+    return;
+  }
   shouldAutoplayNextSelection = true;
-  store.clearSelection();
-  store.toggleSelection(next.id);
 }
 
 function playNext() {
@@ -556,7 +645,7 @@ onUnmounted(() => {
       @durationchange="onDurationChange"
     />
     <div class="flex min-w-0 w-full items-center gap-3">
-      <div class="flex min-w-0 max-w-[260px] shrink-0 items-center gap-2">
+      <div class="flex min-w-0 max-w-[260px] shrink-0 items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-600/50 cursor-context-menu" @contextmenu="onAlbumArtContextMenu">
         <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="medium" />
         <div class="min-w-0 flex-1">
           <div
@@ -609,7 +698,7 @@ onUnmounted(() => {
             aria-label="Restart from beginning"
             @click="restart"
           >
-            <FeatherIcon name="rotate-ccw" class="h-4 w-4" />
+            <FeatherIcon name="square" class="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -658,6 +747,16 @@ onUnmounted(() => {
           >
             <FeatherIcon name="shuffle" class="h-4 w-4" />
           </button>
+          <button
+            type="button"
+            class="relative flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
+            :class="repeat !== 'none' ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
+            :aria-label="repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'"
+            @click="settingsStore.setRepeat(repeat === 'none' ? 'all' : repeat === 'all' ? 'one' : 'none')"
+          >
+            <FeatherIcon name="repeat" class="h-4 w-4" />
+            <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+          </button>
         </div>
       </div>
       <div class="ml-3 flex w-44 shrink-0 items-center justify-end gap-1.5">
@@ -683,6 +782,85 @@ onUnmounted(() => {
         @mouseleave="hideTitlePopover"
       >
         {{ titlePopover.text }}
+      </div>
+    </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="contextMenu"
+        ref="contextMenuRef"
+        class="fixed z-[301] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px', transform: 'translateY(-100%)' }"
+        @click.stop
+      >
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          @click="viewSong"
+        >
+          <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-stone-400" />
+          View song
+        </button>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          @click="addToQueue"
+        >
+          <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
+          Add to queue
+        </button>
+        <div class="my-1 border-t border-stone-700" />
+        <div
+          ref="playlistBtnContainerRef"
+          class="relative"
+          @mouseenter="playlistSubmenuOpen = true"
+          @mouseleave="playlistSubmenuOpen = false"
+        >
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+            @click="playlistSubmenuOpen = !playlistSubmenuOpen"
+          >
+            <span class="flex items-center gap-2">
+              <FeatherIcon name="plus" class="h-4 w-4 shrink-0 text-stone-400" />
+              Add to playlist
+            </span>
+            <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+          </button>
+          <!-- Transparent bridge covering the gap between button and submenu -->
+          <div class="absolute right-0 top-0 h-full w-2 translate-x-full" />
+          <div
+            v-if="playlistSubmenuOpen && playlists.length"
+            class="absolute left-full z-[310] min-w-[160px] max-w-[220px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+            :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
+            style="margin-left: 2px"
+          >
+            <button
+              v-for="pl in playlists"
+              :key="pl.id"
+              type="button"
+              class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+              @click="addToPlaylist(pl.id)"
+            >
+              <FeatherIcon name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+              <span class="min-w-0 truncate">{{ pl.name }}</span>
+            </button>
+          </div>
+          <div
+            v-else-if="playlistSubmenuOpen && !playlists.length"
+            class="absolute left-full z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
+            :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
+            style="margin-left: 2px"
+          >
+            No playlists yet.
+          </div>
+        </div>
+        <div class="my-1 border-t border-stone-700" />
+        <div class="flex items-center justify-center px-3 py-2">
+          <StarRating
+            :model-value="singleTrack?.rating ?? null"
+            @update:model-value="setRating"
+          />
+        </div>
       </div>
     </Teleport>
   </div>

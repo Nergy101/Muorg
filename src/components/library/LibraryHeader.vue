@@ -216,10 +216,10 @@ const groupByValue = computed(() => groupBy.value);
       </div>
     </div>
 
-    <div class="flex items-center justify-start gap-2">
+    <div class="flex items-center justify-start gap-1">
       <button
         type="button"
-        class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
         :class="props.activeTab === 'library' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'library')"
       >
@@ -227,7 +227,7 @@ const groupByValue = computed(() => groupBy.value);
       </button>
       <button
         type="button"
-        class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
         :class="props.activeTab === 'metadata' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'metadata')"
       >
@@ -235,7 +235,7 @@ const groupByValue = computed(() => groupBy.value);
       </button>
       <button
         type="button"
-        class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
         :class="props.activeTab === 'player' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'player')"
       >
@@ -243,7 +243,7 @@ const groupByValue = computed(() => groupBy.value);
       </button>
       <button
         type="button"
-        class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
+        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
         :class="props.activeTab === 'queue' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'queue')"
       >

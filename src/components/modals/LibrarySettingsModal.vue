@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
+import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import { storeToRefs } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import { appConfigDir, join } from "@tauri-apps/api/path";
@@ -374,6 +375,25 @@ function openReleaseUrl(url: string) {
   openShell(url);
 }
 
+const settingsScrollRef = ref<HTMLElement | null>(null);
+useOverlayScrollbars(settingsScrollRef);
+
+const linkTooltip = ref<{ text: string; x: number; y: number } | null>(null);
+let linkTooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function showLinkTooltip(url: string, e: MouseEvent) {
+  if (linkTooltipHideTimeout) clearTimeout(linkTooltipHideTimeout);
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  linkTooltip.value = { text: url, x: rect.left + rect.width / 2, y: rect.top - 8 };
+}
+
+function hideLinkTooltip() {
+  linkTooltipHideTimeout = setTimeout(() => {
+    linkTooltip.value = null;
+    linkTooltipHideTimeout = null;
+  }, 80);
+}
+
 async function restartAfterUpdate() {
   closeUpdateCompleteModal();
   await relaunch();
@@ -518,7 +538,7 @@ watch(openSettingsAtTab, (tab) => {
             </template>
           </nav>
 
-          <div class="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
+          <div ref="settingsScrollRef" class="min-h-0 min-w-0 flex-1 p-4">
             <div v-show="settingsTab === 'general'" class="space-y-3">
               <p
                 class="flex items-center gap-2 text-xs font-semibold text-stone-400"
@@ -538,31 +558,19 @@ watch(openSettingsAtTab, (tab) => {
                     class="h-3.5 w-3.5 shrink-0 text-stone-500"
                   />
                   Updates
+                  <span class="ml-auto font-normal text-stone-500">v{{ appVersion }}</span>
                 </p>
                 <button
                   type="button"
-                  class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 hover:bg-stone-700"
+                  class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-200 hover:bg-stone-700 disabled:opacity-60"
                   :disabled="updateCheckStatus === 'checking'"
                   @click="checkForUpdates"
                 >
-                  <span v-if="updateCheckStatus === 'idle'"
-                    >Check for updates</span
-                  >
-                  <span v-else-if="updateCheckStatus === 'checking'"
-                    >Checking…</span
-                  >
-                  <span v-else-if="updateCheckStatus === 'up-to-date'"
-                    >Up to date
-                    <span class="text-stone-400">v{{ appVersion }}</span></span
-                  >
-                  <span v-else-if="updateCheckStatus === 'available'"
-                    >Update available
-                    <span class="text-stone-400">v{{ appVersion }}</span></span
-                  >
-                  <span v-else-if="updateCheckStatus === 'error'"
-                    >Check failed</span
-                  >
+                  <span v-if="updateCheckStatus === 'checking'">Checking…</span>
+                  <span v-else>Check for updates</span>
                 </button>
+                <p v-if="updateCheckStatus === 'up-to-date'" class="mt-1 text-xs text-stone-400">Up to date</p>
+                <p v-if="updateCheckStatus === 'error'" class="mt-1 text-xs text-amber-400">Check failed</p>
                 <p v-if="updateError" class="mt-1 text-xs text-amber-400">
                   {{ updateError }}
                 </p>
@@ -741,6 +749,8 @@ watch(openSettingsAtTab, (tab) => {
                     type="button"
                     class="inline-flex items-center gap-1 underline decoration-dotted underline-offset-2 hover:text-stone-300"
                     @click="openReleaseUrl('https://github.com/Nergy101')"
+                    @mouseenter="showLinkTooltip('https://github.com/Nergy101', $event)"
+                    @mouseleave="hideLinkTooltip"
                   >
                     <FeatherIcon name="user" class="h-3.5 w-3.5 shrink-0" />
                     Nergy101
@@ -750,29 +760,39 @@ watch(openSettingsAtTab, (tab) => {
                   <button
                     type="button"
                     class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
-                    @click="openReleaseUrl('https://blog.nergy.space/')"
+                    @click="openReleaseUrl('https://github.com/Nergy101/Muorg')"
+                    @mouseenter="showLinkTooltip('https://github.com/Nergy101/Muorg', $event)"
+                    @mouseleave="hideLinkTooltip"
                   >
-                    <FeatherIcon
-                      name="book-open"
-                      class="h-3.5 w-3.5 shrink-0"
-                    />
+                    <FeatherIcon name="github" class="h-3.5 w-3.5 shrink-0" />
+                    GitHub
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
+                    @click="openReleaseUrl('https://blog.nergy.space/')"
+                    @mouseenter="showLinkTooltip('https://blog.nergy.space/', $event)"
+                    @mouseleave="hideLinkTooltip"
+                  >
+                    <FeatherIcon name="book-open" class="h-3.5 w-3.5 shrink-0" />
                     Blog
                   </button>
                   <button
                     type="button"
                     class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
                     @click="openReleaseUrl('https://portfolio.nergy.space/')"
+                    @mouseenter="showLinkTooltip('https://portfolio.nergy.space/', $event)"
+                    @mouseleave="hideLinkTooltip"
                   >
-                    <FeatherIcon
-                      name="briefcase"
-                      class="h-3.5 w-3.5 shrink-0"
-                    />
+                    <FeatherIcon name="briefcase" class="h-3.5 w-3.5 shrink-0" />
                     Portfolio
                   </button>
                   <button
                     type="button"
                     class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
                     @click="openReleaseUrl('https://retroranker.site')"
+                    @mouseenter="showLinkTooltip('https://retroranker.site', $event)"
+                    @mouseleave="hideLinkTooltip"
                   >
                     <FeatherIcon name="award" class="h-3.5 w-3.5 shrink-0" />
                     RetroRanker
@@ -781,9 +801,80 @@ watch(openSettingsAtTab, (tab) => {
                     type="button"
                     class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
                     @click="openReleaseUrl('https://ko-fi.com/nergy')"
+                    @mouseenter="showLinkTooltip('https://ko-fi.com/nergy', $event)"
+                    @mouseleave="hideLinkTooltip"
                   >
                     <FeatherIcon name="coffee" class="h-3.5 w-3.5 shrink-0" />
                     Ko-fi
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-section mt-3">
+                <p class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="star" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  Thanks to…
+                </p>
+                <div class="flex flex-col items-start gap-1 text-xs text-stone-500">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 text-left underline decoration-dotted underline-offset-2 hover:text-stone-300"
+                    @click="openReleaseUrl('https://feathericons.com')"
+                    @mouseenter="showLinkTooltip('https://feathericons.com', $event)"
+                    @mouseleave="hideLinkTooltip"
+                  >
+                    <FeatherIcon name="feather" class="h-3.5 w-3.5 shrink-0" />
+                    Feather Icons
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 text-left underline decoration-dotted underline-offset-2 hover:text-stone-300"
+                    @click="openReleaseUrl('https://tauri.app')"
+                    @mouseenter="showLinkTooltip('https://tauri.app', $event)"
+                    @mouseleave="hideLinkTooltip"
+                  >
+                    <FeatherIcon name="box" class="h-3.5 w-3.5 shrink-0" />
+                    Tauri, Vue &amp; Rust
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 text-left underline decoration-dotted underline-offset-2 hover:text-stone-300"
+                    @click="openReleaseUrl('https://github.com/pdeljanov/Symphonia')"
+                    @mouseenter="showLinkTooltip('https://github.com/pdeljanov/Symphonia', $event)"
+                    @mouseleave="hideLinkTooltip"
+                  >
+                    <FeatherIcon name="headphones" class="h-3.5 w-3.5 shrink-0" />
+                    Symphonia
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 text-left underline decoration-dotted underline-offset-2 hover:text-stone-300"
+                    @click="openReleaseUrl('https://www.sqlite.org')"
+                    @mouseenter="showLinkTooltip('https://www.sqlite.org', $event)"
+                    @mouseleave="hideLinkTooltip"
+                  >
+                    <FeatherIcon name="database" class="h-3.5 w-3.5 shrink-0" />
+                    SQLite
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 text-left underline decoration-dotted underline-offset-2 hover:text-stone-300"
+                    @click="openReleaseUrl('https://tailwindcss.com')"
+                    @mouseenter="showLinkTooltip('https://tailwindcss.com', $event)"
+                    @mouseleave="hideLinkTooltip"
+                  >
+                    <FeatherIcon name="wind" class="h-3.5 w-3.5 shrink-0" />
+                    Tailwind CSS
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 text-left underline decoration-dotted underline-offset-2 hover:text-stone-300"
+                    @click="openReleaseUrl('https://www.rockbox.org')"
+                    @mouseenter="showLinkTooltip('https://www.rockbox.org', $event)"
+                    @mouseleave="hideLinkTooltip"
+                  >
+                    <FeatherIcon name="music" class="h-3.5 w-3.5 shrink-0" />
+                    Rockbox community
                   </button>
                 </div>
               </div>
@@ -2059,6 +2150,16 @@ watch(openSettingsAtTab, (tab) => {
           </div>
         </div>
       </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="linkTooltip"
+      class="pointer-events-none fixed z-[500] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-300 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)] whitespace-nowrap"
+      :style="{ left: linkTooltip.x + 'px', top: linkTooltip.y + 'px', transform: 'translate(-50%, -100%)' }"
+    >
+      {{ linkTooltip.text }}
     </div>
   </Teleport>
 

@@ -1,0 +1,17 @@
+# AppArmor abstraction for Muorg
+# Allows multicast/mDNS socket access needed for cast device discovery.
+# Install to: /etc/apparmor.d/abstractions/muorg
+# (Included automatically when the .deb package is installed via the
+#  postinst script; the AppImage is unconfined by default.)
+
+abi <abi/3.0>,
+
+  # mDNS multicast — UDP port 5353 + raw socket for multicast group join
+  network inet  dgram,
+  network inet6 dgram,
+  network inet  raw,
+  network inet6 raw,
+
+  # TCP for cast streaming server (axum) and cast protocol (rust_cast)
+  network inet  stream,
+  network inet6 stream,

@@ -345,7 +345,7 @@ onUnmounted(() => {
         <div class="mpx-row">
           <span class="inline-flex" @mouseenter="showTooltip('Restart from beginning', $event)" @mouseleave="scheduleHideTooltip">
             <button type="button" class="mpx-nav-btn mpx-nav-btn--sm" aria-label="Restart from beginning" @click="restart">
-              <FeatherIcon name="rotate-ccw" class="h-4 w-4" />
+              <FeatherIcon name="square" class="h-4 w-4" />
             </button>
           </span>
           <span class="mpx-time mpx-time-current">{{ formatTime(currentTime) }}</span>
@@ -441,7 +441,7 @@ onUnmounted(() => {
               aria-label="Restart from beginning"
               @click="restart"
             >
-              <FeatherIcon name="rotate-ccw" class="h-4 w-4" />
+              <FeatherIcon name="square" class="h-4 w-4" />
             </button>
           </span>
           <span class="w-10 shrink-0 text-right text-xs text-stone-400 tabular-nums">

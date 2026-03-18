@@ -556,6 +556,20 @@ onUnmounted(() => {
 });
 
 function scrollToTrackId(id: number) {
+  // If the track's group is collapsed, expand it first so the row becomes visible.
+  const groups = groupedRows.value;
+  if (groups?.length) {
+    for (const group of groups) {
+      if (group.tracks.some((t) => t.id === id) && !expandedGroups.value.has(group.key)) {
+        const next = new Set(expandedGroups.value);
+        next.add(group.key);
+        expandedGroups.value = next;
+        // Wait for Vue to re-render the newly expanded rows before scrolling.
+        nextTick(() => scrollToTrackId(id));
+        return;
+      }
+    }
+  }
   const rows = visibleRows.value;
   const idx = rows.findIndex((r) => r.type === "track" && r.track.id === id);
   if (idx < 0) return;
@@ -630,6 +644,12 @@ const contextMenuRating = computed(() => {
 
 // Playlist submenu open state
 const playlistSubmenuOpen = ref(false);
+const playlistBtnContainerRef = ref<HTMLElement | null>(null);
+const playlistSubmenuFlipUp = computed(() => {
+  if (!playlistBtnContainerRef.value) return false;
+  const rect = playlistBtnContainerRef.value.getBoundingClientRect();
+  return rect.bottom + 220 > window.innerHeight;
+});
 
 watch(contextMenu, (menu) => {
   if (!menu) {
@@ -945,18 +965,10 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         Add to queue
       </button>
 
-      <!-- Rating section -->
-      <div class="my-1 border-t border-stone-700" />
-      <div class="flex items-center justify-center px-3 py-2">
-        <StarRating
-          :model-value="contextMenuRating"
-          @update:model-value="setRatingFromContextMenu"
-        />
-      </div>
-
       <!-- Add to playlist section -->
       <div class="my-1 border-t border-stone-700" />
       <div
+        ref="playlistBtnContainerRef"
         class="relative"
         @mouseenter="playlistSubmenuOpen = true"
         @mouseleave="playlistSubmenuOpen = false"
@@ -972,10 +984,13 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
           </span>
           <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
         </button>
+        <!-- Transparent bridge covering the gap between button and submenu -->
+        <div class="absolute right-0 top-0 h-full w-2 translate-x-full" />
         <!-- Playlist submenu -->
         <div
           v-if="playlistSubmenuOpen && playlists.length"
-          class="absolute left-full top-0 z-[310] min-w-[160px] max-w-[220px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+          class="absolute left-full z-[310] min-w-[160px] max-w-[220px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+          :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
           style="margin-left: 2px"
         >
           <button
@@ -991,12 +1006,24 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         </div>
         <div
           v-else-if="playlistSubmenuOpen && !playlists.length"
-          class="absolute left-full top-0 z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
+          class="absolute left-full z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
+          :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
           style="margin-left: 2px"
         >
           No playlists yet.
         </div>
       </div>
+
+      <!-- Copy path -->
+      <div class="my-1 border-t border-stone-700" />
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        @click="copyPathToClipboard(contextMenu.tracks[0]?.path ?? ''); closeContextMenu()"
+      >
+        <FeatherIcon name="clipboard" class="h-4 w-4 shrink-0 text-stone-400" />
+        Copy path
+      </button>
 
       <!-- Remove from playlist (when viewing a playlist: single track or full album) -->
       <template v-if="store.activePlaylistId != null && contextMenu.tracks.length">
@@ -1010,6 +1037,15 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
           Remove from playlist
         </button>
       </template>
+
+      <!-- Rating section (last) -->
+      <div class="my-1 border-t border-stone-700" />
+      <div class="flex items-center justify-center px-3 py-2">
+        <StarRating
+          :model-value="contextMenuRating"
+          @update:model-value="setRatingFromContextMenu"
+        />
+      </div>
     </div>
   </Teleport>
 

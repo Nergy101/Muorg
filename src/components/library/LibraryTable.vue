@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
@@ -21,7 +21,20 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { tracks, reportFilter, reportSingleField } = storeToRefs(store);
+const { tracks, filteredTracks, reportFilter, reportSingleField, revealTrackId } = storeToRefs(store);
+
+watch(revealTrackId, (id) => {
+  if (id == null) return;
+  store.setRevealTrackId(null);
+  const needsClear = !filteredTracks.value.some((t) => t.id === id);
+  if (needsClear) {
+    store.setSearchQuery("");
+    store.clearActivePlaylist();
+  }
+  emit("update:activeTab", "library");
+  // Wait for Vue to flush the filter change and the virtual list to re-render its rows.
+  nextTick(() => nextTick(() => tableBodyRef.value?.scrollToTrackId(id)));
+});
 const { missingMetadataFields } = storeToRefs(settingsStore);
 
 const showSettingsModal = ref(false);

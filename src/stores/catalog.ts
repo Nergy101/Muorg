@@ -72,6 +72,8 @@ export const useCatalogStore = defineStore("catalog", {
     activePlaylistEntryIds: null as number[] | null,
     /** When set, MetadataEditor should load this image file path as the pending cover image. */
     pendingCoverImagePath: null as string | null,
+    /** When set, LibraryTable will switch to library tab and scroll to this track. Cleared after scroll. */
+    revealTrackId: null as number | null,
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -449,6 +451,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setSearchQuery(q: string) {
       this.searchQuery = q;
+    },
+    setRevealTrackId(id: number | null) {
+      this.revealTrackId = id;
     },
     setGroupBy(mode: "none" | "artist" | "album") {
       this.groupBy = mode;
