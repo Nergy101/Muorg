@@ -101,6 +101,16 @@ jobs:
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           echo "X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Install OpenSSL via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git clone https://github.com/microsoft/vcpkg C:\vcpkg
+          C:\vcpkg\bootstrap-vcpkg.bat
+          C:\vcpkg\vcpkg.exe install openssl:x64-windows
+          C:\vcpkg\vcpkg.exe install openssl:x64-windows-static
+          C:\vcpkg\vcpkg.exe integrate install
+          echo "VCPKGRS_DYNAMIC=1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
