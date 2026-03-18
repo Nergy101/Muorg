@@ -99,6 +99,7 @@ jobs:
         run: |
           choco install openssl --yes --no-progress
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
