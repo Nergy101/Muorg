@@ -36,7 +36,7 @@ const { shuffle, continuousPlayback, playbarShowAlbumInMarquee } = storeToRefs(s
 const playbarAlbumArtSizePx = computed(() => {
   const h = props.panelHeightPx;
   if (h == null || h <= 0) return undefined;
-  const reserved = 140; // handle, title, controls, progress, padding
+  const reserved = 156; // handle(4) + padding(24) + gaps(16) + title(20) + controls(60) + progress(32)
   return Math.max(128, h - reserved);
 });
 
@@ -344,10 +344,10 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <!-- Default bottom-panel layout: pb-8 so progress/restart row isn't cut off by panel overflow -->
+  <!-- Default bottom-panel layout -->
   <div
     v-else-if="singleTrack"
-    class="flex shrink-0 flex-col items-center gap-1 border-t border-stone-700 bg-stone-900/95 px-4 py-2 pb-8"
+    class="flex shrink-0 flex-col items-center gap-1 border-t border-stone-700 bg-stone-900/95 px-4 py-3"
   >
     <div class="flex w-full flex-col items-center gap-1">
       <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" :size-px="playbarAlbumArtSizePx" />

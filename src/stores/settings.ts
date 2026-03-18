@@ -112,13 +112,13 @@ function coerceQueuePanelWidthFraction(v: unknown): number {
   return Math.min(0.6, Math.max(0.15, n));
 }
 
-const BOTTOM_PANEL_HEIGHT_MIN = 260;
+const BOTTOM_PANEL_HEIGHT_MIN = 300;
 const BOTTOM_PANEL_HEIGHT_MAX = 600;
 
-/** Bottom panel height in px when Player or Queue tab (260–600). */
+/** Bottom panel height in px when Player or Queue tab (300–600). */
 function coerceBottomPanelHeightPx(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
-  if (!Number.isFinite(n)) return 260;
+  if (!Number.isFinite(n)) return 300;
   return Math.round(Math.min(BOTTOM_PANEL_HEIGHT_MAX, Math.max(BOTTOM_PANEL_HEIGHT_MIN, n)));
 }
 
@@ -184,8 +184,8 @@ export const useSettingsStore = defineStore("settings", {
     playerGlowIntensity: "default" as PlayerGlowIntensity,
     /** Queue panel width as fraction of bottom bar when queue tab is active (0.15–0.6). */
     queuePanelWidthFraction: 0.25,
-    /** Bottom panel height in px when Player or Queue tab is active (72–600). */
-    bottomPanelHeightPx: 260,
+    /** Bottom panel height in px when Player or Queue tab is active (300–600). */
+    bottomPanelHeightPx: 300,
     /** Folder name (e.g. "Music") used as root for exported playlist relative paths. */
     musicRootFolder: "",
   }),
