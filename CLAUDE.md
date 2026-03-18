@@ -57,6 +57,7 @@ src/
 
 ## Git commits
 
+- **Never commit automatically** — only run `git commit` when the user explicitly asks
 - Always use [Gitmoji](https://gitmoji.dev/) notation at the start of the commit message (e.g. `🐛`, `✨`, `♻️`)
 - Keep the summary to 1–2 sentences max — no bullet lists or long bodies
 
