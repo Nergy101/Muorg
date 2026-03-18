@@ -4,9 +4,12 @@ import type { CatalogTrack } from "../../types";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
+import { useCastStore } from "../../stores/cast";
+import { invoke } from "@tauri-apps/api/core";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import CastButton from "./CastButton.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -29,8 +32,10 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
+const castStore = useCastStore();
 const { selectedTracks, tableOrderedTracks, queueTracks } = storeToRefs(store);
 const { shuffle, continuousPlayback, playbarShowAlbumInMarquee } = storeToRefs(settingsStore);
+const { isCasting } = storeToRefs(castStore);
 
 /** Album art size in px when panel height is provided; scales with panel up to full available height. */
 const playbarAlbumArtSizePx = computed(() => {
@@ -106,11 +111,30 @@ function syncFromAudio() {
   isPlaying.value = !el.paused;
 }
 
-function onSeekInput(e: Event) {
-  const val = parseFloat((e.target as HTMLInputElement).value);
-  currentTime.value = val;
+function seekTo(secs: number) {
   const el = getAudio();
-  if (el) el.currentTime = val;
+  currentTime.value = secs;
+  if (isCasting.value) {
+    const wasPlaying = el ? !el.paused : false;
+    if (el && wasPlaying) el.pause();
+    if (el) el.currentTime = secs;
+    if (wasPlaying) {
+      castStore.setPendingCastResume(true);
+      setTimeout(() => {
+        if (castStore.pendingCastResume) {
+          castStore.setPendingCastResume(false);
+          getAudio()?.play().catch(console.error);
+        }
+      }, 15000);
+    }
+    invoke("cast_seek", { positionSecs: secs }).catch(console.error);
+  } else if (el) {
+    el.currentTime = secs;
+  }
+}
+
+function onSeekInput(e: Event) {
+  seekTo(parseFloat((e.target as HTMLInputElement).value));
 }
 
 const PROGRESS_THUMB_HALF = 6;
@@ -124,10 +148,7 @@ function onProgressBarClick(e: MouseEvent) {
   const ratio = Math.max(0, Math.min(1, x / trackWidth));
   const d = displayDuration.value;
   if (!d || !Number.isFinite(d)) return;
-  const newTime = ratio * d;
-  currentTime.value = newTime;
-  const el = getAudio();
-  if (el) el.currentTime = newTime;
+  seekTo(ratio * d);
 }
 
 function onSeekMouseDown() {
@@ -179,8 +200,10 @@ function togglePlay() {
   if (!el) return;
   if (el.paused) {
     el.play().catch(() => {});
+    if (isCasting.value) invoke("cast_resume").catch(console.error);
   } else {
     el.pause();
+    if (isCasting.value) invoke("cast_pause").catch(console.error);
   }
   isPlaying.value = !el.paused;
 }
@@ -335,6 +358,7 @@ onUnmounted(() => {
             <div class="mpx-volume-wrap">
               <VolumeControl mode="playscreen" />
             </div>
+            <CastButton />
             <button type="button" class="mpx-nav-btn mpx-nav-btn--sm" aria-label="Minimize player" title="Minimize player" @click="emit('minimize')">
               <FeatherIcon name="minimize-2" class="h-4 w-4" />
             </button>
@@ -454,6 +478,7 @@ onUnmounted(() => {
         </div>
         <div class="ml-auto flex shrink-0 items-center justify-end gap-2">
           <VolumeControl mode="playscreen" />
+          <CastButton />
           <span
             v-if="!hideExpand"
             class="inline-flex"

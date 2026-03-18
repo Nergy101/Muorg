@@ -47,4 +47,5 @@ export const MOCK_TRACKS: CatalogTrack[] = MOCK_TRACK_LIST.map(({ title, length 
   format: "mp3",
   mtime_secs: 0,
   has_cover: true, // cover loaded from MOCK_COVER_SOURCE_PATH at runtime
+  rating: null,
 }));

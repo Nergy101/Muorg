@@ -21,7 +21,7 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { tracks, reportFilter } = storeToRefs(store);
+const { tracks, reportFilter, reportSingleField } = storeToRefs(store);
 const { missingMetadataFields } = storeToRefs(settingsStore);
 
 const showSettingsModal = ref(false);
@@ -29,10 +29,18 @@ const showKeyMapModal = ref(false);
 const tableBodyRef = ref<InstanceType<typeof LibraryTableBody> | null>(null);
 
 function isFieldMissing(track: CatalogTrack, field: MissingMetadataField): boolean {
+  if (field === "has_cover") return !track.has_cover;
+  if (field === "rating") return track.rating == null;
   const v = track[field as keyof CatalogTrack];
   if (field === "year" || field === "track_number" || field === "disc_number") return v == null;
   return v == null || String(v).trim() === "";
 }
+
+const FIELD_LABELS: Record<MissingMetadataField, string> = {
+  title: "Title", artist: "Artist", album: "Album", album_artist: "Album artist",
+  year: "Year", genre: "Genre", track_number: "Track #", disc_number: "Disc #",
+  rating: "Rating", has_cover: "Cover art",
+};
 
 const activeReportTracks = computed(() => {
   const kind = reportFilter.value;
@@ -42,7 +50,8 @@ const activeReportTracks = computed(() => {
   const base = tracks.value;
 
   if (kind === "missing_metadata") {
-    const fields = missingMetadataFields.value;
+    const single = reportSingleField.value;
+    const fields = single ? [single] : missingMetadataFields.value;
     if (!fields.length) return [];
     return base.filter((t) => fields.some((f) => isFieldMissing(t, f)));
   }
@@ -67,7 +76,10 @@ const activeReportTracks = computed(() => {
 });
 
 const activeReportTitle = computed(() => {
-  if (reportFilter.value === "missing_metadata") return "Missing metadata";
+  if (reportFilter.value === "missing_metadata") {
+    const f = reportSingleField.value;
+    return f ? `Missing ${FIELD_LABELS[f] ?? f}` : "Missing metadata";
+  }
   if (reportFilter.value === "duplicates") return "Duplicates";
   if (reportFilter.value === "missing_album_cover") return "Missing album cover";
   return "";

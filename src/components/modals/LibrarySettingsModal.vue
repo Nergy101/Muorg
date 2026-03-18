@@ -24,9 +24,18 @@ import {
   getSimpleGlowBlobs,
 } from "../../composables/useDominantColor";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import GenrePieChart from "../stats/GenrePieChart.vue";
+import TopArtistsChart from "../stats/TopArtistsChart.vue";
+import MetadataHealthChart from "../stats/MetadataHealthChart.vue";
+import YearLineChart from "../stats/YearLineChart.vue";
 import packageJson from "../../../package.json";
 
 const appVersion = packageJson.version;
+
+function handleViewField(field: MissingMetadataField) {
+  store.setReportSingleField(field);
+  emit("update:open", false);
+}
 
 const props = defineProps<{
   open: boolean;
@@ -86,7 +95,8 @@ type SettingsTabId =
   | "keyboard"
   | "reports"
   | "exports"
-  | "smart_suggestions";
+  | "smart_suggestions"
+  | "statistics";
 const settingsTab = ref<SettingsTabId>("general");
 const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: "general", label: "General", icon: "sliders" },
@@ -96,6 +106,7 @@ const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: "smart_suggestions", label: "Smart Suggestions", icon: "zap" },
   { id: "reports", label: "Reports", icon: "bar-chart-2" },
   { id: "exports", label: "Exports", icon: "download" },
+  { id: "statistics", label: "Statistics", icon: "pie-chart" },
   { id: "keyboard", label: "Keyboard", icon: "command" },
 ];
 
@@ -266,6 +277,8 @@ const missingMetadataFieldOptions: {
   { value: "genre", label: "Genre" },
   { value: "track_number", label: "Track #" },
   { value: "disc_number", label: "Disc #" },
+  { value: "rating", label: "Rating" },
+  { value: "has_cover", label: "Album Cover" },
 ];
 
 const pathFormatExamples = [
@@ -488,19 +501,21 @@ watch(openSettingsAtTab, (tab) => {
             class="settings-tab-nav w-36 shrink-0 border-r border-stone-700 bg-stone-800/90 py-2"
             aria-label="Settings sections"
           >
-            <button
-              v-for="tab in settingsTabs"
-              :key="tab.id"
-              type="button"
-              class="settings-tab-btn flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors"
-              :class="
-                settingsTab === tab.id ? 'settings-tab-btn--active' : undefined
-              "
-              @click="settingsTab = tab.id"
-            >
-              <FeatherIcon :name="tab.icon" class="h-3.5 w-3.5 shrink-0" />
-              {{ tab.label }}
-            </button>
+            <template v-for="tab in settingsTabs" :key="tab.id">
+              <div
+                v-if="tab.id === 'statistics'"
+                class="mx-3 my-2 border-t border-stone-700"
+              />
+              <button
+                type="button"
+                class="settings-tab-btn flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors"
+                :class="settingsTab === tab.id ? 'settings-tab-btn--active' : undefined"
+                @click="settingsTab = tab.id"
+              >
+                <FeatherIcon :name="tab.icon" class="h-3.5 w-3.5 shrink-0" />
+                {{ tab.label }}
+              </button>
+            </template>
           </nav>
 
           <div class="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
@@ -607,9 +622,10 @@ watch(openSettingsAtTab, (tab) => {
                 <div class="mt-1 flex gap-2">
                   <button
                     type="button"
-                    class="rounded border border-stone-600 px-2.5 py-1 text-[11px] text-stone-300 hover:bg-stone-700"
+                    class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1 text-[11px] text-stone-300 hover:bg-stone-700"
                     @click="copyPathToClipboard(settingsFilePath)"
                   >
+                    <FeatherIcon name="clipboard" class="h-3 w-3 shrink-0" />
                     Copy path
                   </button>
                   <button
@@ -766,7 +782,7 @@ watch(openSettingsAtTab, (tab) => {
                     class="inline-flex items-center gap-1.5 underline decoration-dotted underline-offset-2 text-stone-400 hover:text-stone-300"
                     @click="openReleaseUrl('https://ko-fi.com/nergy')"
                   >
-                    <FeatherIcon name="gift" class="h-3.5 w-3.5 shrink-0" />
+                    <FeatherIcon name="coffee" class="h-3.5 w-3.5 shrink-0" />
                     Ko-fi
                   </button>
                 </div>
@@ -1513,8 +1529,9 @@ watch(openSettingsAtTab, (tab) => {
                   <div class="flex flex-wrap gap-2">
                     <button
                       v-for="opt in [
-                        { value: 'folders', label: 'Folders' },
-                        { value: 'playlists', label: 'Playlists' },
+                        { value: 'folders', label: 'Folders', desc: 'Show library folders by default.' },
+                        { value: 'reports', label: 'Reports', desc: 'Show reports by default.' },
+                        { value: 'playlists', label: 'Playlists', desc: 'Show playlists by default.' },
                       ]"
                       :key="opt.value"
                       type="button"
@@ -1526,7 +1543,7 @@ watch(openSettingsAtTab, (tab) => {
                       "
                       @click="
                         settingsStore.setSidebarDefaultTab(
-                          opt.value as 'folders' | 'playlists',
+                          opt.value as 'folders' | 'reports' | 'playlists',
                         )
                       "
                     >
@@ -1540,13 +1557,7 @@ watch(openSettingsAtTab, (tab) => {
                             Active
                           </span>
                         </p>
-                        <p class="mt-0.5 text-[11px] text-stone-400">
-                          {{
-                            opt.value === "folders"
-                              ? "Show library folders by default."
-                              : "Show playlists by default."
-                          }}
-                        </p>
+                        <p class="mt-0.5 text-[11px] text-stone-400">{{ opt.desc }}</p>
                       </div>
                     </button>
                   </div>
@@ -1720,6 +1731,21 @@ watch(openSettingsAtTab, (tab) => {
                 />
                 Reports
               </p>
+
+              <div class="settings-section">
+                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="settingsStore.hideReportsSection"
+                    class="rounded border-stone-600"
+                    @change="(e) => settingsStore.setHideReportsSection((e.target as HTMLInputElement).checked)"
+                  />
+                  Hide reports section in sidebar
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  When enabled, the reports block (Missing metadata, Duplicates, Missing album cover) is hidden from the main sidebar layout.
+                </p>
+              </div>
 
               <div class="settings-section">
                 <p
@@ -1995,6 +2021,41 @@ watch(openSettingsAtTab, (tab) => {
                 </div>
               </div>
             </div>
+          <!-- ── Statistics ──────────────────────────────────────────── -->
+          <div v-show="settingsTab === 'statistics'" class="space-y-6">
+            <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
+              <FeatherIcon name="pie-chart" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+              Library Statistics
+            </p>
+            <p class="text-xs text-stone-500">
+              Insights based on all {{ store.tracks.length }} tracks in your library.
+            </p>
+
+            <!-- Genre distribution -->
+            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
+              <p class="mb-4 text-xs font-semibold text-stone-400">Genre distribution</p>
+              <GenrePieChart :tracks="store.tracks" />
+            </div>
+
+            <!-- Top artists -->
+            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
+              <p class="mb-4 text-xs font-semibold text-stone-400">Top artists by track count</p>
+              <TopArtistsChart :tracks="store.tracks" />
+            </div>
+
+            <!-- Release year line chart -->
+            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
+              <p class="mb-3 text-xs font-semibold text-stone-400">Tracks per release year</p>
+              <YearLineChart :tracks="store.tracks" />
+            </div>
+
+            <!-- Metadata health -->
+            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
+              <p class="mb-3 text-xs font-semibold text-stone-400">Metadata completeness</p>
+              <MetadataHealthChart :tracks="store.tracks" @view-field="handleViewField" />
+            </div>
+          </div>
+
           </div>
         </div>
       </div>

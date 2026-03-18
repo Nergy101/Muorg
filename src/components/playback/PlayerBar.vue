@@ -3,10 +3,13 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
+import { useCastStore } from "../../stores/cast";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import CastButton from "./CastButton.vue";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { CatalogTrack } from "../../types";
 
 const emit = defineEmits<{
@@ -15,6 +18,8 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
+const castStore = useCastStore();
+const { isCasting } = storeToRefs(castStore);
 const { selectedTracks, tableOrderedTracks, queueTracks } = storeToRefs(store);
 const {
   autoplayOnSelect,
@@ -75,6 +80,7 @@ const duration = ref(0);
 const isSeeking = ref(false);
 let shouldAutoplayNextSelection = false;
 const hasInitializedAutoplay = ref(false);
+let unlistenCastTrackEnded: (() => void) | null = null;
 
 /** Small cache of preloaded audio blobs (next track, maybe a couple more). Keyed by track path. */
 const audioCache = new Map<string, string>();
@@ -123,7 +129,15 @@ function formatTime(secs: number): string {
 function onTimeUpdate() {
   if (isSeeking.value) return;
   const el = audioRef.value;
-  if (el) currentTime.value = el.currentTime;
+  if (!el) return;
+  currentTime.value = el.currentTime;
+  if ("mediaSession" in navigator && Number.isFinite(el.duration) && el.duration > 0) {
+    navigator.mediaSession.setPositionState({
+      duration: el.duration,
+      position: el.currentTime,
+      playbackRate: el.playbackRate,
+    });
+  }
 }
 
 function onDurationChange() {
@@ -131,10 +145,35 @@ function onDurationChange() {
   if (el) duration.value = Number.isFinite(el.duration) ? el.duration : 0;
 }
 
+function seekTo(secs: number) {
+  const el = audioRef.value;
+  currentTime.value = secs;
+
+  if (isCasting.value) {
+    // Pause local audio, seek both, wait for cast to confirm playing before resuming
+    const wasPlaying = el ? !el.paused : false;
+    if (el && wasPlaying) {
+      el.pause();
+    }
+    if (el) el.currentTime = secs;
+    if (wasPlaying) {
+      castStore.setPendingCastResume(true);
+      // Fallback: resume after 15s in case cast never responds
+      setTimeout(() => {
+        if (castStore.pendingCastResume) {
+          castStore.setPendingCastResume(false);
+          audioRef.value?.play().catch(console.error);
+        }
+      }, 15000);
+    }
+    invoke("cast_seek", { positionSecs: secs }).catch(console.error);
+  } else if (el) {
+    el.currentTime = secs;
+  }
+}
+
 function onSeekInput(e: Event) {
-  const val = parseFloat((e.target as HTMLInputElement).value);
-  currentTime.value = val;
-  if (audioRef.value) audioRef.value.currentTime = val;
+  seekTo(parseFloat((e.target as HTMLInputElement).value));
 }
 
 const PROGRESS_THUMB_HALF = 6;
@@ -148,9 +187,7 @@ function onProgressBarClick(e: MouseEvent) {
   const ratio = Math.max(0, Math.min(1, x / trackWidth));
   const d = displayDuration.value;
   if (!d || !Number.isFinite(d)) return;
-  const newTime = ratio * d;
-  currentTime.value = newTime;
-  if (audioRef.value) audioRef.value.currentTime = newTime;
+  seekTo(ratio * d);
 }
 
 function onSeekMouseDown() {
@@ -232,6 +269,24 @@ function evictOldCacheEntries(maxEntries = 3) {
   }
 }
 
+async function updateMediaSession(track: CatalogTrack | null) {
+  if (!("mediaSession" in navigator)) return;
+  if (!track) {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = "none";
+    return;
+  }
+  await store.fetchCover(track.path);
+  const coverUrl = store.getCoverDataUrl(track.path);
+  const artwork: MediaImage[] = coverUrl ? [{ src: coverUrl }] : [];
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.title || track.path.split(/[/\\]/).pop() || "Track",
+    artist: track.artist || "",
+    album: track.album || "",
+    artwork,
+  });
+}
+
 async function loadAudioBlobForCurrent(track: CatalogTrack) {
   const path = track.path;
   const cached = audioCache.get(path);
@@ -303,9 +358,31 @@ watch(
       store.setCurrentPlaying(null);
       shouldScrollMarquee.value = false;
       marqueeDistance.value = 0;
+      updateMediaSession(null);
       return;
     }
     store.setCurrentPlaying(track.id);
+    updateMediaSession(track);
+
+    // If a cast device is configured, load the new track on it and hold local
+    // audio until the cast confirms it's playing (pendingCastResume).
+    const castDeviceId = castStore.connectedDeviceId;
+    if (castDeviceId) {
+      castStore.setPendingCastResume(true);
+      setTimeout(() => {
+        if (castStore.pendingCastResume) {
+          castStore.setPendingCastResume(false);
+          audioRef.value?.play().catch(console.error);
+        }
+      }, 15000);
+      invoke("cast_play", { deviceId: castDeviceId, trackPath: track.path }).catch(
+        (e: unknown) => {
+          console.error("[Cast] cast_play on track change:", e);
+          castStore.setPendingCastResume(false);
+        },
+      );
+    }
+
     loadAudioBlobForCurrent(track).then(() => {
       if (!hasInitializedAutoplay.value) {
         hasInitializedAutoplay.value = true;
@@ -320,6 +397,7 @@ watch(
       nextTick(() => {
         const el = audioRef.value;
         if (!el) return;
+        if (castStore.pendingCastResume) return; // cast will trigger play when it's ready
         el.play().catch(() => {});
       });
       // Once the current track is ready, start preloading the upcoming one in the background.
@@ -330,24 +408,45 @@ watch(
   { immediate: true }
 );
 
+// Mute local audio while casting — it keeps playing for position tracking
+watch(isCasting, (casting) => {
+  const el = audioRef.value;
+  if (el) el.muted = casting;
+});
+
+// When cast confirms it's playing after a sync seek, resume local audio
+watch(() => castStore.castStatus.status, (status) => {
+  if (castStore.pendingCastResume && status === "playing") {
+    castStore.setPendingCastResume(false);
+    audioRef.value?.play().catch(console.error);
+  }
+});
+
 function togglePlay() {
   const el = audioRef.value;
   if (!el) return;
   if (el.paused) {
     el.play().catch(() => {});
     isPlaying.value = true;
+    if (isCasting.value) invoke("cast_resume").catch(console.error);
   } else {
     el.pause();
     isPlaying.value = false;
+    if (isCasting.value) invoke("cast_pause").catch(console.error);
   }
 }
 
 function onAudioPlay() {
   isPlaying.value = true;
+  // Cast commands are only sent from explicit user actions (togglePlay/seekTo), not audio events.
+  // Audio elements fire play/pause for buffering, loading, and seeking — mirroring those
+  // to the cast device causes intermittent pause/resume storms.
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
 }
 
 function onAudioPause() {
   isPlaying.value = false;
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
 }
 
 function onAudioEnded() {
@@ -381,10 +480,9 @@ function playPrevious() {
 }
 
 function restart() {
+  seekTo(0);
   const el = audioRef.value;
-  if (!el) return;
-  el.currentTime = 0;
-  if (isPlaying.value) el.play().catch(() => {});
+  if (el && isPlaying.value) el.play().catch(() => {});
 }
 
 function onGlobalKeydown(e: KeyboardEvent) {
@@ -396,7 +494,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
   togglePlay();
 }
 
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener("keydown", onGlobalKeydown);
   recomputeMarquee();
   window.addEventListener("resize", recomputeMarquee);
@@ -405,12 +503,31 @@ onMounted(() => {
     if (!el) return;
     const v = Math.min(1, Math.max(0, volume.value ?? 0.25));
     el.volume = v;
+    el.muted = isCasting.value;
   });
+
+  // When cast finishes the track naturally, advance the queue just like onAudioEnded
+  unlistenCastTrackEnded = await listen("cast:track-ended", () => {
+    onAudioEnded();
+  });
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.setActionHandler("play", () => audioRef.value?.play().catch(() => {}));
+    navigator.mediaSession.setActionHandler("pause", () => audioRef.value?.pause());
+    navigator.mediaSession.setActionHandler("previoustrack", () => playPrevious());
+    navigator.mediaSession.setActionHandler("nexttrack", () => playNext());
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+      if (details.seekTime != null && audioRef.value) {
+        audioRef.value.currentTime = details.seekTime;
+        currentTime.value = details.seekTime;
+      }
+    });
+  }
 });
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
   window.removeEventListener("resize", recomputeMarquee);
+  if (unlistenCastTrackEnded) unlistenCastTrackEnded();
   // Cleanup any cached object URLs to avoid leaks.
   revokeUrl(audioSrc.value);
   audioSrc.value = "";
@@ -543,8 +660,9 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-      <div class="ml-3 flex w-32 shrink-0 items-center justify-end gap-1.5">
+      <div class="ml-3 flex w-44 shrink-0 items-center justify-end gap-1.5">
         <VolumeControl mode="metadata" />
+        <CastButton />
         <button
           type="button"
           class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-100"

@@ -16,6 +16,8 @@ export interface CatalogTrack {
   mtime_secs: number;
   /** True if the track has embedded album cover art. */
   has_cover: boolean;
+  /** User rating 1–5, or null if unrated. */
+  rating: number | null;
 }
 
 export interface Playlist {

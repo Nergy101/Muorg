@@ -8,6 +8,7 @@ import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { invoke } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import StarRating from "../shared/StarRating.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -42,6 +43,9 @@ const wikipediaApplying = ref(false);
 
 const coverDragOver = ref(false);
 const coverDragDepth = ref(0);
+
+// Rating (saved immediately, not via the Save button)
+const rating = ref<number | null>(null);
 
 const tooltipPopover = ref<{ text: string; x: number; y: number; position?: "left" | "below" | "above" } | null>(null);
 let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -449,6 +453,9 @@ function syncFromTracks() {
     clearCoverRequested.value = false;
     if (tracks.length > 0) store.fetchCover(tracks[0].path);
   }
+  // Rating: show common value across all tracks, or null if mixed
+  const firstRating = tracks[0].rating ?? null;
+  rating.value = tracks.every((t) => (t.rating ?? null) === firstRating) ? firstRating : null;
   baseline.value = {
     title: title.value,
     artist: artist.value,
@@ -462,6 +469,12 @@ function syncFromTracks() {
     pictureBase64: pictureBase64.value,
   };
   editedFields.value = new Set();
+}
+
+async function setRating(value: number | null) {
+  rating.value = value;
+  const paths = selectedTracks.value.map((t) => t.path);
+  if (paths.length) await store.setRating(paths, value);
 }
 
 watch(selectedTracks, syncFromTracks, { immediate: true });
@@ -833,6 +846,17 @@ function onCoverDragLeave(e: DragEvent) {
             />
           </div>
           <div>
+            <label class="block text-stone-500">Year</label>
+            <input
+              v-model.number="year"
+              type="number"
+              min="1"
+              max="9999"
+              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+              @input="markEdited('year')"
+            />
+          </div>
+          <div>
             <label class="block text-stone-500">Album artist</label>
             <input
               v-model="albumArtist"
@@ -852,17 +876,6 @@ function onCoverDragLeave(e: DragEvent) {
             />
           </div>
           <div>
-            <label class="block text-stone-500">Year</label>
-            <input
-              v-model.number="year"
-              type="number"
-              min="1"
-              max="9999"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('year')"
-            />
-          </div>
-          <div>
             <label class="block text-stone-500">Genre</label>
             <input
               v-model="genre"
@@ -870,6 +883,21 @@ function onCoverDragLeave(e: DragEvent) {
               class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
               @input="markEdited('genre')"
             />
+          </div>
+          <div>
+            <label class="block text-stone-500">Rating</label>
+            <div class="mt-1 flex items-center gap-1.5">
+              <StarRating :model-value="rating" @update:model-value="setRating" />
+              <button
+                v-if="rating !== null"
+                type="button"
+                class="text-[10px] text-stone-500 hover:text-stone-300"
+                title="Clear rating"
+                @click="setRating(null)"
+              >
+                Clear
+              </button>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Track #</label>

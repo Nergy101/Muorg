@@ -9,7 +9,7 @@ export type DefaultGroupBy = "none" | "artist" | "album";
 export type TableDensity = "comfortable" | "compact" | "spacious";
 
 export type BottomPanelId = "library" | "metadata" | "player" | "queue";
-export type SidebarDefaultTab = "folders" | "playlists";
+export type SidebarDefaultTab = "folders" | "reports" | "playlists";
 
 export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
 
@@ -21,7 +21,9 @@ export type MissingMetadataField =
   | "year"
   | "genre"
   | "track_number"
-  | "disc_number";
+  | "disc_number"
+  | "rating"
+  | "has_cover";
 
 const SETTINGS_FILENAME = "settings.yml";
 
@@ -43,6 +45,8 @@ const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "genre",
   "track_number",
   "disc_number",
+  "rating",
+  "has_cover",
 ];
 
 /** Resolve theme to the actual value applied to the document (dark/light/doom/orkish). */
@@ -225,7 +229,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
         if ("hideReportsSection" in data) this.hideReportsSection = coerceBool(data.hideReportsSection, false);
         if ("sidebarClosedOnStartup" in data) this.sidebarClosedOnStartup = coerceBool(data.sidebarClosedOnStartup, false);
-        if ("sidebarDefaultTab" in data && (data.sidebarDefaultTab === "folders" || data.sidebarDefaultTab === "playlists")) {
+        if ("sidebarDefaultTab" in data && (data.sidebarDefaultTab === "folders" || data.sidebarDefaultTab === "reports" || data.sidebarDefaultTab === "playlists")) {
           this.sidebarDefaultTab = data.sidebarDefaultTab;
         }
         if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);

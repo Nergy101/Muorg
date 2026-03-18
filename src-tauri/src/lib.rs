@@ -2,6 +2,7 @@ use catalog::Catalog;
 use std::sync::Arc;
 use tauri::Manager;
 
+mod cast;
 mod catalog;
 mod commands;
 mod metadata;
@@ -44,6 +45,9 @@ pub fn run() {
                 let _ = catalog::gc_deleted_tracks(&conn, thirty_days);
             }
             app.manage(Arc::new(catalog));
+            app.manage(cast::DiscoveryState::new());
+            app.manage(cast::AudioServerState::new());
+            app.manage(cast::CastState::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -54,6 +58,7 @@ pub fn run() {
             commands::remove_folder,
             commands::clear_cache,
             commands::write_track_metadata,
+            commands::set_track_rating,
             commands::path_to_folder,
             commands::write_text_file,
             commands::get_track_cover,
@@ -68,6 +73,15 @@ pub fn run() {
             commands::add_tracks_to_playlist,
             commands::remove_tracks_from_playlist,
             commands::remove_playlist_entry,
+            commands::cast_start_discovery,
+            commands::cast_stop_discovery,
+            commands::cast_get_devices,
+            commands::cast_play,
+            commands::cast_pause,
+            commands::cast_resume,
+            commands::cast_stop,
+            commands::cast_seek,
+            commands::cast_set_volume,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

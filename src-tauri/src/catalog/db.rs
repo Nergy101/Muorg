@@ -31,6 +31,8 @@ pub struct CatalogTrack {
     pub mtime_secs: i64,
     /// True if the track has embedded album cover art (CoverFront).
     pub has_cover: bool,
+    /// User rating 1–5, or None if unrated.
+    pub rating: Option<i64>,
 }
 
 const SCHEMA: &str = "
@@ -120,6 +122,10 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     }
     if !schema_has_column(conn, "roots", "deleted_at")? {
         conn.execute("ALTER TABLE roots ADD COLUMN deleted_at INTEGER", [])
+            .map_err(|e| e.to_string())?;
+    }
+    if !schema_has_column(conn, "tracks", "rating")? {
+        conn.execute("ALTER TABLE tracks ADD COLUMN rating INTEGER", [])
             .map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -221,20 +227,24 @@ pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, Str
     let has_cover_col = schema_has_column(conn, "tracks", "has_cover")?;
     let featuring_col = schema_has_column(conn, "tracks", "featuring")?;
     let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
+    let rating_col = schema_has_column(conn, "tracks", "rating")?;
     let filter = if deleted_at_col { " WHERE deleted_at IS NULL" } else { "" };
     let order = " ORDER BY artist, album, track_number, title";
+    let rating_sel = if rating_col { ", rating" } else { "" };
+    // rating index = 14 (base) + 1 if featuring_col + 1 if has_cover_col
+    let rating_idx: usize = 14 + featuring_col as usize + has_cover_col as usize;
     let sql: String = match (has_cover_col, featuring_col) {
         (true, true) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover FROM tracks{filter}{order}"
+            "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover{rating_sel} FROM tracks{filter}{order}"
         ),
         (true, false) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover FROM tracks{filter}{order}"
+            "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover{rating_sel} FROM tracks{filter}{order}"
         ),
         (false, true) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs FROM tracks{filter}{order}"
+            "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs{rating_sel} FROM tracks{filter}{order}"
         ),
         (false, false) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs FROM tracks{filter}{order}"
+            "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs{rating_sel} FROM tracks{filter}{order}"
         ),
     };
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -273,6 +283,11 @@ pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, Str
                     r.get::<_, i64>(13)?,
                 )
             };
+            let rating = if rating_col {
+                r.get::<_, Option<i64>>(rating_idx).unwrap_or(None)
+            } else {
+                None
+            };
             Ok(CatalogTrack {
                 id: r.get(0)?,
                 path: r.get(1)?,
@@ -290,6 +305,7 @@ pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, Str
                 format,
                 mtime_secs,
                 has_cover,
+                rating,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -1039,5 +1055,19 @@ pub fn update_track_metadata(
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     stmt.execute(rusqlite::params_from_iter(params.iter()))
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Set (or clear) the star rating for a track. `rating` must be 1–5, or None to clear.
+pub fn set_track_rating(
+    conn: &rusqlite::Connection,
+    path: &str,
+    rating: Option<i64>,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE tracks SET rating = ?1 WHERE path = ?2",
+        rusqlite::params![rating, path],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }

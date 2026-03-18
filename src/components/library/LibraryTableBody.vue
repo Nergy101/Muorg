@@ -10,6 +10,7 @@ import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
+import StarRating from "../shared/StarRating.vue";
 
 const emit = defineEmits<{ (e: "openMetadata"): void }>();
 
@@ -611,6 +612,22 @@ async function removeFromPlaylist() {
   store.setActivePlaylist(playlistId, entries);
 }
 
+async function setRatingFromContextMenu(rating: number | null) {
+  const menu = contextMenu.value;
+  if (!menu?.tracks.length) return;
+  const paths = menu.tracks.map((t) => t.path);
+  closeContextMenu();
+  await store.setRating(paths, rating);
+}
+
+/** The current rating displayed in the context menu (common rating of all selected tracks, or null). */
+const contextMenuRating = computed(() => {
+  const tracks = contextMenu.value?.tracks ?? [];
+  if (!tracks.length) return null;
+  const first = tracks[0].rating ?? null;
+  return tracks.every((t) => (t.rating ?? null) === first) ? first : null;
+});
+
 // Playlist submenu open state
 const playlistSubmenuOpen = ref(false);
 
@@ -892,7 +909,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               <td v-if="tableColPath" class="min-w-0 p-2 text-stone-500">
                 <div class="flex min-w-0 items-center gap-1">
                   <button type="button" class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300" aria-label="Copy path" title="Copy path" @click.stop="copyPathToClipboard(row.track.path)">
-                    <FeatherIcon name="copy" class="h-3.5 w-3.5" />
+                    <FeatherIcon name="clipboard" class="h-3.5 w-3.5" />
                   </button>
                   <span class="min-w-0 truncate cursor-default" :title="row.track.path">{{ row.track.path }}</span>
                 </div>
@@ -927,6 +944,15 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
         Add to queue
       </button>
+
+      <!-- Rating section -->
+      <div class="my-1 border-t border-stone-700" />
+      <div class="flex items-center justify-center px-3 py-2">
+        <StarRating
+          :model-value="contextMenuRating"
+          @update:model-value="setRatingFromContextMenu"
+        />
+      </div>
 
       <!-- Add to playlist section -->
       <div class="my-1 border-t border-stone-700" />

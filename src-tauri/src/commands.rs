@@ -152,6 +152,16 @@ pub async fn write_track_metadata(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn set_track_rating(
+    catalog: State<'_, Arc<Catalog>>,
+    path: String,
+    rating: Option<i64>,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::set_track_rating(&conn, &path, rating)
+}
+
 // ── Playlist commands ──────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -233,6 +243,102 @@ pub async fn remove_tracks_from_playlist(
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
     crate::catalog::remove_tracks_from_playlist(&conn, playlist_id, &track_ids)
+}
+
+// ── Google Cast ─────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn cast_start_discovery(
+    app: tauri::AppHandle,
+    discovery: State<'_, crate::cast::DiscoveryState>,
+) -> Result<(), String> {
+    discovery.start(app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cast_stop_discovery(
+    discovery: State<'_, crate::cast::DiscoveryState>,
+) -> Result<(), String> {
+    discovery.stop();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cast_get_devices(
+    discovery: State<'_, crate::cast::DiscoveryState>,
+) -> Result<Vec<crate::cast::discovery::CastDevice>, String> {
+    Ok(discovery.devices.lock().unwrap().clone())
+}
+
+#[tauri::command]
+pub async fn cast_play(
+    app: tauri::AppHandle,
+    device_id: String,
+    track_path: String,
+    discovery: State<'_, crate::cast::DiscoveryState>,
+    server: State<'_, crate::cast::AudioServerState>,
+    cast_state: State<'_, crate::cast::CastState>,
+) -> Result<(), String> {
+    let device = {
+        let devs = discovery.devices.lock().unwrap();
+        devs.iter()
+            .find(|d| d.id == device_id)
+            .cloned()
+            .ok_or_else(|| format!("Cast device not found: {device_id}"))?
+    };
+
+    let port = server.start_if_needed().await?;
+    server.add_to_allowlist(&track_path);
+
+    let lan_ip = local_ip_address::local_ip().map_err(|e| e.to_string())?;
+    let encoded = urlencoding::encode(&track_path);
+    let stream_url = format!("http://{lan_ip}:{port}/track?path={encoded}");
+    let is_flac = track_path.to_lowercase().ends_with(".flac");
+
+    cast_state.start_session(device.address, device.port, stream_url, is_flac, app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cast_set_volume(
+    cast_state: State<'_, crate::cast::CastState>,
+    level: f32,
+) -> Result<(), String> {
+    let level = level.clamp(0.0, 1.0);
+    cast_state.send_command(crate::cast::CastCommand::SetVolume(level))
+}
+
+#[tauri::command]
+pub async fn cast_seek(
+    cast_state: State<'_, crate::cast::CastState>,
+    position_secs: f32,
+) -> Result<(), String> {
+    cast_state.send_command(crate::cast::CastCommand::Seek(position_secs))
+}
+
+#[tauri::command]
+pub async fn cast_pause(
+    cast_state: State<'_, crate::cast::CastState>,
+) -> Result<(), String> {
+    cast_state.send_command(crate::cast::CastCommand::Pause)
+}
+
+#[tauri::command]
+pub async fn cast_resume(
+    cast_state: State<'_, crate::cast::CastState>,
+) -> Result<(), String> {
+    cast_state.send_command(crate::cast::CastCommand::Resume)
+}
+
+#[tauri::command]
+pub async fn cast_stop(
+    server: State<'_, crate::cast::AudioServerState>,
+    cast_state: State<'_, crate::cast::CastState>,
+) -> Result<(), String> {
+    cast_state.send_command(crate::cast::CastCommand::Stop)?;
+    server.stop();
+    Ok(())
 }
 
 // ── Image fetch ────────────────────────────────────────────────────────────

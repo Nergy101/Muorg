@@ -18,11 +18,14 @@ import {
 import type { GlowBlob } from "./composables/useDominantColor";
 import { useCatalogStore } from "./stores/catalog";
 import { useSettingsStore } from "./stores/settings";
+import { useCastEvents } from "./composables/useCastEvents";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
+
+useCastEvents();
 const { playerGlowIntensity, queuePanelWidthFraction, bottomPanelHeightPx } = storeToRefs(settingsStore);
 const queueBarContainerRef = ref<HTMLElement | null>(null);
 const isDraggingQueueDivider = ref(false);

@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import type { CatalogTrack } from "../types";
+import type { MissingMetadataField } from "./settings";
 import { MOCK_COVER_SOURCE_PATH, MOCK_ROOTS, MOCK_TRACKS } from "../mockTracks";
 
 const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
@@ -41,6 +42,7 @@ export const useCatalogStore = defineStore("catalog", {
     selectedTrackIds: [] as number[],
     currentPlayingTrackId: null as number | null,
     reportFilter: null as null | "missing_metadata" | "duplicates" | "missing_album_cover",
+    reportSingleField: null as MissingMetadataField | null,
     loading: false,
     error: null as string | null,
     searchQuery: "",
@@ -183,6 +185,11 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setReportFilter(kind: null | "missing_metadata" | "duplicates" | "missing_album_cover") {
       this.reportFilter = kind;
+      if (kind === null) this.reportSingleField = null;
+    },
+    setReportSingleField(field: MissingMetadataField) {
+      this.reportSingleField = field;
+      this.reportFilter = "missing_metadata";
     },
     toggleRootVisibility(rootPath: string) {
       const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
@@ -411,6 +418,16 @@ export const useCatalogStore = defineStore("catalog", {
         throw e;
       } finally {
         this.loading = false;
+      }
+    },
+    /** Set a star rating (1–5) or clear it (null) for one or more tracks. Optimistic update + backend persist. */
+    async setRating(paths: string[], rating: number | null) {
+      // Optimistic update in the store
+      this.tracks = this.tracks.map((t) =>
+        paths.includes(t.path) ? { ...t, rating } : t,
+      );
+      for (const path of paths) {
+        await invoke("set_track_rating", { path, rating });
       }
     },
     toggleSelection(id: number) {
