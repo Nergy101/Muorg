@@ -55,6 +55,11 @@ src/
 - **Settings**: stored in `settings.ts` Pinia store, persisted to AppConfig `settings.yml` via Tauri.
 - **Playback**: handled in the frontend via the Web Audio API; Rust provides file path via `read_audio_file`.
 
+## Git commits
+
+- Always use [Gitmoji](https://gitmoji.dev/) notation at the start of the commit message (e.g. `🐛`, `✨`, `♻️`)
+- Keep the summary to 1–2 sentences max — no bullet lists or long bodies
+
 ### Adding features
 
 - **New backend capability** → new Tauri command in `commands.rs`, expose via `invoke()` in frontend.
