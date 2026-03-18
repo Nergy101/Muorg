@@ -168,19 +168,19 @@ function folderInfoTooltip(root: string): string {
 function openMissingMetadataReport() {
   const kind = reportFilter.value === "missing_metadata" ? null : "missing_metadata";
   store.setReportFilter(kind);
-  store.clearSelection();
+  if (store.currentPlayingTrackId === null) store.clearSelection();
 }
 
 function openDuplicateReport() {
   const kind = reportFilter.value === "duplicates" ? null : "duplicates";
   store.setReportFilter(kind);
-  store.clearSelection();
+  if (store.currentPlayingTrackId === null) store.clearSelection();
 }
 
 function openMissingAlbumCoverReport() {
   const kind = reportFilter.value === "missing_album_cover" ? null : "missing_album_cover";
   store.setReportFilter(kind);
-  store.clearSelection();
+  if (store.currentPlayingTrackId === null) store.clearSelection();
 }
 
 async function handleRefreshReports() {

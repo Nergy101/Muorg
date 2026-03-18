@@ -479,16 +479,22 @@ export const useCatalogStore = defineStore("catalog", {
       this.activePlaylistId = id;
       this.activePlaylistTrackIds = entries.map((e) => e.trackId);
       this.activePlaylistEntryIds = entries.map((e) => e.entryId);
-      this.clearSelection();
-      if (entries.length > 0) {
-        this.selectedTrackIds = [entries[0].trackId];
+      // Don't change selection (and thus don't interrupt playback) if something is currently playing.
+      if (this.currentPlayingTrackId === null) {
+        this.clearSelection();
+        if (entries.length > 0) {
+          this.selectedTrackIds = [entries[0].trackId];
+        }
       }
     },
     clearActivePlaylist() {
       this.activePlaylistId = null;
       this.activePlaylistTrackIds = null;
       this.activePlaylistEntryIds = null;
-      this.clearSelection();
+      // Don't interrupt playback when clearing the playlist filter.
+      if (this.currentPlayingTrackId === null) {
+        this.clearSelection();
+      }
     },
     getCover(path: string): CoverInfo | null | undefined {
       return this.coverCache[path];
