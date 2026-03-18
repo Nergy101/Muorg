@@ -8,7 +8,7 @@ export type DefaultGroupBy = "none" | "artist" | "album";
 
 export type TableDensity = "comfortable" | "compact" | "spacious";
 
-export type BottomPanelId = "library" | "metadata" | "play" | "queue";
+export type BottomPanelId = "library" | "metadata" | "player" | "queue";
 export type SidebarDefaultTab = "folders" | "playlists";
 
 export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
@@ -32,7 +32,7 @@ export const DEFAULT_PATH_FORMAT_EXAMPLE_PATH =
 const ALLOWED_THEMES: ThemeId[] = ["dark", "light", "doom", "orkish", "auto"];
 const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
 const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact", "spacious"];
-const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "play", "queue"];
+const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "player", "queue"];
 const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",

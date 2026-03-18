@@ -270,11 +270,11 @@ watch(
 
 const showEditor = computed(() => store.selectedTrackIds.length > 0);
 const isDropTarget = ref(false);
-const activeTab = ref<"library" | "metadata" | "play" | "queue">(
-  (settingsStore.defaultBottomPanel as "library" | "metadata" | "play" | "queue") ?? "library",
+const activeTab = ref<"library" | "metadata" | "player" | "queue">(
+  (settingsStore.defaultBottomPanel as "library" | "metadata" | "player" | "queue") ?? "library",
 );
 /** Tab to restore when minimizing the fullscreen player. */
-const activeTabBeforeExpand = ref<"library" | "metadata" | "play" | "queue">("library");
+const activeTabBeforeExpand = ref<"library" | "metadata" | "player" | "queue">("library");
 let unlistenDragDrop: (() => void) | null = null;
 const lastDragWasOnlyImages = ref(false);
 
@@ -287,7 +287,7 @@ function expandPlayer() {
   activeTabBeforeExpand.value = activeTab.value;
   playExpanded.value = true;
   sidebarCollapsed.value = true;
-  activeTab.value = "play";
+  activeTab.value = "player";
 }
 
 function minimizePlayer() {
@@ -320,7 +320,7 @@ function onQueueDividerMouseUp() {
   document.removeEventListener("mouseup", onQueueDividerMouseUp);
 }
 
-const bottomPanelResizable = computed(() => activeTab.value === "play" || activeTab.value === "queue");
+const bottomPanelResizable = computed(() => activeTab.value === "player" || activeTab.value === "queue");
 
 function onPanelDividerMouseDown() {
   isDraggingPanelDivider.value = true;
@@ -469,11 +469,11 @@ onUnmounted(() => {
           class="flex min-w-0 flex-col shrink-0 overflow-hidden"
         >
           <PlayerBar
-            :class="activeTab === 'play' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
+            :class="activeTab === 'player' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
             @expand="expandPlayer"
           />
           <PlayScreenPlayBar
-            v-if="(activeTab === 'play' || activeTab === 'queue') && !playExpanded"
+            v-if="(activeTab === 'player' || activeTab === 'queue') && !playExpanded"
             :panel-height-px="bottomPanelResizable ? bottomPanelHeightPx : undefined"
             @expand="expandPlayer"
           />

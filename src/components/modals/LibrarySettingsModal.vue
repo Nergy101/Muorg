@@ -228,7 +228,7 @@ const defaultBottomPanelOptions: {
     label: "Metadata",
     description: "Edit tags and album art.",
   },
-  { value: "play", label: "Play", description: "Now playing and controls." },
+  { value: "player", label: "Player", description: "Now playing and controls." },
   { value: "queue", label: "Queue", description: "Up next and queue." },
 ];
 
@@ -1325,7 +1325,7 @@ watch(openSettingsAtTab, (tab) => {
                           )
                       "
                     />
-                    Show album art on "Missing metadata" groups
+                    Show album art group headers
                   </label>
                   <p class="mt-0.5 text-xs text-stone-500">
                     Simply showing or hiding album covers on Album-headers.

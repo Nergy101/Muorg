@@ -12,11 +12,11 @@ import LibraryKeyMapModal from "../modals/LibraryKeyMapModal.vue";
 import LibraryReportsModal from "../modals/LibraryReportsModal.vue";
 
 const props = defineProps<{
-  activeTab: "library" | "metadata" | "play" | "queue";
+  activeTab: "library" | "metadata" | "player" | "queue";
 }>();
 
 const emit = defineEmits<{
-  (e: "update:activeTab", value: "library" | "metadata" | "play" | "queue"): void;
+  (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
 }>();
 
 const store = useCatalogStore();

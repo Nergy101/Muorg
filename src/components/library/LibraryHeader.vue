@@ -7,11 +7,11 @@ import packageJson from "../../../package.json";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const props = defineProps<{
-  activeTab: "library" | "metadata" | "play" | "queue";
+  activeTab: "library" | "metadata" | "player" | "queue";
 }>();
 
 const emit = defineEmits<{
-  (e: "update:activeTab", value: "library" | "metadata" | "play" | "queue"): void;
+  (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
   (e: "openSettings"): void;
   (e: "openKeyMap"): void;
   (e: "expandAllGroups"): void;
@@ -105,7 +105,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
     if (e.key === "p") {
       e.preventDefault();
-      const nextTab = props.activeTab === "play" ? "library" : "play";
+      const nextTab = props.activeTab === "player" ? "library" : "player";
       emit("update:activeTab", nextTab);
       return;
     }
@@ -236,8 +236,8 @@ const groupByValue = computed(() => groupBy.value);
       <button
         type="button"
         class="primary-tab rounded-full px-3 py-1 text-xs font-medium transition-colors"
-        :class="props.activeTab === 'play' ? 'primary-tab--active' : undefined"
-        @click="emit('update:activeTab', 'play')"
+        :class="props.activeTab === 'player' ? 'primary-tab--active' : undefined"
+        @click="emit('update:activeTab', 'player')"
       >
         Player
       </button>
