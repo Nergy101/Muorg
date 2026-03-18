@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
-import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import SidebarFolders from "./SidebarFolders.vue";
 import SidebarReports from "./SidebarReports.vue";
