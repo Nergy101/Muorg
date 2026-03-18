@@ -157,6 +157,22 @@ watch(groupedRows, (groups) => {
   expandedGroups.value = next;
 });
 
+// When a playlist is opened, reset group header state to match defaultGroupsExpanded.
+watch(
+  () => store.activePlaylistId,
+  (id) => {
+    if (id === null) return;
+    nextTick(() => {
+      const groups = groupedRows.value;
+      if (!groups?.length) return;
+      const keys = new Set(groups.map((g) => g.key));
+      expandedGroups.value = defaultGroupsExpanded.value ? new Set(keys) : new Set();
+      prevGroupKeys.value = keys;
+      appliedDefaultForSession.value = true;
+    });
+  },
+);
+
 /**
  * When a playlist is active this maps each visible (filtered) track back to the
  * `playlist_tracks.id` that corresponds to it — keyed by (trackId, occurrenceIndex)
@@ -367,9 +383,9 @@ const bottomSpacerHeight = computed(() => {
   return Math.max(0, total - topSpacerHeight.value - visibleSum);
 });
 
-// When grouping by album, proactively fetch covers for all tracks in groups
+// When grouping by album with cover art headers enabled, proactively fetch covers for all tracks in groups
 watch(
-  () => (groupBy.value === "album" ? groupedRows.value : null),
+  () => (groupBy.value === "album" && groupHeaderAlbumArt.value ? groupedRows.value : null),
   (groups) => {
     if (!groups) return;
     for (const g of groups) {
