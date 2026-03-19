@@ -3,6 +3,7 @@ import { nextTick, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
+import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
@@ -11,7 +12,8 @@ import type { Playlist } from "../../types";
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
-const { activePlaylistId } = storeToRefs(store);
+const settingsStore = useSettingsStore();
+const { activePlaylistId, playingFromPlaylistId } = storeToRefs(store);
 const { playlists, loading: playlistsLoading } = storeToRefs(playlistStore);
 const { pendingAdd, tryAddToPlaylist, confirmAddAll, confirmAddDeduped, cancelPendingAdd } = usePlaylistAdd();
 
@@ -77,6 +79,19 @@ async function handleClickPlaylist(id: number) {
   if (store.activePlaylistId === id) { store.clearActivePlaylist(); return; }
   const entries = await playlistStore.getPlaylistEntries(id);
   store.setActivePlaylist(id, entries);
+}
+
+async function handleShufflePlaylist(id: number) {
+  const entries = await playlistStore.getPlaylistEntries(id);
+  store.setActivePlaylist(id, entries);
+  settingsStore.setShuffle(true);
+  store.setPlayingFromPlaylistId(id);
+  if (entries.length > 0) {
+    const pick = entries[Math.floor(Math.random() * entries.length)];
+    store.setPlayRequestTrackId(pick.trackId);
+    store.clearSelection();
+    store.toggleSelection(pick.trackId);
+  }
 }
 
 // ── Context menu ───────────────────────────────────────────────────────────
@@ -185,9 +200,11 @@ const exportingPlaylist = ref<Playlist | null>(null);
         :key="playlist.id"
         class="group/pl relative flex items-center rounded border"
         :class="[
-          activePlaylistId === playlist.id
-            ? 'border-stone-500 bg-stone-700'
-            : 'border-transparent hover:bg-stone-700/50',
+          playingFromPlaylistId === playlist.id
+            ? 'border-[#5b7c32]/50 bg-[#5b7c32]/20'
+            : activePlaylistId === playlist.id
+              ? 'border-stone-500 bg-stone-700'
+              : 'border-transparent hover:bg-stone-700/50',
           dragOverPlaylistId === playlist.id ? 'ring-1 ring-stone-400' : '',
         ]"
         @dragover="onPlaylistDragover($event, playlist.id)"
@@ -216,24 +233,25 @@ const exportingPlaylist = ref<Playlist | null>(null);
             <FeatherIcon
               name="list"
               class="h-3.5 w-3.5 shrink-0"
-              :class="activePlaylistId === playlist.id ? 'text-stone-300' : 'text-stone-500'"
+              :class="playingFromPlaylistId === playlist.id ? 'text-[#8ab55a]' : activePlaylistId === playlist.id ? 'text-stone-300' : 'text-stone-500'"
             />
             <span
               class="min-w-0 flex-1 truncate text-xs"
-              :class="activePlaylistId === playlist.id ? 'text-stone-100' : 'text-stone-300'"
+              :class="playingFromPlaylistId === playlist.id ? 'text-[#c8e6a0]' : activePlaylistId === playlist.id ? 'text-stone-100' : 'text-stone-300'"
             >
               {{ playlist.name }}
             </span>
-            <span class="shrink-0 text-[0.7rem] text-stone-500">{{ playlist.track_count }}</span>
           </button>
           <button
             type="button"
-            class="mr-1 shrink-0 rounded p-1 text-stone-500 opacity-0 hover:text-stone-300 group-hover/pl:opacity-100"
-            aria-label="Export playlist"
-            @click.stop="exportingPlaylist = playlist"
+            class="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            :class="activePlaylistId === playlist.id ? 'opacity-100' : 'opacity-0 group-hover/pl:opacity-100'"
+            aria-label="Shuffle playlist"
+            @click.stop="handleShufflePlaylist(playlist.id)"
           >
-            <FeatherIcon name="download" class="h-3.5 w-3.5" />
+            <FeatherIcon name="shuffle" class="h-3.5 w-3.5" />
           </button>
+          <span class="mr-2 shrink-0 text-[0.7rem] text-stone-500">{{ playlist.track_count }}</span>
         </template>
       </li>
     </ul>
@@ -259,6 +277,14 @@ const exportingPlaylist = ref<Playlist | null>(null);
       >
         <FeatherIcon name="edit-2" class="h-4 w-4 shrink-0 text-stone-400" />
         Rename
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        @click="exportingPlaylist = playlists.find(p => p.id === playlistContextMenu!.id) ?? null; closePlaylistContextMenu()"
+      >
+        <FeatherIcon name="download" class="h-4 w-4 shrink-0 text-stone-400" />
+        Export to M3U
       </button>
       <button
         type="button"

@@ -155,6 +155,11 @@ textarea:focus {
 [data-theme="light"] .hover\:text-stone-100:hover { color: #1c1917 !important; }
 [data-theme="light"] .hover\:text-stone-200:hover { color: #1c1917 !important; }
 [data-theme="light"] .hover\:text-stone-300:hover { color: #44403c !important; }
+/* Playing-playlist accent colors: readable on light backgrounds */
+[data-theme="light"] .text-\[\#8ab55a\] { color: #3a6b1a !important; }
+[data-theme="light"] .text-\[\#c8e6a0\] { color: #2a5010 !important; }
+[data-theme="light"] .bg-\[\#5b7c32\]\/20 { background-color: rgba(91, 124, 50, 0.12) !important; }
+[data-theme="light"] .border-\[\#5b7c32\]\/50 { border-color: rgba(91, 124, 50, 0.45) !important; }
 [data-theme="light"] input[type="checkbox"] { accent-color: #4d7c2c; }
 [data-theme="light"] input[type="number"]::-webkit-inner-spin-button,
 [data-theme="light"] input[type="number"]::-webkit-outer-spin-button { color: #1c1917; }
@@ -819,6 +824,11 @@ textarea:focus {
   flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
+}
+#maximized-player-overlay .mpx-rating-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.1rem;
 }
 /* Volume control inside maximized player: dark styling only */
 #maximized-player-overlay .mpx-volume-wrap {

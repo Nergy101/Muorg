@@ -10,6 +10,7 @@ import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import CastButton from "./CastButton.vue";
+import StarRating from "../shared/StarRating.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -34,7 +35,7 @@ const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const castStore = useCastStore();
 const { selectedTracks, tableOrderedTracks, queueTracks } = storeToRefs(store);
-const { shuffle, continuousPlayback, playbarShowAlbumInMarquee } = storeToRefs(settingsStore);
+const { shuffle, continuousPlayback, playbarShowAlbumInMarquee, playbarShowRatingInMaximized } = storeToRefs(settingsStore);
 const { isCasting } = storeToRefs(castStore);
 
 /** Album art size in px when panel height is provided; scales with panel up to full available height. */
@@ -235,6 +236,12 @@ function restart() {
   if (isPlaying.value) el.play().catch(() => {});
 }
 
+async function setRating(rating: number | null) {
+  const track = singleTrack.value;
+  if (!track) return;
+  await store.setRating([track.path], rating);
+}
+
 type TooltipPosition = "below" | "top-left";
 const tooltipPopover = ref<{ text: string; x: number; y: number; position?: TooltipPosition } | null>(null);
 let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -341,6 +348,9 @@ onUnmounted(() => {
               <FeatherIcon name="skip-forward" class="h-6 w-6" />
             </button>
           </span>
+        </div>
+        <div v-if="playbarShowRatingInMaximized" class="mpx-rating-row">
+          <StarRating :model-value="singleTrack?.rating ?? null" @update:model-value="setRating" />
         </div>
         <div class="mpx-row">
           <span class="inline-flex" @mouseenter="showTooltip('Restart from beginning', $event)" @mouseleave="scheduleHideTooltip">

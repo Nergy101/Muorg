@@ -160,6 +160,7 @@ export const useSettingsStore = defineStore("settings", {
     continuousPlayback: false,
     playbarShowAlbumInMarquee: false,
     playbarDisableMarquee: false,
+    playbarShowRatingInMaximized: true,
     shuffle: false,
     repeat: "none" as "none" | "one" | "all",
     navWrap: false,
@@ -213,6 +214,9 @@ export const useSettingsStore = defineStore("settings", {
         if ("playbarDisableMarquee" in data) {
           this.playbarDisableMarquee = coerceBool(data.playbarDisableMarquee, false);
         }
+        if ("playbarShowRatingInMaximized" in data) {
+          this.playbarShowRatingInMaximized = coerceBool(data.playbarShowRatingInMaximized, true);
+        }
         if ("shuffle" in data) this.shuffle = coerceBool(data.shuffle, false);
         if ("repeat" in data && (data.repeat === "none" || data.repeat === "one" || data.repeat === "all")) {
           this.repeat = data.repeat;
@@ -259,6 +263,7 @@ export const useSettingsStore = defineStore("settings", {
           continuousPlayback: this.continuousPlayback,
           playbarShowAlbumInMarquee: this.playbarShowAlbumInMarquee,
           playbarDisableMarquee: this.playbarDisableMarquee,
+          playbarShowRatingInMaximized: this.playbarShowRatingInMaximized,
           shuffle: this.shuffle,
           repeat: this.repeat,
           navWrap: this.navWrap,
@@ -328,6 +333,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setPlaybarDisableMarquee(value: boolean) {
       this.playbarDisableMarquee = value;
+      this.saveToFile();
+    },
+    setPlaybarShowRatingInMaximized(value: boolean) {
+      this.playbarShowRatingInMaximized = value;
       this.saveToFile();
     },
     setShuffle(value: boolean) {

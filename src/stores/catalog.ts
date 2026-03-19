@@ -65,6 +65,8 @@ export const useCatalogStore = defineStore("catalog", {
     isInternalQueueDrag: false,
     /** The ID of the currently active playlist filter (null = no filter / show all). */
     activePlaylistId: null as number | null,
+    /** The playlist that current playback was started from (independent of the active filter). */
+    playingFromPlaylistId: null as number | null,
     /** Track IDs belonging to the active playlist, in playlist order (null = no filter). */
     activePlaylistTrackIds: null as number[] | null,
     /** `playlist_tracks.id` values parallel to activePlaylistTrackIds — used to delete exactly
@@ -172,12 +174,16 @@ export const useCatalogStore = defineStore("catalog", {
   actions: {
     setCurrentPlaying(id: number | null) {
       this.currentPlayingTrackId = id;
+      if (id == null) this.playingFromPlaylistId = null;
       if (id != null) {
         const idx = this.queueTrackIds.indexOf(id);
         if (idx >= 0) {
           this.queueTrackIds = this.queueTrackIds.filter((_, i) => i !== idx);
         }
       }
+    },
+    setPlayingFromPlaylistId(id: number | null) {
+      this.playingFromPlaylistId = id;
     },
     setOpenWikipediaModal(value: boolean) {
       this.openWikipediaModal = value;

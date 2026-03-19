@@ -56,6 +56,7 @@ const {
   continuousPlayback,
   playbarShowAlbumInMarquee,
   playbarDisableMarquee,
+  playbarShowRatingInMaximized,
   navWrap,
   navFocusFollowsMouse,
   tableDensity,
@@ -1274,6 +1275,38 @@ watch(openSettingsAtTab, (tab) => {
                 <p class="mt-0.5 text-xs text-stone-500">
                   When enabled, the track title is truncated instead of
                   scrolling.
+                </p>
+              </div>
+
+              <div class="settings-section space-y-2">
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="star"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
+                  Ratings
+                </p>
+                <label
+                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="playbarShowRatingInMaximized"
+                    class="rounded border-stone-600"
+                    @change="
+                      (e) =>
+                        settingsStore.setPlaybarShowRatingInMaximized(
+                          (e.target as HTMLInputElement).checked,
+                        )
+                    "
+                  />
+                  Show rating on maximized player
+                </label>
+                <p class="mt-0.5 text-xs text-stone-500">
+                  When enabled, a star rating control is shown above the
+                  playback controls in the maximized player.
                 </p>
               </div>
             </div>
