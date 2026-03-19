@@ -430,7 +430,7 @@ async function preloadNextTrack() {
 
 watch(
   singleTrack,
-  (track) => {
+  (track, oldTrack) => {
     if (!track) {
       if (audioSrc.value) {
         revokeUrl(audioSrc.value);
@@ -445,6 +445,11 @@ watch(
     }
     store.setCurrentPlaying(track.id);
     updateMediaSession(track);
+    recomputeMarquee();
+
+    // Same file path means only metadata changed (e.g. after a metadata save + catalog
+    // reload). Audio is already loaded and possibly playing — don't interrupt it.
+    if (track.path === oldTrack?.path) return;
 
     // If a cast device is configured, load the new track on it and hold local
     // audio until the cast confirms it's playing (pendingCastResume).
@@ -485,7 +490,6 @@ watch(
       // Once the current track is ready, start preloading the upcoming one in the background.
       preloadNextTrack();
     });
-    recomputeMarquee();
   },
   { immediate: true }
 );
