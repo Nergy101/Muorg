@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import type { CatalogTrack } from "../../types";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { useCastStore } from "../../stores/cast";
+import { usePlaylistStore } from "../../stores/playlists";
+import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import { invoke } from "@tauri-apps/api/core";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
@@ -239,7 +241,77 @@ function restart() {
 async function setRating(rating: number | null) {
   const track = singleTrack.value;
   if (!track) return;
+  closeContextMenu();
   await store.setRating([track.path], rating);
+}
+
+// Context menu
+const playlistStore = usePlaylistStore();
+const { playlists } = storeToRefs(playlistStore);
+const { tryAddToPlaylist } = usePlaylistAdd();
+
+const contextMenu = ref<{ x: number; y: number } | null>(null);
+const contextMenuRef = ref<HTMLElement | null>(null);
+const playlistSubmenuOpen = ref(false);
+const playlistBtnContainerRef = ref<HTMLElement | null>(null);
+const playlistSubmenuFlipUp = computed(() => {
+  if (!playlistBtnContainerRef.value) return false;
+  const rect = playlistBtnContainerRef.value.getBoundingClientRect();
+  return rect.bottom + 220 > window.innerHeight;
+});
+
+function onTitleContextMenu(e: MouseEvent) {
+  e.preventDefault();
+  if (!singleTrack.value) return;
+  contextMenu.value = { x: e.clientX, y: e.clientY };
+}
+
+function closeContextMenu() {
+  contextMenu.value = null;
+  playlistSubmenuOpen.value = false;
+}
+
+watch(contextMenu, (menu) => {
+  if (!menu) return;
+  const onOutside = (e: MouseEvent) => {
+    if (contextMenuRef.value?.contains(e.target as Node)) return;
+    closeContextMenu();
+    document.removeEventListener("click", onOutside);
+    document.removeEventListener("keydown", onEscapeMenu);
+  };
+  const onEscapeMenu = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      closeContextMenu();
+      document.removeEventListener("click", onOutside);
+      document.removeEventListener("keydown", onEscapeMenu);
+    }
+  };
+  nextTick(() => setTimeout(() => {
+    document.addEventListener("click", onOutside);
+    document.addEventListener("keydown", onEscapeMenu);
+  }, 0));
+});
+
+function viewSong() {
+  const track = singleTrack.value;
+  if (!track) return;
+  store.setRevealTrackId(track.id);
+  closeContextMenu();
+}
+
+function addToQueue() {
+  const track = singleTrack.value;
+  if (!track) return;
+  store.addToQueue([track.id]);
+  closeContextMenu();
+}
+
+async function addToPlaylist(playlistId: number) {
+  const track = singleTrack.value;
+  if (!track) return;
+  const playlist = playlists.value.find((p) => p.id === playlistId);
+  closeContextMenu();
+  await tryAddToPlaylist(playlistId, [track.id], playlist?.name ?? "");
 }
 
 type TooltipPosition = "below" | "top-left";
@@ -325,7 +397,7 @@ onUnmounted(() => {
   >
     <div class="mpx-content">
       <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="xlarge" class="mpx-art" />
-      <div class="mpx-title" :title="playbarTitleLine">
+      <div class="mpx-title" :title="playbarTitleLine" @contextmenu.prevent="onTitleContextMenu">
         {{ playbarTitleLine }}
       </div>
     </div>
@@ -386,8 +458,9 @@ onUnmounted(() => {
     <div class="flex w-full flex-col items-center gap-1">
       <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" :size-px="playbarAlbumArtSizePx" />
       <div
-        class="max-w-2xl truncate text-center text-sm font-semibold text-stone-100"
+        class="max-w-2xl cursor-context-menu truncate rounded px-2 py-0.5 text-center text-sm font-semibold text-stone-100 transition-colors hover:bg-stone-700/50"
         :title="playbarTitleLine"
+        @contextmenu.prevent="onTitleContextMenu"
       >
         {{ playbarTitleLine }}
       </div>
@@ -518,6 +591,84 @@ onUnmounted(() => {
         @mouseleave="hideTooltip"
       >
         {{ tooltipPopover.text }}
+      </div>
+    </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="contextMenu"
+        ref="contextMenuRef"
+        class="fixed z-[301] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px', transform: 'translateY(-100%)' }"
+        @click.stop
+      >
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          @click="viewSong"
+        >
+          <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-stone-400" />
+          View song
+        </button>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          @click="addToQueue"
+        >
+          <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
+          Add to queue
+        </button>
+        <div class="my-1 border-t border-stone-700" />
+        <div
+          ref="playlistBtnContainerRef"
+          class="relative"
+          @mouseenter="playlistSubmenuOpen = true"
+          @mouseleave="playlistSubmenuOpen = false"
+        >
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+            @click="playlistSubmenuOpen = !playlistSubmenuOpen"
+          >
+            <span class="flex items-center gap-2">
+              <FeatherIcon name="plus" class="h-4 w-4 shrink-0 text-stone-400" />
+              Add to playlist
+            </span>
+            <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+          </button>
+          <div class="absolute right-0 top-0 h-full w-2 translate-x-full" />
+          <div
+            v-if="playlistSubmenuOpen && playlists.length"
+            class="absolute left-full z-[310] min-w-[160px] max-w-[220px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+            :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
+            style="margin-left: 2px"
+          >
+            <button
+              v-for="pl in playlists"
+              :key="pl.id"
+              type="button"
+              class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+              @click="addToPlaylist(pl.id)"
+            >
+              <FeatherIcon name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+              <span class="min-w-0 truncate">{{ pl.name }}</span>
+            </button>
+          </div>
+          <div
+            v-else-if="playlistSubmenuOpen && !playlists.length"
+            class="absolute left-full z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
+            :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
+            style="margin-left: 2px"
+          >
+            No playlists yet.
+          </div>
+        </div>
+        <div class="my-1 border-t border-stone-700" />
+        <div class="flex items-center justify-center px-3 py-2">
+          <StarRating
+            :model-value="singleTrack?.rating ?? null"
+            @update:model-value="setRating"
+          />
+        </div>
       </div>
     </Teleport>
   </div>

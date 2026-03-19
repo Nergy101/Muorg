@@ -150,7 +150,7 @@ function accentHueVariants(rgb: string): Record<string, string> {
     accentPlay: fromHsl(h, s, playL),
     accentProgress: fromHsl(h, s, l),
     accentVolume: fromHsl(h, Math.min(100, s + 10), Math.min(100, playL + 6)),
-    accentShuffle: fromHsl((h - 12 + 360) % 360, s, l),
+    accentShuffle: fromHsl(h, s, l),
     accentNav: fromHsl((h + 8) % 360, Math.max(0, s - 8), Math.min(100, l + 6)),
   };
 }

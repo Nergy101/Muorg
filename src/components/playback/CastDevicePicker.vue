@@ -25,7 +25,7 @@ const style = computed(() => ({
   right: `${window.innerWidth - props.anchorX}px`,
   top: `${props.anchorY - 8}px`,
   transform: "translateY(-100%)",
-  zIndex: 250,
+  zIndex: 400,
 }));
 
 onMounted(async () => {

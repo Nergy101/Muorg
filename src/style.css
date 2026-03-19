@@ -688,6 +688,13 @@ textarea:focus {
   font-weight: 600;
   color: rgb(245 245 244);
   filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.1));
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  cursor: context-menu;
+  transition: background-color 0.15s;
+}
+#maximized-player-overlay .mpx-title:hover {
+  background-color: rgb(255 255 255 / 0.08);
 }
 #maximized-player-overlay .mpx-bar {
   flex-shrink: 0;
