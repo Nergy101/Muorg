@@ -81,6 +81,20 @@ async function handleClickPlaylist(id: number) {
   store.setActivePlaylist(id, entries);
 }
 
+async function handlePlayNowPlaylist(id: number) {
+  const entries = await playlistStore.getPlaylistEntries(id);
+  store.setActivePlaylist(id, entries);
+  settingsStore.setShuffle(false);
+  store.setPlayingFromPlaylistId(id);
+  if (entries.length > 0) {
+    const first = entries[0];
+    store.setPlayRequestTrackId(first.trackId);
+    store.clearSelection();
+    store.toggleSelection(first.trackId);
+  }
+  closePlaylistContextMenu();
+}
+
 async function handleShufflePlaylist(id: number) {
   const entries = await playlistStore.getPlaylistEntries(id);
   store.setActivePlaylist(id, entries);
@@ -92,6 +106,7 @@ async function handleShufflePlaylist(id: number) {
     store.clearSelection();
     store.toggleSelection(pick.trackId);
   }
+  closePlaylistContextMenu();
 }
 
 // ── Context menu ───────────────────────────────────────────────────────────
@@ -270,6 +285,23 @@ const exportingPlaylist = ref<Playlist | null>(null);
       :style="{ left: playlistContextMenu.x + 'px', top: playlistContextMenu.y + 'px' }"
       @click.stop
     >
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        @click="handlePlayNowPlaylist(playlistContextMenu.id)"
+      >
+        <FeatherIcon name="play" class="h-4 w-4 shrink-0 text-stone-400" />
+        Play now
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        @click="handleShufflePlaylist(playlistContextMenu.id)"
+      >
+        <FeatherIcon name="shuffle" class="h-4 w-4 shrink-0 text-stone-400" />
+        Shuffle
+      </button>
+      <div class="my-1 border-t border-stone-700" />
       <button
         type="button"
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"

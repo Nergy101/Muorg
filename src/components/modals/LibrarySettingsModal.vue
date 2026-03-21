@@ -67,6 +67,7 @@ const {
   tableColPath,
   missingMetadataFields,
   groupHeaderAlbumArt,
+  hideGroupTrackCount,
   hideWikipediaCoverSearch,
   pathFormatTemplate,
   pathFormatExamplePath,
@@ -1470,6 +1471,22 @@ watch(openSettingsAtTab, (tab) => {
                   <p class="mt-0.5 text-xs text-stone-500">
                     Simply showing or hiding album covers on Album-headers.
                   </p>
+                  <label
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="hideGroupTrackCount"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setHideGroupTrackCount(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Hide track count in headers
+                  </label>
                 </div>
                 <div class="settings-section">
                   <p

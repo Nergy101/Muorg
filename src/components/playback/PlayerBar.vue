@@ -208,6 +208,20 @@ function formatTime(secs: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+let positionSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePositionSave(positionSecs: number) {
+  if (positionSaveTimer) clearTimeout(positionSaveTimer);
+  positionSaveTimer = setTimeout(() => {
+    positionSaveTimer = null;
+    settingsStore.setSessionState(
+      store.queueTrackIds,
+      store.currentPlayingTrackId,
+      positionSecs,
+    );
+  }, 5000);
+}
+
 function onTimeUpdate() {
   if (isSeeking.value) return;
   const el = audioRef.value;
@@ -220,6 +234,8 @@ function onTimeUpdate() {
       playbackRate: el.playbackRate,
     });
   }
+  // Save position every ~5 s (timer resets on each tick, so only fires after a 5 s idle)
+  schedulePositionSave(el.currentTime);
 }
 
 function onDurationChange() {
@@ -473,7 +489,15 @@ watch(
     loadAudioBlobForCurrent(track).then(() => {
       if (!hasInitializedAutoplay.value) {
         hasInitializedAutoplay.value = true;
-        // On startup, don't auto-play the first selected track even if autoplay is enabled.
+        // On startup, restore saved position if this is the previously playing track.
+        const savedId = settingsStore.sessionCurrentTrackId;
+        const savedPos = settingsStore.sessionCurrentPositionSecs;
+        if (savedId === track.id && savedPos > 0) {
+          nextTick(() => {
+            const el = audioRef.value;
+            if (el) el.currentTime = savedPos;
+          });
+        }
         return;
       }
       const shouldAutoplay =
@@ -500,11 +524,21 @@ watch(isCasting, (casting) => {
   if (el) el.muted = casting;
 });
 
-// When cast confirms it's playing after a sync seek, resume local audio
+// Sync local audio state with cast device state changes
 watch(() => castStore.castStatus.status, (status) => {
   if (castStore.pendingCastResume && status === "playing") {
+    // Cast confirmed playing after a seek or track change — resume local tracker
     castStore.setPendingCastResume(false);
     audioRef.value?.play().catch(console.error);
+  } else if (status === "paused" && !castStore.pendingCastResume) {
+    // Device was paused externally (e.g. "hey Google, pause/stop") — mirror to local
+    const el = audioRef.value;
+    if (el && !el.paused) el.pause();
+    // Sync position so the progress bar stays accurate after an external pause
+    const s = castStore.castStatus;
+    if (el && s.status === "paused" && s.positionSecs != null) {
+      el.currentTime = s.positionSecs;
+    }
   }
 });
 
@@ -533,6 +567,16 @@ function onAudioPlay() {
 function onAudioPause() {
   isPlaying.value = false;
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+  // Flush position save immediately on pause
+  if (positionSaveTimer) {
+    clearTimeout(positionSaveTimer);
+    positionSaveTimer = null;
+  }
+  settingsStore.setSessionState(
+    store.queueTrackIds,
+    store.currentPlayingTrackId,
+    audioRef.value?.currentTime ?? 0,
+  );
 }
 
 function onAudioEnded() {

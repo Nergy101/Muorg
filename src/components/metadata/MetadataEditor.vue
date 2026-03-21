@@ -805,6 +805,55 @@ function onCoverDragLeave(e: DragEvent) {
   coverDragDepth.value = Math.max(0, coverDragDepth.value - 1);
   if (coverDragDepth.value === 0) coverDragOver.value = false;
 }
+
+// ── Apply cover to whole album ────────────────────────────────────────────
+const applyToAlbumConfirm = ref(false);
+
+const albumTracksForApply = computed(() => {
+  const tracks = selectedTracks.value;
+  if (!tracks.length) return [];
+  const albumVal = (tracks[0].album ?? "").trim();
+  const albumArtistVal = (tracks[0].album_artist ?? "").trim();
+  if (!albumVal) return [];
+  return store.getTracksForAlbum(albumVal, albumArtistVal);
+});
+
+/** True when we have a cover to apply (pending or existing) and the selection belongs to an album. */
+const canApplyToAlbum = computed(() => {
+  if (!displayCover.value) return false;
+  if (albumTracksForApply.value.length <= 1) return false;
+  return true;
+});
+
+async function applyToWholeAlbum() {
+  const tracks = albumTracksForApply.value;
+  if (!tracks.length) return;
+  // Determine the base64 to use: pending picture or current stored cover
+  let base64 = pictureBase64.value;
+  if (!base64) {
+    const firstTrack = selectedTracks.value[0];
+    if (!firstTrack) return;
+    const coverInfo = store.getCover(firstTrack.path);
+    if (!coverInfo) return;
+    base64 = coverInfo.base64;
+  }
+  if (!base64) return;
+  applyToAlbumConfirm.value = false;
+  saving.value = true;
+  saveError.value = null;
+  try {
+    await store.writeMetadataBulk(
+      tracks.map((t) => t.path),
+      { picture_base64: base64 },
+    );
+    await nextTick();
+    syncFromTracks();
+  } catch (e) {
+    saveError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    saving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -1050,7 +1099,7 @@ function onCoverDragLeave(e: DragEvent) {
                 <FeatherIcon name="zoom-in" class="h-8 w-8 text-stone-300" />
               </div>
             </div>
-            <div class="mt-1 flex items-center gap-2">
+            <div class="mt-1 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
@@ -1070,6 +1119,38 @@ function onCoverDragLeave(e: DragEvent) {
               >
                 <FeatherIcon name="trash-2" class="h-3.5 w-3.5" />
               </button>
+            </div>
+            <div v-if="canApplyToAlbum" class="mt-1">
+              <template v-if="!applyToAlbumConfirm">
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                  @click="applyToAlbumConfirm = true"
+                >
+                  <FeatherIcon name="layers" class="h-3 w-3 shrink-0" />
+                  Apply to album
+                </button>
+              </template>
+              <template v-else>
+                <p class="mb-1 text-xs text-stone-400">Apply to {{ albumTracksForApply.length }} tracks?</p>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-200 hover:bg-stone-600 disabled:opacity-50"
+                    :disabled="saving"
+                    @click="applyToWholeAlbum"
+                  >
+                    {{ saving ? '…' : 'Confirm' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-400 hover:bg-stone-600"
+                    @click="applyToAlbumConfirm = false"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </template>
             </div>
             <p
               v-if="largeImageWarning"

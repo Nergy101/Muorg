@@ -27,6 +27,8 @@ const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "↑ Arrow Up", description: "Move focus up in track list" },
   { keys: "Space", description: "On group row: expand or collapse. On track row: select (add to selection in multi-select)" },
   { keys: "Enter", description: "With one track selected: start playback or pause if already playing" },
+  { keys: "1–5", description: "Set star rating for selected track(s) (no modifier key, focus not in a text field)" },
+  { keys: "0", description: "Clear star rating for selected track(s)" },
 ];
 
 watch(

@@ -27,6 +27,10 @@ onMounted(async () => {
   await store.loadRoots();
   await store.loadTracks();
   await playlistStore.loadPlaylists();
+  // Restore saved session queue (silently — no auto-play)
+  if (settingsStore.sessionQueueTrackIds.length > 0) {
+    store.restoreSession(settingsStore.sessionQueueTrackIds);
+  }
 });
 </script>
 

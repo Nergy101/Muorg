@@ -13,6 +13,8 @@ export type SidebarDefaultTab = "folders" | "reports" | "playlists";
 
 export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
 
+export type SortableColumn = "title" | "artist" | "album" | "year" | "duration";
+
 export type MissingMetadataField =
   | "title"
   | "artist"
@@ -36,6 +38,7 @@ const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
 const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact", "spacious"];
 const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "player", "queue"];
 const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
+const ALLOWED_SORT_COLUMNS: SortableColumn[] = ["title", "artist", "album", "year", "duration"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",
   "artist",
@@ -102,6 +105,22 @@ function coerceBottomPanel(v: unknown): BottomPanelId {
     return v as BottomPanelId;
   }
   return "library";
+}
+function coerceSortColumn(v: unknown): SortableColumn | null {
+  if (typeof v === "string" && ALLOWED_SORT_COLUMNS.includes(v as SortableColumn)) return v as SortableColumn;
+  return null;
+}
+function coerceSortDirection(v: unknown): "asc" | "desc" {
+  return v === "desc" ? "desc" : "asc";
+}
+function coerceNumberArray(v: unknown): number[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+}
+function coercePositionSecs(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return n;
 }
 function coercePlayerGlow(v: unknown): PlayerGlowIntensity {
   if (typeof v === "string" && ALLOWED_PLAYER_GLOW.includes(v as PlayerGlowIntensity)) {
@@ -177,6 +196,7 @@ export const useSettingsStore = defineStore("settings", {
     tableColWidths: { ...DEFAULT_TABLE_COL_WIDTHS },
     missingMetadataFields: ["title", "artist", "album"] as MissingMetadataField[],
     groupHeaderAlbumArt: true,
+    hideGroupTrackCount: false,
     hideWikipediaCoverSearch: false,
     hideReportsSection: false,
     /** When true, the library sidebar starts collapsed on app launch. */
@@ -194,6 +214,16 @@ export const useSettingsStore = defineStore("settings", {
     bottomPanelHeightPx: 300,
     /** Folder name (e.g. "Music") used as root for exported playlist relative paths. */
     musicRootFolder: "",
+    /** Column to sort the library table by (null = default/no sort). */
+    tableSortColumn: null as SortableColumn | null,
+    /** Sort direction for the active sort column. */
+    tableSortDirection: "asc" as "asc" | "desc",
+    /** Session persistence: queue track IDs saved on close, restored on startup. */
+    sessionQueueTrackIds: [] as number[],
+    /** Session persistence: currently playing track ID. */
+    sessionCurrentTrackId: null as number | null,
+    /** Session persistence: playback position in seconds. */
+    sessionCurrentPositionSecs: 0,
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -234,6 +264,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("tableColWidths" in data) this.tableColWidths = coerceTableColWidths(data.tableColWidths);
         if ("missingMetadataFields" in data) this.missingMetadataFields = coerceMissingFields(data.missingMetadataFields);
         if ("groupHeaderAlbumArt" in data) this.groupHeaderAlbumArt = coerceBool(data.groupHeaderAlbumArt, true);
+        if ("hideGroupTrackCount" in data) this.hideGroupTrackCount = coerceBool(data.hideGroupTrackCount, false);
         if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
         if ("hideReportsSection" in data) this.hideReportsSection = coerceBool(data.hideReportsSection, false);
         if ("sidebarClosedOnStartup" in data) this.sidebarClosedOnStartup = coerceBool(data.sidebarClosedOnStartup, false);
@@ -246,6 +277,14 @@ export const useSettingsStore = defineStore("settings", {
         if ("queuePanelWidthFraction" in data) this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(data.queuePanelWidthFraction);
         if ("bottomPanelHeightPx" in data) this.bottomPanelHeightPx = coerceBottomPanelHeightPx(data.bottomPanelHeightPx);
         if ("musicRootFolder" in data) this.musicRootFolder = coerceString(data.musicRootFolder, "");
+        if ("tableSortColumn" in data) this.tableSortColumn = coerceSortColumn(data.tableSortColumn);
+        if ("tableSortDirection" in data) this.tableSortDirection = coerceSortDirection(data.tableSortDirection);
+        if ("sessionQueueTrackIds" in data) this.sessionQueueTrackIds = coerceNumberArray(data.sessionQueueTrackIds);
+        if ("sessionCurrentTrackId" in data) {
+          const v = data.sessionCurrentTrackId;
+          this.sessionCurrentTrackId = typeof v === "number" && Number.isFinite(v) ? v : null;
+        }
+        if ("sessionCurrentPositionSecs" in data) this.sessionCurrentPositionSecs = coercePositionSecs(data.sessionCurrentPositionSecs);
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -279,6 +318,7 @@ export const useSettingsStore = defineStore("settings", {
           tableColWidths: this.tableColWidths,
           missingMetadataFields: this.missingMetadataFields,
           groupHeaderAlbumArt: this.groupHeaderAlbumArt,
+          hideGroupTrackCount: this.hideGroupTrackCount,
           hideWikipediaCoverSearch: this.hideWikipediaCoverSearch,
           hideReportsSection: this.hideReportsSection,
           sidebarClosedOnStartup: this.sidebarClosedOnStartup,
@@ -289,6 +329,11 @@ export const useSettingsStore = defineStore("settings", {
           queuePanelWidthFraction: this.queuePanelWidthFraction,
           bottomPanelHeightPx: this.bottomPanelHeightPx,
           musicRootFolder: this.musicRootFolder,
+          tableSortColumn: this.tableSortColumn,
+          tableSortDirection: this.tableSortDirection,
+          sessionQueueTrackIds: this.sessionQueueTrackIds,
+          sessionCurrentTrackId: this.sessionCurrentTrackId,
+          sessionCurrentPositionSecs: this.sessionCurrentPositionSecs,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -415,6 +460,10 @@ export const useSettingsStore = defineStore("settings", {
       this.groupHeaderAlbumArt = value;
       this.saveToFile();
     },
+    setHideGroupTrackCount(value: boolean) {
+      this.hideGroupTrackCount = value;
+      this.saveToFile();
+    },
     setHideWikipediaCoverSearch(value: boolean) {
       this.hideWikipediaCoverSearch = value;
       this.saveToFile();
@@ -444,6 +493,17 @@ export const useSettingsStore = defineStore("settings", {
     },
     setMusicRootFolder(value: string) {
       this.musicRootFolder = typeof value === "string" ? value : "";
+      this.saveToFile();
+    },
+    setTableSort(column: SortableColumn | null, direction: "asc" | "desc") {
+      this.tableSortColumn = column;
+      this.tableSortDirection = direction;
+      this.saveToFile();
+    },
+    setSessionState(queueTrackIds: number[], currentTrackId: number | null, positionSecs: number) {
+      this.sessionQueueTrackIds = queueTrackIds;
+      this.sessionCurrentTrackId = currentTrackId;
+      this.sessionCurrentPositionSecs = positionSecs;
       this.saveToFile();
     },
   },

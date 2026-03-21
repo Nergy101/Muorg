@@ -3,6 +3,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
+import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack } from "../../types";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
@@ -10,8 +11,39 @@ import FeatherIcon from "../shared/FeatherIcon.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
+const playlistStore = usePlaylistStore();
 const { queueTracks, currentPlayingTrackId } = storeToRefs(store);
 const { shuffle } = storeToRefs(settingsStore);
+
+const saveAsPlaylistMode = ref(false);
+const saveAsPlaylistName = ref("");
+const saveAsPlaylistInput = ref<HTMLInputElement | null>(null);
+const saveAsPlaylistSaving = ref(false);
+
+function startSaveAsPlaylist() {
+  saveAsPlaylistName.value = "";
+  saveAsPlaylistMode.value = true;
+  nextTick(() => saveAsPlaylistInput.value?.focus());
+}
+
+function cancelSaveAsPlaylist() {
+  saveAsPlaylistMode.value = false;
+  saveAsPlaylistName.value = "";
+}
+
+async function confirmSaveAsPlaylist() {
+  const name = saveAsPlaylistName.value.trim();
+  if (!name || !queueTracks.value.length) return;
+  saveAsPlaylistSaving.value = true;
+  try {
+    const trackIds = queueTracks.value.map((t) => t.id);
+    await playlistStore.createPlaylistFromTracks(name, trackIds);
+    saveAsPlaylistMode.value = false;
+    saveAsPlaylistName.value = "";
+  } finally {
+    saveAsPlaylistSaving.value = false;
+  }
+}
 
 const contextMenu = ref<{ x: number; y: number; track: CatalogTrack; index: number } | null>(null);
 const contextMenuRef = ref<HTMLElement | null>(null);
@@ -279,19 +311,59 @@ watch(contextMenu, (menu) => {
 
 <template>
   <div class="flex h-full min-h-0 flex-col overflow-hidden border-l border-stone-700 bg-stone-900/80">
-    <div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-stone-700 px-3 py-2">
-      <div class="min-w-0 flex-1">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-stone-400">Queue</h3>
-        <p v-if="shuffle" class="text-[10px] text-amber-400/90">Shuffle is ON — queue order ignored</p>
+    <div class="flex shrink-0 flex-col gap-1.5 border-b border-stone-700 px-3 py-2">
+      <div class="flex items-center justify-between gap-2">
+        <div class="min-w-0 flex-1">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-stone-400">Queue</h3>
+          <p v-if="shuffle" class="text-[10px] text-amber-400/90">Shuffle is ON — queue order ignored</p>
+        </div>
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-stone-300"
+            :disabled="!queueTracks.length"
+            title="Save queue as playlist"
+            @click="startSaveAsPlaylist"
+          >
+            <FeatherIcon name="bookmark" class="inline h-3 w-3" />
+            Save
+          </button>
+          <button
+            type="button"
+            class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-stone-300"
+            :disabled="!queueTracks.length"
+            @click="store.clearQueue()"
+          >
+            Clear
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-stone-300"
-        :disabled="!queueTracks.length"
-        @click="store.clearQueue()"
-      >
-        Clear queue
-      </button>
+      <div v-if="saveAsPlaylistMode" class="flex items-center gap-1">
+        <input
+          ref="saveAsPlaylistInput"
+          v-model="saveAsPlaylistName"
+          type="text"
+          placeholder="Playlist name…"
+          class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-900 px-2 py-1 text-xs text-stone-200 placeholder-stone-500"
+          @keydown.enter="confirmSaveAsPlaylist"
+          @keydown.esc="cancelSaveAsPlaylist"
+        />
+        <button
+          type="button"
+          class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-50"
+          :disabled="!saveAsPlaylistName.trim() || saveAsPlaylistSaving"
+          @click="confirmSaveAsPlaylist"
+        >
+          {{ saveAsPlaylistSaving ? '…' : 'Save' }}
+        </button>
+        <button
+          type="button"
+          class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-700"
+          @click="cancelSaveAsPlaylist"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
     <div
       ref="listContainerRef"

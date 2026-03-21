@@ -67,6 +67,27 @@ function hideTooltip() {
 }
 
 function onGlobalKeydown(e: KeyboardEvent) {
+  // Rating shortcuts: 0–5 when not in an editable field and no modifier key
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName;
+    const isEditable =
+      !!target &&
+      (tag === "INPUT" || tag === "TEXTAREA" || (target as HTMLElement).isContentEditable);
+    if (!isEditable && store.selectedTrackIds.length > 0) {
+      if (e.key >= "1" && e.key <= "5") {
+        e.preventDefault();
+        store.setRatingForSelection(parseInt(e.key, 10));
+        return;
+      }
+      if (e.key === "0") {
+        e.preventDefault();
+        store.setRatingForSelection(null);
+        return;
+      }
+    }
+  }
+
   if (e.ctrlKey || e.metaKey) {
     const target = e.target as HTMLElement | null;
     const tag = target?.tagName;
@@ -142,6 +163,38 @@ watch(
 );
 
 const groupByValue = computed(() => groupBy.value);
+
+const groupByLabels: Record<string, string> = {
+  album: "Group by album",
+  artist: "Group by artist",
+  none: "No grouping",
+};
+
+const groupByDropdownOpen = ref(false);
+const groupByDropdownRef = ref<HTMLElement | null>(null);
+
+function toggleGroupByDropdown() {
+  groupByDropdownOpen.value = !groupByDropdownOpen.value;
+}
+
+function selectGroupBy(value: "none" | "artist" | "album") {
+  store.setGroupBy(value);
+  groupByDropdownOpen.value = false;
+}
+
+function onGroupByDropdownClickOutside(e: MouseEvent) {
+  if (groupByDropdownRef.value && !groupByDropdownRef.value.contains(e.target as Node)) {
+    groupByDropdownOpen.value = false;
+  }
+}
+
+watch(groupByDropdownOpen, (open) => {
+  if (open) {
+    document.addEventListener("mousedown", onGroupByDropdownClickOutside);
+  } else {
+    document.removeEventListener("mousedown", onGroupByDropdownClickOutside);
+  }
+});
 </script>
 
 <template>
@@ -171,15 +224,38 @@ const groupByValue = computed(() => groupBy.value);
         class="min-w-[200px] rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 placeholder-stone-500"
         @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
       />
-      <select
-        :value="groupByValue"
-        class="rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200"
-        @change="store.setGroupBy(($event.target as HTMLSelectElement).value as 'none' | 'artist' | 'album')"
-      >
-        <option value="album">Group by album</option>
-        <option value="artist">Group by artist</option>
-        <option value="none">No grouping</option>
-      </select>
+      <!-- Custom group-by dropdown -->
+      <div ref="groupByDropdownRef" class="relative">
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
+          :class="groupByDropdownOpen ? 'border-stone-500 bg-stone-700' : ''"
+          @click="toggleGroupByDropdown"
+        >
+          <span>{{ groupByLabels[groupByValue] }}</span>
+          <FeatherIcon name="chevron-down" class="h-3.5 w-3.5 text-stone-400 transition-transform" :class="groupByDropdownOpen ? 'rotate-180' : ''" />
+        </button>
+        <div
+          v-if="groupByDropdownOpen"
+          class="absolute left-0 top-full z-[300] mt-1 min-w-full rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+        >
+          <button
+            v-for="(label, val) in groupByLabels"
+            :key="val"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-stone-700"
+            :class="groupByValue === val ? 'text-stone-200' : 'text-stone-400'"
+            @click="selectGroupBy(val as 'none' | 'artist' | 'album')"
+          >
+            <FeatherIcon
+              name="check"
+              class="h-3.5 w-3.5 shrink-0"
+              :class="groupByValue === val ? 'text-stone-200' : 'invisible'"
+            />
+            {{ label }}
+          </button>
+        </div>
+      </div>
 
       <div
         v-if="groupByValue !== 'none'"

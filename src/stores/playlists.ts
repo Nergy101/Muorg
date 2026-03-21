@@ -114,6 +114,14 @@ export const usePlaylistStore = defineStore("playlists", {
       }
     },
 
+    async createPlaylistFromTracks(name: string, trackIds: number[]): Promise<Playlist | null> {
+      if (isMock() || !trackIds.length) return null;
+      const playlist = await this.createPlaylist(name);
+      if (!playlist) return null;
+      await this.addTracksToPlaylist(playlist.id, trackIds);
+      return playlist;
+    },
+
     async removeTracksFromPlaylist(playlistId: number, trackIds: number[]) {
       if (isMock() || !trackIds.length) return;
       this.error = null;

@@ -27,6 +27,20 @@ const settingsStore = useSettingsStore();
 
 useCastEvents();
 const { playerGlowIntensity, queuePanelWidthFraction, bottomPanelHeightPx } = storeToRefs(settingsStore);
+// Persist queue whenever it changes (debounced — write at most once per second)
+let sessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleSessionQueueSave() {
+  if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = setTimeout(() => {
+    sessionSaveTimer = null;
+    settingsStore.setSessionState(
+      store.queueTrackIds,
+      store.currentPlayingTrackId,
+      settingsStore.sessionCurrentPositionSecs, // preserve last saved position
+    );
+  }, 800);
+}
+watch(() => store.queueTrackIds, scheduleSessionQueueSave, { deep: true });
 const queueBarContainerRef = ref<HTMLElement | null>(null);
 const isDraggingQueueDivider = ref(false);
 const isDraggingPanelDivider = ref(false);

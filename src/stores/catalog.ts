@@ -1,7 +1,8 @@
 import { defineStore } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import type { CatalogTrack } from "../types";
-import type { MissingMetadataField } from "./settings";
+import { useSettingsStore } from "./settings";
+import type { MissingMetadataField, SortableColumn } from "./settings";
 import { MOCK_COVER_SOURCE_PATH, MOCK_ROOTS, MOCK_TRACKS } from "../mockTracks";
 
 const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
@@ -154,12 +155,31 @@ export const useCatalogStore = defineStore("catalog", {
         }
       }
       const groups = [...map.values()];
+      // Mirror the sort applied in LibraryTableBody so playback order matches display order.
+      const settingsStore = useSettingsStore();
+      const col: SortableColumn | null = settingsStore.tableSortColumn;
+      const dir = settingsStore.tableSortDirection === "desc" ? -1 : 1;
       groups.sort((a, b) => {
+        if (col === "year") {
+          const aYear = a.tracks.find((t) => t.year != null)?.year ?? 0;
+          const bYear = b.tracks.find((t) => t.year != null)?.year ?? 0;
+          const diff = aYear - bYear;
+          if (diff !== 0) return dir * diff;
+        } else if (col === "duration") {
+          const aDur = a.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
+          const bDur = b.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
+          const diff = aDur - bDur;
+          if (diff !== 0) return dir * diff;
+        } else if (col === "artist") {
+          const cmp = (a.artist ?? a.label).localeCompare(b.artist ?? b.label, undefined, { sensitivity: "base" });
+          if (cmp !== 0) return dir * cmp;
+        } else if (col === "album") {
+          const cmp = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+          if (cmp !== 0) return dir * cmp;
+        }
         const byLabel = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
         if (byLabel !== 0) return byLabel;
-        const aArtist = (a.artist ?? "").toLowerCase();
-        const bArtist = (b.artist ?? "").toLowerCase();
-        return aArtist.localeCompare(bArtist);
+        return (a.artist ?? "").localeCompare(b.artist ?? "", undefined, { sensitivity: "base" });
       });
       return groups.flatMap((g) => g.tracks);
     },
@@ -426,6 +446,29 @@ export const useCatalogStore = defineStore("catalog", {
         throw e;
       } finally {
         this.loading = false;
+      }
+    },
+    /** Set rating for all currently selected tracks. Keyboard shortcut (1–5, 0 to clear). */
+    async setRatingForSelection(rating: number | null) {
+      const paths = this.selectedTracks.map((t) => t.path);
+      if (paths.length) await this.setRating(paths, rating);
+    },
+    /** Return all tracks sharing the same album + album_artist as any of the given tracks. */
+    getTracksForAlbum(album: string, albumArtist: string): CatalogTrack[] {
+      const normAlbum = album.trim().toLowerCase();
+      const normArtist = albumArtist.trim().toLowerCase();
+      return this.tracks.filter((t) => {
+        const tAlbum = (t.album ?? "").trim().toLowerCase();
+        const tArtist = (t.album_artist ?? "").trim().toLowerCase();
+        return tAlbum === normAlbum && tArtist === normArtist;
+      });
+    },
+    /** Restore a saved session: populate the queue from stored track IDs. */
+    restoreSession(queueTrackIds: number[]) {
+      const existingIds = new Set(this.tracks.map((t) => t.id));
+      const valid = queueTrackIds.filter((id) => existingIds.has(id));
+      if (valid.length > 0) {
+        this.queueTrackIds = valid;
       }
     },
     /** Set a star rating (1–5) or clear it (null) for one or more tracks. Optimistic update + backend persist. */

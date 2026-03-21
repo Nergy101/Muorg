@@ -37,7 +37,7 @@ const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const castStore = useCastStore();
 const { selectedTracks, tableOrderedTracks, queueTracks } = storeToRefs(store);
-const { shuffle, continuousPlayback, playbarShowAlbumInMarquee, playbarShowRatingInMaximized } = storeToRefs(settingsStore);
+const { shuffle, repeat, continuousPlayback, playbarShowAlbumInMarquee, playbarShowRatingInMaximized } = storeToRefs(settingsStore);
 const { isCasting } = storeToRefs(castStore);
 
 /** Album art size in px when panel height is provided; scales with panel up to full available height. */
@@ -436,6 +436,10 @@ onUnmounted(() => {
           <button type="button" class="mpx-shuffle-btn" :class="{ 'mpx-shuffle-btn--active': shuffle }" aria-label="Shuffle" :aria-pressed="shuffle" @click="settingsStore.setShuffle(!shuffle)">
             <FeatherIcon name="shuffle" class="h-4 w-4" />
           </button>
+          <button type="button" class="mpx-shuffle-btn relative" :class="{ 'mpx-shuffle-btn--active': repeat !== 'none' }" :aria-label="repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'" @click="settingsStore.setRepeat(repeat === 'none' ? 'all' : repeat === 'all' ? 'one' : 'none')">
+            <FeatherIcon name="repeat" class="h-4 w-4" />
+            <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+          </button>
           <div class="mpx-actions-right">
             <div class="mpx-volume-wrap">
               <VolumeControl mode="playscreen" />
@@ -465,68 +469,44 @@ onUnmounted(() => {
         {{ playbarTitleLine }}
       </div>
       <div class="flex items-center justify-center gap-2">
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Previous track', $event)"
-          @mouseleave="scheduleHideTooltip"
+        <button
+          type="button"
+          class="flex items-center justify-center rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
+          aria-label="Previous track"
+          @click="playPrevious"
+          :disabled="!singleTrack || !getPreviousTrack()"
         >
-          <button
-            type="button"
-            class="flex items-center justify-center rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
-            aria-label="Previous track"
-            @click="playPrevious"
-            :disabled="!singleTrack || !getPreviousTrack()"
-          >
-            <FeatherIcon name="skip-back" class="h-6 w-6" />
-          </button>
-        </span>
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip(isPlaying ? 'Pause' : 'Play', $event)"
-          @mouseleave="scheduleHideTooltip"
+          <FeatherIcon name="skip-back" class="h-6 w-6" />
+        </button>
+        <button
+          type="button"
+          class="player-play-btn flex items-center justify-center rounded-full bg-[#5b7c32] p-4 text-stone-50 shadow-lg hover:bg-[#6d8f3d]"
+          :aria-label="isPlaying ? 'Pause' : 'Play'"
+          @click="togglePlay"
         >
-          <button
-            type="button"
-            class="player-play-btn flex items-center justify-center rounded-full bg-[#5b7c32] p-4 text-stone-50 shadow-lg hover:bg-[#6d8f3d]"
-            :aria-label="isPlaying ? 'Pause' : 'Play'"
-            @click="togglePlay"
-          >
-            <FeatherIcon v-if="!isPlaying" name="play" class="h-7 w-7" />
-            <FeatherIcon v-else name="pause" class="h-7 w-7" />
-          </button>
-        </span>
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Next track', $event)"
-          @mouseleave="scheduleHideTooltip"
+          <FeatherIcon v-if="!isPlaying" name="play" class="h-7 w-7" />
+          <FeatherIcon v-else name="pause" class="h-7 w-7" />
+        </button>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
+          aria-label="Next track"
+          @click="playNext"
+          :disabled="!singleTrack || !getNextTrack()"
         >
-          <button
-            type="button"
-            class="flex items-center justify-center rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
-            aria-label="Next track"
-            @click="playNext"
-            :disabled="!singleTrack || !getNextTrack()"
-          >
-            <FeatherIcon name="skip-forward" class="h-6 w-6" />
-          </button>
-        </span>
+          <FeatherIcon name="skip-forward" class="h-6 w-6" />
+        </button>
       </div>
       <div class="mt-1 flex w-full items-center gap-3">
         <div class="flex min-w-0 flex-1 items-center gap-3">
-          <span
-            class="inline-flex"
-            @mouseenter="showTooltip('Restart from beginning', $event)"
-            @mouseleave="scheduleHideTooltip"
+          <button
+            type="button"
+            class="flex items-center justify-center rounded-full bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100"
+            aria-label="Restart from beginning"
+            @click="restart"
           >
-            <button
-              type="button"
-              class="flex items-center justify-center rounded-full bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100"
-              aria-label="Restart from beginning"
-              @click="restart"
-            >
-              <FeatherIcon name="square" class="h-4 w-4" />
-            </button>
-          </span>
+            <FeatherIcon name="square" class="h-4 w-4" />
+          </button>
           <span class="w-10 shrink-0 text-right text-xs text-stone-400 tabular-nums">
             {{ formatTime(currentTime) }}
           </span>
@@ -558,41 +538,32 @@ onUnmounted(() => {
           >
             <FeatherIcon name="shuffle" class="h-4 w-4" />
           </button>
+          <button
+            type="button"
+            class="relative flex shrink-0 items-center justify-center rounded p-2 hover:bg-stone-700 hover:text-stone-200"
+            :class="repeat !== 'none' ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
+            :aria-label="repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'"
+            @click="settingsStore.setRepeat(repeat === 'none' ? 'all' : repeat === 'all' ? 'one' : 'none')"
+          >
+            <FeatherIcon name="repeat" class="h-4 w-4" />
+            <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+          </button>
         </div>
         <div class="ml-auto flex shrink-0 items-center justify-end gap-2">
           <VolumeControl mode="playscreen" />
           <CastButton />
-          <span
+          <button
             v-if="!hideExpand"
-            class="inline-flex"
-            @mouseenter="showTooltip('Expand player', $event, 'top-left')"
-            @mouseleave="scheduleHideTooltip"
+            type="button"
+            class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-600 hover:text-stone-100"
+            aria-label="Expand player"
+            @click="emit('expand')"
           >
-            <button
-              type="button"
-              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-600 hover:text-stone-100"
-              aria-label="Expand player"
-              @click="emit('expand')"
-            >
-              <FeatherIcon name="maximize-2" class="h-4 w-4" />
-            </button>
-          </span>
+            <FeatherIcon name="maximize-2" class="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
-    <Teleport to="body">
-      <div
-        v-if="tooltipPopover"
-        class="fixed z-[200] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-        :style="tooltipPopover.position === 'top-left'
-          ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateY(-100%)' }
-          : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }"
-        @mouseenter="cancelHideTooltip"
-        @mouseleave="hideTooltip"
-      >
-        {{ tooltipPopover.text }}
-      </div>
-    </Teleport>
     <Teleport to="body">
       <div
         v-if="contextMenu"
@@ -672,6 +643,19 @@ onUnmounted(() => {
       </div>
     </Teleport>
   </div>
+  <Teleport to="body">
+    <div
+      v-if="tooltipPopover"
+      class="fixed z-[200] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+      :style="tooltipPopover.position === 'top-left'
+        ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateY(-100%)' }
+        : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }"
+      @mouseenter="cancelHideTooltip"
+      @mouseleave="hideTooltip"
+    >
+      {{ tooltipPopover.text }}
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>

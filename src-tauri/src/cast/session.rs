@@ -184,7 +184,9 @@ impl CastState {
                                     emit(CastSessionStatus::Stopped { finished: true });
                                     return;
                                 }
-                                // Other idle reasons (cancelled, error) — don't emit finished
+                                // External stop (e.g. "hey Google, stop") — pause so Muorg UI syncs.
+                                // The session loop stays alive; the user can restart from Muorg.
+                                emit(CastSessionStatus::Paused { position_secs: position });
                             } else if let PlayerState::Buffering = entry.player_state {
                                 emit(CastSessionStatus::Transcoding);
                             } else if let PlayerState::Playing = entry.player_state {

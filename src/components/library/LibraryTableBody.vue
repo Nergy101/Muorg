@@ -34,8 +34,45 @@ const {
   tableColPath,
   tableColWidths,
   groupHeaderAlbumArt,
+  hideGroupTrackCount,
   hideWikipediaCoverSearch,
+  tableSortColumn,
+  tableSortDirection,
 } = storeToRefs(settingsStore);
+
+function applySortToTracks(tracks: CatalogTrack[]): CatalogTrack[] {
+  const col = tableSortColumn.value;
+  if (!col) return tracks;
+  const dir = tableSortDirection.value === "desc" ? -1 : 1;
+  return [...tracks].sort((a, b) => {
+    let va: string | number | null | undefined;
+    let vb: string | number | null | undefined;
+    if (col === "title") { va = a.title ?? ""; vb = b.title ?? ""; }
+    else if (col === "artist") { va = a.artist ?? ""; vb = b.artist ?? ""; }
+    else if (col === "album") { va = a.album ?? ""; vb = b.album ?? ""; }
+    else if (col === "year") { va = a.year ?? 0; vb = b.year ?? 0; }
+    else if (col === "duration") { va = a.duration_secs ?? 0; vb = b.duration_secs ?? 0; }
+    else return 0;
+    if (typeof va === "string" && typeof vb === "string") {
+      return dir * va.localeCompare(vb, undefined, { sensitivity: "base" });
+    }
+    return dir * ((va as number) - (vb as number));
+  });
+}
+
+const sortedFilteredTracks = computed(() => applySortToTracks(filteredTracks.value));
+
+function toggleSortColumn(col: "title" | "artist" | "album" | "year" | "duration") {
+  if (tableSortColumn.value === col) {
+    if (tableSortDirection.value === "asc") {
+      settingsStore.setTableSort(col, "desc");
+    } else {
+      settingsStore.setTableSort(null, "asc");
+    }
+  } else {
+    settingsStore.setTableSort(col, "asc");
+  }
+}
 
 type GroupRow = {
   key: string;
@@ -70,7 +107,7 @@ function selectRow(t: CatalogTrack) {
 
 const groupedRows = computed(() => {
   const by = groupBy.value;
-  const base = filteredTracks.value;
+  const base = sortedFilteredTracks.value;
   if (by === "none" || !base.length) return null;
   const map = new Map<string, GroupRow>();
   for (const t of base) {
@@ -95,12 +132,33 @@ const groupedRows = computed(() => {
     }
   }
   const groups = [...map.values()];
+  const col = tableSortColumn.value;
+  const dir = tableSortDirection.value === "desc" ? -1 : 1;
   groups.sort((a, b) => {
+    if (col === "year") {
+      const aYear = a.tracks.find((t) => t.year != null)?.year ?? 0;
+      const bYear = b.tracks.find((t) => t.year != null)?.year ?? 0;
+      const diff = aYear - bYear;
+      if (diff !== 0) return dir * diff;
+    } else if (col === "duration") {
+      const aDur = a.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
+      const bDur = b.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
+      const diff = aDur - bDur;
+      if (diff !== 0) return dir * diff;
+    } else if (col === "artist") {
+      const cmp = (a.artist ?? a.label).localeCompare(b.artist ?? b.label, undefined, { sensitivity: "base" });
+      if (cmp !== 0) return dir * cmp;
+    } else if (col === "album") {
+      const cmp = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+      if (cmp !== 0) return dir * cmp;
+    } else if (col === "title") {
+      const cmp = (a.tracks[0]?.title ?? "").localeCompare(b.tracks[0]?.title ?? "", undefined, { sensitivity: "base" });
+      if (cmp !== 0) return dir * cmp;
+    }
+    // Default tie-break: alphabetical by label then artist
     const byLabel = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
     if (byLabel !== 0) return byLabel;
-    const aArtist = (a.artist ?? "").toLowerCase();
-    const bArtist = (b.artist ?? "").toLowerCase();
-    return aArtist.localeCompare(bArtist);
+    return (a.artist ?? "").localeCompare(b.artist ?? "", undefined, { sensitivity: "base" });
   });
   return groups;
 });
@@ -223,7 +281,7 @@ const visibleRows = computed((): VisibleRow[] => {
   }
 
   if (!groups) {
-    return filteredTracks.value.map((track) => ({
+    return sortedFilteredTracks.value.map((track) => ({
       type: "track",
       track,
       playlistEntryId: nextEntryId(track.id),
@@ -738,7 +796,10 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             />
           </th>
           <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
-            Title
+            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('title')">
+              Title
+              <span v-if="tableSortColumn === 'title'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+            </button>
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
               aria-hidden="true"
@@ -746,7 +807,10 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             />
           </th>
           <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
-            Artist
+            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('artist')">
+              Artist
+              <span v-if="tableSortColumn === 'artist'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+            </button>
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
               aria-hidden="true"
@@ -754,7 +818,10 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             />
           </th>
           <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
-            Album
+            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('album')">
+              Album
+              <span v-if="tableSortColumn === 'album'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+            </button>
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
               aria-hidden="true"
@@ -762,7 +829,10 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             />
           </th>
           <th v-if="tableColYear" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
-            Year
+            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('year')">
+              Year
+              <span v-if="tableSortColumn === 'year'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+            </button>
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
               aria-hidden="true"
@@ -770,7 +840,10 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             />
           </th>
           <th v-if="tableColDuration" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
-            Duration
+            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('duration')">
+              Duration
+              <span v-if="tableSortColumn === 'duration'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+            </button>
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
               aria-hidden="true"
@@ -860,7 +933,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                     <FeatherIcon name="chevron-right" class="h-2.5 w-2.5" />
                   </span>
                   {{ row.group.label }}<template v-if="groupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
-                  <span class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
+                  <span v-if="!hideGroupTrackCount" class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
                   <button
                     v-if="groupBy === 'album'"
                     type="button"
