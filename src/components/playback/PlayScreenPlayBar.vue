@@ -190,10 +190,37 @@ const progressPercent = computed(() => {
   return Math.min(100, (currentTime.value / d) * 100);
 });
 
+function attachAudioListeners() {
+  const el = getAudio();
+  if (!el) return;
+  // Remove first to avoid duplicates if the element was recreated.
+  el.removeEventListener("timeupdate", syncFromAudio);
+  el.removeEventListener("play", syncFromAudio);
+  el.removeEventListener("pause", syncFromAudio);
+  el.removeEventListener("loadedmetadata", syncFromAudio);
+  el.removeEventListener("durationchange", syncFromAudio);
+  el.removeEventListener("volumechange", syncFromAudio);
+  el.removeEventListener("ended", onAudioEnded);
+  el.addEventListener("timeupdate", syncFromAudio);
+  el.addEventListener("play", syncFromAudio);
+  el.addEventListener("pause", syncFromAudio);
+  el.addEventListener("loadedmetadata", syncFromAudio);
+  el.addEventListener("durationchange", syncFromAudio);
+  el.addEventListener("volumechange", syncFromAudio);
+  el.addEventListener("ended", onAudioEnded);
+}
+
 watch(
   singleTrack,
-  () => {
-    syncFromAudio();
+  (track) => {
+    if (!track) return;
+    // The audio element lives inside PlayerBar's v-if="singleTrack". When the selection
+    // changes the element may be destroyed and recreated, so we must re-attach listeners
+    // after Vue has flushed the DOM update.
+    nextTick(() => {
+      attachAudioListeners();
+      syncFromAudio();
+    });
   },
   { immediate: true },
 );
@@ -358,19 +385,10 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener("keydown", onGlobalKeydown);
-  const el = getAudio();
-  if (el) {
-    isPlaying.value = !el.paused;
-    duration.value = Number.isFinite(el.duration) ? el.duration : duration.value;
-    currentTime.value = el.currentTime;
-    el.addEventListener("timeupdate", syncFromAudio);
-    el.addEventListener("play", syncFromAudio);
-    el.addEventListener("pause", syncFromAudio);
-    el.addEventListener("loadedmetadata", syncFromAudio);
-    el.addEventListener("durationchange", syncFromAudio);
-    el.addEventListener("volumechange", syncFromAudio);
-    el.addEventListener("ended", onAudioEnded);
-  }
+  nextTick(() => {
+    attachAudioListeners();
+    syncFromAudio();
+  });
 });
 
 onUnmounted(() => {
