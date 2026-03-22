@@ -30,6 +30,7 @@ import GenrePieChart from "../stats/GenrePieChart.vue";
 import TopArtistsChart from "../stats/TopArtistsChart.vue";
 import MetadataHealthChart from "../stats/MetadataHealthChart.vue";
 import YearLineChart from "../stats/YearLineChart.vue";
+import RatingChart from "../stats/RatingChart.vue";
 import packageJson from "../../../package.json";
 
 const appVersion = packageJson.version;
@@ -2315,6 +2316,12 @@ watch(openSettingsAtTab, (tab) => {
             <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
               <p class="mb-3 text-xs font-semibold text-stone-400">Tracks per release year</p>
               <YearLineChart :tracks="store.tracks" />
+            </div>
+
+            <!-- User ratings -->
+            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
+              <p class="mb-3 text-xs font-semibold text-stone-400">User ratings</p>
+              <RatingChart :tracks="store.tracks" />
             </div>
 
             <!-- Metadata health -->

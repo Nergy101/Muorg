@@ -24,6 +24,7 @@ export interface Playlist {
   id: number;
   name: string;
   track_count: number;
+  icon: string | null;
 }
 
 export interface MetadataUpdate {

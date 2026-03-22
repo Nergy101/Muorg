@@ -31,17 +31,17 @@ const fields = computed(() => {
 });
 
 function pctColor(pct: number) {
-  if (pct >= 100) return "text-emerald-400";
+  if (pct >= 100) return "text-[#5b7c32]";
   if (pct >= 80)  return "text-stone-200";
-  if (pct >= 40)  return "text-amber-400";
+  if (pct >= 40)  return "text-stone-300";
   return "text-red-400";
 }
 
 function cardBorder(pct: number) {
-  if (pct >= 100) return "border-emerald-700/50 bg-emerald-950/30";
-  if (pct >= 80)  return "border-stone-600/70 bg-stone-900/60";
-  if (pct >= 40)  return "border-amber-700/40 bg-amber-950/20";
-  return "border-red-700/40 bg-red-950/20";
+  if (pct >= 100) return "border-primary bg-stone-800";
+  if (pct >= 80)  return "border-stone-600 bg-stone-900/60";
+  if (pct >= 40)  return "border-stone-600 bg-stone-900/60";
+  return "border-red-700/40 bg-stone-900/60";
 }
 </script>
 
@@ -66,8 +66,8 @@ function cardBorder(pct: number) {
 
       <!-- 100% state -->
       <template v-if="f.pct >= 100">
-        <FeatherIcon name="check-circle" class="mt-1 h-5 w-5 text-emerald-500" />
-        <span class="text-sm font-bold text-emerald-400">100%</span>
+        <FeatherIcon name="check-circle" class="mt-1 h-5 w-5 text-[#5b7c32]" />
+        <span class="text-sm font-bold text-[#5b7c32]">100%</span>
       </template>
 
       <!-- Incomplete state -->
@@ -77,7 +77,7 @@ function cardBorder(pct: number) {
         </span>
         <span class="text-[10px] text-stone-500">{{ f.missing }} missing</span>
         <span
-          class="mt-0.5 inline-flex items-center gap-1 text-[10px] text-stone-600 opacity-0 transition-opacity group-hover:opacity-100 group-hover:text-stone-300"
+          class="mt-0.5 inline-flex items-center gap-1 text-[10px] text-stone-500 opacity-0 transition-opacity group-hover:opacity-100 group-hover:text-stone-200"
         >
           View tracks
           <FeatherIcon name="arrow-right" class="h-3 w-3" />

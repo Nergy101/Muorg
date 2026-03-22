@@ -190,6 +190,16 @@ pub async fn rename_playlist(
 }
 
 #[tauri::command]
+pub async fn set_playlist_icon(
+    catalog: State<'_, Arc<Catalog>>,
+    id: i64,
+    icon: Option<String>,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::set_playlist_icon(&conn, id, icon.as_deref())
+}
+
+#[tauri::command]
 pub async fn delete_playlist(
     catalog: State<'_, Arc<Catalog>>,
     id: i64,

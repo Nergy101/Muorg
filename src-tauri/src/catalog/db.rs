@@ -10,6 +10,7 @@ pub struct Playlist {
     pub id: i64,
     pub name: String,
     pub track_count: i64,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -126,6 +127,10 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     }
     if !schema_has_column(conn, "tracks", "rating")? {
         conn.execute("ALTER TABLE tracks ADD COLUMN rating INTEGER", [])
+            .map_err(|e| e.to_string())?;
+    }
+    if !schema_has_column(conn, "playlists", "icon")? {
+        conn.execute("ALTER TABLE playlists ADD COLUMN icon TEXT", [])
             .map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -806,6 +811,7 @@ pub fn create_playlist(conn: &rusqlite::Connection, name: &str) -> Result<Playli
         id,
         name: name.to_string(),
         track_count: 0,
+        icon: None,
     })
 }
 
@@ -813,17 +819,17 @@ pub fn load_playlists(conn: &rusqlite::Connection) -> Result<Vec<Playlist>, Stri
     let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
     let sql = if deleted_at_col {
         // Only count playlist entries whose track is not soft-deleted.
-        "SELECT p.id, p.name, COUNT(t.id) as track_count \
+        "SELECT p.id, p.name, COUNT(t.id) as track_count, p.icon \
          FROM playlists p \
          LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id \
          LEFT JOIN tracks t ON t.id = pt.track_id AND t.deleted_at IS NULL \
-         GROUP BY p.id, p.name \
+         GROUP BY p.id, p.name, p.icon \
          ORDER BY p.created_at"
     } else {
-        "SELECT p.id, p.name, COUNT(pt.id) as track_count \
+        "SELECT p.id, p.name, COUNT(pt.id) as track_count, p.icon \
          FROM playlists p \
          LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id \
-         GROUP BY p.id, p.name \
+         GROUP BY p.id, p.name, p.icon \
          ORDER BY p.created_at"
     };
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
@@ -833,6 +839,7 @@ pub fn load_playlists(conn: &rusqlite::Connection) -> Result<Vec<Playlist>, Stri
                 id: r.get(0)?,
                 name: r.get(1)?,
                 track_count: r.get(2)?,
+                icon: r.get(3)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -847,6 +854,15 @@ pub fn rename_playlist(conn: &rusqlite::Connection, id: i64, name: &str) -> Resu
     conn.execute(
         "UPDATE playlists SET name = ?1 WHERE id = ?2",
         rusqlite::params![name, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn set_playlist_icon(conn: &rusqlite::Connection, id: i64, icon: Option<&str>) -> Result<(), String> {
+    conn.execute(
+        "UPDATE playlists SET icon = ?1 WHERE id = ?2",
+        rusqlite::params![icon, id],
     )
     .map_err(|e| e.to_string())?;
     Ok(())

@@ -6,6 +6,7 @@ import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import EmojiPicker from "../shared/EmojiPicker.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 import PlaylistExportDialog from "../shared/PlaylistExportDialog.vue";
 import type { Playlist } from "../../types";
@@ -41,30 +42,37 @@ function cancelCreatePlaylist() {
   isCreatingPlaylist.value = false;
 }
 
-// ── Rename playlist ────────────────────────────────────────────────────────
+// ── Edit playlist (name + icon) ────────────────────────────────────────────
 
-const renamingPlaylistId = ref<number | null>(null);
-const renameInputRef = ref<HTMLInputElement[]>([]);
-const renameValue = ref("");
+const editingPlaylistId = ref<number | null>(null);
+const editNameRef = ref<HTMLInputElement[]>([]);
+const editName = ref("");
+const editIcon = ref("");
+const showEmojiPicker = ref(false);
 
-function startRenaming(id: number, currentName: string) {
-  renamingPlaylistId.value = id;
-  renameValue.value = currentName;
+function startEditing(id: number, currentName: string, currentIcon: string | null) {
+  editingPlaylistId.value = id;
+  editName.value = currentName;
+  editIcon.value = currentIcon ?? "";
+  showEmojiPicker.value = false;
   closePlaylistContextMenu();
-  nextTick(() => renameInputRef.value[0]?.focus());
+  nextTick(() => editNameRef.value[0]?.focus());
 }
 
-async function confirmRename(id: number) {
-  const name = renameValue.value.trim();
-  if (name) await playlistStore.renamePlaylist(id, name);
-  renamingPlaylistId.value = null;
-  renameValue.value = "";
+async function confirmEdit(id: number) {
+  const name = editName.value.trim();
+  if (!name) { cancelEdit(); return; }
+  await playlistStore.renamePlaylist(id, name);
+  await playlistStore.setPlaylistIcon(id, editIcon.value.trim() || null);
+  editingPlaylistId.value = null;
+  showEmojiPicker.value = false;
 }
 
-function cancelRename() {
-  renamingPlaylistId.value = null;
-  renameValue.value = "";
+function cancelEdit() {
+  editingPlaylistId.value = null;
+  showEmojiPicker.value = false;
 }
+
 
 // ── Delete / click ─────────────────────────────────────────────────────────
 
@@ -227,25 +235,67 @@ const exportingPlaylist = ref<Playlist | null>(null);
         @drop="onPlaylistDrop($event, playlist.id)"
         @contextmenu.prevent="openPlaylistContextMenu($event, playlist.id, playlist.name)"
       >
-        <!-- Rename inline input -->
-        <input
-          v-if="renamingPlaylistId === playlist.id"
-          ref="renameInputRef"
-          v-model="renameValue"
-          type="text"
-          maxlength="128"
-          class="min-w-0 flex-1 rounded bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:ring-1 focus:ring-stone-400"
-          @keydown.enter="confirmRename(playlist.id)"
-          @keydown.escape="cancelRename"
-          @blur="confirmRename(playlist.id)"
-        />
+        <!-- Edit inline (name + emoji) -->
+        <template v-if="editingPlaylistId === playlist.id">
+          <div class="flex min-w-0 flex-1 flex-col gap-1 px-1.5 py-1.5">
+            <div class="flex items-center gap-1">
+              <!-- Emoji button: shows current emoji or placeholder, toggles picker -->
+              <button
+                type="button"
+                class="icon-btn h-6 w-7 shrink-0 rounded bg-stone-700 text-base leading-none hover:bg-stone-600"
+                :class="showEmojiPicker ? 'ring-1 ring-stone-400' : ''"
+                title="Pick emoji"
+                @click.stop="showEmojiPicker = !showEmojiPicker"
+              >
+                <span v-if="editIcon">{{ editIcon }}</span>
+                <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
+              </button>
+              <!-- Name input -->
+              <input
+                ref="editNameRef"
+                v-model="editName"
+                type="text"
+                maxlength="128"
+                class="min-w-0 flex-1 rounded bg-stone-700 px-2 py-0.5 text-xs text-stone-200 outline-none focus:ring-1 focus:ring-stone-400"
+                @keydown.enter.prevent="confirmEdit(playlist.id)"
+                @keydown.escape.prevent="cancelEdit"
+              />
+              <!-- Confirm -->
+              <button
+                type="button"
+                class="icon-btn h-6 w-6 shrink-0 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                @click.stop="confirmEdit(playlist.id)"
+              >
+                <FeatherIcon name="check" class="h-3.5 w-3.5" />
+              </button>
+              <!-- Cancel -->
+              <button
+                type="button"
+                class="icon-btn h-6 w-6 shrink-0 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                @click.stop="cancelEdit"
+              >
+                <FeatherIcon name="x" class="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <!-- Emoji picker panel -->
+            <EmojiPicker
+              :open="showEmojiPicker"
+              @pick="editIcon = $event; showEmojiPicker = false"
+            />
+          </div>
+        </template>
         <template v-else>
           <button
             type="button"
             class="flex min-w-0 flex-1 items-center gap-2 truncate px-2 py-1.5 text-left"
             @click="handleClickPlaylist(playlist.id)"
           >
+            <span
+              v-if="playlist.icon"
+              class="shrink-0 text-sm leading-none"
+            >{{ playlist.icon }}</span>
             <FeatherIcon
+              v-else
               name="list"
               class="h-3.5 w-3.5 shrink-0"
               :class="playingFromPlaylistId === playlist.id ? 'text-[#8ab55a]' : activePlaylistId === playlist.id ? 'text-stone-300' : 'text-stone-500'"
@@ -305,10 +355,10 @@ const exportingPlaylist = ref<Playlist | null>(null);
       <button
         type="button"
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
-        @click="startRenaming(playlistContextMenu.id, playlistContextMenu.name)"
+        @click="startEditing(playlistContextMenu.id, playlistContextMenu.name, playlists.find(p => p.id === playlistContextMenu!.id)?.icon ?? null)"
       >
         <FeatherIcon name="edit-2" class="h-4 w-4 shrink-0 text-stone-400" />
-        Rename
+        Edit
       </button>
       <button
         type="button"

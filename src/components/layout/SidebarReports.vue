@@ -140,7 +140,7 @@ async function handleRefreshReports() {
         @click="openMissingMetadataReport"
       >
         <span class="flex items-center gap-1.5">
-          <span class="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-500/20 text-amber-300">!</span>
+          <FeatherIcon name="file-text" class="h-3.5 w-3.5 shrink-0 text-amber-300" />
           <span>Missing metadata</span>
         </span>
         <span class="text-[0.7rem] text-stone-400">{{ missingMetadataCount }}</span>
@@ -152,7 +152,7 @@ async function handleRefreshReports() {
         @click="openDuplicateReport"
       >
         <span class="flex items-center gap-1.5">
-          <span class="inline-flex h-4 w-4 items-center justify-center rounded bg-red-500/20 text-red-300">≈</span>
+          <FeatherIcon name="copy" class="h-3.5 w-3.5 shrink-0 text-red-300" />
           <span>Duplicates</span>
         </span>
         <span class="text-[0.7rem] text-stone-400">{{ duplicateCount }}</span>
@@ -164,7 +164,7 @@ async function handleRefreshReports() {
         @click="openMissingAlbumCoverReport"
       >
         <span class="flex items-center gap-1.5">
-          <span class="inline-flex h-4 w-4 items-center justify-center rounded bg-stone-500/20 text-stone-300">🖼</span>
+          <FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
           <span>Missing album cover</span>
         </span>
         <span class="text-[0.7rem] text-stone-400">{{ missingAlbumCoverCount }}</span>

@@ -55,6 +55,19 @@ export const usePlaylistStore = defineStore("playlists", {
       }
     },
 
+    async setPlaylistIcon(id: number, icon: string | null) {
+      if (isMock()) return;
+      this.error = null;
+      try {
+        await invoke("set_playlist_icon", { id, icon });
+        this.playlists = this.playlists.map((p) =>
+          p.id === id ? { ...p, icon } : p
+        );
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+      }
+    },
+
     async deletePlaylist(id: number) {
       if (isMock()) return;
       this.error = null;
