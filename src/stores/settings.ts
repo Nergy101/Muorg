@@ -12,8 +12,9 @@ export type BottomPanelId = "library" | "metadata" | "player" | "queue";
 export type SidebarDefaultTab = "folders" | "reports" | "playlists";
 
 export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
+export type PlayerGlowMode = "dynamic" | "vivid" | "edge-blur" | "bland";
 
-export type SortableColumn = "title" | "artist" | "album" | "year" | "duration";
+export type SortableColumn = "title" | "artist" | "album" | "year" | "duration" | "rating";
 
 export type MissingMetadataField =
   | "title"
@@ -38,7 +39,8 @@ const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
 const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact", "spacious"];
 const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "player", "queue"];
 const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
-const ALLOWED_SORT_COLUMNS: SortableColumn[] = ["title", "artist", "album", "year", "duration"];
+const ALLOWED_PLAYER_GLOW_MODE: PlayerGlowMode[] = ["dynamic", "vivid", "edge-blur", "bland"];
+const ALLOWED_SORT_COLUMNS: SortableColumn[] = ["title", "artist", "album", "year", "duration", "rating"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",
   "artist",
@@ -106,6 +108,10 @@ function coerceBottomPanel(v: unknown): BottomPanelId {
   }
   return "library";
 }
+function coerceGlowMode(v: unknown): PlayerGlowMode {
+  if (typeof v === "string" && ALLOWED_PLAYER_GLOW_MODE.includes(v as PlayerGlowMode)) return v as PlayerGlowMode;
+  return "dynamic";
+}
 function coerceSortColumn(v: unknown): SortableColumn | null {
   if (typeof v === "string" && ALLOWED_SORT_COLUMNS.includes(v as SortableColumn)) return v as SortableColumn;
   return null;
@@ -154,6 +160,7 @@ const DEFAULT_TABLE_COL_WIDTHS: Record<string, number> = {
   duration: 64,
   format: 64,
   path: 200,
+  rating: 100,
 };
 
 function coerceTableColWidths(v: unknown): Record<string, number> {
@@ -192,6 +199,7 @@ export const useSettingsStore = defineStore("settings", {
     tableColDuration: true,
     tableColFormat: true,
     tableColPath: true,
+    tableColRating: false,
     /** Resizable column widths (px). Keys: albumArt, title, artist, album, year, duration, format, path. */
     tableColWidths: { ...DEFAULT_TABLE_COL_WIDTHS },
     missingMetadataFields: ["title", "artist", "album"] as MissingMetadataField[],
@@ -208,6 +216,8 @@ export const useSettingsStore = defineStore("settings", {
     openSettingsAtTab: null as string | null,
     /** Maximized player: glow shadows from album art. "off" = disabled; subdued/default/vibrant = intensity. */
     playerGlowIntensity: "default" as PlayerGlowIntensity,
+    /** Maximized player: which glow effect to use. "dynamic" = auto-detect from album art. */
+    playerGlowMode: "dynamic" as PlayerGlowMode,
     /** Queue panel width as fraction of bottom bar when queue tab is active (0.15–0.6). */
     queuePanelWidthFraction: 0.25,
     /** Bottom panel height in px when Player or Queue tab is active (300–600). */
@@ -261,6 +271,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("tableColDuration" in data) this.tableColDuration = coerceBool(data.tableColDuration, true);
         if ("tableColFormat" in data) this.tableColFormat = coerceBool(data.tableColFormat, true);
         if ("tableColPath" in data) this.tableColPath = coerceBool(data.tableColPath, true);
+        if ("tableColRating" in data) this.tableColRating = coerceBool(data.tableColRating, false);
         if ("tableColWidths" in data) this.tableColWidths = coerceTableColWidths(data.tableColWidths);
         if ("missingMetadataFields" in data) this.missingMetadataFields = coerceMissingFields(data.missingMetadataFields);
         if ("groupHeaderAlbumArt" in data) this.groupHeaderAlbumArt = coerceBool(data.groupHeaderAlbumArt, true);
@@ -274,6 +285,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
         if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
+        if ("playerGlowMode" in data) this.playerGlowMode = coerceGlowMode(data.playerGlowMode);
         if ("queuePanelWidthFraction" in data) this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(data.queuePanelWidthFraction);
         if ("bottomPanelHeightPx" in data) this.bottomPanelHeightPx = coerceBottomPanelHeightPx(data.bottomPanelHeightPx);
         if ("musicRootFolder" in data) this.musicRootFolder = coerceString(data.musicRootFolder, "");
@@ -326,6 +338,7 @@ export const useSettingsStore = defineStore("settings", {
           pathFormatTemplate: this.pathFormatTemplate,
           pathFormatExamplePath: this.pathFormatExamplePath,
           playerGlowIntensity: this.playerGlowIntensity,
+          playerGlowMode: this.playerGlowMode,
           queuePanelWidthFraction: this.queuePanelWidthFraction,
           bottomPanelHeightPx: this.bottomPanelHeightPx,
           musicRootFolder: this.musicRootFolder,
@@ -433,6 +446,10 @@ export const useSettingsStore = defineStore("settings", {
       this.tableColPath = value;
       this.saveToFile();
     },
+    setTableColRating(value: boolean) {
+      this.tableColRating = value;
+      this.saveToFile();
+    },
     setTableColWidth(columnId: string, width: number, persist = true) {
       const clamped = Math.round(Math.min(800, Math.max(40, width)));
       if (Object.prototype.hasOwnProperty.call(this.tableColWidths, columnId)) {
@@ -481,6 +498,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setPlayerGlowIntensity(value: PlayerGlowIntensity) {
       this.playerGlowIntensity = value;
+      this.saveToFile();
+    },
+    setPlayerGlowMode(value: PlayerGlowMode) {
+      this.playerGlowMode = value;
       this.saveToFile();
     },
     setQueuePanelWidthFraction(value: number) {

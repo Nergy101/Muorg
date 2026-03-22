@@ -47,6 +47,8 @@ export const useCatalogStore = defineStore("catalog", {
     loading: false,
     error: null as string | null,
     searchQuery: "",
+    /** Minimum rating filter (1–5). Null = no filter. Tracks below this rating are hidden. */
+    filterMinRating: null as number | null,
     groupBy: loadStoredDefaultGroupBy(),
     /** Cache of track path -> album art (base64 + mime + size) or null if no art. */
     coverCache: {} as Record<string, CoverInfo | null>,
@@ -91,13 +93,18 @@ export const useCatalogStore = defineStore("catalog", {
           .map((id) => idToTrack.get(id))
           .filter((t): t is CatalogTrack => t != null);
         const q = state.searchQuery.trim().toLowerCase();
-        if (!q) return list;
-        return list.filter((t) => {
-          const title = (t.title ?? "").toLowerCase();
-          const artist = (t.artist ?? "").toLowerCase();
-          const album = (t.album ?? "").toLowerCase();
-          return title.includes(q) || artist.includes(q) || album.includes(q);
-        });
+        if (q) {
+          list = list.filter((t) => {
+            const title = (t.title ?? "").toLowerCase();
+            const artist = (t.artist ?? "").toLowerCase();
+            const album = (t.album ?? "").toLowerCase();
+            return title.includes(q) || artist.includes(q) || album.includes(q);
+          });
+        }
+        if (state.filterMinRating !== null) {
+          list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
+        }
+        return list;
       }
       const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
       const hiddenSet = new Set(state.hiddenRoots.map(norm));
@@ -115,13 +122,18 @@ export const useCatalogStore = defineStore("catalog", {
         });
       }
       const q = state.searchQuery.trim().toLowerCase();
-      if (!q) return list;
-      return list.filter((t) => {
-        const title = (t.title ?? "").toLowerCase();
-        const artist = (t.artist ?? "").toLowerCase();
-        const album = (t.album ?? "").toLowerCase();
-        return title.includes(q) || artist.includes(q) || album.includes(q);
-      });
+      if (q) {
+        list = list.filter((t) => {
+          const title = (t.title ?? "").toLowerCase();
+          const artist = (t.artist ?? "").toLowerCase();
+          const album = (t.album ?? "").toLowerCase();
+          return title.includes(q) || artist.includes(q) || album.includes(q);
+        });
+      }
+      if (state.filterMinRating !== null) {
+        list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
+      }
+      return list;
     },
     /**
      * Tracks in the same order as the table view (groupBy, then group sort).
@@ -500,6 +512,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setSearchQuery(q: string) {
       this.searchQuery = q;
+    },
+    setFilterMinRating(rating: number | null) {
+      this.filterMinRating = rating;
     },
     setRevealTrackId(id: number | null) {
       this.revealTrackId = id;

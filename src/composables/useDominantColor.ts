@@ -61,20 +61,23 @@ export function useDominantColor(imageUrl: Ref<string | null>) {
           ctx.drawImage(img, 0, 0, size, size);
           const data = ctx.getImageData(0, 0, size, size).data;
           const margin = Math.floor(size * 0.25);
-          let r = 0, g = 0, b = 0, n = 0;
+          let wr = 0, wg = 0, wb = 0, wTotal = 0;
           for (let y = margin; y < size - margin; y++) {
             for (let x = margin; x < size - margin; x++) {
               const i = (y * size + x) * 4;
-              r += data[i];
-              g += data[i + 1];
-              b += data[i + 2];
-              n++;
+              const pr = data[i], pg = data[i + 1], pb = data[i + 2];
+              const max = Math.max(pr, pg, pb);
+              const min = Math.min(pr, pg, pb);
+              // Weight by saturation² so vivid pixels dominate; tiny baseline keeps stability
+              const sat = max === 0 ? 0 : (max - min) / max;
+              const w = sat * sat + 0.05;
+              wr += pr * w; wg += pg * w; wb += pb * w; wTotal += w;
             }
           }
-          if (n === 0) return;
-          r = Math.round((r / n) * DARKEN);
-          g = Math.round((g / n) * DARKEN);
-          b = Math.round((b / n) * DARKEN);
+          if (wTotal === 0) return;
+          let r = Math.round((wr / wTotal) * DARKEN);
+          let g = Math.round((wg / wTotal) * DARKEN);
+          let b = Math.round((wb / wTotal) * DARKEN);
           glowRgb.value = `${r},${g},${b}`;
         } catch {
           glowRgb.value = FALLBACK_RGB;
@@ -305,7 +308,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-const NUM_BLOBS = 11;
+const NUM_BLOBS = 16;
 const FALLBACK_RGB_Gradient = "28,25,23";
 
 export interface GlowBlob {
@@ -343,16 +346,16 @@ export function getGlowBlobs(glowRgb: string, seedString: string): GlowBlob[] {
   const blobs: GlowBlob[] = [];
 
   for (let i = 0; i < NUM_BLOBS; i++) {
-    // ~40% subdued (soft ambient), ~60% vibrant (spectacle)
-    const isSubdued = rnd() < 0.4;
+    // ~20% subdued (soft ambient), ~80% vibrant (spectacle)
+    const isSubdued = rnd() < 0.2;
     const opacity = isSubdued
-      ? 0.06 + rnd() * 0.12
-      : 0.22 + rnd() * 0.42;
+      ? 0.08 + rnd() * 0.12
+      : 0.35 + rnd() * 0.50;
     blobs.push({
       cx: 0.05 + rnd() * 0.9,
       cy: 0.05 + rnd() * 0.9,
-      rx: 0.4 + rnd() * 0.5,
-      ry: 0.35 + rnd() * 0.5,
+      rx: 0.5 + rnd() * 0.6,
+      ry: 0.45 + rnd() * 0.6,
       opacity,
       rgb,
     });

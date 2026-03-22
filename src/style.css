@@ -51,12 +51,12 @@ textarea:focus {
 
 /* Maximized player: blurred album art edge glow (bland covers). Every edge pixel bleeds outward. */
 .edge-blur-art {
-  width: min(72vmin, 420px);
-  height: min(72vmin, 420px);
-  background-size: 135%;
+  width: min(108vmin, 630px);
+  height: min(108vmin, 630px);
+  background-size: 170%;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(70px);
+  filter: blur(72px);
   inset: 0;
   margin: auto;
 }
@@ -177,6 +177,9 @@ textarea:focus {
   overflow-x: hidden;
   overflow-y: auto;
 }
+
+/* Hide horizontal scrollbar on the library table — horizontal scroll works via trackpad/swipe. */
+.table-scroll-container > .os-scrollbar-horizontal { display: none; }
 
 /* os-theme-muorg: app accent scrollbar (OverlayScrollbars). */
 .os-theme-muorg {
@@ -912,4 +915,82 @@ textarea:focus {
 #maximized-player-overlay .mpx-volume-wrap .h-4.w-4 {
   width: 1rem;
   height: 1rem;
+}
+
+/* ── Icon button layout helper ───────────────────────────────────────────── */
+/* Guarantees a square, centered-icon button. Add size (h-6 w-6, h-7 w-7 …)
+   and color (text-stone-500 hover:bg-stone-600 …) via Tailwind classes.     */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
+}
+
+/* ── Settings: active option card (selected state) ──────────────────────── */
+.settings-option-card--active {
+  border-color: rgba(91, 124, 50, 0.8);
+  background-color: rgba(91, 124, 50, 0.18);
+}
+[data-theme="light"] .settings-option-card--active {
+  border-color: rgba(77, 124, 44, 0.8);
+  background-color: rgba(77, 124, 44, 0.1);
+}
+[data-theme="doom"] .settings-option-card--active {
+  border-color: rgba(139, 0, 0, 0.8);
+  background-color: rgba(139, 0, 0, 0.18);
+}
+[data-theme="orkish"] .settings-option-card--active {
+  border-color: rgba(46, 125, 50, 0.8);
+  background-color: rgba(46, 125, 50, 0.18);
+}
+
+/* ── Settings: "Active" badge pill ──────────────────────────────────────── */
+.settings-option-badge {
+  background-color: rgba(91, 124, 50, 0.85);
+  color: #edecd8;
+}
+[data-theme="light"] .settings-option-badge {
+  background-color: #4d7c2c;
+  color: #fafaf9;
+}
+[data-theme="doom"] .settings-option-badge {
+  background-color: rgba(139, 0, 0, 0.85);
+  color: #e0b040;
+}
+[data-theme="orkish"] .settings-option-badge {
+  background-color: rgba(46, 125, 50, 0.85);
+  color: #f1f8e9;
+}
+
+/* ── Settings: primary action button (update / restart) ─────────────────── */
+.settings-action-btn {
+  background-color: #5b7c32;
+  color: #fff;
+}
+.settings-action-btn:hover:not(:disabled) { background-color: #6d8f3d; }
+[data-theme="light"] .settings-action-btn               { background-color: #4d7c2c; }
+[data-theme="light"] .settings-action-btn:hover:not(:disabled) { background-color: #5b8f35; }
+[data-theme="doom"]  .settings-action-btn               { background-color: #8b0000; }
+[data-theme="doom"]  .settings-action-btn:hover:not(:disabled) { background-color: #a52a2a; }
+[data-theme="orkish"] .settings-action-btn              { background-color: #2e7d32; }
+[data-theme="orkish"] .settings-action-btn:hover:not(:disabled) { background-color: #388e3c; }
+
+/* ── Settings: update-available notice box ──────────────────────────────── */
+.settings-update-notice {
+  border-color: rgba(91, 124, 50, 0.55);
+  background-color: rgba(91, 124, 50, 0.1);
+}
+[data-theme="light"] .settings-update-notice {
+  border-color: rgba(77, 124, 44, 0.55);
+  background-color: rgba(77, 124, 44, 0.08);
+}
+[data-theme="doom"] .settings-update-notice {
+  border-color: rgba(139, 0, 0, 0.55);
+  background-color: rgba(139, 0, 0, 0.12);
+}
+[data-theme="orkish"] .settings-update-notice {
+  border-color: rgba(46, 125, 50, 0.55);
+  background-color: rgba(46, 125, 50, 0.1);
 }

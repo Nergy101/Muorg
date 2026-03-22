@@ -32,6 +32,7 @@ const {
   tableColDuration,
   tableColFormat,
   tableColPath,
+  tableColRating,
   tableColWidths,
   groupHeaderAlbumArt,
   hideGroupTrackCount,
@@ -52,6 +53,7 @@ function applySortToTracks(tracks: CatalogTrack[]): CatalogTrack[] {
     else if (col === "album") { va = a.album ?? ""; vb = b.album ?? ""; }
     else if (col === "year") { va = a.year ?? 0; vb = b.year ?? 0; }
     else if (col === "duration") { va = a.duration_secs ?? 0; vb = b.duration_secs ?? 0; }
+    else if (col === "rating") { va = a.rating ?? 0; vb = b.rating ?? 0; }
     else return 0;
     if (typeof va === "string" && typeof vb === "string") {
       return dir * va.localeCompare(vb, undefined, { sensitivity: "base" });
@@ -62,7 +64,7 @@ function applySortToTracks(tracks: CatalogTrack[]): CatalogTrack[] {
 
 const sortedFilteredTracks = computed(() => applySortToTracks(filteredTracks.value));
 
-function toggleSortColumn(col: "title" | "artist" | "album" | "year" | "duration") {
+function toggleSortColumn(col: "title" | "artist" | "album" | "year" | "duration" | "rating") {
   if (tableSortColumn.value === col) {
     if (tableSortDirection.value === "asc") {
       settingsStore.setTableSort(col, "desc");
@@ -84,6 +86,12 @@ type GroupRow = {
 type VisibleRow =
   | { type: "group"; key: string; group: GroupRow }
   | { type: "track"; track: CatalogTrack; playlistEntryId?: number };
+
+function groupAvgRating(tracks: CatalogTrack[]): number | null {
+  const rated = tracks.filter((t) => t.rating != null);
+  if (!rated.length) return null;
+  return Math.round(rated.reduce((s, t) => s + t.rating!, 0) / rated.length);
+}
 
 function formatDuration(secs: number | null): string {
   if (secs == null) return "—";
@@ -154,6 +162,13 @@ const groupedRows = computed(() => {
     } else if (col === "title") {
       const cmp = (a.tracks[0]?.title ?? "").localeCompare(b.tracks[0]?.title ?? "", undefined, { sensitivity: "base" });
       if (cmp !== 0) return dir * cmp;
+    } else if (col === "rating") {
+      const aRated = a.tracks.filter((t) => t.rating != null);
+      const bRated = b.tracks.filter((t) => t.rating != null);
+      const aAvg = aRated.length ? aRated.reduce((s, t) => s + t.rating!, 0) / aRated.length : 0;
+      const bAvg = bRated.length ? bRated.reduce((s, t) => s + t.rating!, 0) / bRated.length : 0;
+      const diff = aAvg - bAvg;
+      if (diff !== 0) return dir * diff;
     }
     // Default tie-break: alphabetical by label then artist
     const byLabel = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
@@ -308,6 +323,7 @@ const tableColCount = computed(() => {
   if (tableColDuration.value) n += 1;
   if (tableColFormat.value) n += 1;
   if (tableColPath.value) n += 1;
+  if (tableColRating.value) n += 1;
   return n;
 });
 
@@ -379,7 +395,7 @@ const totalScrollHeight = computed(() => rowHeights.value.reduce((a, b) => a + b
 const useVirtualization = computed(() => visibleRows.value.length >= VIRTUALIZATION_THRESHOLD);
 
 const tableContainerRef = ref<HTMLDivElement | null>(null);
-const { viewportRef: scrollViewportRef } = useOverlayScrollbars(tableContainerRef);
+const { viewportRef: scrollViewportRef } = useOverlayScrollbars(tableContainerRef, { overflow: { x: "scroll" } });
 const scrollTopRef = ref(0);
 const containerHeightRef = ref(0);
 
@@ -763,7 +779,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
     data-overlayscrollbars-initialize
     @keydown="onTableKeydown"
   >
-    <table class="table-fixed w-full min-w-0 border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
+    <table class="table-fixed min-w-full border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
       <colgroup>
         <col :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
         <col v-if="tableColAlbumArt" :style="{ width: colWidth('albumArt') + 'px' }" />
@@ -773,6 +789,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         <col v-if="tableColYear" :style="{ width: colWidth('year') + 'px' }" />
         <col v-if="tableColDuration" :style="{ width: colWidth('duration') + 'px' }" />
         <col v-if="tableColFormat" :style="{ width: colWidth('format') + 'px' }" />
+        <col v-if="tableColRating" :style="{ width: colWidth('rating') + 'px' }" />
         <col v-if="tableColPath" :style="{ width: colWidth('path') + 'px' }" />
       </colgroup>
       <thead class="sticky top-0 z-10 bg-stone-800">
@@ -858,6 +875,17 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('format', $event)"
             />
           </th>
+          <th v-if="tableColRating" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('rating')">
+              Rating
+              <span v-if="tableSortColumn === 'rating'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+            </button>
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              aria-hidden="true"
+              @mousedown="onResizeStart('rating', $event)"
+            />
+          </th>
           <th v-if="tableColPath" class="relative truncate border-r border-stone-700 p-2 font-medium text-stone-400">
             Path
             <span
@@ -934,6 +962,13 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   </span>
                   {{ row.group.label }}<template v-if="groupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
                   <span v-if="!hideGroupTrackCount" class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
+                  <StarRating
+                    v-if="groupAvgRating(row.group.tracks) !== null"
+                    :model-value="groupAvgRating(row.group.tracks)"
+                    :partial="row.group.tracks.some((t) => t.rating == null)"
+                    readonly
+                    class="ml-1"
+                  />
                   <button
                     v-if="groupBy === 'album'"
                     type="button"
@@ -999,6 +1034,12 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               <td v-if="tableColYear" class="border-r border-stone-700 p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
               <td v-if="tableColDuration" class="border-r border-stone-700 p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
               <td v-if="tableColFormat" class="border-r border-stone-700 p-2 text-stone-400">{{ row.track.format }}</td>
+              <td v-if="tableColRating" class="border-r border-stone-700 p-2" @click.stop>
+                <StarRating
+                  :model-value="row.track.rating ?? null"
+                  @update:model-value="(r) => store.setRating([row.track.path], r)"
+                />
+              </td>
               <td v-if="tableColPath" class="min-w-0 p-2 text-stone-500">
                 <div class="flex min-w-0 items-center gap-1">
                   <button type="button" class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300" aria-label="Copy path" title="Copy path" @click.stop="copyPathToClipboard(row.track.path)">

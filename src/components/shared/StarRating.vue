@@ -5,6 +5,8 @@ const props = defineProps<{
   modelValue: number | null;
   /** If true, the component is display-only (no hover/click). */
   readonly?: boolean;
+  /** If true, active stars render as outlined yellow (not filled) to indicate a partial/average rating. */
+  partial?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -42,7 +44,7 @@ function select(star: number) {
         class="h-4 w-4 transition-colors"
         :class="
           (hovered !== null ? star <= hovered : star <= (modelValue ?? 0))
-            ? 'fill-amber-400 text-amber-400'
+            ? (partial ? 'fill-transparent text-amber-400' : 'fill-amber-400 text-amber-400')
             : 'fill-transparent text-stone-500'
         "
         stroke="currentColor"

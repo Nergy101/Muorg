@@ -5,6 +5,7 @@ import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import packageJson from "../../../package.json";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import StarRating from "../shared/StarRating.vue";
 
 const props = defineProps<{
   activeTab: "library" | "metadata" | "player" | "queue";
@@ -16,11 +17,12 @@ const emit = defineEmits<{
   (e: "openKeyMap"): void;
   (e: "expandAllGroups"): void;
   (e: "collapseAllGroups"): void;
+  (e: "expandPlayer"): void;
 }>();
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
-const { searchQuery, groupBy, filteredTracks, activePlaylistId } = storeToRefs(store);
+const { searchQuery, groupBy, filteredTracks, activePlaylistId, filterMinRating } = storeToRefs(store);
 const { playlists } = storeToRefs(playlistStore);
 
 const activePlaylist = computed(() =>
@@ -113,25 +115,31 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
     if (e.key === "m") {
       e.preventDefault();
-      const nextTab = props.activeTab === "metadata" ? "library" : "metadata";
-      emit("update:activeTab", nextTab);
+      emit("expandPlayer");
       return;
     }
 
-    if (e.key === "l") {
+    if (e.key === "1") {
       e.preventDefault();
       emit("update:activeTab", "library");
       return;
     }
 
-    if (e.key === "p") {
+    if (e.key === "2") {
+      e.preventDefault();
+      const nextTab = props.activeTab === "metadata" ? "library" : "metadata";
+      emit("update:activeTab", nextTab);
+      return;
+    }
+
+    if (e.key === "3") {
       e.preventDefault();
       const nextTab = props.activeTab === "player" ? "library" : "player";
       emit("update:activeTab", nextTab);
       return;
     }
 
-    if (e.key === "q") {
+    if (e.key === "4") {
       e.preventDefault();
       const nextTab = props.activeTab === "queue" ? "library" : "queue";
       emit("update:activeTab", nextTab);
@@ -224,6 +232,24 @@ watch(groupByDropdownOpen, (open) => {
         class="min-w-[200px] rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 placeholder-stone-500"
         @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
       />
+      <!-- Min-rating filter -->
+      <div class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2 py-1" :class="filterMinRating !== null ? 'border-amber-600/60' : ''">
+        <FeatherIcon name="star" class="h-3.5 w-3.5 shrink-0" :class="filterMinRating !== null ? 'text-amber-400' : 'text-stone-500'" />
+        <StarRating
+          :model-value="filterMinRating"
+          @update:model-value="store.setFilterMinRating"
+        />
+        <button
+          v-if="filterMinRating !== null"
+          type="button"
+          class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+          aria-label="Clear rating filter"
+          @click="store.setFilterMinRating(null)"
+        >
+          <FeatherIcon name="x" class="h-3 w-3" />
+        </button>
+      </div>
+
       <!-- Custom group-by dropdown -->
       <div ref="groupByDropdownRef" class="relative">
         <button

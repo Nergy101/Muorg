@@ -17,6 +17,7 @@ import type {
   BottomPanelId,
   MissingMetadataField,
   PlayerGlowIntensity,
+  PlayerGlowMode,
 } from "../../stores/settings";
 import { extractMetadataFromPath } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
@@ -65,6 +66,7 @@ const {
   tableColDuration,
   tableColFormat,
   tableColPath,
+  tableColRating,
   missingMetadataFields,
   groupHeaderAlbumArt,
   hideGroupTrackCount,
@@ -73,6 +75,7 @@ const {
   pathFormatExamplePath,
   openSettingsAtTab,
   playerGlowIntensity,
+  playerGlowMode,
   defaultBottomPanel,
   musicRootFolder,
 } = storeToRefs(settingsStore);
@@ -113,9 +116,6 @@ const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: "keyboard", label: "Keyboard", icon: "command" },
 ];
 
-const mainPanelOpen = ref(false);
-const bottomPanelOpen = ref(false);
-const sidePanelOpen = ref(false);
 
 const themeOptions: {
   value: ThemeId;
@@ -160,6 +160,33 @@ const playerGlowOptions: { value: PlayerGlowIntensity; label: string }[] = [
   { value: "subdued", label: "Subdued" },
   { value: "default", label: "Default" },
   { value: "vibrant", label: "Vibrant" },
+];
+
+const playerGlowModeOptions: {
+  value: PlayerGlowMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "dynamic",
+    label: "Dynamic",
+    description: "Muorg picks the best effect based on the album cover",
+  },
+  {
+    value: "vivid",
+    label: "Vivid",
+    description: "Always use center-color blobs",
+  },
+  {
+    value: "edge-blur",
+    label: "Edge blur",
+    description: "Always use blurred art bleeding in from edges",
+  },
+  {
+    value: "bland",
+    label: "Bland",
+    description: "Always use a subtle soft glow",
+  },
 ];
 
 /** Primary green RGB for vivid glow demo. */
@@ -510,7 +537,7 @@ watch(openSettingsAtTab, (tab) => {
           </h2>
           <button
             type="button"
-            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            class="icon-btn h-7 w-7 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
             aria-label="Close"
             @click="close"
           >
@@ -578,17 +605,17 @@ watch(openSettingsAtTab, (tab) => {
                 </p>
                 <div
                   v-if="availableUpdate"
-                  class="mt-3 rounded border border-emerald-600/60 bg-emerald-900/10 p-2.5"
+                  class="settings-update-notice mt-3 rounded border p-2.5"
                 >
-                  <p class="text-xs font-medium text-emerald-300">
+                  <p class="text-xs font-medium text-stone-200">
                     New version available: {{ availableUpdate.version }}
                   </p>
-                  <p class="mt-0.5 text-[11px] text-emerald-200/90">
+                  <p class="mt-0.5 text-[11px] text-stone-400">
                     Current version: {{ availableUpdate.currentVersion }}.
                     <button
                       v-if="availableUpdate.body || availableUpdate.date"
                       type="button"
-                      class="underline decoration-dotted underline-offset-2 hover:text-emerald-100"
+                      class="underline decoration-dotted underline-offset-2 hover:text-stone-200"
                       @click="
                         openReleaseUrl(
                           `${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`,
@@ -601,7 +628,7 @@ watch(openSettingsAtTab, (tab) => {
                   <div class="mt-2 flex items-center gap-3">
                     <button
                       type="button"
-                      class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      class="settings-action-btn rounded px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
                       :disabled="updateDownloadProgress !== null"
                       @click="installUpdate"
                     >
@@ -906,7 +933,7 @@ watch(openSettingsAtTab, (tab) => {
                     class="group flex items-center gap-3 rounded-md border px-2.5 py-2 text-left text-xs transition"
                     :class="
                       theme === opt.value
-                        ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                        ? 'settings-option-card--active shadow-inner'
                         : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
                     "
                     @click="settingsStore.setTheme(opt.value)"
@@ -921,7 +948,7 @@ watch(openSettingsAtTab, (tab) => {
                         {{ opt.label }}
                         <span
                           v-if="theme === opt.value"
-                          class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                          class="ml-1 settings-option-badge rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                         >
                           Active
                         </span>
@@ -955,13 +982,34 @@ watch(openSettingsAtTab, (tab) => {
                 </p>
                 <div class="mt-2 flex flex-wrap gap-2">
                   <button
+                    v-for="opt in playerGlowModeOptions"
+                    :key="opt.value"
+                    type="button"
+                    class="flex flex-col gap-0.5 rounded-md border px-2.5 py-2 text-left transition"
+                    :class="
+                      playerGlowMode === opt.value
+                        ? 'settings-option-card--active'
+                        : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                    "
+                    @click="settingsStore.setPlayerGlowMode(opt.value)"
+                  >
+                    <span class="text-xs font-medium text-stone-200">{{
+                      opt.label
+                    }}</span>
+                    <span class="text-[10px] text-stone-500">{{
+                      opt.description
+                    }}</span>
+                  </button>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button
                     v-for="opt in playerGlowOptions"
                     :key="opt.value"
                     type="button"
                     class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
                     :class="
                       playerGlowIntensity === opt.value
-                        ? 'border-emerald-500/80 bg-emerald-900/30'
+                        ? 'settings-option-card--active'
                         : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
                     "
                     @click="settingsStore.setPlayerGlowIntensity(opt.value)"
@@ -969,9 +1017,12 @@ watch(openSettingsAtTab, (tab) => {
                     {{ opt.label }}
                   </button>
                 </div>
-                <div v-if="!glowSettingsDisabled" class="mt-3 space-y-3">
+                <div
+                  v-if="!glowSettingsDisabled && playerGlowMode === 'dynamic'"
+                  class="mt-3 space-y-3"
+                >
                   <p class="text-[11px] text-stone-500">
-                    The glow picks one of three modes, in order:
+                    Muorg picks one of three effects, in order:
                   </p>
                   <ul
                     class="list-inside list-decimal space-y-0.5 text-[11px] text-stone-500"
@@ -1135,8 +1186,93 @@ watch(openSettingsAtTab, (tab) => {
                     </div>
                   </div>
                 </div>
+                <!-- Single-mode previews when not Dynamic -->
                 <div
-                  v-else
+                  v-else-if="!glowSettingsDisabled && playerGlowMode === 'vivid'"
+                  class="mt-3"
+                >
+                  <div
+                    :key="`vivid-preview-${playerGlowIntensity}`"
+                    class="glow-demo-container inline-block rounded-lg border border-stone-600 p-6 shadow-lg"
+                    :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
+                  >
+                    <div class="relative flex h-48 w-40 flex-col items-center justify-center">
+                      <template v-if="glowDemoBlobs.length">
+                        <div
+                          v-for="(blob, i) in glowDemoBlobs"
+                          :key="`vivid-p-${i}`"
+                          class="pointer-events-none absolute inset-0 origin-top-left"
+                          :style="getGlowDemoBlobStyle(blob)"
+                        />
+                      </template>
+                      <div class="relative z-10 flex flex-col items-center gap-1">
+                        <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
+                          <span class="inline-flex items-center justify-center text-xl text-stone-400" aria-hidden="true">♪</span>
+                        </div>
+                        <span class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md">Track title</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  v-else-if="!glowSettingsDisabled && playerGlowMode === 'edge-blur'"
+                  class="mt-3"
+                >
+                  <div
+                    :key="`edge-preview-${playerGlowIntensity}`"
+                    class="glow-demo-container inline-block rounded-lg border border-stone-600 p-6 shadow-lg"
+                    :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
+                  >
+                    <div class="relative flex h-48 w-40 flex-col items-center justify-center">
+                      <div
+                        v-if="edgeBlurDemoOpacity > 0"
+                        class="glow-demo-edge-blur pointer-events-none absolute inset-0 flex items-center justify-center"
+                        :style="{ opacity: edgeBlurDemoOpacity }"
+                      >
+                        <div
+                          class="h-32 w-32 flex-shrink-0 rounded-lg"
+                          style="background: radial-gradient(ellipse at center, #d4d4d4 0%, #3b82f6 25%, #8b5cf6 45%, #ec4899 65%, #f59e0b 85%, #22c55e 100%); filter: blur(40px);"
+                        />
+                      </div>
+                      <div class="relative z-10 flex flex-col items-center gap-1">
+                        <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
+                          <span class="inline-flex items-center justify-center text-xl text-stone-400" aria-hidden="true">♪</span>
+                        </div>
+                        <span class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md">Track title</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  v-else-if="!glowSettingsDisabled && playerGlowMode === 'bland'"
+                  class="mt-3"
+                >
+                  <div
+                    :key="`bland-preview-${playerGlowIntensity}`"
+                    class="glow-demo-container inline-block rounded-lg border border-stone-600 p-6 shadow-lg"
+                    :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
+                  >
+                    <div class="relative flex h-48 w-40 flex-col items-center justify-center">
+                      <template v-if="blandGlowDemoBlobs.length">
+                        <div
+                          v-for="(blob, i) in blandGlowDemoBlobs"
+                          :key="`bland-p-${i}`"
+                          class="pointer-events-none absolute inset-0 origin-top-left"
+                          :style="getGlowDemoBlobStyle(blob)"
+                        />
+                      </template>
+                      <div class="relative z-10 flex flex-col items-center gap-1">
+                        <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-900 shadow-2xl ring-1 ring-black/40">
+                          <span class="inline-flex items-center justify-center text-xl text-stone-400" aria-hidden="true">♪</span>
+                        </div>
+                        <span class="max-w-[140px] truncate text-center text-[11px] font-medium text-stone-300 drop-shadow-md">Track title</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Glow off: intensity set to Off -->
+                <div
+                  v-else-if="glowSettingsDisabled"
                   class="mt-3 inline-block overflow-hidden rounded-lg border border-stone-600 shadow-lg opacity-60"
                   :style="{ backgroundColor: GLOW_DEMO_NEAR_BLACK }"
                 >
@@ -1324,19 +1460,11 @@ watch(openSettingsAtTab, (tab) => {
               </p>
 
               <!-- 1: Main panel -->
-              <button
-                type="button"
-                class="mt-1 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-stone-500"
-                @click="mainPanelOpen = !mainPanelOpen"
-              >
-                <span>1 · Main panel</span>
-                <FeatherIcon
-                  name="chevron-down"
-                  class="h-3 w-3 transition-transform"
-                  :class="mainPanelOpen ? 'rotate-0' : '-rotate-90'"
-                />
-              </button>
-              <div v-show="mainPanelOpen" class="space-y-3">
+              <div class="flex items-center gap-3 pt-1">
+                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Main panel</span>
+                <div class="flex-1 border-t border-stone-700/70"></div>
+              </div>
+              <div class="space-y-3">
                 <div class="settings-section">
                   <p
                     class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
@@ -1358,7 +1486,7 @@ watch(openSettingsAtTab, (tab) => {
                       class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
                       :class="
                         defaultGroupBy === opt.value
-                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                          ? 'settings-option-card--active shadow-inner'
                           : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
                       "
                       @click="setDefaultGroupBy(opt.value)"
@@ -1368,7 +1496,7 @@ watch(openSettingsAtTab, (tab) => {
                           {{ opt.label }}
                           <span
                             v-if="defaultGroupBy === opt.value"
-                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                            class="ml-1 settings-option-badge rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                           >
                             Active
                           </span>
@@ -1419,7 +1547,7 @@ watch(openSettingsAtTab, (tab) => {
                       class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
                       :class="
                         tableDensity === opt.value
-                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                          ? 'settings-option-card--active shadow-inner'
                           : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
                       "
                       @click="settingsStore.setTableDensity(opt.value)"
@@ -1429,7 +1557,7 @@ watch(openSettingsAtTab, (tab) => {
                           {{ opt.label }}
                           <span
                             v-if="tableDensity === opt.value"
-                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                            class="ml-1 settings-option-badge rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                           >
                             Active
                           </span>
@@ -1578,23 +1706,31 @@ watch(openSettingsAtTab, (tab) => {
                     />
                     Show file path
                   </label>
+                  <label
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="tableColRating"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setTableColRating(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show rating
+                  </label>
                 </div>
               </div>
 
               <!-- 2: Bottom panel -->
-              <button
-                type="button"
-                class="mt-3 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-stone-500"
-                @click="bottomPanelOpen = !bottomPanelOpen"
-              >
-                <span>2 · Bottom panel</span>
-                <FeatherIcon
-                  name="chevron-down"
-                  class="h-3 w-3 transition-transform"
-                  :class="bottomPanelOpen ? 'rotate-0' : '-rotate-90'"
-                />
-              </button>
-              <div v-show="bottomPanelOpen" class="space-y-3">
+              <div class="flex items-center gap-3 pt-1">
+                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Bottom panel</span>
+                <div class="flex-1 border-t border-stone-700/70"></div>
+              </div>
+              <div class="space-y-3">
                 <div class="settings-section">
                   <p
                     class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
@@ -1616,7 +1752,7 @@ watch(openSettingsAtTab, (tab) => {
                       class="flex min-w-0 flex-1 basis-[min(100%,12rem)] flex-col rounded-lg border px-3 py-2.5 text-left text-xs transition"
                       :class="
                         defaultBottomPanel === opt.value
-                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner'
+                          ? 'settings-option-card--active shadow-inner'
                           : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
                       "
                       @click="settingsStore.setDefaultBottomPanel(opt.value)"
@@ -1626,7 +1762,7 @@ watch(openSettingsAtTab, (tab) => {
                           {{ opt.label }}
                           <span
                             v-if="defaultBottomPanel === opt.value"
-                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                            class="ml-1 settings-option-badge rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                           >
                             Active
                           </span>
@@ -1640,20 +1776,11 @@ watch(openSettingsAtTab, (tab) => {
                 </div>
               </div>
               <!-- 3: Side panel -->
-              <!-- 3: Side panel -->
-              <button
-                type="button"
-                class="mt-3 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-stone-500"
-                @click="sidePanelOpen = !sidePanelOpen"
-              >
-                <span>3 · Side panel</span>
-                <FeatherIcon
-                  name="chevron-down"
-                  class="h-3 w-3 transition-transform"
-                  :class="sidePanelOpen ? 'rotate-0' : '-rotate-90'"
-                />
-              </button>
-              <div v-show="sidePanelOpen" class="space-y-3">
+              <div class="flex items-center gap-3 pt-1">
+                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Side panel</span>
+                <div class="flex-1 border-t border-stone-700/70"></div>
+              </div>
+              <div class="space-y-3">
                 <div class="settings-section">
                   <p
                     class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
@@ -1679,7 +1806,7 @@ watch(openSettingsAtTab, (tab) => {
                       class="flex min-w-0 flex-1 basis-[min(100%,10rem)] items-center justify-between rounded-lg border px-3 py-1.5 text-left text-xs transition"
                       :class="
                         settingsStore.sidebarDefaultTab === opt.value
-                          ? 'border-emerald-500/80 bg-emerald-900/30 shadow-inner text-stone-100'
+                          ? 'settings-option-card--active shadow-inner text-stone-100'
                           : 'border-stone-600 bg-stone-900/60 text-stone-300 hover:border-stone-400 hover:bg-stone-800'
                       "
                       @click="
@@ -1693,7 +1820,7 @@ watch(openSettingsAtTab, (tab) => {
                           {{ opt.label }}
                           <span
                             v-if="settingsStore.sidebarDefaultTab === opt.value"
-                            class="ml-1 rounded bg-emerald-600/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50"
+                            class="ml-1 settings-option-badge rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                           >
                             Active
                           </span>
@@ -2247,7 +2374,7 @@ watch(openSettingsAtTab, (tab) => {
           </button>
           <button
             type="button"
-            class="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            class="settings-action-btn rounded px-3 py-1.5 text-sm font-medium"
             @click="restartAfterUpdate"
           >
             Restart now

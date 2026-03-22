@@ -26,7 +26,7 @@ const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 
 useCastEvents();
-const { playerGlowIntensity, queuePanelWidthFraction, bottomPanelHeightPx } = storeToRefs(settingsStore);
+const { playerGlowIntensity, playerGlowMode, queuePanelWidthFraction, bottomPanelHeightPx } = storeToRefs(settingsStore);
 // Persist queue whenever it changes (debounced — write at most once per second)
 let sessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleSessionQueueSave() {
@@ -64,6 +64,10 @@ const trackKey = computed(
 
 /** Edge blur when bland center + vibrant edge colors, or when 2 opposing colors split the cover. */
 const useEdgeBlurMode = computed(() => {
+  const mode = playerGlowMode.value;
+  if (mode === "edge-blur") return true;
+  if (mode === "vivid" || mode === "bland") return false;
+  // dynamic: auto-detect from album art
   if (!expandedCoverUrl.value || !edgeColors.value?.colors?.length) return false;
   const blandCenterVibrantEdges =
     isColorBland(glowRgb.value) && !isColorBland(edgeColors.value.colors[0]);
@@ -74,6 +78,13 @@ const useEdgeBlurMode = computed(() => {
 const currentBlobs = computed(() => {
   const key = String(trackKey.value);
   if (useEdgeBlurMode.value) return [];
+  const mode = playerGlowMode.value;
+  if (mode === "bland") {
+    const color = edgeColors.value?.colors?.[0] ?? glowRgb.value;
+    return getSimpleGlowBlobs(color, key);
+  }
+  if (mode === "vivid") return getGlowBlobs(glowRgb.value, key);
+  // dynamic
   if (isColorBland(glowRgb.value)) {
     const color = edgeColors.value?.colors?.[0] ?? glowRgb.value;
     return getSimpleGlowBlobs(color, key);
@@ -125,72 +136,18 @@ const effectiveAccentRgb = computed(() => {
   return isColorBland(glowRgb.value) ? undefined : glowRgb.value;
 });
 
-/** Derive hue variants from base RGB "r,g,b". Returns CSS-ready rgb() strings. */
-function accentHueVariants(rgb: string): Record<string, string> {
-  const [r, g, b] = rgb.split(",").map(Number);
-  if (!Number.isFinite(r + g + b)) return {};
-
-  function toHsl(rr: number, gg: number, bb: number): [number, number, number] {
-    rr /= 255; gg /= 255; bb /= 255;
-    const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
-    let h = 0, s = 0, l = (max + min) / 2;
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === rr) h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6;
-      else if (max === gg) h = ((bb - rr) / d + 2) / 6;
-      else h = ((rr - gg) / d + 4) / 6;
-    }
-    return [h * 360, s * 100, l * 100];
-  }
-  function fromHsl(h: number, s: number, l: number): string {
-    h = ((h % 360) + 360) % 360;
-    s /= 100; l /= 100;
-    const a = s * Math.min(l, 1 - l);
-    const f = (n: number) => {
-      const k = (n + h / 30) % 12;
-      return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-    };
-    const rr = Math.round(f(0) * 255);
-    const gg = Math.round(f(8) * 255);
-    const bb = Math.round(f(4) * 255);
-    return `rgb(${rr},${gg},${bb})`;
-  }
-
-  const [h, s, l] = toHsl(r, g, b);
-  const playL = Math.min(100, l + 12);
-  return {
-    accent: fromHsl(h, s, l),
-    accentPlay: fromHsl(h, s, playL),
-    accentProgress: fromHsl(h, s, l),
-    accentVolume: fromHsl(h, Math.min(100, s + 10), Math.min(100, playL + 6)),
-    accentShuffle: fromHsl(h, s, l),
-    accentNav: fromHsl((h + 8) % 360, Math.max(0, s - 8), Math.min(100, l + 6)),
-  };
-}
-
-/** Accent CSS vars for maximized player. Vivid album => picked color; bland cover => simple dark (neutral gray). */
+/** Accent CSS vars for maximized player. Vivid album => picked color; bland cover => neutral gray. */
 const NEUTRAL_ACCENT_RGB = "rgb(87 83 78)"; /* stone-600, no hue */
 const expandedAccentStyle = computed(() => {
   const rgb = effectiveAccentRgb.value;
-  if (!rgb) {
-    return {
-      "--player-accent": NEUTRAL_ACCENT_RGB,
-      "--player-accent-play": NEUTRAL_ACCENT_RGB,
-      "--player-accent-progress": NEUTRAL_ACCENT_RGB,
-      "--player-accent-volume": NEUTRAL_ACCENT_RGB,
-      "--player-accent-shuffle": NEUTRAL_ACCENT_RGB,
-      "--player-accent-nav": NEUTRAL_ACCENT_RGB,
-    };
-  }
-  const v = accentHueVariants(rgb);
+  const color = rgb ? `rgb(${rgb})` : NEUTRAL_ACCENT_RGB;
   return {
-    "--player-accent": v.accent,
-    "--player-accent-play": v.accentPlay,
-    "--player-accent-progress": v.accentProgress,
-    "--player-accent-volume": v.accentVolume,
-    "--player-accent-shuffle": v.accentShuffle,
-    "--player-accent-nav": v.accentNav,
+    "--player-accent": color,
+    "--player-accent-play": color,
+    "--player-accent-progress": color,
+    "--player-accent-volume": color,
+    "--player-accent-shuffle": color,
+    "--player-accent-nav": color,
   };
 });
 
@@ -376,9 +333,9 @@ function onGlobalKeydown(e: KeyboardEvent) {
     return;
   }
 
-  if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+  if ((e.metaKey || e.ctrlKey) && e.key === "m") {
     e.preventDefault();
-    if (!isEditable && store.selectedTracks.length >= 1 && !playExpanded.value) {
+    if (!isEditable && !playExpanded.value) {
       expandPlayer();
     }
   }
@@ -455,7 +412,7 @@ onUnmounted(() => {
     <main
       class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150"
     >
-      <LibraryTable v-model:activeTab="activeTab" />
+      <LibraryTable v-model:activeTab="activeTab" @expandPlayer="expandPlayer" />
     </main>
 
     <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Resizable height when Player or Queue tab. -->

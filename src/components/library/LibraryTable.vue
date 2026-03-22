@@ -17,6 +17,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
+  (e: "expandPlayer"): void;
 }>();
 
 const store = useCatalogStore();
@@ -158,6 +159,7 @@ function selectTrackFromReport(t: CatalogTrack) {
       @openKeyMap="showKeyMapModal = true"
       @expandAllGroups="tableBodyRef?.expandAllGroups?.()"
       @collapseAllGroups="tableBodyRef?.collapseAllGroups?.()"
+      @expandPlayer="emit('expandPlayer')"
     />
 
     <LibraryTableBody ref="tableBodyRef" @openMetadata="emit('update:activeTab', 'metadata')" />
