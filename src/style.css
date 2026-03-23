@@ -78,6 +78,32 @@ textarea:focus {
   background-color: rgba(46, 125, 50, 0.35) !important;
 }
 
+/* Dark theme: all track rows within an expanded album group get a faint green wash */
+.group-child-album {
+  background-color: rgba(91, 124, 50, 0.07) !important;
+}
+/* Other themes: no extra tint (they have their own row coloring) */
+[data-theme="light"] .group-child-album,
+[data-theme="doom"] .group-child-album,
+[data-theme="orkish"] .group-child-album { background-color: transparent !important; }
+
+/* Track rows that belong to the currently focused (expanded) group header */
+.group-child-focused {
+  background-color: rgba(91, 124, 50, 0.06) !important;
+}
+[data-theme="light"] .group-child-focused {
+  background-color: rgba(77, 124, 44, 0.07) !important;
+}
+[data-theme="doom"] .group-child-focused {
+  background-color: rgba(139, 0, 0, 0.1) !important;
+}
+[data-theme="orkish"] .group-child-focused {
+  background-color: rgba(46, 125, 50, 0.1) !important;
+}
+
+/* Default dark theme row hover — slightly lighter than #1c1917 bg */
+.hover\:bg-stone-800\/50:hover { background-color: #272320 !important; }
+
 /* Focused table row highlight (works across themes) */
 .table-row-focused {
   @apply ring-2 ring-inset;
@@ -150,7 +176,7 @@ textarea:focus {
 [data-theme="light"] .hover\:bg-stone-600:hover { background-color: #d6d3d1 !important; }
 [data-theme="light"] .hover\:bg-stone-700:hover { background-color: #e7e5e4 !important; }
 [data-theme="light"] .hover\:bg-stone-700\/60:hover { background-color: rgba(231, 229, 228, 0.6) !important; }
-[data-theme="light"] .hover\:bg-stone-800\/50:hover { background-color: rgba(245, 245, 244, 0.5) !important; }
+[data-theme="light"] .hover\:bg-stone-800\/50:hover { background-color: #e9e6e3 !important; }
 [data-theme="light"] .hover\:bg-stone-800\/70:hover { background-color: rgba(245, 245, 244, 0.7) !important; }
 [data-theme="light"] .hover\:text-stone-100:hover { color: #1c1917 !important; }
 [data-theme="light"] .hover\:text-stone-200:hover { color: #1c1917 !important; }
@@ -351,7 +377,7 @@ textarea:focus {
 [data-theme="doom"] .hover\:bg-stone-600:hover { background-color: #4a1515 !important; }
 [data-theme="doom"] .hover\:bg-stone-700:hover { background-color: #2d0a0a !important; }
 [data-theme="doom"] .hover\:bg-stone-700\/60:hover { background-color: rgba(45, 10, 10, 0.6) !important; }
-[data-theme="doom"] .hover\:bg-stone-800\/50:hover { background-color: rgba(26, 5, 5, 0.5) !important; }
+[data-theme="doom"] .hover\:bg-stone-800\/50:hover { background-color: #1e0606 !important; }
 [data-theme="doom"] .hover\:bg-stone-800\/70:hover { background-color: rgba(26, 5, 5, 0.7) !important; }
 [data-theme="doom"] .hover\:text-stone-200:hover { color: #e0b040 !important; }
 [data-theme="doom"] .hover\:text-stone-300:hover { color: #c4a035 !important; }
@@ -427,7 +453,7 @@ textarea:focus {
 [data-theme="orkish"] .hover\:bg-stone-600:hover { background-color: #c5e1a5 !important; }
 [data-theme="orkish"] .hover\:bg-stone-700:hover { background-color: #dcedc8 !important; }
 [data-theme="orkish"] .hover\:bg-stone-700\/60:hover { background-color: rgba(220, 237, 200, 0.6) !important; }
-[data-theme="orkish"] .hover\:bg-stone-800\/50:hover { background-color: rgba(220, 237, 200, 0.75) !important; }
+[data-theme="orkish"] .hover\:bg-stone-800\/50:hover { background-color: #cce5cf !important; }
 [data-theme="orkish"] .hover\:bg-stone-800\/70:hover { background-color: rgba(220, 237, 200, 0.85) !important; }
 [data-theme="orkish"] .hover\:text-stone-200:hover { color: #1b5e20 !important; }
 [data-theme="orkish"] .hover\:text-stone-300:hover { color: #2e7d32 !important; }

@@ -22,23 +22,34 @@ const { pendingAdd, tryAddToPlaylist, confirmAddAll, confirmAddDeduped, cancelPe
 
 const newPlaylistInputRef = ref<HTMLInputElement | null>(null);
 const newPlaylistName = ref("");
+const newPlaylistIcon = ref("");
 const isCreatingPlaylist = ref(false);
+const showNewEmojiPicker = ref(false);
 
 function startCreatingPlaylist() {
   isCreatingPlaylist.value = true;
+  newPlaylistIcon.value = "";
+  showNewEmojiPicker.value = false;
   nextTick(() => newPlaylistInputRef.value?.focus());
 }
 
 async function confirmCreatePlaylist() {
   const name = newPlaylistName.value.trim();
   if (!name) { cancelCreatePlaylist(); return; }
-  await playlistStore.createPlaylist(name);
+  const playlist = await playlistStore.createPlaylist(name);
+  if (newPlaylistIcon.value.trim() && playlist?.id != null) {
+    await playlistStore.setPlaylistIcon(playlist.id, newPlaylistIcon.value.trim());
+  }
   newPlaylistName.value = "";
+  newPlaylistIcon.value = "";
+  showNewEmojiPicker.value = false;
   isCreatingPlaylist.value = false;
 }
 
 function cancelCreatePlaylist() {
   newPlaylistName.value = "";
+  newPlaylistIcon.value = "";
+  showNewEmojiPicker.value = false;
   isCreatingPlaylist.value = false;
 }
 
@@ -188,18 +199,38 @@ const exportingPlaylist = ref<Playlist | null>(null);
   <div>
     <!-- Create new playlist -->
     <div class="mb-1">
-      <input
-        v-if="isCreatingPlaylist"
-        ref="newPlaylistInputRef"
-        v-model="newPlaylistName"
-        type="text"
-        placeholder="Playlist name…"
-        maxlength="128"
-        class="mb-1 w-full rounded border border-stone-500 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
-        @keydown.enter="confirmCreatePlaylist"
-        @keydown.escape="cancelCreatePlaylist"
-        @blur="confirmCreatePlaylist"
-      />
+      <div v-if="isCreatingPlaylist" class="relative mb-1 flex items-center gap-1">
+        <!-- Emoji button -->
+        <button
+          type="button"
+          class="icon-btn h-7 w-7 shrink-0 rounded bg-stone-700 text-base leading-none hover:bg-stone-600"
+          :class="showNewEmojiPicker ? 'ring-1 ring-stone-400' : ''"
+          title="Pick emoji"
+          @mousedown.prevent
+          @click.stop="showNewEmojiPicker = !showNewEmojiPicker"
+        >
+          <span v-if="newPlaylistIcon">{{ newPlaylistIcon }}</span>
+          <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
+        </button>
+        <!-- Name input -->
+        <input
+          ref="newPlaylistInputRef"
+          v-model="newPlaylistName"
+          type="text"
+          placeholder="Playlist name…"
+          maxlength="128"
+          class="min-w-0 flex-1 rounded border border-stone-500 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+          @keydown.enter="confirmCreatePlaylist"
+          @keydown.escape="cancelCreatePlaylist"
+          @blur="confirmCreatePlaylist"
+        />
+        <!-- Emoji picker -->
+        <EmojiPicker
+          :open="showNewEmojiPicker"
+          class="absolute left-0 top-full z-50 mt-1"
+          @pick="newPlaylistIcon = $event; showNewEmojiPicker = false"
+        />
+      </div>
       <button
         v-else
         type="button"

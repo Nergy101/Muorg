@@ -70,6 +70,7 @@ const {
   tableColRating,
   missingMetadataFields,
   groupHeaderAlbumArt,
+  hideAlbumArtColInAlbumGroups,
   hideGroupTrackCount,
   hideWikipediaCoverSearch,
   pathFormatTemplate,
@@ -1615,6 +1616,22 @@ watch(openSettingsAtTab, (tab) => {
                       "
                     />
                     Hide track count in headers
+                  </label>
+                  <label
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="hideAlbumArtColInAlbumGroups"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setHideAlbumArtColInAlbumGroups(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Hide album art column when grouped by Album
                   </label>
                 </div>
                 <div class="settings-section">

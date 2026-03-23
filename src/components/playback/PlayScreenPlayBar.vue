@@ -478,13 +478,17 @@ onUnmounted(() => {
     class="flex shrink-0 flex-col items-center gap-1 border-t border-stone-700 bg-stone-900/95 px-4 py-3"
   >
     <div class="flex w-full flex-col items-center gap-1">
-      <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" :size-px="playbarAlbumArtSizePx" />
       <div
-        class="max-w-2xl cursor-context-menu truncate rounded px-2 py-0.5 text-center text-sm font-semibold text-stone-100 transition-colors hover:bg-stone-700/50"
-        :title="playbarTitleLine"
+        class="flex flex-col items-center gap-1 cursor-context-menu rounded-lg px-2 pb-1 pt-2 transition-colors hover:bg-stone-700/40"
         @contextmenu.prevent="onTitleContextMenu"
       >
-        {{ playbarTitleLine }}
+        <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" :size-px="playbarAlbumArtSizePx" />
+        <div
+          class="max-w-2xl truncate text-center text-sm font-semibold text-stone-100"
+          :title="playbarTitleLine"
+        >
+          {{ playbarTitleLine }}
+        </div>
       </div>
       <div class="flex items-center justify-center gap-2">
         <button
@@ -638,7 +642,8 @@ onUnmounted(() => {
               class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
               @click="addToPlaylist(pl.id)"
             >
-              <FeatherIcon name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+              <span v-if="pl.icon" class="shrink-0 text-sm leading-none">{{ pl.icon }}</span>
+              <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
               <span class="min-w-0 truncate">{{ pl.name }}</span>
             </button>
           </div>

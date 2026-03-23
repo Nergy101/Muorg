@@ -35,6 +35,7 @@ const {
   tableColRating,
   tableColWidths,
   groupHeaderAlbumArt,
+  hideAlbumArtColInAlbumGroups,
   hideGroupTrackCount,
   hideWikipediaCoverSearch,
   tableSortColumn,
@@ -85,7 +86,7 @@ type GroupRow = {
 
 type VisibleRow =
   | { type: "group"; key: string; group: GroupRow }
-  | { type: "track"; track: CatalogTrack; playlistEntryId?: number };
+  | { type: "track"; track: CatalogTrack; playlistEntryId?: number; groupKey?: string };
 
 function groupAvgRating(tracks: CatalogTrack[]): number | null {
   const rated = tracks.filter((t) => t.rating != null);
@@ -308,16 +309,29 @@ const visibleRows = computed((): VisibleRow[] => {
     out.push({ type: "group", key: group.key, group });
     if (expandedGroups.value.has(group.key)) {
       for (const t of group.tracks) {
-        out.push({ type: "track", track: t, playlistEntryId: nextEntryId(t.id) });
+        out.push({ type: "track", track: t, playlistEntryId: nextEntryId(t.id), groupKey: group.key });
       }
     }
   }
   return out;
 });
 
+const focusedGroupKey = computed<string | null>(() => {
+  const idx = focusedRowIndex.value;
+  if (idx == null) return null;
+  const row = visibleRows.value[idx];
+  if (row?.type === "group" && expandedGroups.value.has(row.key)) return row.key;
+  return null;
+});
+
+const showAlbumArtCol = computed(() =>
+  tableColAlbumArt.value && !(hideAlbumArtColInAlbumGroups.value && groupBy.value === "album")
+);
+
 const tableColCount = computed(() => {
   let n = 1;
-  if (tableColAlbumArt.value) n += 1;
+  if (multiSelectMode.value) n += 1;
+  if (showAlbumArtCol.value) n += 1;
   n += 3;
   if (tableColYear.value) n += 1;
   if (tableColDuration.value) n += 1;
@@ -366,6 +380,7 @@ watch(resizeState, (state) => {
 }, { immediate: true });
 
 const ROW_HEIGHT_GROUP = 44;
+const ROW_HEIGHT_GROUP_COMFORTABLE = 64;
 const ROW_HEIGHT_GROUP_SPACIOUS = 100;
 const ROW_HEIGHT_TRACK_COMFORTABLE = 48;
 const ROW_HEIGHT_TRACK_COMPACT = 26;
@@ -380,7 +395,9 @@ const rowHeights = computed(() => {
   const groupHeight =
     density === "spacious" && groupBy.value === "album"
       ? ROW_HEIGHT_GROUP_SPACIOUS
-      : ROW_HEIGHT_GROUP;
+      : density === "comfortable" && groupBy.value === "album" && groupHeaderAlbumArt.value
+        ? ROW_HEIGHT_GROUP_COMFORTABLE
+        : ROW_HEIGHT_GROUP;
   return rows.map((r) => (r.type === "group" ? groupHeight : trackHeight));
 });
 
@@ -779,10 +796,10 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
     data-overlayscrollbars-initialize
     @keydown="onTableKeydown"
   >
-    <table class="table-fixed min-w-full border-collapse text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
+    <table class="table-fixed min-w-full text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
       <colgroup>
         <col :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
-        <col v-if="tableColAlbumArt" :style="{ width: colWidth('albumArt') + 'px' }" />
+        <col v-if="showAlbumArtCol" :style="{ width: colWidth('albumArt') + 'px' }" />
         <col :style="{ width: colWidth('title') + 'px' }" />
         <col :style="{ width: colWidth('artist') + 'px' }" />
         <col :style="{ width: colWidth('album') + 'px' }" />
@@ -793,8 +810,8 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         <col v-if="tableColPath" :style="{ width: colWidth('path') + 'px' }" />
       </colgroup>
       <thead class="sticky top-0 z-10 bg-stone-800">
-        <tr class="border-b border-stone-600">
-          <th class="border-r border-stone-700 p-2" style="width: 32px">
+        <tr>
+          <th v-if="multiSelectMode" class="p-2" style="width: 32px">
             <label class="flex cursor-pointer items-center gap-1.5 text-xs text-stone-400">
               <input
                 type="checkbox"
@@ -805,14 +822,14 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               Multi
             </label>
           </th>
-          <th v-if="tableColAlbumArt" class="relative border-r border-stone-700 p-2">
+          <th v-if="showAlbumArtCol" class="relative p-2">
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
               aria-hidden="true"
               @mousedown="onResizeStart('albumArt', $event)"
             />
           </th>
-          <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th class="relative p-2 font-medium text-stone-400">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('title')">
               Title
               <span v-if="tableSortColumn === 'title'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -823,7 +840,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('title', $event)"
             />
           </th>
-          <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th class="relative p-2 font-medium text-stone-400">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('artist')">
               Artist
               <span v-if="tableSortColumn === 'artist'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -834,7 +851,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('artist', $event)"
             />
           </th>
-          <th class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th class="relative p-2 font-medium text-stone-400">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('album')">
               Album
               <span v-if="tableSortColumn === 'album'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -845,7 +862,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('album', $event)"
             />
           </th>
-          <th v-if="tableColYear" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th v-if="tableColYear" class="relative p-2 font-medium text-stone-400">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('year')">
               Year
               <span v-if="tableSortColumn === 'year'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -856,7 +873,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('year', $event)"
             />
           </th>
-          <th v-if="tableColDuration" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th v-if="tableColDuration" class="relative p-2 font-medium text-stone-400">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('duration')">
               Duration
               <span v-if="tableSortColumn === 'duration'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -867,7 +884,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('duration', $event)"
             />
           </th>
-          <th v-if="tableColFormat" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th v-if="tableColFormat" class="relative p-2 font-medium text-stone-400">
             Format
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
@@ -875,7 +892,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('format', $event)"
             />
           </th>
-          <th v-if="tableColRating" class="relative border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th v-if="tableColRating" class="relative p-2 font-medium text-stone-400">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('rating')">
               Rating
               <span v-if="tableSortColumn === 'rating'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -886,7 +903,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('rating', $event)"
             />
           </th>
-          <th v-if="tableColPath" class="relative truncate border-r border-stone-700 p-2 font-medium text-stone-400">
+          <th v-if="tableColPath" class="relative truncate p-2 font-medium text-stone-400">
             Path
             <span
               class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
@@ -920,7 +937,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             >
               <td
                 :colspan="tableColCount"
-                class="border-b border-stone-600 p-2"
+                class="p-2"
                 :class="{ 'py-3': tableDensity === 'spacious' && groupBy === 'album' }"
               >
                 <span
@@ -930,7 +947,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   <span
                     v-if="groupBy === 'album' && groupHeaderAlbumArt"
                     class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
-                    :class="tableDensity === 'spacious' ? 'h-20 w-20' : 'h-8 w-8'"
+                    :class="tableDensity === 'spacious' ? 'h-20 w-20' : tableDensity === 'comfortable' ? 'h-12 w-12' : 'h-8 w-8'"
                   >
                     <img
                       v-if="groupCovers[row.key]"
@@ -941,7 +958,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                     <span
                       v-else-if="groupCovers[row.key] === null"
                       class="inline-flex items-center justify-center rounded-full border border-stone-500 text-stone-400"
-                      :class="tableDensity === 'spacious' ? 'h-8 w-8 text-lg' : 'h-4 w-4 text-[0.6rem]'"
+                      :class="tableDensity === 'spacious' ? 'h-8 w-8 text-lg' : tableDensity === 'comfortable' ? 'h-5 w-5 text-xs' : 'h-4 w-4 text-[0.6rem]'"
                       aria-hidden="true"
                     >
                       ♪
@@ -949,7 +966,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                     <span
                       v-else
                       class="inline-block animate-spin rounded-full border-2 border-stone-500 border-t-stone-300"
-                      :class="tableDensity === 'spacious' ? 'h-8 w-8' : 'h-4 w-4'"
+                      :class="tableDensity === 'spacious' ? 'h-8 w-8' : tableDensity === 'comfortable' ? 'h-5 w-5' : 'h-4 w-4'"
                       aria-hidden="true"
                     />
                   </span>
@@ -997,12 +1014,14 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               :data-row-index="index"
               :data-track-id="row.track.id"
               draggable="true"
-              class="cursor-context-menu border-b border-stone-700/50 hover:bg-stone-800/50"
+              class="cursor-context-menu hover:bg-stone-800/50"
               :class="[
                 { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== index },
                 { 'bg-stone-600/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === index },
                 { 'bg-stone-800 table-row-focused': !isSelected(row.track.id) && focusedRowIndex === index },
                 { 'table-row-playing': row.track.id === currentPlayingTrackId },
+                { 'group-child-focused': row.groupKey != null && row.groupKey === focusedGroupKey },
+                { 'group-child-album': row.groupKey != null },
               ]"
               :style="useVirtualization ? { height: rowHeights[index] + 'px' } : undefined"
               @mouseenter="navFocusFollowsMouse ? (focusedRowIndex = index) : undefined"
@@ -1011,16 +1030,15 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @dragstart="onTrackDragStart($event, [row.track])"
               @dragend="onTrackDragEnd"
             >
-              <td class="border-r border-stone-700 p-2">
+              <td v-if="multiSelectMode" class="p-2">
                 <input
-                  v-if="multiSelectMode"
                   type="checkbox"
                   :checked="isSelected(row.track.id)"
                   class="rounded border-stone-600"
                   @click.stop="focusedRowIndex = index; selectRow(row.track)"
                 />
               </td>
-              <td v-if="tableColAlbumArt" class="border-r border-stone-700 p-2">
+              <td v-if="showAlbumArtCol" class="p-2">
                 <div class="flex justify-center items-center">
                   <TrackAlbumArt
                     :path="row.track.path"
@@ -1028,13 +1046,13 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   />
                 </div>
               </td>
-              <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.title ?? "—" }}</td>
-              <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.artist ?? "—" }}</td>
-              <td class="border-r border-stone-700 p-2 text-stone-200">{{ row.track.album ?? "—" }}</td>
-              <td v-if="tableColYear" class="border-r border-stone-700 p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
-              <td v-if="tableColDuration" class="border-r border-stone-700 p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
-              <td v-if="tableColFormat" class="border-r border-stone-700 p-2 text-stone-400">{{ row.track.format }}</td>
-              <td v-if="tableColRating" class="border-r border-stone-700 p-2" @click.stop>
+              <td class="p-2 text-stone-200">{{ row.track.title ?? "—" }}</td>
+              <td class="p-2 text-stone-200">{{ row.track.artist ?? "—" }}</td>
+              <td class="p-2 text-stone-200">{{ row.track.album ?? "—" }}</td>
+              <td v-if="tableColYear" class="p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
+              <td v-if="tableColDuration" class="p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
+              <td v-if="tableColFormat" class="p-2 text-stone-400">{{ row.track.format }}</td>
+              <td v-if="tableColRating" class="p-2" @click.stop>
                 <StarRating
                   :model-value="row.track.rating ?? null"
                   @update:model-value="(r) => store.setRating([row.track.path], r)"
@@ -1114,7 +1132,8 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
             class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
             @click="addToPlaylistFromContextMenu(pl.id)"
           >
-            <FeatherIcon name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+            <span v-if="pl.icon" class="shrink-0 text-sm leading-none">{{ pl.icon }}</span>
+            <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
             <span class="min-w-0 truncate">{{ pl.name }}</span>
           </button>
         </div>

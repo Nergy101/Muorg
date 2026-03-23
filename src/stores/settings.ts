@@ -204,6 +204,7 @@ export const useSettingsStore = defineStore("settings", {
     tableColWidths: { ...DEFAULT_TABLE_COL_WIDTHS },
     missingMetadataFields: ["title", "artist", "album"] as MissingMetadataField[],
     groupHeaderAlbumArt: true,
+    hideAlbumArtColInAlbumGroups: false,
     hideGroupTrackCount: false,
     hideWikipediaCoverSearch: false,
     hideReportsSection: false,
@@ -275,6 +276,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("tableColWidths" in data) this.tableColWidths = coerceTableColWidths(data.tableColWidths);
         if ("missingMetadataFields" in data) this.missingMetadataFields = coerceMissingFields(data.missingMetadataFields);
         if ("groupHeaderAlbumArt" in data) this.groupHeaderAlbumArt = coerceBool(data.groupHeaderAlbumArt, true);
+        if ("hideAlbumArtColInAlbumGroups" in data) this.hideAlbumArtColInAlbumGroups = coerceBool(data.hideAlbumArtColInAlbumGroups, false);
         if ("hideGroupTrackCount" in data) this.hideGroupTrackCount = coerceBool(data.hideGroupTrackCount, false);
         if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
         if ("hideReportsSection" in data) this.hideReportsSection = coerceBool(data.hideReportsSection, false);
@@ -330,6 +332,7 @@ export const useSettingsStore = defineStore("settings", {
           tableColWidths: this.tableColWidths,
           missingMetadataFields: this.missingMetadataFields,
           groupHeaderAlbumArt: this.groupHeaderAlbumArt,
+          hideAlbumArtColInAlbumGroups: this.hideAlbumArtColInAlbumGroups,
           hideGroupTrackCount: this.hideGroupTrackCount,
           hideWikipediaCoverSearch: this.hideWikipediaCoverSearch,
           hideReportsSection: this.hideReportsSection,
@@ -475,6 +478,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setGroupHeaderAlbumArt(value: boolean) {
       this.groupHeaderAlbumArt = value;
+      this.saveToFile();
+    },
+    setHideAlbumArtColInAlbumGroups(value: boolean) {
+      this.hideAlbumArtColInAlbumGroups = value;
       this.saveToFile();
     },
     setHideGroupTrackCount(value: boolean) {
