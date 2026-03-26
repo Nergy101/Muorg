@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
+import { useSettingsStore } from "../../stores/settings";
 import packageJson from "../../../package.json";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import StarRating from "../shared/StarRating.vue";
@@ -22,8 +23,10 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
-const { searchQuery, groupBy, filteredTracks, activePlaylistId, filterMinRating } = storeToRefs(store);
+const settingsStore = useSettingsStore();
+const { searchQuery, groupBy, filteredTracks, activePlaylistId, filterMinRating, filterGenre, tracks } = storeToRefs(store);
 const { playlists } = storeToRefs(playlistStore);
+const { theme } = storeToRefs(settingsStore);
 
 const activePlaylist = computed(() =>
   activePlaylistId.value != null
@@ -149,6 +152,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
     if (e.key === "k") {
       e.preventDefault();
       emit("openKeyMap");
+      return;
+    }
+
+    if (e.key === "t") {
+      e.preventDefault();
+      settingsStore.setTheme(theme.value === "dark" ? "light" : "dark");
+      return;
     }
   }
 }
@@ -203,6 +213,40 @@ watch(groupByDropdownOpen, (open) => {
     document.removeEventListener("mousedown", onGroupByDropdownClickOutside);
   }
 });
+
+const allGenres = computed(() => {
+  const set = new Set<string>();
+  for (const t of tracks.value) {
+    if (t.genre) set.add(t.genre);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+});
+
+const genreDropdownOpen = ref(false);
+const genreDropdownRef = ref<HTMLElement | null>(null);
+
+function toggleGenreDropdown() {
+  genreDropdownOpen.value = !genreDropdownOpen.value;
+}
+
+function selectGenre(genre: string | null) {
+  store.setFilterGenre(genre);
+  genreDropdownOpen.value = false;
+}
+
+function onGenreDropdownClickOutside(e: MouseEvent) {
+  if (genreDropdownRef.value && !genreDropdownRef.value.contains(e.target as Node)) {
+    genreDropdownOpen.value = false;
+  }
+}
+
+watch(genreDropdownOpen, (open) => {
+  if (open) {
+    document.addEventListener("mousedown", onGenreDropdownClickOutside);
+  } else {
+    document.removeEventListener("mousedown", onGenreDropdownClickOutside);
+  }
+});
 </script>
 
 <template>
@@ -248,6 +292,49 @@ watch(groupByDropdownOpen, (open) => {
         >
           <FeatherIcon name="x" class="h-3 w-3" />
         </button>
+      </div>
+
+      <!-- Genre filter dropdown -->
+      <div v-if="allGenres.length > 0" ref="genreDropdownRef" class="relative">
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded border bg-stone-800 px-2 py-1 text-sm hover:border-stone-500 hover:bg-stone-700"
+          :class="filterGenre !== null ? 'border-violet-600/60 text-violet-300' : 'border-stone-600 text-stone-200'"
+          @click="toggleGenreDropdown"
+        >
+          <FeatherIcon name="tag" class="h-3.5 w-3.5 shrink-0" :class="filterGenre !== null ? 'text-violet-400' : 'text-stone-500'" />
+          <span>{{ filterGenre ?? "Genre" }}</span>
+          <button
+            v-if="filterGenre !== null"
+            type="button"
+            class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Clear genre filter"
+            @click.stop="store.setFilterGenre(null)"
+          >
+            <FeatherIcon name="x" class="h-3 w-3" />
+          </button>
+          <FeatherIcon v-else name="chevron-down" class="h-3.5 w-3.5 text-stone-400 transition-transform" :class="genreDropdownOpen ? 'rotate-180' : ''" />
+        </button>
+        <div
+          v-if="genreDropdownOpen"
+          class="absolute left-0 top-full z-[300] mt-1 max-h-64 min-w-full overflow-y-auto rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+        >
+          <button
+            v-for="genre in allGenres"
+            :key="genre"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-stone-700"
+            :class="filterGenre === genre ? 'text-stone-200' : 'text-stone-400'"
+            @click="selectGenre(genre)"
+          >
+            <FeatherIcon
+              name="check"
+              class="h-3.5 w-3.5 shrink-0"
+              :class="filterGenre === genre ? 'text-stone-200' : 'invisible'"
+            />
+            {{ genre }}
+          </button>
+        </div>
       </div>
 
       <!-- Custom group-by dropdown -->

@@ -162,7 +162,10 @@ impl CastState {
             // Track current seek offset for FLAC seek-by-reload
             let mut flac_base_secs: f32 = 0.0;
 
-            emit(CastSessionStatus::Playing { position_secs: None });
+            // Don't emit Playing here — wait for the device to confirm actual playback
+            // via the message loop. Emitting eagerly (before the device is really playing)
+            // causes the frontend to resume local audio before it has the correct position,
+            // leading to progress-bar desync on track changes.
 
             // Message loop:
             // receive() blocks until the Chromecast sends a message (~5s heartbeat cadence).

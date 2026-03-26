@@ -49,6 +49,8 @@ export const useCatalogStore = defineStore("catalog", {
     searchQuery: "",
     /** Minimum rating filter (1–5). Null = no filter. Tracks below this rating are hidden. */
     filterMinRating: null as number | null,
+    /** Genre filter. Null = no filter. Only tracks with this exact genre are shown. */
+    filterGenre: null as string | null,
     groupBy: loadStoredDefaultGroupBy(),
     /** Cache of track path -> album art (base64 + mime + size) or null if no art. */
     coverCache: {} as Record<string, CoverInfo | null>,
@@ -104,6 +106,9 @@ export const useCatalogStore = defineStore("catalog", {
         if (state.filterMinRating !== null) {
           list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
         }
+        if (state.filterGenre !== null) {
+          list = list.filter((t) => t.genre === state.filterGenre);
+        }
         return list;
       }
       const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
@@ -132,6 +137,9 @@ export const useCatalogStore = defineStore("catalog", {
       }
       if (state.filterMinRating !== null) {
         list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
+      }
+      if (state.filterGenre !== null) {
+        list = list.filter((t) => t.genre === state.filterGenre);
       }
       return list;
     },
@@ -515,6 +523,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setFilterMinRating(rating: number | null) {
       this.filterMinRating = rating;
+    },
+    setFilterGenre(genre: string | null) {
+      this.filterGenre = genre;
     },
     setRevealTrackId(id: number | null) {
       this.revealTrackId = id;

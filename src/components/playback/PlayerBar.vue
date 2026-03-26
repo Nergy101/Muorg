@@ -509,6 +509,14 @@ watch(
         const el = audioRef.value;
         if (!el) return;
         if (castStore.pendingCastResume) return; // cast will trigger play when it's ready
+        // If we're casting and the cast already confirmed playing (pendingCastResume was
+        // cleared before the blob finished loading), sync position before starting.
+        if (isCasting.value) {
+          const s = castStore.castStatus;
+          if (s.status === "playing" && s.positionSecs != null) {
+            el.currentTime = s.positionSecs;
+          }
+        }
         el.play().catch(() => {});
       });
       // Once the current track is ready, start preloading the upcoming one in the background.
@@ -527,9 +535,16 @@ watch(isCasting, (casting) => {
 // Sync local audio state with cast device state changes
 watch(() => castStore.castStatus.status, (status) => {
   if (castStore.pendingCastResume && status === "playing") {
-    // Cast confirmed playing after a seek or track change — resume local tracker
+    // Cast confirmed playing after a seek or track change — sync position then resume local tracker
     castStore.setPendingCastResume(false);
-    audioRef.value?.play().catch(console.error);
+    const el = audioRef.value;
+    if (el) {
+      const s = castStore.castStatus;
+      if (s.status === "playing" && s.positionSecs != null) {
+        el.currentTime = s.positionSecs;
+      }
+      el.play().catch(console.error);
+    }
   } else if (status === "paused" && !castStore.pendingCastResume) {
     // Device was paused externally (e.g. "hey Google, pause/stop") — mirror to local
     const el = audioRef.value;

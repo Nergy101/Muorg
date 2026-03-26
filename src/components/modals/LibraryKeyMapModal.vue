@@ -22,6 +22,7 @@ const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+4 / ⌘4", description: "Toggle queue panel" },
   { keys: "Ctrl+A / ⌘A", description: "Select all tracks in current view and enable multi-select" },
   { keys: "Ctrl+K / ⌘K", description: "Open key map" },
+  { keys: "Ctrl+T / ⌘T", description: "Toggle dark / light theme" },
   { keys: "Escape", description: "Close metadata panel (discard changes)" },
   { keys: "↓ Arrow Down", description: "Move focus down in track list" },
   { keys: "↑ Arrow Up", description: "Move focus up in track list" },

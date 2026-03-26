@@ -153,14 +153,14 @@ function coerceBottomPanelHeightPx(v: unknown): number {
 
 const DEFAULT_TABLE_COL_WIDTHS: Record<string, number> = {
   albumArt: 64,
-  title: 220,
-  artist: 150,
-  album: 150,
+  title: 270,
+  artist: 200,
+  album: 250,
   year: 80,
   duration: 64,
   format: 64,
   path: 200,
-  rating: 100,
+  rating: 200,
 };
 
 function coerceTableColWidths(v: unknown): Record<string, number> {
@@ -204,6 +204,8 @@ export const useSettingsStore = defineStore("settings", {
     tableColWidths: { ...DEFAULT_TABLE_COL_WIDTHS },
     missingMetadataFields: ["title", "artist", "album"] as MissingMetadataField[],
     groupHeaderAlbumArt: true,
+    groupHeaderAlbumArtForArtist: true,
+    splitAlbumHeadersByArtist: true,
     hideAlbumArtColInAlbumGroups: false,
     hideGroupTrackCount: false,
     hideWikipediaCoverSearch: false,
@@ -276,6 +278,8 @@ export const useSettingsStore = defineStore("settings", {
         if ("tableColWidths" in data) this.tableColWidths = coerceTableColWidths(data.tableColWidths);
         if ("missingMetadataFields" in data) this.missingMetadataFields = coerceMissingFields(data.missingMetadataFields);
         if ("groupHeaderAlbumArt" in data) this.groupHeaderAlbumArt = coerceBool(data.groupHeaderAlbumArt, true);
+        if ("groupHeaderAlbumArtForArtist" in data) this.groupHeaderAlbumArtForArtist = coerceBool(data.groupHeaderAlbumArtForArtist, true);
+        if ("splitAlbumHeadersByArtist" in data) this.splitAlbumHeadersByArtist = coerceBool(data.splitAlbumHeadersByArtist, true);
         if ("hideAlbumArtColInAlbumGroups" in data) this.hideAlbumArtColInAlbumGroups = coerceBool(data.hideAlbumArtColInAlbumGroups, false);
         if ("hideGroupTrackCount" in data) this.hideGroupTrackCount = coerceBool(data.hideGroupTrackCount, false);
         if ("hideWikipediaCoverSearch" in data) this.hideWikipediaCoverSearch = coerceBool(data.hideWikipediaCoverSearch, false);
@@ -329,9 +333,12 @@ export const useSettingsStore = defineStore("settings", {
           tableColDuration: this.tableColDuration,
           tableColFormat: this.tableColFormat,
           tableColPath: this.tableColPath,
+          tableColRating: this.tableColRating,
           tableColWidths: this.tableColWidths,
           missingMetadataFields: this.missingMetadataFields,
           groupHeaderAlbumArt: this.groupHeaderAlbumArt,
+          groupHeaderAlbumArtForArtist: this.groupHeaderAlbumArtForArtist,
+          splitAlbumHeadersByArtist: this.splitAlbumHeadersByArtist,
           hideAlbumArtColInAlbumGroups: this.hideAlbumArtColInAlbumGroups,
           hideGroupTrackCount: this.hideGroupTrackCount,
           hideWikipediaCoverSearch: this.hideWikipediaCoverSearch,
@@ -478,6 +485,14 @@ export const useSettingsStore = defineStore("settings", {
     },
     setGroupHeaderAlbumArt(value: boolean) {
       this.groupHeaderAlbumArt = value;
+      this.saveToFile();
+    },
+    setGroupHeaderAlbumArtForArtist(value: boolean) {
+      this.groupHeaderAlbumArtForArtist = value;
+      this.saveToFile();
+    },
+    setSplitAlbumHeadersByArtist(value: boolean) {
+      this.splitAlbumHeadersByArtist = value;
       this.saveToFile();
     },
     setHideAlbumArtColInAlbumGroups(value: boolean) {

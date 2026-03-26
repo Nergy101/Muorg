@@ -70,6 +70,8 @@ const {
   tableColRating,
   missingMetadataFields,
   groupHeaderAlbumArt,
+  groupHeaderAlbumArtForArtist,
+  splitAlbumHeadersByArtist,
   hideAlbumArtColInAlbumGroups,
   hideGroupTrackCount,
   hideWikipediaCoverSearch,
@@ -1596,10 +1598,42 @@ watch(openSettingsAtTab, (tab) => {
                           )
                       "
                     />
-                    Show album art group headers
+                    Show album art in Album group headers
+                  </label>
+                  <label
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="groupHeaderAlbumArtForArtist"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setGroupHeaderAlbumArtForArtist(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show album art in Artist group headers
+                  </label>
+                  <label
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="splitAlbumHeadersByArtist"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setSplitAlbumHeadersByArtist(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Split album headers by artist
                   </label>
                   <p class="mt-0.5 text-xs text-stone-500">
-                    Simply showing or hiding album covers on Album-headers.
+                    When off, albums with the same name are merged into one group regardless of artist.
                   </p>
                   <label
                     class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
@@ -1665,6 +1699,22 @@ watch(openSettingsAtTab, (tab) => {
                   >
                     <input
                       type="checkbox"
+                      :checked="tableColRating"
+                      class="rounded border-stone-600"
+                      @change="
+                        (e) =>
+                          settingsStore.setTableColRating(
+                            (e.target as HTMLInputElement).checked,
+                          )
+                      "
+                    />
+                    Show rating
+                  </label>
+                  <label
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  >
+                    <input
+                      type="checkbox"
                       :checked="tableColYear"
                       class="rounded border-stone-600"
                       @change="
@@ -1723,22 +1773,6 @@ watch(openSettingsAtTab, (tab) => {
                       "
                     />
                     Show file path
-                  </label>
-                  <label
-                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="tableColRating"
-                      class="rounded border-stone-600"
-                      @change="
-                        (e) =>
-                          settingsStore.setTableColRating(
-                            (e.target as HTMLInputElement).checked,
-                          )
-                      "
-                    />
-                    Show rating
                   </label>
                 </div>
               </div>

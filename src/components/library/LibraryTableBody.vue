@@ -9,6 +9,7 @@ import type { CatalogTrack } from "../../types";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
+import MarqueeCell from "../shared/MarqueeCell.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 import StarRating from "../shared/StarRating.vue";
 
@@ -35,6 +36,8 @@ const {
   tableColRating,
   tableColWidths,
   groupHeaderAlbumArt,
+  groupHeaderAlbumArtForArtist,
+  splitAlbumHeadersByArtist,
   hideAlbumArtColInAlbumGroups,
   hideGroupTrackCount,
   hideWikipediaCoverSearch,
@@ -131,10 +134,10 @@ const groupedRows = computed(() => {
     } else if (by === "album") {
       const album = t.album ?? "—";
       const artist = t.artist ?? "—";
-      const key = `${album}|||${artist}`;
+      const key = splitAlbumHeadersByArtist.value ? `${album}|||${artist}` : album;
       let group = map.get(key);
       if (!group) {
-        group = { key, label: album, artist, tracks: [] };
+        group = { key, label: album, artist: splitAlbumHeadersByArtist.value ? artist : undefined, tracks: [] };
         map.set(key, group);
       }
       group.tracks.push(t);
@@ -180,7 +183,10 @@ const groupedRows = computed(() => {
 });
 
 const groupCovers = computed(() => {
-  if (groupBy.value !== "album") return {} as Record<string, import("../../stores/catalog").CoverInfo | null | undefined>;
+  const by = groupBy.value;
+  const showForAlbum = by === "album" && groupHeaderAlbumArt.value;
+  const showForArtist = by === "artist" && groupHeaderAlbumArtForArtist.value;
+  if (!showForAlbum && !showForArtist) return {} as Record<string, import("../../stores/catalog").CoverInfo | null | undefined>;
   const groups = groupedRows.value;
   if (!groups) return {};
   // React to path-based cover cache so headers update when covers load.
@@ -415,6 +421,7 @@ const tableContainerRef = ref<HTMLDivElement | null>(null);
 const { viewportRef: scrollViewportRef } = useOverlayScrollbars(tableContainerRef, { overflow: { x: "scroll" } });
 const scrollTopRef = ref(0);
 const containerHeightRef = ref(0);
+const containerClientWidth = ref(0);
 
 function getScrollElement(): HTMLElement | null {
   return scrollViewportRef.value ?? tableContainerRef.value;
@@ -425,6 +432,7 @@ function updateScrollMeasurements() {
   if (!el) return;
   scrollTopRef.value = el.scrollTop;
   containerHeightRef.value = el.clientHeight;
+  containerClientWidth.value = el.clientWidth;
 }
 
 const visibleRange = computed(() => {
@@ -475,13 +483,20 @@ const bottomSpacerHeight = computed(() => {
   return Math.max(0, total - topSpacerHeight.value - visibleSum);
 });
 
-// When grouping by album with cover art headers enabled, proactively fetch covers for all tracks in groups
+// When grouping with cover art headers enabled, proactively fetch covers for all tracks in groups
 watch(
-  () => (groupBy.value === "album" && groupHeaderAlbumArt.value ? groupedRows.value : null),
+  () => {
+    const by = groupBy.value;
+    if (by === "album" && groupHeaderAlbumArt.value) return groupedRows.value;
+    if (by === "artist" && groupHeaderAlbumArtForArtist.value) return groupedRows.value;
+    return null;
+  },
   (groups) => {
     if (!groups) return;
     for (const g of groups) {
-      for (const t of g.tracks) {
+      // For artist groups we only need the first track's cover; for album groups fetch all
+      const tracks = groupBy.value === "artist" ? g.tracks.slice(0, 1) : g.tracks;
+      for (const t of tracks) {
         store.fetchCover(t.path);
       }
     }
@@ -796,18 +811,23 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
     data-overlayscrollbars-initialize
     @keydown="onTableKeydown"
   >
-    <table class="table-fixed min-w-full text-left text-sm" :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }">
+    <table
+      class="table-fixed text-left text-sm"
+      :class="{ 'table-density-compact': tableDensity === 'compact', 'table-density-spacious': tableDensity === 'spacious' }"
+      :style="containerClientWidth > 0 ? { width: containerClientWidth + 'px' } : { width: '100%' }"
+    >
       <colgroup>
-        <col :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
+        <col v-if="multiSelectMode" :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
         <col v-if="showAlbumArtCol" :style="{ width: colWidth('albumArt') + 'px' }" />
         <col :style="{ width: colWidth('title') + 'px' }" />
+        <col v-if="tableColRating" :style="{ width: colWidth('rating') + 'px' }" />
         <col :style="{ width: colWidth('artist') + 'px' }" />
         <col :style="{ width: colWidth('album') + 'px' }" />
         <col v-if="tableColYear" :style="{ width: colWidth('year') + 'px' }" />
         <col v-if="tableColDuration" :style="{ width: colWidth('duration') + 'px' }" />
         <col v-if="tableColFormat" :style="{ width: colWidth('format') + 'px' }" />
-        <col v-if="tableColRating" :style="{ width: colWidth('rating') + 'px' }" />
         <col v-if="tableColPath" :style="{ width: colWidth('path') + 'px' }" />
+        <col /><!-- filler: absorbs remaining space -->
       </colgroup>
       <thead class="sticky top-0 z-10 bg-stone-800">
         <tr>
@@ -824,40 +844,51 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
           </th>
           <th v-if="showAlbumArtCol" class="relative p-2">
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('albumArt', $event)"
             />
           </th>
-          <th class="relative p-2 font-medium text-stone-400">
+          <th class="relative p-2 font-medium text-stone-400 overflow-hidden">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('title')">
               Title
               <span v-if="tableSortColumn === 'title'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('title', $event)"
             />
           </th>
-          <th class="relative p-2 font-medium text-stone-400">
+          <th v-if="tableColRating" class="relative p-2 font-medium text-stone-400">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('rating')">
+              Rating
+              <span v-if="tableSortColumn === 'rating'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+            </button>
+            <span
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              aria-hidden="true"
+              @mousedown="onResizeStart('rating', $event)"
+            />
+          </th>
+          <th class="relative p-2 font-medium text-stone-400 overflow-hidden">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('artist')">
               Artist
               <span v-if="tableSortColumn === 'artist'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('artist', $event)"
             />
           </th>
-          <th class="relative p-2 font-medium text-stone-400">
+          <th class="relative p-2 font-medium text-stone-400 overflow-hidden">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('album')">
               Album
               <span v-if="tableSortColumn === 'album'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('album', $event)"
             />
@@ -868,7 +899,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               <span v-if="tableSortColumn === 'year'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('year', $event)"
             />
@@ -879,7 +910,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               <span v-if="tableSortColumn === 'duration'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('duration', $event)"
             />
@@ -887,30 +918,20 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
           <th v-if="tableColFormat" class="relative p-2 font-medium text-stone-400">
             Format
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('format', $event)"
-            />
-          </th>
-          <th v-if="tableColRating" class="relative p-2 font-medium text-stone-400">
-            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('rating')">
-              Rating
-              <span v-if="tableSortColumn === 'rating'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
-            </button>
-            <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
-              aria-hidden="true"
-              @mousedown="onResizeStart('rating', $event)"
             />
           </th>
           <th v-if="tableColPath" class="relative truncate p-2 font-medium text-stone-400">
             Path
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-stone-500/50"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
               aria-hidden="true"
               @mousedown="onResizeStart('path', $event)"
             />
           </th>
+          <th></th><!-- filler -->
         </tr>
       </thead>
       <tbody>
@@ -945,7 +966,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   :class="{ 'gap-3': tableDensity === 'spacious' && groupBy === 'album' }"
                 >
                   <span
-                    v-if="groupBy === 'album' && groupHeaderAlbumArt"
+                    v-if="(groupBy === 'album' && groupHeaderAlbumArt) || (groupBy === 'artist' && groupHeaderAlbumArtForArtist)"
                     class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
                     :class="tableDensity === 'spacious' ? 'h-20 w-20' : tableDensity === 'comfortable' ? 'h-12 w-12' : 'h-8 w-8'"
                   >
@@ -1046,18 +1067,25 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   />
                 </div>
               </td>
-              <td class="p-2 text-stone-200">{{ row.track.title ?? "—" }}</td>
-              <td class="p-2 text-stone-200">{{ row.track.artist ?? "—" }}</td>
-              <td class="p-2 text-stone-200">{{ row.track.album ?? "—" }}</td>
-              <td v-if="tableColYear" class="p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
-              <td v-if="tableColDuration" class="p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
-              <td v-if="tableColFormat" class="p-2 text-stone-400">{{ row.track.format }}</td>
-              <td v-if="tableColRating" class="p-2" @click.stop>
+              <td class="p-2 text-stone-200">
+                <MarqueeCell :text="row.track.title ?? '—'" />
+              </td>
+              <td v-if="tableColRating" class="px-4 py-2" @click.stop>
                 <StarRating
+                  class="mr-3"
                   :model-value="row.track.rating ?? null"
                   @update:model-value="(r) => store.setRating([row.track.path], r)"
                 />
               </td>
+              <td class="p-2 text-stone-200">
+                <MarqueeCell :text="row.track.artist ?? '—'" />
+              </td>
+              <td class="p-2 text-stone-200">
+                <MarqueeCell :text="row.track.album ?? '—'" />
+              </td>
+              <td v-if="tableColYear" class="p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
+              <td v-if="tableColDuration" class="p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
+              <td v-if="tableColFormat" class="p-2 text-stone-400">{{ row.track.format }}</td>
               <td v-if="tableColPath" class="min-w-0 p-2 text-stone-500">
                 <div class="flex min-w-0 items-center gap-1">
                   <button type="button" class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300" aria-label="Copy path" title="Copy path" @click.stop="copyPathToClipboard(row.track.path)">
@@ -1066,6 +1094,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   <span class="min-w-0 truncate cursor-default" :title="row.track.path">{{ row.track.path }}</span>
                 </div>
               </td>
+              <td></td><!-- filler -->
             </tr>
           </template>
           <tr v-if="useVirtualization && bottomSpacerHeight > 0" class="virtual-spacer-row" aria-hidden="true">

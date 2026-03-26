@@ -611,34 +611,82 @@ const applyFromPathPopoverText = computed(() => {
   return `${applyFromPathHelpText}\n\n${preview}`;
 });
 
-function applyFromPath() {
-  const tracks = selectedTracks.value;
-  const format = pathFormatTemplate.value?.trim();
-  if (!tracks.length || !format) return;
-  const path = tracks[0].path;
-  const extracted = extractMetadataFromPath(format, path);
-  if (!extracted) return;
+function buildUpdateFromExtracted(extracted: Record<string, string>): MetadataUpdate {
+  const update: MetadataUpdate = {};
   for (const [key, value] of Object.entries(extracted)) {
     const normalized = key.toLowerCase().replace(/_/g, "");
     const field = PATH_FIELD_MAP[normalized] ?? PATH_FIELD_MAP[key.toLowerCase()];
     if (!field || field === "pictureBase64") continue;
     if (field === "trackNumber" || field === "discNumber" || field === "year") {
-      const n = value.trim() ? parseInt(value, 10) : "";
-      if (n === "" || !Number.isNaN(n)) {
-        if (field === "trackNumber") trackNumber.value = n === "" ? "" : n;
-        else if (field === "discNumber") discNumber.value = n === "" ? "" : n;
-        else year.value = n === "" ? "" : n;
-        markEdited(field);
+      const n = value.trim() ? parseInt(value, 10) : NaN;
+      if (!Number.isNaN(n)) {
+        if (field === "trackNumber") update.track_number = n;
+        else if (field === "discNumber") update.disc_number = n;
+        else update.year = n;
       }
     } else {
       const s = value ?? "";
-      if (field === "title") title.value = s;
-      else if (field === "artist") artist.value = s;
-      else if (field === "album") album.value = s;
-      else if (field === "albumArtist") albumArtist.value = s;
-      else if (field === "featuring") featuring.value = s;
-      else if (field === "genre") genre.value = s;
-      markEdited(field);
+      if (field === "title") update.title = s || null;
+      else if (field === "artist") update.artist = s || null;
+      else if (field === "album") update.album = s || null;
+      else if (field === "albumArtist") update.album_artist = s || null;
+      else if (field === "featuring") update.featuring = s || null;
+      else if (field === "genre") update.genre = s || null;
+    }
+  }
+  return update;
+}
+
+async function applyFromPath() {
+  const tracks = selectedTracks.value;
+  const format = pathFormatTemplate.value?.trim();
+  if (!tracks.length || !format) return;
+
+  if (tracks.length === 1) {
+    const extracted = extractMetadataFromPath(format, tracks[0].path);
+    if (!extracted) return;
+    for (const [key, value] of Object.entries(extracted)) {
+      const normalized = key.toLowerCase().replace(/_/g, "");
+      const field = PATH_FIELD_MAP[normalized] ?? PATH_FIELD_MAP[key.toLowerCase()];
+      if (!field || field === "pictureBase64") continue;
+      if (field === "trackNumber" || field === "discNumber" || field === "year") {
+        const n = value.trim() ? parseInt(value, 10) : "";
+        if (n === "" || !Number.isNaN(n)) {
+          if (field === "trackNumber") trackNumber.value = n === "" ? "" : n;
+          else if (field === "discNumber") discNumber.value = n === "" ? "" : n;
+          else year.value = n === "" ? "" : n;
+          markEdited(field);
+        }
+      } else {
+        const s = value ?? "";
+        if (field === "title") title.value = s;
+        else if (field === "artist") artist.value = s;
+        else if (field === "album") album.value = s;
+        else if (field === "albumArtist") albumArtist.value = s;
+        else if (field === "featuring") featuring.value = s;
+        else if (field === "genre") genre.value = s;
+        markEdited(field);
+      }
+    }
+  } else {
+    // Multi-select: write each track from its own path, then reload once
+    saving.value = true;
+    saveError.value = null;
+    try {
+      for (const track of tracks) {
+        const extracted = extractMetadataFromPath(format, track.path);
+        if (!extracted) continue;
+        const update = buildUpdateFromExtracted(extracted);
+        if (Object.keys(update).length === 0) continue;
+        await invoke("write_track_metadata", { path: track.path, update });
+      }
+      await store.loadTracks();
+      await nextTick();
+      syncFromTracks();
+    } catch (e) {
+      saveError.value = e instanceof Error ? e.message : String(e);
+    } finally {
+      saving.value = false;
     }
   }
 }
