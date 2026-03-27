@@ -2306,7 +2306,7 @@ dependencies = [
 
 [[package]]
 name = "muorg"
-version = "0.9.8"
+version = "1.0.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
