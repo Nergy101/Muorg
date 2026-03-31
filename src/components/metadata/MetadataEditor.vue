@@ -9,6 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 import StarRating from "../shared/StarRating.vue";
+import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -34,6 +35,56 @@ const coverPopupRef = ref<HTMLDivElement | null>(null);
 const coverDimensions = ref<{ width: number; height: number } | null>(null);
 const coverSizeBytes = ref<number | null>(null);
 const largeImageWarning = ref(false);
+
+// Genre combobox
+const showGenreDropdown = ref(false);
+const activeGenreIndex = ref(-1);
+const genreScrollRef = ref<HTMLElement | null>(null);
+useOverlayScrollbars(genreScrollRef);
+
+const COMMON_GENRES = [
+  "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk", "Grunge",
+  "Hip-Hop", "Jazz", "Metal", "New Age", "Oldies", "Other", "Pop", "R&B",
+  "Rap", "Reggae", "Rock", "Techno", "Industrial", "Alternative", "Ska",
+  "Death Metal", "Soundtrack", "Euro-Techno", "Ambient", "Trip-Hop", "Vocal",
+  "Trance", "Classical", "Instrumental", "House", "Gospel", "Soul", "Punk",
+  "Electronic", "New Wave", "Psychedelic", "Folk", "Folk-Rock", "Swing",
+  "Latin", "Celtic", "Bluegrass", "Progressive Rock", "Gothic Rock",
+  "Symphonic Rock", "Big Band", "Easy Listening", "Acoustic", "Opera",
+  "Chanson", "Ballad", "Samba", "Tango", "Drum & Bass", "Jungle",
+  "Garage", "Hardstep", "Hardcore", "Drum Solo", "A cappella",
+  "Euro-House", "Dance Hall",
+];
+
+const filteredGenres = computed(() => {
+  const q = genre.value.toLowerCase().trim();
+  if (!q) return COMMON_GENRES;
+  return COMMON_GENRES.filter((g) => g.toLowerCase().includes(q));
+});
+
+function selectGenre(g: string) {
+  genre.value = g;
+  markEdited("genre");
+  showGenreDropdown.value = false;
+  activeGenreIndex.value = -1;
+}
+
+function handleGenreKeydown(e: KeyboardEvent) {
+  if (!showGenreDropdown.value || !filteredGenres.value.length) return;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    activeGenreIndex.value = Math.min(activeGenreIndex.value + 1, filteredGenres.value.length - 1);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    activeGenreIndex.value = Math.max(activeGenreIndex.value - 1, 0);
+  } else if (e.key === "Enter" && activeGenreIndex.value >= 0) {
+    e.preventDefault();
+    selectGenre(filteredGenres.value[activeGenreIndex.value]);
+  } else if (e.key === "Escape") {
+    showGenreDropdown.value = false;
+    activeGenreIndex.value = -1;
+  }
+}
 
 const showWikipediaModal = ref(false);
 const wikipediaImageUrl = ref<string | null>(null);
@@ -972,14 +1023,32 @@ async function applyToWholeAlbum() {
               @input="markEdited('featuring')"
             />
           </div>
-          <div>
+          <div class="relative">
             <label class="block text-stone-500">Genre</label>
             <input
               v-model="genre"
               type="text"
               class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('genre')"
+              @input="markEdited('genre'); showGenreDropdown = true; activeGenreIndex = -1"
+              @focus="showGenreDropdown = true"
+              @blur="showGenreDropdown = false"
+              @keydown="handleGenreKeydown"
             />
+            <div
+              v-if="showGenreDropdown && filteredGenres.length"
+              class="absolute left-0 top-full z-50 mt-0.5 min-w-[240px] rounded border border-stone-600 bg-stone-900 shadow-lg"
+            >
+              <div ref="genreScrollRef" class="max-h-48">
+                <button
+                  v-for="(g, i) in filteredGenres"
+                  :key="g"
+                  type="button"
+                  class="flex w-full items-center pl-3 pr-8 py-1 text-left text-sm text-stone-200 hover:bg-stone-700"
+                  :class="{ 'bg-stone-700': i === activeGenreIndex }"
+                  @mousedown.prevent="selectGenre(g)"
+                >{{ g }}</button>
+              </div>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Rating</label>
@@ -1331,4 +1400,3 @@ async function applyToWholeAlbum() {
     </Teleport>
   </div>
 </template>
-

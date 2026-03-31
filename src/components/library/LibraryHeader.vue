@@ -278,7 +278,6 @@ watch(genreDropdownOpen, (open) => {
       />
       <!-- Min-rating filter -->
       <div class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2 py-1" :class="filterMinRating !== null ? 'border-amber-600/60' : ''">
-        <FeatherIcon name="star" class="h-3.5 w-3.5 shrink-0" :class="filterMinRating !== null ? 'text-amber-400' : 'text-stone-500'" />
         <StarRating
           :model-value="filterMinRating"
           @update:model-value="store.setFilterMinRating"
@@ -299,10 +298,10 @@ watch(genreDropdownOpen, (open) => {
         <button
           type="button"
           class="flex items-center gap-1.5 rounded border bg-stone-800 px-2 py-1 text-sm hover:border-stone-500 hover:bg-stone-700"
-          :class="filterGenre !== null ? 'border-violet-600/60 text-violet-300' : 'border-stone-600 text-stone-200'"
+          :class="filterGenre !== null ? 'border-primary text-[#5b7c32]' : 'border-stone-600 text-stone-200'"
           @click="toggleGenreDropdown"
         >
-          <FeatherIcon name="tag" class="h-3.5 w-3.5 shrink-0" :class="filterGenre !== null ? 'text-violet-400' : 'text-stone-500'" />
+          <FeatherIcon name="tag" class="h-3.5 w-3.5 shrink-0" :class="filterGenre !== null ? 'text-[#5b7c32]' : 'text-stone-500'" />
           <span>{{ filterGenre ?? "Genre" }}</span>
           <button
             v-if="filterGenre !== null"
@@ -317,7 +316,7 @@ watch(genreDropdownOpen, (open) => {
         </button>
         <div
           v-if="genreDropdownOpen"
-          class="absolute left-0 top-full z-[300] mt-1 max-h-64 min-w-full overflow-y-auto rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+          class="absolute left-0 top-full z-[300] mt-1 max-h-64 min-w-full overflow-x-hidden overflow-y-auto rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
         >
           <button
             v-for="genre in allGenres"
@@ -338,14 +337,14 @@ watch(genreDropdownOpen, (open) => {
       </div>
 
       <!-- Custom group-by dropdown -->
-      <div ref="groupByDropdownRef" class="relative">
+      <div ref="groupByDropdownRef" class="relative min-w-max shrink-0">
         <button
           type="button"
-          class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
           :class="groupByDropdownOpen ? 'border-stone-500 bg-stone-700' : ''"
           @click="toggleGroupByDropdown"
         >
-          <span>{{ groupByLabels[groupByValue] }}</span>
+          <span class="whitespace-nowrap">{{ groupByLabels[groupByValue] }}</span>
           <FeatherIcon name="chevron-down" class="h-3.5 w-3.5 text-stone-400 transition-transform" :class="groupByDropdownOpen ? 'rotate-180' : ''" />
         </button>
         <div
@@ -356,7 +355,7 @@ watch(genreDropdownOpen, (open) => {
             v-for="(label, val) in groupByLabels"
             :key="val"
             type="button"
-            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-stone-700"
+            class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-stone-700"
             :class="groupByValue === val ? 'text-stone-200' : 'text-stone-400'"
             @click="selectGroupBy(val as 'none' | 'artist' | 'album')"
           >
