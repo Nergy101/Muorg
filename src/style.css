@@ -14,11 +14,14 @@ input[type="checkbox"] {
   accent-color: #5b7c32;
 }
 
-/* Number input spinner (WebKit): match text color so chevrons are visible in all themes */
+/* Hide number input spinners */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-  color: #e7e5e4; /* stone-200, same as dark-theme text */
-  opacity: 1;
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 /* Input/select/textarea focus: primary green instead of browser blue */

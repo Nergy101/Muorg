@@ -839,7 +839,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                 class="rounded border-stone-600"
                 @change="store.setMultiSelectMode(($event.target as HTMLInputElement).checked)"
               />
-              Multi
+              Multi<template v-if="selectedTrackIds.length"> ({{ selectedTrackIds.length }})</template>
             </label>
           </th>
           <th v-if="showAlbumArtCol" class="relative p-2">

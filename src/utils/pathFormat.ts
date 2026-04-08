@@ -1,9 +1,77 @@
+import type { MetadataUpdate } from "../types";
+
 /**
  * Extracts metadata fields from a file path using a format template.
  * Format uses placeholders in angle brackets, e.g. <Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>
  * Path separators (/) in the format define segments; the last N segments of the path are matched
  * against the N segments of the format.
  */
+
+export const PATH_FIELD_MAP: Record<string, string> = {
+  artist: "artist",
+  album: "album",
+  title: "title",
+  tracktitle: "title",
+  tracknumber: "trackNumber",
+  track_number: "trackNumber",
+  year: "year",
+  genre: "genre",
+  albumartist: "albumArtist",
+  album_artist: "albumArtist",
+  featuring: "featuring",
+  discnumber: "discNumber",
+  disc_number: "discNumber",
+};
+
+/**
+ * Tries all templates against a path and returns the extracted fields from whichever
+ * template produces the most mapped metadata fields. Returns null if none match.
+ */
+export function extractBestFromPath(
+  templates: string[],
+  path: string
+): Record<string, string> | null {
+  let best: Record<string, string> | null = null;
+  let bestScore = -1;
+  for (const template of templates) {
+    const trimmed = template.trim();
+    if (!trimmed) continue;
+    const extracted = extractMetadataFromPath(trimmed, path);
+    if (!extracted) continue;
+    const score = Object.keys(buildUpdateFromExtracted(extracted)).length;
+    if (score > bestScore) {
+      best = extracted;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+export function buildUpdateFromExtracted(extracted: Record<string, string>): MetadataUpdate {
+  const update: MetadataUpdate = {};
+  for (const [key, value] of Object.entries(extracted)) {
+    const normalized = key.toLowerCase().replace(/_/g, "");
+    const field = PATH_FIELD_MAP[normalized] ?? PATH_FIELD_MAP[key.toLowerCase()];
+    if (!field || field === "pictureBase64") continue;
+    if (field === "trackNumber" || field === "discNumber" || field === "year") {
+      const n = value.trim() ? parseInt(value, 10) : NaN;
+      if (!Number.isNaN(n)) {
+        if (field === "trackNumber") update.track_number = n;
+        else if (field === "discNumber") update.disc_number = n;
+        else update.year = n;
+      }
+    } else {
+      const s = value ?? "";
+      if (field === "title") update.title = s || null;
+      else if (field === "artist") update.artist = s || null;
+      else if (field === "album") update.album = s || null;
+      else if (field === "albumArtist") update.album_artist = s || null;
+      else if (field === "featuring") update.featuring = s || null;
+      else if (field === "genre") update.genre = s || null;
+    }
+  }
+  return update;
+}
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -78,7 +146,7 @@ export function extractMetadataFromPath(
 
     const singlePlaceholder = /^<([^>]+)>$/.exec(fmt);
     if (singlePlaceholder) {
-      result[singlePlaceholder[1]] = baseName;
+      result[singlePlaceholder[1]] = seg;
       continue;
     }
 
@@ -88,10 +156,9 @@ export function extractMetadataFromPath(
       continue;
     }
 
-    // Use full segment only when format ends with a literal extension (e.g. .mp3); otherwise use baseName so dots in the name stay in the extracted value.
-    const endsWithLiteralExt = /\.(?!\s*<[^>]+>\s*$)[^<>*]+$/.test(fmt);
-    const pathForMatch = endsWithLiteralExt ? seg : baseName;
-    const parsed = parseSegment(fmt, pathForMatch);
+    // Use full segment — baseName stripping only applies when the format has an explicit
+    // extension placeholder (handled above), so dots in directory names are preserved.
+    const parsed = parseSegment(fmt, seg);
     if (!parsed) return null;
     Object.assign(result, parsed);
   }

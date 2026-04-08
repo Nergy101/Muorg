@@ -19,7 +19,7 @@ import type {
   PlayerGlowIntensity,
   PlayerGlowMode,
 } from "../../stores/settings";
-import { extractMetadataFromPath } from "../../utils/pathFormat";
+import { extractBestFromPath, extractMetadataFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
 import {
   getGlowBlobs,
@@ -75,7 +75,7 @@ const {
   hideAlbumArtColInAlbumGroups,
   hideGroupTrackCount,
   hideWikipediaCoverSearch,
-  pathFormatTemplate,
+  pathFormatTemplates,
   pathFormatExamplePath,
   openSettingsAtTab,
   playerGlowIntensity,
@@ -332,11 +332,48 @@ const pathFormatExamplePaths = [
 ];
 
 const pathFormatExampleExtracted = computed(() => {
-  const fmt = pathFormatTemplate.value?.trim();
+  const templates = pathFormatTemplates.value;
   const examplePath = pathFormatExamplePath.value?.trim();
-  if (!fmt || !examplePath) return null;
-  return extractMetadataFromPath(fmt, examplePath);
+  if (!templates.some((t) => t.trim()) || !examplePath) return null;
+  return extractBestFromPath(templates, examplePath);
 });
+
+const pathFormatExampleBestPattern = computed(() => {
+  const templates = pathFormatTemplates.value;
+  const examplePath = pathFormatExamplePath.value?.trim();
+  if (!templates.some((t) => t.trim()) || !examplePath) return null;
+  let best: string | null = null;
+  let bestScore = -1;
+  for (const template of templates) {
+    const trimmed = template.trim();
+    if (!trimmed) continue;
+    const extracted = extractMetadataFromPath(trimmed, examplePath);
+    if (!extracted) continue;
+    const score = Object.keys(buildUpdateFromExtracted(extracted)).length;
+    if (score > bestScore) { best = trimmed; bestScore = score; }
+  }
+  return best;
+});
+
+function addExamplePattern(pattern: string) {
+  if (!pathFormatTemplates.value.includes(pattern)) {
+    settingsStore.setPathFormatTemplates([...pathFormatTemplates.value, pattern]);
+  }
+}
+
+function updateTemplate(i: number, value: string) {
+  const updated = [...pathFormatTemplates.value];
+  updated[i] = value;
+  settingsStore.setPathFormatTemplates(updated);
+}
+
+function removeTemplate(i: number) {
+  settingsStore.setPathFormatTemplates(pathFormatTemplates.value.filter((_, idx) => idx !== i));
+}
+
+function addTemplate() {
+  settingsStore.setPathFormatTemplates([...pathFormatTemplates.value, ""]);
+}
 
 const updateCheckStatus = ref<
   "idle" | "checking" | "up-to-date" | "available" | "error"
@@ -2191,46 +2228,61 @@ watch(openSettingsAtTab, (tab) => {
 
               <div class="settings-section space-y-3">
                 <div>
-                  <label class="block text-xs font-medium text-stone-500"
-                    >Path format (for metadata suggestions)</label
-                  >
+                  <label class="block text-xs font-medium text-stone-500">Path formats (for metadata suggestions)</label>
                   <p class="mt-0.5 text-xs text-stone-500">
-                    Use placeholders in angle brackets to describe how your file
-                    paths are structured. Matching starts from the end of the
-                    path and works upwards toward parent folders.
+                    Add one pattern per folder structure. When applying from path, all patterns are tried and the one that extracts the most fields wins.
                   </p>
-                  <p class="mt-1.5 text-xs font-medium text-stone-500">
-                    Example patterns (click to apply):
+
+                  <!-- Active patterns list -->
+                  <div class="mt-2 space-y-1.5">
+                    <div
+                      v-for="(template, i) in pathFormatTemplates"
+                      :key="i"
+                      class="flex items-center gap-1.5"
+                    >
+                      <input
+                        type="text"
+                        :value="template"
+                        class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200"
+                        placeholder="e.g. <Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>"
+                        @input="updateTemplate(i, ($event.target as HTMLInputElement).value)"
+                      />
+                      <button
+                        type="button"
+                        class="shrink-0 rounded p-1 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                        title="Remove pattern"
+                        @click="removeTemplate(i)"
+                      >
+                        <FeatherIcon name="x" class="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      class="mt-1 flex items-center gap-1 text-xs text-stone-500 hover:text-stone-300"
+                      @click="addTemplate"
+                    >
+                      <FeatherIcon name="plus" class="h-3.5 w-3.5" />
+                      Add pattern
+                    </button>
+                  </div>
+
+                  <!-- Example patterns to add -->
+                  <p class="mt-3 text-xs font-medium text-stone-500">
+                    Example patterns (click to add):
                   </p>
                   <ul class="mt-0.5 space-y-0.5 text-xs">
                     <li v-for="(ex, i) in pathFormatExamples" :key="i">
                       <button
                         type="button"
                         class="path-format-example-btn w-full break-all rounded border px-2 py-1 font-mono text-left"
-                        :title="'Use this format'"
-                        @click="settingsStore.setPathFormatTemplate(ex)"
+                        :class="pathFormatTemplates.includes(ex) ? 'opacity-40 cursor-default' : ''"
+                        :title="pathFormatTemplates.includes(ex) ? 'Already added' : 'Add this pattern'"
+                        @click="addExamplePattern(ex)"
                       >
                         {{ i + 1 }}. {{ ex }}
                       </button>
                     </li>
                   </ul>
-                  <div class="mt-2">
-                    <label class="block text-xs font-medium text-stone-500"
-                      >Active pattern</label
-                    >
-                    <input
-                      type="text"
-                      :value="pathFormatTemplate"
-                      class="mt-1 w-full rounded border border-stone-600 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-200"
-                      placeholder="Pattern currently used by Apply from path"
-                      @input="
-                        (e) =>
-                          settingsStore.setPathFormatTemplate(
-                            (e.target as HTMLInputElement).value,
-                          )
-                      "
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -2255,22 +2307,14 @@ watch(openSettingsAtTab, (tab) => {
                   </ul>
                 </div>
 
-                <div
-                  class="mt-2 rounded border border-stone-600 bg-stone-900/70 p-3"
-                >
+                <div class="mt-2 rounded border border-stone-600 bg-stone-900/70 p-3">
                   <div class="flex items-center justify-between gap-2">
-                    <p class="text-xs font-medium text-stone-400">
-                      Try your path
-                    </p>
+                    <p class="text-xs font-medium text-stone-400">Try your path</p>
                     <button
                       type="button"
                       class="shrink-0 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-600 hover:text-stone-200"
                       title="Restore default example path"
-                      @click="
-                        settingsStore.setPathFormatExamplePath(
-                          DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
-                        )
-                      "
+                      @click="settingsStore.setPathFormatExamplePath(DEFAULT_PATH_FORMAT_EXAMPLE_PATH)"
                     >
                       Reset to default
                     </button>
@@ -2280,62 +2324,36 @@ watch(openSettingsAtTab, (tab) => {
                     :value="pathFormatExamplePath"
                     class="mt-1.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200 placeholder:text-stone-500"
                     placeholder="e.g. /path/to/Artist/Album/01 - Title.flac"
-                    @input="
-                      (e) =>
-                        settingsStore.setPathFormatExamplePath(
-                          (e.target as HTMLInputElement).value,
-                        )
-                    "
+                    @input="(e) => settingsStore.setPathFormatExamplePath((e.target as HTMLInputElement).value)"
                   />
-                  <p class="mt-1 text-[11px] text-stone-500">
-                    Using pattern:
-                    <span class="font-mono text-stone-400">{{
-                      pathFormatTemplate || "—"
-                    }}</span>
-                  </p>
-                  <div
-                    v-if="pathFormatTemplate.trim()"
-                    class="mt-2 border-t border-stone-700/60 pt-2"
-                  >
-                    <p class="text-xs font-medium text-stone-400">
-                      Extracted fields
-                    </p>
-                    <table
-                      v-if="pathFormatExampleExtracted"
-                      class="mt-1.5 w-full border-collapse text-xs"
-                    >
-                      <thead>
-                        <tr class="border-b border-stone-600">
-                          <th
-                            class="py-1.5 pr-3 text-left font-medium text-stone-500"
+                  <div v-if="pathFormatTemplates.some(t => t.trim())" class="mt-2 border-t border-stone-700/60 pt-2">
+                    <div v-if="pathFormatExampleExtracted">
+                      <p class="text-[11px] text-stone-500">
+                        Matched by:
+                        <span class="font-mono text-stone-400">{{ pathFormatExampleBestPattern }}</span>
+                      </p>
+                      <p class="mt-1.5 text-xs font-medium text-stone-400">Extracted fields</p>
+                      <table class="mt-1.5 w-full border-collapse text-xs">
+                        <thead>
+                          <tr class="border-b border-stone-600">
+                            <th class="py-1.5 pr-3 text-left font-medium text-stone-500">Field</th>
+                            <th class="py-1.5 text-left font-medium text-stone-500">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr
+                            v-for="(val, key) in pathFormatExampleExtracted"
+                            :key="key"
+                            class="border-b border-stone-700/50"
                           >
-                            Field
-                          </th>
-                          <th
-                            class="py-1.5 text-left font-medium text-stone-500"
-                          >
-                            Value
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr
-                          v-for="(val, key) in pathFormatExampleExtracted"
-                          :key="key"
-                          class="border-b border-stone-700/50"
-                        >
-                          <td class="py-1.5 pr-3 font-mono text-stone-400">
-                            {{ key }}
-                          </td>
-                          <td class="py-1.5 text-stone-300">
-                            {{ val || "—" }}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                            <td class="py-1.5 pr-3 font-mono text-stone-400">{{ key }}</td>
+                            <td class="py-1.5 text-stone-300">{{ val || "—" }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                     <p v-else class="mt-1 text-xs text-amber-500">
-                      Format does not match the example path. Adjust
-                      placeholders or path structure.
+                      No pattern matches the example path.
                     </p>
                   </div>
                 </div>

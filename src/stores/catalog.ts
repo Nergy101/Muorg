@@ -81,6 +81,8 @@ export const useCatalogStore = defineStore("catalog", {
     pendingCoverImagePath: null as string | null,
     /** When set, LibraryTable will switch to library tab and scroll to this track. Cleared after scroll. */
     revealTrackId: null as number | null,
+    /** When set, shows a full-screen progress overlay for bulk operations like "Apply all from path". */
+    bulkProgress: null as { current: number; total: number } | null,
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -529,6 +531,9 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setRevealTrackId(id: number | null) {
       this.revealTrackId = id;
+    },
+    setBulkProgress(progress: { current: number; total: number } | null) {
+      this.bulkProgress = progress;
     },
     setGroupBy(mode: "none" | "artist" | "album") {
       this.groupBy = mode;

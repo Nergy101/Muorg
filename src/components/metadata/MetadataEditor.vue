@@ -4,7 +4,7 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import type { MetadataUpdate } from "../../types";
-import { extractMetadataFromPath } from "../../utils/pathFormat";
+import { extractBestFromPath, PATH_FIELD_MAP, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import { invoke } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import FeatherIcon from "../shared/FeatherIcon.vue";
@@ -14,7 +14,7 @@ import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const { selectedTracks, openWikipediaModal, pendingCoverImagePath } = storeToRefs(store);
-const { hideWikipediaCoverSearch, pathFormatTemplate } = storeToRefs(settingsStore);
+const { hideWikipediaCoverSearch, pathFormatTemplates } = storeToRefs(settingsStore);
 
 const title = ref("");
 const artist = ref("");
@@ -115,6 +115,10 @@ const baseline = ref<{
 } | null>(null);
 
 const editedFields = ref<Set<keyof NonNullable<typeof baseline.value>>>(new Set());
+// Fields explicitly cleared via the X button — must always be sent as null on save,
+// regardless of whether their value differs from baseline (covers the bulk-mode case
+// where an empty field would otherwise be treated as "don't change").
+const clearedFields = ref<Set<keyof NonNullable<typeof baseline.value>>>(new Set());
 
 const ONE_MB = 1024 * 1024;
 
@@ -520,6 +524,7 @@ function syncFromTracks() {
     pictureBase64: pictureBase64.value,
   };
   editedFields.value = new Set();
+  clearedFields.value = new Set();
 }
 
 async function setRating(value: number | null) {
@@ -603,6 +608,22 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onPanelKeydown);
 });
 
+function clearField(field: keyof NonNullable<typeof baseline.value>) {
+  switch (field) {
+    case "title": title.value = ""; break;
+    case "artist": artist.value = ""; break;
+    case "album": album.value = ""; break;
+    case "albumArtist": albumArtist.value = ""; break;
+    case "featuring": featuring.value = ""; break;
+    case "genre": genre.value = ""; break;
+    case "year": year.value = ""; break;
+    case "trackNumber": trackNumber.value = ""; break;
+    case "discNumber": discNumber.value = ""; break;
+  }
+  clearedFields.value = new Set(clearedFields.value).add(field);
+  markEdited(field);
+}
+
 function markEdited(field: keyof NonNullable<typeof baseline.value>) {
   editedFields.value = new Set(editedFields.value).add(field);
 }
@@ -626,87 +647,62 @@ const trackNumberPadded = computed({
   },
 });
 
-const PATH_FIELD_MAP: Record<string, keyof NonNullable<typeof baseline.value>> = {
-  artist: "artist",
-  album: "album",
-  title: "title",
-  tracktitle: "title",
-  tracknumber: "trackNumber",
-  track_number: "trackNumber",
-  year: "year",
-  genre: "genre",
-  albumartist: "albumArtist",
-  album_artist: "albumArtist",
-  featuring: "featuring",
-  discnumber: "discNumber",
-  disc_number: "discNumber",
-};
 
 const applyFromPathPreviewText = computed(() => {
   const tracks = selectedTracks.value;
-  const format = pathFormatTemplate.value?.trim();
-  if (!tracks.length || !format) return "";
-  const extracted = extractMetadataFromPath(format, tracks[0].path);
-  if (!extracted) return "Format does not match this path.";
+  const templates = pathFormatTemplates.value;
+  if (!tracks.length || !templates.some((t) => t.trim())) return "";
+  const extracted = extractBestFromPath(templates, tracks[0].path);
+  if (!extracted) return "No pattern matches this path.";
   return Object.entries(extracted)
     .map(([k, v]) => `${k}: ${v ?? "—"}`)
     .join("\n");
 });
 
 const applyFromPathHelpText =
-  "Fill fields from the selected track path using the path format in Settings → Smart Suggestions.";
+  "Fill fields from the selected track path using the path formats in Settings → Smart Suggestions.";
+
+const applyFromPathMatchCount = computed(() => {
+  const tracks = selectedTracks.value;
+  const templates = pathFormatTemplates.value;
+  if (!tracks.length || !templates.some((t) => t.trim())) return 0;
+  return tracks.filter((t) => {
+    const extracted = extractBestFromPath(templates, t.path);
+    return extracted && Object.keys(buildUpdateFromExtracted(extracted)).length > 0;
+  }).length;
+});
 
 const applyFromPathPopoverText = computed(() => {
   const preview = applyFromPathPreviewText.value;
-  if (!preview) return applyFromPathHelpText;
-  return `${applyFromPathHelpText}\n\n${preview}`;
+  const n = applyFromPathMatchCount.value;
+  const total = selectedTracks.value.length;
+  const matchLine = total === n && total === 1 ? "" : `Applying to ${n}/${total} track${total === 1 ? "" : "s"}`;
+  if (!preview) return matchLine ? `${applyFromPathHelpText}\n\n${matchLine}` : applyFromPathHelpText;
+  return matchLine ? `${applyFromPathHelpText}\n\n${matchLine}\n\n${preview}` : `${applyFromPathHelpText}\n\n${preview}`;
 });
 
-function buildUpdateFromExtracted(extracted: Record<string, string>): MetadataUpdate {
-  const update: MetadataUpdate = {};
-  for (const [key, value] of Object.entries(extracted)) {
-    const normalized = key.toLowerCase().replace(/_/g, "");
-    const field = PATH_FIELD_MAP[normalized] ?? PATH_FIELD_MAP[key.toLowerCase()];
-    if (!field || field === "pictureBase64") continue;
-    if (field === "trackNumber" || field === "discNumber" || field === "year") {
-      const n = value.trim() ? parseInt(value, 10) : NaN;
-      if (!Number.isNaN(n)) {
-        if (field === "trackNumber") update.track_number = n;
-        else if (field === "discNumber") update.disc_number = n;
-        else update.year = n;
-      }
-    } else {
-      const s = value ?? "";
-      if (field === "title") update.title = s || null;
-      else if (field === "artist") update.artist = s || null;
-      else if (field === "album") update.album = s || null;
-      else if (field === "albumArtist") update.album_artist = s || null;
-      else if (field === "featuring") update.featuring = s || null;
-      else if (field === "genre") update.genre = s || null;
-    }
-  }
-  return update;
-}
 
 async function applyFromPath() {
   const tracks = selectedTracks.value;
-  const format = pathFormatTemplate.value?.trim();
-  if (!tracks.length || !format) return;
+  const templates = pathFormatTemplates.value;
+  if (!tracks.length || !templates.some((t) => t.trim())) return;
 
   if (tracks.length === 1) {
-    const extracted = extractMetadataFromPath(format, tracks[0].path);
+    const extracted = extractBestFromPath(templates, tracks[0].path);
     if (!extracted) return;
     for (const [key, value] of Object.entries(extracted)) {
       const normalized = key.toLowerCase().replace(/_/g, "");
       const field = PATH_FIELD_MAP[normalized] ?? PATH_FIELD_MAP[key.toLowerCase()];
       if (!field || field === "pictureBase64") continue;
+      type EditableField = keyof NonNullable<typeof baseline.value>;
+      const editableField = field as EditableField;
       if (field === "trackNumber" || field === "discNumber" || field === "year") {
         const n = value.trim() ? parseInt(value, 10) : "";
         if (n === "" || !Number.isNaN(n)) {
           if (field === "trackNumber") trackNumber.value = n === "" ? "" : n;
           else if (field === "discNumber") discNumber.value = n === "" ? "" : n;
           else year.value = n === "" ? "" : n;
-          markEdited(field);
+          markEdited(editableField);
         }
       } else {
         const s = value ?? "";
@@ -716,20 +712,26 @@ async function applyFromPath() {
         else if (field === "albumArtist") albumArtist.value = s;
         else if (field === "featuring") featuring.value = s;
         else if (field === "genre") genre.value = s;
-        markEdited(field);
+        markEdited(editableField);
       }
     }
   } else {
     // Multi-select: write each track from its own path, then reload once
     saving.value = true;
     saveError.value = null;
+    const total = tracks.length;
+    store.setBulkProgress({ current: 0, total });
     try {
-      for (const track of tracks) {
-        const extracted = extractMetadataFromPath(format, track.path);
-        if (!extracted) continue;
-        const update = buildUpdateFromExtracted(extracted);
-        if (Object.keys(update).length === 0) continue;
-        await invoke("write_track_metadata", { path: track.path, update });
+      for (let i = 0; i < tracks.length; i++) {
+        const track = tracks[i];
+        const extracted = extractBestFromPath(templates, track.path);
+        if (extracted) {
+          const update = buildUpdateFromExtracted(extracted);
+          if (Object.keys(update).length > 0) {
+            await invoke("write_track_metadata", { path: track.path, update });
+          }
+        }
+        store.setBulkProgress({ current: i + 1, total });
       }
       await store.loadTracks();
       await nextTick();
@@ -737,6 +739,7 @@ async function applyFromPath() {
     } catch (e) {
       saveError.value = e instanceof Error ? e.message : String(e);
     } finally {
+      store.setBulkProgress(null);
       saving.value = false;
     }
   }
@@ -746,6 +749,7 @@ function buildUpdate(): MetadataUpdate {
   const tracks = selectedTracks.value;
   const isBulk = tracks.length > 1;
   const edited = editedFields.value;
+  const cleared = clearedFields.value;
 
   const titleVal = title.value || undefined;
   const artistVal = artist.value || undefined;
@@ -758,16 +762,16 @@ function buildUpdate(): MetadataUpdate {
   const pictureVal = clearCoverRequested.value ? "" : pictureBase64.value ?? undefined;
 
   const update: MetadataUpdate = {};
-  if (!isBulk || edited.has("title")) update.title = titleVal ?? null;
-  if (!isBulk || edited.has("artist")) update.artist = artistVal ?? null;
-  if (!isBulk || edited.has("album")) update.album = albumVal ?? null;
-  if (!isBulk || edited.has("albumArtist")) update.album_artist = albumArtistVal ?? null;
+  if (!isBulk || edited.has("title") || cleared.has("title")) update.title = cleared.has("title") ? null : (titleVal ?? null);
+  if (!isBulk || edited.has("artist") || cleared.has("artist")) update.artist = cleared.has("artist") ? null : (artistVal ?? null);
+  if (!isBulk || edited.has("album") || cleared.has("album")) update.album = cleared.has("album") ? null : (albumVal ?? null);
+  if (!isBulk || edited.has("albumArtist") || cleared.has("albumArtist")) update.album_artist = cleared.has("albumArtist") ? null : (albumArtistVal ?? null);
   const featuringVal = featuring.value || undefined;
-  if (!isBulk || edited.has("featuring")) update.featuring = featuringVal ?? null;
-  if (!isBulk || edited.has("year")) update.year = yearVal ?? null;
-  if (!isBulk || edited.has("genre")) update.genre = genreVal ?? null;
-  if (!isBulk || edited.has("trackNumber")) update.track_number = trackNumVal ?? null;
-  if (!isBulk || edited.has("discNumber")) update.disc_number = discNumVal ?? null;
+  if (!isBulk || edited.has("featuring") || cleared.has("featuring")) update.featuring = cleared.has("featuring") ? null : (featuringVal ?? null);
+  if (!isBulk || edited.has("year") || cleared.has("year")) update.year = cleared.has("year") ? null : (yearVal ?? null);
+  if (!isBulk || edited.has("genre") || cleared.has("genre")) update.genre = cleared.has("genre") ? null : (genreVal ?? null);
+  if (!isBulk || edited.has("trackNumber") || cleared.has("trackNumber")) update.track_number = cleared.has("trackNumber") ? null : (trackNumVal ?? null);
+  if (!isBulk || edited.has("discNumber") || cleared.has("discNumber")) update.disc_number = cleared.has("discNumber") ? null : (discNumVal ?? null);
   if (!isBulk || edited.has("pictureBase64")) update.picture_base64 = pictureVal;
 
   return update;
@@ -968,72 +972,100 @@ async function applyToWholeAlbum() {
         <div class="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
           <div>
             <label class="block text-stone-500">Title</label>
-            <input
-              v-model="title"
-              type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('title')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model="title"
+                type="text"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="title ? 'pr-6' : ''"
+                @input="markEdited('title')"
+              />
+              <button v-if="title" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear title" @click="clearField('title')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Artist</label>
-            <input
-              v-model="artist"
-              type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('artist')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model="artist"
+                type="text"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="artist ? 'pr-6' : ''"
+                @input="markEdited('artist')"
+              />
+              <button v-if="artist" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear artist" @click="clearField('artist')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Album</label>
-            <input
-              v-model="album"
-              type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('album')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model="album"
+                type="text"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="album ? 'pr-6' : ''"
+                @input="markEdited('album')"
+              />
+              <button v-if="album" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear album" @click="clearField('album')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Year</label>
-            <input
-              v-model.number="year"
-              type="number"
-              min="1"
-              max="9999"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('year')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model.number="year"
+                type="number"
+                min="1"
+                max="9999"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="year !== '' ? 'pr-6' : ''"
+                @input="markEdited('year')"
+              />
+              <button v-if="year !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear year" @click="clearField('year')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Album artist</label>
-            <input
-              v-model="albumArtist"
-              type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('albumArtist')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model="albumArtist"
+                type="text"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="albumArtist ? 'pr-6' : ''"
+                @input="markEdited('albumArtist')"
+              />
+              <button v-if="albumArtist" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear album artist" @click="clearField('albumArtist')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Featuring</label>
-            <input
-              v-model="featuring"
-              type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              placeholder="Guest / second artist"
-              @input="markEdited('featuring')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model="featuring"
+                type="text"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="featuring ? 'pr-6' : ''"
+                placeholder="Guest / second artist"
+                @input="markEdited('featuring')"
+              />
+              <button v-if="featuring" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear featuring" @click="clearField('featuring')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
           <div class="relative">
             <label class="block text-stone-500">Genre</label>
-            <input
-              v-model="genre"
-              type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('genre'); showGenreDropdown = true; activeGenreIndex = -1"
-              @focus="showGenreDropdown = true"
-              @blur="showGenreDropdown = false"
-              @keydown="handleGenreKeydown"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model="genre"
+                type="text"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="genre ? 'pr-6' : ''"
+                @input="markEdited('genre'); showGenreDropdown = true; activeGenreIndex = -1"
+                @focus="showGenreDropdown = true"
+                @blur="showGenreDropdown = false"
+                @keydown="handleGenreKeydown"
+              />
+              <button v-if="genre" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear genre" @click="clearField('genre')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
             <div
               v-if="showGenreDropdown && filteredGenres.length"
               class="absolute left-0 top-full z-50 mt-0.5 min-w-[240px] rounded border border-stone-600 bg-stone-900 shadow-lg"
@@ -1067,24 +1099,32 @@ async function applyToWholeAlbum() {
           </div>
           <div>
             <label class="block text-stone-500">Track #</label>
-            <input
-              v-model="trackNumberPadded"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9]*"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('trackNumber')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model="trackNumberPadded"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="trackNumber !== '' ? 'pr-6' : ''"
+                @input="markEdited('trackNumber')"
+              />
+              <button v-if="trackNumber !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear track number" @click="clearField('trackNumber')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
           <div>
             <label class="block text-stone-500">Disc #</label>
-            <input
-              v-model.number="discNumber"
-              type="number"
-              min="0"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-              @input="markEdited('discNumber')"
-            />
+            <div class="relative mt-0.5">
+              <input
+                v-model.number="discNumber"
+                type="number"
+                min="0"
+                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                :class="discNumber !== '' ? 'pr-6' : ''"
+                @input="markEdited('discNumber')"
+              />
+              <button v-if="discNumber !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear disc number" @click="clearField('discNumber')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+            </div>
           </div>
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -1114,7 +1154,7 @@ async function applyToWholeAlbum() {
             <FeatherIcon name="rotate-ccw" class="h-4 w-4 shrink-0" />
             Discard
           </button>
-          <template v-if="pathFormatTemplate.trim() && selectedTracks.length">
+          <template v-if="pathFormatTemplates.some(t => t.trim()) && selectedTracks.length">
             <span class="ml-1 border-l border-stone-600 pl-2" aria-hidden="true" />
             <button
               type="button"

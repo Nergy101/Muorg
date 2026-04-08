@@ -7,6 +7,21 @@ use serde::Serialize;
 use std::io::BufReader;
 use std::path::Path;
 
+/// Deserializer helper for `Option<Option<T>>` fields:
+/// - JSON key absent → `None` (leave field unchanged)
+/// - JSON key = null  → `Some(None)` (clear field)
+/// - JSON key = value → `Some(Some(value))` (set field)
+mod double_option {
+    use serde::{Deserialize, Deserializer};
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+    where
+        T: Deserialize<'de>,
+        D: Deserializer<'de>,
+    {
+        Deserialize::deserialize(deserializer).map(Some)
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct TrackMetadata {
     pub title: Option<String>,
@@ -91,20 +106,28 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
     Ok(meta)
 }
 
+/// Absent = leave unchanged; null = clear; value = set.
 #[derive(serde::Deserialize)]
 pub struct MetadataUpdate {
-    /// None = leave unchanged; Some(None) = clear; Some(Some(v)) = set v.
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub title: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub artist: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub album: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub album_artist: Option<Option<String>>,
-    /// Featuring / guest artist. FLAC: FEATURING; MP3: TPE2.
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub featuring: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub year: Option<Option<u32>>,
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub genre: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub track_number: Option<Option<u32>>,
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub disc_number: Option<Option<u32>>,
-    /// Base64-encoded image data for album cover; empty or null to clear
+    #[serde(default, deserialize_with = "double_option::deserialize")]
     pub picture_base64: Option<Option<String>>,
 }
 

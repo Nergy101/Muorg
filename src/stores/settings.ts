@@ -214,7 +214,7 @@ export const useSettingsStore = defineStore("settings", {
     sidebarClosedOnStartup: false,
     /** Which sidebar tab should be active by default ("Folders" or "Playlists"). */
     sidebarDefaultTab: "folders" as SidebarDefaultTab,
-    pathFormatTemplate: "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
+    pathFormatTemplates: ["<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>"] as string[],
     pathFormatExamplePath: DEFAULT_PATH_FORMAT_EXAMPLE_PATH,
     openSettingsAtTab: null as string | null,
     /** Maximized player: glow shadows from album art. "off" = disabled; subdued/default/vibrant = intensity. */
@@ -288,7 +288,13 @@ export const useSettingsStore = defineStore("settings", {
         if ("sidebarDefaultTab" in data && (data.sidebarDefaultTab === "folders" || data.sidebarDefaultTab === "reports" || data.sidebarDefaultTab === "playlists")) {
           this.sidebarDefaultTab = data.sidebarDefaultTab;
         }
-        if ("pathFormatTemplate" in data) this.pathFormatTemplate = coerceString(data.pathFormatTemplate, this.pathFormatTemplate);
+        if ("pathFormatTemplates" in data && Array.isArray(data.pathFormatTemplates)) {
+          this.pathFormatTemplates = (data.pathFormatTemplates as unknown[]).filter((v): v is string => typeof v === "string");
+        } else if ("pathFormatTemplate" in data) {
+          // backwards compat: migrate old single-string key to array
+          const v = coerceString(data.pathFormatTemplate, "");
+          if (v) this.pathFormatTemplates = [v];
+        }
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
         if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
         if ("playerGlowMode" in data) this.playerGlowMode = coerceGlowMode(data.playerGlowMode);
@@ -345,7 +351,7 @@ export const useSettingsStore = defineStore("settings", {
           hideReportsSection: this.hideReportsSection,
           sidebarClosedOnStartup: this.sidebarClosedOnStartup,
           sidebarDefaultTab: this.sidebarDefaultTab,
-          pathFormatTemplate: this.pathFormatTemplate,
+          pathFormatTemplates: this.pathFormatTemplates,
           pathFormatExamplePath: this.pathFormatExamplePath,
           playerGlowIntensity: this.playerGlowIntensity,
           playerGlowMode: this.playerGlowMode,
@@ -507,8 +513,8 @@ export const useSettingsStore = defineStore("settings", {
       this.hideWikipediaCoverSearch = value;
       this.saveToFile();
     },
-    setPathFormatTemplate(value: string) {
-      this.pathFormatTemplate = value;
+    setPathFormatTemplates(templates: string[]) {
+      this.pathFormatTemplates = templates;
       this.saveToFile();
     },
     setPathFormatExamplePath(value: string) {

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import { invoke } from "@tauri-apps/api/core";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
+import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack } from "../../types";
 import type { MissingMetadataField } from "../../stores/settings";
+import { extractBestFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import LibraryHeader from "./LibraryHeader.vue";
 import LibraryTableBody from "./LibraryTableBody.vue";
 import LibrarySettingsModal from "../modals/LibrarySettingsModal.vue";
@@ -22,7 +25,9 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
+const playlistStore = usePlaylistStore();
 const { tracks, filteredTracks, reportFilter, reportSingleField, revealTrackId } = storeToRefs(store);
+const { pathFormatTemplates } = storeToRefs(settingsStore);
 
 watch(revealTrackId, (id) => {
   if (id == null) return;
@@ -117,6 +122,56 @@ const duplicateCountInReport = computed(() => {
 });
 
 const showReportModal = computed(() => !!reportFilter.value && !!activeReportTitle.value);
+const isMissingMetadataReport = computed(() => reportFilter.value === "missing_metadata");
+const canSavePlaylist = computed(() => isMissingMetadataReport.value && activeReportTracks.value.length > 0);
+const canApplyFromPath = computed(() => isMissingMetadataReport.value && activeReportTracks.value.length > 0 && pathFormatTemplates.value.some((t) => t.trim()));
+const applyFromPathTooltip = computed(() => {
+  const templates = pathFormatTemplates.value;
+  const reportTracks = activeReportTracks.value;
+  if (!templates.some((t) => t.trim()) || !reportTracks.length) return undefined;
+  const matched = reportTracks.filter((t) => {
+    const extracted = extractBestFromPath(templates, t.path);
+    return extracted && Object.keys(buildUpdateFromExtracted(extracted)).length > 0;
+  }).length;
+  return `Applying to ${matched}/${reportTracks.length} tracks`;
+});
+
+async function saveReportAsPlaylist() {
+  const trackIds = activeReportTracks.value.map((t) => t.id);
+  if (!trackIds.length) return;
+  const base = activeReportTitle.value || "Report";
+  const existing = new Set(playlistStore.playlists.map((p) => p.name));
+  let name = base;
+  let i = 2;
+  while (existing.has(name)) name = `${base} ${i++}`;
+  await playlistStore.createPlaylistFromTracks(name, trackIds);
+  store.setReportFilter(null);
+}
+
+async function applyAllFromPath() {
+  const reportTracks = activeReportTracks.value;
+  const templates = pathFormatTemplates.value;
+  if (!reportTracks.length || !templates.some((t) => t.trim())) return;
+  const total = reportTracks.length;
+  store.setBulkProgress({ current: 0, total });
+  try {
+    for (let i = 0; i < reportTracks.length; i++) {
+      const track = reportTracks[i];
+      const extracted = extractBestFromPath(templates, track.path);
+      if (extracted) {
+        const update = buildUpdateFromExtracted(extracted);
+        if (Object.keys(update).length > 0) {
+          await invoke("write_track_metadata", { path: track.path, update });
+        }
+      }
+      store.setBulkProgress({ current: i + 1, total });
+    }
+    await store.loadTracks();
+    store.setReportFilter(null);
+  } finally {
+    store.setBulkProgress(null);
+  }
+}
 
 function selectTrackFromReport(t: CatalogTrack) {
   store.setReportFilter(null);
@@ -172,8 +227,13 @@ function selectTrackFromReport(t: CatalogTrack) {
       :title="activeReportTitle"
       :tracks="activeReportTracks"
       :duplicateCount="duplicateCountInReport"
+      :canSavePlaylist="canSavePlaylist"
+      :canApplyFromPath="canApplyFromPath"
+      :applyFromPathTooltip="applyFromPathTooltip"
       @close="store.setReportFilter(null)"
       @selectTrack="selectTrackFromReport"
+      @saveAsPlaylist="saveReportAsPlaylist"
+      @applyAllFromPath="applyAllFromPath"
     />
   </div>
 </template>

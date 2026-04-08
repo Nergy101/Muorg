@@ -573,5 +573,22 @@ onUnmounted(() => {
         aria-label="Loading"
       />
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="store.bulkProgress"
+        class="fixed inset-0 z-[500] flex items-center justify-center bg-black/80"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div class="flex flex-col items-center gap-4">
+          <div class="h-10 w-10 rounded-full border-2 border-stone-600 border-t-stone-300 animate-spin" role="status" aria-label="Processing" />
+          <div class="text-sm font-medium text-stone-300">
+            {{ store.bulkProgress.current }} / {{ store.bulkProgress.total }}
+            <span class="ml-1.5 text-stone-500">({{ Math.round(store.bulkProgress.current / store.bulkProgress.total * 100) }}%)</span>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
