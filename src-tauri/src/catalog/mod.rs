@@ -5,7 +5,7 @@ pub use db::{
     gc_deleted_tracks, get_playlist_entries, get_playlist_tracks, load_playlists, load_roots,
     load_tracks, remove_playlist_entry_by_id, remove_root, remove_tracks_from_playlist,
     rename_playlist, set_playlist_icon, rescan_root, save_roots, scan_and_insert, update_track_hash,
-    set_track_rating, update_track_metadata, CatalogTrack, Playlist, PlaylistTrackEntry,
+    set_track_rating, update_track_metadata, update_track_path, CatalogTrack, Playlist, PlaylistTrackEntry,
 };
 use std::path::Path;
 use std::sync::Mutex;

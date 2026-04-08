@@ -83,6 +83,7 @@ pub fn run() {
             commands::cast_stop,
             commands::cast_seek,
             commands::cast_set_volume,
+            commands::rename_track_file,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

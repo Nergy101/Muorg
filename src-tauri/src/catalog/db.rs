@@ -1087,3 +1087,16 @@ pub fn set_track_rating(
     .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub fn update_track_path(
+    conn: &rusqlite::Connection,
+    old_path: &str,
+    new_path: &str,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE tracks SET path = ?1 WHERE path = ?2",
+        rusqlite::params![new_path, old_path],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}

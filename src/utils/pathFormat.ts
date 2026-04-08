@@ -99,6 +99,45 @@ function parseSegment(formatSegment: string, pathSegment: string): Record<string
   return out;
 }
 
+/**
+ * Builds a new absolute file path by:
+ *  1. Extracting variables from `path` using `originTemplate`
+ *  2. Preserving the path prefix (segments before the origin match)
+ *  3. Filling `destTemplate` placeholders with those variables
+ *
+ * Returns null if the origin template doesn't match or the destination has
+ * unfilled placeholders (missing vars).
+ */
+export function buildTransformPath(
+  originTemplate: string,
+  destTemplate: string,
+  path: string,
+): string | null {
+  const vars = extractMetadataFromPath(originTemplate, path);
+  if (!vars) return null;
+
+  const lowerVars: Record<string, string> = {};
+  for (const [k, v] of Object.entries(vars)) {
+    lowerVars[k.toLowerCase()] = v;
+  }
+
+  const originSegmentCount = originTemplate.trim().split("/").filter(Boolean).length;
+  const pathNormalized = path.replace(/\\/g, "/");
+  const pathSegments = pathNormalized.split("/").filter(Boolean);
+  const isAbsolute = pathNormalized.startsWith("/");
+  const prefixSegments = pathSegments.slice(0, pathSegments.length - originSegmentCount);
+  const prefix = (isAbsolute ? "/" : "") + prefixSegments.join("/");
+
+  const destSegments = destTemplate.trim().split("/").filter(Boolean);
+  const filled = destSegments.map((seg) =>
+    seg.replace(/<([^>]+)>/g, (_, name) => lowerVars[name.toLowerCase()] ?? `<${name}>`),
+  );
+
+  if (filled.some((s) => /<[^>]+>/.test(s))) return null;
+
+  return prefix ? `${prefix}/${filled.join("/")}` : `/${filled.join("/")}`;
+}
+
 export function extractMetadataFromPath(
   formatTemplate: string,
   path: string

@@ -353,6 +353,23 @@ pub async fn cast_stop(
 
 // ── Image fetch ────────────────────────────────────────────────────────────
 
+/// Move a track file to a new path, creating parent directories as needed, and update the catalog DB.
+#[tauri::command]
+pub async fn rename_track_file(
+    catalog: State<'_, Arc<Catalog>>,
+    old_path: String,
+    new_path: String,
+) -> Result<(), String> {
+    let old = std::path::Path::new(&old_path);
+    let new = std::path::Path::new(&new_path);
+    if let Some(parent) = new.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::rename(old, new).map_err(|e| e.to_string())?;
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::update_track_path(&conn, &old_path, &new_path)
+}
+
 /// Download an image from a URL and return base64-encoded data plus MIME type (e.g. for Wikipedia album art).
 #[derive(serde::Serialize)]
 pub struct FetchedImage {
