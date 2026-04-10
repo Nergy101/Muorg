@@ -773,10 +773,15 @@ const contextMenuRating = computed(() => {
 // Playlist submenu open state
 const playlistSubmenuOpen = ref(false);
 const playlistBtnContainerRef = ref<HTMLElement | null>(null);
-const playlistSubmenuFlipUp = computed(() => {
-  if (!playlistBtnContainerRef.value) return false;
+const submenuTopPx = computed(() => {
+  if (!playlistSubmenuOpen.value || !playlistBtnContainerRef.value) return 0;
   const rect = playlistBtnContainerRef.value.getBoundingClientRect();
-  return rect.bottom + 220 > window.innerHeight;
+  const maxH = Math.min(320, window.innerHeight * 0.7);
+  // How much would it overflow the bottom?
+  const overflow = (rect.top + maxH) - (window.innerHeight - 8);
+  if (overflow <= 0) return 0;
+  // Shift up by overflow, but don't go above the viewport top
+  return Math.max(8 - rect.top, -overflow);
 });
 
 watch(contextMenu, (menu) => {
@@ -1172,9 +1177,8 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         <!-- Playlist submenu -->
         <div
           v-if="playlistSubmenuOpen && playlists.length"
-          class="absolute left-full z-[310] min-w-[160px] max-w-[220px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
-          :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
-          style="margin-left: 2px"
+          class="absolute left-full z-[310] min-w-[160px] max-w-[220px] overflow-y-auto rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+          :style="{ top: submenuTopPx + 'px', maxHeight: 'min(320px, 70vh)', marginLeft: '2px' }"
         >
           <button
             v-for="pl in playlists"
@@ -1191,8 +1195,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         <div
           v-else-if="playlistSubmenuOpen && !playlists.length"
           class="absolute left-full z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
-          :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
-          style="margin-left: 2px"
+          :style="{ top: submenuTopPx + 'px', marginLeft: '2px' }"
         >
           No playlists yet.
         </div>
