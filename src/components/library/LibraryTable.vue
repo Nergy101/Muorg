@@ -161,7 +161,11 @@ async function applyAllFromPath() {
       if (extracted) {
         const update = buildUpdateFromExtracted(extracted);
         if (Object.keys(update).length > 0) {
-          await invoke("write_track_metadata", { path: track.path, update });
+          await invoke("write_track_metadata", {
+            path: track.path,
+            update,
+            backupBeforeWrite: settingsStore.backupBeforeWrite,
+          });
         }
       }
       store.setBulkProgress({ current: i + 1, total });

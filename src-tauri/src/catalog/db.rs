@@ -36,6 +36,15 @@ pub struct CatalogTrack {
     pub rating: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct TrackBackupRecord {
+    pub id: i64,
+    pub track_path: String,
+    pub backup_path: String,
+    pub created_at: i64,
+}
+
+
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS roots (
     id INTEGER PRIMARY KEY,
@@ -74,6 +83,13 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
     position INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id);
+CREATE TABLE IF NOT EXISTS track_backups (
+    id INTEGER PRIMARY KEY,
+    track_path TEXT NOT NULL,
+    backup_path TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_track_backups_track_path ON track_backups(track_path);
 ";
 
 fn schema_has_column(
@@ -1100,3 +1116,42 @@ pub fn update_track_path(
     .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub fn record_track_backup(
+    conn: &rusqlite::Connection,
+    track_path: &str,
+    backup_path: &str,
+) -> Result<(), String> {
+    let created_at = now_secs()?;
+    conn.execute(
+        "INSERT INTO track_backups (track_path, backup_path, created_at) VALUES (?1, ?2, ?3)",
+        rusqlite::params![track_path, backup_path, created_at],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_latest_track_backup(
+    conn: &rusqlite::Connection,
+    track_path: &str,
+) -> Result<Option<TrackBackupRecord>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, track_path, backup_path, created_at FROM track_backups \
+             WHERE track_path = ?1 ORDER BY created_at DESC, id DESC LIMIT 1",
+        )
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query(rusqlite::params![track_path])
+        .map_err(|e| e.to_string())?;
+    if let Some(r) = rows.next().map_err(|e| e.to_string())? {
+        return Ok(Some(TrackBackupRecord {
+            id: r.get(0).map_err(|e| e.to_string())?,
+            track_path: r.get(1).map_err(|e| e.to_string())?,
+            backup_path: r.get(2).map_err(|e| e.to_string())?,
+            created_at: r.get(3).map_err(|e| e.to_string())?,
+        }));
+    }
+    Ok(None)
+}
+

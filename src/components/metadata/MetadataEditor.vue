@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
-import type { MetadataUpdate } from "../../types";
+import type { MetadataUpdate, TrackMetadataRead, TrackBackupRecord } from "../../types";
 import { extractBestFromPath, PATH_FIELD_MAP, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import { invoke } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -91,6 +91,10 @@ const wikipediaImageUrl = ref<string | null>(null);
 const wikipediaSearchLoading = ref(false);
 const wikipediaError = ref<string | null>(null);
 const wikipediaApplying = ref(false);
+const replayGainMeta = ref<TrackMetadataRead | null>(null);
+const latestBackup = ref<TrackBackupRecord | null>(null);
+const backupPreviewText = ref<string>("");
+const backupWouldChangeMetadata = ref(false);
 
 const coverDragOver = ref(false);
 const coverDragDepth = ref(0);
@@ -535,6 +539,54 @@ async function setRating(value: number | null) {
 
 watch(selectedTracks, syncFromTracks, { immediate: true });
 
+watch(
+  selectedTracks,
+  async (tracks) => {
+    if (tracks.length !== 1) {
+      replayGainMeta.value = null;
+      latestBackup.value = null;
+      backupWouldChangeMetadata.value = false;
+      backupPreviewText.value = "";
+      return;
+    }
+    const path = tracks[0].path;
+    try {
+      replayGainMeta.value = await invoke<TrackMetadataRead>("get_track_metadata", { path });
+    } catch {
+      replayGainMeta.value = null;
+    }
+    try {
+      latestBackup.value = await invoke<TrackBackupRecord | null>("get_latest_track_backup", { path });
+    } catch {
+      latestBackup.value = null;
+    }
+    backupPreviewText.value = "";
+    backupWouldChangeMetadata.value = false;
+    if (latestBackup.value) {
+      try {
+        const backupMeta = await invoke<TrackMetadataRead>("get_track_metadata", {
+          path: latestBackup.value.backup_path,
+        });
+        const t = tracks[0];
+        const diff =
+          normalizeForCompare(t.title) !== normalizeForCompare(backupMeta.title) ||
+          normalizeForCompare(t.artist) !== normalizeForCompare(backupMeta.artist) ||
+          normalizeForCompare(t.album) !== normalizeForCompare(backupMeta.album) ||
+          normalizeForCompare(t.album_artist) !== normalizeForCompare(backupMeta.album_artist) ||
+          normalizeForCompare(t.featuring) !== normalizeForCompare(backupMeta.featuring) ||
+          normalizeForCompare(t.year) !== normalizeForCompare(backupMeta.year) ||
+          normalizeForCompare(t.genre) !== normalizeForCompare(backupMeta.genre) ||
+          normalizeForCompare(t.track_number) !== normalizeForCompare(backupMeta.track_number) ||
+          normalizeForCompare(t.disc_number) !== normalizeForCompare(backupMeta.disc_number);
+        backupWouldChangeMetadata.value = diff;
+      } catch {
+        backupWouldChangeMetadata.value = false;
+      }
+    }
+  },
+  { immediate: true },
+);
+
 watch(displayCover, (dataUrl) => {
   if (!dataUrl) {
     coverDimensions.value = null;
@@ -728,7 +780,11 @@ async function applyFromPath() {
         if (extracted) {
           const update = buildUpdateFromExtracted(extracted);
           if (Object.keys(update).length > 0) {
-            await invoke("write_track_metadata", { path: track.path, update });
+            await invoke("write_track_metadata", {
+              path: track.path,
+              update,
+              backupBeforeWrite: settingsStore.backupBeforeWrite,
+            });
           }
         }
         store.setBulkProgress({ current: i + 1, total });
@@ -800,6 +856,66 @@ async function save() {
   } finally {
     saving.value = false;
   }
+}
+
+async function restoreLatestBackup() {
+  const track = selectedTracks.value[0];
+  if (!track) return;
+  saving.value = true;
+  saveError.value = null;
+  try {
+    await invoke("restore_track_from_latest_backup", { path: track.path });
+    await store.loadTracks();
+    await nextTick();
+    syncFromTracks();
+  } catch (e) {
+    saveError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    saving.value = false;
+  }
+}
+
+function fmtPreviewValue(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "string" && v.trim() === "") return "—";
+  return String(v);
+}
+
+function normalizeForCompare(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v.trim();
+  return String(v);
+}
+
+async function showRestoreBackupPreview(e: MouseEvent) {
+  if (!latestBackup.value) return;
+  if (!backupPreviewText.value) {
+    try {
+      const meta = await invoke<TrackMetadataRead>("get_track_metadata", {
+        path: latestBackup.value.backup_path,
+      });
+      const diffs: string[] = [];
+      const pushDiff = (label: string, current: unknown, restored: unknown) => {
+        if (normalizeForCompare(current) === normalizeForCompare(restored)) return;
+        diffs.push(`${label}: ${fmtPreviewValue(current)} -> ${fmtPreviewValue(restored)}`);
+      };
+      pushDiff("Title", title.value, meta.title);
+      pushDiff("Artist", artist.value, meta.artist);
+      pushDiff("Album", album.value, meta.album);
+      pushDiff("Album artist", albumArtist.value, meta.album_artist);
+      pushDiff("Featuring", featuring.value, meta.featuring);
+      pushDiff("Year", year.value === "" ? null : year.value, meta.year);
+      pushDiff("Genre", genre.value, meta.genre);
+      pushDiff("Track #", trackNumber.value === "" ? null : trackNumber.value, meta.track_number);
+      pushDiff("Disc #", discNumber.value === "" ? null : discNumber.value, meta.disc_number);
+      backupPreviewText.value = diffs.length
+        ? ["Backup restore changes", "", ...diffs].join("\n")
+        : "Backup restore preview\n\nNo metadata changes.";
+    } catch {
+      backupPreviewText.value = "Could not read backup preview.";
+    }
+  }
+  showTooltip(backupPreviewText.value, e, "above");
 }
 
 function clearCover() {
@@ -1126,6 +1242,26 @@ async function applyToWholeAlbum() {
               <button v-if="discNumber !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear disc number" @click="clearField('discNumber')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
+          <div>
+            <label class="block text-stone-500">ReplayGain Track (dB)</label>
+            <input
+              :value="replayGainMeta?.replaygain_track_gain_db ?? ''"
+              type="text"
+              readonly
+              class="mt-0.5 w-full rounded border border-stone-700 bg-stone-900/40 px-2 py-0.5 text-stone-400 text-sm"
+              placeholder="—"
+            />
+          </div>
+          <div>
+            <label class="block text-stone-500">ReplayGain Album (dB)</label>
+            <input
+              :value="replayGainMeta?.replaygain_album_gain_db ?? ''"
+              type="text"
+              readonly
+              class="mt-0.5 w-full rounded border border-stone-700 bg-stone-900/40 px-2 py-0.5 text-stone-400 text-sm"
+              placeholder="—"
+            />
+          </div>
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <button
@@ -1153,6 +1289,18 @@ async function applyToWholeAlbum() {
           >
             <FeatherIcon name="rotate-ccw" class="h-4 w-4 shrink-0" />
             Discard
+          </button>
+          <button
+            v-if="selectedTracks.length === 1 && latestBackup && backupWouldChangeMetadata"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-50"
+            :disabled="saving"
+            @mouseenter="showRestoreBackupPreview($event)"
+            @mouseleave="scheduleHideTooltip"
+            @click="restoreLatestBackup"
+          >
+            <FeatherIcon name="rotate-ccw" class="h-4 w-4 shrink-0" />
+            Restore backup
           </button>
           <template v-if="pathFormatTemplates.some(t => t.trim()) && selectedTracks.length">
             <span class="ml-1 border-l border-stone-600 pl-2" aria-hidden="true" />

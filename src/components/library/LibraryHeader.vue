@@ -247,6 +247,7 @@ watch(genreDropdownOpen, (open) => {
     document.removeEventListener("mousedown", onGenreDropdownClickOutside);
   }
 });
+
 </script>
 
 <template>

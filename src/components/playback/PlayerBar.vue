@@ -13,7 +13,7 @@ import FeatherIcon from "../shared/FeatherIcon.vue";
 import CastButton from "./CastButton.vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { CatalogTrack } from "../../types";
+import type { CatalogTrack, TrackMetadataRead } from "../../types";
 
 const emit = defineEmits<{
   (e: "expand"): void;
@@ -87,6 +87,7 @@ const isSeeking = ref(false);
 let shouldAutoplayNextSelection = false;
 const hasInitializedAutoplay = ref(false);
 let unlistenCastTrackEnded: (() => void) | null = null;
+const replayGainMeta = ref<TrackMetadataRead | null>(null);
 
 /** Small cache of preloaded audio blobs (next track, maybe a couple more). Keyed by track path. */
 const audioCache = new Map<string, string>();
@@ -462,6 +463,15 @@ watch(
     store.setCurrentPlaying(track.id);
     updateMediaSession(track);
     recomputeMarquee();
+    invoke<TrackMetadataRead>("get_track_metadata", { path: track.path })
+      .then((m) => {
+        replayGainMeta.value = m;
+        applyEffectiveVolume();
+      })
+      .catch(() => {
+        replayGainMeta.value = null;
+        applyEffectiveVolume();
+      });
 
     // Same file path means only metadata changed (e.g. after a metadata save + catalog
     // reload). Audio is already loaded and possibly playing — don't interrupt it.
@@ -579,6 +589,29 @@ function onAudioPlay() {
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
 }
 
+function dbToLinear(db: number): number {
+  return Math.pow(10, db / 20);
+}
+
+function getReplayGainDb(): number {
+  if (settingsStore.replayGainMode === "off" || !replayGainMeta.value) return 0;
+  const rg =
+    settingsStore.replayGainMode === "album"
+      ? replayGainMeta.value.replaygain_album_gain_db
+      : replayGainMeta.value.replaygain_track_gain_db;
+  const withPreamp = (rg ?? 0) + (settingsStore.replayGainPreampDb ?? 0);
+  return Number.isFinite(withPreamp) ? withPreamp : 0;
+}
+
+function applyEffectiveVolume() {
+  const el = audioRef.value;
+  if (!el) return;
+  const base = Math.min(1, Math.max(0, volume.value ?? 0.25));
+  let effective = base * dbToLinear(getReplayGainDb());
+  if (settingsStore.replayGainPreventClipping) effective = Math.min(1, effective);
+  el.volume = Math.max(0, Math.min(1, effective));
+}
+
 function onAudioPause() {
   isPlaying.value = false;
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
@@ -653,8 +686,7 @@ onMounted(async () => {
   nextTick(() => {
     const el = audioRef.value;
     if (!el) return;
-    const v = Math.min(1, Math.max(0, volume.value ?? 0.25));
-    el.volume = v;
+    applyEffectiveVolume();
     el.muted = isCasting.value;
   });
 
@@ -674,6 +706,10 @@ onMounted(async () => {
       }
     });
   }
+});
+
+watch([volume, () => settingsStore.replayGainMode, () => settingsStore.replayGainPreampDb, () => settingsStore.replayGainPreventClipping], () => {
+  applyEffectiveVolume();
 });
 
 onUnmounted(() => {

@@ -18,6 +18,7 @@ import type {
   MissingMetadataField,
   PlayerGlowIntensity,
   PlayerGlowMode,
+  ReplayGainMode,
 } from "../../stores/settings";
 import { extractBestFromPath, extractMetadataFromPath, buildUpdateFromExtracted, buildTransformPath } from "../../utils/pathFormat";
 import { DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../stores/settings";
@@ -82,11 +83,20 @@ const {
   playerGlowMode,
   defaultBottomPanel,
   musicRootFolder,
+  backupBeforeWrite,
+  replayGainMode,
+  replayGainPreampDb,
+  replayGainPreventClipping,
 } = storeToRefs(settingsStore);
 
 const glowSettingsDisabled = computed(
   () => playerGlowIntensity.value === "off",
 );
+const replayGainOptions: { value: ReplayGainMode; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "track", label: "Track" },
+  { value: "album", label: "Album" },
+];
 
 /** Default for Music Root Folder when not set: single loaded folder name, else "Music". */
 function musicRootFolderBasename(path: string): string {
@@ -1480,6 +1490,57 @@ watch(transformMatches, () => {
                   automatically.
                 </p>
               </div>
+              <div class="settings-section space-y-2">
+                <p class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400">
+                  <FeatherIcon name="activity" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                  ReplayGain
+                </p>
+                <p class="text-xs text-stone-500">
+                  ReplayGain is loudness metadata stored in audio tags. Muorg reads these values and adjusts playback volume so tracks and albums play at a more consistent perceived level.
+                </p>
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    v-for="opt in replayGainOptions"
+                    :key="opt.value"
+                    type="button"
+                    class="rounded border px-2 py-1 text-xs"
+                    :class="replayGainMode === opt.value ? 'border-stone-400 bg-stone-700 text-stone-100' : 'border-stone-600 text-stone-400 hover:bg-stone-700'"
+                    @click="settingsStore.setReplayGainMode(opt.value)"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+                <p class="text-xs text-stone-500">
+                  Off: ignore ReplayGain tags. Track: use each track's gain value (best for mixed playlists). Album: use album gain values to preserve loudness differences within an album.
+                </p>
+                <label class="flex items-center gap-2 text-xs text-stone-500">
+                  Preamp (dB)
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="-12"
+                    max="12"
+                    class="w-20 rounded border border-stone-600 bg-stone-800 px-2 py-0.5 text-stone-200"
+                    :value="replayGainPreampDb"
+                    @input="settingsStore.setReplayGainPreampDb(Number(($event.target as HTMLInputElement).value))"
+                  />
+                </label>
+                <p class="text-xs text-stone-500">
+                  Preamp is applied on top of ReplayGain. Positive values make playback louder; negative values add headroom.
+                </p>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="replayGainPreventClipping"
+                    class="rounded border-stone-600"
+                    @change="settingsStore.setReplayGainPreventClipping(($event.target as HTMLInputElement).checked)"
+                  />
+                  Prevent clipping
+                </label>
+                <p class="text-xs text-stone-500">
+                  ReplayGain is applied only during playback and does not edit audio files. Clipping prevention caps output gain to avoid distortion when boosted levels would exceed safe output.
+                </p>
+              </div>
 
               <div class="settings-section space-y-2">
                 <p
@@ -2264,6 +2325,31 @@ watch(transformMatches, () => {
                   >), not a full path. This should be the root folder that is
                   scanned into your library. It is used to generate relative
                   paths inside exported playlist files.
+                </p>
+              </div>
+              <div class="settings-section">
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="shield"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
+                  Metadata Backup
+                </p>
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                  <input
+                    type="checkbox"
+                    :checked="backupBeforeWrite"
+                    class="rounded border-stone-600"
+                    @change="settingsStore.setBackupBeforeWrite(($event.target as HTMLInputElement).checked)"
+                  />
+                  Backup file before metadata writes
+                </label>
+                <p class="mt-1.5 text-xs text-stone-500">
+                  When enabled, Muorg creates a backup copy before writing tags.
+                  This gives you a safety net and enables quick restore from the
+                  Metadata panel if an edit goes wrong.
                 </p>
               </div>
             </div>

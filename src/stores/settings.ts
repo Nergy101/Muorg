@@ -13,6 +13,7 @@ export type SidebarDefaultTab = "folders" | "reports" | "playlists";
 
 export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
 export type PlayerGlowMode = "dynamic" | "vivid" | "edge-blur" | "bland";
+export type ReplayGainMode = "off" | "track" | "album";
 
 export type SortableColumn = "title" | "artist" | "album" | "year" | "duration" | "rating";
 
@@ -40,6 +41,7 @@ const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact", "spacious"];
 const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "player", "queue"];
 const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
 const ALLOWED_PLAYER_GLOW_MODE: PlayerGlowMode[] = ["dynamic", "vivid", "edge-blur", "bland"];
+const ALLOWED_REPLAYGAIN_MODE: ReplayGainMode[] = ["off", "track", "album"];
 const ALLOWED_SORT_COLUMNS: SortableColumn[] = ["title", "artist", "album", "year", "duration", "rating"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",
@@ -133,6 +135,17 @@ function coercePlayerGlow(v: unknown): PlayerGlowIntensity {
     return v as PlayerGlowIntensity;
   }
   return "default";
+}
+function coerceReplayGainMode(v: unknown): ReplayGainMode {
+  if (typeof v === "string" && ALLOWED_REPLAYGAIN_MODE.includes(v as ReplayGainMode)) {
+    return v as ReplayGainMode;
+  }
+  return "off";
+}
+function coercePreampDb(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-12, Math.min(12, n));
 }
 /** Queue panel width as fraction of bottom bar (0.15–0.6). */
 function coerceQueuePanelWidthFraction(v: unknown): number {
@@ -237,6 +250,10 @@ export const useSettingsStore = defineStore("settings", {
     sessionCurrentTrackId: null as number | null,
     /** Session persistence: playback position in seconds. */
     sessionCurrentPositionSecs: 0,
+    backupBeforeWrite: false,
+    replayGainMode: "off" as ReplayGainMode,
+    replayGainPreampDb: 0,
+    replayGainPreventClipping: true,
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -309,6 +326,10 @@ export const useSettingsStore = defineStore("settings", {
           this.sessionCurrentTrackId = typeof v === "number" && Number.isFinite(v) ? v : null;
         }
         if ("sessionCurrentPositionSecs" in data) this.sessionCurrentPositionSecs = coercePositionSecs(data.sessionCurrentPositionSecs);
+        if ("backupBeforeWrite" in data) this.backupBeforeWrite = coerceBool(data.backupBeforeWrite, false);
+        if ("replayGainMode" in data) this.replayGainMode = coerceReplayGainMode(data.replayGainMode);
+        if ("replayGainPreampDb" in data) this.replayGainPreampDb = coercePreampDb(data.replayGainPreampDb);
+        if ("replayGainPreventClipping" in data) this.replayGainPreventClipping = coerceBool(data.replayGainPreventClipping, true);
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -363,6 +384,10 @@ export const useSettingsStore = defineStore("settings", {
           sessionQueueTrackIds: this.sessionQueueTrackIds,
           sessionCurrentTrackId: this.sessionCurrentTrackId,
           sessionCurrentPositionSecs: this.sessionCurrentPositionSecs,
+          backupBeforeWrite: this.backupBeforeWrite,
+          replayGainMode: this.replayGainMode,
+          replayGainPreampDb: this.replayGainPreampDb,
+          replayGainPreventClipping: this.replayGainPreventClipping,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -553,6 +578,22 @@ export const useSettingsStore = defineStore("settings", {
       this.sessionQueueTrackIds = queueTrackIds;
       this.sessionCurrentTrackId = currentTrackId;
       this.sessionCurrentPositionSecs = positionSecs;
+      this.saveToFile();
+    },
+    setBackupBeforeWrite(value: boolean) {
+      this.backupBeforeWrite = value;
+      this.saveToFile();
+    },
+    setReplayGainMode(value: ReplayGainMode) {
+      this.replayGainMode = value;
+      this.saveToFile();
+    },
+    setReplayGainPreampDb(value: number) {
+      this.replayGainPreampDb = coercePreampDb(value);
+      this.saveToFile();
+    },
+    setReplayGainPreventClipping(value: boolean) {
+      this.replayGainPreventClipping = value;
       this.saveToFile();
     },
   },

@@ -439,7 +439,12 @@ export const useCatalogStore = defineStore("catalog", {
       }
     },
     async writeMetadata(path: string, update: import("../types").MetadataUpdate) {
-      await invoke("write_track_metadata", { path, update });
+      const settingsStore = useSettingsStore();
+      await invoke("write_track_metadata", {
+        path,
+        update,
+        backupBeforeWrite: settingsStore.backupBeforeWrite,
+      });
       // Invalidate cached cover so subsequent fetches reflect newly written artwork.
       const nextCoverCache = { ...this.coverCache };
       if (path in nextCoverCache) {
@@ -453,9 +458,14 @@ export const useCatalogStore = defineStore("catalog", {
       if (paths.length === 0) return;
       this.loading = true;
       this.error = null;
+      const settingsStore = useSettingsStore();
       try {
         for (const path of paths) {
-          await invoke("write_track_metadata", { path, update });
+          await invoke("write_track_metadata", {
+            path,
+            update,
+            backupBeforeWrite: settingsStore.backupBeforeWrite,
+          });
           const nextCoverCache = { ...this.coverCache };
           if (path in nextCoverCache) {
             delete nextCoverCache[path];

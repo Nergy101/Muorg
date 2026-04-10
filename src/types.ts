@@ -20,6 +20,33 @@ export interface CatalogTrack {
   rating: number | null;
 }
 
+export interface TrackMetadataRead {
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  album_artist: string | null;
+  featuring: string | null;
+  year: number | null;
+  genre: string | null;
+  track_number: number | null;
+  disc_number: number | null;
+  duration_secs: number | null;
+  picture_base64: string | null;
+  picture_mime: string | null;
+  picture_size_bytes: number | null;
+  replaygain_track_gain_db: number | null;
+  replaygain_track_peak: number | null;
+  replaygain_album_gain_db: number | null;
+  replaygain_album_peak: number | null;
+}
+
+export interface TrackBackupRecord {
+  id: number;
+  track_path: string;
+  backup_path: string;
+  created_at: number;
+}
+
 export interface Playlist {
   id: number;
   name: string;

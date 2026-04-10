@@ -1,4 +1,5 @@
 use lofty::config::WriteOptions;
+use id3::TagLike;
 use lofty::file::{AudioFile, FileType, TaggedFileExt};
 use lofty::picture::PictureType;
 use lofty::probe::Probe;
@@ -40,6 +41,10 @@ pub struct TrackMetadata {
     pub picture_mime: Option<String>,
     /// Size in bytes of the picture data.
     pub picture_size_bytes: Option<u32>,
+    pub replaygain_track_gain_db: Option<f32>,
+    pub replaygain_track_peak: Option<f32>,
+    pub replaygain_album_gain_db: Option<f32>,
+    pub replaygain_album_peak: Option<f32>,
 }
 
 /// Detect format from path (extension) and read metadata. Returns None if unsupported or error.
@@ -88,6 +93,16 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
                 .map(|s| s.to_string());
         }
         meta.year = tag.year();
+        if meta.year.is_none() && ext.as_deref() == Some("mp3") {
+            // Fallback for MP3 files where Lofty doesn't surface year from legacy ID3 frames.
+            if let Ok(id3_tag) = id3::Tag::read_from_path(path) {
+                if let Some(y) = id3_tag.year() {
+                    if y > 0 {
+                        meta.year = Some(y as u32);
+                    }
+                }
+            }
+        }
         meta.genre = tag.genre().map(|s| s.to_string());
         meta.track_number = tag.track();
         meta.disc_number = tag.disk();
@@ -99,11 +114,33 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
             meta.picture_mime = pic.mime_type().map(|m| m.as_str().to_string());
             meta.picture_size_bytes = Some(pic.data().len() as u32);
         }
+        meta.replaygain_track_gain_db = parse_replaygain_db(
+            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_TRACK_GAIN".to_string())),
+        );
+        meta.replaygain_track_peak = parse_replaygain_plain(
+            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_TRACK_PEAK".to_string())),
+        );
+        meta.replaygain_album_gain_db = parse_replaygain_db(
+            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_ALBUM_GAIN".to_string())),
+        );
+        meta.replaygain_album_peak = parse_replaygain_plain(
+            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_ALBUM_PEAK".to_string())),
+        );
     }
 
     meta.duration_secs = Some(tagged_file.properties().duration().as_secs());
 
     Ok(meta)
+}
+
+fn parse_replaygain_db(v: Option<&str>) -> Option<f32> {
+    let s = v?.trim();
+    let trimmed = s.trim_end_matches("dB").trim_end_matches("DB").trim();
+    trimmed.parse::<f32>().ok()
+}
+
+fn parse_replaygain_plain(v: Option<&str>) -> Option<f32> {
+    v?.trim().parse::<f32>().ok()
 }
 
 /// Absent = leave unchanged; null = clear; value = set.

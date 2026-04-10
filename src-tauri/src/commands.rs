@@ -1,9 +1,11 @@
-use crate::catalog::{Catalog, CatalogTrack, Playlist, PlaylistTrackEntry};
-use crate::metadata::{read_metadata, write_metadata, MetadataUpdate};
+use crate::catalog::{Catalog, CatalogTrack, Playlist, PlaylistTrackEntry, TrackBackupRecord};
+use crate::metadata::{read_metadata, write_metadata, MetadataUpdate, TrackMetadata};
 use base64::Engine;
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::sync::Arc;
+use tauri::Manager;
 use tauri::State;
 
 #[derive(Serialize)]
@@ -136,10 +138,19 @@ pub async fn read_audio_file(path: String) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn write_track_metadata(
+    app: tauri::AppHandle,
     catalog: State<'_, Arc<Catalog>>,
     path: String,
     update: MetadataUpdate,
+    backup_before_write: Option<bool>,
 ) -> Result<(), String> {
+    if backup_before_write.unwrap_or(false) {
+        create_backup(&app, &path)?;
+        let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+        if let Some(backup_path) = latest_backup_path(&app, &path)? {
+            crate::catalog::record_track_backup(&conn, &path, &backup_path)?;
+        }
+    }
     let file_path = std::path::Path::new(&path);
     write_metadata(file_path, &update)?;
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
@@ -147,6 +158,110 @@ pub async fn write_track_metadata(
     // Recompute the content hash after the file has been modified so that a future
     // remove-and-re-add of the folder still matches this track's updated hash.
     if let Ok(new_hash) = crate::catalog::compute_content_hash(file_path) {
+        let _ = crate::catalog::update_track_hash(&conn, &path, &new_hash);
+    }
+    Ok(())
+}
+
+fn backup_file_name(path: &str) -> Result<String, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "time error".to_string())?
+        .as_secs();
+    let mut hasher = Sha256::new();
+    hasher.update(path.as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+    let ext = Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("bin");
+    Ok(format!("{}-{}.{}", now, &hash[..12], ext))
+}
+
+fn backup_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data dir: {e}"))?
+        .join("backups");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+fn create_backup(app: &tauri::AppHandle, path: &str) -> Result<String, String> {
+    let src = Path::new(path);
+    if !src.exists() {
+        return Err("Track file does not exist".to_string());
+    }
+    let backup_path = backup_dir(app)?.join(backup_file_name(path)?);
+    std::fs::copy(src, &backup_path).map_err(|e| format!("Backup failed: {e}"))?;
+    backup_path
+        .to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Invalid backup path".to_string())
+}
+
+fn latest_backup_path(app: &tauri::AppHandle, path: &str) -> Result<Option<String>, String> {
+    let dir = backup_dir(app)?;
+    let mut entries = std::fs::read_dir(dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|e| e.file_name());
+    let mut hasher = Sha256::new();
+    hasher.update(path.as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+    let needle = &hash[..12];
+    for entry in entries.into_iter().rev() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.contains(needle) {
+            let p = entry.path();
+            if let Some(s) = p.to_str() {
+                return Ok(Some(s.to_string()));
+            }
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+pub async fn get_track_metadata(path: String) -> Result<TrackMetadata, String> {
+    read_metadata(Path::new(&path))
+}
+
+#[tauri::command]
+pub async fn get_latest_track_backup(
+    catalog: State<'_, Arc<Catalog>>,
+    path: String,
+) -> Result<Option<TrackBackupRecord>, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::get_latest_track_backup(&conn, &path)
+}
+
+#[tauri::command]
+pub async fn restore_track_from_latest_backup(
+    catalog: State<'_, Arc<Catalog>>,
+    path: String,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    let backup = crate::catalog::get_latest_track_backup(&conn, &path)?
+        .ok_or_else(|| "No backup found for this track".to_string())?;
+    std::fs::copy(&backup.backup_path, &path).map_err(|e| format!("Restore failed: {e}"))?;
+    let fresh = read_metadata(Path::new(&path))?;
+    let update = MetadataUpdate {
+        title: Some(fresh.title.map(Some).unwrap_or(None)),
+        artist: Some(fresh.artist.map(Some).unwrap_or(None)),
+        album: Some(fresh.album.map(Some).unwrap_or(None)),
+        album_artist: Some(fresh.album_artist.map(Some).unwrap_or(None)),
+        featuring: Some(fresh.featuring.map(Some).unwrap_or(None)),
+        year: Some(fresh.year.map(Some).unwrap_or(None)),
+        genre: Some(fresh.genre.map(Some).unwrap_or(None)),
+        track_number: Some(fresh.track_number.map(Some).unwrap_or(None)),
+        disc_number: Some(fresh.disc_number.map(Some).unwrap_or(None)),
+        picture_base64: Some(fresh.picture_base64.map(Some).unwrap_or(None)),
+    };
+    crate::catalog::update_track_metadata(&conn, &path, &update)?;
+    if let Ok(new_hash) = crate::catalog::compute_content_hash(Path::new(&path)) {
         let _ = crate::catalog::update_track_hash(&conn, &path, &new_hash);
     }
     Ok(())
