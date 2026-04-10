@@ -313,12 +313,12 @@ function goBackToAlbums() {
     <LibraryHeader
       :activeTab="props.activeTab"
       :sidebarCollapsed="props.sidebarCollapsed"
+      :showBack="libraryLayoutMode === 'album_grid' && !!selectedAlbum"
       @update:activeTab="emit('update:activeTab', $event)"
       @expandSidebar="emit('expandSidebar')"
+      @back="goBackToAlbums"
       @openSettings="showSettingsModal = true"
       @openKeyMap="showKeyMapModal = true"
-      @expandAllGroups="tableBodyRef?.expandAllGroups?.()"
-      @collapseAllGroups="tableBodyRef?.collapseAllGroups?.()"
       @expandPlayer="emit('expandPlayer')"
     />
 
@@ -341,7 +341,6 @@ function goBackToAlbums() {
         :album-year="selectedAlbum.year"
         :cover-path="selectedAlbum.coverPath"
         :tracks="selectedAlbumTracks"
-        @back="goBackToAlbums"
         @openMetadata="emit('update:activeTab', 'metadata')"
       />
     </template>

@@ -827,7 +827,7 @@ function onTrackDragEnd() {
   store.setInternalQueueDrag(false);
 }
 
-defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
+defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextMenu });
 </script>
 
 <template>
@@ -858,16 +858,36 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
       </colgroup>
       <thead class="sticky top-0 z-10 bg-stone-800">
         <tr>
-          <th v-if="multiSelectMode" class="p-2" style="width: 32px">
-            <label class="flex cursor-pointer items-center gap-1.5 text-xs text-stone-400">
-              <input
-                type="checkbox"
-                :checked="multiSelectMode"
-                class="rounded border-stone-600"
-                @change="store.setMultiSelectMode(($event.target as HTMLInputElement).checked)"
-              />
-              Multi<template v-if="selectedTrackIds.length"> ({{ selectedTrackIds.length }})</template>
-            </label>
+          <th v-if="multiSelectMode || effectiveGroupBy !== 'none'" class="p-2 whitespace-nowrap" style="width: 32px">
+            <div class="flex items-center gap-1.5">
+              <label v-if="multiSelectMode" class="flex cursor-pointer items-center gap-1.5 text-xs text-stone-400">
+                <input
+                  type="checkbox"
+                  :checked="multiSelectMode"
+                  class="rounded border-stone-600"
+                  @change="store.setMultiSelectMode(($event.target as HTMLInputElement).checked)"
+                />
+                Multi<template v-if="selectedTrackIds.length"> ({{ selectedTrackIds.length }})</template>
+              </label>
+              <template v-if="effectiveGroupBy !== 'none'">
+                <button
+                  type="button"
+                  class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                  title="Expand all groups"
+                  @click="expandAllGroups"
+                >
+                  <FeatherIcon name="plus-square" class="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                  title="Collapse all groups"
+                  @click="collapseAllGroups"
+                >
+                  <FeatherIcon name="minus-square" class="h-3.5 w-3.5" />
+                </button>
+              </template>
+            </div>
           </th>
           <th v-if="showAlbumArtCol" class="relative p-2">
             <span

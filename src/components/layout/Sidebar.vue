@@ -8,7 +8,6 @@ import SidebarFolders from "./SidebarFolders.vue";
 import SidebarReports from "./SidebarReports.vue";
 import SidebarPlaylists from "./SidebarPlaylists.vue";
 
-defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ toggle: [] }>();
 
 const store = useCatalogStore();
@@ -38,23 +37,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <aside
-    :class="['flex h-full min-h-0 flex-col bg-stone-800/80 overflow-hidden transition-[width] duration-300 ease-in-out', collapsed ? 'w-12' : 'w-64']"
-  >
-    <!-- Collapsed: only expand button -->
-    <div v-if="collapsed" class="flex flex-1 flex-col items-center justify-start pt-3">
-      <button
-        type="button"
-        class="inline-flex h-8 w-8 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-stone-200"
-        aria-label="Expand library"
-        @click="emit('toggle')"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18m5-12l3 3l-3 3"/></svg>
-      </button>
-    </div>
-
+  <aside class="flex h-full min-h-0 w-full flex-col overflow-hidden bg-stone-800/80">
     <!-- Expanded: tab bar + scrollable content -->
-    <div v-else class="sidebar-expanded flex min-h-0 flex-1 flex-col">
+    <div class="flex min-h-0 flex-1 flex-col">
       <!-- Tab bar -->
       <div class="flex min-w-0 shrink-0 items-center gap-1 border-b border-stone-700 px-2 py-1.5">
         <div class="flex min-w-0 flex-1 items-center gap-1">
@@ -117,19 +102,3 @@ onMounted(async () => {
   </aside>
 </template>
 
-<style scoped>
-.sidebar-expanded {
-  animation: sidebar-in 200ms ease-out both;
-}
-
-@keyframes sidebar-in {
-  from {
-    opacity: 0;
-    transform: translateX(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-</style>

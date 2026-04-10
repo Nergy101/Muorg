@@ -1528,7 +1528,7 @@ async function applyToWholeAlbum() {
           class="flex max-h-[90vh] max-w-lg flex-col gap-4 rounded-lg border border-stone-600 bg-stone-800 p-4 shadow-xl"
           @click.stop
         >
-          <p class="text-sm font-medium text-stone-300">Use this image?</p>
+          <p v-if="wikipediaImageUrl" class="text-sm font-medium text-stone-300">Use this image?</p>
           <p v-if="wikipediaSearchLoading" class="text-xs text-stone-500">Searching Wikipedia…</p>
           <p v-else-if="wikipediaError" class="text-xs text-amber-400">{{ wikipediaError }}</p>
           <template v-else-if="wikipediaImageUrl">
@@ -1556,15 +1556,18 @@ async function applyToWholeAlbum() {
               </button>
             </div>
           </template>
-          <div v-else class="flex justify-end">
-            <button
-              type="button"
-              class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-              @click="closeWikipediaModal"
-            >
-              Close
-            </button>
-          </div>
+          <template v-else>
+            <p class="text-sm text-stone-400">No image was found on Wikipedia.</p>
+            <div class="flex justify-end">
+              <button
+                type="button"
+                class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                @click="closeWikipediaModal"
+              >
+                Close
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </Teleport>

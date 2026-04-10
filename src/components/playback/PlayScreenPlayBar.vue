@@ -519,19 +519,21 @@ onUnmounted(() => {
           <FeatherIcon name="skip-forward" class="h-6 w-6" />
         </button>
       </div>
-      <div class="mt-1 flex w-full items-center gap-3">
+      <div class="mt-1 flex w-full items-center gap-3 pl-4">
         <div class="flex min-w-0 flex-1 items-center gap-3">
-          <button
-            type="button"
-            class="flex items-center justify-center rounded bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100"
-            aria-label="Restart from beginning"
-            @click="restart"
-          >
-            <FeatherIcon name="square" class="h-4 w-4" />
-          </button>
-          <span class="w-10 shrink-0 text-right text-xs text-stone-400 tabular-nums">
-            {{ formatTime(currentTime) }}
-          </span>
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              class="flex items-center justify-center rounded bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100"
+              aria-label="Restart from beginning"
+              @click="restart"
+            >
+              <FeatherIcon name="square" class="h-4 w-4" />
+            </button>
+            <span class="w-10 shrink-0 text-right text-xs text-stone-400 tabular-nums">
+              {{ formatTime(currentTime) }}
+            </span>
+          </div>
           <input
             type="range"
             min="0"

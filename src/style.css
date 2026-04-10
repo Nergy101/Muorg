@@ -40,6 +40,13 @@ textarea:focus {
   border-top-width: 2px;
   border-top-color: #5b7c32 !important;
 }
+/* Player/queue mode: transparent borders (same box model as island-surface-primary, no visible border).
+   Two-class + optional [data-theme] ancestors needed to beat the per-theme !important overrides. */
+.bottom-panel-bar.bottom-panel-player,
+[data-theme] .bottom-panel-bar.bottom-panel-player {
+  border-top-color: transparent !important;
+  border-bottom: 2px solid transparent;
+}
 .island-surface {
   border: 1px solid rgb(68 64 60 / 0.9);
   border-radius: 12px;

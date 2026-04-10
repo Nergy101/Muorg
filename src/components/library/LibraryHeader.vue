@@ -20,8 +20,6 @@ const emit = defineEmits<{
   (e: "back"): void;
   (e: "openSettings"): void;
   (e: "openKeyMap"): void;
-  (e: "expandAllGroups"): void;
-  (e: "collapseAllGroups"): void;
   (e: "expandPlayer"): void;
 }>();
 
@@ -339,25 +337,32 @@ watch(genreDropdownOpen, (open) => {
           <FeatherIcon name="arrow-left" class="h-4 w-4" />
         </button>
       </Transition>
-      <button
-        v-if="!searchExpanded"
-        type="button"
-        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
-        aria-label="Search"
-        @click="expandSearch"
-      >
-        <FeatherIcon name="search" class="h-4 w-4" />
-      </button>
-      <input
-        v-else
-        ref="searchInputRef"
-        :value="searchQuery"
-        type="search"
-        placeholder="Search title, artist, album…"
-        class="min-w-[200px] rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 placeholder-stone-500"
-        @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
-        @blur="onSearchBlur"
-      />
+      <div class="flex shrink-0 items-center">
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          :class="searchExpanded ? 'rounded-l border-r-0' : 'rounded'"
+          aria-label="Search"
+          @click="expandSearch"
+        >
+          <FeatherIcon name="search" class="h-4 w-4" />
+        </button>
+        <div
+          class="overflow-hidden transition-[width] duration-200 ease-out"
+          :style="{ width: searchExpanded ? '188px' : '0px' }"
+        >
+          <input
+            ref="searchInputRef"
+            :value="searchQuery"
+            :tabindex="searchExpanded ? 0 : -1"
+            type="search"
+            placeholder="Search title, artist, album…"
+            class="h-8 w-[188px] rounded-r border border-l-0 border-stone-600 bg-stone-800 px-2 text-sm text-stone-200 placeholder-stone-500"
+            @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
+            @blur="onSearchBlur"
+          />
+        </div>
+      </div>
       <!-- Min-rating filter -->
       <div class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2 py-1" :class="filterMinRating !== null ? 'border-amber-600/60' : ''">
         <StarRating
@@ -421,7 +426,7 @@ watch(genreDropdownOpen, (open) => {
       <div v-if="libraryLayoutMode === 'table'" ref="groupByDropdownRef" class="relative min-w-max shrink-0">
         <button
           type="button"
-          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
           :class="groupByDropdownOpen ? 'border-stone-500 bg-stone-700' : ''"
           @click="toggleGroupByDropdown"
         >
@@ -454,7 +459,7 @@ watch(genreDropdownOpen, (open) => {
       <div v-if="libraryLayoutMode === 'album_grid'" ref="albumGridSortDropdownRef" class="relative min-w-max shrink-0">
         <button
           type="button"
-          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
           :class="albumGridSortDropdownOpen ? 'border-stone-500 bg-stone-700' : ''"
           @click="toggleAlbumGridSortDropdown"
         >
@@ -483,39 +488,6 @@ watch(genreDropdownOpen, (open) => {
         </div>
       </div>
 
-      <div
-        v-if="groupByValue !== 'none'"
-        class="flex items-center gap-1"
-      >
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Expand all groups to show every track', $event)"
-          @mouseleave="scheduleHideTooltip"
-        >
-          <button
-            type="button"
-            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
-            aria-label="Expand all"
-            @click="$emit('expandAllGroups')"
-          >
-            <FeatherIcon name="plus-square" class="h-3.5 w-3.5" />
-          </button>
-        </span>
-        <span
-          class="inline-flex"
-          @mouseenter="showTooltip('Collapse all groups to show only group headers', $event)"
-          @mouseleave="scheduleHideTooltip"
-        >
-          <button
-            type="button"
-            class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
-            aria-label="Collapse all"
-            @click="$emit('collapseAllGroups')"
-          >
-            <FeatherIcon name="minus-square" class="h-3.5 w-3.5" />
-          </button>
-        </span>
-      </div>
       <div class="flex items-center gap-1 rounded border border-stone-600 bg-stone-800 p-0.5">
         <button
           type="button"
@@ -639,5 +611,6 @@ watch(genreDropdownOpen, (open) => {
   opacity: 0;
   transform: translateX(-6px);
 }
+
 </style>
 

@@ -402,39 +402,40 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_minmax(72px,auto)] p-2 overflow-hidden"
-    :class="[
-      'gap-2',
-      { 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget },
-    ]"
+    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_minmax(72px,auto)] p-2 gap-y-2 overflow-hidden"
+    :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
+    :style="{
+      gridTemplateColumns: sidebarCollapsed ? '0px 1fr' : '256px 1fr',
+      columnGap: sidebarCollapsed ? '0px' : '8px',
+      transition: 'grid-template-columns 400ms ease-out, column-gap 400ms ease-out',
+    }"
   >
-    <!-- Top row: sidebar + table view -->
-    <div class="row-start-1 row-end-2 flex min-h-0 min-w-0 overflow-hidden">
+    <!-- Top row: sidebar island -->
+    <Transition name="sidebar-island">
       <div
-        class="h-full w-64 shrink-0 overflow-hidden island-surface island-surface-primary transition-[width,margin,opacity,transform] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)]"
-        :class="sidebarCollapsed ? 'w-0 mr-0 opacity-0 -translate-x-2 pointer-events-none border-0 shadow-none' : 'mr-2 opacity-100 translate-x-0'"
+        v-show="!sidebarCollapsed"
+        class="row-start-1 row-end-2 col-start-1 col-end-2 h-full overflow-hidden island-surface island-surface-primary"
       >
-        <Sidebar :collapsed="sidebarCollapsed" @toggle="sidebarCollapsed = !sidebarCollapsed" />
+        <Sidebar @toggle="sidebarCollapsed = !sidebarCollapsed" />
       </div>
-      <main class="flex min-w-0 flex-1 flex-col overflow-hidden transition-colors duration-150 island-surface island-surface-primary">
-        <LibraryTable
-          v-model:activeTab="activeTab"
-          :sidebar-collapsed="sidebarCollapsed"
-          @expandSidebar="sidebarCollapsed = false"
-          @expandPlayer="expandPlayer"
-        />
-      </main>
-    </div>
+    </Transition>
+    <main
+      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface island-surface-primary"
+    >
+      <LibraryTable
+        v-model:activeTab="activeTab"
+        :sidebar-collapsed="sidebarCollapsed"
+        @expandSidebar="sidebarCollapsed = false"
+        @expandPlayer="expandPlayer"
+      />
+    </main>
 
     <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Resizable height when Player or Queue tab. -->
     <div
       ref="queueBarContainerRef"
-      class="bottom-panel-bar row-start-2 row-end-3 flex shrink-0 min-w-0 flex-col bg-stone-900/95 overflow-hidden"
-      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : 'island-surface island-surface-primary'"
-      :style="{
-        borderTopWidth: activeTab === 'player' || activeTab === 'queue' ? '0px' : '2px',
-        ...(bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : {}),
-      }"
+      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col overflow-hidden"
+      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95 bottom-panel-player' : 'island-surface island-surface-primary'"
+      :style="bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : undefined"
     >
       <!-- Resize handle at top when Player or Queue tab -->
       <div
@@ -606,3 +607,17 @@ onUnmounted(() => {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.sidebar-island-enter-active {
+  transition: opacity 350ms ease-out, transform 350ms ease-out;
+}
+.sidebar-island-leave-active {
+  transition: opacity 280ms ease-in, transform 280ms ease-in;
+}
+.sidebar-island-enter-from,
+.sidebar-island-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+</style>
