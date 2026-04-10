@@ -14,6 +14,8 @@ export type SidebarDefaultTab = "folders" | "reports" | "playlists";
 export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
 export type PlayerGlowMode = "dynamic" | "vivid" | "edge-blur" | "bland";
 export type ReplayGainMode = "off" | "track" | "album";
+export type LibraryLayoutMode = "table" | "album_grid";
+export type AlbumGridSortBy = "album" | "artist" | "year";
 
 export type SortableColumn = "title" | "artist" | "album" | "year" | "duration" | "rating";
 
@@ -42,6 +44,8 @@ const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "player",
 const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
 const ALLOWED_PLAYER_GLOW_MODE: PlayerGlowMode[] = ["dynamic", "vivid", "edge-blur", "bland"];
 const ALLOWED_REPLAYGAIN_MODE: ReplayGainMode[] = ["off", "track", "album"];
+const ALLOWED_LIBRARY_LAYOUT_MODES: LibraryLayoutMode[] = ["table", "album_grid"];
+const ALLOWED_ALBUM_GRID_SORT_BY: AlbumGridSortBy[] = ["album", "artist", "year"];
 const ALLOWED_SORT_COLUMNS: SortableColumn[] = ["title", "artist", "album", "year", "duration", "rating"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",
@@ -141,6 +145,18 @@ function coerceReplayGainMode(v: unknown): ReplayGainMode {
     return v as ReplayGainMode;
   }
   return "off";
+}
+function coerceLibraryLayoutMode(v: unknown): LibraryLayoutMode {
+  if (typeof v === "string" && ALLOWED_LIBRARY_LAYOUT_MODES.includes(v as LibraryLayoutMode)) {
+    return v as LibraryLayoutMode;
+  }
+  return "table";
+}
+function coerceAlbumGridSortBy(v: unknown): AlbumGridSortBy {
+  if (typeof v === "string" && ALLOWED_ALBUM_GRID_SORT_BY.includes(v as AlbumGridSortBy)) {
+    return v as AlbumGridSortBy;
+  }
+  return "album";
 }
 function coercePreampDb(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
@@ -254,6 +270,8 @@ export const useSettingsStore = defineStore("settings", {
     replayGainMode: "off" as ReplayGainMode,
     replayGainPreampDb: 0,
     replayGainPreventClipping: true,
+    libraryLayoutMode: "table" as LibraryLayoutMode,
+    albumGridSortBy: "album" as AlbumGridSortBy,
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -330,6 +348,8 @@ export const useSettingsStore = defineStore("settings", {
         if ("replayGainMode" in data) this.replayGainMode = coerceReplayGainMode(data.replayGainMode);
         if ("replayGainPreampDb" in data) this.replayGainPreampDb = coercePreampDb(data.replayGainPreampDb);
         if ("replayGainPreventClipping" in data) this.replayGainPreventClipping = coerceBool(data.replayGainPreventClipping, true);
+        if ("libraryLayoutMode" in data) this.libraryLayoutMode = coerceLibraryLayoutMode(data.libraryLayoutMode);
+        if ("albumGridSortBy" in data) this.albumGridSortBy = coerceAlbumGridSortBy(data.albumGridSortBy);
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -388,6 +408,8 @@ export const useSettingsStore = defineStore("settings", {
           replayGainMode: this.replayGainMode,
           replayGainPreampDb: this.replayGainPreampDb,
           replayGainPreventClipping: this.replayGainPreventClipping,
+          libraryLayoutMode: this.libraryLayoutMode,
+          albumGridSortBy: this.albumGridSortBy,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -594,6 +616,14 @@ export const useSettingsStore = defineStore("settings", {
     },
     setReplayGainPreventClipping(value: boolean) {
       this.replayGainPreventClipping = value;
+      this.saveToFile();
+    },
+    setLibraryLayoutMode(value: LibraryLayoutMode) {
+      this.libraryLayoutMode = coerceLibraryLayoutMode(value);
+      this.saveToFile();
+    },
+    setAlbumGridSortBy(value: AlbumGridSortBy) {
+      this.albumGridSortBy = coerceAlbumGridSortBy(value);
       this.saveToFile();
     },
   },

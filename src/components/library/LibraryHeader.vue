@@ -28,7 +28,7 @@ const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
 const { searchQuery, groupBy, filteredTracks, activePlaylistId, filterMinRating, filterGenre, tracks } = storeToRefs(store);
 const { playlists } = storeToRefs(playlistStore);
-const { theme } = storeToRefs(settingsStore);
+const { theme, libraryLayoutMode, albumGridSortBy } = storeToRefs(settingsStore);
 
 const activePlaylist = computed(() =>
   activePlaylistId.value != null
@@ -216,6 +216,38 @@ watch(groupByDropdownOpen, (open) => {
   }
 });
 
+const albumGridSortLabels: Record<string, string> = {
+  album: "Sort by album",
+  artist: "Sort by artist",
+  year: "Sort by year",
+};
+
+const albumGridSortDropdownOpen = ref(false);
+const albumGridSortDropdownRef = ref<HTMLElement | null>(null);
+
+function toggleAlbumGridSortDropdown() {
+  albumGridSortDropdownOpen.value = !albumGridSortDropdownOpen.value;
+}
+
+function selectAlbumGridSort(value: "album" | "artist" | "year") {
+  settingsStore.setAlbumGridSortBy(value);
+  albumGridSortDropdownOpen.value = false;
+}
+
+function onAlbumGridSortDropdownClickOutside(e: MouseEvent) {
+  if (albumGridSortDropdownRef.value && !albumGridSortDropdownRef.value.contains(e.target as Node)) {
+    albumGridSortDropdownOpen.value = false;
+  }
+}
+
+watch(albumGridSortDropdownOpen, (open) => {
+  if (open) {
+    document.addEventListener("mousedown", onAlbumGridSortDropdownClickOutside);
+  } else {
+    document.removeEventListener("mousedown", onAlbumGridSortDropdownClickOutside);
+  }
+});
+
 const allGenres = computed(() => {
   const set = new Set<string>();
   for (const t of tracks.value) {
@@ -315,7 +347,6 @@ watch(genreDropdownOpen, (open) => {
           :class="filterGenre !== null ? 'border-primary text-[#5b7c32]' : 'border-stone-600 text-stone-200'"
           @click="toggleGenreDropdown"
         >
-          <FeatherIcon name="tag" class="h-3.5 w-3.5 shrink-0" :class="filterGenre !== null ? 'text-[#5b7c32]' : 'text-stone-500'" />
           <span>{{ filterGenre ?? "Genre" }}</span>
           <button
             v-if="filterGenre !== null"
@@ -350,8 +381,8 @@ watch(genreDropdownOpen, (open) => {
         </div>
       </div>
 
-      <!-- Custom group-by dropdown -->
-      <div ref="groupByDropdownRef" class="relative min-w-max shrink-0">
+      <!-- Custom group-by dropdown (table layout only) -->
+      <div v-if="libraryLayoutMode === 'table'" ref="groupByDropdownRef" class="relative min-w-max shrink-0">
         <button
           type="button"
           class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
@@ -377,6 +408,39 @@ watch(genreDropdownOpen, (open) => {
               name="check"
               class="h-3.5 w-3.5 shrink-0"
               :class="groupByValue === val ? 'text-stone-200' : 'invisible'"
+            />
+            {{ label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Sort-by dropdown (album grid layout only) -->
+      <div v-if="libraryLayoutMode === 'album_grid'" ref="albumGridSortDropdownRef" class="relative min-w-max shrink-0">
+        <button
+          type="button"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
+          :class="albumGridSortDropdownOpen ? 'border-stone-500 bg-stone-700' : ''"
+          @click="toggleAlbumGridSortDropdown"
+        >
+          <span class="whitespace-nowrap">{{ albumGridSortLabels[albumGridSortBy] }}</span>
+          <FeatherIcon name="chevron-down" class="h-3.5 w-3.5 text-stone-400 transition-transform" :class="albumGridSortDropdownOpen ? 'rotate-180' : ''" />
+        </button>
+        <div
+          v-if="albumGridSortDropdownOpen"
+          class="absolute left-0 top-full z-[300] mt-1 min-w-full rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+        >
+          <button
+            v-for="(label, val) in albumGridSortLabels"
+            :key="val"
+            type="button"
+            class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-stone-700"
+            :class="albumGridSortBy === val ? 'text-stone-200' : 'text-stone-400'"
+            @click="selectAlbumGridSort(val as 'album' | 'artist' | 'year')"
+          >
+            <FeatherIcon
+              name="check"
+              class="h-3.5 w-3.5 shrink-0"
+              :class="albumGridSortBy === val ? 'text-stone-200' : 'invisible'"
             />
             {{ label }}
           </button>
@@ -415,6 +479,26 @@ watch(genreDropdownOpen, (open) => {
             <FeatherIcon name="minus-square" class="h-3.5 w-3.5" />
           </button>
         </span>
+      </div>
+      <div class="flex items-center gap-1 rounded border border-stone-600 bg-stone-800 p-0.5">
+        <button
+          type="button"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
+          :class="libraryLayoutMode === 'table' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
+          aria-label="Table layout"
+          @click="settingsStore.setLibraryLayoutMode('table')"
+        >
+          <FeatherIcon name="list" class="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
+          :class="libraryLayoutMode === 'album_grid' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
+          aria-label="Album grid layout"
+          @click="settingsStore.setLibraryLayoutMode('album_grid')"
+        >
+          <FeatherIcon name="grid" class="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
 

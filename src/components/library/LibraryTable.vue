@@ -10,6 +10,8 @@ import type { MissingMetadataField } from "../../stores/settings";
 import { extractBestFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import LibraryHeader from "./LibraryHeader.vue";
 import LibraryTableBody from "./LibraryTableBody.vue";
+import AlbumGridView, { type AlbumGridItem } from "./AlbumGridView.vue";
+import AlbumDetailView from "./AlbumDetailView.vue";
 import LibrarySettingsModal from "../modals/LibrarySettingsModal.vue";
 import LibraryKeyMapModal from "../modals/LibraryKeyMapModal.vue";
 import LibraryReportsModal from "../modals/LibraryReportsModal.vue";
@@ -29,7 +31,7 @@ const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 const playlistStore = usePlaylistStore();
 const { tracks, filteredTracks, reportFilter, reportSingleField, revealTrackId } = storeToRefs(store);
-const { pathFormatTemplates } = storeToRefs(settingsStore);
+const { pathFormatTemplates, libraryLayoutMode, albumGridSortBy } = storeToRefs(settingsStore);
 
 watch(revealTrackId, (id) => {
   if (id == null) return;
@@ -40,14 +42,101 @@ watch(revealTrackId, (id) => {
     store.clearActivePlaylist();
   }
   emit("update:activeTab", "library");
-  // Wait for Vue to flush the filter change and the virtual list to re-render its rows.
-  nextTick(() => nextTick(() => tableBodyRef.value?.scrollToTrackId(id)));
+  if (libraryLayoutMode.value === "album_grid") {
+    // Find which album the track belongs to and open it.
+    const track = tracks.value.find((t) => t.id === id);
+    if (track) {
+      const key = albumKeyFor(track);
+      nextTick(() => nextTick(() => {
+        albumGridRef.value?.scrollToAlbum(key);
+        requestAnimationFrame(() => { selectedAlbumKey.value = key; });
+      }));
+    }
+  } else {
+    // Wait for Vue to flush the filter change and the virtual list to re-render its rows.
+    nextTick(() => nextTick(() => tableBodyRef.value?.scrollToTrackId(id)));
+  }
 });
 const { missingMetadataFields } = storeToRefs(settingsStore);
 
 const showSettingsModal = ref(false);
 const showKeyMapModal = ref(false);
 const tableBodyRef = ref<InstanceType<typeof LibraryTableBody> | null>(null);
+const albumGridRef = ref<InstanceType<typeof AlbumGridView> | null>(null);
+const selectedAlbumKey = ref<string | null>(null);
+
+function albumKeyFor(track: CatalogTrack): string {
+  const album = (track.album ?? "Unknown Album").trim() || "Unknown Album";
+  return album.toLocaleLowerCase();
+}
+
+const albums = computed<AlbumGridItem[]>(() => {
+  if (libraryLayoutMode.value !== "album_grid") return [];
+  const grouped = new Map<string, { album: string; albumArtist: string; tracks: CatalogTrack[] }>();
+  for (const track of filteredTracks.value) {
+    const key = albumKeyFor(track);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.tracks.push(track);
+      continue;
+    }
+    grouped.set(key, {
+      album: (track.album ?? "Unknown Album").trim() || "Unknown Album",
+      albumArtist: ((track.album_artist ?? track.artist) ?? "Unknown Artist").trim() || "Unknown Artist",
+      tracks: [track],
+    });
+  }
+  return [...grouped.entries()]
+    .map(([key, data]) => {
+      const firstWithCover = data.tracks.find((t) => t.has_cover) ?? data.tracks[0];
+      const years = data.tracks.map((t) => t.year).filter((y): y is number => y != null);
+      const uniqueArtists = [...new Set(
+        data.tracks
+          .map((t) => ((t.album_artist ?? t.artist) ?? "Unknown Artist").trim() || "Unknown Artist")
+      )];
+      return {
+        key,
+        album: data.album,
+        albumArtist: uniqueArtists.length > 1 ? "Various Artists" : uniqueArtists[0],
+        year: years.length ? Math.min(...years) : null,
+        trackCount: data.tracks.length,
+        totalDurationSecs: data.tracks.reduce((sum, t) => sum + (t.duration_secs ?? 0), 0),
+        coverPath: firstWithCover.path,
+      };
+    })
+    .sort((a, b) => {
+      const sortBy = albumGridSortBy.value;
+      if (sortBy === "artist") {
+        const cmp = a.albumArtist.localeCompare(b.albumArtist, undefined, { sensitivity: "base" });
+        if (cmp !== 0) return cmp;
+        return a.album.localeCompare(b.album, undefined, { sensitivity: "base" });
+      }
+      if (sortBy === "year") {
+        const ay = a.year ?? 0;
+        const by_ = b.year ?? 0;
+        if (ay !== by_) return ay - by_;
+        return a.album.localeCompare(b.album, undefined, { sensitivity: "base" });
+      }
+      // default: album
+      const albumCmp = a.album.localeCompare(b.album, undefined, { sensitivity: "base" });
+      if (albumCmp !== 0) return albumCmp;
+      return a.albumArtist.localeCompare(b.albumArtist, undefined, { sensitivity: "base" });
+    });
+});
+
+const selectedAlbum = computed(() => albums.value.find((a) => a.key === selectedAlbumKey.value) ?? null);
+const selectedAlbumTracks = computed(() => {
+  if (!selectedAlbum.value) return [];
+  return filteredTracks.value.filter((t) => albumKeyFor(t) === selectedAlbum.value!.key);
+});
+
+watch(libraryLayoutMode, (mode) => {
+  if (mode === "table") selectedAlbumKey.value = null;
+});
+watch(albums, () => {
+  if (!selectedAlbumKey.value) return;
+  if (!albums.value.some((a) => a.key === selectedAlbumKey.value)) selectedAlbumKey.value = null;
+});
 
 function isFieldMissing(track: CatalogTrack, field: MissingMetadataField): boolean {
   if (field === "has_cover") return !track.has_cover;
@@ -209,6 +298,14 @@ function selectTrackFromReport(t: CatalogTrack) {
   const targetId = t.id;
   queueMicrotask(() => tableBodyRef.value?.scrollToTrackId(targetId));
 }
+
+function openAlbum(albumKey: string) {
+  selectedAlbumKey.value = albumKey;
+}
+
+function goBackToAlbums() {
+  selectedAlbumKey.value = null;
+}
 </script>
 
 <template>
@@ -225,7 +322,29 @@ function selectTrackFromReport(t: CatalogTrack) {
       @expandPlayer="emit('expandPlayer')"
     />
 
-    <LibraryTableBody ref="tableBodyRef" @openMetadata="emit('update:activeTab', 'metadata')" />
+    <LibraryTableBody
+      v-if="libraryLayoutMode === 'table'"
+      ref="tableBodyRef"
+      @openMetadata="emit('update:activeTab', 'metadata')"
+    />
+    <template v-else>
+      <AlbumGridView
+        ref="albumGridRef"
+        v-show="!selectedAlbum"
+        :albums="albums"
+        @openAlbum="openAlbum"
+      />
+      <AlbumDetailView
+        v-if="selectedAlbum"
+        :album-title="selectedAlbum.album"
+        :album-artist="selectedAlbum.albumArtist"
+        :album-year="selectedAlbum.year"
+        :cover-path="selectedAlbum.coverPath"
+        :tracks="selectedAlbumTracks"
+        @back="goBackToAlbums"
+        @openMetadata="emit('update:activeTab', 'metadata')"
+      />
+    </template>
 
     <LibrarySettingsModal v-model:open="showSettingsModal" />
     <LibraryKeyMapModal v-model:open="showKeyMapModal" />

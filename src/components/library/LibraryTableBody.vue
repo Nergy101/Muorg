@@ -14,6 +14,19 @@ import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 import StarRating from "../shared/StarRating.vue";
 
 const emit = defineEmits<{ (e: "openMetadata"): void }>();
+const props = withDefaults(defineProps<{
+  tracksOverride?: CatalogTrack[] | null;
+  disableGrouping?: boolean;
+  hideArtistColumn?: boolean;
+  hideAlbumColumn?: boolean;
+  hideYearColumn?: boolean;
+}>(), {
+  tracksOverride: null,
+  disableGrouping: false,
+  hideArtistColumn: false,
+  hideAlbumColumn: false,
+  hideYearColumn: false,
+});
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
@@ -23,6 +36,9 @@ const { pendingAdd, tryAddToPlaylist, confirmAddAll, confirmAddDeduped, cancelPe
 const { activePlaylistTrackIds, activePlaylistEntryIds } = storeToRefs(store);
 
 const { filteredTracks, selectedTrackIds, groupBy, currentPlayingTrackId, multiSelectMode } = storeToRefs(store);
+const effectiveGroupBy = computed<"none" | "artist" | "album">(() => (
+  props.disableGrouping ? "none" : groupBy.value
+));
 const {
   defaultGroupsExpanded,
   navWrap,
@@ -66,7 +82,8 @@ function applySortToTracks(tracks: CatalogTrack[]): CatalogTrack[] {
   });
 }
 
-const sortedFilteredTracks = computed(() => applySortToTracks(filteredTracks.value));
+const baseTracks = computed(() => props.tracksOverride ?? filteredTracks.value);
+const sortedFilteredTracks = computed(() => applySortToTracks(baseTracks.value));
 
 function toggleSortColumn(col: "title" | "artist" | "album" | "year" | "duration" | "rating") {
   if (tableSortColumn.value === col) {
@@ -118,7 +135,7 @@ function selectRow(t: CatalogTrack) {
 }
 
 const groupedRows = computed(() => {
-  const by = groupBy.value;
+  const by = effectiveGroupBy.value;
   const base = sortedFilteredTracks.value;
   if (by === "none" || !base.length) return null;
   const map = new Map<string, GroupRow>();
@@ -183,7 +200,7 @@ const groupedRows = computed(() => {
 });
 
 const groupCovers = computed(() => {
-  const by = groupBy.value;
+  const by = effectiveGroupBy.value;
   const showForAlbum = by === "album" && groupHeaderAlbumArt.value;
   const showForArtist = by === "artist" && groupHeaderAlbumArtForArtist.value;
   if (!showForAlbum && !showForArtist) return {} as Record<string, import("../../stores/catalog").CoverInfo | null | undefined>;
@@ -205,7 +222,7 @@ const appliedDefaultForSession = ref(false);
 const focusedRowIndex = ref(-1);
 
 watch(
-  groupBy,
+  effectiveGroupBy,
   (by) => {
     if (by === "none") return;
     appliedDefaultForSession.value = false;
@@ -331,15 +348,20 @@ const focusedGroupKey = computed<string | null>(() => {
 });
 
 const showAlbumArtCol = computed(() =>
-  tableColAlbumArt.value && !(hideAlbumArtColInAlbumGroups.value && groupBy.value === "album")
+  tableColAlbumArt.value && !(hideAlbumArtColInAlbumGroups.value && effectiveGroupBy.value === "album")
 );
+const showArtistCol = computed(() => !props.hideArtistColumn);
+const showAlbumCol = computed(() => !props.hideAlbumColumn);
+const showYearCol = computed(() => tableColYear.value && !props.hideYearColumn);
 
 const tableColCount = computed(() => {
   let n = 1;
   if (multiSelectMode.value) n += 1;
   if (showAlbumArtCol.value) n += 1;
   n += 3;
-  if (tableColYear.value) n += 1;
+  if (!showArtistCol.value) n -= 1;
+  if (!showAlbumCol.value) n -= 1;
+  if (showYearCol.value) n += 1;
   if (tableColDuration.value) n += 1;
   if (tableColFormat.value) n += 1;
   if (tableColPath.value) n += 1;
@@ -399,9 +421,9 @@ const rowHeights = computed(() => {
   const trackHeight =
     density === "compact" ? ROW_HEIGHT_TRACK_COMPACT : ROW_HEIGHT_TRACK_COMFORTABLE;
   const groupHeight =
-    density === "spacious" && groupBy.value === "album"
+    density === "spacious" && effectiveGroupBy.value === "album"
       ? ROW_HEIGHT_GROUP_SPACIOUS
-      : density === "comfortable" && groupBy.value === "album" && groupHeaderAlbumArt.value
+      : density === "comfortable" && effectiveGroupBy.value === "album" && groupHeaderAlbumArt.value
         ? ROW_HEIGHT_GROUP_COMFORTABLE
         : ROW_HEIGHT_GROUP;
   return rows.map((r) => (r.type === "group" ? groupHeight : trackHeight));
@@ -486,7 +508,7 @@ const bottomSpacerHeight = computed(() => {
 // When grouping with cover art headers enabled, proactively fetch covers for all tracks in groups
 watch(
   () => {
-    const by = groupBy.value;
+    const by = effectiveGroupBy.value;
     if (by === "album" && groupHeaderAlbumArt.value) return groupedRows.value;
     if (by === "artist" && groupHeaderAlbumArtForArtist.value) return groupedRows.value;
     return null;
@@ -495,7 +517,7 @@ watch(
     if (!groups) return;
     for (const g of groups) {
       // For artist groups we only need the first track's cover; for album groups fetch all
-      const tracks = groupBy.value === "artist" ? g.tracks.slice(0, 1) : g.tracks;
+      const tracks = effectiveGroupBy.value === "artist" ? g.tracks.slice(0, 1) : g.tracks;
       for (const t of tracks) {
         store.fetchCover(t.path);
       }
@@ -821,9 +843,9 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
         <col v-if="showAlbumArtCol" :style="{ width: colWidth('albumArt') + 'px' }" />
         <col :style="{ width: colWidth('title') + 'px' }" />
         <col v-if="tableColRating" :style="{ width: colWidth('rating') + 'px' }" />
-        <col :style="{ width: colWidth('artist') + 'px' }" />
-        <col :style="{ width: colWidth('album') + 'px' }" />
-        <col v-if="tableColYear" :style="{ width: colWidth('year') + 'px' }" />
+        <col v-if="showArtistCol" :style="{ width: colWidth('artist') + 'px' }" />
+        <col v-if="showAlbumCol" :style="{ width: colWidth('album') + 'px' }" />
+        <col v-if="showYearCol" :style="{ width: colWidth('year') + 'px' }" />
         <col v-if="tableColDuration" :style="{ width: colWidth('duration') + 'px' }" />
         <col v-if="tableColFormat" :style="{ width: colWidth('format') + 'px' }" />
         <col v-if="tableColPath" :style="{ width: colWidth('path') + 'px' }" />
@@ -871,7 +893,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('rating', $event)"
             />
           </th>
-          <th class="relative p-2 font-medium text-stone-400 overflow-hidden">
+          <th v-if="showArtistCol" class="relative p-2 font-medium text-stone-400 overflow-hidden">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('artist')">
               Artist
               <span v-if="tableSortColumn === 'artist'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -882,7 +904,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('artist', $event)"
             />
           </th>
-          <th class="relative p-2 font-medium text-stone-400 overflow-hidden">
+          <th v-if="showAlbumCol" class="relative p-2 font-medium text-stone-400 overflow-hidden">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('album')">
               Album
               <span v-if="tableSortColumn === 'album'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -893,7 +915,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               @mousedown="onResizeStart('album', $event)"
             />
           </th>
-          <th v-if="tableColYear" class="relative p-2 font-medium text-stone-400">
+          <th v-if="showYearCol" class="relative p-2 font-medium text-stone-400">
             <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('year')">
               Year
               <span v-if="tableSortColumn === 'year'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
@@ -959,14 +981,14 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
               <td
                 :colspan="tableColCount"
                 class="p-2"
-                :class="{ 'py-3': tableDensity === 'spacious' && groupBy === 'album' }"
+                :class="{ 'py-3': tableDensity === 'spacious' && effectiveGroupBy === 'album' }"
               >
                 <span
                   class="inline-flex flex-wrap items-center gap-2"
-                  :class="{ 'gap-3': tableDensity === 'spacious' && groupBy === 'album' }"
+                  :class="{ 'gap-3': tableDensity === 'spacious' && effectiveGroupBy === 'album' }"
                 >
                   <span
-                    v-if="(groupBy === 'album' && groupHeaderAlbumArt) || (groupBy === 'artist' && groupHeaderAlbumArtForArtist)"
+                    v-if="(effectiveGroupBy === 'album' && groupHeaderAlbumArt) || (effectiveGroupBy === 'artist' && groupHeaderAlbumArtForArtist)"
                     class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
                     :class="tableDensity === 'spacious' ? 'h-20 w-20' : tableDensity === 'comfortable' ? 'h-12 w-12' : 'h-8 w-8'"
                   >
@@ -998,7 +1020,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   >
                     <FeatherIcon name="chevron-right" class="h-2.5 w-2.5" />
                   </span>
-                  {{ row.group.label }}<template v-if="groupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
+                  {{ row.group.label }}<template v-if="effectiveGroupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
                   <span v-if="!hideGroupTrackCount" class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
                   <StarRating
                     v-if="groupAvgRating(row.group.tracks) !== null"
@@ -1008,7 +1030,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                     class="ml-1"
                   />
                   <button
-                    v-if="groupBy === 'album'"
+                    v-if="effectiveGroupBy === 'album'"
                     type="button"
                     class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
                     aria-label="Edit album"
@@ -1018,7 +1040,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                     <FeatherIcon name="edit-2" class="h-3.5 w-3.5" />
                   </button>
                   <button
-                    v-if="groupBy === 'album' && groupCovers[row.key] === null && !hideWikipediaCoverSearch"
+                    v-if="effectiveGroupBy === 'album' && groupCovers[row.key] === null && !hideWikipediaCoverSearch"
                     type="button"
                     class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
                     aria-label="From Wikipedia"
@@ -1077,13 +1099,13 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups });
                   @update:model-value="(r) => store.setRating([row.track.path], r)"
                 />
               </td>
-              <td class="p-2 text-stone-200">
+              <td v-if="showArtistCol" class="p-2 text-stone-200">
                 <MarqueeCell :text="row.track.artist ?? '—'" />
               </td>
-              <td class="p-2 text-stone-200">
+              <td v-if="showAlbumCol" class="p-2 text-stone-200">
                 <MarqueeCell :text="row.track.album ?? '—'" />
               </td>
-              <td v-if="tableColYear" class="p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
+              <td v-if="showYearCol" class="p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
               <td v-if="tableColDuration" class="p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
               <td v-if="tableColFormat" class="p-2 text-stone-400">{{ row.track.format }}</td>
               <td v-if="tableColPath" class="min-w-0 p-2 text-stone-500">
