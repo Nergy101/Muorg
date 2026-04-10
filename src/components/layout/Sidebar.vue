@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
-import FeatherIcon from "../shared/FeatherIcon.vue";
 import SidebarFolders from "./SidebarFolders.vue";
 import SidebarReports from "./SidebarReports.vue";
 import SidebarPlaylists from "./SidebarPlaylists.vue";
@@ -50,7 +49,7 @@ onMounted(async () => {
         aria-label="Expand library"
         @click="emit('toggle')"
       >
-        <FeatherIcon name="chevrons-right" class="h-5 w-5" />
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18m5-12l3 3l-3 3"/></svg>
       </button>
     </div>
 
@@ -97,7 +96,7 @@ onMounted(async () => {
           aria-label="Collapse library"
           @click="emit('toggle')"
         >
-          <FeatherIcon name="chevrons-left" class="h-4 w-4" />
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18m7-6l-3-3l3-3"/></svg>
         </button>
       </div>
 

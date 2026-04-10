@@ -11,11 +11,13 @@ import StarRating from "../shared/StarRating.vue";
 const props = defineProps<{
   activeTab: "library" | "metadata" | "player" | "queue";
   sidebarCollapsed: boolean;
+  showBack?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
   (e: "expandSidebar"): void;
+  (e: "back"): void;
   (e: "openSettings"): void;
   (e: "openKeyMap"): void;
   (e: "expandAllGroups"): void;
@@ -104,6 +106,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
     if (e.key === "f") {
       e.preventDefault();
+      searchExpandedLocal.value = true;
       nextTick(() => searchInputRef.value?.focus());
       return;
     }
@@ -166,6 +169,17 @@ function onGlobalKeydown(e: KeyboardEvent) {
 }
 
 const searchInputRef = ref<HTMLInputElement | null>(null);
+const searchExpandedLocal = ref(false);
+const searchExpanded = computed(() => searchExpandedLocal.value || !!searchQuery.value);
+
+function expandSearch() {
+  searchExpandedLocal.value = true;
+  nextTick(() => searchInputRef.value?.focus());
+}
+
+function onSearchBlur() {
+  if (!searchQuery.value) searchExpandedLocal.value = false;
+}
 
 onMounted(() => {
   document.addEventListener("keydown", onGlobalKeydown);
@@ -311,16 +325,38 @@ watch(genreDropdownOpen, (open) => {
           aria-label="Expand sidebar"
           @click="emit('expandSidebar')"
         >
-          <FeatherIcon name="chevrons-right" class="h-4 w-4" />
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18m5-12l3 3l-3 3"/></svg>
         </button>
       </Transition>
+      <Transition name="fade-inline">
+        <button
+          v-if="props.showBack"
+          type="button"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Back"
+          @click="emit('back')"
+        >
+          <FeatherIcon name="arrow-left" class="h-4 w-4" />
+        </button>
+      </Transition>
+      <button
+        v-if="!searchExpanded"
+        type="button"
+        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+        aria-label="Search"
+        @click="expandSearch"
+      >
+        <FeatherIcon name="search" class="h-4 w-4" />
+      </button>
       <input
+        v-else
         ref="searchInputRef"
         :value="searchQuery"
         type="search"
         placeholder="Search title, artist, album…"
         class="min-w-[200px] rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 placeholder-stone-500"
         @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
+        @blur="onSearchBlur"
       />
       <!-- Min-rating filter -->
       <div class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2 py-1" :class="filterMinRating !== null ? 'border-amber-600/60' : ''">
