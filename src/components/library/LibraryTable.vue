@@ -16,10 +16,12 @@ import LibraryReportsModal from "../modals/LibraryReportsModal.vue";
 
 const props = defineProps<{
   activeTab: "library" | "metadata" | "player" | "queue";
+  sidebarCollapsed: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
+  (e: "expandSidebar"): void;
   (e: "expandPlayer"): void;
 }>();
 
@@ -213,7 +215,9 @@ function selectTrackFromReport(t: CatalogTrack) {
   <div class="flex flex-1 flex-col overflow-hidden">
     <LibraryHeader
       :activeTab="props.activeTab"
+      :sidebarCollapsed="props.sidebarCollapsed"
       @update:activeTab="emit('update:activeTab', $event)"
+      @expandSidebar="emit('expandSidebar')"
       @openSettings="showSettingsModal = true"
       @openKeyMap="showKeyMapModal = true"
       @expandAllGroups="tableBodyRef?.expandAllGroups?.()"

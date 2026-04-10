@@ -675,7 +675,7 @@ watch(transformMatches, () => {
 
         <div class="flex min-h-0 flex-1">
           <nav
-            class="settings-tab-nav w-36 shrink-0 border-r border-stone-700 bg-stone-800/90 py-2"
+            class="settings-tab-nav w-36 shrink-0 border-r border-stone-700 bg-stone-800/90 py-2 flex flex-col gap-1"
             aria-label="Settings sections"
           >
             <template v-for="tab in settingsTabs" :key="tab.id">
@@ -685,7 +685,7 @@ watch(transformMatches, () => {
               />
               <button
                 type="button"
-                class="settings-tab-btn flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors"
+                class="settings-tab-btn mx-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors"
                 :class="settingsTab === tab.id ? 'settings-tab-btn--active' : undefined"
                 @click="settingsTab = tab.id"
               >
@@ -2732,12 +2732,12 @@ watch(transformMatches, () => {
   color: rgb(250 250 249);
 }
 .settings-tab-btn--active {
-  background-color: rgba(5, 150, 105, 0.18);
-  color: rgb(248 250 252);
+  background-color: rgba(91, 124, 50, 0.24);
+  color: rgb(231 229 228);
 }
 .settings-tab-btn--active:hover {
-  background-color: rgba(5, 150, 105, 0.18);
-  color: rgb(248 250 252);
+  background-color: rgba(91, 124, 50, 0.28);
+  color: rgb(231 229 228);
 }
 
 .settings-section {

@@ -22,21 +22,25 @@ type SidebarTabId = "folders" | "reports" | "playlists";
 const activeSidebarTab = ref<SidebarTabId>(
   (settingsStore.sidebarDefaultTab as SidebarTabId) ?? "folders",
 );
+let sidebarDataLoadedOnce = false;
 
 onMounted(async () => {
-  await store.loadRoots();
-  await store.loadTracks();
-  await playlistStore.loadPlaylists();
-  // Restore saved session queue (silently — no auto-play)
-  if (settingsStore.sessionQueueTrackIds.length > 0) {
-    store.restoreSession(settingsStore.sessionQueueTrackIds);
+  if (!sidebarDataLoadedOnce) {
+    await store.loadRoots();
+    await store.loadTracks();
+    await playlistStore.loadPlaylists();
+    // Restore saved session queue (silently — no auto-play)
+    if (settingsStore.sessionQueueTrackIds.length > 0) {
+      store.restoreSession(settingsStore.sessionQueueTrackIds);
+    }
+    sidebarDataLoadedOnce = true;
   }
 });
 </script>
 
 <template>
   <aside
-    :class="['flex h-full min-h-0 flex-col border-r border-stone-700 bg-stone-800/80 overflow-hidden transition-[width] duration-300 ease-in-out', collapsed ? 'w-12' : 'w-64']"
+    :class="['flex h-full min-h-0 flex-col bg-stone-800/80 overflow-hidden transition-[width] duration-300 ease-in-out', collapsed ? 'w-12' : 'w-64']"
   >
     <!-- Collapsed: only expand button -->
     <div v-if="collapsed" class="flex flex-1 flex-col items-center justify-start pt-3">

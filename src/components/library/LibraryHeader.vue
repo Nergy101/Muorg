@@ -10,10 +10,12 @@ import StarRating from "../shared/StarRating.vue";
 
 const props = defineProps<{
   activeTab: "library" | "metadata" | "player" | "queue";
+  sidebarCollapsed: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
+  (e: "expandSidebar"): void;
   (e: "openSettings"): void;
   (e: "openKeyMap"): void;
   (e: "expandAllGroups"): void;
@@ -269,6 +271,17 @@ watch(genreDropdownOpen, (open) => {
           <FeatherIcon name="x" class="h-3 w-3" />
         </button>
       </div>
+      <Transition name="fade-inline">
+        <button
+          v-if="props.sidebarCollapsed"
+          type="button"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Expand sidebar"
+          @click="emit('expandSidebar')"
+        >
+          <FeatherIcon name="chevrons-right" class="h-4 w-4" />
+        </button>
+      </Transition>
       <input
         ref="searchInputRef"
         :value="searchQuery"
@@ -495,4 +508,16 @@ watch(genreDropdownOpen, (open) => {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.fade-inline-enter-active,
+.fade-inline-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.fade-inline-enter-from,
+.fade-inline-leave-to {
+  opacity: 0;
+  transform: translateX(-6px);
+}
+</style>
 

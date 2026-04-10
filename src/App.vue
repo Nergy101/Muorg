@@ -402,24 +402,37 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_minmax(72px,auto)] grid-cols-[auto,1fr] overflow-hidden"
-    :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
+    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_minmax(72px,auto)] p-2 overflow-hidden"
+    :class="[
+      'gap-2',
+      { 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget },
+    ]"
   >
     <!-- Top row: sidebar + table view -->
-    <div class="row-start-1 row-end-2 col-start-1 col-end-2 h-full overflow-hidden">
-      <Sidebar :collapsed="sidebarCollapsed" @toggle="sidebarCollapsed = !sidebarCollapsed" />
+    <div class="row-start-1 row-end-2 flex min-h-0 min-w-0 overflow-hidden">
+      <div
+        class="h-full w-64 shrink-0 overflow-hidden island-surface island-surface-primary transition-[width,margin,opacity,transform] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        :class="sidebarCollapsed ? 'w-0 mr-0 opacity-0 -translate-x-2 pointer-events-none border-0 shadow-none' : 'mr-2 opacity-100 translate-x-0'"
+      >
+        <Sidebar :collapsed="sidebarCollapsed" @toggle="sidebarCollapsed = !sidebarCollapsed" />
+      </div>
+      <main class="flex min-w-0 flex-1 flex-col overflow-hidden transition-colors duration-150 island-surface island-surface-primary">
+        <LibraryTable
+          v-model:activeTab="activeTab"
+          :sidebar-collapsed="sidebarCollapsed"
+          @expandSidebar="sidebarCollapsed = false"
+          @expandPlayer="expandPlayer"
+        />
+      </main>
     </div>
-    <main
-      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150"
-    >
-      <LibraryTable v-model:activeTab="activeTab" @expandPlayer="expandPlayer" />
-    </main>
 
     <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Resizable height when Player or Queue tab. -->
     <div
       ref="queueBarContainerRef"
-      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col border-t bg-stone-900/95 overflow-hidden"
+      class="bottom-panel-bar row-start-2 row-end-3 flex shrink-0 min-w-0 flex-col bg-stone-900/95 overflow-hidden"
+      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : 'island-surface island-surface-primary'"
       :style="{
+        borderTopWidth: activeTab === 'player' || activeTab === 'queue' ? '0px' : '2px',
         ...(bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : {}),
       }"
     >
@@ -429,7 +442,7 @@ onUnmounted(() => {
         role="separator"
         aria-orientation="horizontal"
         :aria-valuenow="bottomPanelHeightPx"
-        class="panel-height-divider shrink-0 h-1 min-w-0 cursor-row-resize border-b-2 border-primary bg-stone-600/50 hover:bg-stone-500/60"
+        class="panel-height-divider shrink-0 h-1 min-w-0 cursor-row-resize bg-transparent"
         @mousedown.prevent="onPanelDividerMouseDown"
       />
       <!-- Content: flex-col for play, grid for queue, flex-col for library/metadata -->
@@ -441,6 +454,7 @@ onUnmounted(() => {
         <!-- Single player slot: shrink-to-content so it always hugs the bottom without its own scrollbar. -->
         <div
           class="flex min-w-0 flex-col shrink-0 overflow-hidden"
+          :class="activeTab === 'player' || activeTab === 'queue' ? 'island-surface island-surface-primary' : ''"
         >
           <PlayerBar
             :class="activeTab === 'player' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
@@ -457,10 +471,10 @@ onUnmounted(() => {
             role="separator"
             aria-orientation="vertical"
             :aria-valuenow="Math.round(queuePanelWidthFraction * 100)"
-            class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize border-x-2 border-primary bg-stone-600/50"
+            class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize bg-transparent"
             @mousedown.prevent="onQueueDividerMouseDown"
           />
-          <div class="flex min-h-0 min-w-0 flex-col overflow-hidden">
+          <div class="flex min-h-0 min-w-0 flex-col overflow-hidden island-surface island-surface-primary">
             <QueueList />
           </div>
         </template>

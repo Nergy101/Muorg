@@ -475,9 +475,9 @@ onUnmounted(() => {
   <!-- Default bottom-panel layout -->
   <div
     v-else-if="singleTrack"
-    class="flex shrink-0 flex-col items-center gap-1 border-t border-stone-700 bg-stone-900/95 px-4 py-3"
+    class="flex shrink-0 flex-col items-center gap-1"
   >
-    <div class="flex w-full flex-col items-center gap-1">
+    <div class="flex w-full flex-col items-center gap-1 bg-stone-800/80">
       <div
         class="flex flex-col items-center gap-1 cursor-context-menu rounded-lg px-2 pb-1 pt-2 transition-colors hover:bg-stone-700/40"
         @contextmenu.prevent="onTitleContextMenu"
@@ -523,7 +523,7 @@ onUnmounted(() => {
         <div class="flex min-w-0 flex-1 items-center gap-3">
           <button
             type="button"
-            class="flex items-center justify-center rounded-full bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100"
+            class="flex items-center justify-center rounded bg-stone-800/80 p-2 text-stone-300 hover:bg-stone-700 hover:text-stone-100"
             aria-label="Restart from beginning"
             @click="restart"
           >

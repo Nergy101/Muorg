@@ -40,13 +40,28 @@ textarea:focus {
   border-top-width: 2px;
   border-top-color: #5b7c32 !important;
 }
+.island-surface {
+  border: 1px solid rgb(68 64 60 / 0.9);
+  border-radius: 12px;
+  background: rgb(41 37 36 / 0.86);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 10px 24px rgb(0 0 0 / 0.22);
+}
+.island-surface-primary {
+  border-color: #5b7c32;
+  border-width: 2px;
+}
 [data-theme="light"] .border-primary { border-color: #4d7c2c; }
 [data-theme="light"] .bottom-panel-bar { border-top-color: #4d7c2c !important; }
+[data-theme="light"] .island-surface { border-color: rgb(214 211 209 / 0.95); background: rgb(255 255 255 / 0.9); box-shadow: 0 8px 20px rgb(0 0 0 / 0.08); }
+[data-theme="light"] .island-surface-primary { border-color: #4d7c2c; }
 [data-theme="doom"] .border-primary { border-color: #8b0000; }
 [data-theme="doom"] .bottom-panel-bar { border-top-color: #8b0000 !important; }
+[data-theme="doom"] .island-surface { border-color: rgb(96 82 82 / 0.85); background: rgb(24 22 22 / 0.84); box-shadow: 0 10px 24px rgb(0 0 0 / 0.3); }
+[data-theme="doom"] .island-surface-primary { border-color: #8b0000; }
 [data-theme="orkish"] .border-primary { border-color: #2e7d32; }
 [data-theme="orkish"] .bottom-panel-bar { border-top-color: #2e7d32 !important; }
-
+[data-theme="orkish"] .island-surface { border-color: rgb(46 125 50 / 0.7); background: rgb(228 239 214 / 0.9); box-shadow: 0 8px 20px rgb(0 0 0 / 0.14); }
+[data-theme="orkish"] .island-surface-primary { border-color: #2e7d32; }
 /* Shuffle button when active – primary accent background (themes override below) */
 .shuffle-active-bg {
   background-color: #5b7c32;
@@ -368,6 +383,8 @@ textarea:focus {
 [data-theme="doom"] .bg-stone-950\/80 { background-color: rgba(13, 2, 2, 0.8) !important; }
 [data-theme="doom"] .bg-stone-900\/90 { background-color: rgba(13, 2, 2, 0.9) !important; }
 [data-theme="doom"] .bg-stone-900\/95 { background-color: rgba(13, 2, 2, 0.95) !important; }
+[data-theme="doom"] .text-stone-100 { color: #e0b040 !important; }
+[data-theme="doom"] .text-white { color: #e0b040 !important; }
 [data-theme="doom"] .text-stone-200 { color: #c4a035 !important; }
 [data-theme="doom"] .text-stone-300 { color: #b8860b !important; }
 [data-theme="doom"] .text-stone-400 { color: #8b6914 !important; }
@@ -416,6 +433,15 @@ textarea:focus {
   background: linear-gradient(to right, #8b0000 0%, #8b0000 var(--progress-percent, 0%), rgb(87 83 78) var(--progress-percent, 0%), rgb(87 83 78) 100%) !important;
 }
 [data-theme="doom"] .player-progress-slider::-moz-range-progress { background: #8b0000 !important; }
+/* Volume bar fill (overrides component scoped gradient) */
+[data-theme="doom"] .player-volume-slider {
+  background: linear-gradient(to right, #8b0000 0%, #8b0000 var(--volume-percent, 0%), rgb(87 83 78) var(--volume-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="doom"] .player-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #8b0000 0%, #8b0000 var(--volume-percent, 0%), rgb(87 83 78) var(--volume-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="doom"] .player-volume-slider::-moz-range-track { background: rgb(87 83 78) !important; }
+[data-theme="doom"] .player-volume-slider::-moz-range-progress { background: #8b0000 !important; }
 /* Play button, accent buttons, shuffle when active */
 [data-theme="doom"] .player-play-btn { background-color: #8b0000 !important; }
 [data-theme="doom"] .player-play-btn:hover { background-color: #a52a2a !important; }
@@ -444,6 +470,9 @@ textarea:focus {
 [data-theme="orkish"] .bg-stone-950\/80 { background-color: rgba(232, 245, 233, 0.8) !important; }
 [data-theme="orkish"] .bg-stone-900\/90 { background-color: rgba(232, 245, 233, 0.9) !important; }
 [data-theme="orkish"] .bg-stone-900\/95 { background-color: rgba(232, 245, 233, 0.95) !important; }
+[data-theme="orkish"] thead.bg-stone-800 { background-color: #dcedc8 !important; }
+[data-theme="orkish"] .bottom-panel-bar { background-color: rgba(232, 245, 233, 0.95) !important; }
+[data-theme="orkish"] .text-stone-100 { color: #174a16 !important; }
 [data-theme="orkish"] .text-stone-200 { color: #1b5e20 !important; }
 [data-theme="orkish"] .text-stone-300 { color: #2e7d32 !important; }
 [data-theme="orkish"] .text-stone-400 { color: #33691e !important; }
@@ -476,6 +505,7 @@ textarea:focus {
 [data-theme="orkish"] .border-amber-500\/80 { border-color: rgba(46, 125, 50, 0.7) !important; }
 [data-theme="orkish"] .bg-amber-950\/20 { background-color: rgba(220, 237, 200, 0.6) !important; }
 [data-theme="orkish"] .text-red-400 { color: #388e3c !important; }
+[data-theme="orkish"] .text-white { color: #1b5e20 !important; }
 [data-theme="orkish"] .hover\:bg-red-600:hover { background-color: #66bb6a !important; }
 [data-theme="orkish"] .hover\:text-white:hover { color: #1b5e20 !important; }
 [data-theme="orkish"] .ring-amber-500\/80 { --tw-ring-color: rgba(46, 125, 50, 0.7) !important; }
