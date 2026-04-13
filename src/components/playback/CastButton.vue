@@ -6,6 +6,8 @@ import { useCatalogStore } from "../../stores/catalog";
 import CastDevicePicker from "./CastDevicePicker.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
 
+const props = defineProps<{ size?: 'sm' | 'md' }>();
+
 const castStore = useCastStore();
 const catalogStore = useCatalogStore();
 const { isCasting, castStatus } = storeToRefs(castStore);
@@ -67,7 +69,7 @@ function handleClick() {
     :disabled="isDisabled"
     :title="title"
     :class="[
-      'flex items-center justify-center rounded p-1.5 transition-colors',
+      props.size === 'md' ? 'flex items-center justify-center rounded p-2 transition-colors' : 'flex items-center justify-center rounded p-1.5 transition-colors',
       isCasting
         ? 'text-green-400 hover:bg-stone-600'
         : isTranscoding

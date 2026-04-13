@@ -111,7 +111,7 @@ onUnmounted(() => {
   <div class="flex items-center gap-2">
     <button
       type="button"
-      class="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+      :class="props.mode === 'playscreen' ? 'flex shrink-0 items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200' : 'flex shrink-0 items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200'"
       :aria-label="displayVolume === 0 ? 'Unmute' : 'Mute'"
       :title="displayVolume === 0 ? 'Unmute' : 'Mute'"
       @click="toggleMute"

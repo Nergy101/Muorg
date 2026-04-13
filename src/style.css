@@ -782,7 +782,7 @@ textarea:focus {
   flex-shrink: 0;
   border-top: 1px solid rgba(38 38 38 0.8);
   background: rgb(0 0 0 / 0.7);
-  padding: 1rem 1.5rem;
+  padding: 1rem 1.5rem 0.5rem;
   backdrop-filter: blur(4px);
 }
 #maximized-player-overlay .mpx-bar-inner {

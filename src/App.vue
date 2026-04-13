@@ -402,7 +402,7 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_minmax(72px,auto)] p-2 gap-y-2 overflow-hidden"
+    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_auto] pt-2 px-2 pb-0 gap-y-2 overflow-hidden"
     :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
     :style="{
       gridTemplateColumns: sidebarCollapsed ? '0px 1fr' : '256px 1fr',
@@ -420,7 +420,7 @@ onUnmounted(() => {
       </div>
     </Transition>
     <main
-      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface"
+      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface border border-stone-700/50"
     >
       <LibraryTable
         v-model:activeTab="activeTab"
@@ -434,7 +434,7 @@ onUnmounted(() => {
     <div
       ref="queueBarContainerRef"
       class="row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col overflow-hidden"
-      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : 'bg-stone-900'"
+      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : ''"
       :style="bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : undefined"
     >
       <!-- Resize handle at top when Player or Queue tab -->

@@ -1078,7 +1078,7 @@ async function applyToWholeAlbum() {
 <template>
   <div
     v-if="selectedTracks.length"
-    class="border-t border-stone-700 bg-stone-800/90 p-3"
+    class="p-3"
   >
     <p v-if="selectedTracks.length > 1" class="mb-2 text-xs text-stone-500">
       Set these fields for all selected tracks. Shared values are pre-filled; change only what you want to update. Only the fields you edit are written—others (e.g. title) stay as-is per track.

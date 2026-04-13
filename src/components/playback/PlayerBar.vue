@@ -92,9 +92,12 @@ const replayGainMeta = ref<TrackMetadataRead | null>(null);
 /** Small cache of preloaded audio blobs (next track, maybe a couple more). Keyed by track path. */
 const audioCache = new Map<string, string>();
 
-const marqueeContainerRef = ref<HTMLDivElement | null>(null);
-const shouldScrollMarquee = ref(false);
-const marqueeDistance = ref(0);
+const titleMarqueeRef = ref<HTMLDivElement | null>(null);
+const artistMarqueeRef = ref<HTMLDivElement | null>(null);
+const shouldScrollTitle = ref(false);
+const titleMarqueeDistance = ref(0);
+const shouldScrollArtist = ref(false);
+const artistMarqueeDistance = ref(0);
 
 const titlePopover = ref<{ text: string; x: number; y: number } | null>(null);
 let titlePopoverHideTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -296,11 +299,15 @@ const singleTrack = computed(() => {
 const marqueeTitle = computed(() => {
   const t = singleTrack.value;
   if (!t) return "";
+  return t.title || t.path.split(/[/\\]/).pop() || "Track";
+});
+
+const marqueeArtist = computed(() => {
+  const t = singleTrack.value;
+  if (!t) return "";
   const parts: string[] = [];
-  const baseTitle = t.title || t.path.split(/[/\\]/).pop() || "Track";
-  if (baseTitle) parts.push(baseTitle);
-  if (playbarShowAlbumInMarquee.value && t.album) parts.push(t.album);
   if (t.artist) parts.push(t.artist);
+  if (playbarShowAlbumInMarquee.value && t.album) parts.push(t.album);
   return parts.join(" · ");
 });
 
@@ -318,19 +325,33 @@ const progressPercent = computed(() => {
 
 function recomputeMarquee() {
   nextTick(() => {
-    const el = marqueeContainerRef.value;
-    if (!el) {
-      shouldScrollMarquee.value = false;
-      marqueeDistance.value = 0;
-      return;
-    }
-    const diff = el.scrollWidth - el.clientWidth;
-    if (diff > 4) {
-      shouldScrollMarquee.value = true;
-      marqueeDistance.value = diff;
+    const titleEl = titleMarqueeRef.value;
+    if (titleEl) {
+      const diff = titleEl.scrollWidth - titleEl.clientWidth;
+      if (diff > 4) {
+        shouldScrollTitle.value = true;
+        titleMarqueeDistance.value = diff;
+      } else {
+        shouldScrollTitle.value = false;
+        titleMarqueeDistance.value = 0;
+      }
     } else {
-      shouldScrollMarquee.value = false;
-      marqueeDistance.value = 0;
+      shouldScrollTitle.value = false;
+      titleMarqueeDistance.value = 0;
+    }
+    const artistEl = artistMarqueeRef.value;
+    if (artistEl) {
+      const diff = artistEl.scrollWidth - artistEl.clientWidth;
+      if (diff > 4) {
+        shouldScrollArtist.value = true;
+        artistMarqueeDistance.value = diff;
+      } else {
+        shouldScrollArtist.value = false;
+        artistMarqueeDistance.value = 0;
+      }
+    } else {
+      shouldScrollArtist.value = false;
+      artistMarqueeDistance.value = 0;
     }
   });
 }
@@ -446,8 +467,10 @@ watch(
       }
       isPlaying.value = false;
       store.setCurrentPlaying(null);
-      shouldScrollMarquee.value = false;
-      marqueeDistance.value = 0;
+      shouldScrollTitle.value = false;
+      titleMarqueeDistance.value = 0;
+      shouldScrollArtist.value = false;
+      artistMarqueeDistance.value = 0;
       updateMediaSession(null);
       return;
     }
@@ -719,7 +742,7 @@ onUnmounted(() => {
 <template>
   <div
     v-if="singleTrack"
-    class="flex shrink-0 flex-col items-center gap-2 border-t border-stone-700 px-3 py-2"
+    class="flex shrink-0 flex-col items-center gap-2 px-3 pb-1"
   >
     <audio
       ref="audioRef"
@@ -734,17 +757,18 @@ onUnmounted(() => {
       @durationchange="onDurationChange"
     />
     <div class="flex min-w-0 w-full items-center gap-3">
-      <div class="flex min-w-0 max-w-[260px] shrink-0 items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-600/50 cursor-context-menu" @contextmenu="onAlbumArtContextMenu">
+      <div class="flex w-64 shrink-0 items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-600/50 cursor-context-menu" @contextmenu="onAlbumArtContextMenu">
         <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="medium" />
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 flex-1 flex flex-col gap-0.5">
+          <!-- Title row -->
           <div
-            ref="marqueeContainerRef"
-            class="text-xs font-medium"
+            ref="titleMarqueeRef"
+            class="text-xs font-semibold leading-tight"
             :class="playbarDisableMarquee ? 'truncate' : 'metadata-marquee w-48'"
           >
             <template v-if="playbarDisableMarquee">
               <span
-                class="text-stone-200"
+                class="text-stone-100"
                 @mouseenter="showTitlePopover(marqueeTitle, $event)"
                 @mouseleave="scheduleHideTitlePopover"
               >
@@ -752,19 +776,44 @@ onUnmounted(() => {
               </span>
             </template>
             <template v-else>
-              <template v-if="!shouldScrollMarquee">
-                <span class="text-stone-200">
-                  {{ marqueeTitle }}
-                </span>
+              <template v-if="!shouldScrollTitle">
+                <span class="text-stone-100">{{ marqueeTitle }}</span>
               </template>
               <div
                 v-else
                 class="metadata-marquee-inner"
-                :style="{ '--marquee-distance': marqueeDistance + 'px' }"
+                :style="{ '--marquee-distance': titleMarqueeDistance + 'px' }"
               >
-                <span class="text-stone-200">
-                  {{ marqueeTitle }}
-                </span>
+                <span class="text-stone-100">{{ marqueeTitle }}</span>
+              </div>
+            </template>
+          </div>
+          <!-- Artist row -->
+          <div
+            v-if="marqueeArtist"
+            ref="artistMarqueeRef"
+            class="text-xs leading-tight"
+            :class="playbarDisableMarquee ? 'truncate' : 'metadata-marquee w-48'"
+          >
+            <template v-if="playbarDisableMarquee">
+              <span
+                class="text-stone-400"
+                @mouseenter="showTitlePopover(marqueeArtist, $event)"
+                @mouseleave="scheduleHideTitlePopover"
+              >
+                {{ marqueeArtist }}
+              </span>
+            </template>
+            <template v-else>
+              <template v-if="!shouldScrollArtist">
+                <span class="text-stone-400">{{ marqueeArtist }}</span>
+              </template>
+              <div
+                v-else
+                class="metadata-marquee-inner"
+                :style="{ '--marquee-distance': artistMarqueeDistance + 'px' }"
+              >
+                <span class="text-stone-400">{{ marqueeArtist }}</span>
               </div>
             </template>
           </div>
@@ -826,29 +875,29 @@ onUnmounted(() => {
             @mouseleave="onSeekMouseUp"
           />
           <span class="shrink-0 w-8 text-left text-xs text-stone-500 tabular-nums">{{ formatTime(displayDuration) }}</span>
-          <button
-            type="button"
-            class="flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
-            :class="shuffle ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
-            aria-label="Shuffle next track"
-            :aria-pressed="shuffle"
-            @click="settingsStore.setShuffle(!shuffle)"
-          >
-            <FeatherIcon name="shuffle" class="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            class="relative flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
-            :class="repeat !== 'none' ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
-            :aria-label="repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'"
-            @click="settingsStore.setRepeat(repeat === 'none' ? 'all' : repeat === 'all' ? 'one' : 'none')"
-          >
-            <FeatherIcon name="repeat" class="h-4 w-4" />
-            <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
-          </button>
         </div>
       </div>
-      <div class="ml-3 flex w-44 shrink-0 items-center justify-end gap-1.5">
+      <div class="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          class="flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
+          :class="shuffle ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
+          aria-label="Shuffle next track"
+          :aria-pressed="shuffle"
+          @click="settingsStore.setShuffle(!shuffle)"
+        >
+          <FeatherIcon name="shuffle" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="relative flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
+          :class="repeat !== 'none' ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
+          :aria-label="repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'"
+          @click="settingsStore.setRepeat(repeat === 'none' ? 'all' : repeat === 'all' ? 'one' : 'none')"
+        >
+          <FeatherIcon name="repeat" class="h-4 w-4" />
+          <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+        </button>
         <VolumeControl mode="metadata" />
         <CastButton />
         <button

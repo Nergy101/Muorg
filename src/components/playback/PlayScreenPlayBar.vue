@@ -476,7 +476,7 @@ onUnmounted(() => {
   >
     <div class="flex w-full flex-col items-center gap-1 bg-stone-800/80">
       <div
-        class="flex flex-col items-center gap-1 cursor-context-menu rounded-lg px-2 pb-1 pt-2 transition-colors hover:bg-stone-700/40"
+        class="flex flex-col items-center gap-1 cursor-context-menu rounded-lg px-2 pt-2 transition-colors hover:bg-stone-700/40"
         @contextmenu.prevent="onTitleContextMenu"
       >
         <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="large" :size-px="playbarAlbumArtSizePx" />
@@ -549,6 +549,8 @@ onUnmounted(() => {
           <span class="w-10 shrink-0 text-left text-xs text-stone-400 tabular-nums">
             {{ formatTime(displayDuration) }}
           </span>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
           <button
             type="button"
             class="flex shrink-0 items-center justify-center rounded p-2 hover:bg-stone-700 hover:text-stone-200"
@@ -569,10 +571,8 @@ onUnmounted(() => {
             <FeatherIcon name="repeat" class="h-4 w-4" />
             <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
           </button>
-        </div>
-        <div class="ml-auto flex shrink-0 items-center justify-end gap-2">
           <VolumeControl mode="playscreen" />
-          <CastButton />
+          <CastButton size="md" />
           <button
             v-if="!hideExpand"
             type="button"
