@@ -414,13 +414,13 @@ onUnmounted(() => {
     <Transition name="sidebar-island">
       <div
         v-show="!sidebarCollapsed"
-        class="row-start-1 row-end-2 col-start-1 col-end-2 h-full overflow-hidden island-surface island-surface-primary"
+        class="row-start-1 row-end-2 col-start-1 col-end-2 h-full overflow-hidden island-surface"
       >
         <Sidebar @toggle="sidebarCollapsed = !sidebarCollapsed" />
       </div>
     </Transition>
     <main
-      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface island-surface-primary"
+      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface"
     >
       <LibraryTable
         v-model:activeTab="activeTab"
@@ -433,8 +433,8 @@ onUnmounted(() => {
     <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Resizable height when Player or Queue tab. -->
     <div
       ref="queueBarContainerRef"
-      class="bottom-panel-bar row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col overflow-hidden"
-      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95 bottom-panel-player' : 'island-surface island-surface-primary'"
+      class="row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col overflow-hidden"
+      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : 'island-surface'"
       :style="bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : undefined"
     >
       <!-- Resize handle at top when Player or Queue tab -->
@@ -443,7 +443,7 @@ onUnmounted(() => {
         role="separator"
         aria-orientation="horizontal"
         :aria-valuenow="bottomPanelHeightPx"
-        class="panel-height-divider shrink-0 h-1 min-w-0 cursor-row-resize bg-transparent"
+        class="panel-height-divider shrink-0 h-1 min-w-0 cursor-row-resize"
         @mousedown.prevent="onPanelDividerMouseDown"
       />
       <!-- Content: flex-col for play, grid for queue, flex-col for library/metadata -->
@@ -455,7 +455,7 @@ onUnmounted(() => {
         <!-- Single player slot: shrink-to-content so it always hugs the bottom without its own scrollbar. -->
         <div
           class="flex min-w-0 flex-col shrink-0 overflow-hidden"
-          :class="activeTab === 'player' || activeTab === 'queue' ? 'island-surface island-surface-primary' : ''"
+          :class="activeTab === 'player' || activeTab === 'queue' ? 'island-surface' : ''"
         >
           <PlayerBar
             :class="activeTab === 'player' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
@@ -472,10 +472,10 @@ onUnmounted(() => {
             role="separator"
             aria-orientation="vertical"
             :aria-valuenow="Math.round(queuePanelWidthFraction * 100)"
-            class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize bg-transparent"
+            class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize"
             @mousedown.prevent="onQueueDividerMouseDown"
           />
-          <div class="flex min-h-0 min-w-0 flex-col overflow-hidden island-surface island-surface-primary">
+          <div class="flex min-h-0 min-w-0 flex-col overflow-hidden island-surface">
             <QueueList />
           </div>
         </template>

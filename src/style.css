@@ -32,43 +32,58 @@ textarea:focus {
   outline-offset: 2px;
 }
 
-/* Primary border color (queue divider, bottom panel bar – theme-aware) */
+/* Primary border color (theme-aware) */
 .border-primary {
   border-color: #5b7c32;
 }
-.bottom-panel-bar {
-  border-top-width: 2px;
-  border-top-color: #5b7c32 !important;
-}
-/* Player/queue mode: transparent borders (same box model as island-surface-primary, no visible border).
-   Two-class + optional [data-theme] ancestors needed to beat the per-theme !important overrides. */
-.bottom-panel-bar.bottom-panel-player,
-[data-theme] .bottom-panel-bar.bottom-panel-player {
-  border-top-color: transparent !important;
-  border-bottom: 2px solid transparent;
-}
 .island-surface {
-  border: 1px solid rgb(68 64 60 / 0.9);
+  border: none;
   border-radius: 12px;
-  background: rgb(41 37 36 / 0.86);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 10px 24px rgb(0 0 0 / 0.22);
-}
-.island-surface-primary {
-  border-color: #5b7c32;
-  border-width: 2px;
+  background: rgb(41 37 36 / 0.95);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px rgb(0 0 0 / 0.28);
 }
 [data-theme="light"] .border-primary { border-color: #4d7c2c; }
-[data-theme="light"] .bottom-panel-bar { border-top-color: #4d7c2c !important; }
-[data-theme="light"] .island-surface { border-color: rgb(214 211 209 / 0.95); background: rgb(255 255 255 / 0.9); box-shadow: 0 8px 20px rgb(0 0 0 / 0.08); }
-[data-theme="light"] .island-surface-primary { border-color: #4d7c2c; }
+[data-theme="light"] .island-surface { background: rgb(255 255 255 / 0.97); box-shadow: 0 8px 20px rgb(0 0 0 / 0.09); }
 [data-theme="doom"] .border-primary { border-color: #8b0000; }
-[data-theme="doom"] .bottom-panel-bar { border-top-color: #8b0000 !important; }
-[data-theme="doom"] .island-surface { border-color: rgb(96 82 82 / 0.85); background: rgb(24 22 22 / 0.84); box-shadow: 0 10px 24px rgb(0 0 0 / 0.3); }
-[data-theme="doom"] .island-surface-primary { border-color: #8b0000; }
+[data-theme="doom"] .island-surface { background: rgb(26 5 5 / 0.93); box-shadow: 0 10px 24px rgb(0 0 0 / 0.38); }
 [data-theme="orkish"] .border-primary { border-color: #2e7d32; }
-[data-theme="orkish"] .bottom-panel-bar { border-top-color: #2e7d32 !important; }
-[data-theme="orkish"] .island-surface { border-color: rgb(46 125 50 / 0.7); background: rgb(228 239 214 / 0.9); box-shadow: 0 8px 20px rgb(0 0 0 / 0.14); }
-[data-theme="orkish"] .island-surface-primary { border-color: #2e7d32; }
+[data-theme="orkish"] .island-surface { background: rgb(248 253 246 / 0.96); box-shadow: 0 8px 20px rgb(0 0 0 / 0.1); }
+/* Draggable resize handles — invisible hit target, 2px bar appears on hover */
+.panel-height-divider,
+.queue-divider {
+  position: relative;
+}
+.panel-height-divider::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: rgb(168 162 158 / 0.35);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.queue-divider::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgb(168 162 158 / 0.35);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.panel-height-divider:hover::after,
+.queue-divider:hover::after {
+  opacity: 1;
+}
+
 /* Shuffle button when active – primary accent background (themes override below) */
 .shuffle-active-bg {
   background-color: #5b7c32;
@@ -477,9 +492,7 @@ textarea:focus {
 [data-theme="orkish"] .bg-stone-950\/80 { background-color: rgba(232, 245, 233, 0.8) !important; }
 [data-theme="orkish"] .bg-stone-900\/90 { background-color: rgba(232, 245, 233, 0.9) !important; }
 [data-theme="orkish"] .bg-stone-900\/95 { background-color: rgba(232, 245, 233, 0.95) !important; }
-[data-theme="orkish"] thead.bg-stone-800 { background-color: #dcedc8 !important; }
-[data-theme="orkish"] .bottom-panel-bar { background-color: rgba(232, 245, 233, 0.95) !important; }
-[data-theme="orkish"] .text-stone-100 { color: #174a16 !important; }
+[data-theme="orkish"] thead.bg-stone-800 { background-color: #dcedc8 !important; }[data-theme="orkish"] .text-stone-100 { color: #174a16 !important; }
 [data-theme="orkish"] .text-stone-200 { color: #1b5e20 !important; }
 [data-theme="orkish"] .text-stone-300 { color: #2e7d32 !important; }
 [data-theme="orkish"] .text-stone-400 { color: #33691e !important; }
