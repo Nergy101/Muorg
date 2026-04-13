@@ -726,7 +726,10 @@ watch(transformMatches, () => {
                   <span v-if="updateCheckStatus === 'checking'">Checking…</span>
                   <span v-else>Check for updates</span>
                 </button>
-                <p v-if="updateCheckStatus === 'up-to-date'" class="mt-1 text-xs text-stone-400">Up to date</p>
+                <div v-if="updateCheckStatus === 'up-to-date'" class="settings-uptodate-notice mt-3 rounded border p-2.5">
+                  <p class="text-xs font-medium text-blue-300">Up to date</p>
+                  <p class="mt-0.5 text-[11px] text-stone-400">You're running the latest version of Muorg.</p>
+                </div>
                 <p v-if="updateCheckStatus === 'error'" class="mt-1 text-xs text-amber-400">Check failed</p>
                 <p v-if="updateError" class="mt-1 text-xs text-amber-400">
                   {{ updateError }}

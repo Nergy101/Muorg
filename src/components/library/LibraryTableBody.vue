@@ -1082,7 +1082,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
               :data-row-index="index"
               :data-track-id="row.track.id"
               draggable="true"
-              class="cursor-context-menu hover:bg-stone-800/50"
+              class="cursor-context-menu table-track-row"
               :class="[
                 { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== index },
                 { 'bg-stone-600/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === index },

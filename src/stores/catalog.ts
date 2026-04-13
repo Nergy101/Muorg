@@ -7,6 +7,14 @@ import { MOCK_COVER_SOURCE_PATH, MOCK_ROOTS, MOCK_TRACKS } from "../mockTracks";
 
 const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
 
+// ── Cover fetch concurrency control (module-level, not reactive) ──────────────
+// Limits concurrent Tauri IPC cover reads so disk I/O doesn't get overwhelmed.
+// Paths are de-duplicated so the same album is never fetched twice simultaneously.
+const _coverInFlight = new Set<string>();
+const _coverQueue: string[] = [];
+let _coverActive = 0;
+const COVER_CONCURRENCY = 8;
+
 /** Cover art from backend: base64 data, MIME type (e.g. image/jpeg, image/png), and size in bytes. */
 export interface CoverInfo {
   base64: string;
@@ -320,6 +328,9 @@ export const useCatalogStore = defineStore("catalog", {
           }
         }
         this.albumCoverCache = next;
+        // Eagerly prefetch one cover per unique album in the background so both the
+        // grid and the track table are cover-ready before the user scrolls to them.
+        this._prefetchAllCovers();
         // On startup (or whenever we have tracks and nothing selected), select the first track in table order.
         if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
           const first = this.tableOrderedTracks[0];
@@ -617,51 +628,76 @@ export const useCatalogStore = defineStore("catalog", {
       if (!c) return null;
       return `data:${c.mime};base64,${c.base64}`;
     },
-    async fetchCover(path: string) {
-      if (path in this.coverCache) return;
-      if (isMock()) {
-        const existing = this.tracks.find((t) => t.path in this.coverCache);
-        const cached = existing ? this.coverCache[existing.path] : undefined;
-        if (cached !== undefined) {
-          this.coverCache = { ...this.coverCache, [path]: cached };
-          const track = this.tracks.find((t) => t.path === path);
-          if (track) {
-            const albumKey = track.album ?? "—";
-            this.albumCoverCache = { ...this.albumCoverCache, [albumKey]: cached };
-          }
-          return;
+    /** Drain the cover fetch queue up to COVER_CONCURRENCY active fetches. */
+    _drainCoverQueue() {
+      while (_coverActive < COVER_CONCURRENCY && _coverQueue.length > 0) {
+        const path = _coverQueue.shift()!;
+        if (path in this.coverCache) {
+          _coverInFlight.delete(path);
+          continue;
         }
-        try {
-          const result = await invoke<CoverInfo | null>("get_track_cover", {
-            path: MOCK_COVER_SOURCE_PATH,
-          });
-          const cover = result ?? null;
-          const nextCover = { ...this.coverCache };
-          const nextAlbum = { ...this.albumCoverCache };
-          for (const t of this.tracks) {
-            nextCover[t.path] = cover;
+        _coverActive++;
+        const run = async () => {
+          try {
+            let cover: CoverInfo | null;
+            if (isMock()) {
+              const existing = this.tracks.find((t) => t.path in this.coverCache);
+              const cached = existing ? this.coverCache[existing.path] : undefined;
+              if (cached !== undefined) {
+                cover = cached;
+              } else {
+                const result = await invoke<CoverInfo | null>("get_track_cover", { path: MOCK_COVER_SOURCE_PATH });
+                cover = result ?? null;
+              }
+            } else {
+              const result = await invoke<CoverInfo | null>("get_track_cover", { path });
+              cover = result ?? null;
+            }
+            this.coverCache = { ...this.coverCache, [path]: cover };
+            const track = this.tracks.find((t) => t.path === path);
+            if (track) {
+              const albumKey = track.album ?? "—";
+              if (!this.albumCoverCache[albumKey]) {
+                this.albumCoverCache = { ...this.albumCoverCache, [albumKey]: cover };
+              }
+            }
+          } catch {
+            this.coverCache = { ...this.coverCache, [path]: null };
+          } finally {
+            _coverInFlight.delete(path);
+            _coverActive--;
+            this._drainCoverQueue();
           }
-          const albumKey = this.tracks[0]?.album ?? "—";
-          nextAlbum[albumKey] = cover;
-          this.coverCache = nextCover;
-          this.albumCoverCache = nextAlbum;
-        } catch {
-          this.coverCache = { ...this.coverCache, [path]: null };
-        }
-        return;
+        };
+        run();
       }
-      try {
-        const result = await invoke<CoverInfo | null>("get_track_cover", { path });
-        const cover = result ?? null;
-        this.coverCache = { ...this.coverCache, [path]: cover };
-        const track = this.tracks.find((t) => t.path === path);
-        if (track) {
-          const albumKey = track.album ?? "—";
-          // Store even null so album headers know we've checked and can stop showing a spinner.
-          this.albumCoverCache = { ...this.albumCoverCache, [albumKey]: cover };
-        }
-      } catch {
-        this.coverCache = { ...this.coverCache, [path]: null };
+    },
+    /** Enqueue a cover fetch. No-op if already cached or already in-flight. */
+    fetchCover(path: string) {
+      if (path in this.coverCache) return;
+      if (_coverInFlight.has(path)) return;
+      _coverInFlight.add(path);
+      _coverQueue.push(path);
+      this._drainCoverQueue();
+    },
+    /** Move a path to the front of the fetch queue so it loads before off-screen albums. */
+    boostCoverPriority(path: string) {
+      if (path in this.coverCache || !_coverInFlight.has(path)) return;
+      const idx = _coverQueue.indexOf(path);
+      if (idx > 0) {
+        _coverQueue.splice(idx, 1);
+        _coverQueue.unshift(path);
+      }
+    },
+    /** Fire-and-forget: enqueue one cover fetch per unique album for the current track list. */
+    _prefetchAllCovers() {
+      const seen = new Set<string>();
+      for (const track of this.tracks) {
+        if (!track.has_cover) continue;
+        const albumKey = track.album ?? "—";
+        if (seen.has(albumKey)) continue;
+        seen.add(albumKey);
+        this.fetchCover(track.path);
       }
     },
   },

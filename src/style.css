@@ -144,6 +144,12 @@ textarea:focus {
 /* Default dark theme row hover — slightly lighter than #1c1917 bg */
 .hover\:bg-stone-800\/50:hover { background-color: #272320 !important; }
 
+/* Track row hover: same bg as selected (stone-700/25) + subtle lighter border */
+.table-track-row:not(.table-row-playing):not(.table-row-focused):hover {
+  background-color: rgba(68, 64, 60, 0.25) !important;
+  box-shadow: inset 0 0 0 1px rgba(214, 211, 209, 0.12);
+}
+
 /* Focused table row highlight (works across themes) */
 .table-row-focused {
   @apply ring-2 ring-inset;
@@ -236,6 +242,10 @@ textarea:focus {
 [data-theme="light"] .table-row-focused {
   --tw-ring-color: #4d7c2c;
   background-color: rgba(77, 124, 44, 0.10) !important; /* lighter, less obtrusive */
+}
+[data-theme="light"] .table-track-row:not(.table-row-playing):not(.table-row-focused):hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10);
 }
 
 /* OverlayScrollbars: container keeps overflow for layout; plugin replaces native scrollbars. */
@@ -1055,6 +1065,12 @@ textarea:focus {
 [data-theme="doom"]  .settings-action-btn:hover:not(:disabled) { background-color: #a52a2a; }
 [data-theme="orkish"] .settings-action-btn              { background-color: #2e7d32; }
 [data-theme="orkish"] .settings-action-btn:hover:not(:disabled) { background-color: #388e3c; }
+
+/* ── Settings: up-to-date notice box ────────────────────────────────────── */
+.settings-uptodate-notice {
+  border-color: rgba(59, 130, 246, 0.45);
+  background-color: rgba(59, 130, 246, 0.08);
+}
 
 /* ── Settings: update-available notice box ──────────────────────────────── */
 .settings-update-notice {

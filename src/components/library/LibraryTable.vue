@@ -43,13 +43,13 @@ watch(revealTrackId, (id) => {
   }
   emit("update:activeTab", "library");
   if (libraryLayoutMode.value === "album_grid") {
-    // Find which album the track belongs to and open it.
+    // Return to grid overview (close any open album detail), then scroll to the album.
     const track = tracks.value.find((t) => t.id === id);
     if (track) {
       const key = albumKeyFor(track);
+      selectedAlbumKey.value = null;
       nextTick(() => nextTick(() => {
         albumGridRef.value?.scrollToAlbum(key);
-        requestAnimationFrame(() => { selectedAlbumKey.value = key; });
       }));
     }
   } else {
@@ -88,7 +88,7 @@ const albums = computed<AlbumGridItem[]>(() => {
   }
   return [...grouped.entries()]
     .map(([key, data]) => {
-      const firstWithCover = data.tracks.find((t) => t.has_cover) ?? data.tracks[0];
+      const firstWithCover = data.tracks.find((t) => t.has_cover);
       const years = data.tracks.map((t) => t.year).filter((y): y is number => y != null);
       const uniqueArtists = [...new Set(
         data.tracks
@@ -101,7 +101,8 @@ const albums = computed<AlbumGridItem[]>(() => {
         year: years.length ? Math.min(...years) : null,
         trackCount: data.tracks.length,
         totalDurationSecs: data.tracks.reduce((sum, t) => sum + (t.duration_secs ?? 0), 0),
-        coverPath: firstWithCover.path,
+        coverPath: (firstWithCover ?? data.tracks[0]).path,
+        hasCover: firstWithCover != null,
       };
     })
     .sort((a, b) => {

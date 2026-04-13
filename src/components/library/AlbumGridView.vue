@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import AlbumGridCard from "./AlbumGridCard.vue";
@@ -12,9 +12,10 @@ export type AlbumGridItem = {
   trackCount: number;
   totalDurationSecs: number;
   coverPath: string;
+  hasCover: boolean;
 };
 
-defineProps<{
+const props = defineProps<{
   albums: AlbumGridItem[];
 }>();
 
@@ -34,15 +35,97 @@ const playingAlbumKey = computed(() => {
   return album.toLocaleLowerCase();
 });
 
-const gridRef = ref<HTMLElement | null>(null);
+// ── Virtual scroll constants ──────────────────────────────────────────────────
+const CARD_MIN_WIDTH = 190; // matches minmax(190px, 1fr)
+const CARD_HEIGHT    = 220; // min-h-[220px] on AlbumGridCard
+const GAP            = 12;  // gap-3
+const PAD            = 12;  // p-3
+const OVERSCAN       = 4;   // extra rows rendered above/below viewport
 
+// ── Container measurement ─────────────────────────────────────────────────────
+const containerRef     = ref<HTMLElement | null>(null);
+const containerWidth   = ref(0);
+const containerHeight  = ref(0);
+const scrollTopVal     = ref(0);
+
+function measure() {
+  const el = containerRef.value;
+  if (!el) return;
+  containerWidth.value  = el.clientWidth;
+  containerHeight.value = el.clientHeight;
+}
+
+function onScroll() {
+  scrollTopVal.value = containerRef.value?.scrollTop ?? 0;
+}
+
+let ro: ResizeObserver | null = null;
+onMounted(() => {
+  measure();
+  ro = new ResizeObserver(measure);
+  if (containerRef.value) ro.observe(containerRef.value);
+});
+onUnmounted(() => ro?.disconnect());
+
+// ── Derived grid geometry ─────────────────────────────────────────────────────
+const colCount = computed(() => {
+  const w = containerWidth.value - PAD * 2;
+  if (w <= 0) return 1;
+  // mirrors CSS auto-fill: minmax(190px, 1fr)
+  return Math.max(1, Math.floor((w + GAP) / (CARD_MIN_WIDTH + GAP)));
+});
+
+const rowHeight = computed(() => CARD_HEIGHT + GAP); // height of one row slot
+
+/** Albums split into rows of colCount. */
+const rows = computed(() => {
+  const cols = colCount.value;
+  const out: AlbumGridItem[][] = [];
+  for (let i = 0; i < props.albums.length; i += cols) {
+    out.push(props.albums.slice(i, i + cols));
+  }
+  return out;
+});
+
+/** Total scroll height of the virtual container. */
+const totalHeight = computed(() => {
+  const n = rows.value.length;
+  if (n === 0) return 0;
+  return PAD * 2 + n * rowHeight.value - GAP;
+});
+
+/** Indices of the rows that should be rendered (with overscan). */
+const visibleRowRange = computed(() => {
+  const rh  = rowHeight.value;
+  const st  = scrollTopVal.value;
+  const ch  = containerHeight.value;
+  const start = Math.max(0, Math.floor((st - PAD) / rh) - OVERSCAN);
+  const end   = Math.min(rows.value.length, Math.ceil((st + ch - PAD) / rh) + OVERSCAN);
+  return { start, end };
+});
+
+const visibleRows = computed(() => {
+  const { start, end } = visibleRowRange.value;
+  return rows.value.slice(start, end).map((albums, i) => ({
+    rowIndex: start + i,
+    albums,
+  }));
+});
+
+/** Pixel top of a given row index inside the virtual container. */
+function rowTop(rowIndex: number) {
+  return PAD + rowIndex * rowHeight.value;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
 function scrollToAlbum(key: string) {
-  const container = gridRef.value;
-  const el = container?.querySelector<HTMLElement>(`[data-album-key="${CSS.escape(key)}"]`);
-  if (!container || !el) return;
-  // Center the card in the viewport of the scrollable container.
-  const targetScrollTop = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-  container.scrollTop = Math.max(0, targetScrollTop);
+  const container = containerRef.value;
+  if (!container) return;
+  const idx = props.albums.findIndex((a) => a.key === key);
+  if (idx < 0) return;
+  const ri  = Math.floor(idx / colCount.value);
+  const top = rowTop(ri);
+  container.scrollTop = Math.max(0, top - container.clientHeight / 2 + CARD_HEIGHT / 2);
 }
 
 defineExpose({ scrollToAlbum });
@@ -55,18 +138,35 @@ defineExpose({ scrollToAlbum });
     </div>
     <div
       v-else
-      ref="gridRef"
-      class="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3 overflow-y-auto p-3"
+      ref="containerRef"
+      class="relative min-h-0 flex-1 overflow-y-auto"
+      @scroll="onScroll"
     >
-      <AlbumGridCard
-        v-for="album in albums"
-        :key="album.key"
-        :album="album"
-        :is-playing="album.key === playingAlbumKey"
-        :data-album-key="album.key"
-        @openAlbum="emit('openAlbum', $event)"
-      />
+      <!-- Full-height spacer so the scrollbar reflects total content -->
+      <div :style="{ height: totalHeight + 'px', position: 'relative' }">
+        <!-- Only render visible rows, each absolutely positioned -->
+        <div
+          v-for="{ rowIndex, albums: rowAlbums } in visibleRows"
+          :key="rowIndex"
+          class="absolute grid"
+          :style="{
+            top: rowTop(rowIndex) + 'px',
+            left: PAD + 'px',
+            right: PAD + 'px',
+            gap: GAP + 'px',
+            gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+          }"
+        >
+          <AlbumGridCard
+            v-for="album in rowAlbums"
+            :key="album.key"
+            :album="album"
+            :is-playing="album.key === playingAlbumKey"
+            :data-album-key="album.key"
+            @openAlbum="emit('openAlbum', $event)"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
-
