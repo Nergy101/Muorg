@@ -438,8 +438,9 @@ pub async fn cast_set_volume(
 pub async fn cast_seek(
     cast_state: State<'_, crate::cast::CastState>,
     position_secs: f32,
+    was_playing: bool,
 ) -> Result<(), String> {
-    cast_state.send_command(crate::cast::CastCommand::Seek(position_secs))
+    cast_state.send_command(crate::cast::CastCommand::Seek { secs: position_secs, was_playing })
 }
 
 #[tauri::command]

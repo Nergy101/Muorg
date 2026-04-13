@@ -34,6 +34,9 @@ symphonia = { version = "0.5", features = ["flac", "mp3"] }
 mp3lame-encoder = "0.2"
 bytes = "1"
 
+[patch.crates-io]
+rust_cast = { path = "vendor/rust_cast" }
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

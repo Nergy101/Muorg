@@ -1,10 +1,12 @@
 use rust_cast::channels::heartbeat::HeartbeatResponse;
-use rust_cast::channels::media::{IdleReason, Media, MediaResponse, PlayerState, StreamType};
+use rust_cast::channels::media::{IdleReason, Media, MediaResponse, PlayerState, ResumeState, StreamType};
 use rust_cast::channels::receiver::{CastDeviceApp, ReceiverResponse};
+use rust_cast::errors::Error as CastError;
 use rust_cast::CastDevice as RustCastDevice;
 use rust_cast::ChannelMessage;
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::Emitter;
 
 #[derive(Debug, Clone, Serialize)]
@@ -33,7 +35,7 @@ pub enum CastCommand {
     Pause,
     Resume,
     Stop,
-    Seek(f32),
+    Seek { secs: f32, was_playing: bool },
     SetVolume(f32),
 }
 
@@ -159,6 +161,9 @@ impl CastState {
                 .map(|e| e.media_session_id)
                 .unwrap_or(1);
 
+            // Discard any status broadcasts buffered during launch_app / media.load.
+            device.drain_message_buffer();
+
             // Track current seek offset for FLAC seek-by-reload
             let mut flac_base_secs: f32 = 0.0;
 
@@ -167,9 +172,29 @@ impl CastState {
             // causes the frontend to resume local audio before it has the correct position,
             // leading to progress-bar desync on track changes.
 
-            // Message loop:
-            // receive() blocks until the Chromecast sends a message (~5s heartbeat cadence).
-            // Commands are checked after each message arrives.
+            // Now that setup is complete, apply a short read timeout so the command queue is
+            // drained promptly between device messages instead of waiting up to ~5 s for the
+            // next heartbeat.  The timeout must NOT be set earlier because launch_app / media.load
+            // can legitimately take several seconds to get a response.
+            // 500 ms is long enough that a complete Cast message always arrives within one
+            // timeout window (avoids mid-read corruption), but short enough that pause/seek
+            // commands feel near-instant (~0–500 ms latency vs ~0–5 s before).
+            let _ = device.set_read_timeout(Some(Duration::from_millis(500)));
+
+            // Returns true if the error is a read-timeout / would-block — not a real failure.
+            fn is_timeout(e: &CastError) -> bool {
+                if let CastError::Io(io_err) = e {
+                    matches!(
+                        io_err.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    )
+                } else {
+                    false
+                }
+            }
+
+            // Message loop: receive() returns after at most 200 ms so commands are processed
+            // promptly instead of waiting for the next heartbeat (~5 s cadence).
             loop {
                 match device.receive() {
                     Ok(ChannelMessage::Heartbeat(HeartbeatResponse::Ping)) => {
@@ -205,6 +230,9 @@ impl CastState {
                         }
                     }
                     Ok(_) => {}
+                    Err(ref e) if is_timeout(e) => {
+                        // Poll window expired with no data — just fall through to check commands.
+                    }
                     Err(e) => {
                         emit(CastSessionStatus::Error {
                             message: format!("Connection lost: {e}"),
@@ -213,17 +241,27 @@ impl CastState {
                     }
                 }
 
-                // Process any pending command after each received message
+                // Process any pending command (runs after every message OR after each 200 ms poll)
                 match rx.try_recv() {
                     Ok(CastCommand::Pause) => {
-                        let _ = device.media.pause(dest_id.as_str(), media_session_id);
-                        emit(CastSessionStatus::Paused { position_secs: None });
+                        match device.media.pause(dest_id.as_str(), media_session_id) {
+                            Ok(entry) => emit(CastSessionStatus::Paused {
+                                position_secs: entry.current_time,
+                            }),
+                            Err(_) => emit(CastSessionStatus::Paused { position_secs: None }),
+                        }
+                        device.drain_message_buffer();
                     }
                     Ok(CastCommand::Resume) => {
-                        let _ = device.media.play(dest_id.as_str(), media_session_id);
-                        emit(CastSessionStatus::Playing { position_secs: None });
+                        match device.media.play(dest_id.as_str(), media_session_id) {
+                            Ok(entry) => emit(CastSessionStatus::Playing {
+                                position_secs: entry.current_time,
+                            }),
+                            Err(_) => emit(CastSessionStatus::Playing { position_secs: None }),
+                        }
+                        device.drain_message_buffer();
                     }
-                    Ok(CastCommand::Seek(secs)) => {
+                    Ok(CastCommand::Seek { secs, was_playing }) => {
                         if is_flac {
                             // FLAC: seek-by-reload — rebuild the URL with ?start=<secs>
                             flac_base_secs = secs;
@@ -241,7 +279,14 @@ impl CastState {
                                     if let Some(e) = s.entries.first() {
                                         media_session_id = e.media_session_id;
                                     }
-                                    emit(CastSessionStatus::Playing { position_secs: Some(secs) });
+                                    device.drain_message_buffer();
+                                    if was_playing {
+                                        emit(CastSessionStatus::Playing { position_secs: Some(secs) });
+                                    } else {
+                                        let _ = device.media.pause(dest_id.as_str(), media_session_id);
+                                        device.drain_message_buffer();
+                                        emit(CastSessionStatus::Paused { position_secs: Some(secs) });
+                                    }
                                 }
                                 Err(e) => {
                                     emit(CastSessionStatus::Error { message: e.to_string() });
@@ -249,9 +294,34 @@ impl CastState {
                                 }
                             }
                         } else {
-                            // MP3: native Cast seek
-                            let _ = device.media.seek(dest_id.as_str(), media_session_id, Some(secs), None);
-                            emit(CastSessionStatus::Playing { position_secs: Some(secs) });
+                            // MP3: native Cast seek — pass resume_state so the device handles
+                            // play/pause itself, then read the response for the confirmed state.
+                            let resume_state = if was_playing {
+                                Some(ResumeState::PlaybackStart)
+                            } else {
+                                Some(ResumeState::PlaybackPause)
+                            };
+                            match device.media.seek(dest_id.as_str(), media_session_id, Some(secs), resume_state) {
+                                Ok(entry) => {
+                                    let position = entry.current_time.map(|t| flac_base_secs + t);
+                                    device.drain_message_buffer();
+                                    match entry.player_state {
+                                        PlayerState::Playing => emit(CastSessionStatus::Playing { position_secs: position }),
+                                        PlayerState::Paused => emit(CastSessionStatus::Paused { position_secs: position }),
+                                        PlayerState::Buffering => {
+                                            // Device is still buffering at new position — emit
+                                            // Transcoding so the frontend keeps progress frozen;
+                                            // the message loop will pick up Playing once ready.
+                                            emit(CastSessionStatus::Transcoding);
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Err(e) => {
+                                    emit(CastSessionStatus::Error { message: e.to_string() });
+                                    return;
+                                }
+                            }
                         }
                     }
                     Ok(CastCommand::SetVolume(level)) => {

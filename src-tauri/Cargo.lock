@@ -2306,7 +2306,7 @@ dependencies = [
 
 [[package]]
 name = "muorg"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -3617,8 +3617,6 @@ dependencies = [
 [[package]]
 name = "rust_cast"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2937700a4c0bab7b53f187935258d5d8e44be4f9efe1e4ec9f2a6a7a9fbbdcd"
 dependencies = [
  "byteorder",
  "log",

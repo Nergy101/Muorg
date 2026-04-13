@@ -109,7 +109,12 @@ function formatTime(secs: number): string {
 function syncFromAudio() {
   const el = getAudio();
   if (!el) return;
-  if (!isSeeking.value) currentTime.value = el.currentTime;
+  if (!isSeeking.value) {
+    // When casting, only advance position if cast is confirmed playing
+    if (!isCasting.value || castStore.castStatus.status === "playing") {
+      currentTime.value = el.currentTime;
+    }
+  }
   duration.value = Number.isFinite(el.duration) ? el.duration : duration.value;
   isPlaying.value = !el.paused;
 }
@@ -121,16 +126,8 @@ function seekTo(secs: number) {
     const wasPlaying = el ? !el.paused : false;
     if (el && wasPlaying) el.pause();
     if (el) el.currentTime = secs;
-    if (wasPlaying) {
-      castStore.setPendingCastResume(true);
-      setTimeout(() => {
-        if (castStore.pendingCastResume) {
-          castStore.setPendingCastResume(false);
-          getAudio()?.play().catch(console.error);
-        }
-      }, 15000);
-    }
-    invoke("cast_seek", { positionSecs: secs }).catch(console.error);
+    if (wasPlaying) castStore.setPendingCastResume(true);
+    invoke("cast_seek", { positionSecs: secs, wasPlaying }).catch(console.error);
   } else if (el) {
     el.currentTime = secs;
   }

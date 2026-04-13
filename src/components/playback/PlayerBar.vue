@@ -227,6 +227,8 @@ function onTimeUpdate() {
   if (isSeeking.value) return;
   const el = audioRef.value;
   if (!el) return;
+  // When casting, only advance the progress bar when cast is confirmed playing
+  if (isCasting.value && castStore.castStatus.status !== "playing") return;
   currentTime.value = el.currentTime;
   if ("mediaSession" in navigator && Number.isFinite(el.duration) && el.duration > 0) {
     navigator.mediaSession.setPositionState({
@@ -251,21 +253,10 @@ function seekTo(secs: number) {
   if (isCasting.value) {
     // Pause local audio, seek both, wait for cast to confirm playing before resuming
     const wasPlaying = el ? !el.paused : false;
-    if (el && wasPlaying) {
-      el.pause();
-    }
+    if (el && wasPlaying) el.pause();
     if (el) el.currentTime = secs;
-    if (wasPlaying) {
-      castStore.setPendingCastResume(true);
-      // Fallback: resume after 15s in case cast never responds
-      setTimeout(() => {
-        if (castStore.pendingCastResume) {
-          castStore.setPendingCastResume(false);
-          audioRef.value?.play().catch(console.error);
-        }
-      }, 15000);
-    }
-    invoke("cast_seek", { positionSecs: secs }).catch(console.error);
+    if (wasPlaying) castStore.setPendingCastResume(true);
+    invoke("cast_seek", { positionSecs: secs, wasPlaying }).catch(console.error);
   } else if (el) {
     el.currentTime = secs;
   }
@@ -482,12 +473,6 @@ watch(
     const castDeviceId = castStore.connectedDeviceId;
     if (castDeviceId) {
       castStore.setPendingCastResume(true);
-      setTimeout(() => {
-        if (castStore.pendingCastResume) {
-          castStore.setPendingCastResume(false);
-          audioRef.value?.play().catch(console.error);
-        }
-      }, 15000);
       invoke("cast_play", { deviceId: castDeviceId, trackPath: track.path }).catch(
         (e: unknown) => {
           console.error("[Cast] cast_play on track change:", e);
@@ -542,30 +527,35 @@ watch(isCasting, (casting) => {
   if (el) el.muted = casting;
 });
 
-// Sync local audio state with cast device state changes
-watch(() => castStore.castStatus.status, (status) => {
-  if (castStore.pendingCastResume && status === "playing") {
-    // Cast confirmed playing after a seek or track change — sync position then resume local tracker
-    castStore.setPendingCastResume(false);
+// Sync local audio state with cast device state — deep watch to catch position updates too
+watch(
+  () => castStore.castStatus,
+  (s) => {
     const el = audioRef.value;
-    if (el) {
-      const s = castStore.castStatus;
-      if (s.status === "playing" && s.positionSecs != null) {
-        el.currentTime = s.positionSecs;
+    if (!el) return;
+    if (s.status === "playing") {
+      if (castStore.pendingCastResume) {
+        // Cast confirmed playing after a seek or track change — sync position and resume local tracker
+        castStore.setPendingCastResume(false);
+        if (s.positionSecs != null) el.currentTime = s.positionSecs;
+        el.play().catch(console.error);
+      } else if (el.paused) {
+        // Cast started playing without a pending resume (e.g. initial device selection) — sync and start tracker
+        if (s.positionSecs != null) el.currentTime = s.positionSecs;
+        el.play().catch(console.error);
+      } else if (s.positionSecs != null) {
+        // Periodic position update while playing — re-sync if drift exceeds 2 s
+        const drift = Math.abs(el.currentTime - s.positionSecs);
+        if (drift > 2) el.currentTime = s.positionSecs;
       }
-      el.play().catch(console.error);
+    } else if (s.status === "paused" && !castStore.pendingCastResume) {
+      // Device paused externally (e.g., voice command) — mirror to local and sync position
+      if (!el.paused) el.pause();
+      if (s.positionSecs != null) el.currentTime = s.positionSecs;
     }
-  } else if (status === "paused" && !castStore.pendingCastResume) {
-    // Device was paused externally (e.g. "hey Google, pause/stop") — mirror to local
-    const el = audioRef.value;
-    if (el && !el.paused) el.pause();
-    // Sync position so the progress bar stays accurate after an external pause
-    const s = castStore.castStatus;
-    if (el && s.status === "paused" && s.positionSecs != null) {
-      el.currentTime = s.positionSecs;
-    }
-  }
-});
+  },
+  { deep: true },
+);
 
 function togglePlay() {
   const el = audioRef.value;
