@@ -434,7 +434,7 @@ onUnmounted(() => {
     <div
       ref="queueBarContainerRef"
       class="row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col overflow-hidden"
-      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : 'island-surface'"
+      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : 'bg-stone-900'"
       :style="bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : undefined"
     >
       <!-- Resize handle at top when Player or Queue tab -->
