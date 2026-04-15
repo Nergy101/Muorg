@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import AlbumGridCard from "./AlbumGridCard.vue";
@@ -62,11 +62,23 @@ function onScroll() {
 
 let ro: ResizeObserver | null = null;
 onMounted(() => {
-  measure();
   ro = new ResizeObserver(measure);
-  if (containerRef.value) ro.observe(containerRef.value);
+  if (containerRef.value) {
+    measure();
+    ro.observe(containerRef.value);
+  }
 });
 onUnmounted(() => ro?.disconnect());
+
+// If albums were empty at mount (tracks still loading), containerRef is null until
+// albums arrive. Watch it so we start measuring as soon as the container appears.
+watch(containerRef, (el, oldEl) => {
+  if (oldEl) ro?.unobserve(oldEl);
+  if (el) {
+    measure();
+    ro?.observe(el);
+  }
+});
 
 // ── Derived grid geometry ─────────────────────────────────────────────────────
 const colCount = computed(() => {
