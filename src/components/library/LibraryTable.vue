@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import { useCatalogStore } from "../../stores/catalog";
@@ -64,6 +64,18 @@ const showKeyMapModal = ref(false);
 const tableBodyRef = ref<InstanceType<typeof LibraryTableBody> | null>(null);
 const albumGridRef = ref<InstanceType<typeof AlbumGridView> | null>(null);
 const selectedAlbumKey = ref<string | null>(null);
+
+// When starting in album_grid mode, defer mounting LibraryTableBody until after the
+// first paint so AlbumGridView can measure its container width without interference.
+const tableBodyMounted = ref(libraryLayoutMode.value === "table");
+onMounted(() => {
+  if (!tableBodyMounted.value) {
+    requestAnimationFrame(() => { tableBodyMounted.value = true; });
+  }
+});
+watch(libraryLayoutMode, (mode) => {
+  if (mode !== "table") tableBodyMounted.value = true;
+});
 
 function albumKeyFor(track: CatalogTrack): string {
   const album = (track.album ?? "Unknown Album").trim() || "Unknown Album";
@@ -328,7 +340,7 @@ function goBackToAlbums() {
       @expandPlayer="emit('expandPlayer')"
     />
 
-    <div v-show="libraryLayoutMode === 'table'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div v-if="tableBodyMounted" v-show="libraryLayoutMode === 'table'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
       <LibraryTableBody
         ref="tableBodyRef"
         @openMetadata="emit('update:activeTab', 'metadata')"
