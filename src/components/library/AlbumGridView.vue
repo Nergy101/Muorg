@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import AlbumGridCard from "./AlbumGridCard.vue";
+import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 
 export type AlbumGridItem = {
   key: string;
@@ -49,35 +50,45 @@ const containerWidth   = ref(0);
 const containerHeight  = ref(0);
 const scrollTopVal     = ref(0);
 
+const { viewportRef } = useOverlayScrollbars(containerRef);
+
+function getScrollEl(): HTMLElement | null {
+  return viewportRef.value ?? containerRef.value;
+}
+
 function measure() {
-  const el = containerRef.value;
+  const el = getScrollEl();
   if (!el) return;
   containerWidth.value  = el.clientWidth;
   containerHeight.value = el.clientHeight;
 }
 
 function onScroll() {
-  scrollTopVal.value = containerRef.value?.scrollTop ?? 0;
+  scrollTopVal.value = getScrollEl()?.scrollTop ?? 0;
 }
 
 let ro: ResizeObserver | null = null;
-onMounted(() => {
-  ro = new ResizeObserver(measure);
-  if (containerRef.value) {
-    measure();
-    ro.observe(containerRef.value);
-  }
-});
-onUnmounted(() => ro?.disconnect());
+let scrollElForCleanup: HTMLElement | null = null;
 
-// If albums were empty at mount (tracks still loading), containerRef is null until
-// albums arrive. Watch it so we start measuring as soon as the container appears.
-watch(containerRef, (el, oldEl) => {
-  if (oldEl) ro?.unobserve(oldEl);
-  if (el) {
-    measure();
-    ro?.observe(el);
+watch(viewportRef, (el) => {
+  if (scrollElForCleanup) {
+    scrollElForCleanup.removeEventListener("scroll", onScroll);
+    scrollElForCleanup = null;
   }
+  ro?.disconnect();
+  ro = null;
+  if (el) {
+    el.addEventListener("scroll", onScroll, { passive: true });
+    scrollElForCleanup = el;
+    measure();
+    ro = new ResizeObserver(measure);
+    ro.observe(el);
+  }
+}, { flush: "post" });
+
+onUnmounted(() => {
+  scrollElForCleanup?.removeEventListener("scroll", onScroll);
+  ro?.disconnect();
 });
 
 // ── Derived grid geometry ─────────────────────────────────────────────────────
@@ -132,7 +143,7 @@ function rowTop(rowIndex: number) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 function scrollToAlbum(key: string) {
-  const container = containerRef.value;
+  const container = getScrollEl();
   if (!container) return;
   const idx = props.albums.findIndex((a) => a.key === key);
   if (idx < 0) return;
@@ -153,7 +164,6 @@ defineExpose({ scrollToAlbum });
       v-else
       ref="containerRef"
       class="relative min-h-0 flex-1 overflow-y-auto"
-      @scroll="onScroll"
     >
       <!-- Full-height spacer so the scrollbar reflects total content -->
       <div :style="{ height: totalHeight + 'px', position: 'relative' }">
