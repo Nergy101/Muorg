@@ -6,6 +6,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: release
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: never
 
