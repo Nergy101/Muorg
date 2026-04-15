@@ -1037,12 +1037,58 @@ const albumTracksForApply = computed(() => {
   return store.getTracksForAlbum(albumVal, albumArtistVal);
 });
 
-/** True when we have a cover to apply (pending or existing) and the selection belongs to an album. */
-const canApplyToAlbum = computed(() => {
-  if (!displayCover.value) return false;
-  if (albumTracksForApply.value.length <= 1) return false;
-  return true;
+/**
+ * For single-track view: determines the cover relationship between the current
+ * track and the rest of its album.
+ *   "can-apply-to-album"    — current track has a cover but not all album tracks share it
+ *   "can-apply-from-others" — current track has no cover but other album tracks do
+ *   "n/a"                   — no action needed / not applicable
+ */
+const albumCoverState = computed((): "can-apply-to-album" | "can-apply-from-others" | "n/a" => {
+  const tracks = albumTracksForApply.value;
+  if (tracks.length <= 1) return "n/a";
+  if (selectedTracks.value.length !== 1) return "n/a";
+
+  const currentTrack = selectedTracks.value[0];
+
+  // Pending new cover: always allow applying to album
+  if (pictureBase64.value) return "can-apply-to-album";
+  if (clearCoverRequested.value) return "n/a";
+
+  const currentCover = store.getCover(currentTrack.path);
+  if (currentCover === undefined) return "n/a"; // still loading
+
+  if (currentCover === null) {
+    // Current track has no cover — offer to pull it from another track that has one
+    const hasSource = tracks.some(t => {
+      const c = store.getCover(t.path);
+      return c != null;
+    });
+    return hasSource ? "can-apply-from-others" : "n/a";
+  }
+
+  // Current track has a cover — hide button if every album track already has the same one
+  const allSame = tracks.every(t => {
+    const c = store.getCover(t.path);
+    if (c === undefined) return true; // optimistically skip still-loading tracks
+    if (c === null) return false;
+    if (c.size_bytes !== currentCover.size_bytes) return false;
+    return c.base64 === currentCover.base64;
+  });
+
+  return allSame ? "n/a" : "can-apply-to-album";
 });
+
+/** True when we have a cover to apply and some album tracks differ. */
+const canApplyToAlbum = computed(() => {
+  if (albumTracksForApply.value.length <= 1) return false;
+  if (selectedTracks.value.length === 1) return albumCoverState.value === "can-apply-to-album";
+  // Bulk selection: keep original behaviour
+  return !!displayCover.value;
+});
+
+/** True when current track has no cover but other tracks in its album do. */
+const canApplyFromOthers = computed(() => albumCoverState.value === "can-apply-from-others");
 
 async function applyToWholeAlbum() {
   const tracks = albumTracksForApply.value;
@@ -1064,6 +1110,32 @@ async function applyToWholeAlbum() {
     await store.writeMetadataBulk(
       tracks.map((t) => t.path),
       { picture_base64: base64 },
+    );
+    await nextTick();
+    syncFromTracks();
+  } catch (e) {
+    saveError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function applyFromOtherTracks() {
+  const currentTrack = selectedTracks.value[0];
+  if (!currentTrack) return;
+  const sourceTrack = albumTracksForApply.value.find(t => {
+    const c = store.getCover(t.path);
+    return c != null;
+  });
+  if (!sourceTrack) return;
+  const coverInfo = store.getCover(sourceTrack.path);
+  if (!coverInfo) return;
+  saving.value = true;
+  saveError.value = null;
+  try {
+    await store.writeMetadataBulk(
+      [currentTrack.path],
+      { picture_base64: coverInfo.base64 },
     );
     await nextTick();
     syncFromTracks();
@@ -1488,6 +1560,17 @@ async function applyToWholeAlbum() {
             >
               <FeatherIcon name="upload" class="h-8 w-8 text-stone-300" />
             </div>
+          </div>
+          <div v-if="canApplyFromOthers" class="mt-1">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              :disabled="saving"
+              @click="applyFromOtherTracks"
+            >
+              <FeatherIcon name="download" class="h-3 w-3 shrink-0" />
+              Apply from other tracks
+            </button>
           </div>
         </div>
       </div>

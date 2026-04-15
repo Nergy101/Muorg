@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "openAlbum", albumKey: string): void;
+  (e: "albumContextMenu", event: MouseEvent, albumKey: string): void;
 }>();
 
 const store = useCatalogStore();
@@ -164,6 +165,7 @@ defineExpose({ scrollToAlbum });
             :is-playing="album.key === playingAlbumKey"
             :data-album-key="album.key"
             @openAlbum="emit('openAlbum', $event)"
+            @albumContextMenu="(e, key) => emit('albumContextMenu', e, key)"
           />
         </div>
       </div>

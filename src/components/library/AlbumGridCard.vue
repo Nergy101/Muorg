@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "openAlbum", albumKey: string): void;
+  (e: "albumContextMenu", event: MouseEvent, albumKey: string): void;
 }>();
 
 const store = useCatalogStore();
@@ -89,6 +90,7 @@ const textPanelStyle = computed(() => {
     :class="isPlaying ? 'border-[2px] border-primary' : 'border border-stone-700'"
     :style="isPlaying ? { boxShadow: `0 0 0 2px rgba(${PRIMARY_RGB},0.5), 0 0 20px 6px rgba(${PRIMARY_RGB},0.45), 0 0 40px 10px rgba(${PRIMARY_RGB},0.20)` } : undefined"
     @click="emit('openAlbum', album.key)"
+    @contextmenu.prevent="emit('albumContextMenu', $event, album.key)"
   >
     <!-- Album art area -->
     <div class="relative h-40 w-full shrink-0 overflow-hidden bg-stone-800">

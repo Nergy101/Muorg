@@ -304,6 +304,11 @@ function openAlbum(albumKey: string) {
   selectedAlbumKey.value = albumKey;
 }
 
+function onAlbumGridContextMenu(e: MouseEvent, albumKey: string) {
+  const albumTracks = filteredTracks.value.filter((t) => albumKeyFor(t) === albumKey);
+  if (albumTracks.length) tableBodyRef.value?.openContextMenu(e, albumTracks);
+}
+
 function goBackToAlbums() {
   selectedAlbumKey.value = null;
 }
@@ -323,17 +328,19 @@ function goBackToAlbums() {
       @expandPlayer="emit('expandPlayer')"
     />
 
-    <LibraryTableBody
-      v-if="libraryLayoutMode === 'table'"
-      ref="tableBodyRef"
-      @openMetadata="emit('update:activeTab', 'metadata')"
-    />
-    <template v-else>
+    <div v-show="libraryLayoutMode === 'table'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <LibraryTableBody
+        ref="tableBodyRef"
+        @openMetadata="emit('update:activeTab', 'metadata')"
+      />
+    </div>
+    <template v-if="libraryLayoutMode === 'album_grid'">
       <AlbumGridView
         ref="albumGridRef"
         v-show="!selectedAlbum"
         :albums="albums"
         @openAlbum="openAlbum"
+        @albumContextMenu="onAlbumGridContextMenu"
       />
       <AlbumDetailView
         v-if="selectedAlbum"
