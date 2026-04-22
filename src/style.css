@@ -50,7 +50,8 @@ textarea:focus {
 [data-theme="orkish"] .island-surface { background: rgb(248 253 246 / 0.96); box-shadow: 0 8px 20px rgb(0 0 0 / 0.1); }
 /* Draggable resize handles — invisible hit target, 2px bar appears on hover */
 .panel-height-divider,
-.queue-divider {
+.queue-divider,
+.sidebar-divider {
   position: relative;
 }
 .panel-height-divider::after {
@@ -80,8 +81,22 @@ textarea:focus {
   pointer-events: none;
 }
 .panel-height-divider:hover::after,
-.queue-divider:hover::after {
+.queue-divider:hover::after,
+.sidebar-divider:hover::after {
   opacity: 1;
+}
+.sidebar-divider::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgb(168 162 158 / 0.35);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
 }
 
 /* Shuffle button when active – primary accent background (themes override below) */

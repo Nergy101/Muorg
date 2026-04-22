@@ -22,6 +22,9 @@ export interface CoverInfo {
   size_bytes: number;
 }
 
+// ── FTS search debounce (module-level, not reactive) ─────────────────────────
+let _searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
 const HIDDEN_ROOTS_KEY = "muorg-hidden-roots";
 
@@ -50,8 +53,10 @@ export const useCatalogStore = defineStore("catalog", {
     tracks: [] as CatalogTrack[],
     selectedTrackIds: [] as number[],
     currentPlayingTrackId: null as number | null,
-    reportFilter: null as null | "missing_metadata" | "duplicates" | "missing_album_cover",
+    reportFilter: null as null | "missing_metadata" | "duplicates" | "missing_album_cover" | "recently_played" | "most_played",
     reportSingleField: null as MissingMetadataField | null,
+    /** FTS5 search results from the backend; null when the JS in-memory filter should be used. */
+    searchResults: null as CatalogTrack[] | null,
     loading: false,
     error: null as string | null,
     searchQuery: "",
@@ -113,6 +118,17 @@ export const useCatalogStore = defineStore("catalog", {
             return title.includes(q) || artist.includes(q) || album.includes(q);
           });
         }
+        if (state.filterMinRating !== null) {
+          list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
+        }
+        if (state.filterGenre !== null) {
+          list = list.filter((t) => t.genre === state.filterGenre);
+        }
+        return list;
+      }
+      // When FTS results are ready, use them (apply rating/genre on top).
+      if (state.searchResults !== null) {
+        let list = state.searchResults;
         if (state.filterMinRating !== null) {
           list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
         }
@@ -241,7 +257,7 @@ export const useCatalogStore = defineStore("catalog", {
     setPendingCoverImagePath(path: string | null) {
       this.pendingCoverImagePath = path;
     },
-    setReportFilter(kind: null | "missing_metadata" | "duplicates" | "missing_album_cover") {
+    setReportFilter(kind: null | "missing_metadata" | "duplicates" | "missing_album_cover" | "recently_played" | "most_played") {
       this.reportFilter = kind;
       if (kind === null) this.reportSingleField = null;
     },
@@ -514,6 +530,21 @@ export const useCatalogStore = defineStore("catalog", {
         this.queueTrackIds = valid;
       }
     },
+    /** Record that the given track was played. Optimistically increments play_count in the store. */
+    async recordPlay(path: string) {
+      if (isMock()) return;
+      const now = Math.floor(Date.now() / 1000);
+      this.tracks = this.tracks.map((t) =>
+        t.path === path
+          ? { ...t, play_count: (t.play_count ?? 0) + 1, last_played_at: now }
+          : t,
+      );
+      try {
+        await invoke("record_play", { path });
+      } catch {
+        // Non-critical; ignore errors silently.
+      }
+    },
     /** Set a star rating (1–5) or clear it (null) for one or more tracks. Optimistic update + backend persist. */
     async setRating(paths: string[], rating: number | null) {
       // Optimistic update in the store
@@ -543,6 +574,28 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setSearchQuery(q: string) {
       this.searchQuery = q;
+      // Always clear FTS results immediately so the JS filter shows results right away.
+      this.searchResults = null;
+      if (_searchDebounceTimer) {
+        clearTimeout(_searchDebounceTimer);
+        _searchDebounceTimer = null;
+      }
+      if (q.trim().length < 2) return;
+      _searchDebounceTimer = setTimeout(async () => {
+        _searchDebounceTimer = null;
+        if (isMock()) return;
+        try {
+          const results = await invoke<CatalogTrack[]>("search_tracks", { query: q });
+          // Only replace JS results with FTS results if:
+          // 1. The query hasn't changed while we were waiting, AND
+          // 2. FTS actually returned something (avoids emptying out when index is stale)
+          if (this.searchQuery === q && results.length > 0) {
+            this.searchResults = results;
+          }
+        } catch {
+          // Leave searchResults null → JS filter continues showing results
+        }
+      }, 300);
     },
     setFilterMinRating(rating: number | null) {
       this.filterMinRating = rating;

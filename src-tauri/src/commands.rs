@@ -1,4 +1,4 @@
-use crate::catalog::{Catalog, CatalogTrack, Playlist, PlaylistTrackEntry, TrackBackupRecord};
+use crate::catalog::{Catalog, CatalogTrack, LibraryStats, Playlist, PlaylistTrackEntry, TrackBackupRecord};
 use crate::metadata::{read_metadata, write_metadata, MetadataUpdate, TrackMetadata};
 use base64::Engine;
 use serde::Serialize;
@@ -368,6 +368,89 @@ pub async fn remove_tracks_from_playlist(
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
     crate::catalog::remove_tracks_from_playlist(&conn, playlist_id, &track_ids)
+}
+
+// ── Play count ─────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn record_play(
+    catalog: State<'_, Arc<Catalog>>,
+    path: String,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::record_play(&conn, &path)
+}
+
+// ── Full-text search ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn search_tracks(
+    catalog: State<'_, Arc<Catalog>>,
+    query: String,
+) -> Result<Vec<CatalogTrack>, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::search_tracks(&conn, &query)
+}
+
+// ── Library stats ───────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_library_stats(
+    catalog: State<'_, Arc<Catalog>>,
+) -> Result<LibraryStats, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::get_library_stats(&conn)
+}
+
+// ── Smart playlists ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn create_smart_playlist(
+    catalog: State<'_, Arc<Catalog>>,
+    name: String,
+    rules_json: String,
+) -> Result<Playlist, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::create_smart_playlist(&conn, &name, &rules_json)
+}
+
+#[tauri::command]
+pub async fn update_smart_playlist_rules(
+    catalog: State<'_, Arc<Catalog>>,
+    id: i64,
+    rules_json: String,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::set_smart_playlist_rules(&conn, id, Some(&rules_json))
+}
+
+#[tauri::command]
+pub async fn get_smart_playlist_track_ids(
+    catalog: State<'_, Arc<Catalog>>,
+    playlist_id: i64,
+) -> Result<Vec<i64>, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    // Get the playlist's smart_rules from DB
+    let rules: Option<String> = conn
+        .query_row(
+            "SELECT smart_rules FROM playlists WHERE id = ?1",
+            [playlist_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    match rules {
+        Some(r) => crate::catalog::resolve_smart_playlist_track_ids(&conn, &r),
+        None => Err("Not a smart playlist".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn reorder_playlists(
+    catalog: State<'_, Arc<Catalog>>,
+    ids: Vec<i64>,
+) -> Result<(), String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::reorder_playlists(&conn, &ids)
 }
 
 // ── Google Cast ─────────────────────────────────────────────────────────────

@@ -2634,6 +2634,12 @@ watch(transformMatches, () => {
               Insights based on all {{ store.tracks.length }} tracks in your library.
             </p>
 
+            <!-- Metadata health -->
+            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
+              <p class="mb-3 text-xs font-semibold text-stone-400">Metadata completeness</p>
+              <MetadataHealthChart :tracks="store.tracks" @view-field="handleViewField" />
+            </div>
+
             <!-- Genre distribution -->
             <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
               <p class="mb-4 text-xs font-semibold text-stone-400">Genre distribution</p>
@@ -2656,12 +2662,6 @@ watch(transformMatches, () => {
             <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
               <p class="mb-3 text-xs font-semibold text-stone-400">User ratings</p>
               <RatingChart :tracks="store.tracks" />
-            </div>
-
-            <!-- Metadata health -->
-            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
-              <p class="mb-3 text-xs font-semibold text-stone-400">Metadata completeness</p>
-              <MetadataHealthChart :tracks="store.tracks" @view-field="handleViewField" />
             </div>
           </div>
 

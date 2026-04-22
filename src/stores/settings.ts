@@ -170,6 +170,16 @@ function coerceQueuePanelWidthFraction(v: unknown): number {
   return Math.min(0.6, Math.max(0.15, n));
 }
 
+const SIDEBAR_WIDTH_MIN = 200;
+const SIDEBAR_WIDTH_MAX = 600;
+
+/** Sidebar width in pixels (200–600). */
+function coerceSidebarWidthPx(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 360;
+  return Math.round(Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, n)));
+}
+
 const BOTTOM_PANEL_HEIGHT_MIN = 300;
 const BOTTOM_PANEL_HEIGHT_MAX = 600;
 
@@ -254,6 +264,8 @@ export const useSettingsStore = defineStore("settings", {
     queuePanelWidthFraction: 0.25,
     /** Bottom panel height in px when Player or Queue tab is active (300–600). */
     bottomPanelHeightPx: 300,
+    /** Sidebar width in pixels (200–600). */
+    sidebarWidthPx: 360,
     /** Folder name (e.g. "Music") used as root for exported playlist relative paths. */
     musicRootFolder: "",
     /** Column to sort the library table by (null = default/no sort). */
@@ -335,6 +347,7 @@ export const useSettingsStore = defineStore("settings", {
         if ("playerGlowMode" in data) this.playerGlowMode = coerceGlowMode(data.playerGlowMode);
         if ("queuePanelWidthFraction" in data) this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(data.queuePanelWidthFraction);
         if ("bottomPanelHeightPx" in data) this.bottomPanelHeightPx = coerceBottomPanelHeightPx(data.bottomPanelHeightPx);
+        if ("sidebarWidthPx" in data) this.sidebarWidthPx = coerceSidebarWidthPx(data.sidebarWidthPx);
         if ("musicRootFolder" in data) this.musicRootFolder = coerceString(data.musicRootFolder, "");
         if ("tableSortColumn" in data) this.tableSortColumn = coerceSortColumn(data.tableSortColumn);
         if ("tableSortDirection" in data) this.tableSortDirection = coerceSortDirection(data.tableSortDirection);
@@ -398,6 +411,7 @@ export const useSettingsStore = defineStore("settings", {
           playerGlowMode: this.playerGlowMode,
           queuePanelWidthFraction: this.queuePanelWidthFraction,
           bottomPanelHeightPx: this.bottomPanelHeightPx,
+          sidebarWidthPx: this.sidebarWidthPx,
           musicRootFolder: this.musicRootFolder,
           tableSortColumn: this.tableSortColumn,
           tableSortDirection: this.tableSortDirection,
@@ -585,6 +599,10 @@ export const useSettingsStore = defineStore("settings", {
     },
     setBottomPanelHeightPx(value: number) {
       this.bottomPanelHeightPx = coerceBottomPanelHeightPx(value);
+      this.saveToFile();
+    },
+    setSidebarWidthPx(value: number) {
+      this.sidebarWidthPx = coerceSidebarWidthPx(value);
       this.saveToFile();
     },
     setMusicRootFolder(value: string) {

@@ -85,6 +85,7 @@ const currentTime = ref(0);
 const duration = ref(0);
 const isSeeking = ref(false);
 let shouldAutoplayNextSelection = false;
+let playRecordedForCurrentTrack = false;
 const hasInitializedAutoplay = ref(false);
 let unlistenCastTrackEnded: (() => void) | null = null;
 const replayGainMeta = ref<TrackMetadataRead | null>(null);
@@ -239,6 +240,11 @@ function onTimeUpdate() {
       position: el.currentTime,
       playbackRate: el.playbackRate,
     });
+  }
+  // Record play after 30 s of continuous playback.
+  if (!playRecordedForCurrentTrack && el.currentTime >= 30 && singleTrack.value) {
+    playRecordedForCurrentTrack = true;
+    store.recordPlay(singleTrack.value.path);
   }
   // Save position every ~5 s (timer resets on each tick, so only fires after a 5 s idle)
   schedulePositionSave(el.currentTime);
@@ -460,6 +466,8 @@ async function preloadNextTrack() {
 watch(
   singleTrack,
   (track, oldTrack) => {
+    // Reset the play-recorded flag whenever the track changes.
+    if (track?.path !== oldTrack?.path) playRecordedForCurrentTrack = false;
     if (!track) {
       if (audioSrc.value) {
         revokeUrl(audioSrc.value);

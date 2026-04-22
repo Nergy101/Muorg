@@ -85,6 +85,14 @@ const missingAlbumCoverCount = computed(() =>
   tracks.value.filter((t) => !(t.has_cover ?? false)).length,
 );
 
+const recentlyPlayedCount = computed(() =>
+  tracks.value.filter((t) => t.last_played_at != null).length,
+);
+
+const mostPlayedCount = computed(() =>
+  tracks.value.filter((t) => (t.play_count ?? 0) > 0).length,
+);
+
 // ── Actions ────────────────────────────────────────────────────────────────
 
 function openMissingMetadataReport() {
@@ -101,6 +109,18 @@ function openDuplicateReport() {
 
 function openMissingAlbumCoverReport() {
   const kind = reportFilter.value === "missing_album_cover" ? null : "missing_album_cover";
+  store.setReportFilter(kind);
+  if (store.currentPlayingTrackId === null) store.clearSelection();
+}
+
+function openRecentlyPlayedReport() {
+  const kind = reportFilter.value === "recently_played" ? null : "recently_played";
+  store.setReportFilter(kind);
+  if (store.currentPlayingTrackId === null) store.clearSelection();
+}
+
+function openMostPlayedReport() {
+  const kind = reportFilter.value === "most_played" ? null : "most_played";
   store.setReportFilter(kind);
   if (store.currentPlayingTrackId === null) store.clearSelection();
 }
@@ -168,6 +188,30 @@ async function handleRefreshReports() {
           <span>Missing album cover</span>
         </span>
         <span class="text-[0.7rem] text-stone-400">{{ missingAlbumCoverCount }}</span>
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
+        :class="reportFilter === 'recently_played' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+        @click="openRecentlyPlayedReport"
+      >
+        <span class="flex items-center gap-1.5">
+          <FeatherIcon name="clock" class="h-3.5 w-3.5 shrink-0 text-blue-400" />
+          <span>Recently played</span>
+        </span>
+        <span class="text-[0.7rem] text-stone-400">{{ recentlyPlayedCount }}</span>
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
+        :class="reportFilter === 'most_played' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+        @click="openMostPlayedReport"
+      >
+        <span class="flex items-center gap-1.5">
+          <FeatherIcon name="trending-up" class="h-3.5 w-3.5 shrink-0 text-green-400" />
+          <span>Most played</span>
+        </span>
+        <span class="text-[0.7rem] text-stone-400">{{ mostPlayedCount }}</span>
       </button>
     </div>
   </div>

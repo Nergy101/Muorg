@@ -18,6 +18,10 @@ export interface CatalogTrack {
   has_cover: boolean;
   /** User rating 1–5, or null if unrated. */
   rating: number | null;
+  /** Number of times this track has been played past 30 s. */
+  play_count: number;
+  /** Unix timestamp (seconds) of the most recent play, or null if never played. */
+  last_played_at: number | null;
 }
 
 export interface TrackMetadataRead {
@@ -52,6 +56,15 @@ export interface Playlist {
   name: string;
   track_count: number;
   icon: string | null;
+  /** JSON rule array for smart playlists; null for regular playlists. */
+  smart_rules: string | null;
+}
+
+export interface LibraryStats {
+  track_count: number;
+  artist_count: number;
+  album_count: number;
+  total_duration_secs: number;
 }
 
 export interface MetadataUpdate {

@@ -26,7 +26,7 @@ const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 
 useCastEvents();
-const { playerGlowIntensity, playerGlowMode, queuePanelWidthFraction, bottomPanelHeightPx } = storeToRefs(settingsStore);
+const { playerGlowIntensity, playerGlowMode, queuePanelWidthFraction, bottomPanelHeightPx, sidebarWidthPx } = storeToRefs(settingsStore);
 // Persist queue whenever it changes (debounced — write at most once per second)
 let sessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleSessionQueueSave() {
@@ -42,8 +42,10 @@ function scheduleSessionQueueSave() {
 }
 watch(() => store.queueTrackIds, scheduleSessionQueueSave, { deep: true });
 const queueBarContainerRef = ref<HTMLElement | null>(null);
+const layoutRef = ref<HTMLElement | null>(null);
 const isDraggingQueueDivider = ref(false);
 const isDraggingPanelDivider = ref(false);
+const isDraggingSidebarDivider = ref(false);
 const sidebarCollapsed = ref(false);
 const playExpanded = ref(false);
 
@@ -320,6 +322,31 @@ function onPanelDividerMouseUp() {
   document.removeEventListener("mouseup", onPanelDividerMouseUp);
 }
 
+function onSidebarDividerMouseDown() {
+  isDraggingSidebarDivider.value = true;
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+  document.addEventListener("mousemove", onSidebarDividerMouseMove);
+  document.addEventListener("mouseup", onSidebarDividerMouseUp);
+}
+
+function onSidebarDividerMouseMove(e: MouseEvent) {
+  const el = layoutRef.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  // px-2 = 8px left padding; subtract it to get width within the grid column
+  const newWidth = e.clientX - rect.left - 8;
+  settingsStore.setSidebarWidthPx(newWidth);
+}
+
+function onSidebarDividerMouseUp() {
+  isDraggingSidebarDivider.value = false;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  document.removeEventListener("mousemove", onSidebarDividerMouseMove);
+  document.removeEventListener("mouseup", onSidebarDividerMouseUp);
+}
+
 function onGlobalKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement;
   const isEditable =
@@ -396,18 +423,20 @@ onUnmounted(() => {
   document.removeEventListener("mouseup", onQueueDividerMouseUp);
   document.removeEventListener("mousemove", onPanelDividerMouseMove);
   document.removeEventListener("mouseup", onPanelDividerMouseUp);
+  document.removeEventListener("mousemove", onSidebarDividerMouseMove);
+  document.removeEventListener("mouseup", onSidebarDividerMouseUp);
   unlistenDragDrop?.();
 });
 </script>
 
 <template>
   <div
+    ref="layoutRef"
     class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_auto] pt-2 px-2 pb-0 gap-y-2 overflow-hidden"
     :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
     :style="{
-      gridTemplateColumns: sidebarCollapsed ? '0px 1fr' : '256px 1fr',
-      columnGap: sidebarCollapsed ? '0px' : '8px',
-      transition: 'grid-template-columns 400ms ease-out, column-gap 400ms ease-out',
+      gridTemplateColumns: sidebarCollapsed ? '0px 0px 1fr' : `${sidebarWidthPx}px 4px 1fr`,
+      transition: isDraggingSidebarDivider ? 'none' : 'grid-template-columns 400ms ease-out',
     }"
   >
     <!-- Top row: sidebar island -->
@@ -419,8 +448,16 @@ onUnmounted(() => {
         <Sidebar @toggle="sidebarCollapsed = !sidebarCollapsed" />
       </div>
     </Transition>
+    <!-- Sidebar resize handle -->
+    <div
+      v-show="!sidebarCollapsed"
+      role="separator"
+      aria-orientation="vertical"
+      class="sidebar-divider row-start-1 row-end-2 col-start-2 col-end-3 h-full w-1 cursor-col-resize"
+      @mousedown.prevent="onSidebarDividerMouseDown"
+    />
     <main
-      class="row-start-1 row-end-2 col-start-2 col-end-3 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface border border-stone-700/50"
+      class="row-start-1 row-end-2 col-start-3 col-end-4 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface border border-stone-700/50"
     >
       <LibraryTable
         v-model:activeTab="activeTab"
@@ -433,7 +470,7 @@ onUnmounted(() => {
     <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Resizable height when Player or Queue tab. -->
     <div
       ref="queueBarContainerRef"
-      class="row-start-2 row-end-3 col-span-2 flex shrink-0 min-w-0 flex-col overflow-hidden"
+      class="row-start-2 row-end-3 col-start-1 col-end-4 flex shrink-0 min-w-0 flex-col overflow-hidden"
       :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : ''"
       :style="bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : undefined"
     >

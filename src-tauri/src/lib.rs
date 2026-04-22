@@ -87,6 +87,13 @@ pub fn run() {
             commands::cast_seek,
             commands::cast_set_volume,
             commands::rename_track_file,
+            commands::record_play,
+            commands::search_tracks,
+            commands::get_library_stats,
+            commands::create_smart_playlist,
+            commands::update_smart_playlist_rules,
+            commands::get_smart_playlist_track_ids,
+            commands::reorder_playlists,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

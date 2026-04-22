@@ -123,10 +123,10 @@ const hovered = ref<number | null>(null);
     No tracks in library yet.
   </div>
 
-  <div v-else class="flex flex-wrap items-start gap-6">
+  <div v-else class="flex flex-col items-center gap-3">
     <!-- SVG donut chart -->
     <div class="relative shrink-0">
-      <svg viewBox="0 0 200 200" class="h-52 w-52 drop-shadow-sm">
+      <svg viewBox="0 0 200 200" class="h-44 w-44 drop-shadow-sm">
         <g>
           <path
             v-for="(s, i) in svgSlices"
@@ -168,7 +168,7 @@ const hovered = ref<number | null>(null);
     </div>
 
     <!-- Legend -->
-    <div class="flex min-w-0 flex-1 flex-col gap-1 py-1">
+    <div class="w-full flex flex-col gap-1">
       <div
         v-for="(s, i) in svgSlices"
         :key="s.label"

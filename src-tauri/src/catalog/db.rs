@@ -11,6 +11,8 @@ pub struct Playlist {
     pub name: String,
     pub track_count: i64,
     pub icon: Option<String>,
+    /// JSON rule array for smart playlists; None for regular playlists.
+    pub smart_rules: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -34,6 +36,10 @@ pub struct CatalogTrack {
     pub has_cover: bool,
     /// User rating 1–5, or None if unrated.
     pub rating: Option<i64>,
+    /// Number of times this track has been played past 30 s.
+    pub play_count: i64,
+    /// Unix timestamp of the most recent play, or None if never played.
+    pub last_played_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -149,6 +155,92 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
         conn.execute("ALTER TABLE playlists ADD COLUMN icon TEXT", [])
             .map_err(|e| e.to_string())?;
     }
+    if !schema_has_column(conn, "tracks", "play_count")? {
+        conn.execute(
+            "ALTER TABLE tracks ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if !schema_has_column(conn, "tracks", "last_played_at")? {
+        conn.execute("ALTER TABLE tracks ADD COLUMN last_played_at INTEGER", [])
+            .map_err(|e| e.to_string())?;
+    }
+    if !schema_has_column(conn, "playlists", "smart_rules")? {
+        conn.execute("ALTER TABLE playlists ADD COLUMN smart_rules TEXT", [])
+            .map_err(|e| e.to_string())?;
+    }
+    if !schema_has_column(conn, "playlists", "sort_order")? {
+        conn.execute(
+            "ALTER TABLE playlists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+        // Seed sort_order from existing creation order so the list doesn't shuffle.
+        conn.execute_batch(
+            "UPDATE playlists SET sort_order = (
+                SELECT COUNT(*) FROM playlists p2 WHERE p2.created_at < playlists.created_at
+             )",
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    // FTS5 full-text search — regular (non-content) table, kept in sync via triggers.
+    //
+    // Detect whether the existing fts_tracks table is the old content-table style.
+    // A content FTS5 table has 'content' = 'tracks' in fts_tracks_config; a regular
+    // table has 'content' = ''. Missing config table means the table doesn't exist yet.
+    let fts_needs_setup: bool = conn
+        .query_row(
+            "SELECT v FROM fts_tracks_config WHERE k = 'content'",
+            [],
+            |r| r.get::<_, String>(0),
+        )
+        .map(|v| v == "tracks") // true  → old content-table, must migrate
+        .unwrap_or(true);       // error → table absent or unreadable, also set up fresh
+
+    if fts_needs_setup {
+        // Drop the old content-table FTS and its triggers (ignore errors — the table
+        // might not exist or might itself be in a malformed state).
+        let _ = conn.execute_batch(
+            "DROP TABLE IF EXISTS fts_tracks;
+             DROP TRIGGER IF EXISTS tracks_ai;
+             DROP TRIGGER IF EXISTS tracks_au;
+             DROP TRIGGER IF EXISTS tracks_ad;",
+        );
+
+        conn.execute_batch(
+            // Regular FTS5 table — stores its own index data, no external-content sync needed.
+            "CREATE VIRTUAL TABLE IF NOT EXISTS fts_tracks USING fts5(
+                 title, artist, album, album_artist, genre,
+                 tokenize='unicode61 remove_diacritics 1'
+             );
+             -- INSERT: index the new row.
+             CREATE TRIGGER IF NOT EXISTS tracks_ai AFTER INSERT ON tracks BEGIN
+                 INSERT INTO fts_tracks(rowid, title, artist, album, album_artist, genre)
+                 VALUES(new.id, new.title, new.artist, new.album, new.album_artist, new.genre);
+             END;
+             -- UPDATE of indexed columns only (not play_count, rating, deleted_at, etc.).
+             CREATE TRIGGER IF NOT EXISTS tracks_au
+                 AFTER UPDATE OF title, artist, album, album_artist, genre ON tracks BEGIN
+                 DELETE FROM fts_tracks WHERE rowid = old.id;
+                 INSERT INTO fts_tracks(rowid, title, artist, album, album_artist, genre)
+                 VALUES(new.id, new.title, new.artist, new.album, new.album_artist, new.genre);
+             END;
+             -- DELETE: remove index entry (safe even if rowid not present).
+             CREATE TRIGGER IF NOT EXISTS tracks_ad AFTER DELETE ON tracks BEGIN
+                 DELETE FROM fts_tracks WHERE rowid = old.id;
+             END;",
+        )
+        .map_err(|e| e.to_string())?;
+
+        // Populate FTS from all current non-deleted tracks.
+        conn.execute_batch(
+            "INSERT INTO fts_tracks(rowid, title, artist, album, album_artist, genre)
+             SELECT id, title, artist, album, album_artist, genre
+             FROM tracks WHERE deleted_at IS NULL",
+        )
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -245,95 +337,118 @@ pub fn load_roots(conn: &rusqlite::Connection) -> Result<Vec<String>, String> {
 }
 
 pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, String> {
+    load_tracks_filtered(conn, None)
+}
+
+/// Load tracks, optionally restricted to a specific set of IDs (returned in the order given).
+fn load_tracks_filtered(
+    conn: &rusqlite::Connection,
+    id_order: Option<&[i64]>,
+) -> Result<Vec<CatalogTrack>, String> {
     let has_cover_col = schema_has_column(conn, "tracks", "has_cover")?;
     let featuring_col = schema_has_column(conn, "tracks", "featuring")?;
     let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
     let rating_col = schema_has_column(conn, "tracks", "rating")?;
-    let filter = if deleted_at_col { " WHERE deleted_at IS NULL" } else { "" };
-    let order = " ORDER BY artist, album, track_number, title";
-    let rating_sel = if rating_col { ", rating" } else { "" };
-    // rating index = 14 (base) + 1 if featuring_col + 1 if has_cover_col
-    let rating_idx: usize = 14 + featuring_col as usize + has_cover_col as usize;
-    let sql: String = match (has_cover_col, featuring_col) {
-        (true, true) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover{rating_sel} FROM tracks{filter}{order}"
-        ),
-        (true, false) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover{rating_sel} FROM tracks{filter}{order}"
-        ),
-        (false, true) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs{rating_sel} FROM tracks{filter}{order}"
-        ),
-        (false, false) => format!(
-            "SELECT id, path, root_id, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs{rating_sel} FROM tracks{filter}{order}"
-        ),
+    let play_count_col = schema_has_column(conn, "tracks", "play_count")?;
+    let last_played_at_col = schema_has_column(conn, "tracks", "last_played_at")?;
+
+    // Build column list, recording the index of each optional column.
+    let mut cols: Vec<&str> = Vec::with_capacity(20);
+    cols.extend_from_slice(&["id", "path", "root_id", "title", "artist", "album", "album_artist"]);
+    let feat_idx: Option<usize> = if featuring_col {
+        let i = cols.len(); cols.push("featuring"); Some(i)
+    } else { None };
+    cols.extend_from_slice(&["year", "genre", "track_number", "disc_number", "duration_secs", "format", "mtime_secs"]);
+    let cover_idx: Option<usize> = if has_cover_col {
+        let i = cols.len(); cols.push("has_cover"); Some(i)
+    } else { None };
+    let rating_idx: Option<usize> = if rating_col {
+        let i = cols.len(); cols.push("rating"); Some(i)
+    } else { None };
+    let play_count_idx: Option<usize> = if play_count_col {
+        let i = cols.len(); cols.push("play_count"); Some(i)
+    } else { None };
+    let last_played_idx: Option<usize> = if last_played_at_col {
+        let i = cols.len(); cols.push("last_played_at"); Some(i)
+    } else { None };
+
+    // Base index of the year column — shifts by 1 if featuring is present.
+    let year_base: usize = if featuring_col { 8 } else { 7 };
+
+    let sql = match id_order {
+        None => {
+            let filter = if deleted_at_col { " WHERE deleted_at IS NULL" } else { "" };
+            format!(
+                "SELECT {} FROM tracks{} ORDER BY artist, album, track_number, title",
+                cols.join(", "), filter
+            )
+        }
+        Some(ids) => {
+            let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let del = if deleted_at_col { " AND deleted_at IS NULL" } else { "" };
+            format!(
+                "SELECT {} FROM tracks WHERE id IN ({}){}",
+                cols.join(", "), placeholders, del
+            )
+        }
     };
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], |r| {
-            let (has_cover, featuring) = match (has_cover_col, featuring_col) {
-                (true, true) => (
-                    r.get::<_, i64>(15).map(|n| n != 0).unwrap_or(false),
-                    r.get::<_, Option<String>>(7).ok().flatten(),
-                ),
-                (true, false) => (
-                    r.get::<_, i64>(14).map(|n| n != 0).unwrap_or(false),
-                    None,
-                ),
-                (false, true) => (false, r.get::<_, Option<String>>(7).ok().flatten()),
-                (false, false) => (false, None),
-            };
-            let (year, genre, track_number, disc_number, duration_secs, format, mtime_secs) = if featuring_col {
-                (
-                    r.get::<_, Option<i64>>(8)?,
-                    r.get::<_, Option<String>>(9)?,
-                    r.get::<_, Option<i64>>(10)?,
-                    r.get::<_, Option<i64>>(11)?,
-                    r.get::<_, Option<i64>>(12)?,
-                    r.get::<_, String>(13)?,
-                    r.get::<_, i64>(14)?,
-                )
-            } else {
-                (
-                    r.get::<_, Option<i64>>(7)?,
-                    r.get::<_, Option<String>>(8)?,
-                    r.get::<_, Option<i64>>(9)?,
-                    r.get::<_, Option<i64>>(10)?,
-                    r.get::<_, Option<i64>>(11)?,
-                    r.get::<_, String>(12)?,
-                    r.get::<_, i64>(13)?,
-                )
-            };
-            let rating = if rating_col {
-                r.get::<_, Option<i64>>(rating_idx).unwrap_or(None)
-            } else {
-                None
-            };
-            Ok(CatalogTrack {
-                id: r.get(0)?,
-                path: r.get(1)?,
-                root_id: r.get(2)?,
-                title: r.get(3)?,
-                artist: r.get(4)?,
-                album: r.get(5)?,
-                album_artist: r.get(6)?,
-                featuring,
-                year,
-                genre,
-                track_number,
-                disc_number,
-                duration_secs,
-                format,
-                mtime_secs,
-                has_cover,
-                rating,
-            })
+
+    let map_row = move |r: &rusqlite::Row| {
+        let featuring = feat_idx.and_then(|i| r.get::<_, Option<String>>(i).ok().flatten());
+        let has_cover = cover_idx
+            .and_then(|i| r.get::<_, i64>(i).ok())
+            .map(|n| n != 0)
+            .unwrap_or(false);
+        let rating = rating_idx.and_then(|i| r.get::<_, Option<i64>>(i).ok().flatten());
+        let play_count = play_count_idx
+            .and_then(|i| r.get::<_, i64>(i).ok())
+            .unwrap_or(0);
+        let last_played_at = last_played_idx.and_then(|i| r.get::<_, Option<i64>>(i).ok().flatten());
+        Ok(CatalogTrack {
+            id: r.get(0)?,
+            path: r.get(1)?,
+            root_id: r.get(2)?,
+            title: r.get(3)?,
+            artist: r.get(4)?,
+            album: r.get(5)?,
+            album_artist: r.get(6)?,
+            featuring,
+            year: r.get(year_base)?,
+            genre: r.get(year_base + 1)?,
+            track_number: r.get(year_base + 2)?,
+            disc_number: r.get(year_base + 3)?,
+            duration_secs: r.get(year_base + 4)?,
+            format: r.get(year_base + 5)?,
+            mtime_secs: r.get(year_base + 6)?,
+            has_cover,
+            rating,
+            play_count,
+            last_played_at,
         })
-        .map_err(|e| e.to_string())?;
-    let mut out = Vec::new();
-    for row in rows {
-        out.push(row.map_err(|e| e.to_string())?);
+    };
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = match id_order {
+        None => stmt.query_map([], map_row).map_err(|e| e.to_string())?,
+        Some(ids) => {
+            let params: Vec<rusqlite::types::Value> =
+                ids.iter().map(|&id| rusqlite::types::Value::Integer(id)).collect();
+            stmt.query_map(rusqlite::params_from_iter(params.iter()), map_row)
+                .map_err(|e| e.to_string())?
+        }
+    };
+
+    let mut out: Vec<CatalogTrack> = rows
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // When loading by ID list, re-sort to match the requested order.
+    if let Some(ids) = id_order {
+        let pos: std::collections::HashMap<i64, usize> =
+            ids.iter().enumerate().map(|(i, &id)| (id, i)).collect();
+        out.sort_by_key(|t| pos.get(&t.id).copied().unwrap_or(usize::MAX));
     }
+
     Ok(out)
 }
 
@@ -817,9 +932,12 @@ pub struct PlaylistTrackEntry {
 
 pub fn create_playlist(conn: &rusqlite::Connection, name: &str) -> Result<Playlist, String> {
     let now = now_secs()?;
+    let next_order: i64 = conn
+        .query_row("SELECT COALESCE(MAX(sort_order) + 1, 0) FROM playlists", [], |r| r.get(0))
+        .unwrap_or(0);
     conn.execute(
-        "INSERT INTO playlists (name, created_at) VALUES (?1, ?2)",
-        rusqlite::params![name, now],
+        "INSERT INTO playlists (name, created_at, sort_order) VALUES (?1, ?2, ?3)",
+        rusqlite::params![name, now, next_order],
     )
     .map_err(|e| e.to_string())?;
     let id = conn.last_insert_rowid();
@@ -828,6 +946,7 @@ pub fn create_playlist(conn: &rusqlite::Connection, name: &str) -> Result<Playli
         name: name.to_string(),
         track_count: 0,
         icon: None,
+        smart_rules: None,
     })
 }
 
@@ -835,18 +954,18 @@ pub fn load_playlists(conn: &rusqlite::Connection) -> Result<Vec<Playlist>, Stri
     let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
     let sql = if deleted_at_col {
         // Only count playlist entries whose track is not soft-deleted.
-        "SELECT p.id, p.name, COUNT(t.id) as track_count, p.icon \
+        "SELECT p.id, p.name, COUNT(t.id) as track_count, p.icon, p.smart_rules \
          FROM playlists p \
          LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id \
          LEFT JOIN tracks t ON t.id = pt.track_id AND t.deleted_at IS NULL \
-         GROUP BY p.id, p.name, p.icon \
-         ORDER BY p.created_at"
+         GROUP BY p.id, p.name, p.icon, p.smart_rules \
+         ORDER BY p.sort_order, p.created_at"
     } else {
-        "SELECT p.id, p.name, COUNT(pt.id) as track_count, p.icon \
+        "SELECT p.id, p.name, COUNT(pt.id) as track_count, p.icon, p.smart_rules \
          FROM playlists p \
          LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id \
-         GROUP BY p.id, p.name, p.icon \
-         ORDER BY p.created_at"
+         GROUP BY p.id, p.name, p.icon, p.smart_rules \
+         ORDER BY p.sort_order, p.created_at"
     };
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
@@ -856,12 +975,21 @@ pub fn load_playlists(conn: &rusqlite::Connection) -> Result<Vec<Playlist>, Stri
                 name: r.get(1)?,
                 track_count: r.get(2)?,
                 icon: r.get(3)?,
+                smart_rules: r.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
     for row in rows {
         out.push(row.map_err(|e| e.to_string())?);
+    }
+    // The JOIN-based count is always 0 for smart playlists (no playlist_tracks rows).
+    // Resolve the real count by running each smart playlist's rules.
+    for playlist in &mut out {
+        if let Some(rules_json) = &playlist.smart_rules.clone() {
+            playlist.track_count =
+                count_smart_playlist_tracks(conn, rules_json).unwrap_or(0);
+        }
     }
     Ok(out)
 }
@@ -1155,3 +1283,291 @@ pub fn get_latest_track_backup(
     Ok(None)
 }
 
+// ── Play count ─────────────────────────────────────────────────────────────
+
+/// Increment play_count and update last_played_at for the given track path.
+pub fn record_play(conn: &rusqlite::Connection, path: &str) -> Result<(), String> {
+    let now = now_secs()?;
+    conn.execute(
+        "UPDATE tracks SET play_count = COALESCE(play_count, 0) + 1, last_played_at = ?1 WHERE path = ?2",
+        rusqlite::params![now, path],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ── Full-text search ───────────────────────────────────────────────────────
+
+/// Full-text search over title, artist, album, album_artist, genre using FTS5.
+/// Returns matching tracks in relevance order (best match first).
+pub fn search_tracks(conn: &rusqlite::Connection, query: &str) -> Result<Vec<CatalogTrack>, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(Vec::new());
+    }
+    // Build an FTS5 prefix query: each whitespace-delimited token becomes "token"*
+    let fts_query: String = q
+        .split_whitespace()
+        .map(|w| format!("\"{}\"*", w.replace(['"', '\''], "")))
+        .collect::<Vec<_>>()
+        .join(" ");
+    if fts_query.is_empty() {
+        return Ok(Vec::new());
+    }
+    // Get IDs in rank order from FTS
+    let mut stmt = conn
+        .prepare("SELECT rowid FROM fts_tracks WHERE fts_tracks MATCH ? ORDER BY rank LIMIT 500")
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map([&fts_query], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    load_tracks_filtered(conn, Some(&ids))
+}
+
+// ── Library stats ──────────────────────────────────────────────────────────
+
+#[derive(Debug, serde::Serialize)]
+pub struct LibraryStats {
+    pub track_count: i64,
+    pub artist_count: i64,
+    pub album_count: i64,
+    pub total_duration_secs: i64,
+}
+
+pub fn get_library_stats(conn: &rusqlite::Connection) -> Result<LibraryStats, String> {
+    let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
+    let filter = if deleted_at_col { "WHERE deleted_at IS NULL" } else { "" };
+    let sql = format!(
+        "SELECT \
+            COUNT(*), \
+            COUNT(DISTINCT LOWER(TRIM(COALESCE(artist, '')))), \
+            COUNT(DISTINCT LOWER(TRIM(COALESCE(album, ''))) || '|||' || LOWER(TRIM(COALESCE(album_artist, '')))), \
+            COALESCE(SUM(duration_secs), 0) \
+         FROM tracks {}",
+        filter
+    );
+    conn.query_row(&sql, [], |r| {
+        Ok(LibraryStats {
+            track_count: r.get(0)?,
+            artist_count: r.get(1)?,
+            album_count: r.get(2)?,
+            total_duration_secs: r.get(3)?,
+        })
+    })
+    .map_err(|e| e.to_string())
+}
+
+// ── Smart playlists ────────────────────────────────────────────────────────
+
+/// Rule schema: `{"field": "<field>", "op": "<op>", "value": <json_value>}`.
+#[derive(serde::Deserialize)]
+struct SmartRule {
+    field: String,
+    op: String,
+    value: Option<serde_json::Value>,
+}
+
+const ALLOWED_SMART_FIELDS: &[&str] = &[
+    "title", "artist", "album", "album_artist", "genre", "year",
+    "rating", "play_count", "last_played_at", "has_cover",
+];
+
+fn smart_value_to_sqlite(v: &Option<serde_json::Value>) -> Result<rusqlite::types::Value, String> {
+    match v {
+        None => Err("Missing value".to_string()),
+        Some(serde_json::Value::String(s)) => Ok(rusqlite::types::Value::Text(s.clone())),
+        Some(serde_json::Value::Number(n)) => {
+            if let Some(i) = n.as_i64() {
+                Ok(rusqlite::types::Value::Integer(i))
+            } else if let Some(f) = n.as_f64() {
+                Ok(rusqlite::types::Value::Real(f))
+            } else {
+                Err("Invalid number".to_string())
+            }
+        }
+        Some(serde_json::Value::Bool(b)) => {
+            Ok(rusqlite::types::Value::Integer(if *b { 1 } else { 0 }))
+        }
+        _ => Err("Unsupported value type".to_string()),
+    }
+}
+
+/// Build a SQL WHERE clause and parameter list from smart playlist rules JSON.
+///
+/// Rules for the **same field** are combined with OR (e.g. two Genre rules match
+/// tracks in either genre).  Rules for **different fields** are combined with AND.
+fn build_smart_where(
+    conn: &rusqlite::Connection,
+    rules_json: &str,
+) -> Result<(String, Vec<rusqlite::types::Value>), String> {
+    let rules: Vec<SmartRule> =
+        serde_json::from_str(rules_json).map_err(|e| format!("Invalid rules: {e}"))?;
+
+    let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
+
+    // Collect (sql_fragment, optional_param) per field, preserving first-seen order.
+    let mut field_order: Vec<String> = Vec::new();
+    let mut field_groups: std::collections::HashMap<String, Vec<(String, Option<rusqlite::types::Value>)>> =
+        std::collections::HashMap::new();
+
+    for rule in &rules {
+        if !ALLOWED_SMART_FIELDS.contains(&rule.field.as_str()) {
+            return Err(format!("Unknown field: {}", rule.field));
+        }
+        let (sql, param) = match rule.op.as_str() {
+            "eq" => (
+                format!("{} = ?", rule.field),
+                Some(smart_value_to_sqlite(&rule.value)?),
+            ),
+            "neq" => (
+                format!("{} != ?", rule.field),
+                Some(smart_value_to_sqlite(&rule.value)?),
+            ),
+            "gt" => (
+                format!("{} > ?", rule.field),
+                Some(smart_value_to_sqlite(&rule.value)?),
+            ),
+            "gte" => (
+                format!("{} >= ?", rule.field),
+                Some(smart_value_to_sqlite(&rule.value)?),
+            ),
+            "lt" => (
+                format!("{} < ?", rule.field),
+                Some(smart_value_to_sqlite(&rule.value)?),
+            ),
+            "lte" => (
+                format!("{} <= ?", rule.field),
+                Some(smart_value_to_sqlite(&rule.value)?),
+            ),
+            "is_null" => (format!("{} IS NULL", rule.field), None),
+            "is_not_null" => (format!("{} IS NOT NULL", rule.field), None),
+            "contains" => {
+                let s = rule.value.as_ref().and_then(|v| v.as_str()).unwrap_or("");
+                let escaped = s.replace('%', "\\%").replace('_', "\\_");
+                (
+                    format!("{} LIKE ? ESCAPE '\\'", rule.field),
+                    Some(rusqlite::types::Value::Text(format!("%{escaped}%"))),
+                )
+            }
+            other => return Err(format!("Unknown operator: {other}")),
+        };
+        if !field_order.contains(&rule.field) {
+            field_order.push(rule.field.clone());
+        }
+        field_groups.entry(rule.field.clone()).or_default().push((sql, param));
+    }
+
+    // Build the final AND-of-OR-groups clause.
+    let mut and_parts: Vec<String> = Vec::new();
+    if deleted_at_col {
+        and_parts.push("deleted_at IS NULL".to_string());
+    }
+    let mut params: Vec<rusqlite::types::Value> = Vec::new();
+
+    for field in &field_order {
+        let group = &field_groups[field];
+        let sqls: Vec<&str> = group.iter().map(|(s, _)| s.as_str()).collect();
+        if sqls.len() == 1 {
+            and_parts.push(sqls[0].to_string());
+        } else {
+            and_parts.push(format!("({})", sqls.join(" OR ")));
+        }
+        for (_, param) in group {
+            if let Some(p) = param {
+                params.push(p.clone());
+            }
+        }
+    }
+
+    let where_sql = if and_parts.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", and_parts.join(" AND "))
+    };
+    Ok((where_sql, params))
+}
+
+/// Count tracks matching smart playlist rules JSON.
+fn count_smart_playlist_tracks(
+    conn: &rusqlite::Connection,
+    rules_json: &str,
+) -> Result<i64, String> {
+    let (where_sql, params) = build_smart_where(conn, rules_json)?;
+    let sql = format!("SELECT COUNT(*) FROM tracks {where_sql}");
+    conn.query_row(&sql, rusqlite::params_from_iter(params.iter()), |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())
+}
+
+/// Resolve smart playlist rules JSON to a list of matching track IDs.
+pub fn resolve_smart_playlist_track_ids(
+    conn: &rusqlite::Connection,
+    rules_json: &str,
+) -> Result<Vec<i64>, String> {
+    let (where_sql, params) = build_smart_where(conn, rules_json)?;
+    let sql = format!(
+        "SELECT id FROM tracks {where_sql} ORDER BY artist, album, track_number, title"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(ids)
+}
+
+pub fn create_smart_playlist(
+    conn: &rusqlite::Connection,
+    name: &str,
+    rules_json: &str,
+) -> Result<Playlist, String> {
+    let now = now_secs()?;
+    let next_order: i64 = conn
+        .query_row("SELECT COALESCE(MAX(sort_order) + 1, 0) FROM playlists", [], |r| r.get(0))
+        .unwrap_or(0);
+    conn.execute(
+        "INSERT INTO playlists (name, created_at, smart_rules, sort_order) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![name, now, rules_json, next_order],
+    )
+    .map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+    let track_count = count_smart_playlist_tracks(conn, rules_json).unwrap_or(0);
+    Ok(Playlist {
+        id,
+        name: name.to_string(),
+        track_count,
+        icon: None,
+        smart_rules: Some(rules_json.to_string()),
+    })
+}
+
+pub fn set_smart_playlist_rules(
+    conn: &rusqlite::Connection,
+    id: i64,
+    rules_json: Option<&str>,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE playlists SET smart_rules = ?1 WHERE id = ?2",
+        rusqlite::params![rules_json, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Persist a new playlist order. `ids` is the full ordered list of playlist IDs;
+/// each playlist's `sort_order` is set to its index in that list.
+pub fn reorder_playlists(conn: &rusqlite::Connection, ids: &[i64]) -> Result<(), String> {
+    for (i, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE playlists SET sort_order = ?1 WHERE id = ?2",
+            rusqlite::params![i as i64, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

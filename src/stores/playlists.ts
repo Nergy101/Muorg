@@ -145,5 +145,54 @@ export const usePlaylistStore = defineStore("playlists", {
         this.error = e instanceof Error ? e.message : String(e);
       }
     },
+
+    async createSmartPlaylist(name: string, rulesJson: string): Promise<import("../types").Playlist | null> {
+      if (isMock()) return null;
+      this.error = null;
+      try {
+        const playlist = await invoke<import("../types").Playlist>("create_smart_playlist", { name, rulesJson });
+        this.playlists = [...this.playlists, playlist];
+        return playlist;
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        return null;
+      }
+    },
+
+    async updateSmartPlaylistRules(id: number, rulesJson: string) {
+      if (isMock()) return;
+      this.error = null;
+      try {
+        await invoke("update_smart_playlist_rules", { id, rulesJson });
+        const ids = await invoke<number[]>("get_smart_playlist_track_ids", { playlistId: id }).catch(() => null);
+        this.playlists = this.playlists.map((p) =>
+          p.id === id ? { ...p, smart_rules: rulesJson, track_count: ids?.length ?? p.track_count } : p,
+        );
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+      }
+    },
+
+    async getSmartPlaylistTrackIds(playlistId: number): Promise<number[]> {
+      if (isMock()) return [];
+      try {
+        return await invoke<number[]>("get_smart_playlist_track_ids", { playlistId });
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        return [];
+      }
+    },
+
+    async reorderPlaylists(ids: number[]) {
+      // Optimistically reorder in-place, then persist.
+      const idToPlaylist = new Map(this.playlists.map((p) => [p.id, p]));
+      this.playlists = ids.map((id) => idToPlaylist.get(id)!).filter(Boolean);
+      if (isMock()) return;
+      try {
+        await invoke("reorder_playlists", { ids });
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+      }
+    },
   },
 });

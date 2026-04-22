@@ -180,6 +180,19 @@ const activeReportTracks = computed(() => {
   }
   if (kind === "missing_album_cover") return base.filter((t) => !t.has_cover);
 
+  if (kind === "recently_played") {
+    return [...base]
+      .filter((t) => t.last_played_at != null)
+      .sort((a, b) => (b.last_played_at ?? 0) - (a.last_played_at ?? 0))
+      .slice(0, 200);
+  }
+  if (kind === "most_played") {
+    return [...base]
+      .filter((t) => (t.play_count ?? 0) > 0)
+      .sort((a, b) => (b.play_count ?? 0) - (a.play_count ?? 0))
+      .slice(0, 200);
+  }
+
   // duplicates: same normalized artist + album + title
   const keyFor = (t: CatalogTrack) =>
     `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
@@ -205,6 +218,8 @@ const activeReportTitle = computed(() => {
   }
   if (reportFilter.value === "duplicates") return "Duplicates";
   if (reportFilter.value === "missing_album_cover") return "Missing album cover";
+  if (reportFilter.value === "recently_played") return "Recently played";
+  if (reportFilter.value === "most_played") return "Most played";
   return "";
 });
 
