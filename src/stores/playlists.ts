@@ -89,6 +89,16 @@ export const usePlaylistStore = defineStore("playlists", {
       }
     },
 
+    async getPlaylistsForTrack(trackId: number): Promise<number[]> {
+      if (isMock()) return [];
+      try {
+        return await invoke<number[]>("get_playlists_for_track", { trackId });
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        return [];
+      }
+    },
+
     async getPlaylistEntries(playlistId: number): Promise<PlaylistEntry[]> {
       if (isMock()) return [];
       try {

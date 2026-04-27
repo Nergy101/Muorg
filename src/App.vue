@@ -366,6 +366,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
       expandPlayer();
     }
   }
+
+  if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+    e.preventDefault();
+    if (!isEditable) {
+      sidebarCollapsed.value = !sidebarCollapsed.value;
+    }
+  }
 }
 
 onMounted(async () => {

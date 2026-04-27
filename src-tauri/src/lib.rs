@@ -73,6 +73,7 @@ pub fn run() {
             commands::set_playlist_icon,
             commands::delete_playlist,
             commands::get_playlist_tracks,
+            commands::get_playlists_for_track,
             commands::get_playlist_entries,
             commands::add_tracks_to_playlist,
             commands::remove_tracks_from_playlist,

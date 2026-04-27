@@ -81,6 +81,8 @@ export const useCatalogStore = defineStore("catalog", {
     playRequestTrackId: null as number | null,
     /** True while the user is dragging a queue item (internal DnD). Used to avoid showing the "drop folders" overlay. */
     isInternalQueueDrag: false,
+    /** Track IDs being dragged in the current internal DnD operation. Bypasses dataTransfer MIME type issues in WKWebView. */
+    pendingDragTrackIds: null as number[] | null,
     /** The ID of the currently active playlist filter (null = no filter / show all). */
     activePlaylistId: null as number | null,
     /** The playlist that current playback was started from (independent of the active filter). */
@@ -648,8 +650,9 @@ export const useCatalogStore = defineStore("catalog", {
     setPlayRequestTrackId(id: number | null) {
       this.playRequestTrackId = id;
     },
-    setInternalQueueDrag(value: boolean) {
+    setInternalQueueDrag(value: boolean, trackIds?: number[]) {
       this.isInternalQueueDrag = value;
+      this.pendingDragTrackIds = value ? (trackIds ?? null) : null;
     },
     setActivePlaylist(id: number, entries: { entryId: number; trackId: number }[]) {
       this.activePlaylistId = id;

@@ -1038,6 +1038,26 @@ pub fn get_playlist_tracks(
     Ok(out)
 }
 
+/// Returns the IDs of all playlists that contain a given track.
+pub fn get_playlists_for_track(
+    conn: &rusqlite::Connection,
+    track_id: i64,
+) -> Result<Vec<i64>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT playlist_id FROM playlist_tracks WHERE track_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([track_id], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
 /// Returns every entry for a playlist in position order, including the `playlist_tracks.id`
 /// primary key so the frontend can target a specific row when removing one of several duplicates.
 pub fn get_playlist_entries(

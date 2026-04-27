@@ -16,6 +16,7 @@ const keyMapEntries: { keys: string; description: string }[] = [
   { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
   { keys: "Ctrl+R / ⌘R", description: "Refresh whole library (all folders, all reports)" },
   { keys: "Ctrl+M / ⌘M", description: "Open maximized player" },
+  { keys: "Ctrl+S / ⌘S", description: "Toggle sidebar" },
   { keys: "Ctrl+1 / ⌘1", description: "Show library panel" },
   { keys: "Ctrl+2 / ⌘2", description: "Toggle metadata editor panel for current selection" },
   { keys: "Ctrl+3 / ⌘3", description: "Toggle full player panel" },

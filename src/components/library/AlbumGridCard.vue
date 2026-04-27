@@ -4,6 +4,7 @@ import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { useDominantColor, useEdgeColors, PRIMARY_RGB } from "../../composables/useDominantColor";
 import type { AlbumGridItem } from "./AlbumGridView.vue";
+import { setTracksDragGhost } from "../../utils/dragGhost";
 
 const props = defineProps<{
   album: AlbumGridItem;
@@ -17,6 +18,18 @@ const emit = defineEmits<{
 
 const store = useCatalogStore();
 const settings = useSettingsStore();
+
+function onDragStart(e: DragEvent) {
+  if (!e.dataTransfer) return;
+  setTracksDragGhost(e, props.album.album, props.album.trackIds.length, coverDataUrl.value);
+  e.dataTransfer.setData("application/muorg-tracks", JSON.stringify(props.album.trackIds));
+  e.dataTransfer.effectAllowed = "copy";
+  store.setInternalQueueDrag(true, props.album.trackIds);
+}
+
+function onDragEnd() {
+  store.setInternalQueueDrag(false);
+}
 
 // Boost this album's cover to the front of the fetch queue — it's now visible.
 if (props.album.hasCover) {
@@ -86,11 +99,14 @@ const textPanelStyle = computed(() => {
 <template>
   <button
     type="button"
+    draggable="true"
     class="flex w-full min-h-[220px] flex-col overflow-hidden rounded bg-stone-900 text-center transition-colors hover:border-primary"
     :class="isPlaying ? 'border-[2px] border-primary' : 'border border-stone-700'"
     :style="isPlaying ? { boxShadow: `0 0 0 2px rgba(${PRIMARY_RGB},0.5), 0 0 20px 6px rgba(${PRIMARY_RGB},0.45), 0 0 40px 10px rgba(${PRIMARY_RGB},0.20)` } : undefined"
     @click="emit('openAlbum', album.key)"
     @contextmenu.prevent="emit('albumContextMenu', $event, album.key)"
+    @dragstart="onDragStart"
+    @dragend="onDragEnd"
   >
     <!-- Album art area -->
     <div class="relative h-40 w-full shrink-0 overflow-hidden bg-stone-800">

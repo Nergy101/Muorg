@@ -36,6 +36,13 @@ textarea:focus {
 .border-primary {
   border-color: #5b7c32;
 }
+/* Primary text color (theme-aware) */
+.text-primary {
+  color: #5b7c32;
+}
+[data-theme="light"]  .text-primary { color: #4d7c2c; }
+[data-theme="doom"]   .text-primary { color: #8b0000; }
+[data-theme="orkish"] .text-primary { color: #2e7d32; }
 .island-surface {
   border: none;
   border-radius: 12px;

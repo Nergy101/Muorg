@@ -333,6 +333,15 @@ pub async fn get_playlist_tracks(
 }
 
 #[tauri::command]
+pub async fn get_playlists_for_track(
+    catalog: State<'_, Arc<Catalog>>,
+    track_id: i64,
+) -> Result<Vec<i64>, String> {
+    let conn = catalog.db.lock().map_err(|e| e.to_string())?;
+    crate::catalog::get_playlists_for_track(&conn, track_id)
+}
+
+#[tauri::command]
 pub async fn get_playlist_entries(
     catalog: State<'_, Arc<Catalog>>,
     playlist_id: i64,

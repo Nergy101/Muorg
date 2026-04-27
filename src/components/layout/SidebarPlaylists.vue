@@ -259,28 +259,28 @@ function closePlaylistContextMenu() {
 const dragOverPlaylistId = ref<number | null>(null);
 
 function onPlaylistDragover(e: DragEvent, playlistId: number) {
-  if (!e.dataTransfer?.types.includes("application/muorg-tracks")) return;
+  // Use the store flag rather than dataTransfer.types to avoid WKWebView MIME type normalisation issues.
+  if (!store.isInternalQueueDrag) return;
   e.preventDefault();
-  e.dataTransfer.dropEffect = "copy";
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
   dragOverPlaylistId.value = playlistId;
 }
 
-function onPlaylistDragleave(playlistId: number) {
-  if (dragOverPlaylistId.value === playlistId) dragOverPlaylistId.value = null;
+function onPlaylistDragleave(e: DragEvent, playlistId: number) {
+  // Only clear if the cursor actually left the playlist item (not just moved to a child).
+  const target = e.currentTarget as HTMLElement | null;
+  if (dragOverPlaylistId.value === playlistId && !target?.contains(e.relatedTarget as Node)) {
+    dragOverPlaylistId.value = null;
+  }
 }
 
-async function onPlaylistDrop(e: DragEvent, playlistId: number) {
+async function onPlaylistDrop(_e: DragEvent, playlistId: number) {
   dragOverPlaylistId.value = null;
-  if (!e.dataTransfer) return;
-  const raw = e.dataTransfer.getData("application/muorg-tracks");
-  if (!raw) return;
-  try {
-    const ids = JSON.parse(raw) as number[];
-    if (ids.length) {
-      const playlist = playlists.value.find((p) => p.id === playlistId);
-      await tryAddToPlaylist(playlistId, ids, playlist?.name ?? "");
-    }
-  } catch { /* ignore malformed data */ }
+  // Read track IDs from the store payload (bypasses WKWebView dataTransfer getData issues).
+  const ids = store.pendingDragTrackIds?.slice() ?? null;
+  if (!ids?.length) return;
+  const playlist = playlists.value.find((p) => p.id === playlistId);
+  await tryAddToPlaylist(playlistId, ids, playlist?.name ?? "");
 }
 
 // ── Playlist reorder — pointer-based (same pattern as queue) ───────────────
@@ -325,6 +325,10 @@ function updateDropSlot(clientY: number) {
 
 function onGripPointerDown(e: MouseEvent, playlistId: number) {
   if (e.button !== 0) return;
+  // Don't start reorder while a track/album HTML5 drag is in flight — it would compete
+  // for the same visual state and `cursor` on playlist items.
+  if (store.isInternalQueueDrag) return;
+  e.preventDefault(); // Prevent text selection during reorder (was @mousedown.prevent in template).
   pointerDownPlaylistId = playlistId;
   pointerDownY = e.clientY;
   hasDragCrossedThreshold = false;
@@ -463,12 +467,14 @@ const exportingPlaylist = ref<Playlist | null>(null);
               : activePlaylistId === playlist.id
                 ? 'border-stone-500 bg-stone-700'
                 : 'border-transparent hover:bg-stone-700/50',
-            dragOverPlaylistId === playlist.id ? 'ring-1 ring-stone-400' : '',
             draggedPlaylistId === playlist.id ? 'opacity-40' : '',
           ]"
-          @mousedown.prevent="onGripPointerDown($event, playlist.id)"
+          :style="dragOverPlaylistId === playlist.id
+            ? { boxShadow: '0 0 0 1.5px rgba(34,197,94,0.65), 0 0 12px rgba(34,197,94,0.35)', background: 'rgba(20,83,45,0.18)' }
+            : undefined"
+          @mousedown="onGripPointerDown($event, playlist.id)"
           @dragover="onPlaylistDragover($event, playlist.id)"
-          @dragleave="onPlaylistDragleave(playlist.id)"
+          @dragleave="onPlaylistDragleave($event, playlist.id)"
           @drop="onPlaylistDrop($event, playlist.id)"
           @contextmenu.prevent="openPlaylistContextMenu($event, playlist.id, playlist.name)"
         >
@@ -535,7 +541,7 @@ const exportingPlaylist = ref<Playlist | null>(null);
                 v-else-if="playlist.smart_rules"
                 name="zap"
                 class="h-3.5 w-3.5 shrink-0"
-                :class="playingFromPlaylistId === playlist.id ? 'text-yellow-400' : activePlaylistId === playlist.id ? 'text-yellow-300' : 'text-yellow-600'"
+                :class="playingFromPlaylistId === playlist.id ? 'text-[#8ab55a]' : activePlaylistId === playlist.id ? 'text-stone-300' : 'text-stone-500'"
               />
               <FeatherIcon
                 v-else
@@ -559,7 +565,10 @@ const exportingPlaylist = ref<Playlist | null>(null);
             >
               <FeatherIcon name="shuffle" class="h-3.5 w-3.5" />
             </button>
-            <span class="mr-2 shrink-0 text-[0.7rem] text-stone-500">{{ playlist.track_count }}</span>
+            <span class="mr-2 inline-flex shrink-0 items-center gap-0.5 text-[0.7rem] text-stone-500">
+              <FeatherIcon v-if="playlist.smart_rules" name="zap" class="h-2.5 w-2.5 text-stone-500" />
+              {{ playlist.track_count }}
+            </span>
           </template>
         </div>
       </template>

@@ -14,6 +14,7 @@ export type AlbumGridItem = {
   totalDurationSecs: number;
   coverPath: string;
   hasCover: boolean;
+  trackIds: number[];
 };
 
 const props = defineProps<{

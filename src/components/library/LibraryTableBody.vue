@@ -6,6 +6,7 @@ import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import type { CatalogTrack } from "../../types";
+import { setTracksDragGhost } from "../../utils/dragGhost";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
@@ -773,6 +774,24 @@ const contextMenuRating = computed(() => {
 // Playlist submenu open state
 const playlistSubmenuOpen = ref(false);
 const playlistBtnContainerRef = ref<HTMLElement | null>(null);
+const trackPlaylistIds = ref<Set<number>>(new Set());
+
+watch(playlistSubmenuOpen, async (open) => {
+  if (!open) { trackPlaylistIds.value = new Set(); return; }
+  const tracks = contextMenu.value?.tracks;
+  if (tracks?.length !== 1) return;
+  const ids = await playlistStore.getPlaylistsForTrack(tracks[0].id);
+  trackPlaylistIds.value = new Set(ids);
+});
+
+const isSingleContextTrack = computed(() => contextMenu.value?.tracks.length === 1);
+const playlistsAlreadyIn = computed(() =>
+  isSingleContextTrack.value ? playlists.value.filter((p) => trackPlaylistIds.value.has(p.id)) : []
+);
+const playlistsNotYetIn = computed(() =>
+  isSingleContextTrack.value ? playlists.value.filter((p) => !trackPlaylistIds.value.has(p.id)) : playlists.value
+);
+
 const submenuTopPx = computed(() => {
   if (!playlistSubmenuOpen.value || !playlistBtnContainerRef.value) return 0;
   const rect = playlistBtnContainerRef.value.getBoundingClientRect();
@@ -815,12 +834,14 @@ watch(contextMenu, (menu) => {
 
 function onTrackDragStart(e: DragEvent, tracks: CatalogTrack[]) {
   if (!e.dataTransfer) return;
-  e.dataTransfer.setData(
-    "application/muorg-tracks",
-    JSON.stringify(tracks.map((t) => t.id))
-  );
+  const ids = tracks.map((t) => t.id);
+  const label = tracks.length === 1
+    ? (tracks[0].title ?? tracks[0].path.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") ?? "Track")
+    : (tracks[0].album ?? "Unknown Album");
+  setTracksDragGhost(e, label, tracks.length, store.getCoverDataUrl(tracks[0].path));
+  e.dataTransfer.setData("application/muorg-tracks", JSON.stringify(ids));
   e.dataTransfer.effectAllowed = "copy";
-  store.setInternalQueueDrag(true);
+  store.setInternalQueueDrag(true, ids);
 }
 
 function onTrackDragEnd() {
@@ -1200,8 +1221,25 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
           class="absolute left-full z-[310] min-w-[160px] max-w-[220px] overflow-y-auto rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
           :style="{ top: submenuTopPx + 'px', maxHeight: 'min(320px, 70vh)', marginLeft: '2px' }"
         >
+          <!-- Playlists the track is already in (single-track only) -->
+          <template v-if="playlistsAlreadyIn.length">
+            <button
+              v-for="pl in playlistsAlreadyIn"
+              :key="pl.id"
+              type="button"
+              class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+              @click="addToPlaylistFromContextMenu(pl.id)"
+            >
+              <span v-if="pl.icon" class="shrink-0 text-sm leading-none">{{ pl.icon }}</span>
+              <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+              <span class="min-w-0 flex-1 truncate">{{ pl.name }}</span>
+              <FeatherIcon name="check" class="h-3.5 w-3.5 shrink-0 text-primary" />
+            </button>
+            <div v-if="playlistsNotYetIn.length" class="my-1 border-t border-stone-700" />
+          </template>
+          <!-- Playlists not yet containing the track -->
           <button
-            v-for="pl in playlists"
+            v-for="pl in playlistsNotYetIn"
             :key="pl.id"
             type="button"
             class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"

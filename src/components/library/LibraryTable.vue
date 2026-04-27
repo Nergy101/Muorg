@@ -115,6 +115,7 @@ const albums = computed<AlbumGridItem[]>(() => {
         totalDurationSecs: data.tracks.reduce((sum, t) => sum + (t.duration_secs ?? 0), 0),
         coverPath: (firstWithCover ?? data.tracks[0]).path,
         hasCover: firstWithCover != null,
+        trackIds: data.tracks.map((t) => t.id),
       };
     })
     .sort((a, b) => {

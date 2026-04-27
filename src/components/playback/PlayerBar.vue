@@ -138,10 +138,21 @@ const contextMenu = ref<{ x: number; y: number } | null>(null);
 const contextMenuRef = ref<HTMLElement | null>(null);
 const playlistSubmenuOpen = ref(false);
 const playlistBtnContainerRef = ref<HTMLElement | null>(null);
+const trackPlaylistIds = ref<Set<number>>(new Set());
 const playlistSubmenuFlipUp = computed(() => {
   if (!playlistBtnContainerRef.value) return false;
   const rect = playlistBtnContainerRef.value.getBoundingClientRect();
   return rect.bottom + 220 > window.innerHeight;
+});
+const playlistsAlreadyIn = computed(() => playlists.value.filter((p) => trackPlaylistIds.value.has(p.id)));
+const playlistsNotYetIn = computed(() => playlists.value.filter((p) => !trackPlaylistIds.value.has(p.id)));
+
+watch(playlistSubmenuOpen, async (open) => {
+  if (!open) { trackPlaylistIds.value = new Set(); return; }
+  const track = singleTrack.value;
+  if (!track) return;
+  const ids = await playlistStore.getPlaylistsForTrack(track.id);
+  trackPlaylistIds.value = new Set(ids);
 });
 
 function onAlbumArtContextMenu(e: MouseEvent) {
@@ -980,8 +991,25 @@ onUnmounted(() => {
             :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
             style="margin-left: 2px"
           >
+            <!-- Playlists the track is already in -->
+            <template v-if="playlistsAlreadyIn.length">
+              <button
+                v-for="pl in playlistsAlreadyIn"
+                :key="pl.id"
+                type="button"
+                class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+                @click="addToPlaylist(pl.id)"
+              >
+                <span v-if="pl.icon" class="shrink-0 text-sm leading-none">{{ pl.icon }}</span>
+                <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+                <span class="min-w-0 flex-1 truncate">{{ pl.name }}</span>
+                <FeatherIcon name="check" class="h-3.5 w-3.5 shrink-0 text-primary" />
+              </button>
+              <div v-if="playlistsNotYetIn.length" class="my-1 border-t border-stone-700" />
+            </template>
+            <!-- Playlists not yet containing the track -->
             <button
-              v-for="pl in playlists"
+              v-for="pl in playlistsNotYetIn"
               :key="pl.id"
               type="button"
               class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
