@@ -382,17 +382,7 @@ function hideTooltip() {
   tooltipHideTimeout = null;
 }
 
-function onGlobalKeydown(e: KeyboardEvent) {
-  if (e.key !== "Enter" || !singleTrack.value) return;
-  const target = e.target as HTMLElement;
-  const tag = target.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) return;
-  e.preventDefault();
-  togglePlay();
-}
-
 onMounted(() => {
-  document.addEventListener("keydown", onGlobalKeydown);
   nextTick(() => {
     attachAudioListeners();
     syncFromAudio();
@@ -400,7 +390,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  document.removeEventListener("keydown", onGlobalKeydown);
   const el = getAudio();
   if (el) {
     el.removeEventListener("timeupdate", syncFromAudio);
