@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Muorg",
+  "version": "2.0.0",
+  "identifier": "com.muorg.muorg",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "pnpm build:sidecar && pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Muorg \u2014 The Music Organizer from Hell",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "entitlements": "./entitlements.plist",
+      "infoPlist": "./Info.plist"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "nsis": {
+        "installerHooks": "./nsis/installer-hooks.nsh"
+      }
+    },
+    "externalBin": [
+      "binaries/muorg-server"
+    ],
+    "longDescription": "Organize your music library. Edit metadata for MP3 and FLAC files.",
+    "shortDescription": "The Music Organizer from Hell",
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true,
+        "files": {}
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "fs": {},
+    "shell": {
+      "open": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE1MUEzN0Q0QTFGRjEwNzkKUldSNUVQK2gxRGNhcGZWYVBXd2hBZjZOcDlzRkdqUVJISmUwS3FMK2ZiYVh3SXpPeS8rU2MrKzUK",
+      "endpoints": [
+        "https://github.com/Nergy101/Muorg/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

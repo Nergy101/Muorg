@@ -1,0 +1,1113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default (dark) theme – no data-theme or data-theme="dark" */
+html, body {
+  overflow-x: hidden;
+}
+body {
+  @apply bg-stone-900 text-stone-200 antialiased;
+}
+
+input[type="checkbox"] {
+  accent-color: #5b7c32;
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Input/select/textarea focus: primary green instead of browser blue */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #5b7c32;
+  outline-offset: 2px;
+}
+
+/* Primary border color (theme-aware) */
+.border-primary {
+  border-color: #5b7c32;
+}
+/* Primary text color (theme-aware) */
+.text-primary {
+  color: #5b7c32;
+}
+[data-theme="light"]  .text-primary { color: #4d7c2c; }
+[data-theme="doom"]   .text-primary { color: #8b0000; }
+[data-theme="orkish"] .text-primary { color: #2e7d32; }
+.island-surface {
+  border: none;
+  border-radius: 12px;
+  background: rgb(41 37 36 / 0.95);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px rgb(0 0 0 / 0.28);
+}
+[data-theme="light"] .border-primary { border-color: #4d7c2c; }
+[data-theme="light"] .island-surface { background: rgb(255 255 255 / 0.97); box-shadow: 0 8px 20px rgb(0 0 0 / 0.09); }
+[data-theme="doom"] .border-primary { border-color: #8b0000; }
+[data-theme="doom"] .island-surface { background: rgb(26 5 5 / 0.93); box-shadow: 0 10px 24px rgb(0 0 0 / 0.38); }
+[data-theme="orkish"] .border-primary { border-color: #2e7d32; }
+[data-theme="orkish"] .island-surface { background: rgb(248 253 246 / 0.96); box-shadow: 0 8px 20px rgb(0 0 0 / 0.1); }
+/* Draggable resize handles — invisible hit target, 2px bar appears on hover */
+.panel-height-divider,
+.queue-divider,
+.sidebar-divider {
+  position: relative;
+}
+.panel-height-divider::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: rgb(168 162 158 / 0.35);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.queue-divider::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgb(168 162 158 / 0.35);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.panel-height-divider:hover::after,
+.queue-divider:hover::after,
+.sidebar-divider:hover::after {
+  opacity: 1;
+}
+.sidebar-divider::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgb(168 162 158 / 0.35);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+
+/* Shuffle button when active – primary accent background (themes override below) */
+.shuffle-active-bg {
+  background-color: #5b7c32;
+}
+
+/* Maximized player: blurred album art edge glow (bland covers). Every edge pixel bleeds outward. */
+.edge-blur-art {
+  width: min(108vmin, 630px);
+  height: min(108vmin, 630px);
+  background-size: 170%;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(72px);
+  inset: 0;
+  margin: auto;
+}
+
+/* Group row that contains a selected track */
+.group-row-with-selection {
+  background-color: rgba(91, 124, 50, 0.25) !important;
+}
+
+[data-theme="light"] .group-row-with-selection {
+  background-color: rgba(77, 124, 44, 0.2) !important;
+}
+
+[data-theme="doom"] .group-row-with-selection {
+  background-color: rgba(139, 0, 0, 0.35) !important;
+}
+
+[data-theme="orkish"] .group-row-with-selection {
+  background-color: rgba(46, 125, 50, 0.35) !important;
+}
+
+/* Dark theme: all track rows within an expanded album group get a faint green wash */
+.group-child-album {
+  background-color: rgba(91, 124, 50, 0.07) !important;
+}
+/* Other themes: no extra tint (they have their own row coloring) */
+[data-theme="light"] .group-child-album,
+[data-theme="doom"] .group-child-album,
+[data-theme="orkish"] .group-child-album { background-color: transparent !important; }
+
+/* Track rows that belong to the currently focused (expanded) group header */
+.group-child-focused {
+  background-color: rgba(91, 124, 50, 0.06) !important;
+}
+[data-theme="light"] .group-child-focused {
+  background-color: rgba(77, 124, 44, 0.07) !important;
+}
+[data-theme="doom"] .group-child-focused {
+  background-color: rgba(139, 0, 0, 0.1) !important;
+}
+[data-theme="orkish"] .group-child-focused {
+  background-color: rgba(46, 125, 50, 0.1) !important;
+}
+
+/* Default dark theme row hover — slightly lighter than #1c1917 bg */
+.hover\:bg-stone-800\/50:hover { background-color: #272320 !important; }
+
+/* Track row hover: same bg as selected (stone-700/25) + subtle lighter border */
+.table-track-row:not(.table-row-playing):not(.table-row-focused):hover {
+  background-color: rgba(68, 64, 60, 0.25) !important;
+  box-shadow: inset 0 0 0 1px rgba(214, 211, 209, 0.12);
+}
+
+/* Focused table row highlight (works across themes) */
+.table-row-focused {
+  @apply ring-2 ring-inset;
+  --tw-ring-color: #5b7c32;
+  position: relative;
+  z-index: 1;
+  background-color: rgba(91, 124, 50, 0.12) !important; /* softer dark-focus tint */
+}
+
+/* Currently playing track row – strong dark-primary background */
+.table-row-playing {
+  background-color: #121d0b !important; /* darker greenish primary */
+}
+
+[data-theme="light"] .table-row-playing {
+  background-color: rgba(163, 191, 120, 0.4) !important; /* distinct, softer olive for playing row */
+}
+
+[data-theme="light"] tr.table-row-playing:hover {
+  background-color: rgba(163, 191, 120, 0.48) !important;
+}
+
+[data-theme="light"] .table-row-playing .text-stone-200,
+[data-theme="light"] .table-row-playing .text-stone-300,
+[data-theme="light"] .table-row-playing .text-stone-400,
+[data-theme="light"] .table-row-playing .text-stone-500 {
+  color: #1c1917 !important; /* keep dark text; background is now lighter olive */
+}
+
+[data-theme="doom"] .table-row-playing {
+  background-color: rgba(139, 0, 0, 0.55) !important;
+}
+
+[data-theme="orkish"] .table-row-playing {
+  background-color: rgba(46, 125, 50, 0.7) !important;
+}
+
+/* Light theme */
+[data-theme="light"] body {
+  background-color: #fafaf9;
+  color: #1c1917;
+}
+[data-theme="light"] .bg-stone-900 { background-color: #fafaf9 !important; }
+[data-theme="light"] .bg-stone-800\/80 { background-color: #f5f5f4 !important; }
+[data-theme="light"] .bg-stone-800\/95 { background-color: #f5f5f4 !important; }
+[data-theme="light"] .bg-stone-800\/90 { background-color: #f5f5f4 !important; }
+[data-theme="light"] .bg-stone-800\/50 { background-color: rgba(245, 245, 244, 0.5) !important; }
+[data-theme="light"] .bg-stone-800 { background-color: #f5f5f4 !important; }
+[data-theme="light"] .bg-stone-700 { background-color: #e7e5e4 !important; }
+[data-theme="light"] .bg-stone-600 { background-color: #d6d3d1 !important; }
+[data-theme="light"] .bg-stone-700\/40 { background-color: rgba(231, 229, 228, 0.4) !important; }
+[data-theme="light"] .bg-stone-700\/80 { background-color: rgba(231, 229, 228, 0.9) !important; }
+[data-theme="light"] .bg-stone-600\/50 { background-color: rgba(232, 245, 233, 0.85) !important; }
+[data-theme="light"] .bg-stone-900\/60 { background-color: rgba(250, 250, 249, 0.6) !important; }
+[data-theme="light"] .bg-stone-900\/70 { background-color: rgba(250, 250, 249, 0.7) !important; }
+[data-theme="light"] .bg-stone-950\/80 { background-color: rgba(250, 250, 249, 0.8) !important; }
+[data-theme="light"] .bg-stone-900\/80 { background-color: rgba(250, 250, 249, 0.8) !important; }
+[data-theme="light"] .bg-stone-900\/90 { background-color: rgba(250, 250, 249, 0.9) !important; }
+[data-theme="light"] .bg-stone-900\/95 { background-color: rgba(250, 250, 249, 0.95) !important; }
+[data-theme="light"] .text-stone-100 { color: #1c1917 !important; }
+[data-theme="light"] .text-stone-200 { color: #1c1917 !important; }
+[data-theme="light"] .text-stone-300 { color: #44403c !important; }
+[data-theme="light"] .text-stone-400 { color: #78716c !important; }
+[data-theme="light"] .text-stone-500 { color: #57534e !important; }
+[data-theme="light"] .border-stone-600 { border-color: #d6d3d1 !important; }
+[data-theme="light"] .border-stone-700 { border-color: #e7e5e4 !important; }
+[data-theme="light"] .border-stone-700\/50 { border-color: rgba(231, 229, 228, 0.5) !important; }
+[data-theme="light"] .border-t-stone-300 { border-top-color: #44403c !important; }
+[data-theme="light"] .placeholder-stone-500::placeholder { color: #57534e !important; }
+[data-theme="light"] .hover\:bg-stone-600:hover { background-color: #d6d3d1 !important; }
+[data-theme="light"] .hover\:bg-stone-700:hover { background-color: #e7e5e4 !important; }
+[data-theme="light"] .hover\:bg-stone-700\/60:hover { background-color: rgba(231, 229, 228, 0.6) !important; }
+[data-theme="light"] .hover\:bg-stone-800\/50:hover { background-color: #e9e6e3 !important; }
+[data-theme="light"] .hover\:bg-stone-800\/70:hover { background-color: rgba(245, 245, 244, 0.7) !important; }
+[data-theme="light"] .hover\:text-stone-100:hover { color: #1c1917 !important; }
+[data-theme="light"] .hover\:text-stone-200:hover { color: #1c1917 !important; }
+[data-theme="light"] .hover\:text-stone-300:hover { color: #44403c !important; }
+/* Playing-playlist accent colors: readable on light backgrounds */
+[data-theme="light"] .text-\[\#8ab55a\] { color: #3a6b1a !important; }
+[data-theme="light"] .text-\[\#c8e6a0\] { color: #2a5010 !important; }
+[data-theme="light"] .bg-\[\#5b7c32\]\/20 { background-color: rgba(91, 124, 50, 0.12) !important; }
+[data-theme="light"] .border-\[\#5b7c32\]\/50 { border-color: rgba(91, 124, 50, 0.45) !important; }
+[data-theme="light"] input[type="checkbox"] { accent-color: #4d7c2c; }
+[data-theme="light"] input[type="number"]::-webkit-inner-spin-button,
+[data-theme="light"] input[type="number"]::-webkit-outer-spin-button { color: #1c1917; }
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus { outline-color: #4d7c2c; }
+[data-theme="light"] [style*="5b7c32"] { background-color: #4d7c2c !important; }
+[data-theme="light"] .table-row-focused {
+  --tw-ring-color: #4d7c2c;
+  background-color: rgba(77, 124, 44, 0.10) !important; /* lighter, less obtrusive */
+}
+[data-theme="light"] .table-track-row:not(.table-row-playing):not(.table-row-focused):hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+}
+
+/* OverlayScrollbars: container keeps overflow for layout; plugin replaces native scrollbars. */
+.table-scroll-container {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Hide horizontal scrollbar on the library table — horizontal scroll works via trackpad/swipe. */
+.table-scroll-container > .os-scrollbar-horizontal { display: none; }
+
+/* os-theme-muorg: app accent scrollbar (OverlayScrollbars). */
+.os-theme-muorg {
+  --os-size: 12px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 6px;
+  --os-handle-interactive-area-offset: 4px;
+  --os-handle-border-radius: 6px;
+  --os-track-bg: #2d2d2d;
+  --os-handle-bg: #5b7c32;
+  --os-handle-bg-hover: #6d8f3d;
+  --os-handle-bg-active: #7fa347;
+}
+[data-theme="light"] .os-theme-muorg {
+  --os-track-bg: #e7e5e4;
+  --os-handle-bg: #4d7c2c;
+  --os-handle-bg-hover: #5b8f35;
+  --os-handle-bg-active: #6ba33d;
+}
+[data-theme="doom"] .os-theme-muorg {
+  --os-track-bg: #2d0a0a;
+  --os-handle-bg: #8b0000;
+  --os-handle-bg-hover: #a52a2a;
+  --os-handle-bg-active: #b33333;
+}
+[data-theme="orkish"] .os-theme-muorg {
+  --os-track-bg: #dcedc8;
+  --os-handle-bg: #2e7d32;
+  --os-handle-bg-hover: #388e3c;
+  --os-handle-bg-active: #43a047;
+}
+
+[data-theme="light"] .player-volume-slider,
+[data-theme="light"] .player-progress-slider { accent-color: #4d7c2c; }
+[data-theme="light"] .player-volume-slider::-webkit-slider-thumb,
+[data-theme="light"] .player-progress-slider::-webkit-slider-thumb { background: #4d7c2c; }
+/* Progress bar: light gray track in light theme */
+[data-theme="light"] .player-progress-slider {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--progress-percent, 0%), #e7e5e4 var(--progress-percent, 0%), #e7e5e4 100%) !important;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--progress-percent, 0%), #e7e5e4 var(--progress-percent, 0%), #e7e5e4 100%);
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-progress-slider::-moz-range-track {
+  background: #e7e5e4;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-progress-slider::-moz-range-progress {
+  background: #4d7c2c;
+  border-radius: 9999px;
+}
+/* Volume bar: light gray track in light theme */
+[data-theme="light"] .player-volume-slider {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--volume-percent, 0%), #e7e5e4 var(--volume-percent, 0%), #e7e5e4 100%) !important;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #4d7c2c 0%, #4d7c2c var(--volume-percent, 0%), #e7e5e4 var(--volume-percent, 0%), #e7e5e4 100%);
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-volume-slider::-moz-range-track {
+  background: #e7e5e4;
+  border-radius: 9999px;
+}
+[data-theme="light"] .player-volume-slider::-moz-range-progress {
+  background: #4d7c2c;
+  border-radius: 9999px;
+}
+[data-theme="light"] .shuffle-active-bg { background-color: #4d7c2c !important; }
+
+/* Path format example buttons (Smart Suggestions) – theme-aware */
+.path-format-example-btn {
+  @apply border border-stone-600 bg-stone-800 text-stone-400 transition-colors;
+}
+.path-format-example-btn:hover {
+  @apply bg-stone-700 text-stone-300;
+}
+[data-theme="light"] .path-format-example-btn {
+  border-color: #d6d3d1 !important;
+  background-color: #e7e5e4 !important;
+  color: #57534e !important;
+}
+[data-theme="light"] .path-format-example-btn:hover {
+  background-color: #d6d3d1 !important;
+  color: #44403c !important;
+}
+
+/* Queue panel & list – theme-aware (component uses scoped dark colors; these override for light/doom/orkish) */
+[data-theme="light"] .queue-item:hover {
+  background-color: rgba(231, 229, 228, 0.6) !important;
+}
+[data-theme="light"] .queue-item--current {
+  background-color: rgba(163, 191, 120, 0.4) !important;
+  color: #1c1917 !important;
+}
+[data-theme="light"] .queue-item:not(.queue-item--current) {
+  color: #44403c !important;
+}
+[data-theme="light"] .queue-item__num,
+[data-theme="light"] .queue-item__artist,
+[data-theme="light"] .queue-item__dur {
+  color: #57534e !important;
+}
+
+[data-theme="doom"] .queue-item:hover {
+  background-color: rgba(45, 10, 10, 0.6) !important;
+}
+[data-theme="doom"] .queue-item--current {
+  background-color: rgba(139, 0, 0, 0.55) !important;
+  color: #e0b040 !important;
+}
+[data-theme="doom"] .queue-item:not(.queue-item--current) {
+  color: #b8860b !important;
+}
+[data-theme="doom"] .queue-item__num,
+[data-theme="doom"] .queue-item__artist,
+[data-theme="doom"] .queue-item__dur {
+  color: #8b6914 !important;
+}
+
+[data-theme="orkish"] .queue-item:hover {
+  background-color: rgba(197, 225, 165, 0.6) !important;
+}
+[data-theme="orkish"] .queue-item--current {
+  background-color: rgba(46, 125, 50, 0.7) !important;
+  color: #1b5e20 !important;
+}
+[data-theme="orkish"] .queue-item:not(.queue-item--current) {
+  color: #2e7d32 !important;
+}
+[data-theme="orkish"] .queue-item__num,
+[data-theme="orkish"] .queue-item__artist,
+[data-theme="orkish"] .queue-item__dur {
+  color: #558b2f !important;
+}
+
+/* DOOM easter-egg theme: reds, ambers, dark grays, terminal green */
+[data-theme="doom"] body {
+  background-color: #0d0202;
+  color: #c4a035;
+}
+[data-theme="doom"] .bg-stone-900 { background-color: #0d0202 !important; }
+[data-theme="doom"] .bg-stone-800\/80 { background-color: #1a0505 !important; }
+[data-theme="doom"] .bg-stone-800\/95 { background-color: #1a0505 !important; }
+[data-theme="doom"] .bg-stone-800\/90 { background-color: #1a0505 !important; }
+[data-theme="doom"] .bg-stone-800\/50 { background-color: rgba(26, 5, 5, 0.5) !important; }
+[data-theme="doom"] .bg-stone-800 { background-color: #1a0505 !important; }
+[data-theme="doom"] .bg-stone-700 { background-color: #2d0a0a !important; }
+[data-theme="doom"] .bg-stone-600 { background-color: #4a1515 !important; }
+[data-theme="doom"] .bg-stone-700\/40 { background-color: rgba(45, 10, 10, 0.4) !important; }
+[data-theme="doom"] .bg-stone-900\/60 { background-color: rgba(13, 2, 2, 0.6) !important; }
+[data-theme="doom"] .bg-stone-900\/70 { background-color: rgba(13, 2, 2, 0.7) !important; }
+[data-theme="doom"] .bg-stone-900\/80 { background-color: rgba(13, 2, 2, 0.8) !important; }
+[data-theme="doom"] .bg-stone-950\/80 { background-color: rgba(13, 2, 2, 0.8) !important; }
+[data-theme="doom"] .bg-stone-900\/90 { background-color: rgba(13, 2, 2, 0.9) !important; }
+[data-theme="doom"] .bg-stone-900\/95 { background-color: rgba(13, 2, 2, 0.95) !important; }
+[data-theme="doom"] .text-stone-100 { color: #e0b040 !important; }
+[data-theme="doom"] .text-white { color: #e0b040 !important; }
+[data-theme="doom"] .text-stone-200 { color: #c4a035 !important; }
+[data-theme="doom"] .text-stone-300 { color: #b8860b !important; }
+[data-theme="doom"] .text-stone-400 { color: #8b6914 !important; }
+[data-theme="doom"] .text-stone-500 { color: #6b5012 !important; }
+[data-theme="doom"] .border-stone-600 { border-color: #4a1515 !important; }
+[data-theme="doom"] .border-stone-700 { border-color: #2d0a0a !important; }
+[data-theme="doom"] .border-stone-700\/50 { border-color: rgba(45, 10, 10, 0.5) !important; }
+[data-theme="doom"] .border-t-stone-300 { border-top-color: #b8860b !important; }
+[data-theme="doom"] .placeholder-stone-500::placeholder { color: #6b5012 !important; }
+[data-theme="doom"] .hover\:bg-stone-600:hover { background-color: #4a1515 !important; }
+[data-theme="doom"] .hover\:bg-stone-700:hover { background-color: #2d0a0a !important; }
+[data-theme="doom"] .hover\:bg-stone-700\/60:hover { background-color: rgba(45, 10, 10, 0.6) !important; }
+[data-theme="doom"] .hover\:bg-stone-800\/50:hover { background-color: #1e0606 !important; }
+[data-theme="doom"] .hover\:bg-stone-800\/70:hover { background-color: rgba(26, 5, 5, 0.7) !important; }
+[data-theme="doom"] .hover\:text-stone-200:hover { color: #e0b040 !important; }
+[data-theme="doom"] .hover\:text-stone-300:hover { color: #c4a035 !important; }
+[data-theme="doom"] input[type="checkbox"] { accent-color: #8b0000; }
+[data-theme="doom"] input[type="number"]::-webkit-inner-spin-button,
+[data-theme="doom"] input[type="number"]::-webkit-outer-spin-button { color: #c4a035; }
+[data-theme="doom"] input:focus,
+[data-theme="doom"] select:focus,
+[data-theme="doom"] textarea:focus { outline-color: #8b0000; }
+[data-theme="doom"] [style*="5b7c32"] { background-color: #8b0000 !important; }
+[data-theme="doom"] .table-row-focused {
+  --tw-ring-color: #8b0000;
+  background-color: rgba(139, 0, 0, 0.3) !important; /* red-tinted focus */
+}
+[data-theme="doom"] .text-amber-200 { color: #c4a035 !important; }
+[data-theme="doom"] .text-amber-400 { color: #b8860b !important; }
+[data-theme="doom"] .border-amber-500\/80 { border-color: rgba(180, 134, 11, 0.8) !important; }
+[data-theme="doom"] .bg-amber-950\/20 { background-color: rgba(26, 5, 5, 0.5) !important; }
+[data-theme="doom"] .text-red-400 { color: #cc3333 !important; }
+[data-theme="doom"] .hover\:bg-red-600:hover { background-color: #8b0000 !important; }
+[data-theme="doom"] .hover\:text-white:hover { color: #0d0202 !important; }
+[data-theme="doom"] .ring-amber-500\/80 { --tw-ring-color: rgba(180, 134, 11, 0.8) !important; }
+[data-theme="doom"] .player-volume-slider,
+[data-theme="doom"] .player-progress-slider { accent-color: #8b0000; }
+[data-theme="doom"] .player-volume-slider::-webkit-slider-thumb,
+[data-theme="doom"] .player-progress-slider::-webkit-slider-thumb { background: #8b0000; }
+[data-theme="doom"] .player-volume-slider::-moz-range-thumb { background: #8b0000; }
+/* Progress bar track fill (overrides component scoped gradient) */
+[data-theme="doom"] .player-progress-slider {
+  background: linear-gradient(to right, #8b0000 0%, #8b0000 var(--progress-percent, 0%), rgb(87 83 78) var(--progress-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="doom"] .player-progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #8b0000 0%, #8b0000 var(--progress-percent, 0%), rgb(87 83 78) var(--progress-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="doom"] .player-progress-slider::-moz-range-progress { background: #8b0000 !important; }
+/* Volume bar fill (overrides component scoped gradient) */
+[data-theme="doom"] .player-volume-slider {
+  background: linear-gradient(to right, #8b0000 0%, #8b0000 var(--volume-percent, 0%), rgb(87 83 78) var(--volume-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="doom"] .player-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #8b0000 0%, #8b0000 var(--volume-percent, 0%), rgb(87 83 78) var(--volume-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="doom"] .player-volume-slider::-moz-range-track { background: rgb(87 83 78) !important; }
+[data-theme="doom"] .player-volume-slider::-moz-range-progress { background: #8b0000 !important; }
+/* Play button, accent buttons, shuffle when active */
+[data-theme="doom"] .player-play-btn { background-color: #8b0000 !important; }
+[data-theme="doom"] .player-play-btn:hover { background-color: #a52a2a !important; }
+[data-theme="doom"] .accent-btn { background-color: #8b0000 !important; }
+[data-theme="doom"] .shuffle-active-bg { background-color: #8b0000 !important; }
+/* Any text using the default green */
+[data-theme="doom"] .text-\[\#5b7c32\] { color: #8b0000 !important; }
+
+/* Orkish theme: lighter green, more mid-tone than DOOM */
+[data-theme="orkish"] body {
+  background-color: #e8f5e9;
+  color: #1b5e20;
+}
+[data-theme="orkish"] .bg-stone-900 { background-color: #e8f5e9 !important; }
+[data-theme="orkish"] .bg-stone-800\/80 { background-color: #dcedc8 !important; }
+[data-theme="orkish"] .bg-stone-800\/95 { background-color: #dcedc8 !important; }
+[data-theme="orkish"] .bg-stone-800\/90 { background-color: #dcedc8 !important; }
+[data-theme="orkish"] .bg-stone-800\/50 { background-color: rgba(220, 237, 200, 0.6) !important; }
+[data-theme="orkish"] .bg-stone-800 { background-color: #dcedc8 !important; }
+[data-theme="orkish"] .bg-stone-700 { background-color: #c5e1a5 !important; }
+[data-theme="orkish"] .bg-stone-600 { background-color: #aed581 !important; }
+[data-theme="orkish"] .bg-stone-700\/40 { background-color: rgba(197, 225, 165, 0.4) !important; }
+[data-theme="orkish"] .bg-stone-900\/60 { background-color: rgba(232, 245, 233, 0.6) !important; }
+[data-theme="orkish"] .bg-stone-900\/70 { background-color: rgba(232, 245, 233, 0.7) !important; }
+[data-theme="orkish"] .bg-stone-900\/80 { background-color: rgba(232, 245, 233, 0.8) !important; }
+[data-theme="orkish"] .bg-stone-950\/80 { background-color: rgba(232, 245, 233, 0.8) !important; }
+[data-theme="orkish"] .bg-stone-900\/90 { background-color: rgba(232, 245, 233, 0.9) !important; }
+[data-theme="orkish"] .bg-stone-900\/95 { background-color: rgba(232, 245, 233, 0.95) !important; }
+[data-theme="orkish"] thead.bg-stone-800 { background-color: #dcedc8 !important; }[data-theme="orkish"] .text-stone-100 { color: #174a16 !important; }
+[data-theme="orkish"] .text-stone-200 { color: #1b5e20 !important; }
+[data-theme="orkish"] .text-stone-300 { color: #2e7d32 !important; }
+[data-theme="orkish"] .text-stone-400 { color: #33691e !important; }
+[data-theme="orkish"] .text-stone-500 { color: #558b2f !important; }
+[data-theme="orkish"] .border-stone-600 { border-color: #c5e1a5 !important; }
+[data-theme="orkish"] .border-stone-700 { border-color: #dcedc8 !important; }
+[data-theme="orkish"] .border-stone-700\/50 { border-color: rgba(197, 225, 165, 0.5) !important; }
+[data-theme="orkish"] .border-t-stone-300 { border-top-color: #558b2f !important; }
+[data-theme="orkish"] .placeholder-stone-500::placeholder { color: #558b2f !important; }
+[data-theme="orkish"] .hover\:bg-stone-600:hover { background-color: #c5e1a5 !important; }
+[data-theme="orkish"] .hover\:bg-stone-700:hover { background-color: #dcedc8 !important; }
+[data-theme="orkish"] .hover\:bg-stone-700\/60:hover { background-color: rgba(220, 237, 200, 0.6) !important; }
+[data-theme="orkish"] .hover\:bg-stone-800\/50:hover { background-color: #cce5cf !important; }
+[data-theme="orkish"] .hover\:bg-stone-800\/70:hover { background-color: rgba(220, 237, 200, 0.85) !important; }
+[data-theme="orkish"] .hover\:text-stone-200:hover { color: #1b5e20 !important; }
+[data-theme="orkish"] .hover\:text-stone-300:hover { color: #2e7d32 !important; }
+[data-theme="orkish"] input[type="checkbox"] { accent-color: #2e7d32; }
+[data-theme="orkish"] input[type="number"]::-webkit-inner-spin-button,
+[data-theme="orkish"] input[type="number"]::-webkit-outer-spin-button { color: #1b5e20; }
+[data-theme="orkish"] input:focus,
+[data-theme="orkish"] select:focus,
+[data-theme="orkish"] textarea:focus { outline-color: #2e7d32; }
+[data-theme="orkish"] [style*="5b7c32"] { background-color: #2e7d32 !important; }
+[data-theme="orkish"] .table-row-focused {
+  --tw-ring-color: #2e7d32;
+  background-color: rgba(46, 125, 50, 0.25) !important; /* lighter green-tinted focus */
+}
+[data-theme="orkish"] .text-amber-200 { color: #2e7d32 !important; }
+[data-theme="orkish"] .text-amber-400 { color: #558b2f !important; }
+[data-theme="orkish"] .border-amber-500\/80 { border-color: rgba(46, 125, 50, 0.7) !important; }
+[data-theme="orkish"] .bg-amber-950\/20 { background-color: rgba(220, 237, 200, 0.6) !important; }
+[data-theme="orkish"] .text-red-400 { color: #388e3c !important; }
+[data-theme="orkish"] .text-white { color: #1b5e20 !important; }
+[data-theme="orkish"] .hover\:bg-red-600:hover { background-color: #66bb6a !important; }
+[data-theme="orkish"] .hover\:text-white:hover { color: #1b5e20 !important; }
+[data-theme="orkish"] .ring-amber-500\/80 { --tw-ring-color: rgba(46, 125, 50, 0.7) !important; }
+[data-theme="orkish"] .player-volume-slider,
+[data-theme="orkish"] .player-progress-slider { accent-color: #2e7d32; }
+[data-theme="orkish"] .player-volume-slider::-webkit-slider-thumb,
+[data-theme="orkish"] .player-progress-slider::-webkit-slider-thumb { background: #2e7d32; }
+[data-theme="orkish"] .player-volume-slider::-moz-range-thumb { background: #2e7d32; }
+/* Progress bar track fill (overrides component scoped gradient) */
+[data-theme="orkish"] .player-progress-slider {
+  background: linear-gradient(to right, #2e7d32 0%, #2e7d32 var(--progress-percent, 0%), rgb(87 83 78) var(--progress-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="orkish"] .player-progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #2e7d32 0%, #2e7d32 var(--progress-percent, 0%), rgb(87 83 78) var(--progress-percent, 0%), rgb(87 83 78) 100%) !important;
+}
+[data-theme="orkish"] .player-progress-slider::-moz-range-progress { background: #2e7d32 !important; }
+/* Play button, accent buttons, shuffle when active */
+[data-theme="orkish"] .player-play-btn { background-color: #2e7d32 !important; }
+[data-theme="orkish"] .player-play-btn:hover { background-color: #388e3c !important; }
+[data-theme="orkish"] .accent-btn { background-color: #2e7d32 !important; }
+[data-theme="orkish"] .shuffle-active-bg { background-color: #2e7d32 !important; }
+/* Any text using the default green */
+[data-theme="orkish"] .text-\[\#5b7c32\] { color: #2e7d32 !important; }
+
+/* Orkish: add subtle gradients and row striping for clearer section separation */
+[data-theme="orkish"] body {
+  background-image: linear-gradient(to bottom, #f1f8e9 0%, #e8f5e9 40%, #e0f2f1 100%);
+}
+
+[data-theme="orkish"] aside {
+  background-image: linear-gradient(to bottom, #dcedc8 0%, #c5e1a5 60%, #aed581 100%);
+}
+
+[data-theme="orkish"] main {
+  background-image: linear-gradient(to bottom, #e8f5e9 0%, #e0f2f1 100%);
+}
+
+[data-theme="orkish"] thead.sticky {
+  background-image: linear-gradient(to right, #c5e1a5 0%, #aed581 50%, #c5e1a5 100%);
+}
+
+/* Row striping in Orkish (only for non-playing, non-focused rows) */
+[data-theme="orkish"] tbody tr:nth-child(odd):not(.table-row-playing):not(.table-row-focused) {
+  background-color: rgba(220, 237, 200, 0.85) !important;
+}
+
+[data-theme="orkish"] tbody tr:nth-child(even):not(.table-row-playing):not(.table-row-focused) {
+  background-color: rgba(197, 225, 165, 0.9) !important;
+}
+
+/* --- Ensure playing row wins over other light-theme row backgrounds --- */
+[data-theme="light"] tr.table-row-playing {
+  background-color: #4d7c2c !important;
+}
+
+[data-theme="light"] tr.table-row-playing:hover {
+  background-color: #4d7c2c !important;
+}
+
+[data-theme="light"] tr.table-row-playing .text-stone-200,
+[data-theme="light"] tr.table-row-playing .text-stone-300,
+[data-theme="light"] tr.table-row-playing .text-stone-400,
+[data-theme="light"] tr.table-row-playing .text-stone-500 {
+  color: #f9fafb !important;
+}
+
+/* Reports modal base styling */
+.report-modal {
+  background-color: #020617; /* slate-950 */
+  border-color: #4b5563; /* stone-600 */
+  color: #e5e7eb; /* gray-200 */
+}
+
+[data-theme="light"] .report-modal {
+  background-color: #fefce8; /* light warm */
+  border-color: #e5e7eb;
+  color: #1c1917;
+}
+
+[data-theme="light"] .report-modal thead {
+  background-color: #fef9c3;
+}
+
+[data-theme="doom"] .report-modal {
+  background-color: #1a0505;
+  border-color: #4a1515;
+  color: #facc15;
+}
+
+[data-theme="doom"] .report-modal thead {
+  background-color: #2d0a0a;
+}
+
+[data-theme="orkish"] .report-modal {
+  background-color: #dcedc8;
+  border-color: #c5e1a5;
+  color: #1b5e20;
+}
+
+[data-theme="orkish"] .report-modal thead {
+  background-color: #c5e1a5;
+}
+
+/* Settings modal cards: theme-aware styling */
+.settings-modal .settings-section {
+  /* base (dark) theme already uses dark stone colors via scoped styles;
+     these overrides mainly target non-dark themes to keep cards readable */
+}
+
+[data-theme="light"] .settings-modal .settings-section {
+  border-color: #d6d3d1;        /* stone-300/400 */
+  background-color: #f5f5f4;    /* stone-100/200 */
+}
+
+[data-theme="doom"] .settings-modal .settings-section {
+  border-color: #4a1515;        /* deep red border */
+  background-color: #1a0505;    /* dark crimson panel */
+}
+
+[data-theme="orkish"] .settings-modal .settings-section {
+  border-color: #c5e1a5;        /* soft green border */
+  background-color: #dcedc8;    /* pale green card */
+}
+
+/* Settings modal tabs: ensure visibility in all themes */
+[data-theme]:root .primary-tab,
+.primary-tab {
+  color: #a8a29e; /* stone-400 */
+}
+[data-theme]:root .primary-tab--active,
+.primary-tab--active {
+  background-color: #44403c; /* stone-700 */
+  color: #f5f5f4; /* stone-100 */
+}
+[data-theme="light"] .settings-tab-nav {
+  background-color: #f5f5f4 !important;
+  border-color: #d6d3d1 !important;
+}
+[data-theme="light"] .primary-tab {
+  color: #57534e !important;
+}
+[data-theme="light"] .primary-tab--active {
+  background-color: #4d7c2c !important;
+  color: #fafaf9 !important;
+}
+[data-theme="light"] .settings-tab-btn {
+  color: #57534e !important;
+}
+[data-theme="light"] .settings-tab-btn:hover {
+  /* Light primary-tinted hover, no extra border */
+  background-color: rgba(77, 124, 44, 0.12) !important; /* lighter primary */
+  color: #1c1917 !important;
+  outline: none;
+}
+[data-theme="light"] .settings-tab-btn--active {
+  background-color: #4d7c2c !important;
+  color: #fafaf9 !important;
+}
+
+/* When a tab is active, keep the active styling even on hover */
+[data-theme="light"] .settings-tab-btn--active:hover {
+  background-color: #4d7c2c !important;
+  color: #fafaf9 !important;
+}
+
+[data-theme="doom"] .settings-tab-nav {
+  background-color: #1a0505 !important;
+  border-color: #4a1515 !important;
+}
+[data-theme="doom"] .primary-tab {
+  color: #8b6914 !important;
+}
+[data-theme="doom"] .primary-tab--active {
+  background-color: #8b0000 !important;
+  color: #e0b040 !important;
+}
+[data-theme="doom"] .settings-tab-btn {
+  color: #8b6914 !important;
+}
+[data-theme="doom"] .settings-tab-btn:hover {
+  background-color: #2d0a0a !important;
+  color: #c4a035 !important;
+}
+[data-theme="doom"] .settings-tab-btn--active {
+  background-color: #8b0000 !important;
+  color: #e0b040 !important;
+}
+
+[data-theme="orkish"] .settings-tab-nav {
+  background-color: #c5e1a5 !important;
+  border-color: #aed581 !important;
+}
+[data-theme="orkish"] .primary-tab {
+  color: #33691e !important;
+}
+[data-theme="orkish"] .primary-tab--active {
+  background-color: #2e7d32 !important;
+  color: #f1f8e9 !important;
+}
+[data-theme="orkish"] .settings-tab-btn {
+  color: #33691e !important;
+}
+[data-theme="orkish"] .settings-tab-btn:hover {
+  background-color: #aed581 !important;
+  color: #1b5e20 !important;
+}
+[data-theme="orkish"] .settings-tab-btn--active {
+  background-color: #2e7d32 !important;
+  color: #f1f8e9 !important;
+}
+
+/* ========== Maximized player: self-contained dark theme only ==========
+   No shared theme classes; all layout and colors defined here so the overlay
+   is always dark regardless of app theme. */
+#maximized-player-overlay .mpx-root {
+  display: flex;
+  min-height: 100%;
+  min-width: 0;
+  flex-direction: column;
+}
+#maximized-player-overlay .mpx-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.5rem 1.5rem;
+}
+#maximized-player-overlay .mpx-art {
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+#maximized-player-overlay .mpx-title {
+  margin-top: 1rem;
+  max-width: 42rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgb(245 245 244);
+  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.1));
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  cursor: context-menu;
+  transition: background-color 0.15s;
+}
+#maximized-player-overlay .mpx-title:hover {
+  background-color: rgb(255 255 255 / 0.08);
+}
+#maximized-player-overlay .mpx-bar {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(38 38 38 0.8);
+  background: rgb(0 0 0 / 0.7);
+  padding: 1rem 1.5rem 0.5rem;
+  backdrop-filter: blur(4px);
+}
+#maximized-player-overlay .mpx-bar-inner {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+#maximized-player-overlay .mpx-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+#maximized-player-overlay .mpx-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.75rem;
+  background-color: rgba(38 38 38 0.8);
+  color: rgb(214 211 209);
+  border: none;
+  cursor: pointer;
+}
+#maximized-player-overlay .mpx-nav-btn:hover:not(:disabled) {
+  background-color: rgb(68 64 60);
+  color: rgb(245 245 244);
+}
+#maximized-player-overlay .mpx-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+#maximized-player-overlay .mpx-nav-btn--sm {
+  padding: 0.5rem;
+}
+#maximized-player-overlay .mpx-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 1rem;
+  background: var(--player-accent-play, var(--player-accent, #5b7c32));
+  color: rgb(250 250 249);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+#maximized-player-overlay .mpx-play-btn:hover {
+  filter: brightness(1.05);
+}
+#maximized-player-overlay .mpx-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+#maximized-player-overlay .mpx-time {
+  width: 2.5rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: rgb(168 162 158);
+  font-variant-numeric: tabular-nums;
+}
+#maximized-player-overlay .mpx-time-current {
+  text-align: right;
+}
+#maximized-player-overlay .mpx-time-total {
+  text-align: left;
+}
+#maximized-player-overlay .mpx-progress {
+  flex: 1;
+  min-width: 0;
+  height: 0.375rem;
+  cursor: pointer;
+  appearance: none;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-progress, var(--player-accent, #5b7c32)) var(--progress-percent, 0%),
+    rgb(87 83 78) var(--progress-percent, 0%),
+    rgb(87 83 78) 100%
+  );
+  accent-color: var(--player-accent-progress, var(--player-accent, #5b7c32));
+}
+#maximized-player-overlay .mpx-progress::-webkit-slider-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  cursor: pointer;
+  appearance: none;
+  border-radius: 9999px;
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32));
+}
+#maximized-player-overlay .mpx-progress::-moz-range-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  cursor: pointer;
+  border-radius: 9999px;
+  background: var(--player-accent-progress, var(--player-accent, #5b7c32));
+  border: none;
+}
+#maximized-player-overlay .mpx-shuffle-btn {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: rgb(168 162 158);
+  border: none;
+  cursor: pointer;
+}
+#maximized-player-overlay .mpx-shuffle-btn:hover {
+  background-color: rgb(68 64 60);
+  color: rgb(250 250 249);
+}
+#maximized-player-overlay .mpx-shuffle-btn--active {
+  background-color: var(--player-accent-shuffle, var(--player-accent, #5b7c32));
+  color: rgb(250 250 249);
+}
+#maximized-player-overlay .mpx-actions-right {
+  display: flex;
+  margin-left: auto;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+#maximized-player-overlay .mpx-rating-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.1rem;
+}
+/* Volume control inside maximized player: dark styling only */
+#maximized-player-overlay .mpx-volume-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+#maximized-player-overlay .mpx-volume-wrap button {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: rgb(168 162 158);
+  border: none;
+  cursor: pointer;
+}
+#maximized-player-overlay .mpx-volume-wrap button:hover {
+  background-color: rgb(87 83 78);
+  color: rgb(250 250 249);
+}
+/* Volume bar: transparent track, rounded border, filled to volume level. End fill ~2px before nominal end to avoid a visible blip at 100%. */
+#maximized-player-overlay .mpx-volume-wrap input[type="range"] {
+  width: 8rem;
+  height: 0.5rem;
+  cursor: pointer;
+  appearance: none;
+  border-radius: 9999px;
+  --volume-fill-end: calc(var(--volume-percent, 0%) - 3px);
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-fill-end),
+    transparent var(--volume-fill-end),
+    transparent 100%
+  ) !important;
+  border: 1px solid rgba(255 255 255 / 0.12);
+  accent-color: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+#maximized-player-overlay .mpx-volume-wrap input[type="range"]::-webkit-slider-runnable-track {
+  --volume-fill-end: calc(var(--volume-percent, 0%) - 3px);
+  background: linear-gradient(
+    to right,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
+    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-fill-end),
+    transparent var(--volume-fill-end),
+    transparent 100%
+  ) !important;
+  border: 1px solid rgba(255 255 255 / 0.12);
+  border-radius: 9999px;
+}
+/* Half-circle thumb: flat left meets fill, curve on right extends the bar */
+#maximized-player-overlay .mpx-volume-wrap input[type="range"]::-webkit-slider-thumb {
+  width: 0.25rem;
+  height: 0.5rem;
+  cursor: pointer;
+  appearance: none;
+  border-radius: 0 50% 50% 0;
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+#maximized-player-overlay .mpx-volume-wrap input[type="range"]::-moz-range-thumb {
+  width: 0.25rem;
+  height: 0.5rem;
+  cursor: pointer;
+  border-radius: 0 50% 50% 0;
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+  border: none;
+}
+#maximized-player-overlay .mpx-volume-wrap input[type="range"]::-moz-range-progress {
+  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+}
+#maximized-player-overlay .mpx-volume-wrap .h-4.w-4 {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ── Icon button layout helper ───────────────────────────────────────────── */
+/* Guarantees a square, centered-icon button. Add size (h-6 w-6, h-7 w-7 …)
+   and color (text-stone-500 hover:bg-stone-600 …) via Tailwind classes.     */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
+}
+
+/* ── Settings: active option card (selected state) ──────────────────────── */
+.settings-option-card--active {
+  border-color: rgba(91, 124, 50, 0.8);
+  background-color: rgba(91, 124, 50, 0.18);
+}
+[data-theme="light"] .settings-option-card--active {
+  border-color: rgba(77, 124, 44, 0.8);
+  background-color: rgba(77, 124, 44, 0.1);
+}
+[data-theme="doom"] .settings-option-card--active {
+  border-color: rgba(139, 0, 0, 0.8);
+  background-color: rgba(139, 0, 0, 0.18);
+}
+[data-theme="orkish"] .settings-option-card--active {
+  border-color: rgba(46, 125, 50, 0.8);
+  background-color: rgba(46, 125, 50, 0.18);
+}
+
+/* ── Settings: "Active" badge pill ──────────────────────────────────────── */
+.settings-option-badge {
+  background-color: rgba(91, 124, 50, 0.85);
+  color: #edecd8;
+}
+[data-theme="light"] .settings-option-badge {
+  background-color: #4d7c2c;
+  color: #fafaf9;
+}
+[data-theme="doom"] .settings-option-badge {
+  background-color: rgba(139, 0, 0, 0.85);
+  color: #e0b040;
+}
+[data-theme="orkish"] .settings-option-badge {
+  background-color: rgba(46, 125, 50, 0.85);
+  color: #f1f8e9;
+}
+
+/* ── Settings: primary action button (update / restart) ─────────────────── */
+.settings-action-btn {
+  background-color: #5b7c32;
+  color: #fff;
+}
+.settings-action-btn:hover:not(:disabled) { background-color: #6d8f3d; }
+[data-theme="light"] .settings-action-btn               { background-color: #4d7c2c; }
+[data-theme="light"] .settings-action-btn:hover:not(:disabled) { background-color: #5b8f35; }
+[data-theme="doom"]  .settings-action-btn               { background-color: #8b0000; }
+[data-theme="doom"]  .settings-action-btn:hover:not(:disabled) { background-color: #a52a2a; }
+[data-theme="orkish"] .settings-action-btn              { background-color: #2e7d32; }
+[data-theme="orkish"] .settings-action-btn:hover:not(:disabled) { background-color: #388e3c; }
+
+/* ── Settings: up-to-date notice box ────────────────────────────────────── */
+.settings-uptodate-notice {
+  border-color: rgba(59, 130, 246, 0.45);
+  background-color: rgba(59, 130, 246, 0.08);
+}
+
+/* ── Settings: update-available notice box ──────────────────────────────── */
+.settings-update-notice {
+  border-color: rgba(91, 124, 50, 0.55);
+  background-color: rgba(91, 124, 50, 0.1);
+}
+[data-theme="light"] .settings-update-notice {
+  border-color: rgba(77, 124, 44, 0.55);
+  background-color: rgba(77, 124, 44, 0.08);
+}
+[data-theme="doom"] .settings-update-notice {
+  border-color: rgba(139, 0, 0, 0.55);
+  background-color: rgba(139, 0, 0, 0.12);
+}
+[data-theme="orkish"] .settings-update-notice {
+  border-color: rgba(46, 125, 50, 0.55);
+  background-color: rgba(46, 125, 50, 0.1);
+}

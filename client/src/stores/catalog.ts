@@ -1,0 +1,683 @@
+import { defineStore } from "pinia";
+import type { CatalogTrack } from "../types";
+import { useSettingsStore } from "./settings";
+import type { MissingMetadataField, SortableColumn } from "./settings";
+import { MOCK_ROOTS, MOCK_TRACKS } from "../mockTracks";
+import * as api from "../api/catalog";
+
+export type { CoverInfo } from "../api/catalog";
+import type { CoverInfo } from "../api/catalog";
+
+const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
+
+// ── Cover fetch concurrency control (module-level, not reactive) ──────────────
+const _coverInFlight = new Set<string>();
+const _coverQueue: string[] = [];
+let _coverActive = 0;
+const COVER_CONCURRENCY = 8;
+
+// ── FTS search debounce (module-level, not reactive) ─────────────────────────
+let _searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
+const HIDDEN_ROOTS_KEY = "muorg-hidden-roots";
+
+function loadStoredDefaultGroupBy(): "none" | "artist" | "album" {
+  if (typeof window === "undefined") return "album";
+  const stored = window.localStorage.getItem(DEFAULT_GROUP_BY_KEY);
+  if (stored === "none" || stored === "artist" || stored === "album") return stored;
+  return "album";
+}
+
+function loadStoredHiddenRoots(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = window.localStorage.getItem(HIDDEN_ROOTS_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored) as unknown;
+    return Array.isArray(parsed) && parsed.every((x) => typeof x === "string") ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export const useCatalogStore = defineStore("catalog", {
+  state: () => ({
+    roots: [] as string[],
+    tracks: [] as CatalogTrack[],
+    selectedTrackIds: [] as number[],
+    currentPlayingTrackId: null as number | null,
+    reportFilter: null as null | "missing_metadata" | "duplicates" | "missing_album_cover" | "recently_played" | "most_played",
+    reportSingleField: null as MissingMetadataField | null,
+    searchResults: null as CatalogTrack[] | null,
+    loading: false,
+    error: null as string | null,
+    searchQuery: "",
+    filterMinRating: null as number | null,
+    filterGenre: null as string | null,
+    groupBy: loadStoredDefaultGroupBy(),
+    coverCache: {} as Record<string, CoverInfo | null>,
+    albumCoverCache: {} as Record<string, CoverInfo | null>,
+    openWikipediaModal: false,
+    multiSelectMode: false,
+    hiddenRoots: loadStoredHiddenRoots(),
+    queueTrackIds: [] as number[],
+    playRequestTrackId: null as number | null,
+    isInternalQueueDrag: false,
+    pendingDragTrackIds: null as number[] | null,
+    activePlaylistId: null as number | null,
+    playingFromPlaylistId: null as number | null,
+    activePlaylistTrackIds: null as number[] | null,
+    activePlaylistEntryIds: null as number[] | null,
+    pendingCoverImagePath: null as string | null,
+    revealTrackId: null as number | null,
+    bulkProgress: null as { current: number; total: number } | null,
+  }),
+  getters: {
+    selectedTracks(state): CatalogTrack[] {
+      const set = new Set(state.selectedTrackIds);
+      return state.tracks.filter((t) => set.has(t.id));
+    },
+    filteredTracks(state): CatalogTrack[] {
+      if (state.activePlaylistTrackIds !== null) {
+        const idToTrack = new Map(state.tracks.map((t) => [t.id, t]));
+        let list = state.activePlaylistTrackIds
+          .map((id) => idToTrack.get(id))
+          .filter((t): t is CatalogTrack => t != null);
+        const q = state.searchQuery.trim().toLowerCase();
+        if (q) {
+          list = list.filter((t) => {
+            const title = (t.title ?? "").toLowerCase();
+            const artist = (t.artist ?? "").toLowerCase();
+            const album = (t.album ?? "").toLowerCase();
+            return title.includes(q) || artist.includes(q) || album.includes(q);
+          });
+        }
+        if (state.filterMinRating !== null) {
+          list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
+        }
+        if (state.filterGenre !== null) {
+          list = list.filter((t) => t.genre === state.filterGenre);
+        }
+        return list;
+      }
+      if (state.searchResults !== null) {
+        let list = state.searchResults;
+        if (state.filterMinRating !== null) {
+          list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
+        }
+        if (state.filterGenre !== null) {
+          list = list.filter((t) => t.genre === state.filterGenre);
+        }
+        return list;
+      }
+      const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+      const hiddenSet = new Set(state.hiddenRoots.map(norm));
+      let list = state.tracks;
+      if (hiddenSet.size > 0) {
+        list = list.filter((t) => {
+          const tNorm = norm(t.path);
+          for (const r of state.roots) {
+            const rNorm = norm(r);
+            if (tNorm === rNorm || tNorm.startsWith(rNorm + "/")) {
+              return !hiddenSet.has(rNorm);
+            }
+          }
+          return true;
+        });
+      }
+      const q = state.searchQuery.trim().toLowerCase();
+      if (q) {
+        list = list.filter((t) => {
+          const title = (t.title ?? "").toLowerCase();
+          const artist = (t.artist ?? "").toLowerCase();
+          const album = (t.album ?? "").toLowerCase();
+          return title.includes(q) || artist.includes(q) || album.includes(q);
+        });
+      }
+      if (state.filterMinRating !== null) {
+        list = list.filter((t) => (t.rating ?? 0) >= state.filterMinRating!);
+      }
+      if (state.filterGenre !== null) {
+        list = list.filter((t) => t.genre === state.filterGenre);
+      }
+      return list;
+    },
+    tableOrderedTracks(): CatalogTrack[] {
+      const base = this.filteredTracks;
+      const by = this.groupBy;
+      if (by === "none" || !base.length) return base;
+      type Group = { key: string; label: string; artist?: string; tracks: CatalogTrack[] };
+      const map = new Map<string, Group>();
+      for (const t of base) {
+        if (by === "artist") {
+          const artist = t.artist ?? "—";
+          let group = map.get(artist);
+          if (!group) {
+            group = { key: artist, label: artist, tracks: [] };
+            map.set(artist, group);
+          }
+          group.tracks.push(t);
+        } else if (by === "album") {
+          const album = t.album ?? "—";
+          const artist = t.artist ?? "—";
+          const key = `${album}|||${artist}`;
+          let group = map.get(key);
+          if (!group) {
+            group = { key, label: album, artist, tracks: [] };
+            map.set(key, group);
+          }
+          group.tracks.push(t);
+        }
+      }
+      const groups = [...map.values()];
+      const settingsStore = useSettingsStore();
+      const col: SortableColumn | null = settingsStore.tableSortColumn;
+      const dir = settingsStore.tableSortDirection === "desc" ? -1 : 1;
+      groups.sort((a, b) => {
+        if (col === "year") {
+          const aYear = a.tracks.find((t) => t.year != null)?.year ?? 0;
+          const bYear = b.tracks.find((t) => t.year != null)?.year ?? 0;
+          const diff = aYear - bYear;
+          if (diff !== 0) return dir * diff;
+        } else if (col === "duration") {
+          const aDur = a.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
+          const bDur = b.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
+          const diff = aDur - bDur;
+          if (diff !== 0) return dir * diff;
+        } else if (col === "artist") {
+          const cmp = (a.artist ?? a.label).localeCompare(b.artist ?? b.label, undefined, { sensitivity: "base" });
+          if (cmp !== 0) return dir * cmp;
+        } else if (col === "album") {
+          const cmp = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+          if (cmp !== 0) return dir * cmp;
+        }
+        const byLabel = a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+        if (byLabel !== 0) return byLabel;
+        return (a.artist ?? "").localeCompare(b.artist ?? "", undefined, { sensitivity: "base" });
+      });
+      return groups.flatMap((g) => g.tracks);
+    },
+    queueTracks(state): CatalogTrack[] {
+      const idToTrack = new Map(state.tracks.map((t) => [t.id, t]));
+      return state.queueTrackIds
+        .map((id) => idToTrack.get(id))
+        .filter((t): t is CatalogTrack => t != null);
+    },
+  },
+  actions: {
+    /** Look up a track ID from its file path. Returns undefined if not found. */
+    _trackIdByPath(path: string): number | undefined {
+      return this.tracks.find((t) => t.path === path)?.id;
+    },
+    setCurrentPlaying(id: number | null) {
+      this.currentPlayingTrackId = id;
+      if (id == null) this.playingFromPlaylistId = null;
+      if (id != null) {
+        const idx = this.queueTrackIds.indexOf(id);
+        if (idx >= 0) {
+          this.queueTrackIds = this.queueTrackIds.filter((_, i) => i !== idx);
+        }
+      }
+    },
+    setPlayingFromPlaylistId(id: number | null) {
+      this.playingFromPlaylistId = id;
+    },
+    setOpenWikipediaModal(value: boolean) {
+      this.openWikipediaModal = value;
+    },
+    setPendingCoverImagePath(path: string | null) {
+      this.pendingCoverImagePath = path;
+    },
+    setReportFilter(kind: null | "missing_metadata" | "duplicates" | "missing_album_cover" | "recently_played" | "most_played") {
+      this.reportFilter = kind;
+      if (kind === null) this.reportSingleField = null;
+    },
+    setReportSingleField(field: MissingMetadataField) {
+      this.reportSingleField = field;
+      this.reportFilter = "missing_metadata";
+    },
+    toggleRootVisibility(rootPath: string) {
+      const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+      const key = norm(rootPath);
+      const current = this.hiddenRoots.map(norm);
+      const idx = current.indexOf(key);
+      if (idx >= 0) {
+        this.hiddenRoots = this.hiddenRoots.filter((_, i) => i !== idx);
+      } else {
+        this.hiddenRoots = [...this.hiddenRoots, rootPath];
+      }
+      this.persistHiddenRoots();
+    },
+    isRootHidden(rootPath: string): boolean {
+      const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+      const key = norm(rootPath);
+      return this.hiddenRoots.some((r) => norm(r) === key);
+    },
+    hideAllRoots() {
+      const rootsList = this.roots;
+      if (!rootsList.length) return;
+      this.hiddenRoots = rootsList.slice();
+      this.persistHiddenRoots();
+    },
+    showAllRoots() {
+      if (this.hiddenRoots.length === 0) return;
+      this.hiddenRoots = [];
+      this.persistHiddenRoots();
+    },
+    persistHiddenRoots() {
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(HIDDEN_ROOTS_KEY, JSON.stringify(this.hiddenRoots));
+      } catch {
+        // ignore
+      }
+    },
+    async loadRoots() {
+      if (isMock()) {
+        this.roots = MOCK_ROOTS;
+        return;
+      }
+      this.loading = true;
+      this.error = null;
+      try {
+        this.roots = await api.getRoots();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+      } finally {
+        this.loading = false;
+      }
+    },
+    async loadTracks() {
+      if (isMock()) {
+        this.tracks = MOCK_TRACKS;
+        return;
+      }
+      this.loading = true;
+      this.error = null;
+      try {
+        this.tracks = await api.getTracks();
+        const next: Record<string, CoverInfo | null> = {};
+        for (const t of this.tracks) {
+          const cover = this.coverCache[t.path];
+          if (cover) {
+            const key = t.album ?? "—";
+            if (!(key in next)) next[key] = cover;
+          }
+        }
+        for (const [albumKey, cover] of Object.entries(this.albumCoverCache)) {
+          if (!(albumKey in next)) {
+            next[albumKey] = cover;
+          }
+        }
+        this.albumCoverCache = next;
+        this._prefetchAllCovers();
+        if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
+          const first = this.tableOrderedTracks[0];
+          if (first) this.selectedTrackIds = [first.id];
+        }
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+      } finally {
+        this.loading = false;
+      }
+    },
+    async addFolder(path: string) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const result = await api.addFolder(path);
+        this.roots = result.roots;
+        await this.loadTracks();
+        return result.tracks_added;
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async addFolders(paths: string[]) {
+      if (!paths.length) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        for (const path of paths) {
+          await api.rescan(path);
+        }
+        this.roots = await api.getRoots();
+        this.tracks = await api.getTracks();
+        if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
+          const first = this.tableOrderedTracks[0];
+          if (first) this.selectedTrackIds = [first.id];
+        }
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async rescan(rootPath: string) {
+      this.loading = true;
+      this.error = null;
+      try {
+        await api.rescan(rootPath);
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async refreshAll() {
+      const roots = [...this.roots];
+      if (!roots.length) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        for (const rootPath of roots) {
+          await api.rescan(rootPath);
+        }
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async removeFolder(rootPath: string) {
+      this.loading = true;
+      this.error = null;
+      try {
+        await api.removeFolder(rootPath);
+        await this.loadRoots();
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async removeAllFolders() {
+      const list = [...this.roots];
+      if (!list.length) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        for (const rootPath of list) {
+          await api.removeFolder(rootPath);
+        }
+        this.roots = [];
+        this.hiddenRoots = [];
+        this.persistHiddenRoots();
+        await this.loadRoots();
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async writeMetadata(path: string, update: import("../types").MetadataUpdate) {
+      const settingsStore = useSettingsStore();
+      const id = this._trackIdByPath(path);
+      if (id == null) throw new Error(`Track not found: ${path}`);
+      await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
+      const nextCoverCache = { ...this.coverCache };
+      if (path in nextCoverCache) {
+        delete nextCoverCache[path];
+      }
+      this.coverCache = nextCoverCache;
+      await this.loadTracks();
+    },
+    async writeMetadataBulk(paths: string[], update: import("../types").MetadataUpdate) {
+      if (paths.length === 0) return;
+      this.loading = true;
+      this.error = null;
+      const settingsStore = useSettingsStore();
+      try {
+        for (const path of paths) {
+          const id = this._trackIdByPath(path);
+          if (id == null) continue;
+          await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
+          const nextCoverCache = { ...this.coverCache };
+          if (path in nextCoverCache) {
+            delete nextCoverCache[path];
+          }
+          this.coverCache = nextCoverCache;
+        }
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async setRatingForSelection(rating: number | null) {
+      const paths = this.selectedTracks.map((t) => t.path);
+      if (paths.length) await this.setRating(paths, rating);
+    },
+    getTracksForAlbum(album: string, albumArtist: string): CatalogTrack[] {
+      const normAlbum = album.trim().toLowerCase();
+      const normArtist = albumArtist.trim().toLowerCase();
+      return this.tracks.filter((t) => {
+        const tAlbum = (t.album ?? "").trim().toLowerCase();
+        const tArtist = (t.album_artist ?? "").trim().toLowerCase();
+        return tAlbum === normAlbum && tArtist === normArtist;
+      });
+    },
+    restoreSession(queueTrackIds: number[]) {
+      const existingIds = new Set(this.tracks.map((t) => t.id));
+      const valid = queueTrackIds.filter((id) => existingIds.has(id));
+      if (valid.length > 0) {
+        this.queueTrackIds = valid;
+      }
+    },
+    async recordPlay(path: string) {
+      if (isMock()) return;
+      const id = this._trackIdByPath(path);
+      if (id == null) return;
+      const now = Math.floor(Date.now() / 1000);
+      this.tracks = this.tracks.map((t) =>
+        t.path === path
+          ? { ...t, play_count: (t.play_count ?? 0) + 1, last_played_at: now }
+          : t,
+      );
+      try {
+        await api.recordPlay(id);
+      } catch {
+        // Non-critical; ignore errors silently.
+      }
+    },
+    async setRating(paths: string[], rating: number | null) {
+      this.tracks = this.tracks.map((t) =>
+        paths.includes(t.path) ? { ...t, rating } : t,
+      );
+      for (const path of paths) {
+        const id = this._trackIdByPath(path);
+        if (id == null) continue;
+        await api.setRating(id, rating);
+      }
+    },
+    toggleSelection(id: number) {
+      const i = this.selectedTrackIds.indexOf(id);
+      if (i >= 0) {
+        this.selectedTrackIds = this.selectedTrackIds.filter((x) => x !== id);
+      } else {
+        this.selectedTrackIds = [...this.selectedTrackIds, id];
+      }
+    },
+    clearSelection() {
+      this.selectedTrackIds = [];
+    },
+    setSelection(ids: number[]) {
+      this.selectedTrackIds = [...ids];
+    },
+    setMultiSelectMode(value: boolean) {
+      this.multiSelectMode = value;
+    },
+    setSearchQuery(q: string) {
+      this.searchQuery = q;
+      this.searchResults = null;
+      if (_searchDebounceTimer) {
+        clearTimeout(_searchDebounceTimer);
+        _searchDebounceTimer = null;
+      }
+      if (q.trim().length < 2) return;
+      _searchDebounceTimer = setTimeout(async () => {
+        _searchDebounceTimer = null;
+        if (isMock()) return;
+        try {
+          const results = await api.searchTracks(q);
+          if (this.searchQuery === q && results.length > 0) {
+            this.searchResults = results;
+          }
+        } catch {
+          // Leave searchResults null → JS filter continues showing results
+        }
+      }, 300);
+    },
+    setFilterMinRating(rating: number | null) {
+      this.filterMinRating = rating;
+    },
+    setFilterGenre(genre: string | null) {
+      this.filterGenre = genre;
+    },
+    setRevealTrackId(id: number | null) {
+      this.revealTrackId = id;
+    },
+    setBulkProgress(progress: { current: number; total: number } | null) {
+      this.bulkProgress = progress;
+    },
+    setGroupBy(mode: "none" | "artist" | "album") {
+      this.groupBy = mode;
+    },
+    addToQueue(trackIds: number[]) {
+      if (!trackIds.length) return;
+      const existing = new Set(this.queueTrackIds);
+      const toAdd = trackIds.filter((id) => !existing.has(id));
+      for (const id of toAdd) existing.add(id);
+      this.queueTrackIds = [...this.queueTrackIds, ...toAdd];
+    },
+    addTracksToQueue(tracks: CatalogTrack[]) {
+      this.addToQueue(tracks.map((t) => t.id));
+    },
+    removeFromQueueAtIndex(index: number) {
+      if (index < 0 || index >= this.queueTrackIds.length) return;
+      this.queueTrackIds = this.queueTrackIds.filter((_, i) => i !== index);
+    },
+    reorderQueue(fromIndex: number, toIndex: number) {
+      if (fromIndex === toIndex) return;
+      if (fromIndex < 0 || fromIndex >= this.queueTrackIds.length) return;
+      if (toIndex < 0 || toIndex >= this.queueTrackIds.length) return;
+      const id = this.queueTrackIds[fromIndex];
+      const next = this.queueTrackIds.filter((_, i) => i !== fromIndex);
+      next.splice(toIndex, 0, id);
+      this.queueTrackIds = next;
+    },
+    clearQueue() {
+      this.queueTrackIds = [];
+    },
+    setPlayRequestTrackId(id: number | null) {
+      this.playRequestTrackId = id;
+    },
+    setInternalQueueDrag(value: boolean, trackIds?: number[]) {
+      this.isInternalQueueDrag = value;
+      this.pendingDragTrackIds = value ? (trackIds ?? null) : null;
+    },
+    setActivePlaylist(id: number, entries: { entryId: number; trackId: number }[]) {
+      this.activePlaylistId = id;
+      this.activePlaylistTrackIds = entries.map((e) => e.trackId);
+      this.activePlaylistEntryIds = entries.map((e) => e.entryId);
+      if (this.currentPlayingTrackId === null) {
+        this.clearSelection();
+        if (entries.length > 0) {
+          this.selectedTrackIds = [entries[0].trackId];
+        }
+      }
+    },
+    clearActivePlaylist() {
+      this.activePlaylistId = null;
+      this.activePlaylistTrackIds = null;
+      this.activePlaylistEntryIds = null;
+      if (this.currentPlayingTrackId === null) {
+        this.clearSelection();
+      }
+    },
+    getCover(path: string): CoverInfo | null | undefined {
+      return this.coverCache[path];
+    },
+    getCoverDataUrl(path: string): string | null {
+      const c = this.coverCache[path];
+      if (!c) return null;
+      return `data:${c.mime};base64,${c.base64}`;
+    },
+    _drainCoverQueue() {
+      while (_coverActive < COVER_CONCURRENCY && _coverQueue.length > 0) {
+        const path = _coverQueue.shift()!;
+        if (path in this.coverCache) {
+          _coverInFlight.delete(path);
+          continue;
+        }
+        _coverActive++;
+        const run = async () => {
+          try {
+            let cover: CoverInfo | null;
+            if (isMock()) {
+              cover = null;
+            } else {
+              const id = this._trackIdByPath(path);
+              cover = id != null ? await api.getCover(id) : null;
+            }
+            this.coverCache = { ...this.coverCache, [path]: cover };
+            const track = this.tracks.find((t) => t.path === path);
+            if (track) {
+              const albumKey = track.album ?? "—";
+              if (!this.albumCoverCache[albumKey]) {
+                this.albumCoverCache = { ...this.albumCoverCache, [albumKey]: cover };
+              }
+            }
+          } catch {
+            this.coverCache = { ...this.coverCache, [path]: null };
+          } finally {
+            _coverInFlight.delete(path);
+            _coverActive--;
+            this._drainCoverQueue();
+          }
+        };
+        run();
+      }
+    },
+    fetchCover(path: string) {
+      if (path in this.coverCache) return;
+      if (_coverInFlight.has(path)) return;
+      _coverInFlight.add(path);
+      _coverQueue.push(path);
+      this._drainCoverQueue();
+    },
+    boostCoverPriority(path: string) {
+      if (path in this.coverCache || !_coverInFlight.has(path)) return;
+      const idx = _coverQueue.indexOf(path);
+      if (idx > 0) {
+        _coverQueue.splice(idx, 1);
+        _coverQueue.unshift(path);
+      }
+    },
+    _prefetchAllCovers() {
+      const seen = new Set<string>();
+      for (const track of this.tracks) {
+        if (!track.has_cover) continue;
+        const albumKey = track.album ?? "—";
+        if (seen.has(albumKey)) continue;
+        seen.add(albumKey);
+        this.fetchCover(track.path);
+      }
+    },
+  },
+});

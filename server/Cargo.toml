@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/muorg-core",
+    "crates/muorg-server",
+]
+
+[patch.crates-io]
+rust_cast = { path = "vendor/rust_cast" }

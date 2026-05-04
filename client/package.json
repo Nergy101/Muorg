@@ -1,0 +1,55 @@
+{
+  "name": "muorg",
+  "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "core-js",
+      "esbuild",
+      "vue-demi"
+    ]
+  },
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:mock": "VITE_MOCK=1 pnpm tauri dev",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "build:server": "cd ../server && cargo build --release",
+    "build:sidecar": "bash ../scripts/copy-sidecar.sh",
+    "build:linux": "pnpm build:sidecar && tauri build",
+    "build:macos": "pnpm build:sidecar && tauri build",
+    "build:windows": "pnpm build:sidecar && tauri build",
+    "icon": "tauri icon public/favicon.svg -o src-tauri/icons",
+    "check:frontend": "pnpm build",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "check": "pnpm run check:frontend && pnpm run check:rust"
+  },
+  "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.4.5",
+    "@tauri-apps/plugin-process": "~2.3.1",
+    "@tauri-apps/plugin-shell": "~2.3.5",
+    "@tauri-apps/plugin-updater": "~2.10.0",
+    "emoji-mart": "^5.6.0",
+    "feather-icons": "^4.29.2",
+    "overlayscrollbars": "^2.14.0",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/node": "^22.0.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.1",
+    "vue-tsc": "^2.1.10"
+  }
+}

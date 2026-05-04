@@ -1,0 +1,24 @@
+[server]
+host = "127.0.0.1"
+port = 7700
+# All requests must send: Authorization: Bearer <api_key>
+api_key = "change-me-to-something-secret"
+
+[library]
+# All folders to scan. Sub-folders are scanned recursively. Overlapping paths are deduplicated.
+# In sidecar mode this file is managed by the desktop app (the user clicks buttons).
+# Edit manually only when running standalone.
+content_paths = [
+    "/mnt/nas/Music",
+    "/home/user/Downloads/Music",
+]
+# Rescan all content_paths on startup (true) or only when triggered via API (false)
+scan_on_startup = true
+
+[storage]
+db_path = "./muorg.db"
+backup_dir = "./muorg-backups"
+
+[cors]
+# The Tauri webview origin. Add your own domain if running the server standalone.
+allowed_origins = ["tauri://localhost", "http://tauri.localhost"]
