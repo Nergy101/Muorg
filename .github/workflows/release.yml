@@ -1,51 +1,99 @@
-name: Release
+name: Build and Release
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
 
 jobs:
-  release:
-    permissions:
-      contents: write
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set.outputs.version }}
+      tag: ${{ steps.set.outputs.tag }}
+      prerelease: ${{ steps.set.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            TAG="${{ github.ref_name }}"
+            PRERELEASE="false"
+          else
+            VERSION="0.1.0-alpha.${{ github.run_number }}"
+            TAG="v${VERSION}"
+            PRERELEASE="true"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
-            rust-target: aarch64-apple-darwin
-          - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
-            rust-target: x86_64-apple-darwin
-          - platform: ubuntu-22.04
-            args: ''
-            rust-target: x86_64-unknown-linux-gnu
+            target: aarch64-apple-darwin
+            server-target: aarch64-apple-darwin
+            artifact_name: aarch64-darwin
           - platform: windows-latest
-            args: ''
-            rust-target: x86_64-pc-windows-msvc
-
+            target: ""
+            server-target: x86_64-pc-windows-msvc
+            artifact_name: x86_64-windows
+          - platform: ubuntu-22.04
+            target: ""
+            server-target: x86_64-unknown-linux-gnu
+            artifact_name: x86_64-linux
     runs-on: ${{ matrix.platform }}
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Set version in manifests
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libasound2-dev
+          VERSION="${{ needs.version.outputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const v = process.env.VERSION;
+            const p = require('./client/package.json');
+            p.version = v;
+            fs.writeFileSync('./client/package.json', JSON.stringify(p, null, 2));
+            const tauri = require('./client/src-tauri/tauri.conf.json');
+            tauri.version = v;
+            fs.writeFileSync('./client/src-tauri/tauri.conf.json', JSON.stringify(tauri, null, 2));
+            const cargo = fs.readFileSync('./client/src-tauri/Cargo.toml', 'utf8');
+            fs.writeFileSync('./client/src-tauri/Cargo.toml', cargo.replace(/^version = \".*\"$/m, 'version = \"' + v + '\"'));
+          "
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-target }}
+
+      - name: Add Rust target (cross-compilation)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -54,53 +102,195 @@ jobs:
             server -> target
             client/src-tauri -> target
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+            patchelf libasound2-dev
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: client/pnpm-lock.yaml
-
-      - name: Install frontend dependencies
-        working-directory: client
-        run: pnpm install
+      - name: Install OpenSSL via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if (-Not (Test-Path C:\vcpkg)) {
+            git clone https://github.com/microsoft/vcpkg C:\vcpkg
+            C:\vcpkg\bootstrap-vcpkg.bat
+          }
+          C:\vcpkg\vcpkg.exe install openssl:x64-windows-static
+          C:\vcpkg\vcpkg.exe integrate install
+          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "VCPKGRS_DYNAMIC=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Build server binary
         working-directory: server
-        run: cargo build --release --target ${{ matrix.rust-target }}
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            cargo build --release --target ${{ matrix.target }}
+          else
+            cargo build --release
+          fi
 
       - name: Copy sidecar binary (Unix)
-        if: matrix.platform != 'windows-latest'
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           mkdir -p client/src-tauri/binaries
-          cp server/target/${{ matrix.rust-target }}/release/muorg-server \
-             client/src-tauri/binaries/muorg-server-${{ matrix.rust-target }}
-          chmod +x client/src-tauri/binaries/muorg-server-${{ matrix.rust-target }}
+          TARGET="${{ matrix.server-target }}"
+          cp server/target/${TARGET}/release/muorg-server \
+             client/src-tauri/binaries/muorg-server-${TARGET}
+          chmod +x client/src-tauri/binaries/muorg-server-${TARGET}
 
       - name: Copy sidecar binary (Windows)
-        if: matrix.platform == 'windows-latest'
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path client/src-tauri/binaries
-          Copy-Item server/target/${{ matrix.rust-target }}/release/muorg-server.exe `
-            client/src-tauri/binaries/muorg-server-${{ matrix.rust-target }}.exe
+          $target = "${{ matrix.server-target }}"
+          Copy-Item "server/target/release/muorg-server.exe" `
+            "client/src-tauri/binaries/muorg-server-${target}.exe"
 
-      - name: Build and publish Tauri app
-        uses: tauri-apps/tauri-action@v0
+      - name: Install frontend dependencies
+        working-directory: client
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri app
+        working-directory: client
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            pnpm tauri build --target ${{ matrix.target }}
+          else
+            pnpm tauri build
+          fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+          APPLE_SIGNING_IDENTITY: "-"
+          OPENSSL_STATIC: ${{ runner.os == 'macOS' && '1' || '' }}
+
+      - name: Set bundle path
+        id: bundle
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            echo "path=client/src-tauri/target/${{ matrix.target }}/release/bundle" >> $GITHUB_OUTPUT
+          else
+            echo "path=client/src-tauri/target/release/bundle" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifacts (macOS)
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
         with:
-          projectPath: client
-          tagName: v__VERSION__
-          releaseName: 'Muorg v__VERSION__'
-          releaseBody: |
-            See [CHANGELOG.md](https://github.com/Nergy101/Muorg/blob/main/CHANGELOG.md) for details.
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+          path: |
+            ${{ steps.bundle.outputs.path }}/dmg/*.dmg
+            ${{ steps.bundle.outputs.path }}/macos/*.app
+            ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz
+            ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz.sig
+
+      - name: Upload artifacts (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+          path: |
+            ${{ steps.bundle.outputs.path }}/msi/*.msi
+            ${{ steps.bundle.outputs.path }}/nsis/*.exe
+            ${{ steps.bundle.outputs.path }}/msi/*.msi.sig
+            ${{ steps.bundle.outputs.path }}/nsis/*.exe.sig
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+          path: |
+            ${{ steps.bundle.outputs.path }}/appimage/*.AppImage
+            ${{ steps.bundle.outputs.path }}/deb/*.deb
+            ${{ steps.bundle.outputs.path }}/appimage/*.AppImage.sig
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: muorg-*
+
+      - name: Generate latest.json for updater
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG="${{ needs.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+
+          cd artifacts
+
+          linux_sig="$(find . -path '*appimage/*.AppImage.sig' -print | head -n 1)"
+          win_msi_sig="$(find . -path '*msi/*.msi.sig' -print | head -n 1)"
+          mac_sig="$(find . -path '*macos/*.app.tar.gz.sig' -print | head -n 1)"
+
+          if [ -z "$linux_sig" ] || [ -z "$win_msi_sig" ] || [ -z "$mac_sig" ]; then
+            echo "Missing one or more updater signatures; cannot generate latest.json" >&2
+            exit 1
+          fi
+
+          linux_file="${linux_sig%.sig}"
+          win_msi="${win_msi_sig%.sig}"
+          mac_file="${mac_sig%.sig}"
+
+          linux_sig_content="$(tr -d '\n' < "$linux_sig")"
+          win_sig_content="$(tr -d '\n' < "$win_msi_sig")"
+          mac_sig_content="$(tr -d '\n' < "$mac_sig")"
+
+          linux_name="$(basename "$linux_file")"
+          win_name="$(basename "$win_msi")"
+          mac_name="$(basename "$mac_file")"
+
+          pub_date="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+          cat > latest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "notes": "Muorg ${VERSION}",
+            "pub_date": "${pub_date}",
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "${linux_sig_content}",
+                "url": "${BASE_URL}/${linux_name}"
+              },
+              "windows-x86_64": {
+                "signature": "${win_sig_content}",
+                "url": "${BASE_URL}/${win_name}"
+              },
+              "darwin-aarch64": {
+                "signature": "${mac_sig_content}",
+                "url": "${BASE_URL}/${mac_name}"
+              }
+            }
+          }
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Muorg ${{ needs.version.outputs.tag }}
+          prerelease: ${{ needs.version.outputs.prerelease }}
+          generate_release_notes: true
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
