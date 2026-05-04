@@ -1,24 +1,27 @@
 [server]
-host = "127.0.0.1"
+# Use 0.0.0.0 when running in Docker; use 127.0.0.1 for local-only standalone use.
+host = "0.0.0.0"
 port = 7700
-# All requests must send: Authorization: Bearer <api_key>
+# IMPORTANT: change this to a long random string before exposing to the internet.
+# All API requests must include: Authorization: Bearer <api_key>
 api_key = "change-me-to-something-secret"
 
 [library]
-# All folders to scan. Sub-folders are scanned recursively. Overlapping paths are deduplicated.
-# In sidecar mode this file is managed by the desktop app (the user clicks buttons).
-# Edit manually only when running standalone.
+# Paths to scan for music files. Sub-folders are scanned recursively.
+# In Docker: match these to the volume paths you mount in docker-compose.yml.
+# In sidecar mode (desktop app): managed automatically — no need to edit this.
 content_paths = [
-    "/mnt/nas/Music",
-    "/home/user/Downloads/Music",
+    "/music",
 ]
-# Rescan all content_paths on startup (true) or only when triggered via API (false)
+# Rescan all content_paths on startup (true) or only when triggered via API (false).
 scan_on_startup = true
 
 [storage]
-db_path = "./muorg.db"
-backup_dir = "./muorg-backups"
+# In Docker: keep these inside the /data volume so they persist across restarts.
+db_path = "/data/muorg.db"
+backup_dir = "/data/backups"
 
 [cors]
-# The Tauri webview origin. Add your own domain if running the server standalone.
-allowed_origins = ["tauri://localhost", "http://tauri.localhost"]
+# Origins allowed to call the API.
+# Use ["*"] for LAN / home-server use; restrict to your domain for public deployments.
+allowed_origins = ["*"]
