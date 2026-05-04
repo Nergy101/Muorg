@@ -91,7 +91,10 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Add Rust target (cross-compilation)
+      - name: Add Rust target for server
+        run: rustup target add ${{ matrix.server-target }}
+
+      - name: Add Rust target for Tauri (cross-compilation)
         if: matrix.target != ''
         run: rustup target add ${{ matrix.target }}
 
@@ -108,7 +111,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
-            patchelf libasound2-dev
+            patchelf libasound2-dev \
+            pkg-config libssl-dev libmp3lame-dev
 
       - name: Install OpenSSL via vcpkg (Windows)
         if: runner.os == 'Windows'
@@ -126,12 +130,7 @@ jobs:
       - name: Build server binary
         working-directory: server
         shell: bash
-        run: |
-          if [ -n "${{ matrix.target }}" ]; then
-            cargo build --release --target ${{ matrix.target }}
-          else
-            cargo build --release
-          fi
+        run: cargo build --release --target ${{ matrix.server-target }}
 
       - name: Copy sidecar binary (Unix)
         if: runner.os != 'Windows'
@@ -149,7 +148,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path client/src-tauri/binaries
           $target = "${{ matrix.server-target }}"
-          Copy-Item "server/target/release/muorg-server.exe" `
+          Copy-Item "server/target/$target/release/muorg-server.exe" `
             "client/src-tauri/binaries/muorg-server-${target}.exe"
 
       - name: Install frontend dependencies
