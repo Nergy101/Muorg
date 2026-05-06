@@ -38,7 +38,9 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: client/src-tauri -> target
+          workspaces: |
+            client/src-tauri -> target
+            server -> target
 
       - name: Install Linux system dependencies
         run: |
@@ -51,6 +53,10 @@ jobs:
       - name: Install dependencies
         working-directory: client
         run: pnpm install --frozen-lockfile
+
+      - name: Build server sidecar
+        working-directory: client
+        run: pnpm run build:sidecar
 
       - name: Check
         working-directory: client
