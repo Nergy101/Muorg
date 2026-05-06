@@ -16,7 +16,6 @@ A cross-platform desktop app that organizes your music library with a dense, lib
 ## Table of contents
 
 - [Features](#features)
-- [Screenshots](#screenshots)
 - [Tech stack](#tech-stack)
 - [Prerequisites](#prerequisites)
 - [Getting started](#getting-started)
@@ -43,34 +42,6 @@ A cross-platform desktop app that organizes your music library with a dense, lib
 - 🎨 **Theming** — Auto (follow system), Dark, Light, Orkish (green tints), and DOOM. **Settings** (sidebar): General (e.g. check for updates), Theme, Playback, Keyboard, Layout (density, columns, default bottom panel, sidebar/reports visibility, column widths, queue/panel size), Reports, Exports, Smart Suggestions. **Key map** (Ctrl+K): shortcuts for search, refresh, panels, queue, select all, navigation, and play.
 
 See [plan.md](./plan.md) for the roadmap and priorities.
-
----
-
-## 📸 Screenshots
-
-Main library view:
-
-![Muorg main view](./assets/library.png)
-
-Metadata editor (single track selected):
-
-![Muorg metadata editor](./assets/metadata.png)
-
-Key map and shortcuts:
-
-![Muorg key map](./assets/keymap.png)
-
-Player bar (compact and expanded). The **expanded view** fills the screen with large album art and a gradient; play/pause, previous/next, seek, volume, and shuffle sit at the bottom, and accents are tinted from the current track’s album art.
-
-![Player bar](./assets/player_small.png) ![Player expanded](./assets/player_max.jpeg)
-
-Settings — theme picker and smart suggestions:
-
-![Settings theme](./assets/settings_theme.png)
-
-**Smart Suggestions** lets you define how your file paths are structured (e.g. `<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>`). In the metadata editor you can then **Apply from path** to fill title, artist, album, track number, and similar fields from a track’s path, so tags stay consistent with your folder layout. You can try example paths in settings to see the extracted fields before using them.
-
-![Smart suggestions](./assets/settings_smart_suggestions.png)
 
 ---
 

@@ -84,7 +84,7 @@ Muorg/
 | `client/` | Cross-platform desktop app | Always — this is the main app |
 | `server/` | HTTP backend for remote/NAS use | Only for home-server / multi-device setups |
 
-Each subfolder has its own README with full developer and configuration details.
+For full developer and configuration details see **[client/README.md](client/README.md)** and **[server/README.md](server/README.md)**.
 
 ---
 
