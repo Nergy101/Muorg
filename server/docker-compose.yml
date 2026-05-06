@@ -4,7 +4,7 @@ services:
     ports:
       - "7700:7700"
     volumes:
-      # Config file — copy muorg-server.toml.example → muorg-server.toml and edit it.
+      # Config file — copy muorg-server.example.toml → muorg-server.toml and edit it.
       # The server reads ./muorg-server.toml from its working directory (/app).
       - ./muorg-server.toml:/app/muorg-server.toml:ro
       # Persistent data (SQLite DB + backups)

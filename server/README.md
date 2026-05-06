@@ -11,8 +11,8 @@ The server is normally bundled as a sidecar inside the Muorg desktop app and sta
 ### 1. Copy and edit the config
 
 ```bash
-curl -O https://raw.githubusercontent.com/Nergy101/Muorg/main/server/muorg-server.toml.example
-cp muorg-server.toml.example muorg-server.toml
+curl -O https://raw.githubusercontent.com/Nergy101/Muorg/main/server/muorg-server.example.toml
+cp muorg-server.example.toml muorg-server.toml
 ```
 
 Open `muorg-server.toml` and at minimum change:
@@ -118,7 +118,7 @@ The database lives in the `muorg-data` volume and is preserved across updates.
 ```bash
 git clone https://github.com/Nergy101/Muorg.git
 cd Muorg/server
-cp muorg-server.toml.example muorg-server.toml
+cp muorg-server.example.toml muorg-server.toml
 # edit muorg-server.toml
 cargo run --release --bin muorg-server
 ```

@@ -94,8 +94,8 @@ Run muorg-server on a NAS or home server and connect to it from the desktop app 
 ```bash
 # 1. Grab the compose file
 curl -O https://raw.githubusercontent.com/Nergy101/Muorg/main/server/docker-compose.yml
-curl -O https://raw.githubusercontent.com/Nergy101/Muorg/main/server/muorg-server.toml.example
-cp muorg-server.toml.example muorg-server.toml
+curl -O https://raw.githubusercontent.com/Nergy101/Muorg/main/server/muorg-server.example.toml
+cp muorg-server.example.toml muorg-server.toml
 
 # 2. Edit muorg-server.toml — set api_key and content_paths
 
@@ -134,7 +134,7 @@ pnpm run tauri build
 
 ```bash
 cd server
-cp muorg-server.toml.example muorg-server.toml
+cp muorg-server.example.toml muorg-server.toml
 # edit muorg-server.toml
 cargo run --release --bin muorg-server
 ```

@@ -7,7 +7,7 @@ docker-compose.yml
 
 # User config must NOT be baked into the image; it is mounted at runtime
 muorg-server.toml
-muorg-server.toml.example
+muorg-server.example.toml
 
 # Docs
 README.md
