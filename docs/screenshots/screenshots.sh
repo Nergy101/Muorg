@@ -11,28 +11,29 @@ OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 VIEWS=(
   "table-library:Library — table view (this is the default view on startup)"
-  "album-library:Album view — click Albums in the left sidebar"
+  "album-library:Album view — click Albums layout in the top bar"
   "metadata-editor:Metadata editor — select a track, open the Metadata tab in the bottom panel"
   "player:Player bar — start playback so the player bar is visible"
-  "player-maximized:Maximized player — press Ctrl+S while a track is playing"
-  "settings:Settings — click the gear / settings icon in the sidebar"
+  "player-maximized:Maximized player — press maximize in the bottom right corner while a track is playing"
+  "settings:Settings — click the gear / settings icon in the top right"
 )
 
 # ── screenshot helpers ────────────────────────────────────────────────────────
 
 wait_for_muorg_macos() {
   echo -n "Waiting for Muorg window"
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 90); do
     if osascript -e 'tell application "System Events" to exists (process "Muorg")' 2>/dev/null | grep -q true; then
+      # Process exists — wait a moment for the window to be fully rendered
+      sleep 3
       echo " ready."
-      sleep 2
       return 0
     fi
     echo -n "."
     sleep 2
   done
   echo ""
-  echo "Timed out waiting for Muorg. Try running the script again once the app is open." >&2
+  echo "Timed out waiting for Muorg. Check /tmp/muorg-screenshots.log for errors." >&2
   exit 1
 }
 
@@ -44,16 +45,16 @@ tell application "System Events"
 end tell
 APPLESCRIPT
   sleep 0.3
-  # -o = no drop shadow, -x = no shutter sound, -w = user clicks the target window
+  # -o = no drop shadow, -x = no shutter sound, -w = click the target window
   screencapture -o -x -w "$output"
 }
 
 wait_for_muorg_linux() {
   echo -n "Waiting for Muorg window"
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 90); do
     if xdotool search --name "Muorg" &>/dev/null; then
+      sleep 3
       echo " ready."
-      sleep 2
       return 0
     fi
     echo -n "."
@@ -78,6 +79,13 @@ take_screenshot_linux() {
     echo "  No screenshot tool found. Install scrot: sudo apt install scrot" >&2
     return 1
   fi
+}
+
+is_skip() {
+  case "$1" in
+    s|S) return 0 ;;
+    *)   return 1 ;;
+  esac
 }
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -116,7 +124,7 @@ for entry in "${VIEWS[@]}"; do
   printf "  Press Enter (or 's' to skip)... "
   read -r response
 
-  if [[ "${response,,}" == "s" ]]; then
+  if is_skip "$response"; then
     echo "  Skipped."
     continue
   fi
