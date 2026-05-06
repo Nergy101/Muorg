@@ -5,7 +5,7 @@
   <br /><br />
 
   [![Build](https://github.com/Nergy101/Muorg/actions/workflows/build.yml/badge.svg)](https://github.com/Nergy101/Muorg/actions/workflows/build.yml)
-  [![Build and Release](https://github.com/Nergy101/Muorg/actions/workflows/release.yml/badge.svg)](https://github.com/Nergy101/Muorg/actions/workflows/release.yml)
+  [![Release](https://github.com/Nergy101/Muorg/actions/workflows/release.yml/badge.svg)](https://github.com/Nergy101/Muorg/actions/workflows/release.yml)
   [![Latest Release](https://img.shields.io/github/v/release/Nergy101/Muorg)](https://github.com/Nergy101/Muorg/releases/latest)
   [![Docker Image](https://img.shields.io/docker/v/nergy101/muorg-server?label=docker&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-server)
   ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
