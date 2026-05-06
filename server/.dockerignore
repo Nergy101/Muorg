@@ -1,0 +1,13 @@
+# Build artifacts — largest directory, never needed in the image
+target/
+
+# Docker files
+Dockerfile
+docker-compose.yml
+
+# User config must NOT be baked into the image; it is mounted at runtime
+muorg-server.toml
+muorg-server.toml.example
+
+# Docs
+README.md
