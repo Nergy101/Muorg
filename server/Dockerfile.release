@@ -1,0 +1,14 @@
+# Runtime-only image used by CI — copies pre-built binaries from the build matrix.
+# For local builds from source, use Dockerfile instead.
+FROM debian:bookworm-slim
+ARG TARGETARCH
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    libssl3 \
+    libmp3lame0 \
+    && rm -rf /var/lib/apt/lists/*
+COPY binaries/muorg-server-${TARGETARCH} /usr/local/bin/muorg-server
+VOLUME ["/data"]
+EXPOSE 7700
+ENTRYPOINT ["muorg-server"]
