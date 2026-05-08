@@ -865,7 +865,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
       :style="containerClientWidth > 0 ? { width: containerClientWidth + 'px' } : { width: '100%' }"
     >
       <colgroup>
-        <col v-if="multiSelectMode" :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
+        <col v-if="multiSelectMode || effectiveGroupBy !== 'none'" :style="{ width: CHECKBOX_COL_WIDTH + 'px' }" />
         <col v-if="showAlbumArtCol" :style="{ width: colWidth('albumArt') + 'px' }" />
         <col :style="{ width: colWidth('title') + 'px' }" />
         <col v-if="tableColRating" :style="{ width: colWidth('rating') + 'px' }" />
@@ -1119,8 +1119,9 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
               @dragstart="onTrackDragStart($event, [row.track])"
               @dragend="onTrackDragEnd"
             >
-              <td v-if="multiSelectMode" class="p-2">
+              <td v-if="multiSelectMode || effectiveGroupBy !== 'none'" class="p-2">
                 <input
+                  v-if="multiSelectMode"
                   type="checkbox"
                   :checked="isSelected(row.track.id)"
                   class="rounded border-stone-600"
