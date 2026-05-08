@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Muorg Server</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #e8e8e8;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      padding: 56px 64px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+    }
+
+    .logo { width: 96px; height: 96px; }
+
+    .wordmark {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #759346;
+    }
+
+    .status {
+      font-size: 1rem;
+      color: #aaa;
+      letter-spacing: 0.02em;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #759346;
+      margin-right: 8px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+      <defs>
+        <radialGradient id="metalCenter" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#999999"/>
+        </radialGradient>
+      </defs>
+      <path d="M150,200 L450,450 L512,512 L574,450 L874,200 L750,700 L512,880 L274,700 Z"
+            fill="#5b7c32" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"/>
+      <circle cx="512" cy="512" r="300" fill="#759346" stroke="#ffffff" stroke-width="15"/>
+      <circle cx="512" cy="512" r="220" fill="none" stroke="#5b7c32" stroke-width="8" opacity="0.4"/>
+      <circle cx="512" cy="512" r="150" fill="none" stroke="#5b7c32" stroke-width="8" opacity="0.4"/>
+      <circle cx="512" cy="512" r="75" fill="#5b7c32"/>
+      <circle cx="512" cy="512" r="18" fill="url(#metalCenter)"/>
+    </svg>
+
+    <div class="wordmark">Muorg</div>
+
+    <div class="status">
+      <span class="dot"></span>Server is ready for connections
+    </div>
+  </div>
+</body>
+</html>

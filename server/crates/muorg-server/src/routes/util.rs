@@ -1,11 +1,15 @@
-use axum::{extract::State, Json};
+use axum::{extract::State, response::{Html, IntoResponse}, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::routes::ApiError;
 use crate::state::AppState;
 
-pub async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({"status": "ok"}))
+pub async fn home() -> Html<&'static str> {
+    Html(include_str!("home.html"))
+}
+
+pub async fn health() -> impl IntoResponse {
+    (StatusCode::OK, "Healthy")
 }
 
 #[derive(Deserialize)]

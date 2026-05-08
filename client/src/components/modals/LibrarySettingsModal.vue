@@ -156,15 +156,15 @@ async function applyAndReload() {
     setOnlineApiKey(connOnlineApiKey.value.trim());
   }
   settingsStore.setBackendMode(connMode.value);
-  try {
-    await store.loadRoots();
-    await store.loadTracks();
-    await playlistStore.loadPlaylists();
-    connStatus.value = "ok";
-  } catch (e) {
-    connStatus.value = "error";
-    connError.value = e instanceof Error ? e.message : "Reload failed";
-  }
+
+  await store.loadRoots();
+  if (store.error) { connStatus.value = "error"; connError.value = store.error; return; }
+  await store.loadTracks();
+  if (store.error) { connStatus.value = "error"; connError.value = store.error; return; }
+  await playlistStore.loadPlaylists();
+  if (playlistStore.error) { connStatus.value = "error"; connError.value = playlistStore.error; return; }
+
+  connStatus.value = "ok";
 }
 
 async function switchMode(mode: "local" | "online") {

@@ -119,6 +119,7 @@ fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
 
     // Public routes (no auth)
     let public = Router::new()
+        .route("/", get(routes::util::home))
         .route("/api/health", get(routes::util::health))
         .route("/stream/:id", get(routes::stream::stream_audio));
 
