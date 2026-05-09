@@ -92,6 +92,7 @@ export async function apiFetchBlob(path: string): Promise<Blob> {
   return res.blob();
 }
 
-export function streamUrl(trackId: number, token: string): string {
-  return `${getServerUrl()}/stream/${trackId}?token=${encodeURIComponent(token)}`;
+export function streamUrl(trackId: number, token: string, startSecs?: number): string {
+  const base = `${getServerUrl()}/stream/${trackId}?token=${encodeURIComponent(token)}`;
+  return startSecs != null && startSecs > 0 ? `${base}&start=${startSecs.toFixed(2)}` : base;
 }

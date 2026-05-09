@@ -8,6 +8,7 @@ import { useCastStore } from "../../stores/cast";
 import { usePlaylistStore } from "../../stores/playlists";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import * as castApi from "../../api/cast";
+import { flacSeekOffset } from "../../state/playback";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "../shared/FeatherIcon.vue";
@@ -112,7 +113,7 @@ function syncFromAudio() {
   if (!isSeeking.value) {
     // When casting, only advance position if cast is confirmed playing
     if (!isCasting.value || castStore.castStatus.status === "playing") {
-      currentTime.value = el.currentTime;
+      currentTime.value = el.currentTime + flacSeekOffset.value;
     }
   }
   duration.value = Number.isFinite(el.duration) ? el.duration : duration.value;
@@ -128,13 +129,15 @@ function seekTo(secs: number) {
     if (el) el.currentTime = secs;
     if (wasPlaying) castStore.setPendingCastResume(true);
     castApi.castSeek(secs, wasPlaying).catch(console.error);
-  } else if (el) {
-    el.currentTime = secs;
+  } else {
+    // Delegate to PlayerBar which handles both MP3 range seeks and FLAC stream reloads.
+    window.dispatchEvent(new CustomEvent<number>("muorg:seek-to", { detail: secs }));
   }
 }
 
 function onSeekInput(e: Event) {
-  seekTo(parseFloat((e.target as HTMLInputElement).value));
+  // Update position visually while dragging — actual seek fires on mouse-up.
+  currentTime.value = parseFloat((e.target as HTMLInputElement).value);
 }
 
 const PROGRESS_THUMB_HALF = 6;
@@ -156,6 +159,7 @@ function onSeekMouseDown() {
 }
 
 function onSeekMouseUp() {
+  seekTo(currentTime.value);
   isSeeking.value = false;
 }
 

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use crate::routes::ApiError;
 use crate::state::AppState;
 
-pub async fn home() -> Html<&'static str> {
-    Html(include_str!("home.html"))
+pub async fn home() -> Html<String> {
+    Html(include_str!("home.html").replace("{{VERSION}}", env!("CARGO_PKG_VERSION")))
 }
 
 pub async fn health() -> impl IntoResponse {

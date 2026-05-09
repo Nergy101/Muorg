@@ -36,6 +36,7 @@ pub async fn issue_token(
 #[derive(Deserialize)]
 pub struct StreamQuery {
     pub token: Option<String>,
+    pub start: Option<f32>,
 }
 
 fn parse_range_start(range: &str, total: usize) -> Option<usize> {
@@ -76,8 +77,9 @@ pub async fn stream_audio(
         type StreamChunk = Result<Bytes, Box<dyn std::error::Error + Send + Sync>>;
         let (tx, rx) = tokio::sync::mpsc::channel::<StreamChunk>(128);
         let path = track_path.clone();
+        let start_secs = params.start.unwrap_or(0.0).max(0.0);
         tokio::task::spawn_blocking(move || {
-            transcode::transcode_to_mp3(&path, 0.0, tx);
+            transcode::transcode_to_mp3(&path, start_secs, tx);
         });
         let stream = ReceiverStream::new(rx);
         let body = Body::from_stream(stream);

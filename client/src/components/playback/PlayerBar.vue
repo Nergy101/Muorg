@@ -15,6 +15,7 @@ import type { CatalogTrack, TrackMetadataRead } from "../../types";
 import * as catalogApi from "../../api/catalog";
 import * as castApi from "../../api/cast";
 import { streamUrl } from "../../api/client";
+import { flacSeekOffset } from "../../state/playback";
 
 const emit = defineEmits<{
   (e: "expand"): void;
@@ -245,26 +246,41 @@ function onTimeUpdate() {
   if (!el) return;
   // When casting, only advance the progress bar when cast is confirmed playing
   if (isCasting.value && castStore.castStatus.status !== "playing") return;
-  currentTime.value = el.currentTime;
+  const effectiveTime = el.currentTime + flacSeekOffset.value;
+  currentTime.value = effectiveTime;
   if ("mediaSession" in navigator && Number.isFinite(el.duration) && el.duration > 0) {
     navigator.mediaSession.setPositionState({
-      duration: el.duration,
-      position: el.currentTime,
+      duration: el.duration + flacSeekOffset.value,
+      position: effectiveTime,
       playbackRate: el.playbackRate,
     });
   }
   // Record play after 30 s of continuous playback.
-  if (!playRecordedForCurrentTrack && el.currentTime >= 30 && singleTrack.value) {
+  if (!playRecordedForCurrentTrack && effectiveTime >= 30 && singleTrack.value) {
     playRecordedForCurrentTrack = true;
     store.recordPlay(singleTrack.value.path);
   }
   // Save position every ~5 s (timer resets on each tick, so only fires after a 5 s idle)
-  schedulePositionSave(el.currentTime);
+  schedulePositionSave(effectiveTime);
 }
 
 function onDurationChange() {
   const el = audioRef.value;
   if (el) duration.value = Number.isFinite(el.duration) ? el.duration : 0;
+}
+
+async function seekToFlac(track: CatalogTrack, secs: number) {
+  const el = audioRef.value;
+  const wasPlaying = el ? !el.paused : false;
+  if (el) el.pause();
+  flacSeekOffset.value = secs;
+  try {
+    const token = await catalogApi.issueStreamToken(track.id);
+    audioSrc.value = streamUrl(track.id, token, secs);
+    if (wasPlaying) nextTick(() => audioRef.value?.play().catch(() => {}));
+  } catch {
+    if (wasPlaying) audioRef.value?.play().catch(() => {});
+  }
 }
 
 function seekTo(secs: number) {
@@ -278,13 +294,16 @@ function seekTo(secs: number) {
     if (el) el.currentTime = secs;
     if (wasPlaying) castStore.setPendingCastResume(true);
     castApi.castSeek(secs, wasPlaying).catch(console.error);
+  } else if (singleTrack.value?.format === "flac") {
+    seekToFlac(singleTrack.value, secs).catch(console.error);
   } else if (el) {
     el.currentTime = secs;
   }
 }
 
 function onSeekInput(e: Event) {
-  seekTo(parseFloat((e.target as HTMLInputElement).value));
+  // Update position visually while dragging — actual seek fires on mouse-up.
+  currentTime.value = parseFloat((e.target as HTMLInputElement).value);
 }
 
 const PROGRESS_THUMB_HALF = 6;
@@ -306,6 +325,7 @@ function onSeekMouseDown() {
 }
 
 function onSeekMouseUp() {
+  seekTo(currentTime.value);
   isSeeking.value = false;
 }
 
@@ -430,6 +450,7 @@ async function loadAudioBlobForCurrent(track: CatalogTrack) {
   isPlaying.value = false;
   currentTime.value = 0;
   duration.value = 0;
+  flacSeekOffset.value = 0;
 
   if (cached) {
     audioSrc.value = cached;
@@ -647,7 +668,7 @@ function onAudioPause() {
   settingsStore.setSessionState(
     store.queueTrackIds,
     store.currentPlayingTrackId,
-    audioRef.value?.currentTime ?? 0,
+    (audioRef.value?.currentTime ?? 0) + flacSeekOffset.value,
   );
 }
 
@@ -703,8 +724,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
   togglePlay();
 }
 
+function onExternalSeek(e: Event) {
+  seekTo((e as CustomEvent<number>).detail);
+}
+
 onMounted(async () => {
   document.addEventListener("keydown", onGlobalKeydown);
+  window.addEventListener("muorg:seek-to", onExternalSeek);
   recomputeMarquee();
   window.addEventListener("resize", recomputeMarquee);
   nextTick(() => {
@@ -724,10 +750,7 @@ onMounted(async () => {
     navigator.mediaSession.setActionHandler("previoustrack", () => playPrevious());
     navigator.mediaSession.setActionHandler("nexttrack", () => playNext());
     navigator.mediaSession.setActionHandler("seekto", (details) => {
-      if (details.seekTime != null && audioRef.value) {
-        audioRef.value.currentTime = details.seekTime;
-        currentTime.value = details.seekTime;
-      }
+      if (details.seekTime != null) seekTo(details.seekTime);
     });
   }
 });
@@ -738,6 +761,7 @@ watch([volume, () => settingsStore.replayGainMode, () => settingsStore.replayGai
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
+  window.removeEventListener("muorg:seek-to", onExternalSeek);
   window.removeEventListener("resize", recomputeMarquee);
   if (unlistenCastTrackEnded) unlistenCastTrackEnded();
   // Cleanup any cached object URLs to avoid leaks.
