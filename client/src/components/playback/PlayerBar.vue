@@ -314,6 +314,23 @@ async function seekToFlac(track: CatalogTrack, secs: number) {
   }
 }
 
+function seekToMp3(secs: number) {
+  const el = audioRef.value;
+  if (!el) return;
+  const seq = ++_seekSeq;
+  const wasPlaying = !el.paused;
+  // WKWebView enters a "seeking" state when currentTime is set and does not
+  // always auto-resume — explicitly call play() and fall back to canplay.
+  el.currentTime = secs;
+  if (wasPlaying) {
+    el.play().catch(() => {
+      el.addEventListener("canplay", () => {
+        if (seq === _seekSeq) el.play().catch(console.error);
+      }, { once: true });
+    });
+  }
+}
+
 function seekTo(secs: number) {
   const el = audioRef.value;
   currentTime.value = secs;
@@ -328,12 +345,7 @@ function seekTo(secs: number) {
   } else if (singleTrack.value?.format === "flac") {
     seekToFlac(singleTrack.value, secs).catch(console.error);
   } else if (el) {
-    const wasPlaying = !el.paused;
-    el.currentTime = secs;
-    // WKWebView enters a "seeking" state when currentTime is set and does not
-    // always auto-resume — explicitly call play() so the 2nd half of a song
-    // doesn't silently stall after a range-based seek.
-    if (wasPlaying) el.play().catch(() => {});
+    seekToMp3(secs);
   }
 }
 
