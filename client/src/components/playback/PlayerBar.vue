@@ -328,12 +328,23 @@ function seekTo(secs: number) {
   } else if (singleTrack.value?.format === "flac") {
     seekToFlac(singleTrack.value, secs).catch(console.error);
   } else if (el) {
+    const wasPlaying = !el.paused;
     el.currentTime = secs;
+    // WKWebView enters a "seeking" state when currentTime is set and does not
+    // always auto-resume — explicitly call play() so the 2nd half of a song
+    // doesn't silently stall after a range-based seek.
+    if (wasPlaying) el.play().catch(() => {});
   }
 }
 
+// True when the user has dragged (input event fired) since the last mousedown.
+// Used to distinguish click-seeks (handled by onProgressBarClick) from
+// drag-seeks (handled by onSeekMouseUp) so we don't issue two conflicting
+// el.currentTime assignments per click on WKWebView.
+let seekHadInput = false;
+
 function onSeekInput(e: Event) {
-  // Update position visually while dragging — actual seek fires on mouse-up.
+  seekHadInput = true;
   currentTime.value = parseFloat((e.target as HTMLInputElement).value);
 }
 
@@ -353,11 +364,16 @@ function onProgressBarClick(e: MouseEvent) {
 
 function onSeekMouseDown() {
   isSeeking.value = true;
+  seekHadInput = false;
 }
 
 function onSeekMouseUp() {
-  if (isSeeking.value) seekTo(currentTime.value);
+  // Only fire seekTo here for drag operations. mouseup fires before click, so
+  // for a plain click currentTime.value is still the old position — let
+  // onProgressBarClick handle it with the correct clicked position instead.
+  if (isSeeking.value && seekHadInput) seekTo(currentTime.value);
   isSeeking.value = false;
+  seekHadInput = false;
 }
 
 const singleTrack = computed(() => {
