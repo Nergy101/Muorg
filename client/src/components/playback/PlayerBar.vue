@@ -269,29 +269,44 @@ function onDurationChange() {
   if (el) duration.value = Number.isFinite(el.duration) ? el.duration : 0;
 }
 
+let _seekSeq = 0;
+
 async function seekToFlac(track: CatalogTrack, secs: number) {
   const el = audioRef.value;
   if (!el) return;
+  const seq = ++_seekSeq;
   const wasPlaying = !el.paused;
+
   el.pause();
   flacSeekOffset.value = secs;
+
+  // Abort the current stream before requesting a new URL. WKWebView does not
+  // cancel a chunked HTTP connection on src change alone — we must clear src
+  // and call load() first. Using the Vue binding (audioSrc) avoids a second
+  // DOM write that would re-trigger WKWebView's load algorithm.
+  audioSrc.value = "";
+  await nextTick();
+  el.load();
+
   try {
     const token = await catalogApi.issueStreamToken(track.id);
+    if (seq !== _seekSeq) return; // a newer seek superseded this one
+
     const newSrc = streamUrl(track.id, token, secs);
     audioSrc.value = newSrc;
-    el.src = newSrc;
+    await nextTick(); // let Vue set el.src before we trigger the load
     el.load();
+
     if (wasPlaying) {
-      // Try play() immediately — works on remote servers where data arrives quickly.
-      // If the browser isn't ready yet (WKWebView local race), it rejects and we
-      // fall back to waiting for the canplay event.
       el.play().catch(() => {
-        el.addEventListener("canplay", () => el.play().catch(console.error), { once: true });
+        el.addEventListener("canplay", () => {
+          if (seq === _seekSeq) el.play().catch(console.error);
+        }, { once: true });
       });
     }
   } catch (e) {
+    if (seq !== _seekSeq) return;
     console.error("[seekToFlac]", e);
-    if (wasPlaying) el.play().catch(() => {});
   }
 }
 
@@ -337,7 +352,7 @@ function onSeekMouseDown() {
 }
 
 function onSeekMouseUp() {
-  seekTo(currentTime.value);
+  if (isSeeking.value) seekTo(currentTime.value);
   isSeeking.value = false;
 }
 

@@ -349,18 +349,29 @@ watch(genreDropdownOpen, (open) => {
         </button>
         <div
           class="overflow-hidden transition-[width] duration-200 ease-out"
-          :style="{ width: searchExpanded ? '188px' : '0px' }"
+          :style="{ width: searchExpanded ? '212px' : '0px' }"
         >
-          <input
-            ref="searchInputRef"
-            :value="searchQuery"
-            :tabindex="searchExpanded ? 0 : -1"
-            type="search"
-            placeholder="Search title, artist, album…"
-            class="h-8 w-[188px] rounded-r border border-l-0 border-stone-600 bg-stone-800 px-2 text-sm text-stone-200 placeholder-stone-500"
-            @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
-            @blur="onSearchBlur"
-          />
+          <div class="relative flex items-center">
+            <input
+              ref="searchInputRef"
+              :value="searchQuery"
+              :tabindex="searchExpanded ? 0 : -1"
+              type="text"
+              placeholder="Search title, artist, album…"
+              class="h-8 w-[212px] rounded-r border border-l-0 border-stone-600 bg-stone-800 py-0 pl-2 pr-7 text-sm text-stone-200 placeholder-stone-500"
+              @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
+              @blur="onSearchBlur"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="absolute right-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              aria-label="Clear search"
+              @mousedown.prevent="store.setSearchQuery('')"
+            >
+              <FeatherIcon name="x" class="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
       <!-- Min-rating filter -->

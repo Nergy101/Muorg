@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import * as catalogApi from "../../api/catalog";
@@ -11,20 +11,31 @@ import RatingChart from "../stats/RatingChart.vue";
 const store = useCatalogStore();
 const { tracks } = storeToRefs(store);
 
-const stats = ref<LibraryStats | null>(null);
+function statsFromTracks(): LibraryStats {
+  return {
+    track_count: tracks.value.length,
+    artist_count: new Set(tracks.value.map((t) => (t.artist ?? "").toLowerCase().trim()).filter(Boolean)).size,
+    album_count: new Set(tracks.value.map((t) => `${(t.album ?? "").toLowerCase()}|||${(t.album_artist ?? "").toLowerCase()}`).filter((k) => !k.startsWith("|||"))).size,
+    total_duration_secs: tracks.value.reduce((s, t) => s + (t.duration_secs ?? 0), 0),
+  };
+}
+
+// Pre-initialize so the panel is visible immediately — no flicker while the API call is in-flight.
+const stats = ref<LibraryStats>(statsFromTracks());
 
 onMounted(async () => {
   try {
     const s = await catalogApi.getStats();
     stats.value = { track_count: s.total_tracks, artist_count: s.total_artists, album_count: s.total_albums, total_duration_secs: s.total_duration_secs };
   } catch {
-    // If the command fails (mock mode etc.) compute from tracks in-memory.
-    stats.value = {
-      track_count: tracks.value.length,
-      artist_count: new Set(tracks.value.map((t) => (t.artist ?? "").toLowerCase().trim()).filter(Boolean)).size,
-      album_count: new Set(tracks.value.map((t) => `${(t.album ?? "").toLowerCase()}|||${(t.album_artist ?? "").toLowerCase()}`).filter((k) => !k.startsWith("|||"))).size,
-      total_duration_secs: tracks.value.reduce((s, t) => s + (t.duration_secs ?? 0), 0),
-    };
+    stats.value = statsFromTracks();
+  }
+});
+
+// When tracks finish loading from a remote server (after mount), keep the grid numbers in sync.
+watch(tracks, () => {
+  if (tracks.value.length > stats.value.track_count) {
+    stats.value = statsFromTracks();
   }
 });
 
@@ -46,7 +57,7 @@ function formatDuration(secs: number): string {
     <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Library stats</p>
 
     <!-- Totals grid -->
-    <div v-if="stats" class="grid grid-cols-2 gap-2">
+    <div class="grid grid-cols-2 gap-2">
       <div class="rounded bg-stone-700/60 px-3 py-2 text-center">
         <div class="text-lg font-semibold tabular-nums text-stone-100">{{ stats.track_count.toLocaleString() }}</div>
         <div class="text-[10px] text-stone-400">tracks</div>
