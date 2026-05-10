@@ -277,7 +277,13 @@ async function seekToFlac(track: CatalogTrack, secs: number) {
   try {
     const token = await catalogApi.issueStreamToken(track.id);
     audioSrc.value = streamUrl(track.id, token, secs);
-    if (wasPlaying) nextTick(() => audioRef.value?.play().catch(() => {}));
+    // Wait for Vue to flush the new src to the DOM, then force the browser
+    // to discard its current buffer and fetch from the new URL.
+    await nextTick();
+    const audio = audioRef.value;
+    if (!audio) return;
+    audio.load();
+    if (wasPlaying) audio.play().catch(() => {});
   } catch {
     if (wasPlaying) audioRef.value?.play().catch(() => {});
   }
