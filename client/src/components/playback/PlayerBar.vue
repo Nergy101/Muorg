@@ -81,6 +81,7 @@ function getPreviousTrack(): CatalogTrack | null {
 }
 
 const audioRef = ref<HTMLAudioElement | null>(null);
+const audioElementKey = ref(0);
 const isPlaying = ref(false);
 const audioSrc = ref("");
 const currentTime = ref(0);
@@ -272,29 +273,32 @@ function onDurationChange() {
 let _seekSeq = 0;
 
 async function seekToFlac(track: CatalogTrack, secs: number) {
-  const el = audioRef.value;
-  if (!el) return;
   const seq = ++_seekSeq;
-  const wasPlaying = !el.paused;
+  const wasPlaying = !audioRef.value?.paused;
 
-  el.pause();
+  audioRef.value?.pause();
   flacSeekOffset.value = secs;
-
-  // Abort the current stream before requesting a new URL. WKWebView does not
-  // cancel a chunked HTTP connection on src change alone — we must clear src
-  // and call load() first. Using the Vue binding (audioSrc) avoids a second
-  // DOM write that would re-trigger WKWebView's load algorithm.
   audioSrc.value = "";
-  await nextTick();
-  el.load();
 
   try {
     const token = await catalogApi.issueStreamToken(track.id);
-    if (seq !== _seekSeq) return; // a newer seek superseded this one
+    if (seq !== _seekSeq) return;
 
     const newSrc = streamUrl(track.id, token, secs);
     audioSrc.value = newSrc;
-    await nextTick(); // let Vue set el.src before we trigger the load
+
+    // Increment the key to force Vue to destroy the old <audio> element and
+    // mount a fresh one. This is the only reliable way to make WKWebView release
+    // a chunked HTTP stream — changing src or calling load() alone leaves the
+    // old network connection alive in WebKit's internal media pipeline.
+    audioElementKey.value++;
+    await nextTick();
+
+    const el = audioRef.value;
+    if (!el || seq !== _seekSeq) return;
+
+    applyEffectiveVolume();
+    el.muted = isCasting.value;
     el.load();
 
     if (wasPlaying) {
@@ -807,6 +811,7 @@ onUnmounted(() => {
     class="flex shrink-0 flex-col items-center gap-2 px-3 pb-1"
   >
     <audio
+      :key="audioElementKey"
       ref="audioRef"
       :src="audioSrc"
       class="hidden"
