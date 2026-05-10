@@ -58,6 +58,8 @@ fn do_transcode(
         let sample_rate = track.codec_params.sample_rate.unwrap_or(44100) as f64;
         let target_ts = (target_secs * sample_rate) as u64;
 
+        tracing::info!(path, start_secs, target_ts, "seek requested");
+
         // Attempt a fast coarse seek. If it overshoots or fails, rewind to the
         // beginning so the packet-level fine-skip below starts from a known position.
         let seek_actual = format
@@ -68,15 +70,21 @@ fn do_transcode(
             .map(|s| s.actual_ts)
             .unwrap_or(u64::MAX);
 
-        if seek_actual > target_ts {
+        if seek_actual == u64::MAX {
+            tracing::warn!(path, target_ts, "coarse seek failed — scanning from start");
+        } else if seek_actual > target_ts {
+            tracing::warn!(path, seek_actual, target_ts, "coarse seek overshot — rewinding");
             let _ = format.seek(
                 SeekMode::Coarse,
                 SeekTo::TimeStamp { ts: 0, track_id },
             );
+        } else {
+            tracing::info!(path, seek_actual, target_ts, "coarse seek ok");
         }
 
         // Packet-level fine-skip: discard frames until we reach target_ts.
         // FLAC frames are independently decodable so no decoding is needed here.
+        let mut skipped = 0u64;
         loop {
             let packet = match format.next_packet() {
                 Ok(p) => p,
@@ -85,7 +93,9 @@ fn do_transcode(
             };
             if packet.track_id() != track_id { continue; }
             if packet.ts().saturating_add(packet.dur()) >= target_ts { break; }
+            skipped += 1;
         }
+        tracing::info!(path, skipped_packets = skipped, target_ts, "fine-skip done");
     }
 
     let mut builder = Builder::new().ok_or("Failed to create LAME builder")?;

@@ -22,7 +22,10 @@ bytes = "1"
 urlencoding = "2"
 symphonia = { version = "0.5", features = ["flac", "mp3"] }
 mp3lame-encoder = "0.2"
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 uuid = { version = "1", features = ["v4"] }
 mdns-sd = "0.11"
 rust_cast = "0.14"

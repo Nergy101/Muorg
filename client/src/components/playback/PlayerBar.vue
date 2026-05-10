@@ -278,13 +278,15 @@ async function seekToFlac(track: CatalogTrack, secs: number) {
   try {
     const token = await catalogApi.issueStreamToken(track.id);
     const newSrc = streamUrl(track.id, token, secs);
-    audioSrc.value = newSrc; // keep Vue state in sync
-    el.src = newSrc;         // set immediately — don't wait for Vue's async render
+    audioSrc.value = newSrc;
+    el.src = newSrc;
     el.load();
     if (wasPlaying) {
-      el.addEventListener("canplay", function handler() {
-        el.removeEventListener("canplay", handler);
-        el.play().catch(console.error);
+      // Try play() immediately — works on remote servers where data arrives quickly.
+      // If the browser isn't ready yet (WKWebView local race), it rejects and we
+      // fall back to waiting for the canplay event.
+      el.play().catch(() => {
+        el.addEventListener("canplay", () => el.play().catch(console.error), { once: true });
       });
     }
   } catch (e) {

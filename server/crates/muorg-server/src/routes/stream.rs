@@ -55,10 +55,14 @@ pub async fn stream_audio(
 ) -> Response {
     let token = match params.token {
         Some(t) => t,
-        None => return StatusCode::UNAUTHORIZED.into_response(),
+        None => {
+            tracing::warn!(track_id = id, "stream: missing token");
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
     };
 
     if !state.tokens.validate(&token, id) {
+        tracing::warn!(track_id = id, "stream: invalid token");
         return StatusCode::UNAUTHORIZED.into_response();
     }
 
@@ -68,7 +72,10 @@ pub async fn stream_audio(
             .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))
     })() {
         Ok(p) => p,
-        Err(e) => return e.into_response(),
+        Err(e) => {
+            tracing::warn!(track_id = id, "stream: track not found");
+            return e.into_response();
+        }
     };
 
     let is_flac = track_path.to_lowercase().ends_with(".flac");
@@ -78,6 +85,7 @@ pub async fn stream_audio(
         let (tx, rx) = tokio::sync::mpsc::channel::<StreamChunk>(128);
         let path = track_path.clone();
         let start_secs = params.start.unwrap_or(0.0).max(0.0);
+        tracing::info!(track_id = id, path = %track_path, start_secs, "stream flac→mp3");
         tokio::task::spawn_blocking(move || {
             transcode::transcode_to_mp3(&path, start_secs, tx);
         });
@@ -87,12 +95,13 @@ pub async fn stream_audio(
         headers.insert("Content-Type", "audio/mpeg".parse().unwrap());
         (StatusCode::OK, headers, body).into_response()
     } else {
+        let range_header = req_headers.get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
+        tracing::info!(track_id = id, path = %track_path, range = ?range_header, "stream mp3");
         match tokio::fs::read(&track_path).await {
             Ok(data) => {
                 let total = data.len();
-                let range_start = req_headers
-                    .get("range")
-                    .and_then(|v| v.to_str().ok())
+                let range_start = range_header
+                    .as_deref()
                     .and_then(|r| parse_range_start(r, total));
 
                 let mut headers = HeaderMap::new();
