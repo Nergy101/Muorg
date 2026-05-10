@@ -53,15 +53,17 @@ fn do_transcode(
     let mut decoder =
         symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
 
-    if start_secs > 0.0 {
+    // Seek to start_secs and return the first packet that covers the target timestamp.
+    // We carry this packet into the encode loop rather than discarding it — for seeks
+    // near the end of a file, the target packet may be the last one, so discarding it
+    // would leave the encoder with nothing to send.
+    let first_seek_packet = if start_secs > 0.0 {
         let target_secs = start_secs as f64;
-        let sample_rate = track.codec_params.sample_rate.unwrap_or(44100) as f64;
-        let target_ts = (target_secs * sample_rate) as u64;
+        let sample_rate_f = track.codec_params.sample_rate.unwrap_or(44100) as f64;
+        let target_ts = (target_secs * sample_rate_f) as u64;
 
         tracing::info!(path, start_secs, target_ts, "seek requested");
 
-        // Attempt a fast coarse seek. If it overshoots or fails, rewind to the
-        // beginning so the packet-level fine-skip below starts from a known position.
         let seek_actual = format
             .seek(
                 SeekMode::Coarse,
@@ -74,17 +76,13 @@ fn do_transcode(
             tracing::warn!(path, target_ts, "coarse seek failed — scanning from start");
         } else if seek_actual > target_ts {
             tracing::warn!(path, seek_actual, target_ts, "coarse seek overshot — rewinding");
-            let _ = format.seek(
-                SeekMode::Coarse,
-                SeekTo::TimeStamp { ts: 0, track_id },
-            );
+            let _ = format.seek(SeekMode::Coarse, SeekTo::TimeStamp { ts: 0, track_id });
         } else {
             tracing::info!(path, seek_actual, target_ts, "coarse seek ok");
         }
 
-        // Packet-level fine-skip: discard frames until we reach target_ts.
-        // FLAC frames are independently decodable so no decoding is needed here.
         let mut skipped = 0u64;
+        let mut found = None;
         loop {
             let packet = match format.next_packet() {
                 Ok(p) => p,
@@ -92,11 +90,17 @@ fn do_transcode(
                 Err(_) => break,
             };
             if packet.track_id() != track_id { continue; }
-            if packet.ts().saturating_add(packet.dur()) >= target_ts { break; }
+            if packet.ts().saturating_add(packet.dur()) >= target_ts {
+                found = Some(packet);
+                break;
+            }
             skipped += 1;
         }
         tracing::info!(path, skipped_packets = skipped, target_ts, "fine-skip done");
-    }
+        found
+    } else {
+        None
+    };
 
     let mut builder = Builder::new().ok_or("Failed to create LAME builder")?;
     builder.set_num_channels(channels).map_err(|e| format!("{e:?}"))?;
@@ -105,14 +109,19 @@ fn do_transcode(
     builder.set_quality(mp3lame_encoder::Quality::Good).map_err(|e| format!("{e:?}"))?;
     let mut encoder = builder.build().map_err(|e| format!("{e:?}"))?;
 
+    let mut pending = first_seek_packet;
     loop {
         if tx.is_closed() { break; }
 
-        let packet = match format.next_packet() {
-            Ok(p) => p,
-            Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
-            Err(SymphoniaError::IoError(_)) => break,
-            Err(_) => break,
+        let packet = if let Some(p) = pending.take() {
+            p
+        } else {
+            match format.next_packet() {
+                Ok(p) => p,
+                Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
+                Err(SymphoniaError::IoError(_)) => break,
+                Err(_) => break,
+            }
         };
 
         if packet.track_id() != track_id { continue; }
