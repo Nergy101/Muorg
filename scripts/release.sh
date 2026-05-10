@@ -58,10 +58,18 @@ node -e "
   fs.writeFileSync(file, content.replace(/^version = \".*\"\$/m, 'version = \"$VERSION\"'));
 "
 
+node -e "
+  const fs = require('fs');
+  const file = '$REPO_ROOT/server/crates/muorg-server/Cargo.toml';
+  const content = fs.readFileSync(file, 'utf8');
+  fs.writeFileSync(file, content.replace(/^version = \".*\"\$/m, 'version = \"$VERSION\"'));
+"
+
 git -C "$REPO_ROOT" add \
   client/package.json \
   client/src-tauri/tauri.conf.json \
-  client/src-tauri/Cargo.toml
+  client/src-tauri/Cargo.toml \
+  server/crates/muorg-server/Cargo.toml
 
 git -C "$REPO_ROOT" commit -m "🔖 chore: bump version to $VERSION"
 
