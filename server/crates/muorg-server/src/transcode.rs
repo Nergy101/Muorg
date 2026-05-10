@@ -54,14 +54,38 @@ fn do_transcode(
         symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
 
     if start_secs > 0.0 {
-        let _ = format.seek(
-            SeekMode::Coarse,
-            SeekTo::Time {
-                time: Time::from(start_secs as f64),
-                track_id: None,
-            },
-        );
-        decoder.reset();
+        let target_secs = start_secs as f64;
+        let sample_rate = track.codec_params.sample_rate.unwrap_or(44100) as f64;
+        let target_ts = (target_secs * sample_rate) as u64;
+
+        // Attempt a fast coarse seek. If it overshoots or fails, rewind to the
+        // beginning so the packet-level fine-skip below starts from a known position.
+        let seek_actual = format
+            .seek(
+                SeekMode::Coarse,
+                SeekTo::Time { time: Time::from(target_secs), track_id: Some(track_id) },
+            )
+            .map(|s| s.actual_ts)
+            .unwrap_or(u64::MAX);
+
+        if seek_actual > target_ts {
+            let _ = format.seek(
+                SeekMode::Coarse,
+                SeekTo::TimeStamp { ts: 0, track_id },
+            );
+        }
+
+        // Packet-level fine-skip: discard frames until we reach target_ts.
+        // FLAC frames are independently decodable so no decoding is needed here.
+        loop {
+            let packet = match format.next_packet() {
+                Ok(p) => p,
+                Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
+                Err(_) => break,
+            };
+            if packet.track_id() != track_id { continue; }
+            if packet.ts().saturating_add(packet.dur()) >= target_ts { break; }
+        }
     }
 
     let mut builder = Builder::new().ok_or("Failed to create LAME builder")?;
@@ -76,7 +100,8 @@ fn do_transcode(
 
         let packet = match format.next_packet() {
             Ok(p) => p,
-            Err(SymphoniaError::IoError(_)) | Err(SymphoniaError::ResetRequired) => break,
+            Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
+            Err(SymphoniaError::IoError(_)) => break,
             Err(_) => break,
         };
 
@@ -85,6 +110,7 @@ fn do_transcode(
         let decoded = match decoder.decode(&packet) {
             Ok(d) => d,
             Err(SymphoniaError::DecodeError(_)) => continue,
+            Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
             Err(_) => break,
         };
 

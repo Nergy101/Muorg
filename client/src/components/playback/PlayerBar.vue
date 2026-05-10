@@ -271,21 +271,25 @@ function onDurationChange() {
 
 async function seekToFlac(track: CatalogTrack, secs: number) {
   const el = audioRef.value;
-  const wasPlaying = el ? !el.paused : false;
-  if (el) el.pause();
+  if (!el) return;
+  const wasPlaying = !el.paused;
+  el.pause();
   flacSeekOffset.value = secs;
   try {
     const token = await catalogApi.issueStreamToken(track.id);
-    audioSrc.value = streamUrl(track.id, token, secs);
-    // Wait for Vue to flush the new src to the DOM, then force the browser
-    // to discard its current buffer and fetch from the new URL.
-    await nextTick();
-    const audio = audioRef.value;
-    if (!audio) return;
-    audio.load();
-    if (wasPlaying) audio.play().catch(() => {});
-  } catch {
-    if (wasPlaying) audioRef.value?.play().catch(() => {});
+    const newSrc = streamUrl(track.id, token, secs);
+    audioSrc.value = newSrc; // keep Vue state in sync
+    el.src = newSrc;         // set immediately — don't wait for Vue's async render
+    el.load();
+    if (wasPlaying) {
+      el.addEventListener("canplay", function handler() {
+        el.removeEventListener("canplay", handler);
+        el.play().catch(console.error);
+      });
+    }
+  } catch (e) {
+    console.error("[seekToFlac]", e);
+    if (wasPlaying) el.play().catch(() => {});
   }
 }
 
@@ -796,6 +800,7 @@ onUnmounted(() => {
       @timeupdate="onTimeUpdate"
       @loadedmetadata="onDurationChange"
       @durationchange="onDurationChange"
+      @error="isPlaying = false"
     />
     <div class="flex min-w-0 w-full items-center gap-3">
       <div class="flex w-64 shrink-0 items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-600/50 cursor-context-menu" @contextmenu="onAlbumArtContextMenu">
