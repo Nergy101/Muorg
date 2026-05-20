@@ -438,7 +438,7 @@ export const useLibraryStore = defineStore("library", () => {
       currentTimeSecs.value = el.currentTime;
     });
     el.addEventListener("durationchange", () => {
-      durationSecs.value = el.duration || 0;
+      durationSecs.value = Number.isFinite(el.duration) ? el.duration : 0;
     });
     el.addEventListener("ended", () => {
       isPlaying.value = false;

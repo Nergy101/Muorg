@@ -1,7 +1,7 @@
 <template>
   <aside
     :class="[
-      'flex flex-col border-r border-stone-800 bg-stone-800/80 transition-all duration-200',
+      'relative z-40 flex flex-col border-r border-stone-800 bg-stone-800/80 transition-all duration-200',
       open ? 'w-52' : 'w-0 overflow-hidden',
     ]"
   >
