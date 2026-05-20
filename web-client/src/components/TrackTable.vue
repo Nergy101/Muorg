@@ -1,7 +1,7 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex-1 overflow-auto">
-      <table class="w-full min-w-[400px] border-collapse text-left">
+      <table class="w-full border-collapse text-left sm:min-w-[400px]">
         <!-- Sticky header -->
         <thead class="sticky top-0 z-10 bg-stone-900 text-xs uppercase tracking-wide text-stone-500">
           <tr class="border-b border-stone-700">

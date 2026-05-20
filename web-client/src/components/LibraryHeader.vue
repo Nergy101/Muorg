@@ -153,20 +153,20 @@
         <button
           type="button"
           class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
-          :class="viewMode === 'table' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
-          aria-label="Table layout"
-          @click="lib.setViewMode('table')"
-        >
-          <FeatherIcon name="list" class="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
           :class="viewMode === 'grid' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
           aria-label="Album grid layout"
           @click="lib.setViewMode('grid')"
         >
           <FeatherIcon name="grid" class="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
+          :class="viewMode === 'table' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
+          aria-label="Table layout"
+          @click="lib.setViewMode('table')"
+        >
+          <FeatherIcon name="list" class="h-3.5 w-3.5" />
         </button>
       </div>
 

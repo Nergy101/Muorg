@@ -438,7 +438,7 @@ export const useLibraryStore = defineStore("library", () => {
       currentTimeSecs.value = el.currentTime;
     });
     el.addEventListener("durationchange", () => {
-      durationSecs.value = Number.isFinite(el.duration) ? el.duration : 0;
+      durationSecs.value = Number.isFinite(el.duration) ? el.duration : (nowPlaying.value?.duration_secs ?? 0);
     });
     el.addEventListener("ended", () => {
       isPlaying.value = false;
@@ -463,6 +463,7 @@ export const useLibraryStore = defineStore("library", () => {
       await el.play();
       nowPlaying.value = track;
       currentTimeSecs.value = startSecs ?? 0;
+      durationSecs.value = track.duration_secs ?? 0;
       recordPlay(track.id);
     } catch (e) {
       error.value = (e as Error).message;
