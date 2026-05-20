@@ -8,7 +8,7 @@
       "vue-demi"
     ]
   },
-  "version": "2.3.9",
+  "version": "2.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
