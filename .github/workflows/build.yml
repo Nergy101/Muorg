@@ -62,6 +62,30 @@ jobs:
         working-directory: client
         run: pnpm run check
 
+  web-client:
+    name: Web Client (Vue 3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        working-directory: web-client
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check & build
+        working-directory: web-client
+        run: pnpm build
+
   server:
     name: Server (Rust)
     runs-on: ubuntu-latest

@@ -6,7 +6,8 @@
 
   [![Build](https://github.com/Nergy101/Muorg/actions/workflows/build.yml/badge.svg)](https://github.com/Nergy101/Muorg/actions/workflows/build.yml)
   [![Latest Release](https://img.shields.io/github/v/release/Nergy101/Muorg)](https://github.com/Nergy101/Muorg/releases/latest)
-  [![Docker Image](https://img.shields.io/docker/v/nergy101/muorg-server?label=docker&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-server)
+  [![Docker Server](https://img.shields.io/docker/v/nergy101/muorg-server?label=docker%20server&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-server)
+  [![Docker Web](https://img.shields.io/docker/v/nergy101/muorg-web?label=docker%20web&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-web)
   ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 </div>
 
@@ -74,6 +75,7 @@ Muorg/
 │   └── README.md    # Developer setup, build, and release docs
 ├── server/          # Standalone REST API (Rust + Axum)
 │   └── README.md    # Docker quick-start and configuration reference
+├── web-client/      # Browser-based UI (Vue 3 + Vite, served via nginx)
 └── scripts/
     └── release.sh   # Bump version, tag, and push a new release
 ```
@@ -82,12 +84,15 @@ Muorg/
 |-----------|-------------|-----------------|
 | `client/` | Cross-platform desktop app | Always — this is the main app |
 | `server/` | HTTP backend for remote/NAS use | Only for home-server / multi-device setups |
+| `web-client/` | Browser UI connecting to muorg-server | When you want web access alongside or instead of the desktop app |
 
 For full developer and configuration details see **[client/README.md](client/README.md)** and **[server/README.md](server/README.md)**.
 
 ---
 
 ## 🐳 Self-hosting with Docker
+
+### Server only (desktop app in Online mode)
 
 Run muorg-server on a NAS or home server and connect to it from the desktop app in **Online** mode.
 
@@ -104,6 +109,50 @@ docker compose up -d
 ```
 
 The API listens on port **7700**. In the desktop app, go to **Settings → Connection**, switch to **Online**, and enter your server URL and API key.
+
+### Server + Web UI (browser access)
+
+Run both muorg-server and the muorg-web browser interface together. Drop this `docker-compose.yml` next to your `muorg-server.toml`:
+
+```yaml
+services:
+  muorg-server:
+    image: nergy101/muorg-server:latest
+    ports:
+      - "7700:7700"
+    volumes:
+      - ./muorg-server.toml:/app/muorg-server.toml:ro
+      - muorg-data:/data
+      - /path/to/your/music:/music:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -sf http://localhost:7700/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  muorg-web:
+    image: nergy101/muorg-web:latest
+    ports:
+      - "7800:80"
+    restart: unless-stopped
+    depends_on:
+      muorg-server:
+        condition: service_healthy
+
+volumes:
+  muorg-data:
+```
+
+Then start with:
+
+```bash
+docker compose up -d
+```
+
+- **muorg-server** → `http://<your-host>:7700`
+- **muorg-web** → `http://<your-host>:7800` — open this in any browser and enter the server URL and API key to connect.
 
 See the [server README](server/README.md) for the full configuration reference and security notes.
 
@@ -146,7 +195,7 @@ Full developer documentation lives in [client/README.md](client/README.md) and [
 ## 🤝 Contributing
 
 1. Fork the repo and create a feature branch.
-2. Make your changes inside `client/` or `server/` (whichever applies).
+2. Make your changes inside `client/`, `server/`, or `web-client/` (whichever applies).
 3. Run the pre-merge checks locally:
    ```bash
    cd client

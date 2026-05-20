@@ -1,0 +1,6 @@
+services:
+  muorg-web:
+    build: .
+    ports:
+      - "7800:80"
+    restart: unless-stopped
