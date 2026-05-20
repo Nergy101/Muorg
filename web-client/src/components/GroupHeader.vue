@@ -7,8 +7,8 @@
     @click="emit('toggle')"
   >
     <!-- Cover art (col 1) — chevron overlaid at bottom-right -->
-    <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1 pl-3 pr-2' : 'w-10 py-1.5 pl-3 pr-2'">
-      <div :class="lib.tableArtSize === 'large' ? 'h-24 w-24' : 'h-8 w-8'" class="relative overflow-hidden rounded">
+    <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1 pl-3 pr-2' : 'w-12 py-1 pl-2 pr-1 sm:w-10 sm:py-1.5 sm:pl-3 sm:pr-2'">
+      <div :class="lib.tableArtSize === 'large' ? 'h-24 w-24' : 'h-10 w-10 sm:h-8 sm:w-8'" class="relative overflow-hidden rounded">
         <img
           v-if="coverUrl"
           :src="coverUrl"

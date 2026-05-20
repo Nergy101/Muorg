@@ -1,13 +1,24 @@
 <template>
   <div
     v-if="lib.nowPlaying"
-    class="flex shrink-0 flex-col items-center gap-2 border-t border-stone-700 bg-stone-900 px-3 pb-2 pt-2"
+    class="flex shrink-0 flex-col border-t border-stone-700 bg-stone-900 px-3 pb-2 pt-2"
   >
+    <!-- Mobile-only: progress bar row above main controls -->
+    <div class="flex items-center gap-2 pb-1.5 sm:hidden">
+      <span class="w-8 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
+      <div class="relative min-w-0 flex-1 cursor-pointer" @click="seekByClick">
+        <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-600">
+          <div class="h-full rounded-full bg-accent transition-none" :style="{ width: progressPercent + '%' }" />
+        </div>
+      </div>
+      <span class="w-8 shrink-0 text-left text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
+    </div>
+
     <div class="flex w-full items-center gap-3">
 
       <!-- Left: album art + track info (click to expand, right-click for context menu) -->
       <div
-        class="flex w-56 shrink-0 cursor-pointer items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-800/60"
+        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-800/60 sm:w-56 sm:flex-none sm:shrink-0"
         @click="showOverlay = true"
         @contextmenu.prevent="openNowPlayingCtx($event)"
       >
@@ -28,8 +39,8 @@
         </div>
       </div>
 
-      <!-- Center: controls + progress in one row -->
-      <div class="flex min-w-0 flex-1 items-center gap-1">
+      <!-- Desktop center: controls + progress in one row -->
+      <div class="hidden min-w-0 flex-1 items-center gap-1 sm:flex">
         <button
           type="button"
           class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
@@ -75,8 +86,44 @@
         <span class="w-8 shrink-0 text-left text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
       </div>
 
-      <!-- Right: shuffle + repeat + volume + maximize -->
-      <div class="flex shrink-0 items-center gap-1">
+      <!-- Mobile right: core playback controls only -->
+      <div class="flex shrink-0 items-center gap-0.5 sm:hidden">
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Previous track"
+          @click="playPrevious()"
+        >
+          <FeatherIcon name="skip-back" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded bg-accent p-2 text-stone-50 hover:bg-[var(--accent-hover)]"
+          :aria-label="lib.isPlaying ? 'Pause' : 'Play'"
+          @click="lib.togglePlayPause()"
+        >
+          <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Next track"
+          @click="playNext()"
+        >
+          <FeatherIcon name="skip-forward" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Expand player"
+          @click="showOverlay = true"
+        >
+          <FeatherIcon name="maximize-2" class="h-4 w-4" />
+        </button>
+      </div>
+
+      <!-- Desktop right: shuffle + repeat + volume + maximize -->
+      <div class="hidden shrink-0 items-center gap-1 sm:flex">
         <button
           type="button"
           class="flex items-center justify-center rounded p-1.5 hover:bg-stone-700 hover:text-stone-200"

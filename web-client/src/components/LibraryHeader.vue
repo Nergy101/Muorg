@@ -198,7 +198,7 @@
     <div class="flex items-center gap-1">
       <button
         type="button"
-        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        class="hidden sm:inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
         title="Mouse controls"
         @click="showKeymap = true"
       >

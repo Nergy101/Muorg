@@ -5,7 +5,7 @@
         <!-- Sticky header -->
         <thead class="sticky top-0 z-10 bg-stone-900 text-xs uppercase tracking-wide text-stone-500">
           <tr class="border-b border-stone-700">
-            <th :class="lib.tableArtSize === 'large' ? 'w-28 py-1 pl-3 pr-2' : 'w-10 py-1 pl-3 pr-2'">
+            <th :class="lib.tableArtSize === 'large' ? 'w-28 py-1 pl-3 pr-2' : 'w-12 py-1 pl-2 pr-1 sm:w-10 sm:pl-3 sm:pr-2'">
               <div v-if="lib.groupBy !== 'none'" class="flex items-center gap-0.5">
                 <button
                   type="button"
