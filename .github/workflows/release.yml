@@ -74,6 +74,9 @@ jobs:
             fs.writeFileSync('./client/src-tauri/tauri.conf.json', JSON.stringify(tauri, null, 2));
             const cargo = fs.readFileSync('./client/src-tauri/Cargo.toml', 'utf8');
             fs.writeFileSync('./client/src-tauri/Cargo.toml', cargo.replace(/^version = \".*\"$/m, 'version = \"' + v + '\"'));
+            const pw = require('./web-client/package.json');
+            pw.version = v;
+            fs.writeFileSync('./web-client/package.json', JSON.stringify(pw, null, 2));
           "
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -371,5 +374,39 @@ jobs:
           tags: |
             nergy101/muorg-server:${{ needs.version.outputs.version }}
             nergy101/muorg-server:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-web:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: web-client
+          file: web-client/Dockerfile
+          build-args: |
+            APP_VERSION=${{ needs.version.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            nergy101/muorg-web:${{ needs.version.outputs.version }}
+            nergy101/muorg-web:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

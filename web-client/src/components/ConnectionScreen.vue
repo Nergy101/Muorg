@@ -2,8 +2,21 @@
   <div class="flex min-h-screen items-center justify-center bg-stone-900 p-4">
     <div class="w-full max-w-sm">
       <div class="mb-8 text-center">
-        <div class="mb-2 text-4xl">🎵</div>
-        <h1 class="text-2xl font-bold text-stone-100">Muorg Web</h1>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" class="mx-auto mb-3 h-20 w-20">
+          <defs>
+            <radialGradient id="metalCenter" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="100%" stop-color="#999999"/>
+            </radialGradient>
+          </defs>
+          <path d="M150,200 L450,450 L512,512 L574,450 L874,200 L750,700 L512,880 L274,700 Z" fill="#5b7c32" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"/>
+          <circle cx="512" cy="512" r="300" fill="#759346" stroke="#ffffff" stroke-width="15"/>
+          <circle cx="512" cy="512" r="220" fill="none" stroke="#5b7c32" stroke-width="8" opacity="0.4"/>
+          <circle cx="512" cy="512" r="150" fill="none" stroke="#5b7c32" stroke-width="8" opacity="0.4"/>
+          <circle cx="512" cy="512" r="75" fill="#5b7c32"/>
+          <circle cx="512" cy="512" r="18" fill="url(#metalCenter)"/>
+        </svg>
+        <h1 class="text-2xl font-bold text-stone-100">Muorg</h1>
         <p class="mt-1 text-sm text-stone-400">Connect to your Muorg server</p>
       </div>
 
@@ -61,6 +74,7 @@
       <p class="mt-6 text-center text-xs text-stone-600">
         The server URL and API key are saved locally in your browser.
       </p>
+      <p class="mt-3 text-center text-xs text-stone-700">v{{ version }}</p>
     </div>
   </div>
 </template>
@@ -68,6 +82,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { testConnection, setServerUrl, setApiKey } from "../api/client";
+
+const version = import.meta.env.VITE_APP_VERSION ?? 'dev';
 
 const emit = defineEmits<{ connected: [] }>();
 

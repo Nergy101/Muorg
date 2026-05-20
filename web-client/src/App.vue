@@ -5,7 +5,13 @@
 
     <!-- Main app -->
     <template v-else>
-      <LibraryHeader @disconnect="disconnect" @toggle-sidebar="sidebarOpen = !sidebarOpen" />
+      <LibraryHeader
+        :show-back="!!openAlbum"
+        @disconnect="disconnect"
+        @toggle-sidebar="sidebarOpen = !sidebarOpen"
+        @back="openAlbum = null"
+        @open-stats="showStats = true"
+      />
 
       <div class="flex min-h-0 flex-1 overflow-hidden">
         <!-- Playlist sidebar -->
@@ -20,57 +26,42 @@
 
         <!-- Main content -->
         <main class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <LibraryStats
-            :stats="lib.stats ?? emptyStats"
-            :playlist-name="activePlaylistName"
-            @clear-playlist="playlistStore.selectPlaylist(null)"
-          />
-
-          <AlbumGrid v-if="lib.viewMode === 'grid'" />
+          <AlbumDetailView v-if="openAlbum" :item="openAlbum" />
+          <AlbumGrid v-else-if="lib.viewMode === 'grid'" @open-album="openAlbum = $event" />
           <TrackTable v-else />
         </main>
       </div>
 
       <PlayerBar />
+      <StatsModal :open="showStats" @close="showStats = false" />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import ConnectionScreen from "./components/ConnectionScreen.vue";
 import LibraryHeader from "./components/LibraryHeader.vue";
-import LibraryStats from "./components/LibraryStats.vue";
 import PlaylistSidebar from "./components/PlaylistSidebar.vue";
 import AlbumGrid from "./components/AlbumGrid.vue";
+import AlbumDetailView from "./components/AlbumDetailView.vue";
 import TrackTable from "./components/TrackTable.vue";
 import PlayerBar from "./components/PlayerBar.vue";
+import StatsModal from "./components/StatsModal.vue";
 import { isConnected, disconnect as apiDisconnect } from "./api/client";
 import { useLibraryStore } from "./stores/library";
 import { usePlaylistStore } from "./stores/playlists";
-import type { LibraryStats as LibraryStatsType } from "./types";
+import type { AlbumGridItem } from "./types";
 
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
 
 const connected = ref(isConnected());
 const sidebarOpen = ref(window.innerWidth >= 768);
-
-const emptyStats: LibraryStatsType = {
-  total_tracks: 0,
-  total_artists: 0,
-  total_albums: 0,
-  total_duration_secs: 0,
-  total_size_bytes: 0,
-};
-
-const activePlaylistName = computed(() => {
-  if (playlistStore.activePlaylistId === null) return undefined;
-  return playlistStore.playlists.find((p) => p.id === playlistStore.activePlaylistId)?.name;
-});
+const openAlbum = ref<AlbumGridItem | null>(null);
+const showStats = ref(false);
 
 onMounted(() => {
-  // Apply saved theme
   const theme = localStorage.getItem("muorg-web-theme") ?? "dark";
   document.documentElement.setAttribute("data-theme", theme);
 
@@ -91,6 +82,7 @@ async function loadData(): Promise<void> {
 function disconnect(): void {
   apiDisconnect();
   connected.value = false;
+  openAlbum.value = null;
   lib.$reset();
   playlistStore.$reset();
 }

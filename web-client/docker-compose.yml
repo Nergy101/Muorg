@@ -2,5 +2,5 @@ services:
   muorg-web:
     build: .
     ports:
-      - "8080:80"
+      - "7800:80"
     restart: unless-stopped

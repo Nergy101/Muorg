@@ -12,6 +12,7 @@ import type {
   SortDir,
   GroupBy,
   TableRow,
+  TableGroupRow,
 } from "../types";
 
 const MAX_COVER_CONCURRENT = 8;
@@ -51,8 +52,9 @@ export const useLibraryStore = defineStore("library", () => {
   const error = ref<string | null>(null);
 
   const viewMode = ref<ViewMode>(loadPref("muorg-web-view", "grid"));
+  const tableArtSize = ref<"small" | "large">(loadPref("muorg-web-art-size", "small"));
   const gridSortBy = ref<GridSortBy>(loadPref("muorg-web-grid-sort", "album"));
-  const tableSortCol = ref<TableSortCol>(loadPref("muorg-web-table-col", "artist"));
+  const tableSortCol = ref<TableSortCol | null>(loadPref<TableSortCol | null>("muorg-web-table-col", null));
   const tableSortDir = ref<SortDir>(loadPref("muorg-web-table-dir", "asc"));
   const groupBy = ref<GroupBy>(loadPref("muorg-web-group", "album"));
   const searchQuery = ref("");
@@ -61,6 +63,9 @@ export const useLibraryStore = defineStore("library", () => {
 
   // Playlist filter (set by playlist store)
   const playlistTrackIds = ref<number[] | null>(null);
+
+  // Set when the user asks to reveal a track in the main view
+  const revealTrackId = ref<number | null>(null);
 
   // Playback
   const nowPlaying = ref<CatalogTrack | null>(null);
@@ -167,8 +172,17 @@ export const useLibraryStore = defineStore("library", () => {
   const tableRows = computed((): TableRow[] => {
     const sorted = [...filteredTracks.value];
 
-    // Sort tracks
+    // Sort tracks — null means default natural order (artist → album → disc → track)
     sorted.sort((a, b) => {
+      if (tableSortCol.value === null) {
+        const ac = normalize(a.artist ?? a.album_artist).localeCompare(normalize(b.artist ?? b.album_artist));
+        if (ac !== 0) return ac;
+        const alc = normalize(a.album).localeCompare(normalize(b.album));
+        if (alc !== 0) return alc;
+        const dc = (a.disc_number ?? 1) - (b.disc_number ?? 1);
+        if (dc !== 0) return dc;
+        return (a.track_number ?? 0) - (b.track_number ?? 0);
+      }
       let cmp = 0;
       switch (tableSortCol.value) {
         case "title":
@@ -237,6 +251,14 @@ export const useLibraryStore = defineStore("library", () => {
 
     const rows: TableRow[] = [];
     for (const g of groups.values()) {
+      // Within album groups always sort by disc + track number
+      if (groupBy.value === "album") {
+        g.tracks.sort((a, b) => {
+          const dc = (a.disc_number ?? 1) - (b.disc_number ?? 1);
+          if (dc !== 0) return dc;
+          return (a.track_number ?? 0) - (b.track_number ?? 0);
+        });
+      }
       const totalDur = g.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
       rows.push({
         type: "group",
@@ -278,6 +300,11 @@ export const useLibraryStore = defineStore("library", () => {
     savePref("muorg-web-view", m);
   }
 
+  function setTableArtSize(s: "small" | "large"): void {
+    tableArtSize.value = s;
+    savePref("muorg-web-art-size", s);
+  }
+
   function setGridSortBy(s: GridSortBy): void {
     gridSortBy.value = s;
     savePref("muorg-web-grid-sort", s);
@@ -285,14 +312,40 @@ export const useLibraryStore = defineStore("library", () => {
 
   function setTableSort(col: TableSortCol): void {
     if (tableSortCol.value === col) {
-      tableSortDir.value = tableSortDir.value === "asc" ? "desc" : "asc";
-      savePref("muorg-web-table-dir", tableSortDir.value);
+      if (tableSortDir.value === "asc") {
+        tableSortDir.value = "desc";
+        savePref("muorg-web-table-dir", "desc");
+      } else {
+        tableSortCol.value = null;
+        savePref("muorg-web-table-col", null);
+      }
     } else {
       tableSortCol.value = col;
       tableSortDir.value = "asc";
       savePref("muorg-web-table-col", col);
       savePref("muorg-web-table-dir", "asc");
     }
+  }
+
+  function revealTrack(track: CatalogTrack): void {
+    // Clear playlist filter so the track is guaranteed to be visible
+    playlistTrackIds.value = null;
+    searchQuery.value = "";
+    // If grouped by album, make sure the group is expanded
+    if (groupBy.value === "album") {
+      const album = (track.album ?? "Unknown Album").toLowerCase();
+      const artist = (track.album_artist ?? track.artist ?? "Unknown Artist").toLowerCase();
+      const key = `${album}|||${artist}`;
+      collapsedGroups.value.delete(key);
+      collapsedGroups.value = new Set(collapsedGroups.value);
+    } else if (groupBy.value === "artist") {
+      const key = (track.artist ?? track.album_artist ?? "Unknown Artist").toLowerCase();
+      collapsedGroups.value.delete(key);
+      collapsedGroups.value = new Set(collapsedGroups.value);
+    }
+    // Signal listeners to scroll to this track
+    revealTrackId.value = null;
+    setTimeout(() => { revealTrackId.value = track.id; }, 0);
   }
 
   function setGroupBy(g: GroupBy): void {
@@ -308,6 +361,17 @@ export const useLibraryStore = defineStore("library", () => {
       collapsedGroups.value.add(key);
     }
     collapsedGroups.value = new Set(collapsedGroups.value);
+  }
+
+  function collapseAllGroups(): void {
+    const keys = tableRows.value
+      .filter((r): r is TableGroupRow => r.type === "group")
+      .map((r) => r.key);
+    collapsedGroups.value = new Set(keys);
+  }
+
+  function expandAllGroups(): void {
+    collapsedGroups.value = new Set();
   }
 
   function toggleTrackSelection(id: number, multi = false): void {
@@ -357,6 +421,16 @@ export const useLibraryStore = defineStore("library", () => {
   }
 
   // Playback
+  const trackEndedCallbacks: (() => void)[] = [];
+
+  function onTrackEnded(cb: () => void): () => void {
+    trackEndedCallbacks.push(cb);
+    return () => {
+      const idx = trackEndedCallbacks.indexOf(cb);
+      if (idx >= 0) trackEndedCallbacks.splice(idx, 1);
+    };
+  }
+
   function initAudio(): HTMLAudioElement {
     if (audioEl.value) return audioEl.value;
     const el = new Audio();
@@ -369,6 +443,7 @@ export const useLibraryStore = defineStore("library", () => {
     el.addEventListener("ended", () => {
       isPlaying.value = false;
       currentTimeSecs.value = 0;
+      for (const cb of trackEndedCallbacks) cb();
     });
     el.addEventListener("play", () => (isPlaying.value = true));
     el.addEventListener("pause", () => (isPlaying.value = false));
@@ -378,6 +453,7 @@ export const useLibraryStore = defineStore("library", () => {
   }
 
   async function playTrack(track: CatalogTrack, startSecs?: number): Promise<void> {
+    if (nowPlaying.value?.id === track.id && startSecs === undefined) return;
     try {
       const token = await issueStreamToken(track.id);
       streamToken.value = token;
@@ -427,6 +503,7 @@ export const useLibraryStore = defineStore("library", () => {
     loading,
     error,
     viewMode,
+    tableArtSize,
     gridSortBy,
     tableSortCol,
     tableSortDir,
@@ -435,6 +512,7 @@ export const useLibraryStore = defineStore("library", () => {
     collapsedGroups,
     selectedTrackIds,
     playlistTrackIds,
+    revealTrackId,
     nowPlaying,
     isPlaying,
     currentTimeSecs,
@@ -446,13 +524,18 @@ export const useLibraryStore = defineStore("library", () => {
     tableRows,
     loadLibrary,
     setViewMode,
+    setTableArtSize,
     setGridSortBy,
     setTableSort,
     setGroupBy,
     toggleGroup,
+    revealTrack,
+    collapseAllGroups,
+    expandAllGroups,
     toggleTrackSelection,
     clearSelection,
     requestCover,
+    onTrackEnded,
     playTrack,
     playAlbum,
     togglePlayPause,

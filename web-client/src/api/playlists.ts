@@ -5,19 +5,30 @@ export async function getPlaylists(): Promise<Playlist[]> {
   return apiFetch<Playlist[]>("/api/playlists");
 }
 
-export async function createPlaylist(name: string): Promise<Playlist> {
-  return apiFetch<Playlist>("/api/playlists", {
+export async function createPlaylist(name: string, icon?: string | null): Promise<Playlist> {
+  const p = await apiFetch<Playlist>("/api/playlists", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
+  if (icon !== undefined && icon !== null) {
+    await apiFetch(`/api/playlists/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ icon }),
+    });
+    p.icon = icon;
+  }
+  return p;
 }
 
-export async function renamePlaylist(id: number, name: string): Promise<void> {
+export async function renamePlaylist(id: number, name: string, icon?: string | null): Promise<void> {
+  const body: Record<string, unknown> = { name };
+  if (icon !== undefined) body.icon = icon;
   await apiFetch(`/api/playlists/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
 }
 

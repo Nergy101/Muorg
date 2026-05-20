@@ -1,17 +1,17 @@
 <template>
   <div v-if="stats" class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-xs text-stone-400 border-b border-stone-800">
     <span>
-      <span class="font-medium text-stone-300">{{ stats.total_tracks.toLocaleString() }}</span>
+      <span class="font-medium text-stone-300">{{ stats.track_count.toLocaleString() }}</span>
       tracks
     </span>
     <span class="text-stone-700">·</span>
     <span>
-      <span class="font-medium text-stone-300">{{ stats.total_albums.toLocaleString() }}</span>
+      <span class="font-medium text-stone-300">{{ stats.album_count.toLocaleString() }}</span>
       albums
     </span>
     <span class="text-stone-700">·</span>
     <span>
-      <span class="font-medium text-stone-300">{{ stats.total_artists.toLocaleString() }}</span>
+      <span class="font-medium text-stone-300">{{ stats.artist_count.toLocaleString() }}</span>
       artists
     </span>
     <span class="text-stone-700">·</span>

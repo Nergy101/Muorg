@@ -1,89 +1,135 @@
 <template>
   <div
     v-if="lib.nowPlaying"
-    class="flex flex-col border-t border-stone-800 bg-stone-900"
-    style="padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);"
+    class="flex shrink-0 flex-col items-center gap-2 border-t border-stone-700 bg-stone-900 px-3 pb-2 pt-2"
   >
-    <!-- Progress bar (full width, flush to top of bar) -->
-    <div class="relative h-1 w-full cursor-pointer bg-stone-700" @click="seekByClick">
-      <div
-        class="absolute left-0 top-0 h-full bg-accent transition-none"
-        :style="{ width: progressPercent + '%' }"
-      />
-    </div>
+    <div class="flex w-full items-center gap-3">
 
-    <div class="flex items-center gap-3 px-3 py-2">
-      <!-- Cover thumb -->
+      <!-- Left: album art + track info (click to expand, right-click for context menu) -->
       <div
-        class="h-10 w-10 shrink-0 overflow-hidden rounded cursor-pointer"
+        class="flex w-56 shrink-0 cursor-pointer items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-800/60"
         @click="showOverlay = true"
+        @contextmenu.prevent="openNowPlayingCtx($event)"
       >
-        <img
-          v-if="coverUrl"
-          :src="coverUrl"
-          :alt="lib.nowPlaying.album ?? ''"
-          class="h-full w-full object-cover"
-        />
-        <div v-else class="flex h-full w-full items-center justify-center bg-stone-700">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-stone-500">
-            <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" />
-          </svg>
+        <div class="h-9 w-9 shrink-0 overflow-hidden rounded bg-stone-800">
+          <img
+            v-if="coverUrl"
+            :src="coverUrl"
+            :alt="lib.nowPlaying.album ?? ''"
+            class="h-full w-full object-cover"
+          />
+          <div v-else class="flex h-full w-full items-center justify-center">
+            <FeatherIcon name="music" class="h-4 w-4 text-stone-600" />
+          </div>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs font-semibold text-stone-100">{{ lib.nowPlaying.title ?? '—' }}</p>
+          <p class="truncate text-xs text-stone-400">{{ lib.nowPlaying.artist ?? lib.nowPlaying.album_artist ?? '—' }}</p>
         </div>
       </div>
 
-      <!-- Track info (tap to expand on mobile) -->
-      <div class="min-w-0 flex-1 cursor-pointer" @click="showOverlay = true">
-        <p class="truncate text-sm font-medium text-stone-200">{{ lib.nowPlaying.title ?? '—' }}</p>
-        <p class="truncate text-xs text-stone-500">{{ lib.nowPlaying.artist ?? lib.nowPlaying.album_artist ?? '—' }}</p>
-      </div>
-
-      <!-- Controls -->
-      <div class="flex shrink-0 items-center gap-1">
-        <span class="hidden text-xs tabular-nums text-stone-600 sm:block">{{ currentTimeLabel }}</span>
-
+      <!-- Center: controls + progress in one row -->
+      <div class="flex min-w-0 flex-1 items-center gap-1">
         <button
-          class="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white hover:bg-[var(--accent-hover)]"
+          type="button"
+          class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Previous track"
+          @click="playPrevious()"
+        >
+          <FeatherIcon name="skip-back" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Restart"
+          @click="restart"
+        >
+          <FeatherIcon name="square" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="flex shrink-0 items-center justify-center rounded bg-accent p-1.5 text-stone-50 hover:bg-[var(--accent-hover)]"
+          :aria-label="lib.isPlaying ? 'Pause' : 'Play'"
           @click="lib.togglePlayPause()"
         >
-          <svg v-if="lib.isPlaying" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
-          </svg>
-          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
+          <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Next track"
+          @click="playNext()"
+        >
+          <FeatherIcon name="skip-forward" class="h-4 w-4" />
         </button>
 
-        <span class="hidden text-xs tabular-nums text-stone-600 sm:block">{{ durationLabel }}</span>
+        <span class="ml-1 w-8 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
+        <div class="relative min-w-0 flex-1 cursor-pointer" @click="seekByClick">
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-600">
+            <div
+              class="h-full rounded-full bg-accent transition-none"
+              :style="{ width: progressPercent + '%' }"
+            />
+          </div>
+        </div>
+        <span class="w-8 shrink-0 text-left text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
       </div>
 
-      <!-- Volume (desktop) -->
-      <div class="hidden items-center gap-1.5 sm:flex">
-        <button class="text-stone-500 hover:text-stone-300" @click="toggleMute">
-          <svg v-if="lib.volume === 0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            <line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" />
-          </svg>
-          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-          </svg>
+      <!-- Right: shuffle + repeat + volume + maximize -->
+      <div class="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-1.5 hover:bg-stone-700 hover:text-stone-200"
+          :class="shuffle ? 'text-accent' : 'text-stone-400'"
+          aria-label="Shuffle"
+          @click="shuffle = !shuffle"
+        >
+          <FeatherIcon name="shuffle" class="h-4 w-4" />
         </button>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.02"
-          :value="lib.volume"
-          class="w-20 progress-input"
-          :style="{ '--val': (lib.volume * 100) + '%' }"
-          @input="lib.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
-        />
+        <button
+          type="button"
+          class="relative flex items-center justify-center rounded p-1.5 hover:bg-stone-700 hover:text-stone-200"
+          :class="repeat !== 'none' ? 'text-accent' : 'text-stone-400'"
+          aria-label="Repeat"
+          @click="cycleRepeat"
+        >
+          <FeatherIcon name="repeat" class="h-4 w-4" />
+          <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+        </button>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Toggle mute"
+          @click="toggleMute"
+        >
+          <FeatherIcon :name="lib.volume === 0 ? 'volume-x' : lib.volume < 0.5 ? 'volume-1' : 'volume-2'" class="h-4 w-4" />
+        </button>
+        <div class="flex h-7 w-20 items-center">
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.02"
+            :value="lib.volume"
+            class="player-volume-slider h-1.5 w-full cursor-pointer appearance-none rounded-full bg-stone-600"
+            :style="{ '--volume-percent': (lib.volume * 100) + '%' }"
+            @input="lib.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
+          />
+        </div>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Expand player"
+          title="Expand player"
+          @click="showOverlay = true"
+        >
+          <FeatherIcon name="maximize-2" class="h-4 w-4" />
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Full-screen overlay (mobile / click on track info) -->
+  <!-- Full-screen overlay -->
   <Teleport to="body">
     <Transition
       enter-active-class="transition-transform duration-200"
@@ -93,118 +139,241 @@
     >
       <div
         v-if="showOverlay && lib.nowPlaying"
-        class="fixed inset-0 z-50 flex flex-col bg-stone-950"
-        style="padding-bottom: env(safe-area-inset-bottom, 0px);"
+        class="fixed inset-0 z-50 flex flex-col overflow-hidden"
+        :style="{ backgroundColor: glowBgColor }"
       >
-        <!-- Close -->
-        <div class="flex justify-end p-4">
-          <button class="text-stone-500 hover:text-stone-300" @click="showOverlay = false">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="18 15 12 9 6 15" />
-            </svg>
-          </button>
+        <!-- Glow layer: edge-blur (blurred art) or procedural blobs -->
+        <div class="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
+          <!-- Edge-blur: album art scaled + blurred across the background -->
+          <div
+            v-if="useEdgeBlurMode && overlayCoverUrl"
+            class="edge-blur-art absolute"
+            :style="{ backgroundImage: `url(${overlayCoverUrl})`, opacity: 0.85 }"
+          />
+          <!-- Vivid blobs -->
+          <template v-else>
+            <div
+              v-for="(blob, i) in glowBlobs"
+              :key="i"
+              class="absolute inset-0 origin-top-left"
+              :style="{
+                background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${(blob.opacity * 1.6).toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.96).toFixed(2)}) 25%, rgba(${blob.rgb},${(blob.opacity * 0.32).toFixed(2)}) 45%, rgba(${blob.rgb},0.04) 70%, transparent 90%)`,
+                transform: `translate(${blob.cx * 100}%, ${blob.cy * 100}%) translate(-50%, -50%) scale(${blob.rx}, ${blob.ry})`,
+                filter: 'blur(24px)',
+              }"
+            />
+          </template>
         </div>
 
-        <!-- Cover -->
-        <div class="flex flex-1 items-center justify-center px-8">
+        <!-- Cover art -->
+        <div class="relative z-10 flex flex-1 items-center justify-center px-8 pt-8">
           <div class="aspect-square w-full max-w-sm overflow-hidden rounded-2xl shadow-2xl">
-            <img
-              v-if="coverUrl"
-              :src="coverUrl"
-              class="h-full w-full object-cover"
-            />
+            <img v-if="coverUrl" :src="coverUrl" class="h-full w-full object-cover" />
             <div v-else class="flex h-full w-full items-center justify-center bg-stone-800">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="text-stone-600">
-                <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /><line x1="12" y1="9" x2="12" y2="2" />
-              </svg>
+              <FeatherIcon name="music" class="h-16 w-16 text-stone-600" />
             </div>
           </div>
         </div>
 
-        <!-- Info + controls -->
-        <div class="px-8 pb-8 pt-6 space-y-6">
-          <div>
-            <p class="text-xl font-bold text-stone-100">{{ lib.nowPlaying.title ?? '—' }}</p>
-            <p class="text-stone-400">{{ lib.nowPlaying.artist ?? lib.nowPlaying.album_artist ?? '—' }}</p>
-            <p class="text-sm text-stone-600">{{ lib.nowPlaying.album }}</p>
+        <!-- Bottom controls -->
+        <div class="relative z-10 flex flex-col gap-4 px-8 pt-6" style="padding-bottom: max(env(safe-area-inset-bottom, 0px), 2rem)">
+          <!-- Track info -->
+          <div class="text-center">
+            <p class="truncate text-xl font-bold text-stone-100">{{ lib.nowPlaying.title ?? '—' }}</p>
+            <p class="truncate text-stone-400">{{ lib.nowPlaying.artist ?? lib.nowPlaying.album_artist ?? '—' }}</p>
+            <p class="truncate text-sm text-stone-600">{{ lib.nowPlaying.album }}</p>
           </div>
 
-          <!-- Seek bar -->
-          <div class="space-y-1">
-            <input
-              type="range"
-              min="0"
-              :max="lib.durationSecs || 1"
-              step="1"
-              :value="lib.currentTimeSecs"
-              class="w-full progress-input"
-              :style="{ '--val': progressPercent + '%' }"
-              @change="lib.seekTo(parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <div class="flex justify-between text-xs tabular-nums text-stone-600">
-              <span>{{ currentTimeLabel }}</span>
-              <span>{{ durationLabel }}</span>
-            </div>
-          </div>
-
-          <!-- Playback controls -->
-          <div class="flex items-center justify-center gap-6">
+          <!-- Primary controls: prev | play/pause | next -->
+          <div class="flex items-center justify-center gap-8">
             <button
-              class="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white hover:bg-[var(--accent-hover)]"
+              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
+              @click="playPrevious()"
+            >
+              <FeatherIcon name="skip-back" class="h-8 w-8" />
+            </button>
+            <button
+              class="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-stone-50 shadow-lg hover:bg-[var(--accent-hover)]"
               @click="lib.togglePlayPause()"
             >
-              <svg v-if="lib.isPlaying" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
-              </svg>
-              <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
+              <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-8 w-8" />
+            </button>
+            <button
+              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
+              @click="playNext()"
+            >
+              <FeatherIcon name="skip-forward" class="h-8 w-8" />
             </button>
           </div>
 
-          <!-- Volume -->
-          <div class="flex items-center gap-3">
-            <button class="text-stone-500" @click="toggleMute">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              </svg>
+          <!-- Secondary row: restart | time | seek | time | shuffle | repeat | volume | minimize -->
+          <div class="flex items-center gap-2">
+            <button
+              class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-500 hover:bg-stone-800 hover:text-stone-300"
+              title="Restart"
+              @click="restart"
+            >
+              <FeatherIcon name="square" class="h-4 w-4" />
+            </button>
+            <span class="w-9 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
+            <div class="relative min-w-0 flex-1 cursor-pointer" @click="seekByClick">
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-700">
+                <div class="h-full rounded-full bg-accent transition-none" :style="{ width: progressPercent + '%' }" />
+              </div>
+            </div>
+            <span class="w-9 shrink-0 text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
+            <button
+              class="flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-800 hover:text-stone-200"
+              :class="shuffle ? 'text-accent' : 'text-stone-500'"
+              title="Shuffle"
+              @click="shuffle = !shuffle"
+            >
+              <FeatherIcon name="shuffle" class="h-4 w-4" />
+            </button>
+            <button
+              class="relative flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-800 hover:text-stone-200"
+              :class="repeat !== 'none' ? 'text-accent' : 'text-stone-500'"
+              title="Repeat"
+              @click="cycleRepeat"
+            >
+              <FeatherIcon name="repeat" class="h-4 w-4" />
+              <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+            </button>
+            <button
+              class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-500 hover:bg-stone-800 hover:text-stone-300"
+              title="Toggle mute"
+              @click="toggleMute"
+            >
+              <FeatherIcon :name="lib.volume === 0 ? 'volume-x' : lib.volume < 0.5 ? 'volume-1' : 'volume-2'" class="h-4 w-4" />
             </button>
             <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.02"
+              type="range" min="0" max="1" step="0.02"
               :value="lib.volume"
-              class="flex-1 progress-input"
-              :style="{ '--val': (lib.volume * 100) + '%' }"
+              class="player-volume-slider w-20 shrink-0"
+              :style="{ '--volume-percent': (lib.volume * 100) + '%' }"
               @input="lib.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
             />
-            <button class="text-stone-500">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-              </svg>
+            <button
+              class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-500 hover:bg-stone-800 hover:text-stone-300"
+              title="Minimize player"
+              @click="showOverlay = false"
+            >
+              <FeatherIcon name="minimize-2" class="h-4 w-4" />
             </button>
           </div>
         </div>
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Now-playing context menu -->
+  <TrackContextMenu
+    ref="nowPlayingCtxRef"
+    :track-id="lib.nowPlaying?.id ?? null"
+    :show-find="true"
+    @play="lib.nowPlaying && lib.playTrack(lib.nowPlaying)"
+    @find="lib.nowPlaying && lib.revealTrack(lib.nowPlaying)"
+    @add-to-playlist="addNowPlayingToPlaylist"
+    @remove-from-playlist="removeNowPlayingFromPlaylist"
+    @new-playlist="showNewPlaylistModal = true"
+  />
+
+  <PlaylistModal
+    v-model="showNewPlaylistModal"
+    title="New Playlist"
+    confirm-label="Create"
+    @confirm="createPlaylistForNowPlaying"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
+import { usePlaylistStore } from "../stores/playlists";
+import FeatherIcon from "./FeatherIcon.vue";
+import TrackContextMenu from "./TrackContextMenu.vue";
+import PlaylistModal from "./PlaylistModal.vue";
+import { useDominantColor, useEdgeColors, getGlowBlobs, isColorBland, hasOpposingEdgeColors } from "../composables/useDominantColor";
 
 const lib = useLibraryStore();
+const playlistStore = usePlaylistStore();
 const showOverlay = ref(false);
+
+// Context menu on the now-playing track info
+const nowPlayingCtxRef = ref<InstanceType<typeof TrackContextMenu> | null>(null);
+const showNewPlaylistModal = ref(false);
+
+function openNowPlayingCtx(event: MouseEvent): void {
+  nowPlayingCtxRef.value?.open(event);
+}
+
+async function addNowPlayingToPlaylist(playlistId: number): Promise<void> {
+  if (!lib.nowPlaying) return;
+  await playlistStore.addTracks(playlistId, [lib.nowPlaying.id]);
+}
+
+async function removeNowPlayingFromPlaylist(playlistId: number): Promise<void> {
+  if (!lib.nowPlaying) return;
+  await playlistStore.removeTracks(playlistId, [lib.nowPlaying.id]);
+}
+
+async function createPlaylistForNowPlaying(name: string, icon: string | null): Promise<void> {
+  if (!lib.nowPlaying) return;
+  await playlistStore.createPlaylist(name, icon ?? undefined);
+  const newPl = playlistStore.playlists.at(-1);
+  if (newPl) await playlistStore.addTracks(newPl.id, [lib.nowPlaying.id]);
+}
+const shuffle = ref(false);
+const repeat = ref<"none" | "all" | "one">("none");
 let prevVolume = 1;
+
+// Shuffle history: track IDs in play order so Previous can go back
+const shuffleHistory: number[] = [];
+
+watch(shuffle, (on) => {
+  if (!on) shuffleHistory.length = 0;
+});
+
+// Push to shuffle history whenever the playing track changes
+watch(() => lib.nowPlaying?.id, (newId, oldId) => {
+  if (shuffle.value && oldId != null && newId !== oldId) {
+    shuffleHistory.push(oldId);
+  }
+});
 
 const coverUrl = computed(() => {
   const t = lib.nowPlaying;
   if (!t || !t.has_cover) return null;
   lib.requestCover(t.id);
   return lib.coverCache.get(t.id) ?? null;
+});
+
+const overlayCoverUrl = computed(() => showOverlay.value ? coverUrl.value : null);
+const glowRgb = useDominantColor(overlayCoverUrl);
+const edgeColors = useEdgeColors(overlayCoverUrl);
+
+// Edge-blur mode: use when center is bland but edges are vibrant, or opposing edge colors
+const useEdgeBlurMode = computed(() => {
+  if (!overlayCoverUrl.value || !edgeColors.value?.colors.length) return false;
+  const blandCenterVibrantEdges = isColorBland(glowRgb.value) && !isColorBland(edgeColors.value.colors[0]);
+  const opposing = hasOpposingEdgeColors(edgeColors.value.bySide);
+  return blandCenterVibrantEdges || opposing;
+});
+
+const glowBlobs = computed(() => {
+  if (useEdgeBlurMode.value) return [];
+  const rgb = glowRgb.value;
+  const key = String(lib.nowPlaying?.id ?? "");
+  if (isColorBland(rgb)) return [];
+  return getGlowBlobs(rgb, key);
+});
+
+const glowBgColor = computed(() => {
+  const parts = glowRgb.value.split(",").map(Number);
+  if (parts.length !== 3) return "#000";
+  const [r, g, b] = parts;
+  if (isColorBland(glowRgb.value)) return "#0c0a09";
+  return `rgb(${Math.round(r * 0.08)},${Math.round(g * 0.08)},${Math.round(b * 0.08)})`;
 });
 
 const progressPercent = computed(() => {
@@ -215,12 +384,9 @@ const progressPercent = computed(() => {
 const currentTimeLabel = computed(() => formatDuration(lib.currentTimeSecs));
 const durationLabel = computed(() => formatDuration(lib.durationSecs));
 
-watch(
-  () => lib.nowPlaying?.id,
-  () => {
-    if (lib.nowPlaying) lib.requestCover(lib.nowPlaying.id);
-  },
-);
+watch(() => lib.nowPlaying?.id, () => {
+  if (lib.nowPlaying) lib.requestCover(lib.nowPlaying.id);
+});
 
 function seekByClick(e: MouseEvent): void {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -236,4 +402,100 @@ function toggleMute(): void {
     lib.setVolume(prevVolume || 1);
   }
 }
+
+function cycleRepeat(): void {
+  repeat.value = repeat.value === "none" ? "all" : repeat.value === "all" ? "one" : "none";
+}
+
+function playNext(fromAuto = false): void {
+  const tracks = lib.filteredTracks;
+  if (!tracks.length) return;
+
+  if (shuffle.value) {
+    const others = tracks.filter((t) => t.id !== lib.nowPlaying?.id);
+    const pool = others.length > 0 ? others : tracks;
+    if (!fromAuto && pool.length === 0) return;
+    if (fromAuto && repeat.value === "none" && others.length === 0) return;
+    lib.playTrack(pool[Math.floor(Math.random() * pool.length)]);
+    return;
+  }
+
+  const idx = tracks.findIndex((t) => t.id === lib.nowPlaying?.id);
+  if (idx >= 0 && idx + 1 < tracks.length) {
+    lib.playTrack(tracks[idx + 1]);
+  } else if (fromAuto && repeat.value === "all" && tracks.length > 0) {
+    lib.playTrack(tracks[0]);
+  }
+}
+
+function playPrevious(): void {
+  if (shuffle.value && shuffleHistory.length > 0) {
+    const prevId = shuffleHistory.pop()!;
+    const track = lib.filteredTracks.find((t) => t.id === prevId);
+    if (track) lib.playTrack(track);
+    return;
+  }
+  const tracks = lib.filteredTracks;
+  const idx = tracks.findIndex((t) => t.id === lib.nowPlaying?.id);
+  if (idx > 0) lib.playTrack(tracks[idx - 1]);
+}
+
+function restart(): void {
+  lib.seekTo(0);
+}
+
+function handleTrackEnded(): void {
+  if (repeat.value === "one" && lib.nowPlaying) {
+    lib.playTrack(lib.nowPlaying);
+    return;
+  }
+  playNext(true);
+}
+
+let unlistenEnded: (() => void) | null = null;
+onMounted(() => { unlistenEnded = lib.onTrackEnded(handleTrackEnded); });
+onUnmounted(() => { if (unlistenEnded) unlistenEnded(); });
 </script>
+
+<style scoped>
+.edge-blur-art {
+  width: min(108vmin, 630px);
+  height: min(108vmin, 630px);
+  background-size: 170%;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(72px);
+  inset: 0;
+  margin: auto;
+}
+
+.player-volume-slider {
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #5b7c32 0%,
+    #5b7c32 var(--volume-percent, 0%),
+    rgb(87 83 78) var(--volume-percent, 0%),
+    rgb(87 83 78) 100%
+  );
+  cursor: pointer;
+}
+.player-volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #5b7c32;
+  cursor: pointer;
+}
+.player-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #5b7c32;
+  border: none;
+  cursor: pointer;
+}
+</style>

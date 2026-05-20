@@ -1,23 +1,23 @@
 {
   "name": "muorg-web",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.3.9",
   "type": "module",
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "vue-demi"]
-  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "feather-icons": "^4.29.2",
     "pinia": "^2.2.6",
+    "unicode-emoji-json": "^0.9.0",
     "vue": "^3.5.13"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.0",
+    "@types/feather-icons": "^4.29.4",
     "@types/node": "^22.0.0",
+    "@vitejs/plugin-vue": "^5.2.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",

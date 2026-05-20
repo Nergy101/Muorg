@@ -1,56 +1,57 @@
 <template>
-  <div
+  <button
     ref="cardEl"
-    :class="[
-      'group flex flex-col rounded-xl overflow-hidden cursor-pointer transition-all duration-150',
-      'border border-stone-800 hover:border-stone-600 bg-stone-800/50 hover:bg-stone-800',
-      isPlaying ? 'ring-2 ring-accent' : '',
-    ]"
+    :data-album-key="item.key"
+    type="button"
+    class="flex w-full min-h-[220px] flex-col overflow-hidden rounded text-center transition-colors hover:border-accent"
+    :class="isPlaying ? 'border-[2px] border-accent' : 'border border-stone-700'"
+    :style="isPlaying ? { boxShadow: '0 0 0 2px rgba(91,124,50,0.5), 0 0 20px 6px rgba(91,124,50,0.45), 0 0 40px 10px rgba(91,124,50,0.20)' } : undefined"
     @click="emit('play')"
     @contextmenu.prevent="emit('contextmenu', $event)"
   >
-    <!-- Cover -->
-    <div class="relative aspect-square w-full overflow-hidden bg-stone-700">
+    <!-- Album art area -->
+    <div class="relative h-40 w-full shrink-0 overflow-hidden bg-stone-800">
+      <!-- Spinner while loading -->
+      <div
+        v-if="coverLoading"
+        class="absolute inset-0 flex items-center justify-center"
+      >
+        <svg class="album-cover-spinner h-7 w-7 text-stone-500" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" />
+          <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+
+      <!-- No cover placeholder -->
+      <div
+        v-else-if="!coverUrl"
+        class="flex h-full w-full items-center justify-center text-stone-500"
+      >
+        <span class="inline-flex h-12 w-12 items-center justify-center rounded-full border border-stone-600 text-xl">♪</span>
+      </div>
+
       <img
         v-if="coverUrl"
         :src="coverUrl"
         :alt="item.album"
-        class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-        loading="lazy"
+        class="absolute inset-0 h-full w-full object-cover transition-opacity duration-150"
+        :class="imageReady ? 'opacity-100' : 'opacity-0'"
+        decoding="async"
+        @load="imageReady = true"
+        @error="imageReady = false"
       />
-      <div v-else class="flex h-full w-full items-center justify-center">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="text-stone-600">
-          <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" />
-          <line x1="12" y1="9" x2="12" y2="2" />
-        </svg>
-      </div>
-
-      <!-- Play overlay on hover -->
-      <div class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
-        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-accent opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-        </div>
-      </div>
     </div>
 
-    <!-- Info -->
-    <div class="flex min-w-0 flex-col px-2.5 py-2">
-      <p class="truncate text-sm font-medium text-stone-200 group-hover:text-white">
-        {{ item.album }}
-      </p>
-      <p class="truncate text-xs text-stone-500">{{ item.albumArtist }}</p>
-      <p class="mt-0.5 text-xs text-stone-600">
-        {{ item.trackCount }} tracks
-        <template v-if="item.year"> · {{ item.year }}</template>
-      </p>
+    <!-- Frosted glass text panel -->
+    <div class="w-full bg-stone-900/90 px-3 pb-3 pt-2.5 backdrop-blur-sm">
+      <div class="truncate text-sm font-semibold text-stone-100">{{ item.album }}</div>
+      <div class="mt-0.5 truncate text-xs text-stone-300">{{ item.albumArtist }}</div>
     </div>
-  </div>
+  </button>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import { useLibraryStore } from "../stores/library";
 import type { AlbumGridItem } from "../types";
 
@@ -66,11 +67,19 @@ const emit = defineEmits<{
 
 const lib = useLibraryStore();
 const cardEl = ref<HTMLElement | null>(null);
+const imageReady = ref(false);
 
 const coverUrl = computed(() => {
   if (!props.item.hasCover || props.item.coverTrackId === null) return null;
   return lib.coverCache.get(props.item.coverTrackId) ?? null;
 });
+
+const coverLoading = computed(() => {
+  if (!props.item.hasCover || props.item.coverTrackId === null) return false;
+  return !coverUrl.value && !lib.coverCache.has(props.item.coverTrackId);
+});
+
+watch(coverUrl, () => { imageReady.value = false; });
 
 let observer: IntersectionObserver | null = null;
 
@@ -96,3 +105,13 @@ watch(
   },
 );
 </script>
+
+<style scoped>
+@keyframes album-cover-spin {
+  to { transform: rotate(360deg); }
+}
+.album-cover-spinner {
+  animation: album-cover-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+</style>

@@ -21,11 +21,10 @@ export interface CatalogTrack {
 }
 
 export interface LibraryStats {
-  total_tracks: number;
-  total_artists: number;
-  total_albums: number;
+  track_count: number;
+  artist_count: number;
+  album_count: number;
   total_duration_secs: number;
-  total_size_bytes: number;
 }
 
 export interface Playlist {
