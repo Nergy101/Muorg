@@ -6,7 +6,7 @@
     <!-- Mobile-only: progress bar row above main controls -->
     <div class="flex items-center gap-2 pb-1.5 sm:hidden">
       <span class="w-8 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
-      <div class="relative min-w-0 flex-1 cursor-pointer" @click="seekByClick">
+      <div class="relative min-w-0 flex-1 cursor-pointer py-2" @pointerdown.prevent="seekByClick">
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-600">
           <div class="h-full rounded-full bg-accent transition-none" :style="{ width: progressPercent + '%' }" />
         </div>
@@ -34,7 +34,7 @@
           </div>
         </div>
         <div class="min-w-0 flex-1">
-          <p class="truncate text-xs font-semibold text-stone-100">{{ lib.nowPlaying.title ?? '—' }}</p>
+          <MarqueeCell :text="lib.nowPlaying.title ?? '—'" class="text-xs font-semibold text-stone-100" />
           <p class="truncate text-xs text-stone-400">{{ lib.nowPlaying.artist ?? lib.nowPlaying.album_artist ?? '—' }}</p>
         </div>
       </div>
@@ -119,6 +119,15 @@
           @click="playNext()"
         >
           <FeatherIcon name="skip-forward" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-2 hover:bg-stone-700 hover:text-stone-200"
+          :class="shuffle ? 'text-accent' : 'text-stone-400'"
+          aria-label="Shuffle"
+          @click="shuffle = !shuffle"
+        >
+          <FeatherIcon name="shuffle" class="h-4 w-4" />
         </button>
         <button
           type="button"
@@ -352,6 +361,7 @@ import { usePlaylistStore } from "../stores/playlists";
 import FeatherIcon from "./FeatherIcon.vue";
 import TrackContextMenu from "./TrackContextMenu.vue";
 import PlaylistModal from "./PlaylistModal.vue";
+import MarqueeCell from "./MarqueeCell.vue";
 import { useDominantColor, useEdgeColors, getGlowBlobs, isColorBland, hasOpposingEdgeColors } from "../composables/useDominantColor";
 
 const lib = useLibraryStore();
@@ -447,9 +457,9 @@ watch(() => lib.nowPlaying?.id, () => {
   if (lib.nowPlaying) lib.requestCover(lib.nowPlaying.id);
 });
 
-function seekByClick(e: MouseEvent): void {
+function seekByClick(e: PointerEvent | MouseEvent): void {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  const ratio = (e.clientX - rect.left) / rect.width;
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   lib.seekTo(Math.floor(ratio * lib.durationSecs));
 }
 
