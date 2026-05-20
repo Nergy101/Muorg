@@ -75,6 +75,10 @@ export const useLibraryStore = defineStore("library", () => {
   const volume = ref(loadPref("muorg-web-volume", 1));
   const audioEl = ref<HTMLAudioElement | null>(null);
   const streamToken = ref<string | null>(null);
+  // For FLAC seeks: el.currentTime resets to 0 after stream reload, so we
+  // track how many seconds were skipped to get the real wall-clock position.
+  let flacSeekOffset = 0;
+  let _seekSeq = 0;
 
   // Cover cache: trackId -> object URL
   const coverCache = ref<Map<number, string>>(new Map());
@@ -435,10 +439,14 @@ export const useLibraryStore = defineStore("library", () => {
     if (audioEl.value) return audioEl.value;
     const el = new Audio();
     el.addEventListener("timeupdate", () => {
-      currentTimeSecs.value = el.currentTime;
+      currentTimeSecs.value = el.currentTime + flacSeekOffset;
     });
     el.addEventListener("durationchange", () => {
-      durationSecs.value = Number.isFinite(el.duration) ? el.duration : (nowPlaying.value?.duration_secs ?? 0);
+      if (Number.isFinite(el.duration)) {
+        durationSecs.value = el.duration + flacSeekOffset;
+      } else {
+        durationSecs.value = nowPlaying.value?.duration_secs ?? 0;
+      }
     });
     el.addEventListener("ended", () => {
       isPlaying.value = false;
@@ -462,6 +470,7 @@ export const useLibraryStore = defineStore("library", () => {
       streamToken.value = token;
       const url = streamUrl(track.id, token, startSecs);
       const el = initAudio();
+      flacSeekOffset = 0;
       el.src = url;
       await el.play();
       nowPlaying.value = track;
@@ -486,13 +495,49 @@ export const useLibraryStore = defineStore("library", () => {
   }
 
   async function seekTo(secs: number): Promise<void> {
-    if (!nowPlaying.value || !streamToken.value) return;
-    // Stream endpoint supports ?start= so we reload from seek point
-    const url = streamUrl(nowPlaying.value.id, streamToken.value, secs);
-    const el = initAudio();
-    el.src = url;
-    currentTimeSecs.value = secs;
-    await el.play().catch(() => null);
+    if (!nowPlaying.value) return;
+    const el = audioEl.value;
+    if (!el) return;
+
+    const seq = ++_seekSeq;
+    const wasPlaying = !el.paused;
+
+    if (nowPlaying.value.format === 'flac') {
+      // FLAC: server transcodes from ?start=, so we must reload the stream.
+      // Issue a fresh token — the original expires 60s after track start.
+      el.pause();
+      flacSeekOffset = secs;
+      el.src = '';
+      try {
+        const token = await issueStreamToken(nowPlaying.value.id);
+        if (seq !== _seekSeq) return;
+        streamToken.value = token;
+        el.src = streamUrl(nowPlaying.value.id, token, secs);
+        el.load();
+        currentTimeSecs.value = secs;
+        if (wasPlaying) {
+          el.play().catch(() => {
+            el.addEventListener('canplay', () => {
+              if (seq === _seekSeq) el.play().catch(() => null);
+            }, { once: true });
+          });
+        }
+      } catch {
+        // seek aborted or token fetch failed
+      }
+    } else {
+      // MP3: server supports Range requests so the browser can seek natively.
+      // ?start= is ignored for MP3 on the server — currentTime is the right approach.
+      currentTimeSecs.value = secs;
+      el.currentTime = secs;
+      if (wasPlaying) {
+        el.play().catch(() => {
+          el.addEventListener('canplay', () => {
+            if (seq === _seekSeq) el.play().catch(() => null);
+          }, { once: true });
+        });
+      }
+    }
   }
 
   function setVolume(v: number): void {
