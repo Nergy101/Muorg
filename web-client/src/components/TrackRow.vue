@@ -12,7 +12,7 @@
     @contextmenu.prevent="emit('contextmenu', $event)"
   >
     <!-- Cover art column (empty for track rows) -->
-    <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1.5 pl-3 pr-2' : 'w-12 py-1 pl-2 pr-1 sm:w-10 sm:py-1.5 sm:pl-3 sm:pr-2'" />
+    <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1.5 pl-3 pr-2' : 'w-px py-1 pl-1.5 pr-1 sm:w-10 sm:py-1.5 sm:pl-3 sm:pr-2'" />
 
     <!-- Title + track number + artist (stacked on mobile) -->
     <td class="max-w-0 py-1.5 pr-4">

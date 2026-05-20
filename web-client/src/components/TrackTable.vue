@@ -5,17 +5,17 @@
         <!-- Sticky header -->
         <thead class="sticky top-0 z-10 bg-stone-900 text-xs uppercase tracking-wide text-stone-500">
           <tr class="border-b border-stone-700">
-            <th :class="lib.tableArtSize === 'large' ? 'w-28 py-1 pl-3 pr-2' : 'w-12 py-1 pl-2 pr-1 sm:w-10 sm:pl-3 sm:pr-2'">
+            <th :class="lib.tableArtSize === 'large' ? 'w-28 py-1 pl-3 pr-2' : 'w-px py-1 pl-1.5 pr-1 sm:w-10 sm:pl-3 sm:pr-2'">
               <div v-if="lib.groupBy !== 'none'" class="flex items-center gap-0.5">
                 <button
                   type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-sm leading-none text-stone-500 hover:bg-stone-700 hover:text-stone-300"
+                  class="inline-flex h-4 w-4 items-center justify-center rounded text-sm leading-none text-stone-500 hover:bg-stone-700 hover:text-stone-300 sm:h-5 sm:w-5"
                   title="Collapse all"
                   @click="lib.collapseAllGroups()"
                 >−</button>
                 <button
                   type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-sm leading-none text-stone-500 hover:bg-stone-700 hover:text-stone-300"
+                  class="inline-flex h-4 w-4 items-center justify-center rounded text-sm leading-none text-stone-500 hover:bg-stone-700 hover:text-stone-300 sm:h-5 sm:w-5"
                   title="Expand all"
                   @click="lib.expandAllGroups()"
                 >+</button>

@@ -91,6 +91,14 @@
         <button
           type="button"
           class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Restart"
+          @click="restart"
+        >
+          <FeatherIcon name="square" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
           aria-label="Previous track"
           @click="playPrevious()"
         >
@@ -223,7 +231,7 @@
         </div>
 
         <!-- Bottom controls -->
-        <div class="relative z-10 flex flex-col gap-4 px-8 pt-6" style="padding-bottom: max(env(safe-area-inset-bottom, 0px), 2rem)">
+        <div class="relative z-10 flex flex-col gap-4 px-3 pt-6" style="padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem)">
           <!-- Track info -->
           <div class="text-center">
             <p class="truncate text-xl font-bold text-stone-100">{{ lib.nowPlaying.title ?? '—' }}</p>
@@ -231,81 +239,85 @@
             <p class="truncate text-sm text-stone-600">{{ lib.nowPlaying.album }}</p>
           </div>
 
-          <!-- Primary controls: prev | play/pause | next -->
-          <div class="flex items-center justify-center gap-8">
+          <!-- Progress bar row -->
+          <div class="flex items-center gap-3">
+            <span class="w-9 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
+            <div class="relative min-w-0 flex-1 cursor-pointer" @click="seekByClick">
+              <div class="h-2 w-full overflow-hidden rounded-full bg-stone-700">
+                <div class="h-full rounded-full bg-accent transition-none" :style="{ width: progressPercent + '%' }" />
+              </div>
+            </div>
+            <span class="w-9 shrink-0 text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
+          </div>
+
+          <!-- Main controls: restart | prev | play/pause | next | shuffle -->
+          <div class="flex items-center justify-center gap-1">
+            <button
+              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
+              title="Restart"
+              @click="restart"
+            >
+              <FeatherIcon name="square" class="h-5 w-5" />
+            </button>
             <button
               class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
               @click="playPrevious()"
             >
-              <FeatherIcon name="skip-back" class="h-8 w-8" />
+              <FeatherIcon name="skip-back" class="h-5 w-5" />
             </button>
             <button
-              class="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-stone-50 shadow-lg hover:bg-[var(--accent-hover)]"
+              class="flex items-center justify-center rounded bg-accent p-2 text-stone-50 hover:bg-[var(--accent-hover)]"
               @click="lib.togglePlayPause()"
             >
-              <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-8 w-8" />
+              <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-5 w-5" />
             </button>
             <button
               class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
               @click="playNext()"
             >
-              <FeatherIcon name="skip-forward" class="h-8 w-8" />
+              <FeatherIcon name="skip-forward" class="h-5 w-5" />
             </button>
           </div>
 
-          <!-- Secondary row: restart | time | seek | time | shuffle | repeat | volume | minimize -->
-          <div class="flex items-center gap-2">
+          <!-- Secondary controls: repeat | volume | shuffle | minimize -->
+          <div class="flex items-center gap-1">
             <button
-              class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-500 hover:bg-stone-800 hover:text-stone-300"
-              title="Restart"
-              @click="restart"
-            >
-              <FeatherIcon name="square" class="h-4 w-4" />
-            </button>
-            <span class="w-9 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
-            <div class="relative min-w-0 flex-1 cursor-pointer" @click="seekByClick">
-              <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-700">
-                <div class="h-full rounded-full bg-accent transition-none" :style="{ width: progressPercent + '%' }" />
-              </div>
-            </div>
-            <span class="w-9 shrink-0 text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
-            <button
-              class="flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-800 hover:text-stone-200"
-              :class="shuffle ? 'text-accent' : 'text-stone-500'"
-              title="Shuffle"
-              @click="shuffle = !shuffle"
-            >
-              <FeatherIcon name="shuffle" class="h-4 w-4" />
-            </button>
-            <button
-              class="relative flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-800 hover:text-stone-200"
-              :class="repeat !== 'none' ? 'text-accent' : 'text-stone-500'"
+              class="relative flex items-center justify-center rounded p-2 hover:bg-stone-800 hover:text-stone-200"
+              :class="repeat !== 'none' ? 'text-accent' : 'text-stone-400'"
               title="Repeat"
               @click="cycleRepeat"
             >
-              <FeatherIcon name="repeat" class="h-4 w-4" />
+              <FeatherIcon name="repeat" class="h-5 w-5" />
               <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
             </button>
             <button
-              class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-500 hover:bg-stone-800 hover:text-stone-300"
+              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
               title="Toggle mute"
               @click="toggleMute"
             >
-              <FeatherIcon :name="lib.volume === 0 ? 'volume-x' : lib.volume < 0.5 ? 'volume-1' : 'volume-2'" class="h-4 w-4" />
+              <FeatherIcon :name="lib.volume === 0 ? 'volume-x' : lib.volume < 0.5 ? 'volume-1' : 'volume-2'" class="h-5 w-5" />
             </button>
             <input
               type="range" min="0" max="1" step="0.02"
               :value="lib.volume"
-              class="player-volume-slider w-20 shrink-0"
+              class="player-volume-slider min-w-0 flex-1"
               :style="{ '--volume-percent': (lib.volume * 100) + '%' }"
               @input="lib.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
             />
             <button
-              class="flex shrink-0 items-center justify-center rounded p-1.5 text-stone-500 hover:bg-stone-800 hover:text-stone-300"
+              class="flex shrink-0 items-center justify-center rounded p-2 hover:bg-stone-800 hover:text-stone-200"
+              :class="shuffle ? 'text-accent' : 'text-stone-400'"
+              title="Shuffle"
+              @click="shuffle = !shuffle"
+            >
+              <FeatherIcon name="shuffle" class="h-5 w-5" />
+            </button>
+            <button
+              class="flex shrink-0 items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
               title="Minimize player"
               @click="showOverlay = false"
             >
-              <FeatherIcon name="minimize-2" class="h-4 w-4" />
+              <FeatherIcon name="minimize-2" class="h-5 w-5" />
             </button>
           </div>
         </div>
