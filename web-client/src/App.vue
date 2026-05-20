@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watchEffect } from "vue";
 import ConnectionScreen from "./components/ConnectionScreen.vue";
 import LibraryHeader from "./components/LibraryHeader.vue";
 import PlaylistSidebar from "./components/PlaylistSidebar.vue";
@@ -57,6 +57,16 @@ const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
 
 const connected = ref(isConnected());
+
+watchEffect(() => {
+  const t = lib.nowPlaying;
+  if (t) {
+    const artist = t.artist ?? t.album_artist;
+    document.title = artist ? `${t.title} - ${artist} | Muorg` : `${t.title} | Muorg`;
+  } else {
+    document.title = "Muorg Web";
+  }
+});
 const sidebarOpen = ref(window.innerWidth >= 768);
 const openAlbum = ref<AlbumGridItem | null>(null);
 const showStats = ref(false);

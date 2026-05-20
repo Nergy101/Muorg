@@ -522,8 +522,59 @@ function handleTrackEnded(): void {
 }
 
 let unlistenEnded: (() => void) | null = null;
-onMounted(() => { unlistenEnded = lib.onTrackEnded(handleTrackEnded); });
+onMounted(() => {
+  unlistenEnded = lib.onTrackEnded(handleTrackEnded);
+  setupMediaSession();
+});
 onUnmounted(() => { if (unlistenEnded) unlistenEnded(); });
+
+// --- Media Session API ---
+function setupMediaSession(): void {
+  if (!('mediaSession' in navigator)) return;
+
+  navigator.mediaSession.setActionHandler('play', () => lib.togglePlayPause());
+  navigator.mediaSession.setActionHandler('pause', () => lib.togglePlayPause());
+  navigator.mediaSession.setActionHandler('previoustrack', () => playPrevious());
+  navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+  navigator.mediaSession.setActionHandler('seekto', (d) => {
+    if (d.seekTime != null) lib.seekTo(Math.floor(d.seekTime));
+  });
+  navigator.mediaSession.setActionHandler('seekbackward', (d) => {
+    lib.seekTo(Math.max(0, Math.floor(lib.currentTimeSecs - (d.seekOffset ?? 10))));
+  });
+  navigator.mediaSession.setActionHandler('seekforward', (d) => {
+    lib.seekTo(Math.min(lib.durationSecs, Math.floor(lib.currentTimeSecs + (d.seekOffset ?? 10))));
+  });
+}
+
+watch([() => lib.nowPlaying, coverUrl], () => {
+  if (!('mediaSession' in navigator)) return;
+  const t = lib.nowPlaying;
+  if (!t) { navigator.mediaSession.metadata = null; return; }
+  const artwork: MediaImage[] = coverUrl.value ? [{ src: coverUrl.value, sizes: '512x512' }] : [];
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: t.title ?? '',
+    artist: t.artist ?? t.album_artist ?? '',
+    album: t.album ?? '',
+    artwork,
+  });
+});
+
+watch(() => lib.isPlaying, (playing) => {
+  if ('mediaSession' in navigator)
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+});
+
+watch([() => lib.currentTimeSecs, () => lib.durationSecs], () => {
+  if (!('mediaSession' in navigator) || !lib.durationSecs) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: lib.durationSecs,
+      playbackRate: 1,
+      position: Math.min(lib.currentTimeSecs, lib.durationSecs),
+    });
+  } catch {}
+});
 </script>
 
 <style scoped>

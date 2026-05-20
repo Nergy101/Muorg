@@ -448,6 +448,9 @@ export const useLibraryStore = defineStore("library", () => {
     el.addEventListener("play", () => (isPlaying.value = true));
     el.addEventListener("pause", () => (isPlaying.value = false));
     el.volume = volume.value;
+    // Must be in the DOM for iOS Now Playing widget to register
+    el.style.display = "none";
+    document.body.appendChild(el);
     audioEl.value = el;
     return el;
   }
