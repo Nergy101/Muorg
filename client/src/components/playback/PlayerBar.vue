@@ -589,7 +589,7 @@ watch(
       const castDevice = castStore.discoveredDevices.find((d) => d.id === castDeviceId);
       if (castDevice) {
         castStore.setPendingCastResume(true);
-        castApi.castPlay(castDeviceId, track.id, castDevice.address, castDevice.port).catch(
+        castApi.castPlay(track.id, castDevice.address, castDevice.port).catch(
           (e: unknown) => {
             console.error("[Cast] cast_play on track change:", e);
             castStore.setPendingCastResume(false);

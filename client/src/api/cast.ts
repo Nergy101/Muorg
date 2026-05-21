@@ -26,7 +26,6 @@ export async function getStatus(): Promise<CastStatusResponse> {
 }
 
 export async function castPlay(
-  deviceId: string,
   trackId: number,
   deviceAddress: string,
   devicePort: number,
