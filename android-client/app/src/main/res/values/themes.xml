@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. The Compose theme (MuorgTheme) handles all Material 3 colors.
+         This XML theme is used for the window background visible before Compose renders. -->
+    <style name="Theme.Muorg" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#1c1917</item>
+        <item name="android:statusBarColor">#1c1917</item>
+        <item name="android:navigationBarColor">#292524</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

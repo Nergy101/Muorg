@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+
+    <!-- Shield / M-shape -->
+    <path
+        android:pathData="M150,200 L450,450 L512,512 L574,450 L874,200 L750,700 L512,880 L274,700 Z"
+        android:fillColor="#5b7c32"
+        android:strokeColor="#ffffff"
+        android:strokeWidth="5"/>
+
+    <!-- Vinyl record outer circle -->
+    <path
+        android:pathData="M512,212 A300,300 0 1,0 512,812 A300,300 0 1,0 512,212 Z"
+        android:fillColor="#759346"
+        android:strokeColor="#ffffff"
+        android:strokeWidth="15"/>
+
+    <!-- Groove ring 1 -->
+    <path
+        android:pathData="M512,292 A220,220 0 1,0 512,732 A220,220 0 1,0 512,292 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#665b7c32"
+        android:strokeWidth="8"/>
+
+    <!-- Groove ring 2 -->
+    <path
+        android:pathData="M512,362 A150,150 0 1,0 512,662 A150,150 0 1,0 512,362 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#665b7c32"
+        android:strokeWidth="8"/>
+
+    <!-- Center label circle -->
+    <path
+        android:pathData="M512,437 A75,75 0 1,0 512,587 A75,75 0 1,0 512,437 Z"
+        android:fillColor="#5b7c32"/>
+
+    <!-- Metallic spindle dot with radial gradient -->
+    <path android:pathData="M512,494 A18,18 0 1,0 512,530 A18,18 0 1,0 512,494 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="512"
+                android:centerY="512"
+                android:gradientRadius="18"
+                android:startColor="#ffffff"
+                android:endColor="#999999"/>
+        </aapt:attr>
+    </path>
+
+</vector>

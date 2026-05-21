@@ -1,32 +1,23 @@
-# Dependencies
-node_modules/
-
-# Build outputs
-dist/
-
-# Tauri / Rust
-src-tauri/target/
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-
-# Editor / IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
+*.iml
+.gradle
+/local.properties
+/.idea
 .DS_Store
-Thumbs.db
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
 
-# Optional (uncomment if you don't want to commit these)
-# pnpm-lock.yaml
-# Cargo.lock
+# Android
+/app/build/
+/app/release/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Gradle wrapper binaries (generated, not committed)
+gradlew
+gradlew.bat
+gradle/wrapper/gradle-wrapper.jar

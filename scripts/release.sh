@@ -65,11 +65,24 @@ node -e "
   fs.writeFileSync(file, content.replace(/^version = \".*\"\$/m, 'version = \"$VERSION\"'));
 "
 
+node -e "
+  const fs = require('fs');
+  const file = '$REPO_ROOT/android-client/app/build.gradle.kts';
+  const content = fs.readFileSync(file, 'utf8');
+  const [maj, min, pat] = '$VERSION'.split('.').map(Number);
+  const code = maj * 10000 + min * 100 + pat;
+  const updated = content
+    .replace(/versionCode = \d+/, 'versionCode = ' + code)
+    .replace(/versionName = \"[^\"]*\"/, 'versionName = \"$VERSION\"');
+  fs.writeFileSync(file, updated);
+"
+
 git -C "$REPO_ROOT" add \
   client/package.json \
   client/src-tauri/tauri.conf.json \
   client/src-tauri/Cargo.toml \
-  server/crates/muorg-server/Cargo.toml
+  server/crates/muorg-server/Cargo.toml \
+  android-client/app/build.gradle.kts
 
 git -C "$REPO_ROOT" commit -m "🔖 chore: bump version to $VERSION"
 

@@ -1,0 +1,187 @@
+package nl.muorg.android.ui.component
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.data.api.Playlist
+
+private enum class TrackMenuLevel { HIDDEN, MAIN, PLAYLISTS }
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TrackRow(
+    track: CatalogTrack,
+    baseUrl: String,
+    imageLoader: ImageLoader,
+    isPlaying: Boolean = false,
+    playlists: List<Playlist> = emptyList(),
+    onTrackClick: () -> Unit,
+    onAddToPlaylist: ((Playlist) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onTrackClick,
+                    onLongClick = { menuLevel = TrackMenuLevel.MAIN },
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (track.hasCover) {
+                AsyncImage(
+                    model = "$baseUrl/api/tracks/${track.id}/cover",
+                    contentDescription = null,
+                    imageLoader = imageLoader,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(48.dp).padding(8.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                MarqueeText(
+                    text = track.displayTitle,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (isPlaying) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = track.displayArtist,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = track.format.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (track.format == "flac") MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .background(
+                        color = if (track.format == "flac")
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
+                        shape = RoundedCornerShape(3.dp),
+                    )
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Text(
+                text = track.formattedDuration(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // Level 1: main actions
+        DropdownMenu(
+            expanded = menuLevel == TrackMenuLevel.MAIN,
+            onDismissRequest = { menuLevel = TrackMenuLevel.HIDDEN },
+        ) {
+            DropdownMenuItem(
+                text = { Text("Play now") },
+                leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                onClick = {
+                    menuLevel = TrackMenuLevel.HIDDEN
+                    onTrackClick()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Add to playlist") },
+                leadingIcon = { Icon(Icons.Filled.PlaylistAdd, contentDescription = null) },
+                trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
+                onClick = { menuLevel = TrackMenuLevel.PLAYLISTS },
+            )
+        }
+
+        // Level 2: playlist selection
+        DropdownMenu(
+            expanded = menuLevel == TrackMenuLevel.PLAYLISTS,
+            onDismissRequest = { menuLevel = TrackMenuLevel.HIDDEN },
+        ) {
+            DropdownMenuItem(
+                text = { Text("Back") },
+                leadingIcon = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+                onClick = { menuLevel = TrackMenuLevel.MAIN },
+            )
+            if (playlists.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    onClick = {},
+                    enabled = false,
+                )
+            } else {
+                playlists.forEach { playlist ->
+                    DropdownMenuItem(
+                        text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
+                        onClick = {
+                            onAddToPlaylist?.invoke(playlist)
+                            menuLevel = TrackMenuLevel.HIDDEN
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
