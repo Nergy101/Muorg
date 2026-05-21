@@ -78,7 +78,9 @@ pub fn run() {
                 let _ = catalog::gc_deleted_tracks(&conn, thirty_days);
             }
             app.manage(Arc::new(catalog));
-            app.manage(cast::DiscoveryState::new());
+            let discovery = cast::DiscoveryState::new();
+            discovery.start(app.app_handle().clone());
+            app.manage(discovery);
             app.manage(cast::AudioServerState::new());
             app.manage(cast::CastState::new());
             Ok(())

@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { apiFetch } from "./client";
 import type { CastSessionStatus, CastDevice } from "../stores/cast";
 
@@ -6,27 +7,39 @@ export interface CastStatusResponse {
   volume: number;
 }
 
+// Discovery runs in the Tauri process (in-process mDNS has proper macOS entitlements).
 export async function getDevices(): Promise<CastDevice[]> {
-  return apiFetch<CastDevice[]>("/api/cast/devices");
+  return invoke<CastDevice[]>("cast_get_devices");
 }
 
 export async function startDiscovery(): Promise<void> {
-  await apiFetch("/api/cast/discovery/start", { method: "POST" });
+  await invoke<void>("cast_start_discovery");
 }
 
 export async function stopDiscovery(): Promise<void> {
-  await apiFetch("/api/cast/discovery/stop", { method: "POST" });
+  await invoke<void>("cast_stop_discovery");
 }
 
+// Cast session (connect + stream) is handled by the server sidecar.
 export async function getStatus(): Promise<CastStatusResponse> {
   return apiFetch<CastStatusResponse>("/api/cast/status");
 }
 
-export async function castPlay(deviceId: string, trackId: number): Promise<void> {
+export async function castPlay(
+  deviceId: string,
+  trackId: number,
+  deviceAddress: string,
+  devicePort: number,
+): Promise<void> {
   await apiFetch("/api/cast/play", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ device_id: deviceId, track_id: trackId }),
+    body: JSON.stringify({
+      device_id: deviceId,
+      track_id: trackId,
+      device_address: deviceAddress,
+      device_port: devicePort,
+    }),
   });
 }
 

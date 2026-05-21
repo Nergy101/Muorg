@@ -38,6 +38,9 @@ pub async fn get_status(State(state): State<Arc<AppState>>) -> Json<CastStatusRe
 #[derive(Deserialize)]
 pub struct PlayBody {
     device_id: String,
+    // Device address and port are provided by the caller (discovered via Tauri-native mDNS).
+    device_address: String,
+    device_port: u16,
     track_id: i64,
 }
 
@@ -46,14 +49,6 @@ pub async fn play(
     State(state): State<Arc<AppState>>,
     Json(body): Json<PlayBody>,
 ) -> Result<StatusCode, ApiError> {
-    let device = {
-        let devs = state.cast_discovery.devices.lock().unwrap();
-        devs.iter()
-            .find(|d| d.id == body.device_id)
-            .cloned()
-            .ok_or_else(|| ApiError::not_found(format!("Cast device not found: {}", body.device_id)))?
-    };
-
     let track_path = {
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
         muorg_core::catalog::get_track_path_by_id(&conn, body.track_id)?
@@ -69,7 +64,7 @@ pub async fn play(
     );
     let is_flac = track_path.to_lowercase().ends_with(".flac");
 
-    state.cast_session.start_session(device.address, device.port, stream_url, is_flac);
+    state.cast_session.start_session(body.device_address, body.device_port, stream_url, is_flac);
     Ok(StatusCode::NO_CONTENT)
 }
 
