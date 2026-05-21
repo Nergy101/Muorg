@@ -7,7 +7,7 @@ import type { MetadataUpdate, TrackMetadataRead, TrackBackupRecord } from "../..
 import { extractBestFromPath, PATH_FIELD_MAP, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import { readFile } from "@tauri-apps/plugin-fs";
 import * as catalogApi from "../../api/catalog";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import StarRating from "../shared/StarRating.vue";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 

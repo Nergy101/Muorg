@@ -5,7 +5,7 @@ import * as playlistApi from "../../api/playlists";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import type { CatalogTrack, Playlist } from "../../types";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const props = defineProps<{
   playlist: Playlist;

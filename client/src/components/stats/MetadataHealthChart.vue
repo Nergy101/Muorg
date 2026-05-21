@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { CatalogTrack } from "../../types";
 import type { MissingMetadataField } from "../../stores/settings";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const props = defineProps<{ tracks: CatalogTrack[] }>();
 const emit = defineEmits<{ "view-field": [field: MissingMetadataField] }>();

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import EmojiPicker from "./EmojiPicker.vue";
 
 export interface SmartRule {

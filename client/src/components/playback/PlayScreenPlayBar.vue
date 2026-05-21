@@ -11,7 +11,7 @@ import * as castApi from "../../api/cast";
 import { flacSeekOffset } from "../../state/playback";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import CastButton from "./CastButton.vue";
 import StarRating from "../shared/StarRating.vue";
 

@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>();

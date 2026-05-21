@@ -143,7 +143,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import PlaylistModal from "./PlaylistModal.vue";
 import { usePlaylistStore } from "../stores/playlists";
 import type { Playlist } from "../types";

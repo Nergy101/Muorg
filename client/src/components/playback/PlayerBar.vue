@@ -9,7 +9,7 @@ import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import StarRating from "../shared/StarRating.vue";
 import VolumeControl from "./VolumeControl.vue";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import CastButton from "./CastButton.vue";
 import type { CatalogTrack, TrackMetadataRead } from "../../types";
 import * as catalogApi from "../../api/catalog";

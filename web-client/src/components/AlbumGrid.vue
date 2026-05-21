@@ -72,7 +72,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from "vue";
 import AlbumCard from "./AlbumCard.vue";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
 import type { AlbumGridItem } from "../types";

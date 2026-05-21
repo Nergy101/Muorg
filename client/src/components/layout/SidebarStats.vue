@@ -4,9 +4,9 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import * as catalogApi from "../../api/catalog";
 import type { LibraryStats } from "../../types";
-import GenrePieChart from "../stats/GenrePieChart.vue";
-import YearLineChart from "../stats/YearLineChart.vue";
-import RatingChart from "../stats/RatingChart.vue";
+import GenrePieChart from "@shared/components/stats/GenrePieChart.vue";
+import YearLineChart from "@shared/components/stats/YearLineChart.vue";
+import RatingChart from "@shared/components/stats/RatingChart.vue";
 
 const store = useCatalogStore();
 const { tracks } = storeToRefs(store);

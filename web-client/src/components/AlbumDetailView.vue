@@ -95,7 +95,7 @@ import { computed, ref } from "vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
 import { formatDuration } from "../stores/library";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import TrackContextMenu from "./TrackContextMenu.vue";
 import PlaylistModal from "./PlaylistModal.vue";
 import type { AlbumGridItem, CatalogTrack } from "../types";

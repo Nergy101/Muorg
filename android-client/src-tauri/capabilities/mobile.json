@@ -1,0 +1,11 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Permissions for the Android/iOS mobile build",
+  "platforms": ["android", "iOS"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "app:default"
+  ]
+}

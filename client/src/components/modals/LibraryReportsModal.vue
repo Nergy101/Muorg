@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { CatalogTrack } from "../../types";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const props = defineProps<{
   open: boolean;

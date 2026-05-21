@@ -9,8 +9,8 @@ import type { CatalogTrack } from "../../types";
 import { setTracksDragGhost } from "../../utils/dragGhost";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
-import FeatherIcon from "../shared/FeatherIcon.vue";
-import MarqueeCell from "../shared/MarqueeCell.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MarqueeCell from "@shared/components/MarqueeCell.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 import StarRating from "../shared/StarRating.vue";
 

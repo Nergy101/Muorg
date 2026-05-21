@@ -4,12 +4,16 @@ import feather from "feather-icons";
 
 const props = defineProps<{
   name: string;
+  class?: string;
 }>();
 
 const svgContent = computed(() => {
   const icon = (feather.icons as Record<string, (typeof feather.icons)[keyof typeof feather.icons] | undefined>)[props.name];
   if (!icon) return "";
-  return icon.toSvg({ stroke: "currentColor" });
+  return icon.toSvg({
+    class: `feather feather-${props.name} ${props.class ?? ""}`.trim(),
+    stroke: "currentColor",
+  });
 });
 </script>
 

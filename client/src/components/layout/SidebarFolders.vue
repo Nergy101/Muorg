@@ -5,7 +5,7 @@ import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { open } from "@tauri-apps/plugin-dialog";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();

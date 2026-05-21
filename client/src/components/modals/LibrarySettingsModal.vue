@@ -31,12 +31,12 @@ import {
   getGlowBlobs,
   getSimpleGlowBlobs,
 } from "../../composables/useDominantColor";
-import FeatherIcon from "../shared/FeatherIcon.vue";
-import GenrePieChart from "../stats/GenrePieChart.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import GenrePieChart from "@shared/components/stats/GenrePieChart.vue";
 import TopArtistsChart from "../stats/TopArtistsChart.vue";
 import MetadataHealthChart from "../stats/MetadataHealthChart.vue";
-import YearLineChart from "../stats/YearLineChart.vue";
-import RatingChart from "../stats/RatingChart.vue";
+import YearLineChart from "@shared/components/stats/YearLineChart.vue";
+import RatingChart from "@shared/components/stats/RatingChart.vue";
 import packageJson from "../../../package.json";
 
 const appVersion = packageJson.version;

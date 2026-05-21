@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { PendingPlaylistAdd } from "../../composables/usePlaylistAdd";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const props = defineProps<{ pending: PendingPlaylistAdd }>();
 const emit = defineEmits<{

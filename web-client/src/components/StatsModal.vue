@@ -75,10 +75,10 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import FeatherIcon from "./FeatherIcon.vue";
-import GenrePieChart from "./stats/GenrePieChart.vue";
-import YearLineChart from "./stats/YearLineChart.vue";
-import RatingChart from "./stats/RatingChart.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import GenrePieChart from "@shared/components/stats/GenrePieChart.vue";
+import YearLineChart from "@shared/components/stats/YearLineChart.vue";
+import RatingChart from "@shared/components/stats/RatingChart.vue";
 import { useLibraryStore } from "../stores/library";
 
 defineProps<{ open: boolean }>();

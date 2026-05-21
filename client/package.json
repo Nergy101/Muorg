@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
+    "@types/feather-icons": "^4.29.4",
     "@types/node": "^22.0.0",
     "@vitejs/plugin-vue": "^5.2.0",
     "autoprefixer": "^10.4.20",

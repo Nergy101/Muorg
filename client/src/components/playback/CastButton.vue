@@ -4,7 +4,7 @@ import { storeToRefs } from "pinia";
 import { useCastStore } from "../../stores/cast";
 import { useCatalogStore } from "../../stores/catalog";
 import CastDevicePicker from "./CastDevicePicker.vue";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const props = defineProps<{ size?: 'sm' | 'md' }>();
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { CatalogTrack } from "../../types";
+import type { CatalogTrack } from "@/types";
 
 const props = defineProps<{ tracks: CatalogTrack[] }>();
 
@@ -95,7 +95,7 @@ const svgData = computed(() => {
       @mouseleave="hovered = null"
     >
       <defs>
-        <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="area-grad-shared" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#5b7c32" stop-opacity="0.45" />
           <stop offset="100%" stop-color="#5b7c32" stop-opacity="0.03" />
         </linearGradient>
@@ -103,7 +103,7 @@ const svgData = computed(() => {
 
       <template v-if="svgData">
         <!-- Area fill -->
-        <path :d="svgData.areaPath" fill="url(#area-grad)" />
+        <path :d="svgData.areaPath" fill="url(#area-grad-shared)" />
 
         <!-- Line -->
         <path

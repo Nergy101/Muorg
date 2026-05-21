@@ -7,7 +7,7 @@ import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack } from "../../types";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();

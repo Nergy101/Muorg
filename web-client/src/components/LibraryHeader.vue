@@ -258,7 +258,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import KeymapModal from "./KeymapModal.vue";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 

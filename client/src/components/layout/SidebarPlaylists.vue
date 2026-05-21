@@ -5,7 +5,7 @@ import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
-import FeatherIcon from "../shared/FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import EmojiPicker from "../shared/EmojiPicker.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 import PlaylistExportDialog from "../shared/PlaylistExportDialog.vue";

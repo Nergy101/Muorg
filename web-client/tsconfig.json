@@ -18,7 +18,11 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@shared/*": ["../src/*"],
+      "vue": ["node_modules/vue"],
+      "vue/*": ["node_modules/vue/*"],
+      "feather-icons": ["node_modules/@types/feather-icons"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "vite.config.ts"]

@@ -358,10 +358,10 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
-import FeatherIcon from "./FeatherIcon.vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import TrackContextMenu from "./TrackContextMenu.vue";
 import PlaylistModal from "./PlaylistModal.vue";
-import MarqueeCell from "./MarqueeCell.vue";
+import MarqueeCell from "@shared/components/MarqueeCell.vue";
 import { useDominantColor, useEdgeColors, getGlowBlobs, isColorBland, hasOpposingEdgeColors } from "../composables/useDominantColor";
 
 const lib = useLibraryStore();
