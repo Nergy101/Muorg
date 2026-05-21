@@ -208,6 +208,15 @@
         <FeatherIcon name="mouse-pointer" class="h-4 w-4" />
       </button>
       <button
+        v-if="canInstall"
+        type="button"
+        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        title="Install Muorg as app"
+        @click="install"
+      >
+        <FeatherIcon name="download" class="h-4 w-4" />
+      </button>
+      <button
         type="button"
         class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
         :title="`Muorg Web v${version}`"
@@ -243,6 +252,7 @@ import { useLibraryStore } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
 import FeatherIcon from "./FeatherIcon.vue";
 import KeymapModal from "./KeymapModal.vue";
+import { useInstallPrompt } from "../composables/useInstallPrompt";
 
 const props = defineProps<{ showBack?: boolean }>();
 
@@ -288,6 +298,7 @@ function onSearchBlur() {
 
 const version = import.meta.env.VITE_APP_VERSION ?? 'dev';
 const showKeymap = ref(false);
+const { canInstall, install } = useInstallPrompt();
 
 // Dropdowns
 const groupByOpen = ref(false);
