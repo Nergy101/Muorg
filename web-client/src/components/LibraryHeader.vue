@@ -211,18 +211,26 @@
         v-if="canInstall"
         type="button"
         class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
-        title="Install Muorg as app"
+        :title="isIos ? 'Install: tap Share → Add to Home Screen' : 'Install Muorg as app'"
         @click="install"
       >
         <FeatherIcon name="download" class="h-4 w-4" />
       </button>
-      <button
-        type="button"
-        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
-        :title="`Muorg Web v${version}`"
-      >
-        <FeatherIcon name="info" class="h-4 w-4" />
-      </button>
+      <div class="relative" ref="versionRef">
+        <button
+          type="button"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+          @click="versionOpen = !versionOpen"
+        >
+          <FeatherIcon name="info" class="h-4 w-4" />
+        </button>
+        <div
+          v-if="versionOpen"
+          class="absolute right-0 top-full z-[300] mt-1 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-300 shadow-xl"
+        >
+          Muorg Web v{{ version }}
+        </div>
+      </div>
       <button
         type="button"
         class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
@@ -298,7 +306,22 @@ function onSearchBlur() {
 
 const version = import.meta.env.VITE_APP_VERSION ?? 'dev';
 const showKeymap = ref(false);
-const { canInstall, install } = useInstallPrompt();
+const { canInstall, isIos, install } = useInstallPrompt();
+
+const versionOpen = ref(false);
+const versionRef = ref<HTMLElement | null>(null);
+
+watch(versionOpen, (open) => {
+  if (open) {
+    const onOutside = (e: MouseEvent) => {
+      if (!versionRef.value?.contains(e.target as Node)) {
+        versionOpen.value = false;
+        document.removeEventListener("mousedown", onOutside);
+      }
+    };
+    document.addEventListener("mousedown", onOutside);
+  }
+});
 
 // Dropdowns
 const groupByOpen = ref(false);
