@@ -57,13 +57,15 @@ impl AppState {
         api_key: String,
         server_port: u16,
     ) -> Self {
+        let cast_discovery = DiscoveryState::new();
+        cast_discovery.start();
         Self {
             catalog,
             backup_dir,
             api_key,
             tokens: StreamTokens::new(),
             server_port,
-            cast_discovery: DiscoveryState::new(),
+            cast_discovery,
             cast_session: CastState::new(),
         }
     }

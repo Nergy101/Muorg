@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useCastStore } from "../../stores/cast";
 import * as castApi from "../../api/cast";
@@ -59,6 +59,19 @@ function disconnect() {
   castStore.stopCast();
   emit("close");
 }
+
+const refreshing = ref(false);
+
+async function refresh() {
+  if (refreshing.value) return;
+  refreshing.value = true;
+  try {
+    await castApi.stopDiscovery();
+    await castApi.startDiscovery();
+  } finally {
+    refreshing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -89,8 +102,16 @@ function disconnect() {
 
     <!-- Idle: show device list -->
     <template v-else>
-      <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-stone-500">
-        Cast to device
+      <div class="flex items-center justify-between px-3 py-1.5">
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Cast to device</span>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-0.5 text-stone-500 hover:bg-stone-700 hover:text-stone-300"
+          title="Refresh devices"
+          @click="refresh"
+        >
+          <FeatherIcon name="refresh-cw" class="h-3 w-3" :class="refreshing ? 'animate-spin' : ''" />
+        </button>
       </div>
 
       <div v-if="discoveredDevices.length === 0" class="px-3 py-2 text-xs text-stone-500">
