@@ -57,6 +57,7 @@ export default defineConfig({
     alias: {
       "@": resolve(__dirname, "src"),
       "@shared": resolve(__dirname, "../src"),
+      "feather-icons": resolve(__dirname, "node_modules/feather-icons"),
     },
   },
   server: {
