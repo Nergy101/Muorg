@@ -35,7 +35,6 @@ export async function castPlay(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      device_id: deviceId,
       track_id: trackId,
       device_address: deviceAddress,
       device_port: devicePort,

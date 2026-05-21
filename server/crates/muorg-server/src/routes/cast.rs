@@ -37,7 +37,6 @@ pub async fn get_status(State(state): State<Arc<AppState>>) -> Json<CastStatusRe
 
 #[derive(Deserialize)]
 pub struct PlayBody {
-    device_id: String,
     // Device address and port are provided by the caller (discovered via Tauri-native mDNS).
     device_address: String,
     device_port: u16,

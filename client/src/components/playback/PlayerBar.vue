@@ -586,13 +586,16 @@ watch(
     // audio until the cast confirms it's playing (pendingCastResume).
     const castDeviceId = castStore.connectedDeviceId;
     if (castDeviceId) {
-      castStore.setPendingCastResume(true);
-      castApi.castPlay(castDeviceId, track.id).catch(
-        (e: unknown) => {
-          console.error("[Cast] cast_play on track change:", e);
-          castStore.setPendingCastResume(false);
-        },
-      );
+      const castDevice = castStore.discoveredDevices.find((d) => d.id === castDeviceId);
+      if (castDevice) {
+        castStore.setPendingCastResume(true);
+        castApi.castPlay(castDeviceId, track.id, castDevice.address, castDevice.port).catch(
+          (e: unknown) => {
+            console.error("[Cast] cast_play on track change:", e);
+            castStore.setPendingCastResume(false);
+          },
+        );
+      }
     }
 
     loadAudioBlobForCurrent(track).then(() => {
