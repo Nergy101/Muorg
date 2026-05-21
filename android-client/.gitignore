@@ -17,7 +17,3 @@ local.properties
 *.keystore
 *.jks
 
-# Gradle wrapper binaries (generated, not committed)
-gradlew
-gradlew.bat
-gradle/wrapper/gradle-wrapper.jar
