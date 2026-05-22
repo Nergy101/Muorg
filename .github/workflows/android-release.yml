@@ -1,0 +1,90 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 2.6.5)'
+        required: true
+        type: string
+
+concurrency:
+  group: android-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate version
+        run: |
+          if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Invalid version: ${{ inputs.version }}" >&2
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set version
+        run: |
+          VERSION="${{ inputs.version }}"
+          BASE="${VERSION%%-*}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+          CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          sed -i "s/versionCode = [0-9]*/versionCode = $CODE/" android-client/app/build.gradle.kts
+          sed -i 's/versionName = "[^"]*"/versionName = "'"$VERSION"'"/' android-client/app/build.gradle.kts
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-release-${{ hashFiles('android-client/**/*.gradle.kts', 'android-client/**/gradle-wrapper.properties') }}
+          restore-keys: gradle-release-
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > android-client/local.properties
+
+      - name: Assemble release APK
+        working-directory: android-client
+        run: ./gradlew assembleRelease
+
+      - name: Sign APK
+        run: |
+          VERSION="${{ inputs.version }}"
+          APK_IN=android-client/app/build/outputs/apk/release/app-release-unsigned.apk
+          APK_OUT=android-client/app/build/outputs/apk/release/muorg-${VERSION}.apk
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+          BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" sign \
+            --ks keystore.jks \
+            --ks-pass "pass:${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --out "$APK_OUT" \
+            "$APK_IN"
+          rm -f keystore.jks
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ inputs.version }}
+          name: Muorg Android ${{ inputs.version }}
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            Android APK for Muorg ${{ inputs.version }}.
+
+            Install on GrapheneOS / Android by downloading the APK below and sideloading it.
+          files: android-client/app/build/outputs/apk/release/muorg-${{ inputs.version }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
