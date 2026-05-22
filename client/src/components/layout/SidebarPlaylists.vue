@@ -5,6 +5,7 @@ import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
+import { getServerUrl } from "../../api/client";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import EmojiPicker from "../shared/EmojiPicker.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
@@ -26,7 +27,7 @@ const availableGenres = computed(() => {
   }
   return [...set].sort((a, b) => a.localeCompare(b));
 });
-const { playlists, loading: playlistsLoading } = storeToRefs(playlistStore);
+const { playlists, loading: playlistsLoading, error: playlistsError } = storeToRefs(playlistStore);
 const { pendingAdd, tryAddToPlaylist, confirmAddAll, confirmAddDeduped, cancelPendingAdd } = usePlaylistAdd();
 
 // ── Create playlist ────────────────────────────────────────────────────────
@@ -394,7 +395,7 @@ const exportingPlaylist = ref<Playlist | null>(null);
 <template>
   <div>
     <!-- Create new playlist -->
-    <div class="mb-1">
+    <div v-if="!playlistsLoading && !playlistsError" class="mb-1">
       <div v-if="isCreatingPlaylist" class="relative mb-1 flex items-center gap-1">
         <!-- Emoji button -->
         <button
@@ -448,8 +449,24 @@ const exportingPlaylist = ref<Playlist | null>(null);
     </div>
 
     <!-- Loading state -->
-    <div v-if="playlistsLoading" class="flex items-center justify-center py-6">
+    <div v-if="playlistsLoading" class="flex items-center justify-center py-12">
       <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-stone-600 border-t-stone-300" aria-label="Loading playlists" />
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="playlistsError" class="flex flex-col items-center gap-3 py-8 text-center">
+      <p class="text-xs text-stone-400">
+        Failed to connect to<br />
+        <span class="font-mono text-stone-300">{{ getServerUrl() }}</span>
+      </p>
+      <button
+        type="button"
+        class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-700 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-600 hover:text-stone-100"
+        @click="playlistStore.loadPlaylists()"
+      >
+        <FeatherIcon name="refresh-cw" class="h-3 w-3" />
+        Retry
+      </button>
     </div>
 
     <!-- Playlist list -->

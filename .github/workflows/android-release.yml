@@ -78,7 +78,7 @@ jobs:
         with:
           tag_name: android-v${{ inputs.version }}
           name: Muorg Android ${{ inputs.version }}
-          prerelease: false
+          prerelease: true
           generate_release_notes: false
           body: |
             Android APK for Muorg ${{ inputs.version }}.

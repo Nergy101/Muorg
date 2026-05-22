@@ -175,6 +175,22 @@ async function switchMode(mode: "local" | "online") {
   if (mode === "local") await applyAndReload();
 }
 
+const refreshStatus = ref<"idle" | "loading" | "ok" | "error">("idle");
+const refreshError = ref("");
+
+async function refreshFromServer() {
+  refreshStatus.value = "loading";
+  refreshError.value = "";
+  store.$patch({ coverCache: {}, albumCoverCache: {} });
+  await store.loadRoots();
+  if (store.error) { refreshStatus.value = "error"; refreshError.value = store.error; return; }
+  await store.loadTracks();
+  if (store.error) { refreshStatus.value = "error"; refreshError.value = store.error; return; }
+  await playlistStore.loadPlaylists();
+  if (playlistStore.error) { refreshStatus.value = "error"; refreshError.value = playlistStore.error; return; }
+  refreshStatus.value = "ok";
+}
+
 
 const themeOptions: {
   value: ThemeId;
@@ -793,7 +809,7 @@ watch(transformMatches, () => {
                       class="underline decoration-dotted underline-offset-2 hover:text-stone-200"
                       @click="
                         openReleaseUrl(
-                          `${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version}`,
+                          `${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version.replace(/^v/, "")}`,
                         )
                       "
                     >
@@ -2790,6 +2806,27 @@ watch(transformMatches, () => {
               </span>
               <span v-if="connStatus === 'error'" class="flex items-center gap-1.5 text-xs text-red-400">
                 <FeatherIcon name="x-circle" class="h-3.5 w-3.5" /> {{ connError || 'Failed' }}
+              </span>
+            </div>
+
+            <!-- Refresh -->
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="settings-action-btn rounded px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                :disabled="refreshStatus === 'loading'"
+                @click="refreshFromServer"
+              >
+                <span class="flex items-center gap-1.5">
+                  <FeatherIcon :name="refreshStatus === 'loading' ? 'loader' : 'refresh-cw'" class="h-3 w-3" :class="refreshStatus === 'loading' ? 'animate-spin' : ''" />
+                  {{ refreshStatus === 'loading' ? 'Refreshing…' : 'Refresh data from server' }}
+                </span>
+              </button>
+              <span v-if="refreshStatus === 'ok'" class="flex items-center gap-1.5 text-xs text-green-400">
+                <FeatherIcon name="check-circle" class="h-3.5 w-3.5" /> Done
+              </span>
+              <span v-if="refreshStatus === 'error'" class="flex items-center gap-1.5 text-xs text-red-400">
+                <FeatherIcon name="x-circle" class="h-3.5 w-3.5" /> {{ refreshError || 'Failed' }}
               </span>
             </div>
           </div>

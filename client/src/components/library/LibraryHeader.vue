@@ -541,14 +541,6 @@ watch(genreDropdownOpen, (open) => {
       <button
         type="button"
         class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
-        :class="props.activeTab === 'player' ? 'primary-tab--active' : undefined"
-        @click="emit('update:activeTab', 'player')"
-      >
-        Player
-      </button>
-      <button
-        type="button"
-        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
         :class="props.activeTab === 'queue' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'queue')"
       >
