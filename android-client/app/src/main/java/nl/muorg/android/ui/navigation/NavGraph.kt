@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -56,7 +55,6 @@ sealed class Screen(val route: String) {
 
 private val bottomNavItems = listOf(
     Triple(Screen.Library, Icons.Filled.LibraryMusic, "Library"),
-    Triple(Screen.Player, Icons.Filled.PlayCircle, "Player"),
     Triple(Screen.Playlists, Icons.AutoMirrored.Filled.QueueMusic, "Playlists"),
     Triple(Screen.Settings, Icons.Filled.Settings, "Settings"),
 )

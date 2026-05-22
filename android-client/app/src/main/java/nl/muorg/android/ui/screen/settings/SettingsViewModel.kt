@@ -21,6 +21,8 @@ import nl.muorg.android.ui.screen.library.SortMode
 import java.net.URL
 import javax.inject.Inject
 
+enum class RefreshStatus { IDLE, LOADING, SUCCESS, ERROR }
+
 data class SettingsUiState(
     val serverUrl: String = "",
     val showLogoutDialog: Boolean = false,
@@ -31,6 +33,8 @@ data class SettingsUiState(
     val showSortDropdown: Boolean = false,
     val latestVersion: String? = null,
     val latestReleaseUrl: String? = null,
+    val refreshStatus: RefreshStatus = RefreshStatus.IDLE,
+    val refreshError: String? = null,
 )
 
 @HiltViewModel
@@ -86,6 +90,24 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun refreshData() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(refreshStatus = RefreshStatus.LOADING, refreshError = null) }
+            runCatching { api.getStats() }.fold(
+                onSuccess = { stats ->
+                    _uiState.update {
+                        it.copy(stats = stats, statsError = false, refreshStatus = RefreshStatus.SUCCESS)
+                    }
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(statsError = true, refreshStatus = RefreshStatus.ERROR, refreshError = e.message)
+                    }
+                },
+            )
         }
     }
 
