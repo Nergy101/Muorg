@@ -457,6 +457,11 @@ const updateCompleteVersion = ref("");
 
 const GITHUB_RELEASE_BASE = "https://github.com/Nergy101/Muorg/releases";
 
+function releaseTagUrl(version: string) {
+  const stripped = version.startsWith("v") ? version.slice(1) : version;
+  return `${GITHUB_RELEASE_BASE}/tag/v${stripped}`;
+}
+
 async function checkForUpdates() {
   updateCheckStatus.value = "checking";
   updateError.value = null;
@@ -809,7 +814,7 @@ watch(transformMatches, () => {
                       class="underline decoration-dotted underline-offset-2 hover:text-stone-200"
                       @click="
                         openReleaseUrl(
-                          `${GITHUB_RELEASE_BASE}/tag/v${availableUpdate.version.replace(/^v/, "")}`,
+                          releaseTagUrl(availableUpdate.version),
                         )
                       "
                     >
