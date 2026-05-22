@@ -1,0 +1,20 @@
+.git/
+.github/
+
+# Rust build artifacts
+server/target/
+client/src-tauri/target/
+
+# Node modules (reinstalled inside container)
+client/node_modules/
+web-client/node_modules/
+
+# Android build artifacts
+android-client/.gradle/
+android-client/build/
+android-client/app/build/
+android-client/.kotlin/
+
+# Misc
+docs/
+*.md

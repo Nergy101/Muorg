@@ -490,7 +490,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: web-client
+          context: .
           file: web-client/Dockerfile
           build-args: |
             APP_VERSION=${{ needs.version.outputs.version }}
