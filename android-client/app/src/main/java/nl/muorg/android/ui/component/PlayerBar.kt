@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -41,6 +42,7 @@ fun PlayerBar(
     onClick: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
+    onOpenQueue: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val currentTrack = playerState.currentTrack ?: return
@@ -109,6 +111,16 @@ fun PlayerBar(
                     )
                 }
 
+                // Queue
+                IconButton(onClick = onOpenQueue) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                        contentDescription = "Open queue",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+
                 // Play/Pause
                 IconButton(onClick = onPlayPause) {
                     Icon(
@@ -116,7 +128,7 @@ fun PlayerBar(
                         else Icons.Filled.PlayArrow,
                         contentDescription = if (playerState.isPlaying) "Pause" else "Play",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(26.dp),
                     )
                 }
 
@@ -126,7 +138,7 @@ fun PlayerBar(
                         imageVector = Icons.Filled.SkipNext,
                         contentDescription = "Next",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(26.dp),
                     )
                 }
             }

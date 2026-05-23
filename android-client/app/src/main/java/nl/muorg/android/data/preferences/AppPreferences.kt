@@ -27,6 +27,7 @@ class AppPreferences @Inject constructor(
         private val KEY_DEFAULT_SORT = stringPreferencesKey("default_sort")
         private val KEY_MUSIC_MODE = stringPreferencesKey("music_mode")
         private val KEY_LOCAL_FOLDER_URIS = stringSetPreferencesKey("local_folder_uris")
+        private val KEY_FAVORITES = stringSetPreferencesKey("favorites")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -46,6 +47,14 @@ class AppPreferences @Inject constructor(
 
     val localFolderUris: Flow<Set<String>> = context.dataStore.data
         .map { it[KEY_LOCAL_FOLDER_URIS] ?: emptySet() }
+
+    val favorites: Flow<Set<String>> = context.dataStore.data
+        .map { it[KEY_FAVORITES] ?: emptySet() }
+
+    suspend fun toggleFavorite(trackId: String) = context.dataStore.edit { prefs ->
+        val current = prefs[KEY_FAVORITES] ?: emptySet()
+        prefs[KEY_FAVORITES] = if (trackId in current) current - trackId else current + trackId
+    }
 
     suspend fun setMusicMode(mode: String) = context.dataStore.edit { it[KEY_MUSIC_MODE] = mode }
 

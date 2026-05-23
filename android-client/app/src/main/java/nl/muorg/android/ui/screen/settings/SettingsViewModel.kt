@@ -26,6 +26,8 @@ enum class RefreshStatus { IDLE, LOADING, SUCCESS, ERROR }
 
 enum class ScanStatus { IDLE, SCANNING, DONE, ERROR }
 
+enum class SourceMode { ONLINE_SERVER, LOCAL_LIBRARY }
+
 data class SettingsUiState(
     val serverUrl: String = "",
     val showLogoutDialog: Boolean = false,
@@ -42,6 +44,9 @@ data class SettingsUiState(
     val localFolderUris: Set<String> = emptySet(),
     val scanStatus: ScanStatus = ScanStatus.IDLE,
     val scanTrackCount: Int = 0,
+    val sourceMode: SourceMode = SourceMode.ONLINE_SERVER,
+    val showSwitchConfirmDialog: Boolean = false,
+    val pendingSourceMode: SourceMode? = null,
 )
 
 @HiltViewModel
@@ -72,7 +77,10 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             preferences.musicMode.collect { mode ->
-                _uiState.update { it.copy(musicMode = mode) }
+                _uiState.update { it.copy(
+                    musicMode = mode,
+                    sourceMode = if (mode == "local") SourceMode.LOCAL_LIBRARY else SourceMode.ONLINE_SERVER,
+                )}
             }
         }
         viewModelScope.launch {
@@ -154,6 +162,29 @@ class SettingsViewModel @Inject constructor(
 
     fun setMusicMode(mode: String) {
         viewModelScope.launch { preferences.setMusicMode(mode) }
+    }
+
+    fun requestSwitchSourceMode(mode: SourceMode) {
+        if (mode == _uiState.value.sourceMode) return
+        _uiState.update { it.copy(showSwitchConfirmDialog = true, pendingSourceMode = mode) }
+    }
+
+    fun dismissSwitchDialog() = _uiState.update { it.copy(showSwitchConfirmDialog = false, pendingSourceMode = null) }
+
+    fun confirmSwitchSourceMode(onNavigateToWelcome: () -> Unit) {
+        val mode = _uiState.value.pendingSourceMode ?: return
+        _uiState.update { it.copy(showSwitchConfirmDialog = false, pendingSourceMode = null) }
+        viewModelScope.launch {
+            val modeStr = if (mode == SourceMode.LOCAL_LIBRARY) "local" else "remote"
+            preferences.setMusicMode(modeStr)
+            if (mode == SourceMode.ONLINE_SERVER) {
+                val url = preferences.serverUrl.first()
+                if (url.isEmpty()) onNavigateToWelcome()
+            } else {
+                val uris = preferences.localFolderUris.first()
+                if (uris.isEmpty()) onNavigateToWelcome()
+            }
+        }
     }
 
     fun addFolder(uri: String) {

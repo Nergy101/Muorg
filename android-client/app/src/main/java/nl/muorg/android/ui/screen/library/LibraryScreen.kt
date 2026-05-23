@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.library
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,8 +17,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -30,6 +35,7 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,11 +60,17 @@ fun LibraryScreen(
     onAlbumClick: (String) -> Unit,
     onPlayerBarClick: () -> Unit,
     showPlayerBar: Boolean,
+    artistFilter: String? = null,
+    onOpenQueue: () -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     var showSortMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(artistFilter) {
+        if (artistFilter != null) viewModel.applyArtistFilter(artistFilter)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         SearchBar(
@@ -81,6 +93,27 @@ fun LibraryScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {}
+
+        AnimatedVisibility(visible = uiState.artistFilter != null) {
+            Row(modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)) {
+                AssistChip(
+                    onClick = viewModel::clearArtistFilter,
+                    label = { Text(uiState.artistFilter ?: "") },
+                    leadingIcon = { Icon(Icons.Filled.Person, null, Modifier.size(16.dp)) },
+                    trailingIcon = { Icon(Icons.Filled.Close, "Clear", Modifier.size(16.dp)) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                        labelColor = MaterialTheme.colorScheme.primary,
+                        leadingIconContentColor = MaterialTheme.colorScheme.primary,
+                        trailingIconContentColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    border = AssistChipDefaults.assistChipBorder(
+                        enabled = true,
+                        borderColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+            }
+        }
 
         // Sort dropdown + shuffle button row
         Row(
@@ -228,6 +261,7 @@ fun LibraryScreen(
                 onClick = onPlayerBarClick,
                 onPlayPause = playerViewModel::playPause,
                 onNext = playerViewModel::skipNext,
+                onOpenQueue = onOpenQueue,
             )
         }
     }

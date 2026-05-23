@@ -35,6 +35,8 @@ data class PlayerState(
     val shuffleEnabled: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val isConnected: Boolean = false,
+    val queue: List<CatalogTrack> = emptyList(),
+    val favorites: Set<String> = emptySet(),
 )
 
 @Singleton
@@ -58,6 +60,11 @@ class PlayerController @Inject constructor(
         connect()
         startProgressPolling()
         observeContinuousPlayback()
+        scope.launch {
+            preferences.favorites.collect { favs ->
+                _state.update { it.copy(favorites = favs) }
+            }
+        }
     }
 
     private fun connect() {
@@ -101,6 +108,11 @@ class PlayerController @Inject constructor(
         val positionMs = ctrl.currentPosition
         val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()) else 0f
 
+        val queue = (0 until ctrl.mediaItemCount).mapNotNull { i ->
+            val item = ctrl.getMediaItemAt(i)
+            trackCache.find { it.id.toString() == item.mediaId }
+        }
+
         _state.update { state ->
             state.copy(
                 currentTrack = currentTrack,
@@ -110,6 +122,7 @@ class PlayerController @Inject constructor(
                 durationMs = durationMs,
                 shuffleEnabled = ctrl.shuffleModeEnabled,
                 repeatMode = ctrl.repeatMode,
+                queue = queue,
             )
         }
     }
@@ -216,6 +229,61 @@ class PlayerController @Inject constructor(
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
             else -> Player.REPEAT_MODE_OFF
         }
+    }
+
+    fun skipTo(track: CatalogTrack) {
+        val ctrl = controller ?: return
+        val index = (0 until ctrl.mediaItemCount)
+            .firstOrNull { ctrl.getMediaItemAt(it).mediaId == track.id.toString() } ?: return
+        ctrl.seekToDefaultPosition(index)
+    }
+
+    fun removeFromQueue(track: CatalogTrack) {
+        val ctrl = controller ?: return
+        val currentIndex = ctrl.currentMediaItemIndex
+        val index = (0 until ctrl.mediaItemCount)
+            .firstOrNull { ctrl.getMediaItemAt(it).mediaId == track.id.toString() } ?: return
+        if (index == currentIndex) return
+        ctrl.removeMediaItem(index)
+        syncState()
+    }
+
+    fun clearQueue() {
+        val ctrl = controller ?: return
+        val currentIndex = ctrl.currentMediaItemIndex
+        for (i in (currentIndex + 1 until ctrl.mediaItemCount).reversed()) {
+            ctrl.removeMediaItem(i)
+        }
+        syncState()
+    }
+
+    fun addToQueue(track: CatalogTrack) {
+        val ctrl = controller ?: return
+        scope.launch {
+            val baseUrl = preferences.serverUrl.first().trimEnd('/')
+            val uri = if (track.localFilePath != null) track.localFilePath!!
+                      else {
+                          val token = libraryRepository.getStreamToken(track.id).getOrNull() ?: return@launch
+                          "$baseUrl/stream/${track.id}?token=$token"
+                      }
+            val mediaItem = MediaItem.Builder()
+                .setMediaId(track.id.toString())
+                .setUri(uri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(track.displayTitle)
+                        .setArtist(track.displayArtist)
+                        .setAlbumTitle(track.displayAlbum)
+                        .build()
+                )
+                .build()
+            ctrl.addMediaItem(mediaItem)
+            syncState()
+        }
+    }
+
+    fun toggleFavorite(track: CatalogTrack) {
+        scope.launch { preferences.toggleFavorite(track.id.toString()) }
     }
 
     private fun ensureConnected() {

@@ -16,7 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -104,12 +103,10 @@ fun TrackRow(
                     color = if (isPlaying) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface,
                 )
-                Text(
+                MarqueeText(
                     text = track.displayArtist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -154,7 +151,7 @@ fun TrackRow(
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
-                leadingIcon = { Icon(Icons.Filled.PlaylistAdd, contentDescription = null) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
                 trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
                 onClick = { menuLevel = TrackMenuLevel.PLAYLISTS },
             )

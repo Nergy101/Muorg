@@ -20,7 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -40,7 +40,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -123,20 +122,15 @@ fun AlbumCard(
                         .align(Alignment.BottomStart)
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {
-                    Text(
+                    MarqueeText(
                         text = album.albumName,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                         color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
+                    MarqueeText(
                         text = album.artist,
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.75f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -156,7 +150,7 @@ fun AlbumCard(
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
-                leadingIcon = { Icon(Icons.Filled.PlaylistAdd, contentDescription = null) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
                 trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
                 onClick = { menuLevel = AlbumMenuLevel.PLAYLISTS },
             )

@@ -15,9 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,14 +25,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -74,10 +71,15 @@ import javax.inject.Inject
 sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object Connect : Screen("connect")
-    object Library : Screen("library")
+    object Library : Screen("library?artistFilter={artistFilter}") {
+        fun createRoute(artistFilter: String? = null) =
+            if (artistFilter == null) "library"
+            else "library?artistFilter=${java.net.URLEncoder.encode(artistFilter, "UTF-8")}"
+    }
     object Player : Screen("player")
     object Playlists : Screen("playlists")
     object Settings : Screen("settings")
+    object Queue : Screen("queue")
     object AlbumDetail : Screen("album/{albumName}") {
         fun createRoute(albumName: String) =
             "album/${java.net.URLEncoder.encode(albumName, "UTF-8")}"
@@ -85,8 +87,8 @@ sealed class Screen(val route: String) {
 }
 
 private val bottomNavItems = listOf(
-    Triple(Screen.Library, Icons.Filled.LibraryMusic, "Library"),
-    Triple(Screen.Playlists, Icons.AutoMirrored.Filled.QueueMusic, "Playlists"),
+    Triple(Screen.Library, Icons.Filled.Home, "Library"),
+    Triple(Screen.Playlists, Icons.AutoMirrored.Filled.PlaylistPlay, "Playlists"),
     Triple(Screen.Settings, Icons.Filled.Settings, "Settings"),
 )
 
@@ -109,7 +111,10 @@ fun NavGraph() {
     val currentDestination = navBackStackEntry?.destination
 
     val showBottomBar = currentDestination?.route?.let { route ->
-        route != Screen.Connect.route && route != Screen.Welcome.route
+        route != Screen.Connect.route &&
+            route != Screen.Welcome.route &&
+            route != Screen.Player.route &&
+            route != Screen.Queue.route
     } ?: false
 
     val navViewModel: NavViewModel = hiltViewModel()
@@ -125,7 +130,8 @@ fun NavGraph() {
                     items = bottomNavItems,
                     currentDestination = currentDestination,
                     onNavigate = { screen ->
-                        navController.navigate(screen.route) {
+                        val route = if (screen is Screen.Library) Screen.Library.createRoute() else screen.route
+                        navController.navigate(route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }
@@ -145,7 +151,7 @@ fun NavGraph() {
                 composable(Screen.Welcome.route) {
                     WelcomeScreen(
                         onNavigateToLibrary = {
-                            navController.navigate(Screen.Library.route) {
+                            navController.navigate(Screen.Library.createRoute()) {
                                 popUpTo(Screen.Welcome.route) { inclusive = true }
                             }
                         },
@@ -158,22 +164,32 @@ fun NavGraph() {
                 composable(Screen.Connect.route) {
                     ConnectScreen(
                         onConnected = {
-                            navController.navigate(Screen.Library.route) {
+                            navController.navigate(Screen.Library.createRoute()) {
                                 popUpTo(0) { inclusive = true }
                             }
                         }
                     )
                 }
 
-                composable(Screen.Library.route) {
+                composable(
+                    route = Screen.Library.route,
+                    arguments = listOf(navArgument("artistFilter") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }),
+                ) { backStackEntry ->
+                    val artistFilter = backStackEntry.arguments?.getString("artistFilter")
                     LibraryScreen(
                         playerViewModel = playerViewModel,
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
+                        artistFilter = artistFilter,
                         onAlbumClick = { albumName ->
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName))
                         },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         showPlayerBar = showBottomBar,
                     )
                 }
@@ -191,6 +207,7 @@ fun NavGraph() {
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
                     )
                 }
 
@@ -221,6 +238,45 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
+                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onViewArtist = { artistName ->
+                            navController.popBackStack()
+                            navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                        },
+                        onViewAlbum = { albumName ->
+                            navController.popBackStack()
+                            navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                        },
+                    )
+                }
+
+                composable(
+                    route = Screen.Queue.route,
+                    enterTransition = {
+                        slideInVertically(
+                            initialOffsetY = { it },
+                            animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f),
+                        ) + fadeIn(animationSpec = tween(220))
+                    },
+                    exitTransition = {
+                        slideOutVertically(
+                            targetOffsetY = { it },
+                            animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
+                        ) + fadeOut(animationSpec = tween(180))
+                    },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = {
+                        slideOutVertically(
+                            targetOffsetY = { it },
+                            animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
+                        ) + fadeOut(animationSpec = tween(180))
+                    },
+                ) {
+                    nl.muorg.android.ui.screen.queue.QueueScreen(
+                        playerViewModel = playerViewModel,
+                        imageLoader = imageLoader,
+                        baseUrl = baseUrl,
+                        onBack = { navController.popBackStack() },
                     )
                 }
 
@@ -230,12 +286,13 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onPlaylistClick = { _ ->
-                            navController.navigate(Screen.Library.route) {
+                            navController.navigate(Screen.Library.createRoute()) {
                                 launchSingleTop = true
                                 restoreState = true
                             }
                         },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         showPlayerBar = showBottomBar,
                     )
                 }
@@ -271,7 +328,7 @@ private fun AnimatedBottomNav(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
+                .height(64.dp)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             val itemWidth = maxWidth / items.size
@@ -284,10 +341,10 @@ private fun AnimatedBottomNav(
             Box(
                 modifier = Modifier
                     .offset(x = pillOffsetX)
-                    .size(56.dp, 32.dp)
+                    .size(56.dp, 40.dp)
                     .background(
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                        RoundedCornerShape(16.dp),
+                        RoundedCornerShape(20.dp),
                     )
             )
 
@@ -316,22 +373,14 @@ private fun AnimatedBottomNav(
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = label,
-                                tint = iconColor,
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = iconColor,
-                            )
-                        }
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = iconColor,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
+                        )
                     }
                 }
             }

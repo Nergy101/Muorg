@@ -42,6 +42,7 @@ data class LibraryUiState(
     val activePlaylistId: Int? = null,
     val activePlaylistTrackIds: Set<Int> = emptySet(),
     val playlists: List<Playlist> = emptyList(),
+    val artistFilter: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -198,8 +199,31 @@ class LibraryViewModel @Inject constructor(
         setPlaylistFilter(null, emptySet())
     }
 
+    fun applyArtistFilter(artist: String?) {
+        _uiState.update { state ->
+            val updated = state.copy(artistFilter = artist)
+            updated.copy(
+                filteredTracks = applyFilters(state.allTracks, updated),
+                filteredAlbums = applyAlbumFilters(state.albums, updated),
+            )
+        }
+    }
+
+    fun clearArtistFilter() {
+        _uiState.update { state ->
+            val updated = state.copy(artistFilter = null)
+            updated.copy(
+                filteredTracks = applyFilters(state.allTracks, updated),
+                filteredAlbums = applyAlbumFilters(state.albums, updated),
+            )
+        }
+    }
+
     private fun applyFilters(tracks: List<CatalogTrack>, state: LibraryUiState): List<CatalogTrack> {
         var result = tracks
+        if (state.artistFilter != null) {
+            result = result.filter { it.displayArtist == state.artistFilter }
+        }
         if (state.activePlaylistId != null && state.activePlaylistTrackIds.isNotEmpty()) {
             result = result.filter { it.id in state.activePlaylistTrackIds }
         }
@@ -228,6 +252,11 @@ class LibraryViewModel @Inject constructor(
 
     private fun applyAlbumFilters(albums: List<AlbumGroup>, state: LibraryUiState): List<AlbumGroup> {
         var result = albums
+        if (state.artistFilter != null) {
+            result = result.filter { album ->
+                album.artist == state.artistFilter
+            }
+        }
         if (state.activePlaylistId != null && state.activePlaylistTrackIds.isNotEmpty()) {
             val albumsInPlaylist = state.allTracks
                 .filter { it.id in state.activePlaylistTrackIds }

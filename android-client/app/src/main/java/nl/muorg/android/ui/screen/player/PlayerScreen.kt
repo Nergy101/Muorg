@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -30,7 +33,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import nl.muorg.android.ui.component.MarqueeText
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,13 +42,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import nl.muorg.android.ui.component.MarqueeText
+import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,6 +61,9 @@ fun PlayerScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onBack: () -> Unit,
+    onOpenQueue: () -> Unit = {},
+    onViewArtist: (artistName: String) -> Unit = {},
+    onViewAlbum: (albumName: String) -> Unit = {},
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
@@ -65,8 +73,49 @@ fun PlayerScreen(
     var seekPosition by remember { mutableFloatStateOf(0f) }
     val displayProgress = if (isSeeking) seekPosition else playerState.progress
 
+    var sheetOpen by remember { mutableStateOf(false) }
+    val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
+    val favorites = playerState.favorites
+
     Scaffold(
-        topBar = {}
+        topBar = {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowDown,
+                        contentDescription = "Minimize",
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+                Text(
+                    "Now playing",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        letterSpacing = 0.5.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onOpenQueue) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.QueueMusic,
+                        contentDescription = "Open queue",
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                IconButton(onClick = { sheetOpen = true }) {
+                    Icon(
+                        Icons.Filled.MoreVert,
+                        contentDescription = "More",
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -121,22 +170,18 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                Text(
+                MarqueeText(
                     text = currentTrack?.displayArtist ?: "",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
 
-                Text(
+                MarqueeText(
                     text = currentTrack?.displayAlbum ?: "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -250,6 +295,27 @@ fun PlayerScreen(
                 }
             }
         }
+    }
+
+    if (sheetOpen && currentTrack != null) {
+        TrackActionsSheet(
+            track = currentTrack,
+            playerViewModel = playerViewModel,
+            playlists = playlists,
+            isFavorite = currentTrack.id.toString() in favorites,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            onDismiss = { sheetOpen = false },
+            onAddToPlaylist = { sheetOpen = false },
+            onViewArtist = {
+                sheetOpen = false
+                onViewArtist(currentTrack.displayArtist)
+            },
+            onViewAlbum = {
+                sheetOpen = false
+                onViewAlbum(currentTrack.displayAlbum)
+            },
+        )
     }
 }
 

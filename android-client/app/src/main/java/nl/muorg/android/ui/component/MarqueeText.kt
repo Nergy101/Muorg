@@ -4,8 +4,8 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.LocalTextStyle
@@ -50,18 +50,27 @@ fun MarqueeText(
     }
 
     val overflows = textWidth > containerWidth && containerWidth > 0
-
-    val totalScroll = (textWidth + containerWidth * 0.5f).coerceAtLeast(1f)
-    val durationMs = ((totalScroll / pixelsPerSecond) * 1000).toInt().coerceAtLeast(2000)
+    val scrollDist = if (overflows) (textWidth - containerWidth + 4f).coerceAtLeast(1f) else 1f
+    val scrollMs = (scrollDist / pixelsPerSecond * 1000f).coerceAtLeast(800f).toInt()
+    val startPauseMs = 1200
+    val endPauseMs = 1200
+    val totalDuration = startPauseMs + scrollMs + endPauseMs + scrollMs
 
     // Always create the transition unconditionally (Compose rule).
-    // When not overflowing the target stays at 0f so nothing moves.
+    // When not overflowing the offset stays at 0f so nothing moves.
     val transition = rememberInfiniteTransition(label = "marquee")
     val offset by transition.animateFloat(
         initialValue = 0f,
-        targetValue = if (overflows) -totalScroll else 0f,
+        targetValue = 0f,   // keyframes overrides start/end anyway
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = durationMs, easing = LinearEasing),
+            animation = keyframes {
+                durationMillis = totalDuration
+                0f at 0
+                0f at startPauseMs
+                -scrollDist at (startPauseMs + scrollMs) using LinearEasing
+                -scrollDist at (startPauseMs + scrollMs + endPauseMs)
+                0f at totalDuration using LinearEasing
+            },
             repeatMode = RepeatMode.Restart,
         ),
         label = "marqueeOffset",
@@ -81,14 +90,6 @@ fun MarqueeText(
                 maxLines = 1,
                 softWrap = false,
                 modifier = Modifier.graphicsLayer { translationX = offset },
-            )
-            Text(
-                text = text,
-                style = style,
-                color = color,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.graphicsLayer { translationX = offset + totalScroll },
             )
         } else {
             Text(

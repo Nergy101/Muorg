@@ -47,6 +47,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import nl.muorg.android.data.api.Playlist
+import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.player.PlayerViewModel
 
@@ -69,6 +70,7 @@ fun PlaylistsScreen(
     onPlaylistClick: (Int) -> Unit,
     onPlayerBarClick: () -> Unit,
     showPlayerBar: Boolean,
+    onOpenQueue: () -> Unit = {},
     viewModel: PlaylistsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -135,6 +137,7 @@ fun PlaylistsScreen(
                 onClick = onPlayerBarClick,
                 onPlayPause = playerViewModel::playPause,
                 onNext = playerViewModel::skipNext,
+                onOpenQueue = onOpenQueue,
             )
         }
     }
@@ -301,7 +304,7 @@ private fun PlaylistCard(
             Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                MarqueeText(
                     text = playlist.name,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,

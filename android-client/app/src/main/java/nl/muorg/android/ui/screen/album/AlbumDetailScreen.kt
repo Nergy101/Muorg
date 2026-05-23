@@ -21,7 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -49,6 +49,7 @@ import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.component.EqualizerBars
+import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.player.PlayerViewModel
 
@@ -63,6 +64,7 @@ fun AlbumDetailScreen(
     baseUrl: String,
     onBack: () -> Unit,
     onPlayerBarClick: () -> Unit,
+    onOpenQueue: () -> Unit = {},
     viewModel: AlbumDetailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(albumName) {
@@ -83,6 +85,7 @@ fun AlbumDetailScreen(
                     onClick = onPlayerBarClick,
                     onPlayPause = playerViewModel::playPause,
                     onNext = playerViewModel::skipNext,
+                    onOpenQueue = onOpenQueue,
                 )
             }
         }
@@ -126,19 +129,15 @@ fun AlbumDetailScreen(
                             Spacer(modifier = Modifier.width(14.dp))
 
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
+                                MarqueeText(
                                     text = uiState.albumName,
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
                                 )
-                                Text(
+                                MarqueeText(
                                     text = uiState.artist,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     text = buildString {
@@ -243,12 +242,10 @@ private fun AlbumTrackRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (!track.artist.isNullOrBlank() && track.artist != track.albumArtist) {
-                    Text(
+                    MarqueeText(
                         text = track.artist,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -292,7 +289,7 @@ private fun AlbumTrackRow(
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
-                leadingIcon = { Icon(Icons.Filled.PlaylistAdd, contentDescription = null) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
                 trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
                 onClick = { menuLevel = TrackMenuLevel.PLAYLISTS },
             )
