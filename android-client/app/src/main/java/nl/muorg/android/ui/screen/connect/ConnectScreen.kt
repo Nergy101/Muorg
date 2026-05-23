@@ -50,19 +50,12 @@ fun ConnectScreen(
 
     LaunchedEffect(event) {
         when (event) {
-            is ConnectEvent.Connected, is ConnectEvent.SkipToLibrary -> {
+            is ConnectEvent.Connected -> {
                 onConnected()
                 viewModel.consumeEvent()
             }
             null -> Unit
         }
-    }
-
-    if (uiState.isCheckingCredentials) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-        }
-        return
     }
 
     var showApiKey by remember { mutableStateOf(false) }

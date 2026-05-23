@@ -18,12 +18,10 @@ data class ConnectUiState(
     val apiKey: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isCheckingCredentials: Boolean = true,
 )
 
 sealed class ConnectEvent {
     object Connected : ConnectEvent()
-    object SkipToLibrary : ConnectEvent()
 }
 
 @HiltViewModel
@@ -39,23 +37,10 @@ class ConnectViewModel @Inject constructor(
     val events: StateFlow<ConnectEvent?> = _events.asStateFlow()
 
     init {
-        checkSavedCredentials()
-    }
-
-    private fun checkSavedCredentials() {
         viewModelScope.launch {
             val savedUrl = preferences.serverUrl.first()
             val savedKey = preferences.apiKey.first()
-            if (savedUrl.isNotBlank() && savedKey.isNotBlank()) {
-                _uiState.update { it.copy(serverUrl = savedUrl, apiKey = savedKey) }
-                // Try to connect silently; if it works, go straight to Library
-                val result = runCatching { api.health() }
-                if (result.isSuccess && result.getOrNull()?.isSuccessful == true) {
-                    _events.value = ConnectEvent.SkipToLibrary
-                    return@launch
-                }
-            }
-            _uiState.update { it.copy(isCheckingCredentials = false) }
+            _uiState.update { it.copy(serverUrl = savedUrl, apiKey = savedKey) }
         }
     }
 

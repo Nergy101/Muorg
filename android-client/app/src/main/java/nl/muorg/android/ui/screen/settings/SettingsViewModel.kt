@@ -101,7 +101,7 @@ class SettingsViewModel @Inject constructor(
                     githubJson.decodeFromString<GithubRelease>(text)
                 }
             }.onSuccess { release ->
-                val latest = release.tagName.removePrefix("v")
+                val latest = Regex("""\d+\.\d+\.\d+""").find(release.tagName)?.value ?: return@onSuccess
                 if (isNewer(latest, BuildConfig.VERSION_NAME)) {
                     _uiState.update {
                         it.copy(latestVersion = latest, latestReleaseUrl = release.htmlUrl)

@@ -36,12 +36,14 @@ import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.screen.album.AlbumDetailScreen
 import nl.muorg.android.ui.screen.connect.ConnectScreen
 import nl.muorg.android.ui.screen.library.LibraryScreen
+import nl.muorg.android.ui.screen.welcome.WelcomeScreen
 import nl.muorg.android.ui.screen.player.PlayerScreen
 import nl.muorg.android.ui.screen.playlists.PlaylistsScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import javax.inject.Inject
 
 sealed class Screen(val route: String) {
+    object Welcome : Screen("welcome")
     object Connect : Screen("connect")
     object Library : Screen("library")
     object Player : Screen("player")
@@ -78,7 +80,7 @@ fun NavGraph() {
     val currentDestination = navBackStackEntry?.destination
 
     val showBottomBar = currentDestination?.route?.let { route ->
-        route != Screen.Connect.route
+        route != Screen.Connect.route && route != Screen.Welcome.route
     } ?: false
 
     val navViewModel: NavViewModel = hiltViewModel()
@@ -116,13 +118,26 @@ fun NavGraph() {
         Box(modifier = Modifier.padding(innerPadding)) {
             NavHost(
                 navController = navController,
-                startDestination = Screen.Connect.route,
+                startDestination = Screen.Welcome.route,
             ) {
+                composable(Screen.Welcome.route) {
+                    WelcomeScreen(
+                        onNavigateToLibrary = {
+                            navController.navigate(Screen.Library.route) {
+                                popUpTo(Screen.Welcome.route) { inclusive = true }
+                            }
+                        },
+                        onNavigateToRemoteSetup = {
+                            navController.navigate(Screen.Connect.route)
+                        },
+                    )
+                }
+
                 composable(Screen.Connect.route) {
                     ConnectScreen(
                         onConnected = {
                             navController.navigate(Screen.Library.route) {
-                                popUpTo(Screen.Connect.route) { inclusive = true }
+                                popUpTo(0) { inclusive = true }
                             }
                         }
                     )
@@ -185,7 +200,7 @@ fun NavGraph() {
                 composable(Screen.Settings.route) {
                     SettingsScreen(
                         onLoggedOut = {
-                            navController.navigate(Screen.Connect.route) {
+                            navController.navigate(Screen.Welcome.route) {
                                 popUpTo(0) { inclusive = true }
                             }
                         }

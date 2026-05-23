@@ -91,22 +91,18 @@ fun PlaylistsScreen(
             }
         }
 
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
                 uiState.playlists.isEmpty() -> {
                     Text(
                         text = "No playlists yet.\nTap + to create one.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(16.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(16.dp),
                     )
                 }
                 else -> {
