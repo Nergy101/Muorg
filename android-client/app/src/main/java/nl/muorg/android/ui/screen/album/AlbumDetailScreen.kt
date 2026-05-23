@@ -48,6 +48,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
+import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.player.PlayerViewModel
 
@@ -109,9 +110,10 @@ fun AlbumDetailScreen(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            uiState.coverTrackId?.let { coverId ->
+                            val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
+                            coverModel?.let {
                                 AsyncImage(
-                                    model = "$baseUrl/api/tracks/$coverId/cover",
+                                    model = it,
                                     contentDescription = "Album cover",
                                     imageLoader = imageLoader,
                                     contentScale = ContentScale.Crop,
@@ -216,12 +218,20 @@ private fun AlbumTrackRow(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = track.trackNumber?.toString() ?: "·",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(28.dp),
-            )
+            Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                if (isPlaying) {
+                    EqualizerBars(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(width = 20.dp, height = 14.dp),
+                    )
+                } else {
+                    Text(
+                        text = track.trackNumber?.toString() ?: "·",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(

@@ -1,5 +1,8 @@
 package nl.muorg.android.data.repository
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.Stats
@@ -9,11 +12,13 @@ import nl.muorg.android.data.db.LocalPlaylistEntry
 import nl.muorg.android.data.db.LocalTrackDao
 import nl.muorg.android.data.db.toCatalogTrack
 import nl.muorg.android.data.local.LocalLibraryScanner
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class LocalLibraryRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val trackDao: LocalTrackDao,
     private val playlistDao: LocalPlaylistDao,
     private val scanner: LocalLibraryScanner,
@@ -65,4 +70,30 @@ class LocalLibraryRepository @Inject constructor(
 
     suspend fun removeTrackFromPlaylist(playlistId: Int, localTrackId: Int) =
         playlistDao.removeEntry(playlistId, localTrackId)
+
+    suspend fun buildAlbumGroups(): List<AlbumGroup> {
+        val localTracks = trackDao.getAllTracks()
+        val artDir = File(context.cacheDir, "album_art")
+        return localTracks
+            .groupBy { it.album ?: "Unknown Album" }
+            .map { (albumName, tracks) ->
+                val rep = tracks.minByOrNull { (it.discNumber ?: 0) * 10000 + (it.trackNumber ?: 9999) }
+                    ?: tracks.first()
+                val artFile = File(artDir, "${albumName.hashCode()}.jpg")
+                AlbumGroup(
+                    albumName = albumName,
+                    artist = rep.albumArtist ?: rep.artist ?: "Unknown Artist",
+                    year = rep.year,
+                    trackCount = tracks.size,
+                    coverTrackId = -rep.id,
+                    coverArtUri = if (artFile.exists()) artFile.absolutePath else null,
+                )
+            }
+            .sortedWith(compareBy({ it.artist.lowercase() }, { it.albumName.lowercase() }))
+    }
+
+    fun getAlbumArtUri(albumName: String): String? {
+        val artFile = File(context.cacheDir, "album_art/${albumName.hashCode()}.jpg")
+        return if (artFile.exists()) artFile.absolutePath else null
+    }
 }

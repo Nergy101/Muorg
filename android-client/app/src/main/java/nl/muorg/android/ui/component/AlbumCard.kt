@@ -1,11 +1,18 @@
 package nl.muorg.android.ui.component
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,8 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
@@ -52,72 +62,86 @@ fun AlbumCard(
     onAddToPlaylist: ((Playlist) -> Unit)? = null,
 ) {
     var menuLevel by remember { mutableStateOf(AlbumMenuLevel.HIDDEN) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "cardScale",
+    )
 
     Box(modifier = modifier.fillMaxWidth()) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { menuLevel = AlbumMenuLevel.MAIN },
-                ),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                .graphicsLayer { scaleX = scale; scaleY = scale },
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = if (isPressed) 0.dp else 4.dp,
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         ) {
-            Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                        onLongClick = { menuLevel = AlbumMenuLevel.MAIN },
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Album,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                )
+                AsyncImage(
+                    model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover",
+                    contentDescription = "Cover for ${album.albumName}",
+                    imageLoader = imageLoader,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
-                    contentAlignment = Alignment.Center,
+                        .height(100.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color(0xE6111111))
+                            )
+                        )
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Album,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(24.dp),
-                    )
-                    AsyncImage(
-                        model = "$baseUrl/api/tracks/${album.coverTrackId}/cover",
-                        contentDescription = "Cover for ${album.albumName}",
-                        imageLoader = imageLoader,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                Column(modifier = Modifier.padding(8.dp)) {
                     Text(
                         text = album.albumName,
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = album.artist,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.75f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = buildString {
-                            album.year?.let { append("$it · ") }
-                            append("${album.trackCount} tracks")
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
 
-        // Level 1: main actions
         DropdownMenu(
             expanded = menuLevel == AlbumMenuLevel.MAIN,
             onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },
@@ -138,7 +162,6 @@ fun AlbumCard(
             )
         }
 
-        // Level 2: playlist selection
         DropdownMenu(
             expanded = menuLevel == AlbumMenuLevel.PLAYLISTS,
             onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },

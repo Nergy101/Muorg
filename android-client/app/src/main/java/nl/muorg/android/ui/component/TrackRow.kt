@@ -65,23 +65,34 @@ fun TrackRow(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (track.hasCover) {
-                AsyncImage(
-                    model = "$baseUrl/api/tracks/${track.id}/cover",
-                    contentDescription = null,
-                    imageLoader = imageLoader,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Filled.MusicNote,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(48.dp).padding(8.dp)
-                )
+            Box(
+                modifier = Modifier.size(48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isPlaying) {
+                    EqualizerBars(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(width = 20.dp, height = 14.dp),
+                    )
+                } else if (track.hasCover || track.localFilePath != null) {
+                    AsyncImage(
+                        model = if (track.localFilePath != null) null
+                                else "$baseUrl/api/tracks/${track.id}/cover",
+                        contentDescription = null,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))

@@ -78,28 +78,46 @@ class LibraryViewModel @Inject constructor(
     fun loadTracks() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            val result = if (currentMode == "local") {
-                runCatching { localRepository.getAllTracks() }
-            } else {
-                repository.getAllTracks()
-            }
-            result.fold(
-                onSuccess = { tracks ->
-                    val albums = repository.buildAlbumGroups(tracks)
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            allTracks = tracks,
-                            filteredTracks = applyFilters(tracks, state),
-                            albums = albums,
-                            filteredAlbums = applyAlbumFilters(albums, state),
-                        )
+            if (currentMode == "local") {
+                runCatching {
+                    val tracks = localRepository.getAllTracks()
+                    val albums = localRepository.buildAlbumGroups()
+                    Pair(tracks, albums)
+                }.fold(
+                    onSuccess = { (tracks, albums) ->
+                        _uiState.update { state ->
+                            state.copy(
+                                isLoading = false,
+                                allTracks = tracks,
+                                filteredTracks = applyFilters(tracks, state),
+                                albums = albums,
+                                filteredAlbums = applyAlbumFilters(albums, state),
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        _uiState.update { it.copy(isLoading = false, error = error.message) }
                     }
-                },
-                onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false, error = error.message) }
-                }
-            )
+                )
+            } else {
+                repository.getAllTracks().fold(
+                    onSuccess = { tracks ->
+                        val albums = repository.buildAlbumGroups(tracks)
+                        _uiState.update { state ->
+                            state.copy(
+                                isLoading = false,
+                                allTracks = tracks,
+                                filteredTracks = applyFilters(tracks, state),
+                                albums = albums,
+                                filteredAlbums = applyAlbumFilters(albums, state),
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        _uiState.update { it.copy(isLoading = false, error = error.message) }
+                    }
+                )
+            }
         }
     }
 

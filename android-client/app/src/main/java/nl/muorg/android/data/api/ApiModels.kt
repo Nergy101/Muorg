@@ -89,4 +89,5 @@ data class AlbumGroup(
     val year: Int?,
     val trackCount: Int,
     val coverTrackId: Int,
+    val coverArtUri: String? = null,
 )

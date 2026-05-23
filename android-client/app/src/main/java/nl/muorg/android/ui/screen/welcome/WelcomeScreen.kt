@@ -4,6 +4,17 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -41,13 +53,20 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +111,22 @@ fun WelcomeScreen(
         }
 
         WelcomeStep.MODE_SELECT -> {
+            var showTitle by remember { mutableStateOf(false) }
+            var showSubtitle by remember { mutableStateOf(false) }
+            var showCard1 by remember { mutableStateOf(false) }
+            var showCard2 by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                delay(80)
+                showTitle = true
+                delay(140)
+                showSubtitle = true
+                delay(180)
+                showCard1 = true
+                delay(100)
+                showCard2 = true
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -99,38 +134,58 @@ fun WelcomeScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = "Muorg",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                AnimatedVisibility(
+                    visible = showTitle,
+                    enter = fadeIn(tween(400)) + slideInVertically(tween(400, easing = FastOutSlowInEasing)) { it / 3 },
+                ) {
+                    Text(
+                        text = "Muorg",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
 
                 Spacer(Modifier.height(8.dp))
 
-                Text(
-                    text = "How do you want to listen?",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
+                AnimatedVisibility(
+                    visible = showSubtitle,
+                    enter = fadeIn(tween(400)) + slideInVertically(tween(400, easing = FastOutSlowInEasing)) { it / 3 },
+                ) {
+                    Text(
+                        text = "How do you want to listen?",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
 
                 Spacer(Modifier.height(48.dp))
 
-                ModeCard(
-                    icon = { Icon(Icons.Filled.Cloud, contentDescription = null, modifier = Modifier.size(32.dp)) },
-                    title = "Muorg Server",
-                    subtitle = "Stream from your self-hosted server",
-                    onClick = viewModel::chooseRemote,
-                )
+                AnimatedVisibility(
+                    visible = showCard1,
+                    enter = fadeIn(tween(500)) + slideInVertically(tween(500, easing = FastOutSlowInEasing)) { it / 2 },
+                ) {
+                    ShimmerModeCard(
+                        icon = { Icon(Icons.Filled.Cloud, contentDescription = null, modifier = Modifier.size(32.dp)) },
+                        title = "Muorg Server",
+                        subtitle = "Stream from your self-hosted server",
+                        onClick = viewModel::chooseRemote,
+                    )
+                }
 
                 Spacer(Modifier.height(16.dp))
 
-                ModeCard(
-                    icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(32.dp)) },
-                    title = "Local Library",
-                    subtitle = "Play music from folders on this device",
-                    onClick = viewModel::chooseLocal,
-                )
+                AnimatedVisibility(
+                    visible = showCard2,
+                    enter = fadeIn(tween(500)) + slideInVertically(tween(500, easing = FastOutSlowInEasing)) { it / 2 },
+                ) {
+                    ShimmerModeCard(
+                        icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(32.dp)) },
+                        title = "Local Library",
+                        subtitle = "Play music from folders on this device",
+                        onClick = viewModel::chooseLocal,
+                    )
+                }
             }
         }
 
@@ -221,41 +276,69 @@ fun WelcomeScreen(
 }
 
 @Composable
-private fun ModeCard(
+private fun ShimmerModeCard(
     icon: @Composable () -> Unit,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
 ) {
+    val shimmer = rememberInfiniteTransition(label = "shimmer")
+    val shimmerX by shimmer.animateFloat(
+        initialValue = -300f,
+        targetValue = 900f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "shimmerX",
+    )
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(
+            Color.Transparent,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
+            Color.Transparent,
+        ),
+        start = Offset(shimmerX, 0f),
+        end = Offset(shimmerX + 300f, 300f),
+    )
+
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp),
     ) {
-        Row(
-            modifier = Modifier.padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Box {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .padding(4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    icon()
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(2.dp))
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .padding(4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                icon()
-            }
-            Spacer(Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(2.dp))
-                Text(subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    .matchParentSize()
+                    .background(shimmerBrush, RoundedCornerShape(16.dp))
             )
         }
     }
