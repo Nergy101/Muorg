@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.Playlist
+import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
 import javax.inject.Inject
 
@@ -28,26 +30,46 @@ data class PlaylistsUiState(
 @HiltViewModel
 class PlaylistsViewModel @Inject constructor(
     private val repository: PlaylistRepository,
+    private val localRepository: LocalLibraryRepository,
+    private val preferences: AppPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlaylistsUiState())
     val uiState: StateFlow<PlaylistsUiState> = _uiState.asStateFlow()
 
+    private var currentMode: String = "remote"
+
     init {
-        loadPlaylists()
+        viewModelScope.launch {
+            preferences.musicMode.collect { mode ->
+                currentMode = mode
+                loadPlaylists()
+            }
+        }
     }
 
     fun loadPlaylists() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            repository.getPlaylists().fold(
-                onSuccess = { playlists ->
-                    _uiState.update { it.copy(isLoading = false, playlists = playlists) }
-                },
-                onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false, error = error.message) }
-                }
-            )
+            if (currentMode == "local") {
+                runCatching { localRepository.getPlaylists() }.fold(
+                    onSuccess = { playlists ->
+                        _uiState.update { it.copy(isLoading = false, playlists = playlists) }
+                    },
+                    onFailure = { error ->
+                        _uiState.update { it.copy(isLoading = false, error = error.message) }
+                    }
+                )
+            } else {
+                repository.getPlaylists().fold(
+                    onSuccess = { playlists ->
+                        _uiState.update { it.copy(isLoading = false, playlists = playlists) }
+                    },
+                    onFailure = { error ->
+                        _uiState.update { it.copy(isLoading = false, error = error.message) }
+                    }
+                )
+            }
         }
     }
 
@@ -73,15 +95,22 @@ class PlaylistsViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(showCreateDialog = false) }
-            repository.createPlaylist(
-                name = state.newPlaylistName.trim(),
-                icon = state.newPlaylistIcon.ifBlank { "🎵" },
-            ).fold(
-                onSuccess = { loadPlaylists() },
-                onFailure = { error ->
-                    _uiState.update { it.copy(error = error.message) }
-                }
-            )
+            if (currentMode == "local") {
+                runCatching { localRepository.createPlaylist(state.newPlaylistName.trim()) }.fold(
+                    onSuccess = { loadPlaylists() },
+                    onFailure = { error -> _uiState.update { it.copy(error = error.message) } }
+                )
+            } else {
+                repository.createPlaylist(
+                    name = state.newPlaylistName.trim(),
+                    icon = state.newPlaylistIcon.ifBlank { "🎵" },
+                ).fold(
+                    onSuccess = { loadPlaylists() },
+                    onFailure = { error ->
+                        _uiState.update { it.copy(error = error.message) }
+                    }
+                )
+            }
         }
     }
 
@@ -115,40 +144,56 @@ class PlaylistsViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(showEditDialog = false, editingPlaylist = null) }
-            repository.updatePlaylist(
-                id = id,
-                name = state.editName.trim(),
-                icon = state.editIcon.ifBlank { "🎵" },
-            ).fold(
-                onSuccess = { _ ->
-                    // Optimistically update from local edit state — server PATCH responses
-                    // may be partial and miss fields like track_count.
-                    _uiState.update { s ->
-                        s.copy(playlists = s.playlists.map { p ->
-                            if (p.id == id) p.copy(
-                                name = state.editName.trim(),
-                                icon = state.editIcon.ifBlank { "🎵" },
-                            ) else p
-                        })
-                    }
-                    loadPlaylists() // background refresh for full accuracy
-                },
-                onFailure = { error ->
-                    _uiState.update { it.copy(error = error.message) }
-                    loadPlaylists()
+            if (currentMode == "local") {
+                _uiState.update { s ->
+                    s.copy(playlists = s.playlists.map { p ->
+                        if (p.id == id) p.copy(name = state.editName.trim(), icon = state.editIcon.ifBlank { "🎵" }) else p
+                    })
                 }
-            )
+                loadPlaylists()
+            } else {
+                repository.updatePlaylist(
+                    id = id,
+                    name = state.editName.trim(),
+                    icon = state.editIcon.ifBlank { "🎵" },
+                ).fold(
+                    onSuccess = { _ ->
+                        // Optimistically update from local edit state — server PATCH responses
+                        // may be partial and miss fields like track_count.
+                        _uiState.update { s ->
+                            s.copy(playlists = s.playlists.map { p ->
+                                if (p.id == id) p.copy(
+                                    name = state.editName.trim(),
+                                    icon = state.editIcon.ifBlank { "🎵" },
+                                ) else p
+                            })
+                        }
+                        loadPlaylists() // background refresh for full accuracy
+                    },
+                    onFailure = { error ->
+                        _uiState.update { it.copy(error = error.message) }
+                        loadPlaylists()
+                    }
+                )
+            }
         }
     }
 
     fun deletePlaylist(id: Int) {
         viewModelScope.launch {
-            repository.deletePlaylist(id).fold(
-                onSuccess = { loadPlaylists() },
-                onFailure = { error ->
-                    _uiState.update { it.copy(error = error.message) }
-                }
-            )
+            if (currentMode == "local") {
+                runCatching { localRepository.deletePlaylist(id) }.fold(
+                    onSuccess = { loadPlaylists() },
+                    onFailure = { error -> _uiState.update { it.copy(error = error.message) } }
+                )
+            } else {
+                repository.deletePlaylist(id).fold(
+                    onSuccess = { loadPlaylists() },
+                    onFailure = { error ->
+                        _uiState.update { it.copy(error = error.message) }
+                    }
+                )
+            }
         }
     }
 }

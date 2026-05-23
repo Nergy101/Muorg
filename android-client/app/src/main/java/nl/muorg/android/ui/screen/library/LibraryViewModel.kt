@@ -16,6 +16,7 @@ import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
+import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
 import javax.inject.Inject
 
@@ -47,6 +48,7 @@ data class LibraryUiState(
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val repository: LibraryRepository,
+    private val localRepository: LocalLibraryRepository,
     private val playlistRepository: PlaylistRepository,
     private val preferences: AppPreferences,
 ) : ViewModel() {
@@ -55,6 +57,7 @@ class LibraryViewModel @Inject constructor(
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
+    private var currentMode: String = "remote"
 
     init {
         viewModelScope.launch {
@@ -62,7 +65,12 @@ class LibraryViewModel @Inject constructor(
             val sortMode = SortMode.entries.firstOrNull { it.name == sortName } ?: SortMode.BY_ALBUM
             _uiState.update { it.copy(sortMode = sortMode) }
         }
-        loadTracks()
+        viewModelScope.launch {
+            preferences.musicMode.collect { mode ->
+                currentMode = mode
+                loadTracks()
+            }
+        }
         loadPlaylists()
         observeSearch()
     }
@@ -70,7 +78,12 @@ class LibraryViewModel @Inject constructor(
     fun loadTracks() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            repository.getAllTracks().fold(
+            val result = if (currentMode == "local") {
+                runCatching { localRepository.getAllTracks() }
+            } else {
+                repository.getAllTracks()
+            }
+            result.fold(
                 onSuccess = { tracks ->
                     val albums = repository.buildAlbumGroups(tracks)
                     _uiState.update { state ->
@@ -92,15 +105,25 @@ class LibraryViewModel @Inject constructor(
 
     fun loadPlaylists() {
         viewModelScope.launch {
-            playlistRepository.getPlaylists().onSuccess { playlists ->
+            if (currentMode == "local") {
+                val playlists = localRepository.getPlaylists()
                 _uiState.update { it.copy(playlists = playlists) }
+            } else {
+                playlistRepository.getPlaylists().onSuccess { playlists ->
+                    _uiState.update { it.copy(playlists = playlists) }
+                }
             }
         }
     }
 
     fun addTracksToPlaylist(trackIds: List<Int>, playlistId: Int) {
         viewModelScope.launch {
-            playlistRepository.addTracks(playlistId, trackIds)
+            if (currentMode == "local") {
+                // CatalogTrack IDs for local tracks are negative; convert back to Room IDs
+                localRepository.addTracksToPlaylist(playlistId, trackIds.map { -it })
+            } else {
+                playlistRepository.addTracks(playlistId, trackIds)
+            }
         }
     }
 

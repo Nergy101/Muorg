@@ -146,12 +146,15 @@ class PlayerController @Inject constructor(
         scope.launch {
             val baseUrl = preferences.serverUrl.first().trimEnd('/')
             val mediaItems = queue.map { t ->
-                val tokenResult = libraryRepository.getStreamToken(t.id)
-                val token = tokenResult.getOrNull() ?: return@launch
-                val streamUrl = "$baseUrl/stream/${t.id}?token=$token"
+                val uri = if (t.localFilePath != null) {
+                    t.localFilePath
+                } else {
+                    val token = libraryRepository.getStreamToken(t.id).getOrNull() ?: return@launch
+                    "$baseUrl/stream/${t.id}?token=$token"
+                }
                 MediaItem.Builder()
                     .setMediaId(t.id.toString())
-                    .setUri(streamUrl)
+                    .setUri(uri)
                     .setMediaMetadata(
                         MediaMetadata.Builder()
                             .setTitle(t.displayTitle)
@@ -166,7 +169,9 @@ class PlayerController @Inject constructor(
             ctrl.setMediaItems(mediaItems, startIndex, 0L)
             ctrl.prepare()
             ctrl.play()
-            libraryRepository.recordPlay(track.id)
+            if (track.localFilePath == null) {
+                libraryRepository.recordPlay(track.id)
+            }
         }
     }
 

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,8 @@ class AppPreferences @Inject constructor(
         private val KEY_API_KEY = stringPreferencesKey("api_key")
         private val KEY_CONTINUOUS_PLAYBACK = booleanPreferencesKey("continuous_playback")
         private val KEY_DEFAULT_SORT = stringPreferencesKey("default_sort")
+        private val KEY_MUSIC_MODE = stringPreferencesKey("music_mode")
+        private val KEY_LOCAL_FOLDER_URIS = stringSetPreferencesKey("local_folder_uris")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -37,6 +40,22 @@ class AppPreferences @Inject constructor(
 
     val defaultSort: Flow<String> = context.dataStore.data
         .map { prefs -> prefs[KEY_DEFAULT_SORT] ?: "BY_ALBUM" }
+
+    val musicMode: Flow<String> = context.dataStore.data
+        .map { it[KEY_MUSIC_MODE] ?: "remote" }
+
+    val localFolderUris: Flow<Set<String>> = context.dataStore.data
+        .map { it[KEY_LOCAL_FOLDER_URIS] ?: emptySet() }
+
+    suspend fun setMusicMode(mode: String) = context.dataStore.edit { it[KEY_MUSIC_MODE] = mode }
+
+    suspend fun addLocalFolderUri(uri: String) = context.dataStore.edit {
+        it[KEY_LOCAL_FOLDER_URIS] = (it[KEY_LOCAL_FOLDER_URIS] ?: emptySet()) + uri
+    }
+
+    suspend fun removeLocalFolderUri(uri: String) = context.dataStore.edit {
+        it[KEY_LOCAL_FOLDER_URIS] = (it[KEY_LOCAL_FOLDER_URIS] ?: emptySet()) - uri
+    }
 
     suspend fun setContinuousPlayback(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[KEY_CONTINUOUS_PLAYBACK] = enabled }

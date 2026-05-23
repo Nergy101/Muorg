@@ -1,6 +1,7 @@
 package nl.muorg.android.di
 
 import android.content.Context
+import androidx.room.Room
 import coil.ImageLoader
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
@@ -14,6 +15,9 @@ import kotlinx.serialization.json.Json
 import nl.muorg.android.data.api.MuorgApiService
 import nl.muorg.android.data.api.buildAuthOkHttpClient
 import nl.muorg.android.data.api.buildCoilImageLoader
+import nl.muorg.android.data.db.AppDatabase
+import nl.muorg.android.data.db.LocalPlaylistDao
+import nl.muorg.android.data.db.LocalTrackDao
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
@@ -102,4 +106,17 @@ object AppModule {
         @ApplicationContext context: Context,
         okHttpClient: OkHttpClient,
     ): ImageLoader = buildCoilImageLoader(context, okHttpClient)
+
+    @Provides
+    @Singleton
+    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
+        Room.databaseBuilder(context, AppDatabase::class.java, "muorg_local.db").build()
+
+    @Provides
+    @Singleton
+    fun provideLocalTrackDao(db: AppDatabase): LocalTrackDao = db.localTrackDao()
+
+    @Provides
+    @Singleton
+    fun provideLocalPlaylistDao(db: AppDatabase): LocalPlaylistDao = db.localPlaylistDao()
 }

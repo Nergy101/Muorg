@@ -2,6 +2,8 @@ package nl.muorg.android.ui.screen.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,9 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NewReleases
@@ -33,14 +38,20 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -57,6 +68,18 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+            viewModel.addFolder(it.toString())
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -107,106 +130,213 @@ fun SettingsScreen(
         }
 
         HorizontalDivider()
-        SectionHeader("Server")
+        SectionHeader("Music source")
 
-        ListItem(
-            headlineContent = { Text("Server URL") },
-            supportingContent = {
-                Text(
-                    text = uiState.serverUrl.ifBlank { "Not configured" },
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            },
-            leadingContent = {
-                Icon(Icons.Filled.Cloud, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        )
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        ) {
-            Button(
-                onClick = viewModel::refreshData,
-                enabled = uiState.refreshStatus != RefreshStatus.LOADING,
-            ) {
-                if (uiState.refreshStatus == RefreshStatus.LOADING) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                } else {
-                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                }
-                Spacer(Modifier.width(6.dp))
-                Text(if (uiState.refreshStatus == RefreshStatus.LOADING) "Refreshing…" else "Refresh data from server")
-            }
-            when (uiState.refreshStatus) {
-                RefreshStatus.SUCCESS -> {
-                    Spacer(Modifier.width(12.dp))
-                    Text("Done", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                }
-                RefreshStatus.ERROR -> {
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        uiState.refreshError ?: "Failed",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                else -> {}
-            }
+        var selectedTab by remember(uiState.musicMode) {
+            mutableIntStateOf(if (uiState.musicMode == "local") 1 else 0)
         }
 
-        uiState.stats?.let { stats ->
-            ListItem(
-                headlineContent = { Text("Tracks") },
-                supportingContent = { Text("${stats.trackCount} tracks in library") },
-                leadingContent = {
-                    Icon(Icons.Filled.MusicNote, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        TabRow(selectedTabIndex = selectedTab) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = {
+                    selectedTab = 0
+                    viewModel.setMusicMode("remote")
                 },
-                trailingContent = { Text("${stats.trackCount}", style = MaterialTheme.typography.titleMedium) },
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                text = { Text("Remote") },
             )
-            ListItem(
-                headlineContent = { Text("Albums") },
-                supportingContent = { Text("Unique albums") },
-                leadingContent = {
-                    Icon(Icons.Filled.Album, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Tab(
+                selected = selectedTab == 1,
+                onClick = {
+                    selectedTab = 1
+                    viewModel.setMusicMode("local")
                 },
-                trailingContent = { Text("${stats.albumCount}", style = MaterialTheme.typography.titleMedium) },
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                text = { Text("Local") },
             )
+        }
+
+        if (selectedTab == 0) {
             ListItem(
-                headlineContent = { Text("Artists") },
-                supportingContent = { Text("Unique artists") },
-                leadingContent = {
-                    Icon(Icons.Filled.People, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                },
-                trailingContent = { Text("${stats.artistCount}", style = MaterialTheme.typography.titleMedium) },
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-            )
-            ListItem(
-                headlineContent = { Text("Total duration") },
-                supportingContent = { Text("Combined playtime") },
-                leadingContent = {
-                    Icon(Icons.Filled.MusicNote, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                },
-                trailingContent = {
+                headlineContent = { Text("Server URL") },
+                supportingContent = {
                     Text(
-                        formatDuration(stats.totalDurationSecs),
-                        style = MaterialTheme.typography.titleMedium,
+                        text = uiState.serverUrl.ifBlank { "Not configured" },
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 },
+                leadingContent = {
+                    Icon(Icons.Filled.Cloud, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
             )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Button(
+                    onClick = viewModel::refreshData,
+                    enabled = uiState.refreshStatus != RefreshStatus.LOADING,
+                ) {
+                    if (uiState.refreshStatus == RefreshStatus.LOADING) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (uiState.refreshStatus == RefreshStatus.LOADING) "Refreshing…" else "Refresh data from server")
+                }
+                when (uiState.refreshStatus) {
+                    RefreshStatus.SUCCESS -> {
+                        Spacer(Modifier.width(12.dp))
+                        Text("Done", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                    }
+                    RefreshStatus.ERROR -> {
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            uiState.refreshError ?: "Failed",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    else -> {}
+                }
+            }
+
+            uiState.stats?.let { stats ->
+                ListItem(
+                    headlineContent = { Text("Tracks") },
+                    supportingContent = { Text("${stats.trackCount} tracks in library") },
+                    leadingContent = {
+                        Icon(Icons.Filled.MusicNote, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailingContent = { Text("${stats.trackCount}", style = MaterialTheme.typography.titleMedium) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                )
+                ListItem(
+                    headlineContent = { Text("Albums") },
+                    supportingContent = { Text("Unique albums") },
+                    leadingContent = {
+                        Icon(Icons.Filled.Album, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailingContent = { Text("${stats.albumCount}", style = MaterialTheme.typography.titleMedium) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                )
+                ListItem(
+                    headlineContent = { Text("Artists") },
+                    supportingContent = { Text("Unique artists") },
+                    leadingContent = {
+                        Icon(Icons.Filled.People, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailingContent = { Text("${stats.artistCount}", style = MaterialTheme.typography.titleMedium) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                )
+                ListItem(
+                    headlineContent = { Text("Total duration") },
+                    supportingContent = { Text("Combined playtime") },
+                    leadingContent = {
+                        Icon(Icons.Filled.MusicNote, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailingContent = {
+                        Text(
+                            formatDuration(stats.totalDurationSecs),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                )
+            }
+        } else {
+            SectionHeader("Local folders")
+
+            if (uiState.localFolderUris.isEmpty()) {
+                ListItem(
+                    headlineContent = { Text("No folders added") },
+                    supportingContent = { Text("Add a folder to scan for music files") },
+                    leadingContent = {
+                        Icon(Icons.Filled.Folder, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                )
+            } else {
+                uiState.localFolderUris.forEach { uriString ->
+                    val displayName = Uri.parse(uriString).lastPathSegment
+                        ?.substringAfterLast(':')
+                        ?: uriString
+                    ListItem(
+                        headlineContent = { Text(displayName, maxLines = 1) },
+                        leadingContent = {
+                            Icon(Icons.Filled.FolderOpen, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { viewModel.removeFolder(uriString) }) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Remove folder",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Button(onClick = { folderPickerLauncher.launch(null) }) {
+                    Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add folder")
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Button(
+                    onClick = viewModel::scanLibrary,
+                    enabled = uiState.scanStatus != ScanStatus.SCANNING && uiState.localFolderUris.isNotEmpty(),
+                ) {
+                    if (uiState.scanStatus == ScanStatus.SCANNING) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (uiState.scanStatus == ScanStatus.SCANNING) "Scanning…" else "Scan library")
+                }
+                when (uiState.scanStatus) {
+                    ScanStatus.DONE -> {
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "${uiState.scanTrackCount} tracks found",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    ScanStatus.ERROR -> {
+                        Spacer(Modifier.width(12.dp))
+                        Text("Scan failed", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    else -> {}
+                }
+            }
         }
 
         HorizontalDivider()

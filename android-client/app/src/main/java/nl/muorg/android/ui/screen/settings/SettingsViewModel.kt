@@ -17,11 +17,14 @@ import nl.muorg.android.data.api.GithubRelease
 import nl.muorg.android.data.api.MuorgApiService
 import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.ui.screen.library.SortMode
 import java.net.URL
 import javax.inject.Inject
 
 enum class RefreshStatus { IDLE, LOADING, SUCCESS, ERROR }
+
+enum class ScanStatus { IDLE, SCANNING, DONE, ERROR }
 
 data class SettingsUiState(
     val serverUrl: String = "",
@@ -35,12 +38,17 @@ data class SettingsUiState(
     val latestReleaseUrl: String? = null,
     val refreshStatus: RefreshStatus = RefreshStatus.IDLE,
     val refreshError: String? = null,
+    val musicMode: String = "remote",
+    val localFolderUris: Set<String> = emptySet(),
+    val scanStatus: ScanStatus = ScanStatus.IDLE,
+    val scanTrackCount: Int = 0,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val api: MuorgApiService,
+    private val localLibraryRepository: LocalLibraryRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -60,6 +68,16 @@ class SettingsViewModel @Inject constructor(
                     continuousPlayback = continuousPlayback,
                     defaultSort = sortMode,
                 )
+            }
+        }
+        viewModelScope.launch {
+            preferences.musicMode.collect { mode ->
+                _uiState.update { it.copy(musicMode = mode) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.localFolderUris.collect { uris ->
+                _uiState.update { it.copy(localFolderUris = uris) }
             }
         }
         loadStats()
@@ -131,6 +149,33 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferences.clearCredentials()
             onDone()
+        }
+    }
+
+    fun setMusicMode(mode: String) {
+        viewModelScope.launch { preferences.setMusicMode(mode) }
+    }
+
+    fun addFolder(uri: String) {
+        viewModelScope.launch { preferences.addLocalFolderUri(uri) }
+    }
+
+    fun removeFolder(uri: String) {
+        viewModelScope.launch { preferences.removeLocalFolderUri(uri) }
+    }
+
+    fun scanLibrary() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(scanStatus = ScanStatus.SCANNING) }
+            val uris = preferences.localFolderUris.first()
+            runCatching { localLibraryRepository.scanAndSave(uris) }.fold(
+                onSuccess = { count ->
+                    _uiState.update { it.copy(scanStatus = ScanStatus.DONE, scanTrackCount = count) }
+                },
+                onFailure = {
+                    _uiState.update { it.copy(scanStatus = ScanStatus.ERROR) }
+                },
+            )
         }
     }
 
