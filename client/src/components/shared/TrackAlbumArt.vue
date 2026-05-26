@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, watchEffect } from "vue";
 import { useCatalogStore } from "../../stores/catalog";
 
 const props = defineProps<{
@@ -11,7 +11,9 @@ const props = defineProps<{
 
 const store = useCatalogStore();
 
-onMounted(() => {
+// watchEffect tracks props.path reactively so fetchCover is called on mount
+// AND whenever the path changes (onMounted only fires once on first mount).
+watchEffect(() => {
   if (props.path) {
     store.fetchCover(props.path);
   }
