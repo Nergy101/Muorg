@@ -96,6 +96,8 @@ class PlayerController @Inject constructor(
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = syncState()
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = syncState()
         override fun onRepeatModeChanged(repeatMode: Int) = syncState()
+        // Fires when duration becomes available (e.g. FLAC headers parsed after buffering starts)
+        override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = syncState()
     }
 
     private fun syncState() {

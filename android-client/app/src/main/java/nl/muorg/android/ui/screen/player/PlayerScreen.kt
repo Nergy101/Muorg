@@ -1,6 +1,7 @@
 package nl.muorg.android.ui.screen.player
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -40,11 +41,15 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +73,20 @@ import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.player.PlayerViewModel
 
+private data class GlowBlob(val cx: Float, val cy: Float, val radius: Float, val opacity: Float)
+
+private fun buildGlowBlobs(seed: Int): List<GlowBlob> {
+    val rnd = java.util.Random(seed.toLong())
+    return (0 until 14).map {
+        GlowBlob(
+            cx = rnd.nextFloat(),
+            cy = rnd.nextFloat(),
+            radius = 0.25f + rnd.nextFloat() * 0.25f,
+            opacity = 0.40f + rnd.nextFloat() * 0.40f,
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -83,15 +102,53 @@ fun PlayerScreen(
     val currentTrack = playerState.currentTrack
     val coverUrl = if (currentTrack?.hasCover == true) "$baseUrl/api/tracks/${currentTrack.id}/cover" else null
 
+    // Dominant color runs on coverUrl immediately so accent starts animating ahead of the image switch
+    val dominantColor = rememberDominantColor(
+        url = coverUrl,
+        imageLoader = imageLoader,
+        fallback = Color(0xFF1A1A1A),
+    )
+
+    // displayedCoverUrl only advances once the full image is in cache — no blank flash
+    val context = LocalContext.current
+    var displayedCoverUrl by remember { mutableStateOf(coverUrl) }
+    LaunchedEffect(coverUrl) {
+        if (coverUrl == null) {
+            displayedCoverUrl = null
+            return@LaunchedEffect
+        }
+        val result = imageLoader.execute(
+            ImageRequest.Builder(context).data(coverUrl).build()
+        )
+        if (result is SuccessResult) displayedCoverUrl = coverUrl
+    }
     val accentColor by animateColorAsState(
-        targetValue = rememberDominantColor(
-            url = coverUrl,
-            imageLoader = imageLoader,
-            fallback = MaterialTheme.colorScheme.primary,
-        ).color,
+        targetValue = dominantColor.color,
         animationSpec = tween(durationMillis = 800),
         label = "accentColor",
     )
+
+    // Blob positions interpolate between songs so the background morphs instead of jumping
+    var fromBlobs by remember { mutableStateOf(buildGlowBlobs(coverUrl.hashCode())) }
+    var toBlobs   by remember { mutableStateOf(buildGlowBlobs(coverUrl.hashCode())) }
+    val blobTransition = remember { Animatable(1f) }
+    val blobProgress by blobTransition.asState()
+
+    LaunchedEffect(coverUrl) {
+        val p = blobTransition.value
+        // Snapshot current interpolated positions as the new starting point
+        fromBlobs = fromBlobs.zip(toBlobs).map { (a, b) ->
+            GlowBlob(
+                cx     = a.cx     + (b.cx     - a.cx)     * p,
+                cy     = a.cy     + (b.cy     - a.cy)     * p,
+                radius = a.radius + (b.radius - a.radius) * p,
+                opacity = a.opacity + (b.opacity - a.opacity) * p,
+            )
+        }
+        toBlobs = buildGlowBlobs(coverUrl.hashCode())
+        blobTransition.snapTo(0f)
+        blobTransition.animateTo(1f, tween(durationMillis = 800))
+    }
 
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
@@ -101,7 +158,6 @@ fun PlayerScreen(
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     val favorites = playerState.favorites
 
-    // Solid black Scaffold keeps system bars clean — background effect lives inside the content area
     Scaffold(
         containerColor = Color.Black,
         contentWindowInsets = WindowInsets(0),
@@ -150,33 +206,65 @@ fun PlayerScreen(
             }
         }
     ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-        ) {
-            // Background: blurred album art fading into black
-            if (coverUrl != null) {
-                AsyncImage(
-                    model = coverUrl,
-                    contentDescription = null,
-                    imageLoader = imageLoader,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            renderEffect = BlurEffect(radiusX = 80f, radiusY = 80f, edgeTreatment = TileMode.Clamp)
-                            scaleX = 1.2f
-                            scaleY = 1.2f
-                            alpha = 0.55f
-                        },
-                )
-            }
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.60f)))
+        Box(modifier = Modifier.fillMaxSize()) {
+            // ── Background ────────────────────────────────────────────────────
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black))
 
+            if (displayedCoverUrl != null) {
+                if (dominantColor.isBland) {
+                    // Bland / white / black cover: fall back to blurred scaled image
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        AsyncImage(
+                            model = displayedCoverUrl,
+                            contentDescription = null,
+                            imageLoader = imageLoader,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .aspectRatio(1f)
+                                .graphicsLayer {
+                                    renderEffect = BlurEffect(72f, 72f, TileMode.Clamp)
+                                    scaleX = 1.7f
+                                    scaleY = 1.7f
+                                    alpha = 0.65f
+                                },
+                        )
+                    }
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)))
+                } else {
+                    // Vibrant cover: multiple blobs of the dominant color scattered across screen
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                renderEffect = BlurEffect(100f, 100f, TileMode.Clamp)
+                                alpha = 0.80f
+                            },
+                    ) {
+                        for (i in toBlobs.indices) {
+                            val a = fromBlobs[i]
+                            val b = toBlobs[i]
+                            val t = blobProgress
+                            drawCircle(
+                                color = accentColor.copy(
+                                    alpha = a.opacity + (b.opacity - a.opacity) * t
+                                ),
+                                radius = size.minDimension * (a.radius + (b.radius - a.radius) * t),
+                                center = Offset(
+                                    size.width  * (a.cx + (b.cx - a.cx) * t),
+                                    size.height * (a.cy + (b.cy - a.cy) * t),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Content ───────────────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(innerPadding)
                     .navigationBarsPadding()
                     .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -186,7 +274,6 @@ fun PlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    // Album art with per-track accent halo
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.72f)
@@ -217,9 +304,9 @@ fun PlayerScreen(
                                 tint = Color.White.copy(alpha = 0.3f),
                                 modifier = Modifier.fillMaxSize().padding(48.dp),
                             )
-                            if (coverUrl != null) {
+                            if (displayedCoverUrl != null) {
                                 AsyncImage(
-                                    model = coverUrl,
+                                    model = displayedCoverUrl,
                                     contentDescription = "Album cover",
                                     imageLoader = imageLoader,
                                     contentScale = ContentScale.Crop,
@@ -288,7 +375,7 @@ fun PlayerScreen(
                             color = Color.White.copy(alpha = 0.6f),
                         )
                         Text(
-                            text = formatMs(playerState.durationMs),
+                            text = if (playerState.durationMs > 0) formatMs(playerState.durationMs) else "–:--",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.6f),
                         )
