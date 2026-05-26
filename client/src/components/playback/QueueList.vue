@@ -2,7 +2,6 @@
 import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
-import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack } from "../../types";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
@@ -10,10 +9,8 @@ import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const store = useCatalogStore();
-const settingsStore = useSettingsStore();
 const playlistStore = usePlaylistStore();
 const { queueTracks, currentPlayingTrackId } = storeToRefs(store);
-const { shuffle } = storeToRefs(settingsStore);
 
 const saveAsPlaylistMode = ref(false);
 const saveAsPlaylistName = ref("");

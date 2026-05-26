@@ -6,47 +6,48 @@
     android:viewportWidth="1024"
     android:viewportHeight="1024">
 
-    <!-- Shield / M-shape -->
+    <!-- Crown / M-shape — scaled to 75 % so tips frame the disc without touching
+         the adaptive-icon mask edges (safe zone 170–854 in a 1024 viewport) -->
     <path
-        android:pathData="M150,200 L450,450 L512,512 L574,450 L874,200 L750,700 L512,880 L274,700 Z"
+        android:pathData="M241,278 L466,466 L512,512 L558,466 L784,278 L703,647 L512,778 L321,647 Z"
         android:fillColor="#5b7c32"
         android:strokeColor="#ffffff"
-        android:strokeWidth="5"/>
+        android:strokeWidth="18"/>
 
-    <!-- Vinyl record outer circle -->
+    <!-- Vinyl record outer circle (r=225, 75 % of original 300) -->
     <path
-        android:pathData="M512,212 A300,300 0 1,0 512,812 A300,300 0 1,0 512,212 Z"
+        android:pathData="M512,287 A225,225 0 1,0 512,737 A225,225 0 1,0 512,287 Z"
         android:fillColor="#759346"
         android:strokeColor="#ffffff"
-        android:strokeWidth="15"/>
+        android:strokeWidth="18"/>
 
-    <!-- Groove ring 1 -->
+    <!-- Groove ring 1 (r=165) -->
     <path
-        android:pathData="M512,292 A220,220 0 1,0 512,732 A220,220 0 1,0 512,292 Z"
+        android:pathData="M512,347 A165,165 0 1,0 512,677 A165,165 0 1,0 512,347 Z"
         android:fillColor="#00000000"
         android:strokeColor="#665b7c32"
-        android:strokeWidth="8"/>
+        android:strokeWidth="10"/>
 
-    <!-- Groove ring 2 -->
+    <!-- Groove ring 2 (r=113) -->
     <path
-        android:pathData="M512,362 A150,150 0 1,0 512,662 A150,150 0 1,0 512,362 Z"
+        android:pathData="M512,399 A113,113 0 1,0 512,625 A113,113 0 1,0 512,399 Z"
         android:fillColor="#00000000"
         android:strokeColor="#665b7c32"
-        android:strokeWidth="8"/>
+        android:strokeWidth="10"/>
 
-    <!-- Center label circle -->
+    <!-- Center label circle (r=56) -->
     <path
-        android:pathData="M512,437 A75,75 0 1,0 512,587 A75,75 0 1,0 512,437 Z"
+        android:pathData="M512,456 A56,56 0 1,0 512,568 A56,56 0 1,0 512,456 Z"
         android:fillColor="#5b7c32"/>
 
-    <!-- Metallic spindle dot with radial gradient -->
-    <path android:pathData="M512,494 A18,18 0 1,0 512,530 A18,18 0 1,0 512,494 Z">
+    <!-- Metallic spindle dot (r=14) -->
+    <path android:pathData="M512,498 A14,14 0 1,0 512,526 A14,14 0 1,0 512,498 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="radial"
                 android:centerX="512"
                 android:centerY="512"
-                android:gradientRadius="18"
+                android:gradientRadius="14"
                 android:startColor="#ffffff"
                 android:endColor="#999999"/>
         </aapt:attr>
