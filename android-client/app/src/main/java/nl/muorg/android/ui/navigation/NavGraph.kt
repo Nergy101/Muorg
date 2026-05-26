@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.navigation
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -125,7 +127,11 @@ fun NavGraph() {
 
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = EnterTransition.None,
+                exit = fadeOut(tween(200)),
+            ) {
                 AnimatedBottomNav(
                     items = bottomNavItems,
                     currentDestination = currentDestination,
@@ -215,22 +221,22 @@ fun NavGraph() {
                     route = Screen.Player.route,
                     enterTransition = {
                         slideInVertically(
-                            initialOffsetY = { it },
-                            animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f),
-                        ) + fadeIn(animationSpec = tween(220))
+                            initialOffsetY = { (it * 0.92f).toInt() },
+                            animationSpec = tween(480, easing = androidx.compose.animation.core.EaseOutCubic),
+                        ) + fadeIn(animationSpec = tween(320, delayMillis = 60))
                     },
                     exitTransition = {
                         slideOutVertically(
                             targetOffsetY = { it },
-                            animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
-                        ) + fadeOut(animationSpec = tween(180))
+                            animationSpec = tween(360, easing = androidx.compose.animation.core.EaseInCubic),
+                        ) + fadeOut(animationSpec = tween(240))
                     },
                     popEnterTransition = { EnterTransition.None },
                     popExitTransition = {
                         slideOutVertically(
                             targetOffsetY = { it },
-                            animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
-                        ) + fadeOut(animationSpec = tween(180))
+                            animationSpec = tween(360, easing = androidx.compose.animation.core.EaseInCubic),
+                        ) + fadeOut(animationSpec = tween(240))
                     },
                 ) {
                     PlayerScreen(
@@ -328,6 +334,7 @@ private fun AnimatedBottomNav(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .height(64.dp)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {

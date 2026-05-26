@@ -37,6 +37,7 @@ data class PlayerState(
     val isConnected: Boolean = false,
     val queue: List<CatalogTrack> = emptyList(),
     val favorites: Set<String> = emptySet(),
+    val isSeekable: Boolean = true,
 )
 
 @Singleton
@@ -55,6 +56,11 @@ class PlayerController @Inject constructor(
 
     // Track list cache for building the play queue
     private var trackCache: List<CatalogTrack> = emptyList()
+
+    // For FLAC server streams: track seconds offset so position display is accurate
+    // after a seek (which reloads the stream from a new start position).
+    private var flacSeekOffsetMs: Long = 0L
+    private var lastSyncedTrackId: Int? = null
 
     init {
         connect()
@@ -104,11 +110,22 @@ class PlayerController @Inject constructor(
         val ctrl = controller ?: return
         val mediaItem = ctrl.currentMediaItem
         val trackId = mediaItem?.mediaId?.toIntOrNull()
+
+        // Reset FLAC seek offset when the playing track changes
+        if (trackId != lastSyncedTrackId) {
+            flacSeekOffsetMs = 0L
+            lastSyncedTrackId = trackId
+        }
+
         val currentTrack = trackId?.let { id -> trackCache.find { it.id == id } }
 
-        val durationMs = ctrl.duration.takeIf { it > 0 } ?: 0L
-        val positionMs = ctrl.currentPosition
-        val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()) else 0f
+        // Prefer metadata duration: FLAC streams with ?start=N report only the remaining
+        // chunk duration, not the full track duration.
+        val metaDurationMs = ((currentTrack?.durationSecs ?: 0.0) * 1000).toLong()
+        val exoDurationMs = ctrl.duration.takeIf { it > 0 } ?: 0L
+        val durationMs = if (metaDurationMs > 0) metaDurationMs else exoDurationMs
+        val positionMs = (ctrl.currentPosition + flacSeekOffsetMs).coerceAtMost(durationMs.coerceAtLeast(1L))
+        val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
         val queue = (0 until ctrl.mediaItemCount).mapNotNull { i ->
             val item = ctrl.getMediaItemAt(i)
@@ -125,6 +142,7 @@ class PlayerController @Inject constructor(
                 shuffleEnabled = ctrl.shuffleModeEnabled,
                 repeatMode = ctrl.repeatMode,
                 queue = queue,
+                isSeekable = ctrl.isCurrentMediaItemSeekable,
             )
         }
     }
@@ -162,7 +180,7 @@ class PlayerController @Inject constructor(
             val baseUrl = preferences.serverUrl.first().trimEnd('/')
             val mediaItems = queue.map { t ->
                 val uri = if (t.localFilePath != null) {
-                    t.localFilePath
+                    resolveLocalUri(t.localFilePath)
                 } else {
                     val token = libraryRepository.getStreamToken(t.id).getOrNull() ?: return@launch
                     "$baseUrl/stream/${t.id}?token=$token"
@@ -210,8 +228,45 @@ class PlayerController @Inject constructor(
 
     fun seekTo(fraction: Float) {
         val ctrl = controller ?: return
-        val durationMs = ctrl.duration.takeIf { it > 0 } ?: return
-        ctrl.seekTo((durationMs * fraction).toLong())
+        val track = _state.value.currentTrack ?: return
+
+        val fullDurationMs = ((track.durationSecs ?: 0.0) * 1000).toLong()
+            .takeIf { it > 0 }
+            ?: ctrl.duration.takeIf { it > 0 }
+            ?: return
+
+        val targetMs = (fullDurationMs * fraction).toLong()
+
+        if (track.format.lowercase() == "flac" && track.localFilePath == null) {
+            // FLAC server stream: the server transcodes to MP3 starting at ?start=N.
+            // Re-request with a fresh token and the desired start offset.
+            scope.launch {
+                val baseUrl = preferences.serverUrl.first().trimEnd('/')
+                val token = libraryRepository.getStreamToken(track.id).getOrNull() ?: return@launch
+                val targetSecs = targetMs / 1000.0
+                val uri = "$baseUrl/stream/${track.id}?token=$token&start=${"%.2f".format(targetSecs)}"
+                val currentIndex = ctrl.currentMediaItemIndex
+                val newItem = MediaItem.Builder()
+                    .setMediaId(track.id.toString())
+                    .setUri(uri)
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(track.displayTitle)
+                            .setArtist(track.displayArtist)
+                            .setAlbumTitle(track.displayAlbum)
+                            .build()
+                    )
+                    .build()
+                flacSeekOffsetMs = targetMs
+                ctrl.replaceMediaItem(currentIndex, newItem)
+                ctrl.play()
+            }
+        } else {
+            val durationMs = ctrl.duration.takeIf { it > 0 }
+                ?: ((track.durationSecs ?: 0.0) * 1000).toLong().takeIf { it > 0 }
+                ?: return
+            ctrl.seekTo((durationMs * fraction).toLong())
+        }
     }
 
     fun toggleShuffle() {
@@ -263,7 +318,7 @@ class PlayerController @Inject constructor(
         val ctrl = controller ?: return
         scope.launch {
             val baseUrl = preferences.serverUrl.first().trimEnd('/')
-            val uri = if (track.localFilePath != null) track.localFilePath!!
+            val uri = if (track.localFilePath != null) resolveLocalUri(track.localFilePath)
                       else {
                           val token = libraryRepository.getStreamToken(track.id).getOrNull() ?: return@launch
                           "$baseUrl/stream/${track.id}?token=$token"
@@ -286,6 +341,23 @@ class PlayerController @Inject constructor(
 
     fun toggleFavorite(track: CatalogTrack) {
         scope.launch { preferences.toggleFavorite(track.id.toString()) }
+    }
+
+    // Convert a SAF content:// URI to a file:// path when possible so ExoPlayer
+    // uses FileDataSource (supports random-access seeking) instead of ContentDataSource.
+    private fun resolveLocalUri(localFilePath: String): String {
+        return try {
+            val uri = android.net.Uri.parse(localFilePath)
+            val docId = android.provider.DocumentsContract.getDocumentId(uri)
+            // "primary:Music/Artist/track.flac" → "/storage/emulated/0/Music/Artist/track.flac"
+            if (docId.startsWith("primary:")) {
+                "file:///storage/emulated/0/${docId.removePrefix("primary:")}"
+            } else {
+                localFilePath
+            }
+        } catch (_: Exception) {
+            localFilePath
+        }
     }
 
     private fun ensureConnected() {

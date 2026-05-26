@@ -1,7 +1,7 @@
 package nl.muorg.android.ui.screen.player
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -73,19 +73,6 @@ import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.player.PlayerViewModel
 
-private data class GlowBlob(val cx: Float, val cy: Float, val radius: Float, val opacity: Float)
-
-private fun buildGlowBlobs(seed: Int): List<GlowBlob> {
-    val rnd = java.util.Random(seed.toLong())
-    return (0 until 14).map {
-        GlowBlob(
-            cx = rnd.nextFloat(),
-            cy = rnd.nextFloat(),
-            radius = 0.25f + rnd.nextFloat() * 0.25f,
-            opacity = 0.40f + rnd.nextFloat() * 0.40f,
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,28 +115,6 @@ fun PlayerScreen(
         label = "accentColor",
     )
 
-    // Blob positions interpolate between songs so the background morphs instead of jumping
-    var fromBlobs by remember { mutableStateOf(buildGlowBlobs(coverUrl.hashCode())) }
-    var toBlobs   by remember { mutableStateOf(buildGlowBlobs(coverUrl.hashCode())) }
-    val blobTransition = remember { Animatable(1f) }
-    val blobProgress by blobTransition.asState()
-
-    LaunchedEffect(coverUrl) {
-        val p = blobTransition.value
-        // Snapshot current interpolated positions as the new starting point
-        fromBlobs = fromBlobs.zip(toBlobs).map { (a, b) ->
-            GlowBlob(
-                cx     = a.cx     + (b.cx     - a.cx)     * p,
-                cy     = a.cy     + (b.cy     - a.cy)     * p,
-                radius = a.radius + (b.radius - a.radius) * p,
-                opacity = a.opacity + (b.opacity - a.opacity) * p,
-            )
-        }
-        toBlobs = buildGlowBlobs(coverUrl.hashCode())
-        blobTransition.snapTo(0f)
-        blobTransition.animateTo(1f, tween(durationMillis = 800))
-    }
-
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
     val displayProgress = if (isSeeking) seekPosition else playerState.progress
@@ -165,8 +130,7 @@ fun PlayerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
@@ -177,16 +141,7 @@ fun PlayerScreen(
                         modifier = Modifier.size(26.dp),
                     )
                 }
-                Text(
-                    "Now playing",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        letterSpacing = 0.5.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
-                )
+                Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onOpenQueue) {
                     Icon(
                         Icons.AutoMirrored.Filled.QueueMusic,
@@ -211,56 +166,46 @@ fun PlayerScreen(
             Box(modifier = Modifier.fillMaxSize().background(Color.Black))
 
             if (displayedCoverUrl != null) {
-                if (dominantColor.isBland) {
-                    // Bland / white / black cover: fall back to blurred scaled image
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        AsyncImage(
-                            model = displayedCoverUrl,
-                            contentDescription = null,
-                            imageLoader = imageLoader,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth(0.9f)
-                                .aspectRatio(1f)
-                                .graphicsLayer {
-                                    renderEffect = BlurEffect(72f, 72f, TileMode.Clamp)
-                                    scaleX = 1.7f
-                                    scaleY = 1.7f
-                                    alpha = 0.65f
-                                },
-                        )
-                    }
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)))
-                } else {
-                    // Vibrant cover: multiple blobs of the dominant color scattered across screen
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                renderEffect = BlurEffect(100f, 100f, TileMode.Clamp)
-                                alpha = 0.80f
-                            },
-                    ) {
-                        for (i in toBlobs.indices) {
-                            val a = fromBlobs[i]
-                            val b = toBlobs[i]
-                            val t = blobProgress
-                            drawCircle(
-                                color = accentColor.copy(
-                                    alpha = a.opacity + (b.opacity - a.opacity) * t
-                                ),
-                                radius = size.minDimension * (a.radius + (b.radius - a.radius) * t),
-                                center = Offset(
-                                    size.width  * (a.cx + (b.cx - a.cx) * t),
-                                    size.height * (a.cy + (b.cy - a.cy) * t),
-                                ),
+                Crossfade(targetState = dominantColor.isBland, label = "bgMode") { isBland ->
+                    if (isBland) {
+                        // Bland / white / black cover: fall back to blurred scaled image
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            AsyncImage(
+                                model = displayedCoverUrl,
+                                contentDescription = null,
+                                imageLoader = imageLoader,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .aspectRatio(1f)
+                                    .graphicsLayer {
+                                        renderEffect = BlurEffect(72f, 72f, TileMode.Clamp)
+                                        scaleX = 1.7f
+                                        scaleY = 1.7f
+                                        alpha = 0.65f
+                                    },
                             )
                         }
+                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)))
+                    } else {
+                        // Vibrant cover: solid dominant color + dark gradient toward bottom
+                        Box(modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.90f)))
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(
+                                Brush.verticalGradient(
+                                    0.0f to Color.Transparent,
+                                    0.7f to Color.Black.copy(alpha = 0.15f),
+                                    1.0f to Color.Black.copy(alpha = 0.50f),
+                                )
+                            )
+                        )
                     }
                 }
             }
 
             // ── Content ───────────────────────────────────────────────────────
+            val controlColor = if (dominantColor.isBland) Color.White else accentColor
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -284,7 +229,7 @@ fun PlayerScreen(
                             drawCircle(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        accentColor.copy(alpha = 0.45f),
+                                        controlColor.copy(alpha = 0.45f),
                                         Color.Transparent,
                                     ),
                                     center = Offset(size.width / 2f, size.height / 2f),
@@ -358,8 +303,8 @@ fun PlayerScreen(
                             isSeeking = false
                         },
                         colors = SliderDefaults.colors(
-                            thumbColor = accentColor,
-                            activeTrackColor = accentColor,
+                            thumbColor = controlColor,
+                            activeTrackColor = controlColor,
                             inactiveTrackColor = Color.White.copy(alpha = 0.25f),
                         ),
                         modifier = Modifier.fillMaxWidth(),
@@ -374,8 +319,10 @@ fun PlayerScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.6f),
                         )
+                        val displayDurationMs = if (playerState.durationMs > 0) playerState.durationMs
+                            else ((currentTrack?.durationSecs ?: 0.0) * 1000).toLong()
                         Text(
-                            text = if (playerState.durationMs > 0) formatMs(playerState.durationMs) else "–:--",
+                            text = if (displayDurationMs > 0) formatMs(displayDurationMs) else "–:--",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.6f),
                         )
@@ -392,7 +339,7 @@ fun PlayerScreen(
                             Icon(
                                 imageVector = Icons.Filled.Shuffle,
                                 contentDescription = "Shuffle",
-                                tint = if (playerState.shuffleEnabled) accentColor
+                                tint = if (playerState.shuffleEnabled) controlColor
                                        else Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier.size(24.dp),
                             )
@@ -418,7 +365,7 @@ fun PlayerScreen(
                                 imageVector = if (playerState.isPlaying) Icons.Filled.Pause
                                              else Icons.Filled.PlayArrow,
                                 contentDescription = if (playerState.isPlaying) "Pause" else "Play",
-                                tint = accentColor,
+                                tint = controlColor,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -441,7 +388,7 @@ fun PlayerScreen(
                                     Icons.Filled.RepeatOne else Icons.Filled.Repeat,
                                 contentDescription = "Repeat",
                                 tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF)
-                                    accentColor
+                                    controlColor
                                 else Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier.size(24.dp),
                             )

@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -48,8 +50,11 @@ import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.player.PlayerViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-private enum class SheetLevel { MAIN, PLAYLISTS }
+private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,6 +89,7 @@ fun TrackActionsSheet(
                 imageLoader = imageLoader,
                 onDismiss = onDismiss,
                 onGoToPlaylists = { level = SheetLevel.PLAYLISTS },
+                onGoToTrackInfo = { level = SheetLevel.TRACK_INFO },
                 onViewArtist = onViewArtist,
                 onViewAlbum = onViewAlbum,
             )
@@ -92,6 +98,10 @@ fun TrackActionsSheet(
                 onBack = { level = SheetLevel.MAIN },
                 onAddToPlaylist = { id -> onAddToPlaylist(id); onDismiss() },
                 onNewPlaylist = { onDismiss() },
+            )
+            SheetLevel.TRACK_INFO -> TrackInfoLevel(
+                track = track,
+                onBack = { level = SheetLevel.MAIN },
             )
         }
     }
@@ -106,6 +116,7 @@ private fun MainLevel(
     imageLoader: ImageLoader,
     onDismiss: () -> Unit,
     onGoToPlaylists: () -> Unit,
+    onGoToTrackInfo: () -> Unit,
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
 ) {
@@ -201,7 +212,7 @@ private fun MainLevel(
     ListItem(
         headlineContent = { Text("Track info", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         leadingContent = { Icon(Icons.Filled.Info, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = Modifier.clickable { onDismiss() },
+        modifier = Modifier.clickable { onGoToTrackInfo() },
     )
     Spacer(Modifier.height(16.dp))
 }
@@ -260,4 +271,69 @@ private fun PlaylistsLevel(
         modifier = Modifier.clickable { onNewPlaylist() },
     )
     Spacer(Modifier.height(16.dp))
+}
+
+@Composable
+private fun TrackInfoLevel(
+    track: CatalogTrack,
+    onBack: () -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text("Back") },
+        leadingContent = { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(18.dp)) },
+        modifier = Modifier.clickable { onBack() },
+    )
+    Text(
+        "TRACK INFO",
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.8.sp,
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp).padding(bottom = 6.dp),
+    )
+
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+
+    val fields = buildList {
+        add("Title" to track.displayTitle)
+        if (track.artist != null) add("Artist" to track.artist)
+        if (track.albumArtist != null && track.albumArtist != track.artist) add("Album Artist" to track.albumArtist)
+        if (track.featuring != null) add("Featuring" to track.featuring)
+        add("Album" to track.displayAlbum)
+        if (track.year != null) add("Year" to track.year.toString())
+        if (track.genre != null) add("Genre" to track.genre)
+        if (track.trackNumber != null) add("Track #" to track.trackNumber.toString())
+        if (track.discNumber != null) add("Disc #" to track.discNumber.toString())
+        add("Duration" to track.formattedDuration())
+        add("Format" to track.format.uppercase())
+        if (track.rating != null) add("Rating" to "${track.rating} / 5")
+        add("Play Count" to track.playCount.toString())
+        if (track.lastPlayedAt != null) add("Last Played" to dateFormat.format(Date(track.lastPlayedAt * 1000L)))
+        add("File" to (track.localFilePath ?: track.path))
+    }
+
+    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        fields.forEach { (label, value) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(100.dp),
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
 }
