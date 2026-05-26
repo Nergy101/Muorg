@@ -29,7 +29,7 @@ pub async fn issue_token(
         muorg_core::catalog::get_track_path_by_id(&conn, id)?
             .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))?;
     }
-    let token = state.tokens.issue(id, 60);
+    let token = state.tokens.issue(id, 28800);
     Ok(Json(TokenResponse { token }))
 }
 
@@ -39,11 +39,21 @@ pub struct StreamQuery {
     pub start: Option<f32>,
 }
 
-fn parse_range_start(range: &str, total: usize) -> Option<usize> {
+struct ByteRange {
+    start: usize,
+    end: usize, // inclusive
+}
+
+fn parse_range(range: &str, total: usize) -> Option<ByteRange> {
     let s = range.strip_prefix("bytes=")?;
-    let start_str = s.split('-').next()?;
-    let start: usize = start_str.parse().ok()?;
-    if start < total { Some(start) } else { None }
+    let mut parts = s.splitn(2, '-');
+    let start: usize = parts.next()?.parse().ok()?;
+    let end: usize = match parts.next() {
+        Some(e) if !e.is_empty() => e.parse().ok()?,
+        _ => total.saturating_sub(1),
+    };
+    if start >= total || end < start { return None; }
+    Some(ByteRange { start, end: end.min(total - 1) })
 }
 
 // GET /stream/:id?token=<tok>  (no Bearer auth — uses short-lived token instead)
@@ -100,18 +110,17 @@ pub async fn stream_audio(
         match tokio::fs::read(&track_path).await {
             Ok(data) => {
                 let total = data.len();
-                let range_start = range_header
+                let range = range_header
                     .as_deref()
-                    .and_then(|r| parse_range_start(r, total));
+                    .and_then(|r| parse_range(r, total));
 
                 let mut headers = HeaderMap::new();
                 headers.insert("Content-Type", "audio/mpeg".parse().unwrap());
                 headers.insert("Accept-Ranges", "bytes".parse().unwrap());
 
-                if let Some(start) = range_start {
-                    let end = total - 1;
-                    let body = data[start..].to_vec();
-                    headers.insert("Content-Range", format!("bytes {start}-{end}/{total}").parse().unwrap());
+                if let Some(r) = range {
+                    let body = data[r.start..=r.end].to_vec();
+                    headers.insert("Content-Range", format!("bytes {}-{}/{}", r.start, r.end, total).parse().unwrap());
                     headers.insert("Content-Length", body.len().to_string().parse().unwrap());
                     (StatusCode::PARTIAL_CONTENT, headers, body).into_response()
                 } else {
