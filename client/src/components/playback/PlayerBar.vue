@@ -36,9 +36,8 @@ const {
   volume,
 } = storeToRefs(settingsStore);
 
-/** List used for next/previous: queue when filled and shuffle off, else table. */
+/** List used for next/previous: queue takes priority over shuffle; shuffle applies to table when queue empty. */
 const playbackList = computed(() => {
-  if (shuffle.value) return tableOrderedTracks.value;
   if (queueTracks.value.length > 0) return queueTracks.value;
   return tableOrderedTracks.value;
 });
@@ -48,7 +47,8 @@ function getNextTrack(forAutoAdvance = false): CatalogTrack | null {
   const list = playbackList.value;
   if (!current || !list.length) return null;
   if (forAutoAdvance && repeat.value === "one") return current;
-  if (shuffle.value) {
+  // Shuffle only applies when the queue is empty; queue tracks always play in order.
+  if (shuffle.value && queueTracks.value.length === 0) {
     const others = list.filter((t) => t.id !== current.id);
     return others.length > 0 ? others[Math.floor(Math.random() * others.length)] : null;
   }
@@ -302,11 +302,9 @@ async function seekToFlac(track: CatalogTrack, secs: number) {
     el.load();
 
     if (wasPlaying) {
-      el.play().catch(() => {
-        el.addEventListener("canplay", () => {
-          if (seq === _seekSeq) el.play().catch(console.error);
-        }, { once: true });
-      });
+      el.addEventListener("canplay", () => {
+        if (seq === _seekSeq) el.play().catch(console.error);
+      }, { once: true });
     }
   } catch (e) {
     if (seq !== _seekSeq) return;
@@ -502,10 +500,12 @@ async function loadAudioBlobForCurrent(track: CatalogTrack) {
   if (audioRef.value) {
     audioRef.value.pause();
   }
+  // Don't clear audioSrc to "" here — on WKWebView, blanking the src resets the
+  // media element's autoplay permission so el.play() fires the play event but
+  // stalls silently with no audio output.
   if (audioSrc.value && audioSrc.value !== cached) {
     revokeUrl(audioSrc.value);
   }
-  audioSrc.value = "";
   isPlaying.value = false;
   currentTime.value = 0;
   duration.value = 0;
@@ -629,7 +629,10 @@ watch(
             el.currentTime = s.positionSecs;
           }
         }
-        el.play().catch(() => {});
+        // Call load() so WKWebView fully reinitializes the media pipeline after src
+        // changes — without it, play() can fire the play event but produce no audio.
+        el.load();
+        el.addEventListener("canplay", () => el.play().catch(console.error), { once: true });
       });
       // Once the current track is ready, start preloading the upcoming one in the background.
       preloadNextTrack();
@@ -677,8 +680,12 @@ watch(
 function togglePlay() {
   const el = audioRef.value;
   if (!el) return;
-  if (el.paused) {
-    el.play().catch(() => {});
+  // Use isPlaying (not el.paused) as the toggle source — on WKWebView, el.paused can be
+  // false while producing no audio, which would send the wrong branch.
+  if (!isPlaying.value) {
+    el.play().catch(() => {
+      el.addEventListener("canplay", () => el.play().catch(console.error), { once: true });
+    });
     isPlaying.value = true;
     if (isCasting.value) castApi.castResume().catch(console.error);
   } else {
@@ -736,7 +743,8 @@ function onAudioPause() {
 
 function onAudioEnded() {
   isPlaying.value = false;
-  if (playbackList.value === tableOrderedTracks.value && !continuousPlayback.value && repeat.value === "none") return;
+  // Stop auto-advance only when queue is empty, shuffle is off, continuous playback is off, and no repeat.
+  if (store.queueTrackIds.length === 0 && !shuffle.value && !continuousPlayback.value && repeat.value === "none") return;
   const next = getNextTrack(true);
   if (!next) return;
   if (next.id !== singleTrack.value?.id) {

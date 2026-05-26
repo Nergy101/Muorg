@@ -49,9 +49,8 @@ const playbarAlbumArtSizePx = computed(() => {
   return Math.max(128, h - reserved);
 });
 
-/** List used for next/previous: queue when filled and shuffle off, else table. */
+/** List used for next/previous: queue takes priority over shuffle; shuffle applies to table when queue empty. */
 const playbackList = computed(() => {
-  if (shuffle.value) return tableOrderedTracks.value;
   if (queueTracks.value.length > 0) return queueTracks.value;
   return tableOrderedTracks.value;
 });
@@ -60,7 +59,8 @@ function getNextTrack(): CatalogTrack | null {
   const current = singleTrack.value;
   const list = playbackList.value;
   if (!current || !list.length) return null;
-  if (shuffle.value) {
+  // Shuffle only applies when the queue is empty; queue tracks always play in order.
+  if (shuffle.value && queueTracks.value.length === 0) {
     const others = list.filter((t) => t.id !== current.id);
     return others.length > 0 ? others[Math.floor(Math.random() * others.length)] : null;
   }
@@ -248,6 +248,7 @@ function playNext() {
   if (!next) return;
   const queueIdx = store.queueTrackIds.indexOf(next.id);
   if (queueIdx >= 0) store.removeFromQueueAtIndex(queueIdx);
+  store.setPlayRequestTrackId(next.id);
   store.clearSelection();
   store.toggleSelection(next.id);
 }
@@ -255,6 +256,7 @@ function playNext() {
 function playPrevious() {
   const prev = getPreviousTrack();
   if (!prev) return;
+  store.setPlayRequestTrackId(prev.id);
   store.clearSelection();
   store.toggleSelection(prev.id);
 }

@@ -3,6 +3,9 @@ node_modules/
 
 # Build outputs
 dist/
+vite.config.js
+vite.config.d.ts
+*.tsbuildinfo
 
 # Tauri / Rust
 src-tauri/target/

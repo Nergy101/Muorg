@@ -315,7 +315,6 @@ watch(contextMenu, (menu) => {
       <div class="flex items-center justify-between gap-2">
         <div class="min-w-0 flex-1">
           <h3 class="text-xs font-semibold uppercase tracking-wider text-stone-400">Queue</h3>
-          <p v-if="shuffle" class="text-[10px] text-amber-400/90">Shuffle is ON — queue order ignored</p>
         </div>
         <div class="flex items-center gap-1">
           <button
