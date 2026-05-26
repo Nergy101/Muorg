@@ -44,6 +44,8 @@ data class SettingsUiState(
     val localFolderUris: Set<String> = emptySet(),
     val scanStatus: ScanStatus = ScanStatus.IDLE,
     val scanTrackCount: Int = 0,
+    val scanProgress: Int = 0,
+    val scanTotal: Int = 0,
     val sourceMode: SourceMode = SourceMode.ONLINE_SERVER,
     val showSwitchConfirmDialog: Boolean = false,
     val pendingSourceMode: SourceMode? = null,
@@ -197,9 +199,13 @@ class SettingsViewModel @Inject constructor(
 
     fun scanLibrary() {
         viewModelScope.launch {
-            _uiState.update { it.copy(scanStatus = ScanStatus.SCANNING) }
+            _uiState.update { it.copy(scanStatus = ScanStatus.SCANNING, scanProgress = 0, scanTotal = 0) }
             val uris = preferences.localFolderUris.first()
-            runCatching { localLibraryRepository.scanAndSave(uris) }.fold(
+            runCatching {
+                localLibraryRepository.scanAndSave(uris) { done, total ->
+                    _uiState.update { it.copy(scanProgress = done, scanTotal = total) }
+                }
+            }.fold(
                 onSuccess = { count ->
                     _uiState.update { it.copy(scanStatus = ScanStatus.DONE, scanTrackCount = count) }
                 },

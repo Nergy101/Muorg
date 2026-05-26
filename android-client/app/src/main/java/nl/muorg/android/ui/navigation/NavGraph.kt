@@ -66,6 +66,7 @@ import nl.muorg.android.ui.screen.connect.ConnectScreen
 import nl.muorg.android.ui.screen.library.LibraryScreen
 import nl.muorg.android.ui.screen.welcome.WelcomeScreen
 import nl.muorg.android.ui.screen.player.PlayerScreen
+import nl.muorg.android.ui.screen.playlist.PlaylistAlbumsScreen
 import nl.muorg.android.ui.screen.playlists.PlaylistsScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import javax.inject.Inject
@@ -85,6 +86,9 @@ sealed class Screen(val route: String) {
     object AlbumDetail : Screen("album/{albumName}") {
         fun createRoute(albumName: String) =
             "album/${java.net.URLEncoder.encode(albumName, "UTF-8")}"
+    }
+    object PlaylistAlbums : Screen("playlist/{playlistId}/albums") {
+        fun createRoute(playlistId: Int) = "playlist/$playlistId/albums"
     }
 }
 
@@ -116,7 +120,8 @@ fun NavGraph() {
         route != Screen.Connect.route &&
             route != Screen.Welcome.route &&
             route != Screen.Player.route &&
-            route != Screen.Queue.route
+            route != Screen.Queue.route &&
+            !route.startsWith("playlist/")
     } ?: false
 
     val navViewModel: NavViewModel = hiltViewModel()
@@ -291,15 +296,30 @@ fun NavGraph() {
                         playerViewModel = playerViewModel,
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
-                        onPlaylistClick = { _ ->
-                            navController.navigate(Screen.Library.createRoute()) {
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                        onPlaylistClick = { playlistId ->
+                            navController.navigate(Screen.PlaylistAlbums.createRoute(playlistId))
                         },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         showPlayerBar = showBottomBar,
+                    )
+                }
+
+                composable(
+                    route = Screen.PlaylistAlbums.route,
+                    arguments = listOf(navArgument("playlistId") { type = NavType.IntType }),
+                ) {
+                    PlaylistAlbumsScreen(
+                        playerViewModel = playerViewModel,
+                        imageLoader = imageLoader,
+                        baseUrl = baseUrl,
+                        onAlbumClick = { albumName ->
+                            navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                        },
+                        onBack = { navController.popBackStack() },
+                        onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        showPlayerBar = false,
                     )
                 }
 

@@ -68,6 +68,7 @@ fun LibraryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
+    val currentAlbum = playerState.currentTrack?.displayAlbum
     var showSortMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(artistFilter) {
@@ -239,6 +240,7 @@ fun LibraryScreen(
                                 album = album,
                                 baseUrl = baseUrl,
                                 imageLoader = imageLoader,
+                                isActive = album.albumName == currentAlbum,
                                 onClick = { onAlbumClick(album.albumName) },
                                 modifier = Modifier.padding(4.dp),
                                 playlists = uiState.playlists,

@@ -26,25 +26,35 @@ class LocalLibraryScanner @Inject constructor(
         "albumart.jpg", "albumart.jpeg", "albumart.png",
     )
 
-    suspend fun scan(folderUris: Set<String>): List<LocalTrack> = withContext(Dispatchers.IO) {
-        val results = mutableListOf<LocalTrack>()
-        val artExtractedAlbums = mutableSetOf<String>()
+    suspend fun scan(
+        folderUris: Set<String>,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): List<LocalTrack> = withContext(Dispatchers.IO) {
+        // Phase 1: enumerate all audio files (fast — directory listing only)
+        val audioFiles = mutableListOf<AudioFile>()
         for (uriString in folderUris) {
             val treeUri = Uri.parse(uriString)
             val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
-            scanDir(treeUri, rootDocId, results, artExtractedAlbums)
+            collectFiles(treeUri, rootDocId, audioFiles)
+        }
+
+        // Phase 2: read metadata from each file and report progress
+        val total = audioFiles.size
+        val results = mutableListOf<LocalTrack>()
+        val artExtractedAlbums = mutableSetOf<String>()
+        audioFiles.forEachIndexed { index, file ->
+            readTrack(file.uri, file.name, file.size, artExtractedAlbums, file.dirCoverUri)
+                ?.let { results.add(it) }
+            onProgress(index + 1, total)
         }
         results
     }
 
     private data class Child(val docId: String, val name: String, val mime: String, val size: Long)
 
-    private fun scanDir(
-        treeUri: Uri,
-        docId: String,
-        results: MutableList<LocalTrack>,
-        artExtractedAlbums: MutableSet<String>,
-    ) {
+    private data class AudioFile(val uri: Uri, val name: String, val size: Long, val dirCoverUri: Uri?)
+
+    private fun collectFiles(treeUri: Uri, docId: String, results: MutableList<AudioFile>) {
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
         val projection = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -75,11 +85,10 @@ class LocalLibraryScanner @Inject constructor(
         for (child in children) {
             when {
                 child.mime == DocumentsContract.Document.MIME_TYPE_DIR ->
-                    scanDir(treeUri, child.docId, results, artExtractedAlbums)
+                    collectFiles(treeUri, child.docId, results)
                 isAudio(child.mime, child.name) -> {
                     val fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, child.docId)
-                    readTrack(fileUri, child.name, child.size, artExtractedAlbums, dirCoverUri)
-                        ?.let { results.add(it) }
+                    results.add(AudioFile(fileUri, child.name, child.size, dirCoverUri))
                 }
             }
         }

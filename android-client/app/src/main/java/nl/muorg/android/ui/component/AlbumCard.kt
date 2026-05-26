@@ -1,9 +1,11 @@
 package nl.muorg.android.ui.component
 
+import android.graphics.BlurMaskFilter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -35,9 +37,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +51,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.Playlist
+import nl.muorg.android.ui.theme.MuorgGreenLight
 
 private enum class AlbumMenuLevel { HIDDEN, MAIN, PLAYLISTS }
 
@@ -56,6 +63,7 @@ fun AlbumCard(
     imageLoader: ImageLoader,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isActive: Boolean = false,
     playlists: List<Playlist> = emptyList(),
     onPlayNow: (() -> Unit)? = null,
     onAddToPlaylist: ((Playlist) -> Unit)? = null,
@@ -69,7 +77,26 @@ fun AlbumCard(
         label = "cardScale",
     )
 
-    Box(modifier = modifier.fillMaxWidth()) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (isActive) Modifier
+                    .drawBehind {
+                        drawIntoCanvas { canvas ->
+                            val paint = Paint()
+                            paint.asFrameworkPaint().apply {
+                                isAntiAlias = true
+                                color = MuorgGreenLight.copy(alpha = 0.45f).toArgb()
+                                maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
+                            }
+                            canvas.drawRoundRect(0f, 0f, size.width, size.height, 12.dp.toPx(), 12.dp.toPx(), paint)
+                        }
+                    }
+                    .border(2.dp, MuorgGreenLight, RoundedCornerShape(12.dp))
+                else Modifier
+            ),
+    ) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
