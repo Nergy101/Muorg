@@ -3,7 +3,7 @@
     <div
       v-if="visible"
       class="fixed inset-0 z-40"
-      @click="close"
+      @click="onBackdropClick"
       @contextmenu.prevent="close"
     />
     <div
@@ -39,8 +39,10 @@ const visible = ref(false);
 const x = ref(0);
 const y = ref(0);
 const menuEl = ref<HTMLElement | null>(null);
+let openedAt = 0;
 
 function open(event: MouseEvent): void {
+  openedAt = Date.now();
   x.value = event.clientX;
   y.value = event.clientY;
   visible.value = true;
@@ -50,6 +52,11 @@ function open(event: MouseEvent): void {
     if (rect.right > window.innerWidth) x.value = window.innerWidth - rect.width - 8;
     if (rect.bottom > window.innerHeight) y.value = window.innerHeight - rect.height - 8;
   });
+}
+
+function onBackdropClick(): void {
+  if (Date.now() - openedAt < 300) return;
+  close();
 }
 
 function close(): void {

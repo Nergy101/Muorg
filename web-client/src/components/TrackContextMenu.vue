@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="fixed inset-0 z-40" @click="close" @contextmenu.prevent="close" />
+    <div v-if="visible" class="fixed inset-0 z-40" @click="onBackdropClick" @contextmenu.prevent="close" />
     <div
       v-if="visible"
       ref="menuEl"
@@ -81,6 +81,7 @@ const playlistStore = usePlaylistStore();
 const visible = ref(false);
 const x = ref(0);
 const y = ref(0);
+let openedAt = 0;
 const menuEl = ref<HTMLElement | null>(null);
 const membershipIds = ref<Set<number> | null>(null);
 
@@ -110,6 +111,7 @@ watch(membershipIds, (v) => {
 });
 
 async function open(event: { clientX: number; clientY: number }): Promise<void> {
+  openedAt = Date.now();
   x.value = event.clientX;
   y.value = event.clientY;
   visible.value = true;
@@ -121,6 +123,11 @@ async function open(event: { clientX: number; clientY: number }): Promise<void> 
   } else {
     membershipIds.value = new Set();
   }
+}
+
+function onBackdropClick(): void {
+  if (Date.now() - openedAt < 300) return;
+  close();
 }
 
 function close(): void {
