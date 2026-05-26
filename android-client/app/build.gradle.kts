@@ -88,6 +88,9 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.okhttp)
 
+    // Palette
+    implementation(libs.androidx.palette)
+
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 

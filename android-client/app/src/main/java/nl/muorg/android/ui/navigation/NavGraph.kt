@@ -340,6 +340,7 @@ private fun AnimatedBottomNav(
 
             Box(
                 modifier = Modifier
+                    .align(Alignment.CenterStart)
                     .offset(x = pillOffsetX)
                     .size(56.dp, 40.dp)
                     .background(

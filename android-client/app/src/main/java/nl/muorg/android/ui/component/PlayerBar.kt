@@ -47,6 +47,12 @@ fun PlayerBar(
 ) {
     val currentTrack = playerState.currentTrack ?: return
 
+    val accentColor = rememberDominantColor(
+        url = if (currentTrack.hasCover) "$baseUrl/api/tracks/${currentTrack.id}/cover" else null,
+        imageLoader = imageLoader,
+        fallback = MaterialTheme.colorScheme.primary,
+    ).color
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -59,7 +65,7 @@ fun PlayerBar(
             LinearProgressIndicator(
                 progress = { playerState.progress },
                 modifier = Modifier.fillMaxWidth().height(2.dp),
-                color = MaterialTheme.colorScheme.primary,
+                color = accentColor,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
 

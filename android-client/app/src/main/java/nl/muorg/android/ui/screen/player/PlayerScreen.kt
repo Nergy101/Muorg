@@ -1,16 +1,23 @@
 package nl.muorg.android.ui.screen.player
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -41,6 +48,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,6 +65,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.TrackActionsSheet
+import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.player.PlayerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,8 +81,18 @@ fun PlayerScreen(
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
+    val coverUrl = if (currentTrack?.hasCover == true) "$baseUrl/api/tracks/${currentTrack.id}/cover" else null
 
-    // Seek drag state
+    val accentColor by animateColorAsState(
+        targetValue = rememberDominantColor(
+            url = coverUrl,
+            imageLoader = imageLoader,
+            fallback = MaterialTheme.colorScheme.primary,
+        ).color,
+        animationSpec = tween(durationMillis = 800),
+        label = "accentColor",
+    )
+
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
     val displayProgress = if (isSeeking) seekPosition else playerState.progress
@@ -77,16 +101,23 @@ fun PlayerScreen(
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     val favorites = playerState.favorites
 
+    // Solid black Scaffold keeps system bars clean — background effect lives inside the content area
     Scaffold(
+        containerColor = Color.Black,
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
                         Icons.Filled.KeyboardArrowDown,
                         contentDescription = "Minimize",
+                        tint = Color.White,
                         modifier = Modifier.size(26.dp),
                     )
                 }
@@ -96,7 +127,7 @@ fun PlayerScreen(
                         letterSpacing = 0.5.sp,
                         fontWeight = FontWeight.Medium,
                     ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color.White.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )
@@ -104,6 +135,7 @@ fun PlayerScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.QueueMusic,
                         contentDescription = "Open queue",
+                        tint = Color.White,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -111,186 +143,222 @@ fun PlayerScreen(
                     Icon(
                         Icons.Filled.MoreVert,
                         contentDescription = "More",
+                        tint = Color.White,
                         modifier = Modifier.size(22.dp),
                     )
                 }
             }
         }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(innerPadding),
         ) {
-            // Art + info: vertically centered in the space above controls
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                // Album art — 72% width so it sits comfortably in the center zone
-                Box(
+            // Background: blurred album art fading into black
+            if (coverUrl != null) {
+                AsyncImage(
+                    model = coverUrl,
+                    contentDescription = null,
+                    imageLoader = imageLoader,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .fillMaxWidth(0.72f)
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Album,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(48.dp),
-                    )
-                    if (currentTrack?.hasCover == true) {
-                        AsyncImage(
-                            model = "$baseUrl/api/tracks/${currentTrack.id}/cover",
-                            contentDescription = "Album cover",
-                            imageLoader = imageLoader,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // Track title
-                MarqueeText(
-                    text = currentTrack?.displayTitle ?: "Nothing playing",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                MarqueeText(
-                    text = currentTrack?.displayArtist ?: "",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
-
-                MarqueeText(
-                    text = currentTrack?.displayAlbum ?: "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            renderEffect = BlurEffect(radiusX = 80f, radiusY = 80f, edgeTreatment = TileMode.Clamp)
+                            scaleX = 1.2f
+                            scaleY = 1.2f
+                            alpha = 0.55f
+                        },
                 )
             }
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.60f)))
 
-            // Controls pinned to bottom
             Column(
-                modifier = Modifier.padding(bottom = 20.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Seek slider
-                Slider(
-                    value = displayProgress,
-                    onValueChange = { value ->
-                        isSeeking = true
-                        seekPosition = value
-                    },
-                    onValueChangeFinished = {
-                        playerViewModel.seekTo(seekPosition)
-                        isSeeking = false
-                    },
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                // Time labels
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(
-                        text = formatMs(playerState.positionMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // Album art with per-track accent halo
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.72f)
+                            .aspectRatio(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        accentColor.copy(alpha = 0.45f),
+                                        Color.Transparent,
+                                    ),
+                                    center = Offset(size.width / 2f, size.height / 2f),
+                                    radius = size.width * 0.72f,
+                                ),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Album,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.3f),
+                                modifier = Modifier.fillMaxSize().padding(48.dp),
+                            )
+                            if (coverUrl != null) {
+                                AsyncImage(
+                                    model = coverUrl,
+                                    contentDescription = "Album cover",
+                                    imageLoader = imageLoader,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    MarqueeText(
+                        text = currentTrack?.displayTitle ?: "Nothing playing",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    Text(
-                        text = formatMs(playerState.durationMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    MarqueeText(
+                        text = currentTrack?.displayArtist ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.75f),
+                        textAlign = TextAlign.Center,
+                    )
+
+                    MarqueeText(
+                        text = currentTrack?.displayAlbum ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.55f),
+                        textAlign = TextAlign.Center,
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Playback controls
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.padding(bottom = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    IconButton(onClick = playerViewModel::toggleShuffle) {
-                        Icon(
-                            imageVector = Icons.Filled.Shuffle,
-                            contentDescription = "Shuffle",
-                            tint = if (playerState.shuffleEnabled) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
+                    Slider(
+                        value = displayProgress,
+                        onValueChange = { value ->
+                            isSeeking = true
+                            seekPosition = value
+                        },
+                        onValueChangeFinished = {
+                            playerViewModel.seekTo(seekPosition)
+                            isSeeking = false
+                        },
+                        colors = SliderDefaults.colors(
+                            thumbColor = accentColor,
+                            activeTrackColor = accentColor,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.25f),
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-                    IconButton(
-                        onClick = playerViewModel::skipPrevious,
-                        modifier = Modifier.size(56.dp),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.SkipPrevious,
-                            contentDescription = "Previous",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.fillMaxSize(),
+                        Text(
+                            text = formatMs(playerState.positionMs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                        Text(
+                            text = formatMs(playerState.durationMs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.6f),
                         )
                     }
 
-                    IconButton(
-                        onClick = playerViewModel::playPause,
-                        modifier = Modifier.size(72.dp),
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            imageVector = if (playerState.isPlaying) Icons.Filled.Pause
-                            else Icons.Filled.PlayArrow,
-                            contentDescription = if (playerState.isPlaying) "Pause" else "Play",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                        IconButton(onClick = playerViewModel::toggleShuffle) {
+                            Icon(
+                                imageVector = Icons.Filled.Shuffle,
+                                contentDescription = "Shuffle",
+                                tint = if (playerState.shuffleEnabled) accentColor
+                                       else Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
 
-                    IconButton(
-                        onClick = playerViewModel::skipNext,
-                        modifier = Modifier.size(56.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.SkipNext,
-                            contentDescription = "Next",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                        IconButton(
+                            onClick = playerViewModel::skipPrevious,
+                            modifier = Modifier.size(56.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.SkipPrevious,
+                                contentDescription = "Previous",
+                                tint = Color.White,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
 
-                    IconButton(onClick = playerViewModel::cycleRepeatMode) {
-                        Icon(
-                            imageVector = if (playerState.repeatMode == Player.REPEAT_MODE_ONE)
-                                Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                            contentDescription = "Repeat",
-                            tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF)
-                                MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp),
-                        )
+                        IconButton(
+                            onClick = playerViewModel::playPause,
+                            modifier = Modifier.size(72.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (playerState.isPlaying) Icons.Filled.Pause
+                                             else Icons.Filled.PlayArrow,
+                                contentDescription = if (playerState.isPlaying) "Pause" else "Play",
+                                tint = accentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+
+                        IconButton(
+                            onClick = playerViewModel::skipNext,
+                            modifier = Modifier.size(56.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.SkipNext,
+                                contentDescription = "Next",
+                                tint = Color.White,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+
+                        IconButton(onClick = playerViewModel::cycleRepeatMode) {
+                            Icon(
+                                imageVector = if (playerState.repeatMode == Player.REPEAT_MODE_ONE)
+                                    Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                                contentDescription = "Repeat",
+                                tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF)
+                                    accentColor
+                                else Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
                     }
                 }
             }
