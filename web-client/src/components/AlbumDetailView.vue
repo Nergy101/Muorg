@@ -42,6 +42,7 @@
             <th class="w-10 py-2 pl-4 pr-2 text-right">#</th>
             <th class="py-2 pr-4">Title</th>
             <th class="hidden py-2 pr-4 sm:table-cell">Artist</th>
+            <th class="w-14 py-2 pr-3" />
             <th class="w-16 py-2 pr-4 text-right">Time</th>
           </tr>
         </thead>
@@ -51,8 +52,11 @@
             :key="track.id"
             class="group cursor-pointer select-none border-b border-stone-800/60 hover:bg-stone-800/60"
             :class="lib.nowPlaying?.id === track.id ? 'row-playing' : ''"
-            @dblclick="lib.playTrack(track)"
+            @click="lib.playTrack(track)"
             @contextmenu.prevent="openCtxMenu($event, track)"
+            @touchstart.passive="(e) => onTouchStart(e, track)"
+            @touchmove.passive="onTouchMove"
+            @touchend="onTouchEnd"
           >
             <td class="py-2 pl-4 pr-2 text-right text-xs text-stone-500">
               {{ track.track_number ?? '—' }}
@@ -62,6 +66,12 @@
             </td>
             <td class="hidden max-w-0 py-2 pr-4 sm:table-cell">
               <div class="truncate text-xs text-stone-400">{{ track.artist ?? track.album_artist ?? '—' }}</div>
+            </td>
+            <td class="py-2 pr-3 whitespace-nowrap">
+              <span
+                class="rounded border px-1 py-0.5 font-mono text-[10px] uppercase leading-none tracking-wider"
+                :class="track.format === 'flac' ? 'border-accent/70 text-accent' : 'border-stone-600 text-stone-500'"
+              >{{ track.format }}</span>
             </td>
             <td class="py-2 pr-4 text-right text-xs text-stone-500 whitespace-nowrap">
               {{ track.duration_secs != null ? formatDuration(track.duration_secs) : '—' }}
@@ -131,9 +141,40 @@ const totalDuration = computed(() => {
 const trackCtxRef = ref<InstanceType<typeof TrackContextMenu> | null>(null);
 const ctxTrack = ref<CatalogTrack | null>(null);
 
-function openCtxMenu(event: MouseEvent, track: CatalogTrack): void {
+function openCtxMenu(event: { clientX: number; clientY: number }, track: CatalogTrack): void {
   ctxTrack.value = track;
   trackCtxRef.value?.open(event);
+}
+
+const LONG_PRESS_MS = 500;
+let _lpTimer: ReturnType<typeof setTimeout> | null = null;
+let _lpStart = { x: 0, y: 0 };
+let _lpFired = false;
+
+function onTouchStart(e: TouchEvent, track: CatalogTrack): void {
+  _lpFired = false;
+  const t = e.touches[0];
+  _lpStart = { x: t.clientX, y: t.clientY };
+  _lpTimer = setTimeout(() => {
+    _lpTimer = null;
+    _lpFired = true;
+    navigator.vibrate?.(20);
+    openCtxMenu({ clientX: t.clientX, clientY: t.clientY }, track);
+  }, LONG_PRESS_MS);
+}
+
+function onTouchMove(e: TouchEvent): void {
+  if (!_lpTimer) return;
+  const t = e.touches[0];
+  if (Math.abs(t.clientX - _lpStart.x) > 8 || Math.abs(t.clientY - _lpStart.y) > 8) {
+    clearTimeout(_lpTimer);
+    _lpTimer = null;
+  }
+}
+
+function onTouchEnd(e: TouchEvent): void {
+  if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+  if (_lpFired) { e.preventDefault(); _lpFired = false; }
 }
 
 // New playlist modal

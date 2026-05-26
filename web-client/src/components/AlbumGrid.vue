@@ -102,7 +102,7 @@ function isAlbumPlaying(item: AlbumGridItem): boolean {
   return !!lib.nowPlaying && item.trackIds.includes(lib.nowPlaying.id);
 }
 
-function openAlbumMenu(event: MouseEvent, item: AlbumGridItem): void {
+function openAlbumMenu(event: { clientX: number; clientY: number }, item: AlbumGridItem): void {
   ctxItem.value = item;
   ctxPos.value = { x: event.clientX, y: event.clientY };
 }

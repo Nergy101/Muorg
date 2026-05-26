@@ -109,7 +109,7 @@ watch(membershipIds, (v) => {
   if (v !== null) clampPosition();
 });
 
-async function open(event: MouseEvent): Promise<void> {
+async function open(event: { clientX: number; clientY: number }): Promise<void> {
   x.value = event.clientX;
   y.value = event.clientY;
   visible.value = true;

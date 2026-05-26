@@ -45,13 +45,13 @@
             >
               Year <span v-if="lib.tableSortCol === 'year'" class="ml-0.5 inline-block text-accent">{{ lib.tableSortDir === 'asc' ? '↑' : '↓' }}</span>
             </th>
+            <th class="w-14 py-2 pr-3" />
             <th
               class="w-16 cursor-pointer py-2 pr-3 text-right hover:text-stone-300 select-none"
               @click="lib.setTableSort('duration')"
             >
               <span v-if="lib.tableSortCol === 'duration'" class="mr-0.5 inline-block text-accent">{{ lib.tableSortDir === 'asc' ? '↑' : '↓' }}</span>Time
             </th>
-            <th class="hidden w-14 py-2 pr-3 sm:table-cell" />
           </tr>
         </thead>
 
@@ -81,6 +81,7 @@
                 :row="row"
                 :active="row.key === nowPlayingGroupKey"
                 @toggle="lib.toggleGroup(row.key)"
+                @contextmenu="openGroupCtx($event, row.key)"
               />
               <TrackRow
                 v-else
@@ -197,7 +198,16 @@ function rowKey(row: TableRow): string {
 }
 
 
-function openTrackCtx(event: MouseEvent, track: CatalogTrack): void {
+function openTrackCtx(event: { clientX: number; clientY: number }, track: CatalogTrack): void {
+  ctxTrack.value = track;
+  trackCtxRef.value?.open(event);
+}
+
+function openGroupCtx(event: { clientX: number; clientY: number }, groupKey: string): void {
+  const track = lib.tableRows
+    .find((r): r is import("../types").TableTrackRow => r.type === "track" && r.groupKey === groupKey)
+    ?.track ?? null;
+  if (!track) return;
   ctxTrack.value = track;
   trackCtxRef.value?.open(event);
 }

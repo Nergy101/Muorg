@@ -5,6 +5,10 @@
       active ? 'group-header-playing' : 'bg-stone-800/60 hover:bg-stone-800',
     ]"
     @click="emit('toggle')"
+    @contextmenu.prevent="emit('contextmenu', $event)"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend="onTouchEnd"
   >
     <!-- Cover art (col 1) — chevron overlaid at bottom-right -->
     <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1 pl-3 pr-2' : 'w-px py-1 pl-1.5 pr-1 sm:w-10 sm:py-1.5 sm:pl-3 sm:pr-2'">
@@ -50,7 +54,41 @@ import { useLibraryStore, formatDuration } from "../stores/library";
 import type { TableGroupRow } from "../types";
 
 const props = defineProps<{ row: TableGroupRow; active?: boolean }>();
-const emit = defineEmits<{ toggle: [] }>();
+const emit = defineEmits<{
+  toggle: [];
+  contextmenu: [event: { clientX: number; clientY: number }];
+}>();
+
+const LONG_PRESS_MS = 500;
+let _lpTimer: ReturnType<typeof setTimeout> | null = null;
+let _lpStart = { x: 0, y: 0 };
+let _lpFired = false;
+
+function onTouchStart(e: TouchEvent): void {
+  _lpFired = false;
+  const t = e.touches[0];
+  _lpStart = { x: t.clientX, y: t.clientY };
+  _lpTimer = setTimeout(() => {
+    _lpTimer = null;
+    _lpFired = true;
+    navigator.vibrate?.(20);
+    emit("contextmenu", { clientX: t.clientX, clientY: t.clientY });
+  }, LONG_PRESS_MS);
+}
+
+function onTouchMove(e: TouchEvent): void {
+  if (!_lpTimer) return;
+  const t = e.touches[0];
+  if (Math.abs(t.clientX - _lpStart.x) > 8 || Math.abs(t.clientY - _lpStart.y) > 8) {
+    clearTimeout(_lpTimer);
+    _lpTimer = null;
+  }
+}
+
+function onTouchEnd(e: TouchEvent): void {
+  if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+  if (_lpFired) { e.preventDefault(); _lpFired = false; }
+}
 
 const lib = useLibraryStore();
 

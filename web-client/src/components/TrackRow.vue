@@ -10,6 +10,9 @@
     @click.shift="handleShiftClick"
     @dblclick="emit('play')"
     @contextmenu.prevent="emit('contextmenu', $event)"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend="onTouchEnd"
   >
     <!-- Cover art column (empty for track rows) -->
     <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1.5 pl-3 pr-2' : 'w-px py-1 pl-1.5 pr-1 sm:w-10 sm:py-1.5 sm:pl-3 sm:pr-2'" />
@@ -37,14 +40,17 @@
       {{ track.year ?? '' }}
     </td>
 
+    <!-- Format pill -->
+    <td class="py-1.5 pr-3 whitespace-nowrap">
+      <span
+        class="rounded border px-1 py-0.5 font-mono text-[10px] uppercase leading-none tracking-wider"
+        :class="track.format === 'flac' ? 'border-accent/70 text-accent' : 'border-stone-600 text-stone-500'"
+      >{{ track.format }}</span>
+    </td>
+
     <!-- Duration -->
     <td class="py-1.5 pr-3 text-right text-xs text-stone-500 whitespace-nowrap">
       {{ duration }}
-    </td>
-
-    <!-- Format -->
-    <td class="hidden py-1.5 pr-3 text-xs text-stone-600 whitespace-nowrap sm:table-cell">
-      {{ track.format.toUpperCase() }}
     </td>
   </tr>
 </template>
@@ -57,7 +63,7 @@ import type { CatalogTrack } from "../types";
 const props = defineProps<{ track: CatalogTrack }>();
 const emit = defineEmits<{
   play: [];
-  contextmenu: [event: MouseEvent];
+  contextmenu: [event: { clientX: number; clientY: number }];
 }>();
 
 const lib = useLibraryStore();
@@ -77,5 +83,37 @@ function handleClick(): void {
 
 function handleShiftClick(): void {
   lib.toggleTrackSelection(props.track.id, true);
+}
+
+// ── Long-press → context menu ──────────────────────────────────────────────
+const LONG_PRESS_MS = 500;
+let _lpTimer: ReturnType<typeof setTimeout> | null = null;
+let _lpStart = { x: 0, y: 0 };
+let _lpFired = false;
+
+function onTouchStart(e: TouchEvent): void {
+  _lpFired = false;
+  const t = e.touches[0];
+  _lpStart = { x: t.clientX, y: t.clientY };
+  _lpTimer = setTimeout(() => {
+    _lpTimer = null;
+    _lpFired = true;
+    navigator.vibrate?.(20);
+    emit("contextmenu", { clientX: t.clientX, clientY: t.clientY });
+  }, LONG_PRESS_MS);
+}
+
+function onTouchMove(e: TouchEvent): void {
+  if (!_lpTimer) return;
+  const t = e.touches[0];
+  if (Math.abs(t.clientX - _lpStart.x) > 8 || Math.abs(t.clientY - _lpStart.y) > 8) {
+    clearTimeout(_lpTimer);
+    _lpTimer = null;
+  }
+}
+
+function onTouchEnd(e: TouchEvent): void {
+  if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+  if (_lpFired) { e.preventDefault(); _lpFired = false; }
 }
 </script>

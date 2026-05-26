@@ -8,6 +8,9 @@
     :style="isPlaying ? { boxShadow: '0 0 0 2px rgba(91,124,50,0.5), 0 0 20px 6px rgba(91,124,50,0.45), 0 0 40px 10px rgba(91,124,50,0.20)' } : undefined"
     @click="emit('play')"
     @contextmenu.prevent="emit('contextmenu', $event)"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend="onTouchEnd"
   >
     <!-- Album art area -->
     <div class="relative h-40 w-full shrink-0 overflow-hidden bg-stone-800">
@@ -62,7 +65,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   play: [];
-  contextmenu: [event: MouseEvent];
+  contextmenu: [event: { clientX: number; clientY: number }];
 }>();
 
 const lib = useLibraryStore();
@@ -104,6 +107,37 @@ watch(
     if (id !== null && !lib.coverCache.has(id)) lib.requestCover(id);
   },
 );
+
+const LONG_PRESS_MS = 500;
+let _lpTimer: ReturnType<typeof setTimeout> | null = null;
+let _lpStart = { x: 0, y: 0 };
+let _lpFired = false;
+
+function onTouchStart(e: TouchEvent): void {
+  _lpFired = false;
+  const t = e.touches[0];
+  _lpStart = { x: t.clientX, y: t.clientY };
+  _lpTimer = setTimeout(() => {
+    _lpTimer = null;
+    _lpFired = true;
+    navigator.vibrate?.(20);
+    emit("contextmenu", { clientX: t.clientX, clientY: t.clientY });
+  }, LONG_PRESS_MS);
+}
+
+function onTouchMove(e: TouchEvent): void {
+  if (!_lpTimer) return;
+  const t = e.touches[0];
+  if (Math.abs(t.clientX - _lpStart.x) > 8 || Math.abs(t.clientY - _lpStart.y) > 8) {
+    clearTimeout(_lpTimer);
+    _lpTimer = null;
+  }
+}
+
+function onTouchEnd(e: TouchEvent): void {
+  if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+  if (_lpFired) { e.preventDefault(); _lpFired = false; }
+}
 </script>
 
 <style scoped>
