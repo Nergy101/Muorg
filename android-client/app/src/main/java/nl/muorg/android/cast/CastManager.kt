@@ -1,6 +1,7 @@
 package nl.muorg.android.cast
 
 import android.content.Context
+import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
 import com.google.android.gms.cast.MediaInfo
@@ -31,6 +32,12 @@ class CastManager @Inject constructor(
 
     private var castContext: CastContext? = null
 
+    // Required for mDNS Chromecast discovery on real hardware — emulators don't enforce this filter
+    private val multicastLock: WifiManager.MulticastLock =
+        (context.getSystemService(Context.WIFI_SERVICE) as WifiManager)
+            .createMulticastLock("muorg_cast_discovery")
+            .also { it.setReferenceCounted(true) }
+
     private val sessionListener = object : SessionManagerListener<CastSession> {
         override fun onSessionStarted(session: CastSession, sessionId: String) {
             _isCasting.value = true
@@ -60,6 +67,7 @@ class CastManager @Inject constructor(
     }
 
     init {
+        multicastLock.acquire()
         Handler(Looper.getMainLooper()).post {
             try {
                 val ctx = CastContext.getSharedInstance(context)
@@ -110,5 +118,9 @@ class CastManager @Inject constructor(
 
     fun stopCasting() {
         castContext?.sessionManager?.endCurrentSession(true)
+    }
+
+    fun release() {
+        if (multicastLock.isHeld) multicastLock.release()
     }
 }
