@@ -79,10 +79,14 @@ class PlaylistAlbumsViewModel @Inject constructor(
             val playlists = playlistsDeferred.await()
             val contents = contentsDeferred.await()
             val playlist = playlists.find { it.id == playlistId }
+            val tracks = contents.mapNotNull { it.track }
+            val albums = localRepository.buildAlbumGroupsForTracks(tracks)
 
             _uiState.update {
                 it.copy(
                     playlist = playlist,
+                    albums = albums,
+                    allTracks = tracks,
                     localEntries = contents,
                     playlists = playlists,
                     isLoading = false,

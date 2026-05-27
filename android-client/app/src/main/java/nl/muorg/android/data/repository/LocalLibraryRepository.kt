@@ -143,6 +143,23 @@ class LocalLibraryRepository @Inject constructor(
             .sortedWith(compareBy({ it.artist.lowercase() }, { it.albumName.lowercase() }))
     }
 
+    fun buildAlbumGroupsForTracks(tracks: List<CatalogTrack>): List<AlbumGroup> =
+        tracks
+            .groupBy { it.displayAlbum }
+            .map { (albumName, albumTracks) ->
+                val rep = albumTracks.minByOrNull { (it.discNumber ?: 0) * 10000 + (it.trackNumber ?: 9999) }
+                    ?: albumTracks.first()
+                AlbumGroup(
+                    albumName = albumName,
+                    artist = rep.albumArtist ?: rep.artist ?: "Unknown Artist",
+                    year = rep.year,
+                    trackCount = albumTracks.size,
+                    coverTrackId = rep.id,
+                    coverArtUri = rep.localCoverPath,
+                )
+            }
+            .sortedWith(compareBy({ it.artist.lowercase() }, { it.albumName.lowercase() }))
+
     fun getAlbumArtUri(albumName: String): String? {
         val artFile = File(context.cacheDir, "album_art/${albumName.hashCode()}.jpg")
         return if (artFile.exists()) artFile.absolutePath else null

@@ -66,7 +66,7 @@ private fun analyzeBitmap(
     val hsv = FloatArray(3)
 
     val pixels = IntArray(size * size)
-    bitmap.getPixels(pixels, 0, w, 0, 0, size, size)
+    bitmap.getPixels(pixels, 0, size, 0, 0, size, size)
 
     // Single pass: average saturation + dominant hue bucket.
     // 36 buckets of 10° each — only count pixels that are meaningfully colored.
