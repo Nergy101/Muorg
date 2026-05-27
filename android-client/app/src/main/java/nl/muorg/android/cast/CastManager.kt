@@ -102,9 +102,19 @@ class CastManager @Inject constructor(
             putString(MediaMetadata.KEY_ALBUM_TITLE, track.displayAlbum)
         }
 
+        val contentType = when (track.format.lowercase()) {
+            "mp3" -> "audio/mpeg"
+            "flac" -> "audio/flac"
+            "aac", "m4a" -> "audio/mp4"
+            "ogg" -> "audio/ogg"
+            "opus" -> "audio/ogg;codecs=opus"
+            "wav" -> "audio/wav"
+            else -> "audio/mpeg"
+        }
+
         val mediaInfo = MediaInfo.Builder("$baseUrl/stream/${track.id}?token=$token")
             .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
-            .setContentType("audio/mpeg")
+            .setContentType(contentType)
             .setMetadata(metadata)
             .build()
 

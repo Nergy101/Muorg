@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import nl.muorg.android.cast.CastManager
@@ -49,6 +50,15 @@ class PlayerViewModel @Inject constructor(
                 _playlists.value = localRepository.getPlaylists()
             } else {
                 playlistRepository.getPlaylists().onSuccess { _playlists.value = it }
+            }
+        }
+        viewModelScope.launch {
+            castManager.isCasting.drop(1).collect { casting ->
+                if (casting) {
+                    val track = playerController.state.value.currentTrack ?: return@collect
+                    if (playerController.state.value.isPlaying) playerController.playPause()
+                    castCurrentTrack(track)
+                }
             }
         }
     }
