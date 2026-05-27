@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.CircularProgressIndicator
@@ -178,20 +179,49 @@ fun AlbumDetailScreen(
                         items = uiState.tracks,
                         key = { it.id },
                     ) { track ->
+                        val membership = uiState.trackPlaylistMembership[track.path] ?: emptySet()
                         AlbumTrackRow(
                             track = track,
                             isPlaying = playerState.currentTrack?.id == track.id &&
                                 playerState.isPlaying,
                             playlists = uiState.playlists,
+                            trackInPlaylistIds = membership,
                             onClick = { playerViewModel.playTrack(track, uiState.tracks) },
                             onAddToPlaylist = { playlist ->
-                                viewModel.addTracksToPlaylist(listOf(track.id), playlist.id)
+                                viewModel.requestAddTracksToPlaylist(listOf(track), playlist.id)
+                            },
+                            onRemoveFromPlaylist = { playlist ->
+                                viewModel.removeTrackFromPlaylist(track, playlist.id)
                             },
                         )
                     }
                 }
             }
         }
+    }
+
+    uiState.addConflict?.let { conflict ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = viewModel::dismissConflict,
+            title = { Text("Some tracks already added") },
+            text = {
+                Text(
+                    "${conflict.allTracks.size - conflict.newTracks.size} track(s) already in this playlist. " +
+                        "Add the ${conflict.newTracks.size} new one(s), or add all?"
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(onClick = viewModel::confirmAddNewOnly) {
+                    Text("Add ${conflict.newTracks.size} new")
+                }
+            },
+            dismissButton = {
+                Row {
+                    androidx.compose.material3.TextButton(onClick = viewModel::confirmAddAll) { Text("Add all") }
+                    androidx.compose.material3.TextButton(onClick = viewModel::dismissConflict) { Text("Cancel") }
+                }
+            },
+        )
     }
 }
 
@@ -201,8 +231,10 @@ private fun AlbumTrackRow(
     track: CatalogTrack,
     isPlaying: Boolean,
     playlists: List<Playlist>,
+    trackInPlaylistIds: Set<Int> = emptySet(),
     onClick: () -> Unit,
     onAddToPlaylist: (Playlist) -> Unit,
+    onRemoveFromPlaylist: (Playlist) -> Unit = {},
 ) {
     var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
 
@@ -319,10 +351,14 @@ private fun AlbumTrackRow(
                 )
             } else {
                 playlists.forEach { playlist ->
+                    val isInPlaylist = playlist.id in trackInPlaylistIds
                     DropdownMenuItem(
                         text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
+                        trailingIcon = if (isInPlaylist) {
+                            { Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }
+                        } else null,
                         onClick = {
-                            onAddToPlaylist(playlist)
+                            if (isInPlaylist) onRemoveFromPlaylist(playlist) else onAddToPlaylist(playlist)
                             menuLevel = TrackMenuLevel.HIDDEN
                         },
                     )

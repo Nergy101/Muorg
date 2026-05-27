@@ -33,4 +33,7 @@ interface LocalTrackDao {
 
     @Query("SELECT * FROM local_tracks WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Int>): List<LocalTrack>
+
+    @Query("SELECT * FROM local_tracks WHERE path = :path LIMIT 1")
+    suspend fun getByPath(path: String): LocalTrack?
 }

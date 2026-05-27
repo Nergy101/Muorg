@@ -121,7 +121,14 @@ fun PlayerScreen(
 
     var sheetOpen by remember { mutableStateOf(false) }
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
+    val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
     val favorites = playerState.favorites
+
+    LaunchedEffect(sheetOpen, currentTrack) {
+        if (sheetOpen && currentTrack != null) {
+            playerViewModel.loadCurrentTrackMembership(currentTrack)
+        }
+    }
 
     Scaffold(
         containerColor = Color.Black,
@@ -408,7 +415,15 @@ fun PlayerScreen(
             baseUrl = baseUrl,
             imageLoader = imageLoader,
             onDismiss = { sheetOpen = false },
-            onAddToPlaylist = { sheetOpen = false },
+            onAddToPlaylist = { playlistId ->
+                playerViewModel.addTrackToPlaylist(currentTrack, playlistId)
+                sheetOpen = false
+            },
+            onRemoveFromPlaylist = { playlistId ->
+                playerViewModel.removeTrackFromPlaylist(currentTrack, playlistId)
+                sheetOpen = false
+            },
+            trackInPlaylistIds = currentTrackMembership,
             onViewArtist = {
                 sheetOpen = false
                 onViewArtist(currentTrack.displayArtist)

@@ -2,6 +2,7 @@ package nl.muorg.android.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 
@@ -19,14 +20,23 @@ interface LocalPlaylistDao {
     @Query("DELETE FROM local_playlists WHERE id = :id")
     suspend fun delete(id: Int)
 
+    @Query("SELECT COUNT(*) FROM local_playlist_entries WHERE playlistId = :playlistId")
+    suspend fun getTrackCount(playlistId: Int): Int
+
     @Query("SELECT * FROM local_playlist_entries WHERE playlistId = :playlistId ORDER BY position")
     suspend fun getEntries(playlistId: Int): List<LocalPlaylistEntry>
 
-    @Insert
-    suspend fun insertEntry(entry: LocalPlaylistEntry)
+    @Query("SELECT * FROM local_playlist_entries")
+    suspend fun getAllEntries(): List<LocalPlaylistEntry>
 
-    @Query("DELETE FROM local_playlist_entries WHERE playlistId = :playlistId AND trackId = :trackId")
-    suspend fun removeEntry(playlistId: Int, trackId: Int)
+    @Query("SELECT filePath FROM local_playlist_entries WHERE playlistId = :playlistId AND filePath IN (:filePaths)")
+    suspend fun getExistingFilePaths(playlistId: Int, filePaths: List<String>): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertEntry(entry: LocalPlaylistEntry): Long
+
+    @Query("DELETE FROM local_playlist_entries WHERE playlistId = :playlistId AND filePath = :filePath")
+    suspend fun removeEntry(playlistId: Int, filePath: String)
 
     @Query("DELETE FROM local_playlist_entries WHERE playlistId = :playlistId")
     suspend fun clearEntries(playlistId: Int)

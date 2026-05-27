@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.component.TrackRow
@@ -209,6 +211,7 @@ fun LibraryScreen(
                             items = uiState.filteredTracks,
                             key = { it.id },
                         ) { track ->
+                            val membership = uiState.trackPlaylistMembership[track.path] ?: emptySet()
                             TrackRow(
                                 track = track,
                                 baseUrl = baseUrl,
@@ -216,11 +219,15 @@ fun LibraryScreen(
                                 isPlaying = playerState.currentTrack?.id == track.id &&
                                     playerState.isPlaying,
                                 playlists = uiState.playlists,
+                                trackInPlaylistIds = membership,
                                 onTrackClick = {
                                     playerViewModel.playTrack(track, uiState.filteredTracks)
                                 },
                                 onAddToPlaylist = { playlist ->
-                                    viewModel.addTracksToPlaylist(listOf(track.id), playlist.id)
+                                    viewModel.requestAddTracksToPlaylist(listOf(track), playlist.id)
+                                },
+                                onRemoveFromPlaylist = { playlist ->
+                                    viewModel.removeTrackFromPlaylist(track, playlist.id)
                                 },
                             )
                         }
@@ -251,8 +258,8 @@ fun LibraryScreen(
                                     }
                                 },
                                 onAddToPlaylist = { playlist ->
-                                    val trackIds = viewModel.getTracksForAlbum(album.albumName).map { it.id }
-                                    viewModel.addTracksToPlaylist(trackIds, playlist.id)
+                                    val tracks = viewModel.getTracksForAlbum(album.albumName)
+                                    viewModel.requestAddTracksToPlaylist(tracks, playlist.id)
                                 },
                             )
                         }
@@ -272,5 +279,29 @@ fun LibraryScreen(
                 onOpenQueue = onOpenQueue,
             )
         }
+    }
+
+    uiState.addConflict?.let { conflict ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissConflict,
+            title = { Text("Some tracks already added") },
+            text = {
+                Text(
+                    "${conflict.allTracks.size - conflict.newTracks.size} track(s) already in this playlist. " +
+                        "Add the ${conflict.newTracks.size} new one(s), or add all?"
+                )
+            },
+            confirmButton = {
+                Button(onClick = viewModel::confirmAddNewOnly) {
+                    Text("Add ${conflict.newTracks.size} new")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = viewModel::confirmAddAll) { Text("Add all") }
+                    TextButton(onClick = viewModel::dismissConflict) { Text("Cancel") }
+                }
+            },
+        )
     }
 }

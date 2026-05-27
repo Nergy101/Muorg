@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.player.PlayerController
 import nl.muorg.android.player.PlayerState
@@ -20,6 +21,7 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     private val playerController: PlayerController,
     private val playlistRepository: PlaylistRepository,
+    private val localRepository: LocalLibraryRepository,
     private val preferences: AppPreferences,
 ) : ViewModel() {
 
@@ -28,12 +30,64 @@ class PlayerViewModel @Inject constructor(
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
 
+    private val _currentTrackMembership = MutableStateFlow<Set<Int>>(emptySet())
+    val currentTrackMembership: StateFlow<Set<Int>> = _currentTrackMembership.asStateFlow()
+
     init {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()
-            if (mode != "local") {
+            if (mode == "local") {
+                _playlists.value = localRepository.getPlaylists()
+            } else {
                 playlistRepository.getPlaylists().onSuccess { _playlists.value = it }
             }
+        }
+    }
+
+    fun loadCurrentTrackMembership(track: CatalogTrack) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                val membership = localRepository.getPlaylistMembershipByPath()
+                _currentTrackMembership.value = membership[track.path] ?: emptySet()
+            } else {
+                _currentTrackMembership.value = emptySet()
+            }
+        }
+    }
+
+    fun addTrackToPlaylist(track: CatalogTrack, playlistId: Int) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                localRepository.addTracksToPlaylist(playlistId, listOf(track))
+                refreshPlaylists()
+                loadCurrentTrackMembership(track)
+            } else {
+                playlistRepository.addTracks(playlistId, listOf(track.id))
+            }
+        }
+    }
+
+    fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                localRepository.removeTrackFromPlaylist(playlistId, track.path)
+                refreshPlaylists()
+                loadCurrentTrackMembership(track)
+            } else {
+                playlistRepository.removeTracks(playlistId, listOf(track.id))
+            }
+        }
+    }
+
+    private suspend fun refreshPlaylists() {
+        val mode = preferences.musicMode.first()
+        if (mode == "local") {
+            _playlists.value = localRepository.getPlaylists()
+        } else {
+            playlistRepository.getPlaylists().onSuccess { _playlists.value = it }
         }
     }
 

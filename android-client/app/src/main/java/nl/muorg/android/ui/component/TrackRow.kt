@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
@@ -47,8 +48,10 @@ fun TrackRow(
     imageLoader: ImageLoader,
     isPlaying: Boolean = false,
     playlists: List<Playlist> = emptyList(),
+    trackInPlaylistIds: Set<Int> = emptySet(),
     onTrackClick: () -> Unit,
     onAddToPlaylist: ((Playlist) -> Unit)? = null,
+    onRemoveFromPlaylist: ((Playlist) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
@@ -181,10 +184,21 @@ fun TrackRow(
                 )
             } else {
                 playlists.forEach { playlist ->
+                    val isInPlaylist = playlist.id in trackInPlaylistIds
                     DropdownMenuItem(
-                        text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
+                        text = {
+                            Text(
+                                "${playlist.icon ?: "🎵"}  ${playlist.name}",
+                                color = if (isInPlaylist) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface,
+                            )
+                        },
+                        trailingIcon = if (isInPlaylist) {
+                            { Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }
+                        } else null,
                         onClick = {
-                            onAddToPlaylist?.invoke(playlist)
+                            if (isInPlaylist) onRemoveFromPlaylist?.invoke(playlist)
+                            else onAddToPlaylist?.invoke(playlist)
                             menuLevel = TrackMenuLevel.HIDDEN
                         },
                     )

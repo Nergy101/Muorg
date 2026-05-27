@@ -110,7 +110,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "muorg_local.db").build()
+        Room.databaseBuilder(context, AppDatabase::class.java, "muorg_local.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     @Singleton

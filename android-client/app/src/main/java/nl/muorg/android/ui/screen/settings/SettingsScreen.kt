@@ -233,7 +233,7 @@ fun SettingsScreen(
         }
 
         Text(
-            "Pick one. Switching clears the library cache.",
+            "Pick one. Local playlists are always preserved.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),

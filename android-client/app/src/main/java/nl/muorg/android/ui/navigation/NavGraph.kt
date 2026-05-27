@@ -120,8 +120,7 @@ fun NavGraph() {
         route != Screen.Connect.route &&
             route != Screen.Welcome.route &&
             route != Screen.Player.route &&
-            route != Screen.Queue.route &&
-            !route.startsWith("playlist/")
+            route != Screen.Queue.route
     } ?: false
 
     val navViewModel: NavViewModel = hiltViewModel()
@@ -319,7 +318,7 @@ fun NavGraph() {
                         onBack = { navController.popBackStack() },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
-                        showPlayerBar = false,
+                        showPlayerBar = showBottomBar,
                     )
                 }
 

@@ -16,6 +16,18 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class PlaylistTrackEntry(
+    val filePath: String,
+    val storedTitle: String?,
+    val storedArtist: String?,
+    val track: CatalogTrack?,
+)
+
+data class AddConflictCheck(
+    val newTracks: List<CatalogTrack>,
+    val alreadyPresentCount: Int,
+)
+
 @Singleton
 class LocalLibraryRepository @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -41,35 +53,70 @@ class LocalLibraryRepository @Inject constructor(
         return tracks.size
     }
 
-    suspend fun getPlaylists(): List<Playlist> = playlistDao.getAll().map {
-        Playlist(id = it.id, name = it.name, icon = it.icon, trackCount = 0, smartRules = null)
+    suspend fun getPlaylists(): List<Playlist> = playlistDao.getAll().map { pl ->
+        Playlist(
+            id = pl.id,
+            name = pl.name,
+            icon = pl.icon,
+            trackCount = playlistDao.getTrackCount(pl.id),
+            smartRules = null,
+        )
     }
 
-    suspend fun createPlaylist(name: String): LocalPlaylist {
-        val id = playlistDao.insert(LocalPlaylist(name = name))
-        return LocalPlaylist(id = id.toInt(), name = name)
+    suspend fun createPlaylist(name: String, icon: String? = null): LocalPlaylist {
+        val newPlaylist = LocalPlaylist(name = name, icon = icon)
+        val id = playlistDao.insert(newPlaylist)
+        return newPlaylist.copy(id = id.toInt())
+    }
+
+    suspend fun updatePlaylist(id: Int, name: String, icon: String?) {
+        playlistDao.update(LocalPlaylist(id = id, name = name, icon = icon))
     }
 
     suspend fun deletePlaylist(id: Int) = playlistDao.delete(id)
 
-    suspend fun getPlaylistTrackIds(playlistId: Int): List<Int> =
-        playlistDao.getEntries(playlistId).map { it.trackId }
+    suspend fun checkAddConflict(playlistId: Int, tracks: List<CatalogTrack>): AddConflictCheck {
+        val filePaths = tracks.map { it.path }
+        val existing = playlistDao.getExistingFilePaths(playlistId, filePaths).toSet()
+        val newTracks = tracks.filter { it.path !in existing }
+        return AddConflictCheck(newTracks = newTracks, alreadyPresentCount = existing.size)
+    }
 
-    suspend fun addTracksToPlaylist(playlistId: Int, localTrackIds: List<Int>) {
-        val existingCount = playlistDao.getEntries(playlistId).size
-        localTrackIds.forEachIndexed { i, trackId ->
+    suspend fun addTracksToPlaylist(playlistId: Int, tracks: List<CatalogTrack>) {
+        val currentCount = playlistDao.getTrackCount(playlistId)
+        tracks.forEachIndexed { i, track ->
             playlistDao.insertEntry(
                 LocalPlaylistEntry(
                     playlistId = playlistId,
-                    trackId = trackId,
-                    position = existingCount + i,
+                    filePath = track.path,
+                    trackTitle = track.title,
+                    trackArtist = track.artist ?: track.albumArtist,
+                    position = currentCount + i,
                 )
             )
         }
     }
 
-    suspend fun removeTrackFromPlaylist(playlistId: Int, localTrackId: Int) =
-        playlistDao.removeEntry(playlistId, localTrackId)
+    suspend fun removeTrackFromPlaylist(playlistId: Int, filePath: String) =
+        playlistDao.removeEntry(playlistId, filePath)
+
+    suspend fun getPlaylistContents(playlistId: Int): List<PlaylistTrackEntry> {
+        val entries = playlistDao.getEntries(playlistId)
+        val allTracks = trackDao.getAllTracks().associateBy { it.path }
+        return entries.map { entry ->
+            PlaylistTrackEntry(
+                filePath = entry.filePath,
+                storedTitle = entry.trackTitle,
+                storedArtist = entry.trackArtist,
+                track = allTracks[entry.filePath]?.toCatalogTrack(),
+            )
+        }
+    }
+
+    suspend fun getPlaylistMembershipByPath(): Map<String, Set<Int>> =
+        playlistDao.getAllEntries()
+            .groupBy { it.filePath }
+            .mapValues { (_, entries) -> entries.map { it.playlistId }.toSet() }
 
     suspend fun buildAlbumGroups(): List<AlbumGroup> {
         val localTracks = trackDao.getAllTracks()

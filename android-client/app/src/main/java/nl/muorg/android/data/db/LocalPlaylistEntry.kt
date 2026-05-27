@@ -14,18 +14,17 @@ import androidx.room.PrimaryKey
             childColumns = ["playlistId"],
             onDelete = ForeignKey.CASCADE,
         ),
-        ForeignKey(
-            entity = LocalTrack::class,
-            parentColumns = ["id"],
-            childColumns = ["trackId"],
-            onDelete = ForeignKey.CASCADE,
-        ),
     ],
-    indices = [Index("playlistId"), Index("trackId")],
+    indices = [
+        Index("playlistId"),
+        Index(value = ["playlistId", "filePath"], unique = true),
+    ],
 )
 data class LocalPlaylistEntry(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val playlistId: Int,
-    val trackId: Int,
+    val filePath: String,
+    val trackTitle: String?,
+    val trackArtist: String?,
     val position: Int,
 )

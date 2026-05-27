@@ -15,6 +15,7 @@ import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
+import nl.muorg.android.ui.screen.playlist.AddConflictState
 import javax.inject.Inject
 
 data class AlbumDetailUiState(
@@ -27,6 +28,9 @@ data class AlbumDetailUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val playlists: List<Playlist> = emptyList(),
+    val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
+    val addConflict: AddConflictState? = null,
+    val addToastMsg: String? = null,
 )
 
 @HiltViewModel
@@ -66,6 +70,7 @@ class AlbumDetailViewModel @Inject constructor(
                                 coverArtUri = localRepository.getAlbumArtUri(albumName),
                             )
                         }
+                        loadPlaylistMembership()
                     },
                     onFailure = { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
                 )
@@ -109,13 +114,79 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 
-    fun addTracksToPlaylist(trackIds: List<Int>, playlistId: Int) {
+    private fun loadPlaylistMembership() {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()
             if (mode == "local") {
-                localRepository.addTracksToPlaylist(playlistId, trackIds.map { -it })
+                val membership = localRepository.getPlaylistMembershipByPath()
+                _uiState.update { it.copy(trackPlaylistMembership = membership) }
+            }
+        }
+    }
+
+    fun requestAddTracksToPlaylist(tracks: List<CatalogTrack>, playlistId: Int) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                val check = localRepository.checkAddConflict(playlistId, tracks)
+                when {
+                    check.alreadyPresentCount == 0 -> {
+                        localRepository.addTracksToPlaylist(playlistId, tracks)
+                        loadPlaylistMembership()
+                        loadPlaylists()
+                    }
+                    check.newTracks.isEmpty() -> {
+                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                    }
+                    else -> {
+                        _uiState.update {
+                            it.copy(addConflict = AddConflictState(tracks, check.newTracks, playlistId))
+                        }
+                    }
+                }
             } else {
-                playlistRepository.addTracks(playlistId, trackIds)
+                playlistRepository.addTracks(playlistId, tracks.map { it.id })
+            }
+        }
+    }
+
+    fun confirmAddNewOnly() {
+        val conflict = _uiState.value.addConflict ?: return
+        _uiState.update { it.copy(addConflict = null) }
+        viewModelScope.launch {
+            localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.newTracks)
+            loadPlaylistMembership()
+            loadPlaylists()
+        }
+    }
+
+    fun confirmAddAll() {
+        val conflict = _uiState.value.addConflict ?: return
+        _uiState.update { it.copy(addConflict = null) }
+        viewModelScope.launch {
+            localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.allTracks)
+            loadPlaylistMembership()
+            loadPlaylists()
+        }
+    }
+
+    fun dismissConflict() {
+        _uiState.update { it.copy(addConflict = null) }
+    }
+
+    fun clearToast() {
+        _uiState.update { it.copy(addToastMsg = null) }
+    }
+
+    fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                localRepository.removeTrackFromPlaylist(playlistId, track.path)
+                loadPlaylistMembership()
+                loadPlaylists()
+            } else {
+                playlistRepository.removeTracks(playlistId, listOf(track.id))
             }
         }
     }

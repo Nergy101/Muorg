@@ -18,6 +18,7 @@ import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
+import nl.muorg.android.ui.screen.playlist.AddConflictState
 import javax.inject.Inject
 
 enum class ViewMode { TRACKS, ALBUMS }
@@ -43,6 +44,9 @@ data class LibraryUiState(
     val activePlaylistTrackIds: Set<Int> = emptySet(),
     val playlists: List<Playlist> = emptyList(),
     val artistFilter: String? = null,
+    val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
+    val addConflict: AddConflictState? = null,
+    val addToastMsg: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -95,6 +99,7 @@ class LibraryViewModel @Inject constructor(
                                 filteredAlbums = applyAlbumFilters(albums, state),
                             )
                         }
+                        loadPlaylistMembership()
                     },
                     onFailure = { error ->
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
@@ -135,13 +140,76 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun addTracksToPlaylist(trackIds: List<Int>, playlistId: Int) {
+    private fun loadPlaylistMembership() {
         viewModelScope.launch {
             if (currentMode == "local") {
-                // CatalogTrack IDs for local tracks are negative; convert back to Room IDs
-                localRepository.addTracksToPlaylist(playlistId, trackIds.map { -it })
+                val membership = localRepository.getPlaylistMembershipByPath()
+                _uiState.update { it.copy(trackPlaylistMembership = membership) }
+            }
+        }
+    }
+
+    fun requestAddTracksToPlaylist(tracks: List<CatalogTrack>, playlistId: Int) {
+        viewModelScope.launch {
+            if (currentMode == "local") {
+                val check = localRepository.checkAddConflict(playlistId, tracks)
+                when {
+                    check.alreadyPresentCount == 0 -> {
+                        localRepository.addTracksToPlaylist(playlistId, tracks)
+                        loadPlaylistMembership()
+                        loadPlaylists()
+                    }
+                    check.newTracks.isEmpty() -> {
+                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                    }
+                    else -> {
+                        _uiState.update {
+                            it.copy(addConflict = AddConflictState(tracks, check.newTracks, playlistId))
+                        }
+                    }
+                }
             } else {
-                playlistRepository.addTracks(playlistId, trackIds)
+                playlistRepository.addTracks(playlistId, tracks.map { it.id })
+            }
+        }
+    }
+
+    fun confirmAddNewOnly() {
+        val conflict = _uiState.value.addConflict ?: return
+        _uiState.update { it.copy(addConflict = null) }
+        viewModelScope.launch {
+            localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.newTracks)
+            loadPlaylistMembership()
+            loadPlaylists()
+        }
+    }
+
+    fun confirmAddAll() {
+        val conflict = _uiState.value.addConflict ?: return
+        _uiState.update { it.copy(addConflict = null) }
+        viewModelScope.launch {
+            localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.allTracks)
+            loadPlaylistMembership()
+            loadPlaylists()
+        }
+    }
+
+    fun dismissConflict() {
+        _uiState.update { it.copy(addConflict = null) }
+    }
+
+    fun clearToast() {
+        _uiState.update { it.copy(addToastMsg = null) }
+    }
+
+    fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
+        viewModelScope.launch {
+            if (currentMode == "local") {
+                localRepository.removeTrackFromPlaylist(playlistId, track.path)
+                loadPlaylistMembership()
+                loadPlaylists()
+            } else {
+                playlistRepository.removeTracks(playlistId, listOf(track.id))
             }
         }
     }
@@ -253,9 +321,7 @@ class LibraryViewModel @Inject constructor(
     private fun applyAlbumFilters(albums: List<AlbumGroup>, state: LibraryUiState): List<AlbumGroup> {
         var result = albums
         if (state.artistFilter != null) {
-            result = result.filter { album ->
-                album.artist == state.artistFilter
-            }
+            result = result.filter { album -> album.artist == state.artistFilter }
         }
         if (state.activePlaylistId != null && state.activePlaylistTrackIds.isNotEmpty()) {
             val albumsInPlaylist = state.allTracks

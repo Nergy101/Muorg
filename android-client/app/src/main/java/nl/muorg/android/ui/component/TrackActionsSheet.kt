@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
@@ -67,6 +68,8 @@ fun TrackActionsSheet(
     imageLoader: ImageLoader,
     onDismiss: () -> Unit,
     onAddToPlaylist: (playlistId: Int) -> Unit,
+    onRemoveFromPlaylist: (playlistId: Int) -> Unit = {},
+    trackInPlaylistIds: Set<Int> = emptySet(),
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
 ) {
@@ -95,8 +98,10 @@ fun TrackActionsSheet(
             )
             SheetLevel.PLAYLISTS -> PlaylistsLevel(
                 playlists = playlists,
+                trackInPlaylistIds = trackInPlaylistIds,
                 onBack = { level = SheetLevel.MAIN },
                 onAddToPlaylist = { id -> onAddToPlaylist(id); onDismiss() },
+                onRemoveFromPlaylist = { id -> onRemoveFromPlaylist(id); onDismiss() },
                 onNewPlaylist = { onDismiss() },
             )
             SheetLevel.TRACK_INFO -> TrackInfoLevel(
@@ -220,8 +225,10 @@ private fun MainLevel(
 @Composable
 private fun PlaylistsLevel(
     playlists: List<Playlist>,
+    trackInPlaylistIds: Set<Int> = emptySet(),
     onBack: () -> Unit,
     onAddToPlaylist: (playlistId: Int) -> Unit,
+    onRemoveFromPlaylist: (playlistId: Int) -> Unit = {},
     onNewPlaylist: () -> Unit,
 ) {
     ListItem(
@@ -239,8 +246,14 @@ private fun PlaylistsLevel(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp).padding(bottom = 6.dp),
     )
     playlists.forEach { playlist ->
+        val isInPlaylist = playlist.id in trackInPlaylistIds
         ListItem(
-            headlineContent = { Text(playlist.name) },
+            headlineContent = {
+                Text(
+                    playlist.name,
+                    color = if (isInPlaylist) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                )
+            },
             supportingContent = {
                 Text(
                     "${playlist.trackCount} tracks",
@@ -248,7 +261,19 @@ private fun PlaylistsLevel(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
-            modifier = Modifier.clickable { onAddToPlaylist(playlist.id) },
+            trailingContent = if (isInPlaylist) {
+                {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = "Already in playlist",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            } else null,
+            modifier = Modifier.clickable {
+                if (isInPlaylist) onRemoveFromPlaylist(playlist.id) else onAddToPlaylist(playlist.id)
+            },
         )
     }
     HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))

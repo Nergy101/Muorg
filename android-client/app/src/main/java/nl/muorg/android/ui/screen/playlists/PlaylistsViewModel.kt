@@ -96,7 +96,12 @@ class PlaylistsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(showCreateDialog = false) }
             if (currentMode == "local") {
-                runCatching { localRepository.createPlaylist(state.newPlaylistName.trim()) }.fold(
+                runCatching {
+                    localRepository.createPlaylist(
+                        name = state.newPlaylistName.trim(),
+                        icon = state.newPlaylistIcon.ifBlank { "🎵" },
+                    )
+                }.fold(
                     onSuccess = { loadPlaylists() },
                     onFailure = { error -> _uiState.update { it.copy(error = error.message) } }
                 )
@@ -145,12 +150,17 @@ class PlaylistsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(showEditDialog = false, editingPlaylist = null) }
             if (currentMode == "local") {
-                _uiState.update { s ->
-                    s.copy(playlists = s.playlists.map { p ->
-                        if (p.id == id) p.copy(name = state.editName.trim(), icon = state.editIcon.ifBlank { "🎵" }) else p
-                    })
-                }
-                loadPlaylists()
+                runCatching {
+                    localRepository.updatePlaylist(
+                        id = id,
+                        name = state.editName.trim(),
+                        icon = state.editIcon.ifBlank { "🎵" },
+                    )
+                }.fold(
+                    onSuccess = { loadPlaylists() },
+                    onFailure = { error -> _uiState.update { it.copy(error = error.message) } }
+                )
+                return@launch
             } else {
                 repository.updatePlaylist(
                     id = id,
