@@ -19,8 +19,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.CatalogTrack
@@ -48,6 +51,9 @@ class CastManager @Inject constructor(
 
     private val _castPlaybackState = MutableStateFlow(CastPlaybackState())
     val castPlaybackState: StateFlow<CastPlaybackState> = _castPlaybackState.asStateFlow()
+
+    private val _trackFinished = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val trackFinished: SharedFlow<Unit> = _trackFinished.asSharedFlow()
 
     private var castContext: CastContext? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -111,15 +117,24 @@ class CastManager @Inject constructor(
     private fun startPolling(session: CastSession) {
         pollJob?.cancel()
         pollJob = scope.launch {
+            var wasPlaying = false
             while (true) {
                 val client = session.remoteMediaClient
                 val status = client?.mediaStatus
                 if (status != null) {
+                    val isPlaying = status.playerState == MediaStatus.PLAYER_STATE_PLAYING
                     _castPlaybackState.value = CastPlaybackState(
-                        isPlaying = status.playerState == MediaStatus.PLAYER_STATE_PLAYING,
+                        isPlaying = isPlaying,
                         positionMs = client.approximateStreamPosition,
                         durationMs = status.mediaInfo?.streamDuration?.takeIf { it > 0 } ?: 0L,
                     )
+                    if (wasPlaying
+                        && status.playerState == MediaStatus.PLAYER_STATE_IDLE
+                        && status.idleReason == MediaStatus.IDLE_REASON_FINISHED
+                    ) {
+                        _trackFinished.tryEmit(Unit)
+                    }
+                    wasPlaying = isPlaying
                 }
                 delay(500)
             }

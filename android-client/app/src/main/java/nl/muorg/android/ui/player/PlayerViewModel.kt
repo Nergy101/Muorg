@@ -79,6 +79,18 @@ class PlayerViewModel @Inject constructor(
                 }
             }
         }
+        // When cast finishes a track, advance the local queue and cast the next track
+        viewModelScope.launch {
+            castManager.trackFinished.collect {
+                val prevId = playerController.state.value.currentTrack?.id
+                playerController.skipNext()
+                // Wait for PlayerController to confirm the new track before casting it
+                val next = playerController.state
+                    .first { it.currentTrack != null && it.currentTrack.id != prevId }
+                    .currentTrack ?: return@collect
+                castCurrentTrack(next)
+            }
+        }
         // Watchdog: if casting is active and local player is somehow still playing, pause it
         viewModelScope.launch {
             combine(
