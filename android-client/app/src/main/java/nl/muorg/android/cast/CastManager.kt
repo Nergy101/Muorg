@@ -7,22 +7,38 @@ import android.os.Looper
 import com.google.android.gms.cast.MediaInfo
 import com.google.android.gms.cast.MediaLoadRequestData
 import com.google.android.gms.cast.MediaMetadata
+import com.google.android.gms.cast.MediaStatus
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
 import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.CastMediaControlIntent
 import androidx.mediarouter.media.MediaRouteSelector
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.CatalogTrack
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class CastPlaybackState(
+    val isPlaying: Boolean = false,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
+) {
+    val progress: Float get() = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+}
+
 @Singleton
 class CastManager @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val localCastServer: LocalCastServer,
 ) {
     private val _isCasting = MutableStateFlow(false)
     val isCasting: StateFlow<Boolean> = _isCasting.asStateFlow()
@@ -30,7 +46,12 @@ class CastManager @Inject constructor(
     private val _castDeviceName = MutableStateFlow<String?>(null)
     val castDeviceName: StateFlow<String?> = _castDeviceName.asStateFlow()
 
+    private val _castPlaybackState = MutableStateFlow(CastPlaybackState())
+    val castPlaybackState: StateFlow<CastPlaybackState> = _castPlaybackState.asStateFlow()
+
     private var castContext: CastContext? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var pollJob: Job? = null
 
     // Required for mDNS Chromecast discovery on real hardware — emulators don't enforce this filter
     private val multicastLock: WifiManager.MulticastLock =
@@ -42,21 +63,25 @@ class CastManager @Inject constructor(
         override fun onSessionStarted(session: CastSession, sessionId: String) {
             _isCasting.value = true
             _castDeviceName.value = session.castDevice?.friendlyName
+            startPolling(session)
         }
 
         override fun onSessionEnded(session: CastSession, error: Int) {
             _isCasting.value = false
             _castDeviceName.value = null
+            stopPolling()
         }
 
         override fun onSessionSuspended(session: CastSession, reason: Int) {
             _isCasting.value = false
             _castDeviceName.value = null
+            stopPolling()
         }
 
         override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
             _isCasting.value = true
             _castDeviceName.value = session.castDevice?.friendlyName
+            startPolling(session)
         }
 
         override fun onSessionStarting(session: CastSession) {}
@@ -73,14 +98,38 @@ class CastManager @Inject constructor(
                 val ctx = CastContext.getSharedInstance(context)
                 castContext = ctx
                 ctx.sessionManager.addSessionManagerListener(sessionListener, CastSession::class.java)
-                // Sync initial state in case a session is already active
                 val current = ctx.sessionManager.currentCastSession
                 if (current != null && current.isConnected) {
                     _isCasting.value = true
                     _castDeviceName.value = current.castDevice?.friendlyName
+                    startPolling(current)
                 }
             } catch (_: Exception) {}
         }
+    }
+
+    private fun startPolling(session: CastSession) {
+        pollJob?.cancel()
+        pollJob = scope.launch {
+            while (true) {
+                val client = session.remoteMediaClient
+                val status = client?.mediaStatus
+                if (status != null) {
+                    _castPlaybackState.value = CastPlaybackState(
+                        isPlaying = status.playerState == MediaStatus.PLAYER_STATE_PLAYING,
+                        positionMs = client.approximateStreamPosition,
+                        durationMs = status.mediaInfo?.streamDuration?.takeIf { it > 0 } ?: 0L,
+                    )
+                }
+                delay(500)
+            }
+        }
+    }
+
+    private fun stopPolling() {
+        pollJob?.cancel()
+        pollJob = null
+        _castPlaybackState.value = CastPlaybackState()
     }
 
     fun buildRouteSelector(): MediaRouteSelector =
@@ -96,10 +145,11 @@ class CastManager @Inject constructor(
         val session = castContext?.sessionManager?.currentCastSession ?: return
         val client = session.remoteMediaClient ?: return
 
-        val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
-            putString(MediaMetadata.KEY_TITLE, track.displayTitle)
-            putString(MediaMetadata.KEY_ARTIST, track.displayArtist)
-            putString(MediaMetadata.KEY_ALBUM_TITLE, track.displayAlbum)
+        val streamUrl = if (track.localFilePath != null) {
+            if (!localCastServer.isAlive) localCastServer.start()
+            localCastServer.register(track)
+        } else {
+            "$baseUrl/stream/${track.id}?token=$token"
         }
 
         val contentType = when (track.format.lowercase()) {
@@ -112,7 +162,13 @@ class CastManager @Inject constructor(
             else -> "audio/mpeg"
         }
 
-        val mediaInfo = MediaInfo.Builder("$baseUrl/stream/${track.id}?token=$token")
+        val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
+            putString(MediaMetadata.KEY_TITLE, track.displayTitle)
+            putString(MediaMetadata.KEY_ARTIST, track.displayArtist)
+            putString(MediaMetadata.KEY_ALBUM_TITLE, track.displayAlbum)
+        }
+
+        val mediaInfo = MediaInfo.Builder(streamUrl)
             .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
             .setContentType(contentType)
             .setMetadata(metadata)
@@ -126,11 +182,24 @@ class CastManager @Inject constructor(
         client.load(request)
     }
 
+    fun remotePlayPause() {
+        val client = castContext?.sessionManager?.currentCastSession?.remoteMediaClient ?: return
+        val status = client.mediaStatus ?: return
+        if (status.playerState == MediaStatus.PLAYER_STATE_PLAYING) client.pause() else client.play()
+    }
+
+    fun remoteSeek(fraction: Float) {
+        val client = castContext?.sessionManager?.currentCastSession?.remoteMediaClient ?: return
+        val duration = client.mediaStatus?.mediaInfo?.streamDuration ?: return
+        if (duration > 0) client.seek((duration * fraction).toLong())
+    }
+
     fun stopCasting() {
         castContext?.sessionManager?.endCurrentSession(true)
     }
 
     fun release() {
         if (multicastLock.isHeld) multicastLock.release()
+        if (localCastServer.isAlive) localCastServer.stop()
     }
 }

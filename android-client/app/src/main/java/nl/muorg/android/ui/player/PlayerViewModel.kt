@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import nl.muorg.android.cast.CastManager
 import nl.muorg.android.data.api.CatalogTrack
@@ -35,7 +38,19 @@ class PlayerViewModel @Inject constructor(
 
     fun buildCastRouteSelector() = castManager.buildRouteSelector()
 
-    val playerState: StateFlow<PlayerState> = playerController.state
+    // When casting, mirror the Chromecast's playback state; otherwise use local ExoPlayer state.
+    val playerState: StateFlow<PlayerState> = combine(
+        playerController.state,
+        castManager.isCasting,
+        castManager.castPlaybackState,
+    ) { local, casting, cast ->
+        if (casting) local.copy(
+            isPlaying = cast.isPlaying,
+            progress = cast.progress,
+            positionMs = cast.positionMs,
+            durationMs = cast.durationMs.takeIf { it > 0 } ?: local.durationMs,
+        ) else local
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerState())
 
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
@@ -120,25 +135,42 @@ class PlayerViewModel @Inject constructor(
 
     private suspend fun castCurrentTrack(track: CatalogTrack) {
         val baseUrl = preferences.serverUrl.first()
-        libraryRepository.getStreamToken(track.id).onSuccess { token ->
-            castManager.castTrack(track, baseUrl, token)
+        if (track.localFilePath != null) {
+            // Local file — no stream token needed; LocalCastServer serves it over WiFi
+            castManager.castTrack(track, baseUrl, "")
+        } else {
+            libraryRepository.getStreamToken(track.id).onSuccess { token ->
+                castManager.castTrack(track, baseUrl, token)
+            }
         }
     }
 
     fun playPause() {
-        playerController.playPause()
+        if (castManager.isCasting.value) castManager.remotePlayPause() else playerController.playPause()
+    }
+
+    fun seekTo(fraction: Float) {
+        if (castManager.isCasting.value) castManager.remoteSeek(fraction) else playerController.seekTo(fraction)
     }
 
     fun skipNext() {
         playerController.skipNext()
+        if (castManager.isCasting.value) {
+            viewModelScope.launch {
+                val track = playerController.state.value.currentTrack ?: return@launch
+                castCurrentTrack(track)
+            }
+        }
     }
 
     fun skipPrevious() {
         playerController.skipPrevious()
-    }
-
-    fun seekTo(fraction: Float) {
-        playerController.seekTo(fraction)
+        if (castManager.isCasting.value) {
+            viewModelScope.launch {
+                val track = playerController.state.value.currentTrack ?: return@launch
+                castCurrentTrack(track)
+            }
+        }
     }
 
     fun toggleShuffle() {
@@ -153,7 +185,13 @@ class PlayerViewModel @Inject constructor(
         playerController.cycleRepeatMode()
     }
 
-    fun skipTo(track: CatalogTrack) = playerController.skipTo(track)
+    fun skipTo(track: CatalogTrack) {
+        playerController.skipTo(track)
+        if (castManager.isCasting.value) {
+            viewModelScope.launch { castCurrentTrack(track) }
+        }
+    }
+
     fun removeFromQueue(track: CatalogTrack) = playerController.removeFromQueue(track)
     fun clearQueue() = playerController.clearQueue()
     fun addToQueue(track: CatalogTrack) = playerController.addToQueue(track)

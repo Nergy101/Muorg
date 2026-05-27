@@ -112,4 +112,7 @@ dependencies {
     implementation(libs.cast.framework)
     implementation(libs.androidx.mediarouter)
     implementation(libs.androidx.appcompat)
+
+    // Local HTTP server for Chromecast streaming of local files
+    implementation(libs.nanohttpd)
 }

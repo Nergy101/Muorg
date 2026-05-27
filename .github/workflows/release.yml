@@ -361,8 +361,8 @@ jobs:
 
           # ── Docker image references ────────────────────────────────────────
           cat > dist/docker.txt << EOF
-          Server image:  docker pull nergy101/muorg-server:${VERSION}
-          Web image:     docker pull nergy101/muorg-web:${VERSION}
+          Server image:  docker pull ghcr.io/nergy101/muorg-server:${VERSION}
+          Web image:     docker pull ghcr.io/nergy101/muorg-web:${VERSION}
 
           Tags pushed: ${VERSION}  latest
           EOF
@@ -429,6 +429,8 @@ jobs:
     needs: [version, build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      packages: write
     steps:
       - uses: actions/checkout@v5
 
@@ -450,11 +452,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -464,8 +467,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            nergy101/muorg-server:${{ needs.version.outputs.version }}
-            nergy101/muorg-server:latest
+            ghcr.io/nergy101/muorg-server:${{ needs.version.outputs.version }}
+            ghcr.io/nergy101/muorg-server:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -473,6 +476,8 @@ jobs:
     needs: [version, build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      packages: write
     steps:
       - uses: actions/checkout@v5
 
@@ -482,11 +487,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -498,7 +504,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            nergy101/muorg-web:${{ needs.version.outputs.version }}
-            nergy101/muorg-web:latest
+            ghcr.io/nergy101/muorg-web:${{ needs.version.outputs.version }}
+            ghcr.io/nergy101/muorg-web:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

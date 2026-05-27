@@ -21,6 +21,7 @@ documentfile = "1.0.1"
 cast-framework = "21.5.0"
 mediarouter = "1.7.0"
 appcompat = "1.7.0"
+nanohttpd = "2.3.1"
 
 [libraries]
 # AndroidX Core
@@ -88,6 +89,7 @@ androidx-documentfile = { group = "androidx.documentfile", name = "documentfile"
 cast-framework = { group = "com.google.android.gms", name = "play-services-cast-framework", version.ref = "cast-framework" }
 androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
