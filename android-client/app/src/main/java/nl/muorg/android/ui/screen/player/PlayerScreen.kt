@@ -99,7 +99,11 @@ fun PlayerScreen(
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
-    val coverUrl = if (currentTrack?.hasCover == true) "$baseUrl/api/tracks/${currentTrack.id}/cover" else null
+    val coverUrl = when {
+        currentTrack?.localCoverPath != null -> "file://${currentTrack.localCoverPath}"
+        currentTrack?.hasCover == true -> "$baseUrl/api/tracks/${currentTrack.id}/cover"
+        else -> null
+    }
 
     // Dominant color runs on coverUrl immediately so accent starts animating ahead of the image switch
     val dominantColor = rememberDominantColor(

@@ -35,9 +35,9 @@ class LocalLibraryRepository @Inject constructor(
     private val playlistDao: LocalPlaylistDao,
     private val scanner: LocalLibraryScanner,
 ) {
-    suspend fun getAllTracks(): List<CatalogTrack> = trackDao.getAllTracks().map { it.toCatalogTrack() }
+    suspend fun getAllTracks(): List<CatalogTrack> = trackDao.getAllTracks().map { it.toCatalogTrack(context.cacheDir) }
 
-    suspend fun search(query: String): List<CatalogTrack> = trackDao.search(query).map { it.toCatalogTrack() }
+    suspend fun search(query: String): List<CatalogTrack> = trackDao.search(query).map { it.toCatalogTrack(context.cacheDir) }
 
     suspend fun getStats() = Stats(
         trackCount = trackDao.count(),
@@ -108,7 +108,7 @@ class LocalLibraryRepository @Inject constructor(
                 filePath = entry.filePath,
                 storedTitle = entry.trackTitle,
                 storedArtist = entry.trackArtist,
-                track = allTracks[entry.filePath]?.toCatalogTrack(),
+                track = allTracks[entry.filePath]?.toCatalogTrack(context.cacheDir),
             )
         }
     }

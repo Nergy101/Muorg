@@ -23,25 +23,31 @@ data class LocalTrack(
     val addedAt: Long = System.currentTimeMillis(),
 )
 
-fun LocalTrack.toCatalogTrack() = CatalogTrack(
-    id = -id,
-    path = path,
-    rootId = -1,
-    title = title,
-    artist = artist,
-    album = album,
-    albumArtist = albumArtist,
-    featuring = null,
-    year = year,
-    genre = genre,
-    trackNumber = trackNumber,
-    discNumber = discNumber,
-    durationSecs = durationSecs,
-    format = format,
-    mtimeSecs = addedAt / 1000,
-    hasCover = false,
-    rating = null,
-    playCount = 0,
-    lastPlayedAt = null,
-    localFilePath = contentUri,
-)
+fun LocalTrack.toCatalogTrack(cacheDir: java.io.File? = null): CatalogTrack {
+    val artFile = if (cacheDir != null && album != null)
+        java.io.File(cacheDir, "album_art/${album.hashCode()}.jpg").takeIf { it.exists() }
+    else null
+    return CatalogTrack(
+        id = -id,
+        path = path,
+        rootId = -1,
+        title = title,
+        artist = artist,
+        album = album,
+        albumArtist = albumArtist,
+        featuring = null,
+        year = year,
+        genre = genre,
+        trackNumber = trackNumber,
+        discNumber = discNumber,
+        durationSecs = durationSecs,
+        format = format,
+        mtimeSecs = addedAt / 1000,
+        hasCover = artFile != null,
+        rating = null,
+        playCount = 0,
+        lastPlayedAt = null,
+        localFilePath = contentUri,
+        localCoverPath = artFile?.absolutePath,
+    )
+}

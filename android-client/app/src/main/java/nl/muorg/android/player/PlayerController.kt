@@ -343,22 +343,9 @@ class PlayerController @Inject constructor(
         scope.launch { preferences.toggleFavorite(track.id.toString()) }
     }
 
-    // Convert a SAF content:// URI to a file:// path when possible so ExoPlayer
-    // uses FileDataSource (supports random-access seeking) instead of ContentDataSource.
-    private fun resolveLocalUri(localFilePath: String): String {
-        return try {
-            val uri = android.net.Uri.parse(localFilePath)
-            val docId = android.provider.DocumentsContract.getDocumentId(uri)
-            // "primary:Music/Artist/track.flac" → "/storage/emulated/0/Music/Artist/track.flac"
-            if (docId.startsWith("primary:")) {
-                "file:///storage/emulated/0/${docId.removePrefix("primary:")}"
-            } else {
-                localFilePath
-            }
-        } catch (_: Exception) {
-            localFilePath
-        }
-    }
+    // Use the SAF content:// URI directly — ExoPlayer handles these correctly with
+    // persistent URI permissions. Converting to file:// breaks on scoped storage (Android 10+).
+    private fun resolveLocalUri(localFilePath: String): String = localFilePath
 
     private fun ensureConnected() {
         if (controller == null || controllerFuture?.isDone == false) {

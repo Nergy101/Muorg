@@ -25,6 +25,7 @@ data class CatalogTrack(
     @SerialName("play_count") val playCount: Int,
     @SerialName("last_played_at") val lastPlayedAt: Long? = null,
     val localFilePath: String? = null,
+    val localCoverPath: String? = null,
 ) {
     val displayTitle: String get() = title ?: path.substringAfterLast("/").substringBeforeLast(".")
     val displayArtist: String get() = artist ?: albumArtist ?: "Unknown Artist"
