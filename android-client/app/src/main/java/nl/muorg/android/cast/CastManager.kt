@@ -197,6 +197,11 @@ class CastManager @Inject constructor(
         client.load(request)
     }
 
+    fun adjustVolume(delta: Double) {
+        val session = castContext?.sessionManager?.currentCastSession ?: return
+        if (session.isConnected) session.volume = (session.volume + delta).coerceIn(0.0, 1.0)
+    }
+
     fun remotePlayPause() {
         val client = castContext?.sessionManager?.currentCastSession?.remoteMediaClient ?: return
         val status = client.mediaStatus ?: return
