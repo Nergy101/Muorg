@@ -1,6 +1,6 @@
 [package]
 name = "muorg-server"
-version = "2.12.9"
+version = "2.12.10"
 edition = "2021"
 
 [[bin]]
