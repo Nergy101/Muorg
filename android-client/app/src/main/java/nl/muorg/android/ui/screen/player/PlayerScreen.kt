@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -47,7 +49,11 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.view.ContextThemeWrapper
 import androidx.compose.ui.platform.LocalContext
+import androidx.mediarouter.app.MediaRouteChooserDialog
+import androidx.mediarouter.app.MediaRouteControllerDialog
+import androidx.appcompat.R as AppCompatR
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import androidx.compose.ui.Alignment
@@ -115,6 +121,9 @@ fun PlayerScreen(
         label = "accentColor",
     )
 
+    val isCasting by playerViewModel.isCasting.collectAsStateWithLifecycle()
+    val castSelector = remember { playerViewModel.buildCastRouteSelector() }
+
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
     val displayProgress = if (isSeeking) seekPosition else playerState.progress
@@ -149,6 +158,21 @@ fun PlayerScreen(
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = {
+                    val themedContext = ContextThemeWrapper(context, AppCompatR.style.Theme_AppCompat_DayNight_Dialog)
+                    if (isCasting) {
+                        MediaRouteControllerDialog(themedContext).show()
+                    } else {
+                        MediaRouteChooserDialog(themedContext).apply { routeSelector = castSelector }.show()
+                    }
+                }) {
+                    Icon(
+                        if (isCasting) Icons.Filled.CastConnected else Icons.Filled.Cast,
+                        contentDescription = if (isCasting) "Casting" else "Cast",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
                 IconButton(onClick = onOpenQueue) {
                     Icon(
                         Icons.AutoMirrored.Filled.QueueMusic,

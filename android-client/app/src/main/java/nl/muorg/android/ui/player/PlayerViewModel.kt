@@ -8,9 +8,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import nl.muorg.android.cast.CastManager
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.player.PlayerController
@@ -23,7 +25,14 @@ class PlayerViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val localRepository: LocalLibraryRepository,
     private val preferences: AppPreferences,
+    private val castManager: CastManager,
+    private val libraryRepository: LibraryRepository,
 ) : ViewModel() {
+
+    val isCasting: StateFlow<Boolean> = castManager.isCasting
+    val castDeviceName: StateFlow<String?> = castManager.castDeviceName
+
+    fun buildCastRouteSelector() = castManager.buildRouteSelector()
 
     val playerState: StateFlow<PlayerState> = playerController.state
 
@@ -95,6 +104,14 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             playerController.updateTrackCache(queue)
             playerController.playTrack(track, queue)
+            if (castManager.isCasting.value) castCurrentTrack(track)
+        }
+    }
+
+    private suspend fun castCurrentTrack(track: CatalogTrack) {
+        val baseUrl = preferences.serverUrl.first()
+        libraryRepository.getStreamToken(track.id).onSuccess { token ->
+            castManager.castTrack(track, baseUrl, token)
         }
     }
 

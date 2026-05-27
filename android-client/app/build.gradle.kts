@@ -107,4 +107,9 @@ dependencies {
 
     // DocumentFile (SAF)
     implementation(libs.androidx.documentfile)
+
+    // Chromecast
+    implementation(libs.cast.framework)
+    implementation(libs.androidx.mediarouter)
+    implementation(libs.androidx.appcompat)
 }

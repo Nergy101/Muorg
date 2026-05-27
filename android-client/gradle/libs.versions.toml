@@ -18,6 +18,9 @@ coroutines = "1.9.0"
 serialization-json = "1.7.3"
 room = "2.6.1"
 documentfile = "1.0.1"
+cast-framework = "21.5.0"
+mediarouter = "1.7.0"
+appcompat = "1.7.0"
 
 [libraries]
 # AndroidX Core
@@ -80,6 +83,11 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 
 # DocumentFile (SAF)
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+
+# Chromecast
+cast-framework = { group = "com.google.android.gms", name = "play-services-cast-framework", version.ref = "cast-framework" }
+androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
