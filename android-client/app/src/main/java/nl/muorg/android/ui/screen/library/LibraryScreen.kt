@@ -46,9 +46,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import coil.ImageLoader
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -77,6 +80,13 @@ fun LibraryScreen(
 
     LaunchedEffect(artistFilter) {
         if (artistFilter != null) viewModel.applyArtistFilter(artistFilter)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.refreshPlaylistState()
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

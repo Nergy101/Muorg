@@ -130,7 +130,11 @@ private fun MainLevel(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val coverUrl = if (track.hasCover) "$baseUrl/api/tracks/${track.id}/cover" else null
+        val coverUrl: Any? = when {
+            track.localCoverPath != null -> java.io.File(track.localCoverPath)
+            track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover"
+            else -> null
+        }
         if (coverUrl != null) {
             AsyncImage(
                 model = coverUrl,

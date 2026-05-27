@@ -188,6 +188,7 @@ private fun CoverArt(
     cornerDp: Int,
 ) {
     val coverModel: Any? = when {
+        track.localCoverPath != null -> java.io.File(track.localCoverPath)
         track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover"
         else -> null
     }

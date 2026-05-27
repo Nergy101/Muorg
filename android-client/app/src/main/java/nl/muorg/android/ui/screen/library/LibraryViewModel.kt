@@ -174,6 +174,11 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun refreshPlaylistState() {
+        loadPlaylists()
+        loadPlaylistMembership()
+    }
+
     fun requestAddTracksToPlaylist(tracks: List<CatalogTrack>, playlistId: Int) {
         viewModelScope.launch {
             if (currentMode == "local") {

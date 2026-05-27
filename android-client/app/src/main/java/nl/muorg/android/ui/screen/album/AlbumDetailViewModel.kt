@@ -124,6 +124,11 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 
+    fun refreshPlaylistState() {
+        loadPlaylists()
+        loadPlaylistMembership()
+    }
+
     fun requestAddTracksToPlaylist(tracks: List<CatalogTrack>, playlistId: Int) {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()
@@ -187,6 +192,20 @@ class AlbumDetailViewModel @Inject constructor(
                 loadPlaylists()
             } else {
                 playlistRepository.removeTracks(playlistId, listOf(track.id))
+            }
+        }
+    }
+
+    fun removeAlbumFromPlaylist(playlistId: Int) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            val tracks = _uiState.value.tracks
+            if (mode == "local") {
+                tracks.forEach { localRepository.removeTrackFromPlaylist(playlistId, it.path) }
+                loadPlaylistMembership()
+                loadPlaylists()
+            } else {
+                playlistRepository.removeTracks(playlistId, tracks.map { it.id })
             }
         }
     }

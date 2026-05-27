@@ -41,10 +41,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
@@ -70,6 +73,13 @@ fun AlbumDetailScreen(
 ) {
     LaunchedEffect(albumName) {
         viewModel.loadAlbum(albumName)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.refreshPlaylistState()
+        }
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -170,6 +180,46 @@ fun AlbumDetailScreen(
                                 ),
                             ) {
                                 Icon(Icons.Filled.PlayArrow, contentDescription = "Play all")
+                            }
+
+                            var showAlbumPlaylistMenu by remember { mutableStateOf(false) }
+                            val albumFullyInPlaylistIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists) {
+                                val allPaths = uiState.tracks.map { it.path }.toSet()
+                                uiState.playlists
+                                    .filter { pl -> allPaths.isNotEmpty() && allPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
+                                    .map { it.id }.toSet()
+                            }
+                            Box {
+                                androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistMenu = true }) {
+                                    Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add album to playlist")
+                                }
+                                DropdownMenu(
+                                    expanded = showAlbumPlaylistMenu,
+                                    onDismissRequest = { showAlbumPlaylistMenu = false },
+                                ) {
+                                    if (uiState.playlists.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                            onClick = {},
+                                            enabled = false,
+                                        )
+                                    } else {
+                                        uiState.playlists.forEach { playlist ->
+                                            val isFullyIn = playlist.id in albumFullyInPlaylistIds
+                                            DropdownMenuItem(
+                                                text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
+                                                trailingIcon = if (isFullyIn) {
+                                                    { Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }
+                                                } else null,
+                                                onClick = {
+                                                    showAlbumPlaylistMenu = false
+                                                    if (isFullyIn) viewModel.removeAlbumFromPlaylist(playlist.id)
+                                                    else viewModel.requestAddTracksToPlaylist(uiState.tracks, playlist.id)
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                         HorizontalDivider()
