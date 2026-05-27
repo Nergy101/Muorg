@@ -2,6 +2,8 @@ package nl.muorg.android
 
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+import android.view.KeyEvent.KEYCODE_VOLUME_UP
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -30,13 +32,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN && castManager.isCasting.value) {
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_VOLUME_UP -> { castManager.adjustVolume(0.05); return true }
-                KeyEvent.KEYCODE_VOLUME_DOWN -> { castManager.adjustVolume(-0.05); return true }
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (castManager.isCasting.value) {
+            when (keyCode) {
+                KEYCODE_VOLUME_UP -> { castManager.adjustVolume(0.05); return true }
+                KEYCODE_VOLUME_DOWN -> { castManager.adjustVolume(-0.05); return true }
             }
         }
-        return super.dispatchKeyEvent(event)
+        return super.onKeyDown(keyCode, event)
     }
 }
