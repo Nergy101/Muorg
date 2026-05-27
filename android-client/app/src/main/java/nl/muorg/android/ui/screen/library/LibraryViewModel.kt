@@ -47,6 +47,10 @@ data class LibraryUiState(
     val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
     val addConflict: AddConflictState? = null,
     val addToastMsg: String? = null,
+    val isInitialScanning: Boolean = false,
+    val initialScanProgress: Int = 0,
+    val initialScanTotal: Int = 0,
+    val initialScanCompleted: Boolean = false,
 )
 
 @OptIn(FlowPreview::class)
@@ -90,6 +94,14 @@ class LibraryViewModel @Inject constructor(
                     Pair(tracks, albums)
                 }.fold(
                     onSuccess = { (tracks, albums) ->
+                        val state = _uiState.value
+                        if (tracks.isEmpty() && !state.isInitialScanning && !state.initialScanCompleted) {
+                            val uris = preferences.localFolderUris.first()
+                            if (uris.isNotEmpty()) {
+                                triggerInitialScan(uris)
+                                return@fold
+                            }
+                        }
                         _uiState.update { state ->
                             state.copy(
                                 isLoading = false,
@@ -124,6 +136,19 @@ class LibraryViewModel @Inject constructor(
                     }
                 )
             }
+        }
+    }
+
+    private fun triggerInitialScan(uris: Set<String>) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = false, isInitialScanning = true, initialScanProgress = 0, initialScanTotal = 0) }
+            runCatching {
+                localRepository.scanAndSave(uris) { done, total ->
+                    _uiState.update { it.copy(initialScanProgress = done, initialScanTotal = total) }
+                }
+            }
+            _uiState.update { it.copy(isInitialScanning = false, initialScanCompleted = true) }
+            loadTracks()
         }
     }
 

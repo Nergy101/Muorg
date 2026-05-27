@@ -99,8 +99,8 @@ fun PlayerScreen(
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
-    val coverUrl = when {
-        currentTrack?.localCoverPath != null -> "file://${currentTrack.localCoverPath}"
+    val coverUrl: Any? = when {
+        currentTrack?.localCoverPath != null -> java.io.File(currentTrack.localCoverPath)
         currentTrack?.hasCover == true -> "$baseUrl/api/tracks/${currentTrack.id}/cover"
         else -> null
     }
@@ -114,7 +114,7 @@ fun PlayerScreen(
 
     // displayedCoverUrl only advances once the full image is in cache — no blank flash
     val context = LocalContext.current
-    var displayedCoverUrl by remember { mutableStateOf(coverUrl) }
+    var displayedCoverUrl by remember { mutableStateOf<Any?>(coverUrl) }
     LaunchedEffect(coverUrl) {
         if (coverUrl == null) {
             displayedCoverUrl = null

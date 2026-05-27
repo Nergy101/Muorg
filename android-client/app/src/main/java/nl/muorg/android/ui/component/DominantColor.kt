@@ -22,7 +22,7 @@ data class DominantColorState(
 
 @Composable
 fun rememberDominantColor(
-    url: String?,
+    url: Any?,
     imageLoader: ImageLoader,
     fallback: Color,
 ): DominantColorState {

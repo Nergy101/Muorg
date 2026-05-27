@@ -70,8 +70,8 @@ fun PlayerBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Cover art — full-height, flush to left edge, no rounded corners
-                val coverModel = when {
-                    currentTrack.localCoverPath != null -> "file://${currentTrack.localCoverPath}"
+                val coverModel: Any? = when {
+                    currentTrack.localCoverPath != null -> java.io.File(currentTrack.localCoverPath)
                     currentTrack.hasCover -> "$baseUrl/api/tracks/${currentTrack.id}/cover"
                     else -> null
                 }
