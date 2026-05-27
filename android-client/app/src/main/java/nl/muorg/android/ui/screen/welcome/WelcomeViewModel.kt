@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.MuorgApiService
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.LocalLibraryRepository
 import javax.inject.Inject
 
 sealed class WelcomeDestination {
@@ -30,6 +31,7 @@ data class WelcomeUiState(
 class WelcomeViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val api: MuorgApiService,
+    private val localLibraryRepository: LocalLibraryRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WelcomeUiState())
@@ -89,6 +91,7 @@ class WelcomeViewModel @Inject constructor(
 
     fun removeFolder(uri: String) {
         viewModelScope.launch {
+            localLibraryRepository.removeTracksForFolder(uri)
             preferences.removeLocalFolderUri(uri)
             val updated = preferences.localFolderUris.first()
             _uiState.update { it.copy(localFolderUris = updated) }

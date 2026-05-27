@@ -46,6 +46,10 @@ class LocalLibraryRepository @Inject constructor(
         totalDurationSecs = trackDao.totalDuration()?.toLong() ?: 0L,
     )
 
+    suspend fun removeTracksForFolder(treeUri: String) {
+        trackDao.deleteByTreePrefix("$treeUri/document/")
+    }
+
     suspend fun scanAndSave(folderUris: Set<String>, onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }): Int {
         val tracks = scanner.scan(folderUris, onProgress)
         trackDao.clearAll()

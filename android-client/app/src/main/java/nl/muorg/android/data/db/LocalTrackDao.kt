@@ -36,4 +36,7 @@ interface LocalTrackDao {
 
     @Query("SELECT * FROM local_tracks WHERE path = :path LIMIT 1")
     suspend fun getByPath(path: String): LocalTrack?
+
+    @Query("DELETE FROM local_tracks WHERE path LIKE :prefix || '%'")
+    suspend fun deleteByTreePrefix(prefix: String)
 }

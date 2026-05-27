@@ -194,7 +194,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun removeFolder(uri: String) {
-        viewModelScope.launch { preferences.removeLocalFolderUri(uri) }
+        viewModelScope.launch {
+            localLibraryRepository.removeTracksForFolder(uri)
+            preferences.removeLocalFolderUri(uri)
+        }
     }
 
     fun scanLibrary() {
