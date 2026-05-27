@@ -49,8 +49,14 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.view.ContextThemeWrapper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.mediarouter.app.MediaRouteChooserDialog
 import androidx.mediarouter.app.MediaRouteControllerDialog
 import androidx.appcompat.R as AppCompatR
@@ -124,6 +130,17 @@ fun PlayerScreen(
     val isCasting by playerViewModel.isCasting.collectAsStateWithLifecycle()
     val castSelector = remember { playerViewModel.buildCastRouteSelector() }
 
+    val castPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        Manifest.permission.NEARBY_WIFI_DEVICES else Manifest.permission.ACCESS_FINE_LOCATION
+    val castPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val themedContext = ContextThemeWrapper(context, AppCompatR.style.Theme_AppCompat_DayNight_Dialog)
+            MediaRouteChooserDialog(themedContext).apply { routeSelector = castSelector }.show()
+        }
+    }
+
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
     val displayProgress = if (isSeeking) seekPosition else playerState.progress
@@ -162,8 +179,10 @@ fun PlayerScreen(
                     val themedContext = ContextThemeWrapper(context, AppCompatR.style.Theme_AppCompat_DayNight_Dialog)
                     if (isCasting) {
                         MediaRouteControllerDialog(themedContext).show()
-                    } else {
+                    } else if (ContextCompat.checkSelfPermission(context, castPermission) == PackageManager.PERMISSION_GRANTED) {
                         MediaRouteChooserDialog(themedContext).apply { routeSelector = castSelector }.show()
+                    } else {
+                        castPermissionLauncher.launch(castPermission)
                     }
                 }) {
                     Icon(
