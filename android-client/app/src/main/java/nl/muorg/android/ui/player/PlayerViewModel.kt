@@ -8,8 +8,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import nl.muorg.android.cast.CastManager
@@ -67,6 +69,7 @@ class PlayerViewModel @Inject constructor(
                 playlistRepository.getPlaylists().onSuccess { _playlists.value = it }
             }
         }
+        // When cast session starts, pause local player and load track onto the Chromecast
         viewModelScope.launch {
             castManager.isCasting.drop(1).collect { casting ->
                 if (casting) {
@@ -75,6 +78,17 @@ class PlayerViewModel @Inject constructor(
                     castCurrentTrack(track)
                 }
             }
+        }
+        // Watchdog: if casting is active and local player is somehow still playing, pause it
+        viewModelScope.launch {
+            combine(
+                castManager.isCasting,
+                playerController.state.map { it.isPlaying }.distinctUntilChanged(),
+            ) { casting, localPlaying -> casting && localPlaying }
+                .distinctUntilChanged()
+                .collect { bothPlaying ->
+                    if (bothPlaying) playerController.playPause()
+                }
         }
     }
 
