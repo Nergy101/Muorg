@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,7 +23,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -67,7 +71,9 @@ fun AlbumCard(
     isActive: Boolean = false,
     playlists: List<Playlist> = emptyList(),
     onPlayNow: (() -> Unit)? = null,
+    onAddToQueue: (() -> Unit)? = null,
     onAddToPlaylist: ((Playlist) -> Unit)? = null,
+    onViewArtist: (() -> Unit)? = null,
 ) {
     var menuLevel by remember { mutableStateOf(AlbumMenuLevel.HIDDEN) }
     val interactionSource = remember { MutableInteractionSource() }
@@ -161,6 +167,24 @@ fun AlbumCard(
                         color = Color.White.copy(alpha = 0.75f),
                     )
                 }
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.MusicNote,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(10.dp),
+                    )
+                    Text(
+                        text = "${album.trackCount}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                }
             }
         }
 
@@ -176,6 +200,24 @@ fun AlbumCard(
                     onPlayNow?.invoke()
                 },
             )
+            DropdownMenuItem(
+                text = { Text("Add to queue") },
+                leadingIcon = { Icon(Icons.Filled.Queue, contentDescription = null) },
+                onClick = {
+                    menuLevel = AlbumMenuLevel.HIDDEN
+                    onAddToQueue?.invoke()
+                },
+            )
+            if (onViewArtist != null) {
+                DropdownMenuItem(
+                    text = { Text("View artist") },
+                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                    onClick = {
+                        menuLevel = AlbumMenuLevel.HIDDEN
+                        onViewArtist()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },

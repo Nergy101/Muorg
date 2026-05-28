@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -43,7 +47,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -71,12 +78,23 @@ fun LibraryScreen(
     showPlayerBar: Boolean,
     artistFilter: String? = null,
     onOpenQueue: () -> Unit = {},
+    onViewArtist: (String) -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentAlbum = playerState.currentTrack?.displayAlbum
     var showSortMenu by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf(viewModel.rawSearchQuery) }
+    val lazyListState = rememberLazyListState()
+    val lazyGridState = rememberLazyGridState()
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(uiState.sortMode, uiState.sortAscending) {
+        delay(50L)
+        lazyGridState.scrollToItem(0)
+        lazyListState.scrollToItem(0)
+    }
 
     LaunchedEffect(artistFilter) {
         if (artistFilter != null) viewModel.applyArtistFilter(artistFilter)
@@ -91,13 +109,23 @@ fun LibraryScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
-            value = uiState.searchQuery,
-            onValueChange = viewModel::onSearchQueryChange,
+            value = searchText,
+            onValueChange = { searchText = it; viewModel.onSearchQueryChange(it) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             placeholder = { Text("Search albums, artists…") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchText.isNotEmpty()) {
+                    IconButton(onClick = {
+                        searchText = ""
+                        viewModel.onSearchQueryChange("")
+                    }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
             singleLine = true,
             shape = RoundedCornerShape(50),
             colors = OutlinedTextFieldDefaults.colors(
@@ -156,6 +184,10 @@ fun LibraryScreen(
                         DropdownMenuItem(
                             text = { Text(mode.label) },
                             onClick = {
+                                coroutineScope.launch {
+                                    lazyGridState.scrollToItem(0)
+                                    lazyListState.scrollToItem(0)
+                                }
                                 viewModel.setSortMode(mode)
                                 showSortMenu = false
                             },
@@ -167,6 +199,21 @@ fun LibraryScreen(
                         )
                     }
                 }
+            }
+
+            IconButton(onClick = {
+                coroutineScope.launch {
+                    lazyGridState.scrollToItem(0)
+                    lazyListState.scrollToItem(0)
+                }
+                viewModel.toggleSortDirection()
+            }) {
+                Icon(
+                    imageVector = if (uiState.sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                    contentDescription = if (uiState.sortAscending) "Sort ascending" else "Sort descending",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -231,8 +278,9 @@ fun LibraryScreen(
                             .padding(16.dp),
                     )
                 }
-                uiState.viewMode == ViewMode.TRACKS -> {
+                searchText.isNotEmpty() || uiState.viewMode == ViewMode.TRACKS -> {
                     LazyColumn(
+                        state = lazyListState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = 4.dp),
                     ) {
@@ -247,30 +295,35 @@ fun LibraryScreen(
                                 imageLoader = imageLoader,
                                 isPlaying = playerState.currentTrack?.id == track.id &&
                                     playerState.isPlaying,
+                                isFavorite = track.id.toString() in playerState.favorites,
                                 playlists = uiState.playlists,
                                 trackInPlaylistIds = membership,
                                 onTrackClick = {
                                     playerViewModel.playTrack(track, uiState.filteredTracks)
                                 },
+                                onAddToQueue = { playerViewModel.addToQueue(track) },
+                                onToggleFavorite = { playerViewModel.toggleFavorite(track) },
                                 onAddToPlaylist = { playlist ->
                                     viewModel.requestAddTracksToPlaylist(listOf(track), playlist.id)
                                 },
                                 onRemoveFromPlaylist = { playlist ->
                                     viewModel.removeTrackFromPlaylist(track, playlist.id)
                                 },
+                                onViewAlbum = { onAlbumClick(track.displayAlbum) },
+                                onViewArtist = { onViewArtist(track.displayArtist) },
                             )
                         }
                     }
                 }
                 else -> {
                     LazyVerticalGrid(
+                        state = lazyGridState,
                         columns = GridCells.Fixed(2),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(8.dp),
                     ) {
                         items(
                             items = uiState.filteredAlbums,
-                            key = { it.albumName },
                         ) { album ->
                             AlbumCard(
                                 album = album,
@@ -286,6 +339,11 @@ fun LibraryScreen(
                                         playerViewModel.playTrack(it, tracks)
                                     }
                                 },
+                                onAddToQueue = {
+                                    viewModel.getTracksForAlbum(album.albumName)
+                                        .forEach { playerViewModel.addToQueue(it) }
+                                },
+                                onViewArtist = { onViewArtist(album.artist) },
                                 onAddToPlaylist = { playlist ->
                                     val tracks = viewModel.getTracksForAlbum(album.albumName)
                                     viewModel.requestAddTracksToPlaylist(tracks, playlist.id)

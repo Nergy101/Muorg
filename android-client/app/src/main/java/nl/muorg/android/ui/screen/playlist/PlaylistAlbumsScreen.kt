@@ -45,6 +45,7 @@ fun PlaylistAlbumsScreen(
     onPlayerBarClick: () -> Unit,
     showPlayerBar: Boolean,
     onOpenQueue: () -> Unit = {},
+    onViewArtist: (String) -> Unit = {},
     viewModel: PlaylistAlbumsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -132,6 +133,11 @@ fun PlaylistAlbumsScreen(
                                 val tracks = viewModel.getTracksForAlbum(album.albumName)
                                 tracks.firstOrNull()?.let { playerViewModel.playTrack(it, tracks) }
                             },
+                            onAddToQueue = {
+                                viewModel.getTracksForAlbum(album.albumName)
+                                    .forEach { playerViewModel.addToQueue(it) }
+                            },
+                            onViewArtist = { onViewArtist(album.artist) },
                             onAddToPlaylist = { playlist ->
                                 val tracks = viewModel.getTracksForAlbum(album.albumName)
                                 viewModel.requestAddTracksToPlaylist(tracks, playlist.id)

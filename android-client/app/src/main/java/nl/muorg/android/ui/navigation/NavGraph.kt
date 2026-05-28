@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -78,7 +79,7 @@ sealed class Screen(val route: String) {
     object Library : Screen("library?artistFilter={artistFilter}") {
         fun createRoute(artistFilter: String? = null) =
             if (artistFilter == null) "library"
-            else "library?artistFilter=${java.net.URLEncoder.encode(artistFilter, "UTF-8")}"
+            else "library?artistFilter=${java.net.URLEncoder.encode(artistFilter, "UTF-8").replace("+", "%20")}"
     }
     object Player : Screen("player")
     object Playlists : Screen("playlists")
@@ -96,6 +97,7 @@ sealed class Screen(val route: String) {
 private val bottomNavItems = listOf(
     Triple(Screen.Library, Icons.Filled.Home, "Library"),
     Triple(Screen.Playlists, Icons.AutoMirrored.Filled.PlaylistPlay, "Playlists"),
+    Triple(Screen.Queue, Icons.AutoMirrored.Filled.QueueMusic, "Queue"),
     Triple(Screen.Settings, Icons.Filled.Settings, "Settings"),
 )
 
@@ -126,8 +128,7 @@ fun NavGraph() {
     val showBottomBar = currentDestination?.route?.let { route ->
         route != Screen.Connect.route &&
             route != Screen.Welcome.route &&
-            route != Screen.Player.route &&
-            route != Screen.Queue.route
+            route != Screen.Player.route
     } ?: false
 
     val navViewModel: NavViewModel = hiltViewModel()
@@ -209,6 +210,9 @@ fun NavGraph() {
                         },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onViewArtist = { artistName ->
+                            navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                        },
                         showPlayerBar = showBottomBar,
                     )
                 }
@@ -227,6 +231,9 @@ fun NavGraph() {
                         onBack = { navController.popBackStack() },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onViewArtist = { artistName ->
+                            navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                        },
                     )
                 }
 
@@ -327,6 +334,9 @@ fun NavGraph() {
                         onBack = { navController.popBackStack() },
                         onPlayerBarClick = { navController.navigate(Screen.Player.route) },
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onViewArtist = { artistName ->
+                            navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                        },
                         showPlayerBar = showBottomBar,
                     )
                 }

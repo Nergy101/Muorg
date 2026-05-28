@@ -134,6 +134,74 @@ fun SettingsScreen(
             )
         }
 
+        HorizontalDivider()
+        SectionHeader("Playback")
+
+        ListItem(
+            headlineContent = { Text("Continuous playback") },
+            supportingContent = { Text("Automatically play next track when queue ends") },
+            leadingContent = {
+                Icon(Icons.Filled.Repeat, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(
+                    checked = uiState.continuousPlayback,
+                    onCheckedChange = viewModel::setContinuousPlayback,
+                )
+            },
+            modifier = Modifier.clickable { viewModel.setContinuousPlayback(!uiState.continuousPlayback) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
+
+        Box {
+            ListItem(
+                headlineContent = { Text("Default sort order") },
+                supportingContent = { Text(uiState.defaultSort.label) },
+                leadingContent = {
+                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = viewModel::showSortDropdown),
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+            )
+            DropdownMenu(
+                expanded = uiState.showSortDropdown,
+                onDismissRequest = viewModel::dismissSortDropdown,
+            ) {
+                SortMode.entries.forEach { mode ->
+                    DropdownMenuItem(
+                        text = { Text(mode.label) },
+                        onClick = { viewModel.setDefaultSort(mode) },
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider()
+        SectionHeader("Theme")
+
+        ListItem(
+            headlineContent = { Text("Use true black") },
+            supportingContent = { Text("OLED-friendly pitch-black background") },
+            leadingContent = {
+                Icon(Icons.Filled.Contrast, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(
+                    checked = uiState.useTrueBlack,
+                    onCheckedChange = viewModel::setUseTrueBlack,
+                )
+            },
+            modifier = Modifier.clickable { viewModel.setUseTrueBlack(!uiState.useTrueBlack) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
+
+        HorizontalDivider()
+
         Text(
             "MUSIC SOURCE",
             style = MaterialTheme.typography.labelSmall.copy(
@@ -276,7 +344,7 @@ fun SettingsScreen(
                         Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.width(6.dp))
-                    Text(if (uiState.refreshStatus == RefreshStatus.LOADING) "Refreshing…" else "Refresh data from server")
+                    Text("Refresh")
                 }
                 when (uiState.refreshStatus) {
                     RefreshStatus.SUCCESS -> {
@@ -292,6 +360,17 @@ fun SettingsScreen(
                         )
                     }
                     else -> {}
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = viewModel::showLogoutDialog,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Logout")
                 }
             }
 
@@ -448,90 +527,6 @@ fun SettingsScreen(
             }
         }
 
-        HorizontalDivider()
-        SectionHeader("Playback")
-
-        ListItem(
-            headlineContent = { Text("Continuous playback") },
-            supportingContent = { Text("Automatically play next track when queue ends") },
-            leadingContent = {
-                Icon(Icons.Filled.Repeat, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            trailingContent = {
-                Switch(
-                    checked = uiState.continuousPlayback,
-                    onCheckedChange = viewModel::setContinuousPlayback,
-                )
-            },
-            modifier = Modifier.clickable { viewModel.setContinuousPlayback(!uiState.continuousPlayback) },
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        )
-
-        Box {
-            ListItem(
-                headlineContent = { Text("Default sort order") },
-                supportingContent = { Text(uiState.defaultSort.label) },
-                leadingContent = {
-                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = viewModel::showSortDropdown),
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-            )
-            DropdownMenu(
-                expanded = uiState.showSortDropdown,
-                onDismissRequest = viewModel::dismissSortDropdown,
-            ) {
-                SortMode.entries.forEach { mode ->
-                    DropdownMenuItem(
-                        text = { Text(mode.label) },
-                        onClick = { viewModel.setDefaultSort(mode) },
-                    )
-                }
-            }
-        }
-
-        HorizontalDivider()
-        SectionHeader("Theme")
-
-        ListItem(
-            headlineContent = { Text("Use true black") },
-            supportingContent = { Text("OLED-friendly pitch-black background") },
-            leadingContent = {
-                Icon(Icons.Filled.Contrast, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            trailingContent = {
-                Switch(
-                    checked = uiState.useTrueBlack,
-                    onCheckedChange = viewModel::setUseTrueBlack,
-                )
-            },
-            modifier = Modifier.clickable { viewModel.setUseTrueBlack(!uiState.useTrueBlack) },
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        )
-
-        HorizontalDivider()
-        SectionHeader("Account")
-
-        ListItem(
-            headlineContent = { Text("Log out", color = MaterialTheme.colorScheme.error) },
-            supportingContent = { Text("Disconnect from server and clear credentials") },
-            leadingContent = {
-                Icon(
-                    Icons.AutoMirrored.Filled.Logout,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = viewModel::showLogoutDialog),
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        )
     }
 
     if (uiState.showSwitchConfirmDialog) {

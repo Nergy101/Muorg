@@ -37,6 +37,7 @@ data class LibraryUiState(
     val filteredAlbums: List<AlbumGroup> = emptyList(),
     val viewMode: ViewMode = ViewMode.ALBUMS,
     val sortMode: SortMode = SortMode.BY_ALBUM,
+    val sortAscending: Boolean = true,
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -66,6 +67,7 @@ class LibraryViewModel @Inject constructor(
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
+    val rawSearchQuery: String get() = _searchQuery.value
     private var currentMode: String = "remote"
 
     init {
@@ -280,6 +282,16 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun toggleSortDirection() {
+        _uiState.update { state ->
+            val updated = state.copy(sortAscending = !state.sortAscending)
+            updated.copy(
+                filteredTracks = applyFilters(state.allTracks, updated),
+                filteredAlbums = applyAlbumFilters(state.albums, updated),
+            )
+        }
+    }
+
     fun setPlaylistFilter(playlistId: Int?, trackIds: Set<Int>) {
         _uiState.update { state ->
             val updated = state.copy(
@@ -342,9 +354,10 @@ class LibraryViewModel @Inject constructor(
             )
             SortMode.BY_TITLE -> result.sortedBy { it.displayTitle.lowercase() }
             SortMode.BY_YEAR -> result.sortedWith(
-                compareByDescending<CatalogTrack> { it.year ?: 0 }.thenBy { it.displayAlbum.lowercase() }
+                compareBy<CatalogTrack> { it.year ?: 0 }.thenBy { it.displayAlbum.lowercase() }
             )
         }
+        if (!state.sortAscending) result = result.reversed()
         return result
     }
 
@@ -362,9 +375,14 @@ class LibraryViewModel @Inject constructor(
         }
         if (state.searchQuery.isNotBlank()) {
             val query = state.searchQuery.lowercase()
+            val albumsWithMatchingTrack = state.allTracks
+                .filter { it.displayTitle.lowercase().contains(query) }
+                .map { it.displayAlbum }
+                .toSet()
             result = result.filter { album ->
                 album.albumName.lowercase().contains(query) ||
-                    album.artist.lowercase().contains(query)
+                    album.artist.lowercase().contains(query) ||
+                    album.albumName in albumsWithMatchingTrack
             }
         }
         result = when (state.sortMode) {
@@ -373,9 +391,10 @@ class LibraryViewModel @Inject constructor(
                 compareBy({ it.artist.lowercase() }, { it.albumName.lowercase() })
             )
             SortMode.BY_YEAR -> result.sortedWith(
-                compareByDescending<AlbumGroup> { it.year ?: 0 }.thenBy { it.albumName.lowercase() }
+                compareBy<AlbumGroup> { it.year ?: 0 }.thenBy { it.albumName.lowercase() }
             )
         }
+        if (!state.sortAscending) result = result.reversed()
         return result
     }
 

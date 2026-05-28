@@ -20,9 +20,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -32,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,7 +64,7 @@ import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.player.PlayerViewModel
 
-private enum class TrackMenuLevel { HIDDEN, MAIN, PLAYLISTS }
+private enum class TrackMenuLevel { HIDDEN, MAIN, PLAYLISTS, TRACK_INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +76,7 @@ fun AlbumDetailScreen(
     onBack: () -> Unit,
     onPlayerBarClick: () -> Unit,
     onOpenQueue: () -> Unit = {},
+    onViewArtist: (String) -> Unit = {},
     viewModel: AlbumDetailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(albumName) {
@@ -234,15 +242,19 @@ fun AlbumDetailScreen(
                             track = track,
                             isPlaying = playerState.currentTrack?.id == track.id &&
                                 playerState.isPlaying,
+                            isFavorite = track.id.toString() in playerState.favorites,
                             playlists = uiState.playlists,
                             trackInPlaylistIds = membership,
                             onClick = { playerViewModel.playTrack(track, uiState.tracks) },
+                            onAddToQueue = { playerViewModel.addToQueue(track) },
+                            onToggleFavorite = { playerViewModel.toggleFavorite(track) },
                             onAddToPlaylist = { playlist ->
                                 viewModel.requestAddTracksToPlaylist(listOf(track), playlist.id)
                             },
                             onRemoveFromPlaylist = { playlist ->
                                 viewModel.removeTrackFromPlaylist(track, playlist.id)
                             },
+                            onViewArtist = { track.artist?.let { onViewArtist(it) } },
                         )
                     }
                 }
@@ -280,13 +292,18 @@ fun AlbumDetailScreen(
 private fun AlbumTrackRow(
     track: CatalogTrack,
     isPlaying: Boolean,
+    isFavorite: Boolean = false,
     playlists: List<Playlist>,
     trackInPlaylistIds: Set<Int> = emptySet(),
     onClick: () -> Unit,
+    onAddToQueue: (() -> Unit)? = null,
+    onToggleFavorite: (() -> Unit)? = null,
     onAddToPlaylist: (Playlist) -> Unit,
     onRemoveFromPlaylist: (Playlist) -> Unit = {},
+    onViewArtist: (() -> Unit)? = null,
 ) {
     var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
+    var showTrackInfo by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -323,13 +340,6 @@ private fun AlbumTrackRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (!track.artist.isNullOrBlank() && track.artist != track.albumArtist) {
-                    MarqueeText(
-                        text = track.artist,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
 
             Text(
@@ -370,11 +380,50 @@ private fun AlbumTrackRow(
                 },
             )
             DropdownMenuItem(
+                text = { Text("Add to queue") },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                onClick = {
+                    menuLevel = TrackMenuLevel.HIDDEN
+                    onAddToQueue?.invoke()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(if (isFavorite) "Remove from favorites" else "Add to favorites") },
+                leadingIcon = {
+                    Icon(
+                        if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = null,
+                    )
+                },
+                onClick = {
+                    menuLevel = TrackMenuLevel.HIDDEN
+                    onToggleFavorite?.invoke()
+                },
+            )
+            DropdownMenuItem(
                 text = { Text("Add to playlist") },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
                 trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
                 onClick = { menuLevel = TrackMenuLevel.PLAYLISTS },
             )
+            DropdownMenuItem(
+                text = { Text("Track info") },
+                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                onClick = {
+                    menuLevel = TrackMenuLevel.HIDDEN
+                    showTrackInfo = true
+                },
+            )
+            if (onViewArtist != null) {
+                DropdownMenuItem(
+                    text = { Text("View artist") },
+                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                    onClick = {
+                        menuLevel = TrackMenuLevel.HIDDEN
+                        onViewArtist()
+                    },
+                )
+            }
         }
 
         // Level 2: playlist selection
@@ -415,5 +464,46 @@ private fun AlbumTrackRow(
                 }
             }
         }
+    }
+
+    if (showTrackInfo) {
+        AlertDialog(
+            onDismissRequest = { showTrackInfo = false },
+            title = { Text("Track info") },
+            text = {
+                Column {
+                    AlbumTrackInfoField("Title", track.displayTitle)
+                    AlbumTrackInfoField("Artist", track.displayArtist)
+                    AlbumTrackInfoField("Album", track.displayAlbum)
+                    track.year?.let { AlbumTrackInfoField("Year", it.toString()) }
+                    AlbumTrackInfoField("Format", track.format.uppercase())
+                    AlbumTrackInfoField("Duration", track.formattedDuration())
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTrackInfo = false }) { Text("Close") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AlbumTrackInfoField(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(72.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
