@@ -61,6 +61,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.ui.player.PlayerViewModel
+import nl.muorg.android.ui.theme.MuorgTheme
 import nl.muorg.android.ui.screen.album.AlbumDetailScreen
 import nl.muorg.android.ui.screen.connect.ConnectScreen
 import nl.muorg.android.ui.screen.library.LibraryScreen
@@ -108,6 +109,12 @@ class NavViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = "",
     )
+
+    val useTrueBlack: StateFlow<Boolean> = preferences.useTrueBlack.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
 }
 
 @Composable
@@ -127,8 +134,10 @@ fun NavGraph() {
     val playerViewModel: PlayerViewModel = hiltViewModel()
 
     val baseUrl by navViewModel.serverUrl.collectAsStateWithLifecycle()
+    val useTrueBlack by navViewModel.useTrueBlack.collectAsStateWithLifecycle()
     val imageLoader = navViewModel.imageLoader
 
+    MuorgTheme(useTrueBlack = useTrueBlack) {
     Scaffold(
         bottomBar = {
             AnimatedVisibility(
@@ -334,6 +343,7 @@ fun NavGraph() {
             }
         }
     }
+    } // MuorgTheme
 }
 
 @Composable

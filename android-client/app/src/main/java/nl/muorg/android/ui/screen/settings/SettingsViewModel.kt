@@ -49,6 +49,7 @@ data class SettingsUiState(
     val sourceMode: SourceMode = SourceMode.ONLINE_SERVER,
     val showSwitchConfirmDialog: Boolean = false,
     val pendingSourceMode: SourceMode? = null,
+    val useTrueBlack: Boolean = false,
 )
 
 @HiltViewModel
@@ -88,6 +89,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferences.localFolderUris.collect { uris ->
                 _uiState.update { it.copy(localFolderUris = uris) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.useTrueBlack.collect { enabled ->
+                _uiState.update { it.copy(useTrueBlack = enabled) }
             }
         }
         loadStats()
@@ -142,6 +148,11 @@ class SettingsViewModel @Inject constructor(
     fun setContinuousPlayback(enabled: Boolean) {
         _uiState.update { it.copy(continuousPlayback = enabled) }
         viewModelScope.launch { preferences.setContinuousPlayback(enabled) }
+    }
+
+    fun setUseTrueBlack(enabled: Boolean) {
+        _uiState.update { it.copy(useTrueBlack = enabled) }
+        viewModelScope.launch { preferences.setUseTrueBlack(enabled) }
     }
 
     fun setDefaultSort(mode: SortMode) {

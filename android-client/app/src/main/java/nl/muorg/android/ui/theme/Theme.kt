@@ -26,12 +26,36 @@ private val MuorgDarkColorScheme = darkColorScheme(
     onError = OnErrorDark,
 )
 
+private val MuorgTrueBlackColorScheme = darkColorScheme(
+    primary = MuorgGreen,
+    onPrimary = Stone100,
+    primaryContainer = MuorgGreenDark,
+    onPrimaryContainer = MuorgGreenLight,
+    secondary = MuorgGreenLight,
+    onSecondary = Stone900,
+    secondaryContainer = TrueBlackSurfaceVariant,
+    onSecondaryContainer = Stone200,
+    tertiary = Stone400,
+    onTertiary = Stone900,
+    background = TrueBlack,
+    onBackground = Stone200,
+    surface = TrueBlackSurface,
+    onSurface = Stone200,
+    surfaceVariant = TrueBlackSurfaceVariant,
+    onSurfaceVariant = Stone400,
+    surfaceContainer = TrueBlackSurfaceContainer,
+    outline = Stone600,
+    error = ErrorRed,
+    onError = OnErrorDark,
+)
+
 @Composable
 fun MuorgTheme(
+    useTrueBlack: Boolean = false,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = MuorgDarkColorScheme,
+        colorScheme = if (useTrueBlack) MuorgTrueBlackColorScheme else MuorgDarkColorScheme,
         typography = MuorgTypography,
         content = content
     )

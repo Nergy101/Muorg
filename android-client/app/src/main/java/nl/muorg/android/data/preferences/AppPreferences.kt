@@ -28,6 +28,7 @@ class AppPreferences @Inject constructor(
         private val KEY_MUSIC_MODE = stringPreferencesKey("music_mode")
         private val KEY_LOCAL_FOLDER_URIS = stringSetPreferencesKey("local_folder_uris")
         private val KEY_FAVORITES = stringSetPreferencesKey("favorites")
+        private val KEY_USE_TRUE_BLACK = booleanPreferencesKey("use_true_black")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -50,6 +51,13 @@ class AppPreferences @Inject constructor(
 
     val favorites: Flow<Set<String>> = context.dataStore.data
         .map { it[KEY_FAVORITES] ?: emptySet() }
+
+    val useTrueBlack: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_USE_TRUE_BLACK] ?: false }
+
+    suspend fun setUseTrueBlack(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_USE_TRUE_BLACK] = enabled }
+    }
 
     suspend fun toggleFavorite(trackId: String) = context.dataStore.edit { prefs ->
         val current = prefs[KEY_FAVORITES] ?: emptySet()
