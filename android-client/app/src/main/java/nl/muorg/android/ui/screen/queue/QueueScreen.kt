@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -297,6 +298,10 @@ private fun QueueTrackRow(
     onDragDelta: (Float) -> Unit = {},
     onDragEnd: () -> Unit = {},
 ) {
+    val latestOnDragStart by rememberUpdatedState(onDragStart)
+    val latestOnDragDelta by rememberUpdatedState(onDragDelta)
+    val latestOnDragEnd by rememberUpdatedState(onDragEnd)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -315,13 +320,13 @@ private fun QueueTrackRow(
                 .size(24.dp, 36.dp)
                 .pointerInput(track.id) {
                     detectDragGesturesAfterLongPress(
-                        onDragStart = { onDragStart() },
+                        onDragStart = { latestOnDragStart() },
                         onDrag = { change, amount ->
                             change.consume()
-                            onDragDelta(amount.y)
+                            latestOnDragDelta(amount.y)
                         },
-                        onDragEnd = { onDragEnd() },
-                        onDragCancel = { onDragEnd() },
+                        onDragEnd = { latestOnDragEnd() },
+                        onDragCancel = { latestOnDragEnd() },
                     )
                 },
             contentAlignment = Alignment.Center,
