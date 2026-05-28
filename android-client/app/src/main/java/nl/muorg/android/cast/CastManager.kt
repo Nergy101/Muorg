@@ -52,6 +52,9 @@ class CastManager @Inject constructor(
     private val _castPlaybackState = MutableStateFlow(CastPlaybackState())
     val castPlaybackState: StateFlow<CastPlaybackState> = _castPlaybackState.asStateFlow()
 
+    private val _castVolume = MutableStateFlow<Float?>(null)
+    val castVolume: StateFlow<Float?> = _castVolume.asStateFlow()
+
     private val _trackFinished = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val trackFinished: SharedFlow<Unit> = _trackFinished.asSharedFlow()
 
@@ -136,6 +139,7 @@ class CastManager @Inject constructor(
                     }
                     wasPlaying = isPlaying
                 }
+                _castVolume.value = session.volume.toFloat().coerceIn(0f, 1f)
                 delay(500)
             }
         }
@@ -145,6 +149,7 @@ class CastManager @Inject constructor(
         pollJob?.cancel()
         pollJob = null
         _castPlaybackState.value = CastPlaybackState()
+        _castVolume.value = null
     }
 
     fun buildRouteSelector(): MediaRouteSelector =
@@ -199,7 +204,11 @@ class CastManager @Inject constructor(
 
     fun adjustVolume(delta: Double) {
         val session = castContext?.sessionManager?.currentCastSession ?: return
-        if (session.isConnected) session.volume = (session.volume + delta).coerceIn(0.0, 1.0)
+        if (session.isConnected) {
+            val newVol = (session.volume + delta).coerceIn(0.0, 1.0)
+            session.volume = newVol
+            _castVolume.value = newVol.toFloat()
+        }
     }
 
     fun remotePlayPause() {

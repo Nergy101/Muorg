@@ -293,6 +293,8 @@ class PlayerController @Inject constructor(
         val index = (0 until ctrl.mediaItemCount)
             .firstOrNull { ctrl.getMediaItemAt(it).mediaId == track.id.toString() } ?: return
         ctrl.seekToDefaultPosition(index)
+        ctrl.prepare()
+        ctrl.play()
     }
 
     fun removeFromQueue(track: CatalogTrack) {
@@ -321,26 +323,39 @@ class PlayerController @Inject constructor(
     }
 
     fun addToQueue(track: CatalogTrack) {
+        addTracksToQueue(listOf(track))
+    }
+
+    fun addTracksToQueue(tracks: List<CatalogTrack>) {
+        if (tracks.isEmpty()) return
         val ctrl = controller ?: return
+        // Merge into trackCache immediately so syncState() can resolve them from the queue
+        val toAdd = tracks.filter { t -> trackCache.none { it.id == t.id } }
+        if (toAdd.isNotEmpty()) trackCache = trackCache + toAdd
         scope.launch {
             val baseUrl = preferences.serverUrl.first().trimEnd('/')
-            val uri = if (track.localFilePath != null) resolveLocalUri(track.localFilePath)
-                      else {
-                          val token = libraryRepository.getStreamToken(track.id).getOrNull() ?: return@launch
-                          "$baseUrl/stream/${track.id}?token=$token"
-                      }
-            val mediaItem = MediaItem.Builder()
-                .setMediaId(track.id.toString())
-                .setUri(uri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(track.displayTitle)
-                        .setArtist(track.displayArtist)
-                        .setAlbumTitle(track.displayAlbum)
+            for (track in tracks) {
+                val uri = if (track.localFilePath != null) {
+                    resolveLocalUri(track.localFilePath)
+                } else {
+                    libraryRepository.getStreamToken(track.id).getOrNull()
+                        ?.let { token -> "$baseUrl/stream/${track.id}?token=$token" }
+                        ?: continue
+                }
+                ctrl.addMediaItem(
+                    MediaItem.Builder()
+                        .setMediaId(track.id.toString())
+                        .setUri(uri)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(track.displayTitle)
+                                .setArtist(track.displayArtist)
+                                .setAlbumTitle(track.displayAlbum)
+                                .build()
+                        )
                         .build()
                 )
-                .build()
-            ctrl.addMediaItem(mediaItem)
+            }
             syncState()
         }
     }

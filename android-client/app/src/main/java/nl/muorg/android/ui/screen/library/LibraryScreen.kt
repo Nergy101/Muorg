@@ -340,8 +340,9 @@ fun LibraryScreen(
                                     }
                                 },
                                 onAddToQueue = {
-                                    viewModel.getTracksForAlbum(album.albumName)
-                                        .forEach { playerViewModel.addToQueue(it) }
+                                    playerViewModel.addTracksToQueue(
+                                        viewModel.getTracksForAlbum(album.albumName)
+                                    )
                                 },
                                 onViewArtist = { onViewArtist(album.artist) },
                                 onAddToPlaylist = { playlist ->

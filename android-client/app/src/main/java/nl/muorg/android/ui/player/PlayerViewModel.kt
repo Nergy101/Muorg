@@ -37,6 +37,7 @@ class PlayerViewModel @Inject constructor(
 
     val isCasting: StateFlow<Boolean> = castManager.isCasting
     val castDeviceName: StateFlow<String?> = castManager.castDeviceName
+    val castVolume: StateFlow<Float?> = castManager.castVolume
 
     fun buildCastRouteSelector() = castManager.buildRouteSelector()
 
@@ -222,5 +223,6 @@ class PlayerViewModel @Inject constructor(
     fun clearQueue() = playerController.clearQueue()
     fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
     fun addToQueue(track: CatalogTrack) = playerController.addToQueue(track)
+    fun addTracksToQueue(tracks: List<CatalogTrack>) = playerController.addTracksToQueue(tracks)
     fun toggleFavorite(track: CatalogTrack) = playerController.toggleFavorite(track)
 }

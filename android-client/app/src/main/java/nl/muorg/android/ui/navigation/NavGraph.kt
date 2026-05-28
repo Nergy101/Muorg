@@ -17,6 +17,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,19 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.VolumeMute
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -137,6 +151,7 @@ fun NavGraph() {
     val baseUrl by navViewModel.serverUrl.collectAsStateWithLifecycle()
     val useTrueBlack by navViewModel.useTrueBlack.collectAsStateWithLifecycle()
     val imageLoader = navViewModel.imageLoader
+    val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
 
     MuorgTheme(useTrueBlack = useTrueBlack) {
     Scaffold(
@@ -351,6 +366,11 @@ fun NavGraph() {
                     )
                 }
             }
+
+            CastVolumeHud(
+                volume = castVolume,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
     }
     } // MuorgTheme
@@ -430,6 +450,70 @@ private fun AnimatedBottomNav(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CastVolumeHud(
+    volume: Float?,
+    modifier: Modifier = Modifier,
+) {
+    var visible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(volume) {
+        if (volume != null) {
+            visible = true
+            delay(2200)
+            visible = false
+        } else {
+            visible = false
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(180)) + slideInVertically { -it / 2 },
+        exit = fadeOut(tween(280)) + slideOutVertically { -it / 2 },
+        modifier = modifier
+            .statusBarsPadding()
+            .padding(top = 8.dp),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.inverseSurface,
+            shadowElevation = 6.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val vol = volume ?: 0f
+                val icon = when {
+                    vol == 0f -> Icons.Filled.VolumeMute
+                    vol < 0.5f -> Icons.Filled.VolumeDown
+                    else -> Icons.Filled.VolumeUp
+                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.inverseOnSurface,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                LinearProgressIndicator(
+                    progress = { vol },
+                    modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
+                    color = MaterialTheme.colorScheme.inverseOnSurface,
+                    trackColor = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.25f),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "${(vol * 100).roundToInt()}%",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.inverseOnSurface,
+                )
             }
         }
     }

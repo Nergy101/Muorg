@@ -49,7 +49,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -332,13 +331,11 @@ private fun AlbumTrackRow(
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                MarqueeText(
                     text = track.displayTitle,
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (isPlaying) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
