@@ -110,7 +110,14 @@ class LocalLibraryScanner @Inject constructor(
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(context, uri)
+            val ext = name.substringAfterLast('.', "").lowercase()
+
+            // MediaMetadataRetriever doesn't reliably read Vorbis Comment tags from FLAC.
+            // Parse the FLAC metadata blocks directly as fallback.
+            val vorbis = if (ext == "flac") readFlacVorbisComments(uri) else emptyMap()
+
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                ?: vorbis["ALBUM"]
 
             if (album != null && album !in artExtractedAlbums) {
                 val artDir = File(context.cacheDir, "album_art").also { it.mkdirs() }
@@ -118,7 +125,6 @@ class LocalLibraryScanner @Inject constructor(
                 if (artFile.exists()) {
                     artExtractedAlbums.add(album)
                 } else {
-                    val ext = name.substringAfterLast('.', "").lowercase()
                     val artBytes = retriever.embeddedPicture
                         ?: when (ext) {
                             "flac" -> extractFlacCover(uri)
@@ -136,16 +142,23 @@ class LocalLibraryScanner @Inject constructor(
             LocalTrack(
                 path = uri.toString(),
                 contentUri = uri.toString(),
-                title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE),
-                artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST),
+                title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                    ?: vorbis["TITLE"],
+                artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                    ?: vorbis["ARTIST"],
                 album = album,
-                albumArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST),
-                year = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)?.toIntOrNull(),
-                genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE),
+                albumArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+                    ?: vorbis["ALBUMARTIST"] ?: vorbis["ALBUM_ARTIST"],
+                year = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)?.parseYear()
+                    ?: (vorbis["DATE"] ?: vorbis["YEAR"])?.parseYear(),
+                genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
+                    ?: vorbis["GENRE"],
                 trackNumber = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
-                    ?.substringBefore('/')?.toIntOrNull(),
+                    ?.substringBefore('/')?.toIntOrNull()
+                    ?: vorbis["TRACKNUMBER"]?.substringBefore('/')?.toIntOrNull(),
                 discNumber = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)
-                    ?.substringBefore('/')?.toIntOrNull(),
+                    ?.substringBefore('/')?.toIntOrNull()
+                    ?: vorbis["DISCNUMBER"]?.substringBefore('/')?.toIntOrNull(),
                 durationSecs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull()?.let { it / 1000.0 },
                 format = name.substringAfterLast('.', "AUDIO").uppercase(),
@@ -155,6 +168,57 @@ class LocalLibraryScanner @Inject constructor(
             null
         } finally {
             retriever.release()
+        }
+    }
+
+    // Parses "2020", "2020-01-01", "2020/01" etc. — extracts the leading 4-digit year.
+    private fun String.parseYear(): Int? =
+        trim().toIntOrNull() ?: trim().take(4).toIntOrNull()
+
+    // Reads all Vorbis Comment key=value pairs from a FLAC file's metadata blocks.
+    private fun readFlacVorbisComments(uri: Uri): Map<String, String> {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val marker = ByteArray(4)
+                if (!readFully(input, marker)) return emptyMap()
+                if (marker[0] != 0x66.toByte() || marker[1] != 0x4C.toByte() ||
+                    marker[2] != 0x61.toByte() || marker[3] != 0x43.toByte()) return emptyMap()
+
+                val header = ByteArray(4)
+                while (readFully(input, header)) {
+                    val isLast = (header[0].toInt() and 0x80) != 0
+                    val blockType = header[0].toInt() and 0x7F
+                    val blockLen = ((header[1].toInt() and 0xFF) shl 16) or
+                                   ((header[2].toInt() and 0xFF) shl 8) or
+                                   (header[3].toInt() and 0xFF)
+
+                    if (blockType == 4) { // VORBIS_COMMENT block
+                        val data = ByteArray(blockLen)
+                        if (!readFully(input, data)) break
+                        val result = mutableMapOf<String, String>()
+                        var pos = 0
+                        if (pos + 4 > data.size) break
+                        val vendorLen = readInt32LE(data, pos); pos += 4 + vendorLen
+                        if (pos + 4 > data.size) break
+                        val count = readInt32LE(data, pos); pos += 4
+                        repeat(count) {
+                            if (pos + 4 > data.size) return@repeat
+                            val len = readInt32LE(data, pos); pos += 4
+                            if (pos + len > data.size) return@repeat
+                            val entry = String(data, pos, len, Charsets.UTF_8); pos += len
+                            val eq = entry.indexOf('=')
+                            if (eq > 0) result[entry.substring(0, eq).uppercase()] = entry.substring(eq + 1)
+                        }
+                        return@use result
+                    } else {
+                        skipFully(input, blockLen)
+                    }
+                    if (isLast) break
+                }
+                emptyMap()
+            } ?: emptyMap()
+        } catch (e: Exception) {
+            emptyMap()
         }
     }
 
