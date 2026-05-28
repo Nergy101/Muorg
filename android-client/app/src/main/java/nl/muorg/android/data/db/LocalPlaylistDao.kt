@@ -40,4 +40,10 @@ interface LocalPlaylistDao {
 
     @Query("DELETE FROM local_playlist_entries WHERE playlistId = :playlistId")
     suspend fun clearEntries(playlistId: Int)
+
+    @Query("DELETE FROM local_playlist_entries WHERE filePath LIKE :prefix || '%'")
+    suspend fun removeEntriesWithPathPrefix(prefix: String)
+
+    @Query("DELETE FROM local_playlist_entries WHERE filePath NOT IN (SELECT path FROM local_tracks)")
+    suspend fun removeOrphanedEntries()
 }
