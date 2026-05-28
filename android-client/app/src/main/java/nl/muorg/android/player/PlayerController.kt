@@ -314,6 +314,12 @@ class PlayerController @Inject constructor(
         syncState()
     }
 
+    fun reorderQueue(fromIndex: Int, toIndex: Int) {
+        val ctrl = controller ?: return
+        ctrl.moveMediaItem(fromIndex, toIndex)
+        syncState()
+    }
+
     fun addToQueue(track: CatalogTrack) {
         val ctrl = controller ?: return
         scope.launch {

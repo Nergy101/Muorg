@@ -3,6 +3,7 @@ package nl.muorg.android.ui.screen.queue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -29,20 +31,30 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import kotlin.math.roundToInt
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.player.PlayerViewModel
+import nl.muorg.android.ui.theme.MuorgGreenLight
 
 @Composable
 fun QueueScreen(
@@ -58,6 +70,39 @@ fun QueueScreen(
         val idx = queue.indexOfFirst { it.id == currentTrack.id }
         if (idx >= 0) queue.drop(idx + 1) else queue
     } else queue
+
+    val lazyListState = rememberLazyListState()
+    val density = LocalDensity.current
+    val estimatedItemHeightPx = remember(density) { with(density) { 56.dp.toPx() } }
+
+    var draggedId by remember { mutableStateOf<Int?>(null) }
+    var dragAccumY by remember { mutableFloatStateOf(0f) }
+
+    val draggedFromIndex = remember(draggedId, upNext) {
+        draggedId?.let { id -> upNext.indexOfFirst { it.id == id } } ?: -1
+    }
+
+    val dropTargetIndex = if (draggedFromIndex >= 0) {
+        val rowsMoved = (dragAccumY / estimatedItemHeightPx).roundToInt()
+        (draggedFromIndex + rowsMoved).coerceIn(0, (upNext.size - 1).coerceAtLeast(0))
+    } else -1
+
+    val displayList = remember(upNext, draggedFromIndex, dropTargetIndex) {
+        if (draggedFromIndex < 0 || dropTargetIndex < 0 || draggedFromIndex == dropTargetIndex) {
+            upNext
+        } else {
+            upNext.toMutableList().apply {
+                val item = removeAt(draggedFromIndex)
+                add(dropTargetIndex.coerceIn(0, size), item)
+            }
+        }
+    }
+
+    // Visual offset of the dragged item relative to its current display-list position
+    val dragTranslationY = if (draggedFromIndex >= 0 && dropTargetIndex >= 0) {
+        val itemDisplacement = (dropTargetIndex - draggedFromIndex) * estimatedItemHeightPx
+        dragAccumY - itemDisplacement
+    } else 0f
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -77,7 +122,7 @@ fun QueueScreen(
             }
         }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize()) {
             if (currentTrack != null) {
                 item {
                     Text(
@@ -165,13 +210,34 @@ fun QueueScreen(
                     }
                 }
             } else {
-                items(upNext, key = { it.id }) { track ->
+                items(displayList, key = { it.id }) { track ->
+                    val isDragged = track.id == draggedId
                     QueueTrackRow(
                         track = track,
                         baseUrl = baseUrl,
                         imageLoader = imageLoader,
-                        onSkipTo = { playerViewModel.skipTo(track) },
+                        isDragged = isDragged,
+                        dragTranslationY = if (isDragged) dragTranslationY else 0f,
+                        onSkipTo = { if (!isDragged) playerViewModel.skipTo(track) },
                         onRemove = { playerViewModel.removeFromQueue(track) },
+                        onDragStart = {
+                            draggedId = track.id
+                            dragAccumY = 0f
+                        },
+                        onDragDelta = { dy -> dragAccumY += dy },
+                        onDragEnd = {
+                            val from = draggedFromIndex
+                            val to = dropTargetIndex
+                            if (from >= 0 && to >= 0 && from != to) {
+                                val currentIdx = if (currentTrack != null) {
+                                    queue.indexOfFirst { it.id == currentTrack.id }
+                                } else -1
+                                val offset = (currentIdx + 1).coerceAtLeast(0)
+                                playerViewModel.reorderQueue(offset + from, offset + to)
+                            }
+                            draggedId = null
+                            dragAccumY = 0f
+                        },
                     )
                 }
             }
@@ -225,20 +291,48 @@ private fun QueueTrackRow(
     imageLoader: ImageLoader,
     onSkipTo: () -> Unit,
     onRemove: () -> Unit,
+    isDragged: Boolean = false,
+    dragTranslationY: Float = 0f,
+    onDragStart: () -> Unit = {},
+    onDragDelta: (Float) -> Unit = {},
+    onDragEnd: () -> Unit = {},
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .zIndex(if (isDragged) 1f else 0f)
+            .graphicsLayer { translationY = dragTranslationY }
+            .then(
+                if (isDragged) Modifier.border(2.dp, MuorgGreenLight, RoundedCornerShape(8.dp))
+                else Modifier
+            )
             .clickable(onClick = onSkipTo)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Filled.DragIndicator,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp, 36.dp),
-        )
+        Box(
+            modifier = Modifier
+                .size(24.dp, 36.dp)
+                .pointerInput(track.id) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { onDragStart() },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            onDragDelta(amount.y)
+                        },
+                        onDragEnd = { onDragEnd() },
+                        onDragCancel = { onDragEnd() },
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.DragIndicator,
+                contentDescription = null,
+                tint = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
+            )
+        }
         Spacer(Modifier.width(8.dp))
         CoverArt(track = track, baseUrl = baseUrl, imageLoader = imageLoader, size = 40, cornerDp = 4)
         Spacer(Modifier.width(8.dp))
@@ -246,12 +340,12 @@ private fun QueueTrackRow(
             MarqueeText(
                 track.displayTitle,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurface,
             )
             MarqueeText(
                 track.displayArtist,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isDragged) MuorgGreenLight.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         track.durationSecs?.let { secs ->
@@ -260,7 +354,7 @@ private fun QueueTrackRow(
             Text(
                 "%d:%02d".format(mins, s),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isDragged) MuorgGreenLight.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onRemove) {

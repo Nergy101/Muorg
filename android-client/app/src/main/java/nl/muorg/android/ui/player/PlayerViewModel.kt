@@ -220,6 +220,7 @@ class PlayerViewModel @Inject constructor(
 
     fun removeFromQueue(track: CatalogTrack) = playerController.removeFromQueue(track)
     fun clearQueue() = playerController.clearQueue()
+    fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
     fun addToQueue(track: CatalogTrack) = playerController.addToQueue(track)
     fun toggleFavorite(track: CatalogTrack) = playerController.toggleFavorite(track)
 }
