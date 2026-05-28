@@ -90,10 +90,9 @@ fun TrackRow(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(width = 20.dp, height = 14.dp),
                     )
-                } else if (track.hasCover || track.localFilePath != null) {
+                } else if (track.hasCover || track.localCoverPath != null) {
                     AsyncImage(
-                        model = if (track.localFilePath != null) null
-                                else "$baseUrl/api/tracks/${track.id}/cover",
+                        model = track.localCoverPath ?: "$baseUrl/api/tracks/${track.id}/cover",
                         contentDescription = null,
                         imageLoader = imageLoader,
                         contentScale = ContentScale.Crop,

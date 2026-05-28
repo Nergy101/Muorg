@@ -26,7 +26,6 @@ enum class ViewMode { TRACKS, ALBUMS }
 enum class SortMode(val label: String) {
     BY_ALBUM("Album"),
     BY_ARTIST("Artist"),
-    BY_TITLE("Title"),
     BY_YEAR("Year"),
 }
 
@@ -352,10 +351,9 @@ class LibraryViewModel @Inject constructor(
             SortMode.BY_ARTIST -> result.sortedWith(
                 compareBy({ it.displayArtist.lowercase() }, { it.displayAlbum.lowercase() }, { it.trackNumber ?: 0 })
             )
-            SortMode.BY_TITLE -> result.sortedBy { it.displayTitle.lowercase() }
-            SortMode.BY_YEAR -> result.sortedWith(
-                compareBy<CatalogTrack> { it.year ?: 0 }.thenBy { it.displayAlbum.lowercase() }
-            )
+            SortMode.BY_YEAR -> result
+                .filter { it.year != null }
+                .sortedWith(compareBy<CatalogTrack> { it.year!! }.thenBy { it.displayAlbum.lowercase() })
         }
         if (!state.sortAscending) result = result.reversed()
         return result
@@ -386,13 +384,13 @@ class LibraryViewModel @Inject constructor(
             }
         }
         result = when (state.sortMode) {
-            SortMode.BY_ALBUM, SortMode.BY_TITLE -> result.sortedBy { it.albumName.lowercase() }
+            SortMode.BY_ALBUM -> result.sortedBy { it.albumName.lowercase() }
             SortMode.BY_ARTIST -> result.sortedWith(
                 compareBy({ it.artist.lowercase() }, { it.albumName.lowercase() })
             )
-            SortMode.BY_YEAR -> result.sortedWith(
-                compareBy<AlbumGroup> { it.year ?: 0 }.thenBy { it.albumName.lowercase() }
-            )
+            SortMode.BY_YEAR -> result
+                .filter { it.year != null }
+                .sortedWith(compareBy<AlbumGroup> { it.year!! }.thenBy { it.albumName.lowercase() })
         }
         if (!state.sortAscending) result = result.reversed()
         return result
