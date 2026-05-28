@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
@@ -492,6 +493,26 @@ fun SettingsScreen(
                 }
             }
         }
+
+        HorizontalDivider()
+        SectionHeader("Theme")
+
+        ListItem(
+            headlineContent = { Text("Use true black") },
+            supportingContent = { Text("OLED-friendly pitch-black background") },
+            leadingContent = {
+                Icon(Icons.Filled.Contrast, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(
+                    checked = uiState.useTrueBlack,
+                    onCheckedChange = viewModel::setUseTrueBlack,
+                )
+            },
+            modifier = Modifier.clickable { viewModel.setUseTrueBlack(!uiState.useTrueBlack) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
 
         HorizontalDivider()
         SectionHeader("Account")

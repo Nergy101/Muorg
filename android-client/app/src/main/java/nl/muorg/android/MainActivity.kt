@@ -11,7 +11,6 @@ import androidx.activity.enableEdgeToEdge
 import dagger.hilt.android.AndroidEntryPoint
 import nl.muorg.android.cast.CastManager
 import nl.muorg.android.ui.navigation.NavGraph
-import nl.muorg.android.ui.theme.MuorgTheme
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -26,9 +25,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         setContent {
-            MuorgTheme {
-                NavGraph()
-            }
+            NavGraph()
         }
     }
 
