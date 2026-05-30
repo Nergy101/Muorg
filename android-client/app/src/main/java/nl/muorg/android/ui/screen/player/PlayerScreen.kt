@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +54,7 @@ import androidx.compose.runtime.setValue
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Build
 import android.view.ContextThemeWrapper
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -151,6 +154,10 @@ fun PlayerScreen(
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
     val displayProgress = if (isSeeking) seekPosition else playerState.progress
+
+    val audioManager = remember { context.getSystemService(AudioManager::class.java) }
+    val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
+    var volume by remember { mutableFloatStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()) }
 
     var sheetOpen by remember { mutableStateOf(false) }
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
@@ -459,6 +466,44 @@ fun PlayerScreen(
                                 modifier = Modifier.size(24.dp),
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.VolumeDown,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Slider(
+                            value = volume,
+                            onValueChange = { newVol ->
+                                volume = newVol
+                                audioManager.setStreamVolume(
+                                    AudioManager.STREAM_MUSIC,
+                                    newVol.toInt(),
+                                    0,
+                                )
+                            },
+                            valueRange = 0f..maxVolume.toFloat(),
+                            colors = SliderDefaults.colors(
+                                thumbColor = controlColor.copy(alpha = 0.7f),
+                                activeTrackColor = controlColor.copy(alpha = 0.7f),
+                                inactiveTrackColor = Color.White.copy(alpha = 0.2f),
+                            ),
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        )
+                        Icon(
+                            Icons.Filled.VolumeUp,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
                 }
             }

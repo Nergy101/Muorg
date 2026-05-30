@@ -1,8 +1,10 @@
 package nl.muorg.android.ui.screen.queue
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
@@ -27,9 +30,13 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,9 +62,11 @@ import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.PlayerBar
+import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QueueScreen(
     playerViewModel: PlayerViewModel,
@@ -69,6 +78,13 @@ fun QueueScreen(
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
+    val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
+    val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
+    var sheetTrack by remember { mutableStateOf<CatalogTrack?>(null) }
+
+    LaunchedEffect(sheetTrack) {
+        if (sheetTrack != null) playerViewModel.loadCurrentTrackMembership(sheetTrack!!)
+    }
     val queue = playerState.queue
     val upNext = if (currentTrack != null) {
         val idx = queue.indexOfFirst { it.id == currentTrack.id }
@@ -216,33 +232,66 @@ fun QueueScreen(
             } else {
                 items(displayList, key = { it.id }) { track ->
                     val isDragged = track.id == draggedId
-                    QueueTrackRow(
-                        track = track,
-                        baseUrl = baseUrl,
-                        imageLoader = imageLoader,
-                        isDragged = isDragged,
-                        dragTranslationY = if (isDragged) dragTranslationY else 0f,
-                        onSkipTo = { if (!isDragged) playerViewModel.skipTo(track) },
-                        onRemove = { playerViewModel.removeFromQueue(track) },
-                        onDragStart = {
-                            draggedId = track.id
-                            dragAccumY = 0f
-                        },
-                        onDragDelta = { dy -> dragAccumY += dy },
-                        onDragEnd = {
-                            val from = draggedFromIndex
-                            val to = dropTargetIndex
-                            if (from >= 0 && to >= 0 && from != to) {
-                                val currentIdx = if (currentTrack != null) {
-                                    queue.indexOfFirst { it.id == currentTrack.id }
-                                } else -1
-                                val offset = (currentIdx + 1).coerceAtLeast(0)
-                                playerViewModel.reorderQueue(offset + from, offset + to)
-                            }
-                            draggedId = null
-                            dragAccumY = 0f
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value != SwipeToDismissBoxValue.Settled) {
+                                playerViewModel.removeFromQueue(track)
+                                true
+                            } else false
                         },
                     )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.errorContainer,
+                                        RoundedCornerShape(8.dp),
+                                    ),
+                                contentAlignment = Alignment.CenterEnd,
+                            ) {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "Remove",
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(end = 20.dp).size(20.dp),
+                                )
+                            }
+                        },
+                    ) {
+                        QueueTrackRow(
+                            track = track,
+                            baseUrl = baseUrl,
+                            imageLoader = imageLoader,
+                            isDragged = isDragged,
+                            dragTranslationY = if (isDragged) dragTranslationY else 0f,
+                            onSkipTo = { if (!isDragged) playerViewModel.skipTo(track) },
+                            onLongPress = { sheetTrack = track },
+                            onRemove = { playerViewModel.removeFromQueue(track) },
+                            onDragStart = {
+                                draggedId = track.id
+                                dragAccumY = 0f
+                            },
+                            onDragDelta = { dy -> dragAccumY += dy },
+                            onDragEnd = {
+                                val from = draggedFromIndex
+                                val to = dropTargetIndex
+                                if (from >= 0 && to >= 0 && from != to) {
+                                    val currentIdx = if (currentTrack != null) {
+                                        queue.indexOfFirst { it.id == currentTrack.id }
+                                    } else -1
+                                    val offset = (currentIdx + 1).coerceAtLeast(0)
+                                    playerViewModel.reorderQueue(offset + from, offset + to)
+                                }
+                                draggedId = null
+                                dragAccumY = 0f
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -257,6 +306,24 @@ fun QueueScreen(
                 onNext = playerViewModel::skipNext,
             )
         }
+    }
+
+    sheetTrack?.let { track ->
+        TrackActionsSheet(
+            track = track,
+            playerViewModel = playerViewModel,
+            playlists = playlists,
+            isFavorite = track.id.toString() in playerState.favorites,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            onDismiss = { sheetTrack = null },
+            onAddToPlaylist = { playlistId -> playerViewModel.addTrackToPlaylist(track, playlistId); sheetTrack = null },
+            onRemoveFromPlaylist = { playlistId -> playerViewModel.removeTrackFromPlaylist(track, playlistId); sheetTrack = null },
+            trackInPlaylistIds = currentTrackMembership,
+            onViewArtist = { sheetTrack = null },
+            onViewAlbum = { sheetTrack = null },
+            onRemoveFromQueue = { playerViewModel.removeFromQueue(track) },
+        )
     }
 }
 
@@ -299,6 +366,7 @@ private fun CoverArt(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QueueTrackRow(
     track: CatalogTrack,
@@ -306,6 +374,7 @@ private fun QueueTrackRow(
     imageLoader: ImageLoader,
     onSkipTo: () -> Unit,
     onRemove: () -> Unit,
+    onLongPress: () -> Unit = {},
     isDragged: Boolean = false,
     dragTranslationY: Float = 0f,
     onDragStart: () -> Unit = {},
@@ -319,13 +388,14 @@ private fun QueueTrackRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .zIndex(if (isDragged) 1f else 0f)
             .graphicsLayer { translationY = dragTranslationY }
             .then(
                 if (isDragged) Modifier.border(2.dp, MuorgGreenLight, RoundedCornerShape(8.dp))
                 else Modifier
             )
-            .clickable(onClick = onSkipTo)
+            .combinedClickable(onClick = onSkipTo, onLongClick = onLongPress)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

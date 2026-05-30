@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,9 +73,22 @@ fun TrackActionsSheet(
     trackInPlaylistIds: Set<Int> = emptySet(),
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
+    onRemoveFromQueue: (() -> Unit)? = null,
 ) {
     var level by remember { mutableStateOf(SheetLevel.MAIN) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Read favorites directly from the ViewModel so the sheet always sees the freshest value,
+    // regardless of whether the parent composable has recomposed yet.
+    val sheetPlayerState by playerViewModel.playerState.collectAsStateWithLifecycle()
+    val currentIsFavorite = track.id.toString() in sheetPlayerState.favorites
+
+    val favPlaylistId = remember(playlists) { playlists.firstOrNull { it.name == "Favorites" }?.id }
+    val effectiveMembership = remember(trackInPlaylistIds, favPlaylistId, currentIsFavorite) {
+        if (favPlaylistId == null) trackInPlaylistIds
+        else if (currentIsFavorite) trackInPlaylistIds + favPlaylistId
+        else trackInPlaylistIds - favPlaylistId
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -87,7 +101,7 @@ fun TrackActionsSheet(
             SheetLevel.MAIN -> MainLevel(
                 track = track,
                 playerViewModel = playerViewModel,
-                isFavorite = isFavorite,
+                isFavorite = currentIsFavorite,
                 baseUrl = baseUrl,
                 imageLoader = imageLoader,
                 onDismiss = onDismiss,
@@ -95,10 +109,11 @@ fun TrackActionsSheet(
                 onGoToTrackInfo = { level = SheetLevel.TRACK_INFO },
                 onViewArtist = onViewArtist,
                 onViewAlbum = onViewAlbum,
+                onRemoveFromQueue = onRemoveFromQueue,
             )
             SheetLevel.PLAYLISTS -> PlaylistsLevel(
                 playlists = playlists,
-                trackInPlaylistIds = trackInPlaylistIds,
+                trackInPlaylistIds = effectiveMembership,
                 onBack = { level = SheetLevel.MAIN },
                 onAddToPlaylist = { id -> onAddToPlaylist(id); onDismiss() },
                 onRemoveFromPlaylist = { id -> onRemoveFromPlaylist(id); onDismiss() },
@@ -124,6 +139,7 @@ private fun MainLevel(
     onGoToTrackInfo: () -> Unit,
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
+    onRemoveFromQueue: (() -> Unit)? = null,
 ) {
     // Header
     Row(
@@ -190,11 +206,19 @@ private fun MainLevel(
         leadingContent = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToPlaylists() },
     )
-    ListItem(
-        headlineContent = { Text("Add to queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingContent = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = Modifier.clickable { playerViewModel.addToQueue(track); onDismiss() },
-    )
+    if (onRemoveFromQueue != null) {
+        ListItem(
+            headlineContent = { Text("Remove from queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.error) },
+            leadingContent = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
+            modifier = Modifier.clickable { onRemoveFromQueue(); onDismiss() },
+        )
+    } else {
+        ListItem(
+            headlineContent = { Text("Add to queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+            leadingContent = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            modifier = Modifier.clickable { playerViewModel.addToQueue(track); onDismiss() },
+        )
+    }
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 

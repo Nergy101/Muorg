@@ -2,6 +2,7 @@ package nl.muorg.android.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -349,13 +350,17 @@ class PlayerController @Inject constructor(
         if (toAdd.isNotEmpty()) trackCache = trackCache + toAdd
         scope.launch {
             val baseUrl = preferences.serverUrl.first().trimEnd('/')
+            var failCount = 0
             for (track in tracks) {
-                val uri = if (track.localFilePath != null) {
+                val uri: String? = if (track.localFilePath != null) {
                     resolveLocalUri(track.localFilePath)
                 } else {
                     libraryRepository.getStreamToken(track.id).getOrNull()
                         ?.let { token -> "$baseUrl/stream/${track.id}?token=$token" }
-                        ?: continue
+                }
+                if (uri == null) {
+                    failCount++
+                    continue
                 }
                 ctrl.addMediaItem(
                     MediaItem.Builder()
@@ -371,12 +376,19 @@ class PlayerController @Inject constructor(
                         .build()
                 )
             }
+            if (failCount > 0) {
+                val msg = "Couldn't add $failCount track${if (failCount > 1) "s" else ""} to queue"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            }
             syncState()
         }
     }
 
     fun toggleFavorite(track: CatalogTrack) {
-        scope.launch { preferences.toggleFavorite(track.id.toString()) }
+        val id = track.id.toString()
+        val current = _state.value.favorites
+        _state.update { it.copy(favorites = if (id in current) current - id else current + id) }
+        scope.launch { preferences.toggleFavorite(id) }
     }
 
     // Use the SAF content:// URI directly — ExoPlayer handles these correctly with

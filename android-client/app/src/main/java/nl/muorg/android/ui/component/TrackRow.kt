@@ -70,6 +70,17 @@ fun TrackRow(
     var showTrackInfo by remember { mutableStateOf(false) }
     var showPlaylistSheet by remember { mutableStateOf(false) }
 
+    // Local state allows the dropdown and effectiveMembership to update immediately on toggle,
+    // without waiting for the parent to recompose. Resets to parent's value on recomposition.
+    var localIsFavorite by remember(isFavorite) { mutableStateOf(isFavorite) }
+
+    val favPlaylistId = remember(playlists) { playlists.firstOrNull { it.name == "Favorites" }?.id }
+    val effectiveMembership = remember(trackInPlaylistIds, favPlaylistId, localIsFavorite) {
+        if (favPlaylistId == null) trackInPlaylistIds
+        else if (localIsFavorite) trackInPlaylistIds + favPlaylistId
+        else trackInPlaylistIds - favPlaylistId
+    }
+
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -174,15 +185,16 @@ fun TrackRow(
                 },
             )
             DropdownMenuItem(
-                text = { Text(if (isFavorite) "Remove from favorites" else "Add to favorites") },
+                text = { Text(if (localIsFavorite) "Remove from favorites" else "Add to favorites") },
                 leadingIcon = {
                     Icon(
-                        if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        if (localIsFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = null,
                     )
                 },
                 onClick = {
                     menuLevel = TrackMenuLevel.HIDDEN
+                    localIsFavorite = !localIsFavorite
                     onToggleFavorite?.invoke()
                 },
             )
@@ -226,7 +238,7 @@ fun TrackRow(
     if (showPlaylistSheet) {
         PlaylistPickerSheet(
             playlists = playlists,
-            membershipIds = trackInPlaylistIds,
+            membershipIds = effectiveMembership,
             onAdd = { playlist -> onAddToPlaylist?.invoke(playlist) },
             onRemove = { playlist -> onRemoveFromPlaylist?.invoke(playlist) },
             onCreatePlaylist = onCreatePlaylist,

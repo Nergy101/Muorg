@@ -314,6 +314,26 @@ fun LibraryScreen(
                             .padding(16.dp),
                     )
                 }
+                uiState.filteredTracks.isEmpty() && uiState.filteredAlbums.isEmpty() -> {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.MusicNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        )
+                        Text(
+                            text = if (searchText.isNotEmpty()) "No results for \"$searchText\""
+                                   else "No tracks in library",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 searchText.isNotEmpty() || uiState.viewMode == ViewMode.TRACKS || uiState.albumViewStyle == "tracks" -> {
                     LazyColumn(
                         state = lazyListState,

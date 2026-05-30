@@ -70,6 +70,7 @@ class PlayerViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()
+            ensureFavoritesPlaylist()
             if (mode == "local") {
                 _playlists.value = localRepository.getPlaylists()
             } else {
@@ -263,5 +264,36 @@ class PlayerViewModel @Inject constructor(
     fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
     fun addToQueue(track: CatalogTrack) = playerController.addToQueue(track)
     fun addTracksToQueue(tracks: List<CatalogTrack>) = playerController.addTracksToQueue(tracks)
-    fun toggleFavorite(track: CatalogTrack) = playerController.toggleFavorite(track)
+    fun toggleFavorite(track: CatalogTrack) {
+        viewModelScope.launch {
+            val wasFavorite = track.id.toString() in playerController.state.value.favorites
+            playerController.toggleFavorite(track)
+            val playlistId = ensureFavoritesPlaylist() ?: return@launch
+            val mode = preferences.musicMode.first()
+            if (wasFavorite) {
+                if (mode == "local") localRepository.removeTrackFromPlaylist(playlistId, track.path)
+                else playlistRepository.removeTracks(playlistId, listOf(track.id))
+            } else {
+                if (mode == "local") localRepository.addTracksToPlaylist(playlistId, listOf(track))
+                else playlistRepository.addTracks(playlistId, listOf(track.id))
+            }
+            refreshPlaylists()
+        }
+    }
+
+    private suspend fun ensureFavoritesPlaylist(): Int? {
+        val mode = preferences.musicMode.first()
+        return if (mode == "local") {
+            val existing = localRepository.getPlaylists().firstOrNull { it.name == FAVORITES_PLAYLIST_NAME }
+            existing?.id ?: localRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, "⭐").id
+        } else {
+            val playlists = playlistRepository.getPlaylists().getOrNull() ?: return null
+            val existing = playlists.firstOrNull { it.name == FAVORITES_PLAYLIST_NAME }
+            existing?.id ?: playlistRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, "⭐").getOrNull()?.id
+        }
+    }
+
+    companion object {
+        private const val FAVORITES_PLAYLIST_NAME = "Favorites"
+    }
 }
