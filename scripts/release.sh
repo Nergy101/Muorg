@@ -77,12 +77,21 @@ node -e "
   fs.writeFileSync(file, updated);
 "
 
+node -e "
+  const fs = require('fs');
+  const file = '$REPO_ROOT/web-client/package.json';
+  const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+  pkg.version = '$VERSION';
+  fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+"
+
 git -C "$REPO_ROOT" add \
   client/package.json \
   client/src-tauri/tauri.conf.json \
   client/src-tauri/Cargo.toml \
   server/crates/muorg-server/Cargo.toml \
-  android-client/app/build.gradle.kts
+  android-client/app/build.gradle.kts \
+  web-client/package.json
 
 git -C "$REPO_ROOT" commit -m "🔖 chore: bump version to $VERSION"
 
