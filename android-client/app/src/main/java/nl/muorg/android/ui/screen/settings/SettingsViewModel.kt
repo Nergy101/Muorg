@@ -51,8 +51,8 @@ data class SettingsUiState(
     val pendingSourceMode: SourceMode? = null,
     val useTrueBlack: Boolean = false,
     val playerBarTapOpensPlayer: Boolean = true,
-    val notificationActions: Set<String> = setOf("skip_previous", "skip_next"),
     val albumViewStyle: String = "grid",
+    val sortAscending: Boolean = true,
 )
 
 @HiltViewModel
@@ -105,13 +105,13 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            preferences.notificationActions.collect { actions ->
-                _uiState.update { it.copy(notificationActions = actions) }
+            preferences.albumViewStyle.collect { style ->
+                _uiState.update { it.copy(albumViewStyle = style) }
             }
         }
         viewModelScope.launch {
-            preferences.albumViewStyle.collect { style ->
-                _uiState.update { it.copy(albumViewStyle = style) }
+            preferences.sortAscending.collect { ascending ->
+                _uiState.update { it.copy(sortAscending = ascending) }
             }
         }
         loadStats()
@@ -178,16 +178,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { preferences.setPlayerBarTapOpensPlayer(value) }
     }
 
-    fun toggleNotificationAction(action: String) {
-        val current = _uiState.value.notificationActions
-        val updated = if (action in current) current - action else current + action
-        _uiState.update { it.copy(notificationActions = updated) }
-        viewModelScope.launch { preferences.setNotificationActions(updated) }
-    }
-
     fun setAlbumViewStyle(style: String) {
         _uiState.update { it.copy(albumViewStyle = style) }
         viewModelScope.launch { preferences.setAlbumViewStyle(style) }
+    }
+
+    fun setSortAscending(ascending: Boolean) {
+        _uiState.update { it.copy(sortAscending = ascending) }
+        viewModelScope.launch { preferences.setSortAscending(ascending) }
     }
 
     fun setDefaultSort(mode: SortMode) {

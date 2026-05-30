@@ -24,13 +24,11 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
@@ -239,40 +237,6 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Column(
-                modifier = Modifier
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {
-                        coroutineScope.launch {
-                            lazyGridState.scrollToItem(0)
-                            lazyListState.scrollToItem(0)
-                        }
-                        viewModel.toggleAlbumViewStyle()
-                    },
-                    )
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .widthIn(min = 40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Icon(
-                    imageVector = when (uiState.albumViewStyle) {
-                        "grid" -> Icons.AutoMirrored.Filled.ViewList
-                        "list" -> Icons.Filled.MusicNote
-                        else -> Icons.Filled.GridView
-                    },
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = uiState.albumViewStyle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
             IconButton(
                 onClick = {
                     val tracks = uiState.filteredTracks.ifEmpty {
@@ -290,6 +254,38 @@ fun LibraryScreen(
                     contentDescription = "Shuffle play",
                     tint = MaterialTheme.colorScheme.primary,
                 )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Layout",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            SingleChoiceSegmentedButtonRow {
+                listOf("grid", "list", "tracks").forEachIndexed { index, style ->
+                    SegmentedButton(
+                        selected = uiState.albumViewStyle == style,
+                        onClick = {
+                            coroutineScope.launch {
+                                lazyGridState.scrollToItem(0)
+                                lazyListState.scrollToItem(0)
+                            }
+                            viewModel.setAlbumViewStyle(style)
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                        icon = {},
+                    ) {
+                        Text(style.replaceFirstChar { it.uppercase() })
+                    }
+                }
             }
         }
 

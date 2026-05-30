@@ -29,23 +29,21 @@ import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NewReleases
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -177,34 +175,8 @@ fun SettingsScreen(
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
         )
 
-        ListItem(
-            headlineContent = { Text("Notification controls") },
-            supportingContent = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "skip_previous" to "Skip back",
-                        "shuffle" to "Shuffle",
-                        "skip_next" to "Skip next",
-                        "repeat" to "Repeat",
-                    ).forEach { (key, label) ->
-                        FilterChip(
-                            selected = key in uiState.notificationActions,
-                            onClick = { viewModel.toggleNotificationAction(key) },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                selectedLabelColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    }
-                }
-            },
-            leadingContent = {
-                Icon(Icons.Filled.Notifications, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        )
+        HorizontalDivider()
+        SectionHeader("Library")
 
         Box {
             ListItem(
@@ -232,27 +204,38 @@ fun SettingsScreen(
             }
         }
 
-        HorizontalDivider()
-        SectionHeader("Library")
-
         ListItem(
-            headlineContent = { Text("Album view") },
-            supportingContent = { Text(if (uiState.albumViewStyle == "grid") "Grid" else "List") },
+            headlineContent = { Text("Sort direction") },
+            supportingContent = { Text(if (uiState.sortAscending) "Ascending" else "Descending") },
             leadingContent = {
-                Icon(
-                    imageVector = if (uiState.albumViewStyle == "grid") Icons.Filled.GridView else Icons.Filled.ViewList,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             trailingContent = {
                 Switch(
-                    checked = uiState.albumViewStyle == "list",
-                    onCheckedChange = { viewModel.setAlbumViewStyle(if (it) "list" else "grid") },
+                    checked = uiState.sortAscending,
+                    onCheckedChange = viewModel::setSortAscending,
                 )
             },
-            modifier = Modifier.clickable {
-                viewModel.setAlbumViewStyle(if (uiState.albumViewStyle == "grid") "list" else "grid")
+            modifier = Modifier.clickable { viewModel.setSortAscending(!uiState.sortAscending) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
+
+        ListItem(
+            headlineContent = { Text("Layout") },
+            trailingContent = {
+                SingleChoiceSegmentedButtonRow {
+                    listOf("grid", "list", "tracks").forEachIndexed { index, style ->
+                        SegmentedButton(
+                            selected = uiState.albumViewStyle == style,
+                            onClick = { viewModel.setAlbumViewStyle(style) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                            icon = {},
+                        ) {
+                            Text(style.replaceFirstChar { it.uppercase() })
+                        }
+                    }
+                }
             },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
         )

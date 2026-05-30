@@ -74,11 +74,23 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             val sortName = preferences.defaultSort.first()
             val sortMode = SortMode.entries.firstOrNull { it.name == sortName } ?: SortMode.BY_ALBUM
-            _uiState.update { it.copy(sortMode = sortMode) }
+            val ascending = preferences.sortAscending.first()
+            _uiState.update { it.copy(sortMode = sortMode, sortAscending = ascending) }
         }
         viewModelScope.launch {
             preferences.albumViewStyle.collect { style ->
                 _uiState.update { it.copy(albumViewStyle = style) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.sortAscending.collect { ascending ->
+                _uiState.update { state ->
+                    val updated = state.copy(sortAscending = ascending)
+                    updated.copy(
+                        filteredTracks = applyFilters(state.allTracks, updated),
+                        filteredAlbums = applyAlbumFilters(state.albums, updated),
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -301,14 +313,9 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun toggleAlbumViewStyle() {
-        val newStyle = when (_uiState.value.albumViewStyle) {
-            "grid" -> "list"
-            "list" -> "tracks"
-            else -> "grid"
-        }
-        _uiState.update { it.copy(albumViewStyle = newStyle) }
-        viewModelScope.launch { preferences.setAlbumViewStyle(newStyle) }
+    fun setAlbumViewStyle(style: String) {
+        _uiState.update { it.copy(albumViewStyle = style) }
+        viewModelScope.launch { preferences.setAlbumViewStyle(style) }
     }
 
     fun setSortMode(mode: SortMode) {
@@ -322,13 +329,15 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun toggleSortDirection() {
+        val newAscending = !_uiState.value.sortAscending
         _uiState.update { state ->
-            val updated = state.copy(sortAscending = !state.sortAscending)
+            val updated = state.copy(sortAscending = newAscending)
             updated.copy(
                 filteredTracks = applyFilters(state.allTracks, updated),
                 filteredAlbums = applyAlbumFilters(state.albums, updated),
             )
         }
+        viewModelScope.launch { preferences.setSortAscending(newAscending) }
     }
 
     fun setPlaylistFilter(playlistId: Int?, trackIds: Set<Int>) {
