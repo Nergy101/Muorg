@@ -39,7 +39,7 @@ data class PlaylistAlbumsUiState(
     val isLocalMode: Boolean = false,
     val addConflict: AddConflictState? = null,
     val addToastMsg: String? = null,
-    val viewStyle: String = "grid",
+    val viewStyle: String = "tracks",
 )
 
 @HiltViewModel

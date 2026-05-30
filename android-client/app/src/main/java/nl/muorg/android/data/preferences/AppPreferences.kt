@@ -63,7 +63,7 @@ class AppPreferences @Inject constructor(
         .map { it[KEY_ALBUM_VIEW_STYLE] ?: "grid" }
 
     val playlistViewStyle: Flow<String> = context.dataStore.data
-        .map { it[KEY_PLAYLIST_VIEW_STYLE] ?: "grid" }
+        .map { it[KEY_PLAYLIST_VIEW_STYLE] ?: "tracks" }
 
     val continuousPlayback: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_CONTINUOUS_PLAYBACK] ?: true }
