@@ -250,6 +250,32 @@ fun SettingsScreen(
         HorizontalDivider()
         SectionHeader("Theme")
 
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = "Mode",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            val themeModes = listOf("dark", "light", "auto")
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                themeModes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = uiState.themeMode == mode,
+                        onClick = { viewModel.setThemeMode(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = themeModes.size),
+                        icon = {},
+                    ) {
+                        Text(mode.replaceFirstChar { it.uppercase() })
+                    }
+                }
+            }
+        }
+
         ListItem(
             headlineContent = { Text("Use true black") },
             supportingContent = { Text("OLED-friendly pitch-black background") },

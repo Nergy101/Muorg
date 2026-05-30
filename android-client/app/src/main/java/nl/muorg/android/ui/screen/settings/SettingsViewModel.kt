@@ -52,6 +52,7 @@ data class SettingsUiState(
     val useTrueBlack: Boolean = false,
     val playerBarTapOpensPlayer: Boolean = true,
     val materialYou: Boolean = false,
+    val themeMode: String = "dark",
     val albumViewStyle: String = "grid",
     val sortAscending: Boolean = true,
 )
@@ -120,6 +121,11 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(materialYou = enabled) }
             }
         }
+        viewModelScope.launch {
+            preferences.themeMode.collect { mode ->
+                _uiState.update { it.copy(themeMode = mode) }
+            }
+        }
         loadStats()
         checkForUpdate()
     }
@@ -182,6 +188,11 @@ class SettingsViewModel @Inject constructor(
     fun setMaterialYou(enabled: Boolean) {
         _uiState.update { it.copy(materialYou = enabled) }
         viewModelScope.launch { preferences.setMaterialYou(enabled) }
+    }
+
+    fun setThemeMode(mode: String) {
+        _uiState.update { it.copy(themeMode = mode) }
+        viewModelScope.launch { preferences.setThemeMode(mode) }
     }
 
     fun setPlayerBarTapOpensPlayer(value: Boolean) {
