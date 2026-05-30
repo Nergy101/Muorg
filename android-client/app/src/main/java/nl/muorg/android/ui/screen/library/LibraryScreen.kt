@@ -56,7 +56,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -99,12 +98,6 @@ fun LibraryScreen(
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
-
-    LaunchedEffect(uiState.sortMode, uiState.sortAscending) {
-        delay(50L)
-        lazyGridState.scrollToItem(0)
-        lazyListState.scrollToItem(0)
-    }
 
     LaunchedEffect(artistFilter) {
         if (artistFilter != null) viewModel.applyArtistFilter(artistFilter)
@@ -251,7 +244,13 @@ fun LibraryScreen(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = viewModel::toggleAlbumViewStyle,
+                        onClick = {
+                        coroutineScope.launch {
+                            lazyGridState.scrollToItem(0)
+                            lazyListState.scrollToItem(0)
+                        }
+                        viewModel.toggleAlbumViewStyle()
+                    },
                     )
                     .padding(horizontal = 12.dp, vertical = 4.dp)
                     .widthIn(min = 40.dp),
