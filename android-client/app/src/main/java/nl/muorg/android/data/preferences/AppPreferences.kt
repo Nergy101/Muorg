@@ -42,6 +42,7 @@ class AppPreferences @Inject constructor(
         private val KEY_ALBUM_VIEW_STYLE = stringPreferencesKey("album_view_style")
         private val KEY_PLAYLIST_VIEW_STYLE = stringPreferencesKey("playlist_view_style")
         private val KEY_SORT_ASCENDING = booleanPreferencesKey("sort_ascending")
+        private val KEY_MATERIAL_YOU = booleanPreferencesKey("material_you")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -68,6 +69,9 @@ class AppPreferences @Inject constructor(
 
     val sortAscending: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_SORT_ASCENDING] ?: true }
+
+    val materialYou: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_MATERIAL_YOU] ?: false }
 
     val continuousPlayback: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_CONTINUOUS_PLAYBACK] ?: true }
@@ -139,6 +143,10 @@ class AppPreferences @Inject constructor(
 
     suspend fun setSortAscending(ascending: Boolean) {
         context.dataStore.edit { it[KEY_SORT_ASCENDING] = ascending }
+    }
+
+    suspend fun setMaterialYou(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_MATERIAL_YOU] = enabled }
     }
 
     suspend fun clearCredentials() {

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
@@ -221,24 +222,30 @@ fun SettingsScreen(
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
         )
 
-        ListItem(
-            headlineContent = { Text("Layout") },
-            trailingContent = {
-                SingleChoiceSegmentedButtonRow {
-                    listOf("grid", "list", "tracks").forEachIndexed { index, style ->
-                        SegmentedButton(
-                            selected = uiState.albumViewStyle == style,
-                            onClick = { viewModel.setAlbumViewStyle(style) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
-                            icon = {},
-                        ) {
-                            Text(style.replaceFirstChar { it.uppercase() })
-                        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = "Layout",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                listOf("grid", "list", "tracks").forEachIndexed { index, style ->
+                    SegmentedButton(
+                        selected = uiState.albumViewStyle == style,
+                        onClick = { viewModel.setAlbumViewStyle(style) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                        icon = {},
+                    ) {
+                        Text(style.replaceFirstChar { it.uppercase() })
                     }
                 }
-            },
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        )
+            }
+        }
 
         HorizontalDivider()
         SectionHeader("Theme")
@@ -257,6 +264,23 @@ fun SettingsScreen(
                 )
             },
             modifier = Modifier.clickable { viewModel.setUseTrueBlack(!uiState.useTrueBlack) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
+
+        ListItem(
+            headlineContent = { Text("Material You") },
+            supportingContent = { Text("Use your device's dynamic color theme") },
+            leadingContent = {
+                Icon(Icons.Filled.Palette, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(
+                    checked = uiState.materialYou,
+                    onCheckedChange = viewModel::setMaterialYou,
+                )
+            },
+            modifier = Modifier.clickable { viewModel.setMaterialYou(!uiState.materialYou) },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
         )
 

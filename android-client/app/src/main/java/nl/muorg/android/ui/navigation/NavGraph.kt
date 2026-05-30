@@ -142,6 +142,12 @@ class NavViewModel @Inject constructor(
         initialValue = true,
     )
 
+    val materialYou: StateFlow<Boolean> = preferences.materialYou.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
     private val _scrollToActiveSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val scrollToActiveSignal: SharedFlow<Unit> = _scrollToActiveSignal.asSharedFlow()
 
@@ -165,6 +171,7 @@ fun NavGraph() {
 
     val baseUrl by navViewModel.serverUrl.collectAsStateWithLifecycle()
     val useTrueBlack by navViewModel.useTrueBlack.collectAsStateWithLifecycle()
+    val materialYou by navViewModel.materialYou.collectAsStateWithLifecycle()
     val playerBarTapOpensPlayer by navViewModel.playerBarTapOpensPlayer.collectAsStateWithLifecycle()
     val imageLoader = navViewModel.imageLoader
     val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
@@ -173,7 +180,7 @@ fun NavGraph() {
         if (playerBarTapOpensPlayer) ({ navController.navigate(Screen.Player.route) })
         else ({ playerViewModel.playPause() })
 
-    MuorgTheme(useTrueBlack = useTrueBlack) {
+    MuorgTheme(useTrueBlack = useTrueBlack, useMaterialYou = materialYou) {
     Scaffold(
         bottomBar = {
             AnimatedVisibility(

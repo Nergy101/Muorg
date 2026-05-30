@@ -24,7 +24,9 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -263,14 +265,14 @@ fun LibraryScreen(
                 .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Layout",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Spacer(modifier = Modifier.weight(1f))
             SingleChoiceSegmentedButtonRow {
-                listOf("grid", "list", "tracks").forEachIndexed { index, style ->
+                val styles = listOf(
+                    "grid" to Icons.Filled.GridView,
+                    "list" to Icons.AutoMirrored.Filled.ViewList,
+                    "tracks" to Icons.Filled.MusicNote,
+                )
+                styles.forEachIndexed { index, (style, icon) ->
                     SegmentedButton(
                         selected = uiState.albumViewStyle == style,
                         onClick = {
@@ -283,7 +285,11 @@ fun LibraryScreen(
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
                         icon = {},
                     ) {
-                        Text(style.replaceFirstChar { it.uppercase() })
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = style,
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
                 }
             }
