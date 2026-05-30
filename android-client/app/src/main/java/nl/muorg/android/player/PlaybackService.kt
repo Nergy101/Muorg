@@ -14,7 +14,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import nl.muorg.android.cast.CastManager
 import nl.muorg.android.data.preferences.AppPreferences
 import javax.inject.Inject
 
@@ -22,6 +24,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
     @Inject lateinit var preferences: AppPreferences
+    @Inject lateinit var castManager: CastManager
 
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -43,6 +46,20 @@ class PlaybackService : MediaSessionService() {
         serviceScope.launch {
             preferences.notificationActions.collect { actions ->
                 mediaSession?.setMediaButtonPreferences(buildCommandButtons(actions))
+            }
+        }
+
+        // Keep the notification scrubber in sync with Chromecast position while casting.
+        // ExoPlayer is paused during cast; seeking it (within its buffer) updates the
+        // MediaSession position without triggering new network requests.
+        serviceScope.launch {
+            combine(castManager.isCasting, castManager.castPlaybackState) { casting, state ->
+                casting to state
+            }.collect { (casting, castState) ->
+                val player = mediaSession?.player ?: return@collect
+                if (casting && castState.positionMs >= 0) {
+                    player.seekTo(castState.positionMs)
+                }
             }
         }
     }
