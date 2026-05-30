@@ -128,10 +128,11 @@ class PlaylistAlbumsViewModel @Inject constructor(
 
         val playlists = playlistsResult.getOrThrow()
         val playlist = playlists.find { it.id == playlistId }
-        val trackIdSet = trackIdsResult.getOrThrow().toSet()
+        val trackIdList = trackIdsResult.getOrThrow()
         val allTracks = allTracksResult.getOrThrow()
 
-        val playlistTracks = allTracks.filter { it.id in trackIdSet }
+        val trackById = allTracks.associateBy { it.id }
+        val playlistTracks = trackIdList.mapNotNull { trackById[it] }
         val albums = libraryRepository.buildAlbumGroups(playlistTracks)
 
         _uiState.update {
