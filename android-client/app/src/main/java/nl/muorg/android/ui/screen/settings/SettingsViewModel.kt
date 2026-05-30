@@ -50,6 +50,9 @@ data class SettingsUiState(
     val showSwitchConfirmDialog: Boolean = false,
     val pendingSourceMode: SourceMode? = null,
     val useTrueBlack: Boolean = false,
+    val playerBarTapOpensPlayer: Boolean = true,
+    val notificationActions: Set<String> = setOf("skip_previous", "skip_next"),
+    val albumViewStyle: String = "grid",
 )
 
 @HiltViewModel
@@ -94,6 +97,21 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferences.useTrueBlack.collect { enabled ->
                 _uiState.update { it.copy(useTrueBlack = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.playerBarTapOpensPlayer.collect { value ->
+                _uiState.update { it.copy(playerBarTapOpensPlayer = value) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.notificationActions.collect { actions ->
+                _uiState.update { it.copy(notificationActions = actions) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.albumViewStyle.collect { style ->
+                _uiState.update { it.copy(albumViewStyle = style) }
             }
         }
         loadStats()
@@ -153,6 +171,23 @@ class SettingsViewModel @Inject constructor(
     fun setUseTrueBlack(enabled: Boolean) {
         _uiState.update { it.copy(useTrueBlack = enabled) }
         viewModelScope.launch { preferences.setUseTrueBlack(enabled) }
+    }
+
+    fun setPlayerBarTapOpensPlayer(value: Boolean) {
+        _uiState.update { it.copy(playerBarTapOpensPlayer = value) }
+        viewModelScope.launch { preferences.setPlayerBarTapOpensPlayer(value) }
+    }
+
+    fun toggleNotificationAction(action: String) {
+        val current = _uiState.value.notificationActions
+        val updated = if (action in current) current - action else current + action
+        _uiState.update { it.copy(notificationActions = updated) }
+        viewModelScope.launch { preferences.setNotificationActions(updated) }
+    }
+
+    fun setAlbumViewStyle(style: String) {
+        _uiState.update { it.copy(albumViewStyle = style) }
+        viewModelScope.launch { preferences.setAlbumViewStyle(style) }
     }
 
     fun setDefaultSort(mode: SortMode) {

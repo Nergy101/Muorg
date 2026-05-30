@@ -9,8 +9,14 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,6 +26,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class AppPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     companion object {
         private val KEY_SERVER_URL = stringPreferencesKey("server_url")
         private val KEY_API_KEY = stringPreferencesKey("api_key")
@@ -29,6 +37,9 @@ class AppPreferences @Inject constructor(
         private val KEY_LOCAL_FOLDER_URIS = stringSetPreferencesKey("local_folder_uris")
         private val KEY_FAVORITES = stringSetPreferencesKey("favorites")
         private val KEY_USE_TRUE_BLACK = booleanPreferencesKey("use_true_black")
+        private val KEY_PLAYERBAR_TAP_OPENS_PLAYER = booleanPreferencesKey("playerbar_tap_opens_player")
+        private val KEY_NOTIFICATION_ACTIONS = stringSetPreferencesKey("notification_actions")
+        private val KEY_ALBUM_VIEW_STYLE = stringPreferencesKey("album_view_style")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -36,6 +47,19 @@ class AppPreferences @Inject constructor(
 
     val apiKey: Flow<String> = context.dataStore.data
         .map { prefs -> prefs[KEY_API_KEY] ?: "" }
+
+    // Eagerly-cached StateFlows for synchronous reads in OkHttp interceptors.
+    val serverUrlState: StateFlow<String> = serverUrl.stateIn(scope, SharingStarted.Eagerly, "")
+    val apiKeyState: StateFlow<String> = apiKey.stateIn(scope, SharingStarted.Eagerly, "")
+
+    val playerBarTapOpensPlayer: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] ?: true }
+
+    val notificationActions: Flow<Set<String>> = context.dataStore.data
+        .map { it[KEY_NOTIFICATION_ACTIONS] ?: setOf("skip_previous", "skip_next") }
+
+    val albumViewStyle: Flow<String> = context.dataStore.data
+        .map { it[KEY_ALBUM_VIEW_STYLE] ?: "grid" }
 
     val continuousPlayback: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_CONTINUOUS_PLAYBACK] ?: true }
@@ -87,6 +111,18 @@ class AppPreferences @Inject constructor(
             prefs[KEY_SERVER_URL] = serverUrl.trimEnd('/')
             prefs[KEY_API_KEY] = apiKey.trim()
         }
+    }
+
+    suspend fun setPlayerBarTapOpensPlayer(value: Boolean) {
+        context.dataStore.edit { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] = value }
+    }
+
+    suspend fun setNotificationActions(actions: Set<String>) {
+        context.dataStore.edit { it[KEY_NOTIFICATION_ACTIONS] = actions }
+    }
+
+    suspend fun setAlbumViewStyle(style: String) {
+        context.dataStore.edit { it[KEY_ALBUM_VIEW_STYLE] = style }
     }
 
     suspend fun clearCredentials() {

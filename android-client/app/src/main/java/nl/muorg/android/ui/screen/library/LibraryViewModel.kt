@@ -51,6 +51,7 @@ data class LibraryUiState(
     val initialScanProgress: Int = 0,
     val initialScanTotal: Int = 0,
     val initialScanCompleted: Boolean = false,
+    val albumViewStyle: String = "grid",
 )
 
 @OptIn(FlowPreview::class)
@@ -74,6 +75,11 @@ class LibraryViewModel @Inject constructor(
             val sortName = preferences.defaultSort.first()
             val sortMode = SortMode.entries.firstOrNull { it.name == sortName } ?: SortMode.BY_ALBUM
             _uiState.update { it.copy(sortMode = sortMode) }
+        }
+        viewModelScope.launch {
+            preferences.albumViewStyle.collect { style ->
+                _uiState.update { it.copy(albumViewStyle = style) }
+            }
         }
         viewModelScope.launch {
             preferences.musicMode.collect { mode ->
@@ -269,6 +275,12 @@ class LibraryViewModel @Inject constructor(
                 viewMode = if (state.viewMode == ViewMode.TRACKS) ViewMode.ALBUMS else ViewMode.TRACKS
             )
         }
+    }
+
+    fun toggleAlbumViewStyle() {
+        val newStyle = if (_uiState.value.albumViewStyle == "grid") "list" else "grid"
+        _uiState.update { it.copy(albumViewStyle = newStyle) }
+        viewModelScope.launch { preferences.setAlbumViewStyle(newStyle) }
     }
 
     fun setSortMode(mode: SortMode) {

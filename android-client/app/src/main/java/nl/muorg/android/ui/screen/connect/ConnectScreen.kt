@@ -50,15 +50,12 @@ fun ConnectScreen(
     viewModel: ConnectViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val event by viewModel.events.collectAsStateWithLifecycle()
 
-    LaunchedEffect(event) {
-        when (event) {
-            is ConnectEvent.Connected -> {
-                onConnected()
-                viewModel.consumeEvent()
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is ConnectEvent.Connected -> onConnected()
             }
-            null -> Unit
         }
     }
 

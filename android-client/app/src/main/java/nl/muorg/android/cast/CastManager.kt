@@ -228,6 +228,8 @@ class CastManager @Inject constructor(
     }
 
     fun release() {
+        castContext?.sessionManager?.removeSessionManagerListener(sessionListener, CastSession::class.java)
+        stopPolling()
         if (multicastLock.isHeld) multicastLock.release()
         if (localCastServer.isAlive) localCastServer.stop()
     }

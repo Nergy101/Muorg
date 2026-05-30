@@ -3,8 +3,11 @@ package nl.muorg.android.ui.screen.connect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -33,8 +36,8 @@ class ConnectViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ConnectUiState())
     val uiState: StateFlow<ConnectUiState> = _uiState.asStateFlow()
 
-    private val _events = MutableStateFlow<ConnectEvent?>(null)
-    val events: StateFlow<ConnectEvent?> = _events.asStateFlow()
+    private val _events = MutableSharedFlow<ConnectEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<ConnectEvent> = _events.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -67,7 +70,7 @@ class ConnectViewModel @Inject constructor(
 
             val result = runCatching { api.health() }
             if (result.isSuccess && result.getOrNull()?.isSuccessful == true) {
-                _events.value = ConnectEvent.Connected
+                _events.tryEmit(ConnectEvent.Connected)
             } else {
                 val errorMsg = result.exceptionOrNull()?.message
                     ?: "Could not reach server. Check the URL and try again."
@@ -78,7 +81,4 @@ class ConnectViewModel @Inject constructor(
         }
     }
 
-    fun consumeEvent() {
-        _events.value = null
-    }
 }

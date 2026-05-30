@@ -131,6 +131,12 @@ class NavViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = false,
     )
+
+    val playerBarTapOpensPlayer: StateFlow<Boolean> = preferences.playerBarTapOpensPlayer.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = true,
+    )
 }
 
 @Composable
@@ -150,8 +156,13 @@ fun NavGraph() {
 
     val baseUrl by navViewModel.serverUrl.collectAsStateWithLifecycle()
     val useTrueBlack by navViewModel.useTrueBlack.collectAsStateWithLifecycle()
+    val playerBarTapOpensPlayer by navViewModel.playerBarTapOpensPlayer.collectAsStateWithLifecycle()
     val imageLoader = navViewModel.imageLoader
     val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
+
+    val onPlayerBarClick: () -> Unit =
+        if (playerBarTapOpensPlayer) ({ navController.navigate(Screen.Player.route) })
+        else ({ playerViewModel.playPause() })
 
     MuorgTheme(useTrueBlack = useTrueBlack) {
     Scaffold(
@@ -223,7 +234,7 @@ fun NavGraph() {
                         onAlbumClick = { albumName ->
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName))
                         },
-                        onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
@@ -244,7 +255,7 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
-                        onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
@@ -318,6 +329,8 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
+                        onPlayerBarClick = onPlayerBarClick,
+                        showPlayerBar = showBottomBar,
                     )
                 }
 
@@ -329,7 +342,7 @@ fun NavGraph() {
                         onPlaylistClick = { playlistId ->
                             navController.navigate(Screen.PlaylistAlbums.createRoute(playlistId))
                         },
-                        onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         showPlayerBar = showBottomBar,
                     )
@@ -347,7 +360,7 @@ fun NavGraph() {
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName))
                         },
                         onBack = { navController.popBackStack() },
-                        onPlayerBarClick = { navController.navigate(Screen.Player.route) },
+                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
@@ -356,7 +369,28 @@ fun NavGraph() {
                     )
                 }
 
-                composable(Screen.Settings.route) {
+                composable(
+                    route = Screen.Settings.route,
+                    enterTransition = {
+                        slideInVertically(
+                            initialOffsetY = { it },
+                            animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f),
+                        ) + fadeIn(animationSpec = tween(220))
+                    },
+                    exitTransition = {
+                        slideOutVertically(
+                            targetOffsetY = { it },
+                            animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
+                        ) + fadeOut(animationSpec = tween(180))
+                    },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = {
+                        slideOutVertically(
+                            targetOffsetY = { it },
+                            animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
+                        ) + fadeOut(animationSpec = tween(180))
+                    },
+                ) {
                     SettingsScreen(
                         onLoggedOut = {
                             navController.navigate(Screen.Welcome.route) {

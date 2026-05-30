@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.MusicNote
@@ -45,7 +46,26 @@ fun PlayerBar(
     onOpenQueue: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val currentTrack = playerState.currentTrack ?: return
+    val currentTrack = playerState.currentTrack
+
+    if (currentTrack == null) {
+        playerState.errorMessage?.let { error ->
+            Surface(
+                modifier = modifier.fillMaxWidth().wrapContentHeight(),
+                color = MaterialTheme.colorScheme.errorContainer,
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
+            ) {
+                Text(
+                    text = error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        }
+        return
+    }
 
     Surface(
         modifier = modifier

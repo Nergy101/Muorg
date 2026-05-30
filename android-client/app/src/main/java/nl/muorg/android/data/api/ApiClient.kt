@@ -2,8 +2,6 @@ package nl.muorg.android.data.api
 
 import coil.ImageLoader
 import coil.request.CachePolicy
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import nl.muorg.android.data.preferences.AppPreferences
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -17,7 +15,7 @@ fun buildAuthOkHttpClient(preferences: AppPreferences): OkHttpClient {
     }
     return OkHttpClient.Builder()
         .addInterceptor { chain ->
-            val apiKey = runBlocking { preferences.apiKey.first() }
+            val apiKey = preferences.apiKeyState.value
             val request = chain.request().newBuilder()
                 .apply {
                     if (apiKey.isNotBlank()) {

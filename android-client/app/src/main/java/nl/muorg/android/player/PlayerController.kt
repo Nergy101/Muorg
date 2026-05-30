@@ -12,6 +12,7 @@ import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ data class PlayerState(
     val queue: List<CatalogTrack> = emptyList(),
     val favorites: Set<String> = emptySet(),
     val isSeekable: Boolean = true,
+    val errorMessage: String? = null,
 )
 
 @Singleton
@@ -47,6 +49,7 @@ class PlayerController @Inject constructor(
     private val libraryRepository: LibraryRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var pollingJob: Job? = null
 
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
@@ -156,7 +159,8 @@ class PlayerController @Inject constructor(
     }
 
     private fun startProgressPolling() {
-        scope.launch {
+        pollingJob?.cancel()
+        pollingJob = scope.launch {
             while (true) {
                 delay(500)
                 syncState()
@@ -177,12 +181,18 @@ class PlayerController @Inject constructor(
         val ctrl = controller ?: return
 
         scope.launch {
+            _state.update { it.copy(errorMessage = null) }
             val baseUrl = preferences.serverUrl.first().trimEnd('/')
             val mediaItems = queue.map { t ->
                 val uri = if (t.localFilePath != null) {
                     resolveLocalUri(t.localFilePath)
                 } else {
-                    val token = libraryRepository.getStreamToken(t.id).getOrNull() ?: return@launch
+                    val tokenResult = libraryRepository.getStreamToken(t.id)
+                    val token = tokenResult.getOrElse { e ->
+                        _state.update { s -> s.copy(errorMessage = "Playback failed: ${e.message ?: "Could not get stream token"}") }
+                        scope.launch { delay(4000); _state.update { it.copy(errorMessage = null) } }
+                        return@launch
+                    }
                     "$baseUrl/stream/${t.id}?token=$token"
                 }
                 MediaItem.Builder()
@@ -375,6 +385,8 @@ class PlayerController @Inject constructor(
     }
 
     fun release() {
+        pollingJob?.cancel()
+        pollingJob = null
         controller?.removeListener(playerListener)
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controller = null

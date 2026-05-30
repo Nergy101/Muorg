@@ -54,6 +54,7 @@ import kotlin.math.roundToInt
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
+import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
 
@@ -63,6 +64,8 @@ fun QueueScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onBack: () -> Unit,
+    onPlayerBarClick: () -> Unit = {},
+    showPlayerBar: Boolean = false,
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
@@ -123,7 +126,7 @@ fun QueueScreen(
             }
         }
 
-        LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = lazyListState, modifier = Modifier.weight(1f)) {
             if (currentTrack != null) {
                 item {
                     Text(
@@ -242,6 +245,17 @@ fun QueueScreen(
                     )
                 }
             }
+        }
+
+        if (showPlayerBar && currentTrack != null) {
+            PlayerBar(
+                playerState = playerState,
+                baseUrl = baseUrl,
+                imageLoader = imageLoader,
+                onClick = onPlayerBarClick,
+                onPlayPause = playerViewModel::playPause,
+                onNext = playerViewModel::skipNext,
+            )
         }
     }
 }

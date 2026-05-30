@@ -12,13 +12,16 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Album
@@ -51,12 +54,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.theme.MuorgGreenLight
+
+enum class AlbumDisplayMode { GRID, LIST }
 
 private enum class AlbumMenuLevel { HIDDEN, MAIN, PLAYLISTS }
 
@@ -69,6 +75,7 @@ fun AlbumCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isActive: Boolean = false,
+    displayMode: AlbumDisplayMode = AlbumDisplayMode.GRID,
     playlists: List<Playlist> = emptyList(),
     onPlayNow: (() -> Unit)? = null,
     onAddToQueue: (() -> Unit)? = null,
@@ -77,6 +84,108 @@ fun AlbumCard(
 ) {
     var menuLevel by remember { mutableStateOf(AlbumMenuLevel.HIDDEN) }
     val interactionSource = remember { MutableInteractionSource() }
+
+    if (displayMode == AlbumDisplayMode.LIST) {
+        Box(modifier = modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                        onLongClick = { menuLevel = AlbumMenuLevel.MAIN },
+                    )
+                    .then(if (isActive) Modifier.background(MuorgGreenLight.copy(alpha = 0.08f)) else Modifier)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Album,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        modifier = Modifier.size(28.dp),
+                    )
+                    AsyncImage(
+                        model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover",
+                        contentDescription = null,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = album.albumName,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (isActive) MuorgGreenLight else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = album.artist,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isActive) MuorgGreenLight.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Text(
+                        "${album.trackCount}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            DropdownMenu(
+                expanded = menuLevel == AlbumMenuLevel.MAIN,
+                onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },
+            ) {
+                AlbumMenuItems(
+                    menuLevel = menuLevel,
+                    playlists = playlists,
+                    onSetLevel = { menuLevel = it },
+                    onPlayNow = onPlayNow,
+                    onAddToQueue = onAddToQueue,
+                    onViewArtist = onViewArtist,
+                    onAddToPlaylist = onAddToPlaylist,
+                )
+            }
+
+            DropdownMenu(
+                expanded = menuLevel == AlbumMenuLevel.PLAYLISTS,
+                onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },
+            ) {
+                PlaylistSubMenu(
+                    playlists = playlists,
+                    onBack = { menuLevel = AlbumMenuLevel.MAIN },
+                    onSelect = { playlist ->
+                        onAddToPlaylist?.invoke(playlist)
+                        menuLevel = AlbumMenuLevel.HIDDEN
+                    },
+                )
+            }
+        }
+        return
+    }
+
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
@@ -192,37 +301,14 @@ fun AlbumCard(
             expanded = menuLevel == AlbumMenuLevel.MAIN,
             onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },
         ) {
-            DropdownMenuItem(
-                text = { Text("Play now") },
-                leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
-                onClick = {
-                    menuLevel = AlbumMenuLevel.HIDDEN
-                    onPlayNow?.invoke()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Add to queue") },
-                leadingIcon = { Icon(Icons.Filled.Queue, contentDescription = null) },
-                onClick = {
-                    menuLevel = AlbumMenuLevel.HIDDEN
-                    onAddToQueue?.invoke()
-                },
-            )
-            if (onViewArtist != null) {
-                DropdownMenuItem(
-                    text = { Text("View artist") },
-                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
-                    onClick = {
-                        menuLevel = AlbumMenuLevel.HIDDEN
-                        onViewArtist()
-                    },
-                )
-            }
-            DropdownMenuItem(
-                text = { Text("Add to playlist") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
-                trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
-                onClick = { menuLevel = AlbumMenuLevel.PLAYLISTS },
+            AlbumMenuItems(
+                menuLevel = menuLevel,
+                playlists = playlists,
+                onSetLevel = { menuLevel = it },
+                onPlayNow = onPlayNow,
+                onAddToQueue = onAddToQueue,
+                onViewArtist = onViewArtist,
+                onAddToPlaylist = onAddToPlaylist,
             )
         }
 
@@ -230,34 +316,91 @@ fun AlbumCard(
             expanded = menuLevel == AlbumMenuLevel.PLAYLISTS,
             onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },
         ) {
-            DropdownMenuItem(
-                text = { Text("Back") },
-                leadingIcon = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
+            PlaylistSubMenu(
+                playlists = playlists,
+                onBack = { menuLevel = AlbumMenuLevel.MAIN },
+                onSelect = { playlist ->
+                    onAddToPlaylist?.invoke(playlist)
+                    menuLevel = AlbumMenuLevel.HIDDEN
                 },
-                onClick = { menuLevel = AlbumMenuLevel.MAIN },
             )
-            if (playlists.isEmpty()) {
-                DropdownMenuItem(
-                    text = { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    onClick = {},
-                    enabled = false,
-                )
-            } else {
-                playlists.forEach { playlist ->
-                    DropdownMenuItem(
-                        text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
-                        onClick = {
-                            onAddToPlaylist?.invoke(playlist)
-                            menuLevel = AlbumMenuLevel.HIDDEN
-                        },
-                    )
-                }
-            }
+        }
+    }
+}
+
+@Composable
+private fun AlbumMenuItems(
+    menuLevel: AlbumMenuLevel,
+    playlists: List<Playlist>,
+    onSetLevel: (AlbumMenuLevel) -> Unit,
+    onPlayNow: (() -> Unit)?,
+    onAddToQueue: (() -> Unit)?,
+    onViewArtist: (() -> Unit)?,
+    onAddToPlaylist: ((Playlist) -> Unit)?,
+) {
+    DropdownMenuItem(
+        text = { Text("Play now") },
+        leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+        onClick = {
+            onSetLevel(AlbumMenuLevel.HIDDEN)
+            onPlayNow?.invoke()
+        },
+    )
+    DropdownMenuItem(
+        text = { Text("Add to queue") },
+        leadingIcon = { Icon(Icons.Filled.Queue, contentDescription = null) },
+        onClick = {
+            onSetLevel(AlbumMenuLevel.HIDDEN)
+            onAddToQueue?.invoke()
+        },
+    )
+    if (onViewArtist != null) {
+        DropdownMenuItem(
+            text = { Text("View artist") },
+            leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+            onClick = {
+                onSetLevel(AlbumMenuLevel.HIDDEN)
+                onViewArtist()
+            },
+        )
+    }
+    DropdownMenuItem(
+        text = { Text("Add to playlist") },
+        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+        trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
+        onClick = { onSetLevel(AlbumMenuLevel.PLAYLISTS) },
+    )
+}
+
+@Composable
+private fun PlaylistSubMenu(
+    playlists: List<Playlist>,
+    onBack: () -> Unit,
+    onSelect: (Playlist) -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text("Back") },
+        leadingIcon = {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        onClick = onBack,
+    )
+    if (playlists.isEmpty()) {
+        DropdownMenuItem(
+            text = { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            onClick = {},
+            enabled = false,
+        )
+    } else {
+        playlists.forEach { playlist ->
+            DropdownMenuItem(
+                text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
+                onClick = { onSelect(playlist) },
+            )
         }
     }
 }

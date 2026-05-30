@@ -24,9 +24,11 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,6 +65,7 @@ import coil.ImageLoader
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import nl.muorg.android.ui.component.AlbumCard
+import nl.muorg.android.ui.component.AlbumDisplayMode
 import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -218,6 +221,15 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            IconButton(onClick = viewModel::toggleAlbumViewStyle) {
+                Icon(
+                    imageVector = if (uiState.albumViewStyle == "list") Icons.Filled.GridView else Icons.Filled.ViewList,
+                    contentDescription = if (uiState.albumViewStyle == "list") "Switch to grid" else "Switch to list",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
             IconButton(
                 onClick = {
                     val tracks = uiState.filteredTracks.ifEmpty {
@@ -311,6 +323,44 @@ fun LibraryScreen(
                                 },
                                 onViewAlbum = { onAlbumClick(track.displayAlbum) },
                                 onViewArtist = { onViewArtist(track.displayArtist) },
+                            )
+                        }
+                    }
+                }
+                uiState.albumViewStyle == "list" -> {
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                    ) {
+                        items(
+                            items = uiState.filteredAlbums,
+                            key = { it.albumName },
+                        ) { album ->
+                            AlbumCard(
+                                album = album,
+                                baseUrl = baseUrl,
+                                imageLoader = imageLoader,
+                                isActive = album.albumName == currentAlbum,
+                                onClick = { onAlbumClick(album.albumName) },
+                                displayMode = AlbumDisplayMode.LIST,
+                                playlists = uiState.playlists,
+                                onPlayNow = {
+                                    val tracks = viewModel.getTracksForAlbum(album.albumName)
+                                    tracks.firstOrNull()?.let {
+                                        playerViewModel.playTrack(it, tracks)
+                                    }
+                                },
+                                onAddToQueue = {
+                                    playerViewModel.addTracksToQueue(
+                                        viewModel.getTracksForAlbum(album.albumName)
+                                    )
+                                },
+                                onViewArtist = { onViewArtist(album.artist) },
+                                onAddToPlaylist = { playlist ->
+                                    val tracks = viewModel.getTracksForAlbum(album.albumName)
+                                    viewModel.requestAddTracksToPlaylist(tracks, playlist.id)
+                                },
                             )
                         }
                     }

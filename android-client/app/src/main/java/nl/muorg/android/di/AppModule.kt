@@ -9,8 +9,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import nl.muorg.android.data.api.MuorgApiService
 import nl.muorg.android.data.api.buildAuthOkHttpClient
@@ -64,7 +62,7 @@ object AppModule {
         // This means saving new credentials in ConnectScreen takes effect immediately
         // without needing to recreate the Retrofit/OkHttp singletons.
         val dynamicCallFactory = okhttp3.Call.Factory { request ->
-            val savedUrl = runBlocking { preferences.serverUrl.first() }
+            val savedUrl = preferences.serverUrlState.value
             val base = if (savedUrl.isBlank()) "http://localhost:7700/" else "${savedUrl.trimEnd('/')}/"
             // Re-resolve the host/scheme from saved URL while keeping the path from the request.
             val originalUrl = request.url
