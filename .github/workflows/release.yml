@@ -425,7 +425,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  docker:
+  docker-server:
     needs: [version, build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
