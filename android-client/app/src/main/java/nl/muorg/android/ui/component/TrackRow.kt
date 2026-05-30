@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
@@ -46,7 +44,7 @@ import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 
-private enum class TrackMenuLevel { HIDDEN, MAIN, PLAYLISTS }
+private enum class TrackMenuLevel { HIDDEN, MAIN }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -63,12 +61,14 @@ fun TrackRow(
     onToggleFavorite: (() -> Unit)? = null,
     onAddToPlaylist: ((Playlist) -> Unit)? = null,
     onRemoveFromPlaylist: ((Playlist) -> Unit)? = null,
+    onCreatePlaylist: ((String) -> Unit)? = null,
     onViewAlbum: (() -> Unit)? = null,
     onViewArtist: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
     var showTrackInfo by remember { mutableStateOf(false) }
+    var showPlaylistSheet by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -189,8 +189,7 @@ fun TrackRow(
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
-                trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
-                onClick = { menuLevel = TrackMenuLevel.PLAYLISTS },
+                onClick = { menuLevel = TrackMenuLevel.HIDDEN; showPlaylistSheet = true },
             )
             DropdownMenuItem(
                 text = { Text("Track info") },
@@ -222,51 +221,17 @@ fun TrackRow(
             }
         }
 
-        // Level 2: playlist selection
-        DropdownMenu(
-            expanded = menuLevel == TrackMenuLevel.PLAYLISTS,
-            onDismissRequest = { menuLevel = TrackMenuLevel.HIDDEN },
-        ) {
-            DropdownMenuItem(
-                text = { Text("Back") },
-                leadingIcon = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                onClick = { menuLevel = TrackMenuLevel.MAIN },
-            )
-            if (playlists.isEmpty()) {
-                DropdownMenuItem(
-                    text = { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    onClick = {},
-                    enabled = false,
-                )
-            } else {
-                playlists.forEach { playlist ->
-                    val isInPlaylist = playlist.id in trackInPlaylistIds
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "${playlist.icon ?: "🎵"}  ${playlist.name}",
-                                color = if (isInPlaylist) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface,
-                            )
-                        },
-                        trailingIcon = if (isInPlaylist) {
-                            { Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }
-                        } else null,
-                        onClick = {
-                            if (isInPlaylist) onRemoveFromPlaylist?.invoke(playlist)
-                            else onAddToPlaylist?.invoke(playlist)
-                            menuLevel = TrackMenuLevel.HIDDEN
-                        },
-                    )
-                }
-            }
-        }
+    }
+
+    if (showPlaylistSheet) {
+        PlaylistPickerSheet(
+            playlists = playlists,
+            membershipIds = trackInPlaylistIds,
+            onAdd = { playlist -> onAddToPlaylist?.invoke(playlist) },
+            onRemove = { playlist -> onRemoveFromPlaylist?.invoke(playlist) },
+            onCreatePlaylist = onCreatePlaylist,
+            onDismiss = { showPlaylistSheet = false },
+        )
     }
 
     if (showTrackInfo) {

@@ -50,8 +50,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +84,7 @@ fun LibraryScreen(
     artistFilter: String? = null,
     onOpenQueue: () -> Unit = {},
     onViewArtist: (String) -> Unit = {},
+    scrollToActiveSignal: Flow<Unit>? = null,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -107,6 +110,24 @@ fun LibraryScreen(
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             viewModel.refreshPlaylistState()
+        }
+    }
+
+    val currentAlbumRef = rememberUpdatedState(playerState.currentTrack?.displayAlbum)
+    val filteredAlbumsRef = rememberUpdatedState(uiState.filteredAlbums)
+    val albumViewStyleRef = rememberUpdatedState(uiState.albumViewStyle)
+    LaunchedEffect(scrollToActiveSignal) {
+        scrollToActiveSignal?.collect {
+            val currentAlbum = currentAlbumRef.value ?: return@collect
+            val albums = filteredAlbumsRef.value
+            val index = albums.indexOfFirst { it.albumName == currentAlbum }
+            if (index >= 0) {
+                if (albumViewStyleRef.value == "list") {
+                    lazyListState.animateScrollToItem(index)
+                } else {
+                    lazyGridState.animateScrollToItem(index)
+                }
+            }
         }
     }
 
@@ -321,6 +342,7 @@ fun LibraryScreen(
                                 onRemoveFromPlaylist = { playlist ->
                                     viewModel.removeTrackFromPlaylist(track, playlist.id)
                                 },
+                                onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
                                 onViewAlbum = { onAlbumClick(track.displayAlbum) },
                                 onViewArtist = { onViewArtist(track.displayArtist) },
                             )
@@ -337,6 +359,19 @@ fun LibraryScreen(
                             items = uiState.filteredAlbums,
                             key = { it.albumName },
                         ) { album ->
+                            val albumPaths = remember(album.albumName, uiState.allTracks) {
+                                uiState.allTracks.filter { it.displayAlbum == album.albumName }.map { it.path }
+                            }
+                            val albumFullIds = remember(albumPaths, uiState.trackPlaylistMembership, uiState.playlists) {
+                                uiState.playlists.filter { pl ->
+                                    albumPaths.isNotEmpty() && albumPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) }
+                                }.map { it.id }.toSet()
+                            }
+                            val albumPartialIds = remember(albumPaths, uiState.trackPlaylistMembership, uiState.playlists, albumFullIds) {
+                                uiState.playlists.filter { pl ->
+                                    pl.id !in albumFullIds && albumPaths.any { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) }
+                                }.map { it.id }.toSet()
+                            }
                             AlbumCard(
                                 album = album,
                                 baseUrl = baseUrl,
@@ -345,6 +380,8 @@ fun LibraryScreen(
                                 onClick = { onAlbumClick(album.albumName) },
                                 displayMode = AlbumDisplayMode.LIST,
                                 playlists = uiState.playlists,
+                                albumInPlaylistIds = albumFullIds,
+                                albumPartialPlaylistIds = albumPartialIds,
                                 onPlayNow = {
                                     val tracks = viewModel.getTracksForAlbum(album.albumName)
                                     tracks.firstOrNull()?.let {
@@ -361,6 +398,10 @@ fun LibraryScreen(
                                     val tracks = viewModel.getTracksForAlbum(album.albumName)
                                     viewModel.requestAddTracksToPlaylist(tracks, playlist.id)
                                 },
+                                onRemoveFromPlaylist = { playlist ->
+                                    viewModel.removeAlbumFromPlaylist(album.albumName, playlist.id)
+                                },
+                                onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
                             )
                         }
                     }
@@ -375,6 +416,19 @@ fun LibraryScreen(
                         items(
                             items = uiState.filteredAlbums,
                         ) { album ->
+                            val albumPaths = remember(album.albumName, uiState.allTracks) {
+                                uiState.allTracks.filter { it.displayAlbum == album.albumName }.map { it.path }
+                            }
+                            val albumFullIds = remember(albumPaths, uiState.trackPlaylistMembership, uiState.playlists) {
+                                uiState.playlists.filter { pl ->
+                                    albumPaths.isNotEmpty() && albumPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) }
+                                }.map { it.id }.toSet()
+                            }
+                            val albumPartialIds = remember(albumPaths, uiState.trackPlaylistMembership, uiState.playlists, albumFullIds) {
+                                uiState.playlists.filter { pl ->
+                                    pl.id !in albumFullIds && albumPaths.any { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) }
+                                }.map { it.id }.toSet()
+                            }
                             AlbumCard(
                                 album = album,
                                 baseUrl = baseUrl,
@@ -383,6 +437,8 @@ fun LibraryScreen(
                                 onClick = { onAlbumClick(album.albumName) },
                                 modifier = Modifier.padding(4.dp),
                                 playlists = uiState.playlists,
+                                albumInPlaylistIds = albumFullIds,
+                                albumPartialPlaylistIds = albumPartialIds,
                                 onPlayNow = {
                                     val tracks = viewModel.getTracksForAlbum(album.albumName)
                                     tracks.firstOrNull()?.let {
@@ -399,6 +455,10 @@ fun LibraryScreen(
                                     val tracks = viewModel.getTracksForAlbum(album.albumName)
                                     viewModel.requestAddTracksToPlaylist(tracks, playlist.id)
                                 },
+                                onRemoveFromPlaylist = { playlist ->
+                                    viewModel.removeAlbumFromPlaylist(album.albumName, playlist.id)
+                                },
+                                onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
                             )
                         }
                     }

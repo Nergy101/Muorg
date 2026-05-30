@@ -239,6 +239,30 @@ class LibraryViewModel @Inject constructor(
         _uiState.update { it.copy(addToastMsg = null) }
     }
 
+    fun createPlaylist(name: String) {
+        viewModelScope.launch {
+            if (currentMode == "local") {
+                runCatching { localRepository.createPlaylist(name) }
+            } else {
+                runCatching { playlistRepository.createPlaylist(name, "🎵") }
+            }
+            loadPlaylists()
+        }
+    }
+
+    fun removeAlbumFromPlaylist(albumName: String, playlistId: Int) {
+        viewModelScope.launch {
+            val tracks = _uiState.value.allTracks.filter { it.displayAlbum == albumName }
+            if (currentMode == "local") {
+                tracks.forEach { localRepository.removeTrackFromPlaylist(playlistId, it.path) }
+                loadPlaylistMembership()
+                loadPlaylists()
+            } else {
+                playlistRepository.removeTracks(playlistId, tracks.map { it.id })
+            }
+        }
+    }
+
     fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
         viewModelScope.launch {
             if (currentMode == "local") {

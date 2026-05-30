@@ -33,11 +33,13 @@ data class PlaylistAlbumsUiState(
     val allTracks: List<CatalogTrack> = emptyList(),
     val localEntries: List<PlaylistTrackEntry> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
+    val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val isLocalMode: Boolean = false,
     val addConflict: AddConflictState? = null,
     val addToastMsg: String? = null,
+    val viewStyle: String = "grid",
 )
 
 @HiltViewModel
@@ -55,7 +57,17 @@ class PlaylistAlbumsViewModel @Inject constructor(
     val uiState: StateFlow<PlaylistAlbumsUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            preferences.playlistViewStyle.collect { style ->
+                _uiState.update { it.copy(viewStyle = style) }
+            }
+        }
         load()
+    }
+
+    fun setViewStyle(style: String) {
+        _uiState.update { it.copy(viewStyle = style) }
+        viewModelScope.launch { preferences.setPlaylistViewStyle(style) }
     }
 
     private fun load() {
@@ -82,6 +94,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
             val tracks = contents.mapNotNull { it.track }
             val albums = localRepository.buildAlbumGroupsForTracks(tracks)
 
+            val membership = localRepository.getPlaylistMembershipByPath()
             _uiState.update {
                 it.copy(
                     playlist = playlist,
@@ -89,6 +102,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                     allTracks = tracks,
                     localEntries = contents,
                     playlists = playlists,
+                    trackPlaylistMembership = membership,
                     isLoading = false,
                     isLocalMode = true,
                 )
@@ -124,7 +138,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
             it.copy(
                 playlist = playlist,
                 albums = albums,
-                allTracks = allTracks,
+                allTracks = playlistTracks,
                 playlists = playlists,
                 isLoading = false,
                 isLocalMode = false,
@@ -189,10 +203,51 @@ class PlaylistAlbumsViewModel @Inject constructor(
         _uiState.update { it.copy(addToastMsg = null) }
     }
 
+    fun createPlaylist(name: String) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                runCatching { localRepository.createPlaylist(name) }
+                loadLocal()
+            } else {
+                runCatching { playlistRepository.createPlaylist(name, "🎵") }
+            }
+        }
+    }
+
+    fun removeAlbumFromPlaylist(albumName: String, targetPlaylistId: Int) {
+        viewModelScope.launch {
+            val tracks = _uiState.value.allTracks.filter { it.displayAlbum == albumName }
+            if (_uiState.value.isLocalMode) {
+                tracks.forEach { localRepository.removeTrackFromPlaylist(targetPlaylistId, it.path) }
+                loadLocal()
+            } else {
+                playlistRepository.removeTracks(targetPlaylistId, tracks.map { it.id })
+            }
+        }
+    }
+
     fun removeTrackFromThisPlaylist(filePath: String) {
         viewModelScope.launch {
             localRepository.removeTrackFromPlaylist(playlistId, filePath)
             loadLocal()
+        }
+    }
+
+    fun reorderTracks(orderedPaths: List<String>) {
+        viewModelScope.launch {
+            val trackByPath = _uiState.value.allTracks.associateBy { it.path }
+            val reorderedTracks = orderedPaths.mapNotNull { trackByPath[it] }
+            if (reorderedTracks.isEmpty()) return@launch
+            val success = if (_uiState.value.isLocalMode) {
+                localRepository.reorderPlaylist(playlistId, orderedPaths)
+                true
+            } else {
+                playlistRepository.reorderTracks(playlistId, reorderedTracks.map { it.id }).isSuccess
+            }
+            if (success) {
+                _uiState.update { it.copy(allTracks = reorderedTracks) }
+            }
         }
     }
 }

@@ -1213,3 +1213,13 @@ pub fn reorder_playlists(conn: &rusqlite::Connection, ids: &[i64]) -> Result<(),
     }
     Ok(())
 }
+
+pub fn reorder_playlist_tracks(conn: &rusqlite::Connection, playlist_id: i64, track_ids: &[i64]) -> Result<(), String> {
+    for (i, &track_id) in track_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE playlist_tracks SET position = ?1 WHERE playlist_id = ?2 AND track_id = ?3",
+            rusqlite::params![i as i64, playlist_id, track_id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

@@ -7,6 +7,7 @@ import retrofit2.http.GET
 import retrofit2.http.HTTP
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -58,5 +59,11 @@ interface MuorgApiService {
     suspend fun removeTracksFromPlaylist(
         @Path("id") playlistId: Int,
         @Body request: PlaylistTracksRequest,
+    ): Response<Unit>
+
+    @PUT("api/playlists/{id}/tracks/order")
+    suspend fun reorderPlaylistTracks(
+        @Path("id") playlistId: Int,
+        @Body request: ReorderPlaylistTracksRequest,
     ): Response<Unit>
 }

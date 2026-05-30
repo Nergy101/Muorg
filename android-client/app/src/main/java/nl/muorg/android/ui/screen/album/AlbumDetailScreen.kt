@@ -19,10 +19,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
@@ -61,14 +59,16 @@ import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.PlayerBar
+import nl.muorg.android.ui.component.PlaylistPickerSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 
-private enum class TrackMenuLevel { HIDDEN, MAIN, PLAYLISTS, TRACK_INFO }
+private enum class TrackMenuLevel { HIDDEN, MAIN }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumDetailScreen(
     albumName: String,
+    filterPlaylistId: Int? = null,
     playerViewModel: PlayerViewModel,
     imageLoader: ImageLoader,
     baseUrl: String,
@@ -78,8 +78,8 @@ fun AlbumDetailScreen(
     onViewArtist: (String) -> Unit = {},
     viewModel: AlbumDetailViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(albumName) {
-        viewModel.loadAlbum(albumName)
+    LaunchedEffect(albumName, filterPlaylistId) {
+        viewModel.loadAlbum(albumName, filterPlaylistId)
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -189,44 +189,32 @@ fun AlbumDetailScreen(
                                 Icon(Icons.Filled.PlayArrow, contentDescription = "Play all")
                             }
 
-                            var showAlbumPlaylistMenu by remember { mutableStateOf(false) }
-                            val albumFullyInPlaylistIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists) {
+                            var showAlbumPlaylistSheet by remember { mutableStateOf(false) }
+                            val albumFullIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists) {
                                 val allPaths = uiState.tracks.map { it.path }.toSet()
                                 uiState.playlists
                                     .filter { pl -> allPaths.isNotEmpty() && allPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
                                     .map { it.id }.toSet()
                             }
-                            Box {
-                                androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistMenu = true }) {
-                                    Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add album to playlist")
-                                }
-                                DropdownMenu(
-                                    expanded = showAlbumPlaylistMenu,
-                                    onDismissRequest = { showAlbumPlaylistMenu = false },
-                                ) {
-                                    if (uiState.playlists.isEmpty()) {
-                                        DropdownMenuItem(
-                                            text = { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                            onClick = {},
-                                            enabled = false,
-                                        )
-                                    } else {
-                                        uiState.playlists.forEach { playlist ->
-                                            val isFullyIn = playlist.id in albumFullyInPlaylistIds
-                                            DropdownMenuItem(
-                                                text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
-                                                trailingIcon = if (isFullyIn) {
-                                                    { Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }
-                                                } else null,
-                                                onClick = {
-                                                    showAlbumPlaylistMenu = false
-                                                    if (isFullyIn) viewModel.removeAlbumFromPlaylist(playlist.id)
-                                                    else viewModel.requestAddTracksToPlaylist(uiState.tracks, playlist.id)
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
+                            val albumPartialIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists, albumFullIds) {
+                                val allPaths = uiState.tracks.map { it.path }.toSet()
+                                uiState.playlists
+                                    .filter { pl -> pl.id !in albumFullIds && allPaths.any { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
+                                    .map { it.id }.toSet()
+                            }
+                            androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
+                                Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add album to playlist")
+                            }
+                            if (showAlbumPlaylistSheet) {
+                                PlaylistPickerSheet(
+                                    playlists = uiState.playlists,
+                                    membershipIds = albumFullIds,
+                                    partialMembershipIds = albumPartialIds,
+                                    onAdd = { playlist -> viewModel.requestAddTracksToPlaylist(uiState.tracks, playlist.id) },
+                                    onRemove = { playlist -> viewModel.removeAlbumFromPlaylist(playlist.id) },
+                                    onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
+                                    onDismiss = { showAlbumPlaylistSheet = false },
+                                )
                             }
                         }
                         HorizontalDivider()
@@ -253,6 +241,7 @@ fun AlbumDetailScreen(
                             onRemoveFromPlaylist = { playlist ->
                                 viewModel.removeTrackFromPlaylist(track, playlist.id)
                             },
+                            onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
                             onViewArtist = { track.artist?.let { onViewArtist(it) } },
                         )
                     }
@@ -299,10 +288,12 @@ private fun AlbumTrackRow(
     onToggleFavorite: (() -> Unit)? = null,
     onAddToPlaylist: (Playlist) -> Unit,
     onRemoveFromPlaylist: (Playlist) -> Unit = {},
+    onCreatePlaylist: ((String) -> Unit)? = null,
     onViewArtist: (() -> Unit)? = null,
 ) {
     var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
     var showTrackInfo by remember { mutableStateOf(false) }
+    var showPlaylistSheet by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -400,8 +391,7 @@ private fun AlbumTrackRow(
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
-                trailingIcon = { Text("›", style = MaterialTheme.typography.titleMedium) },
-                onClick = { menuLevel = TrackMenuLevel.PLAYLISTS },
+                onClick = { menuLevel = TrackMenuLevel.HIDDEN; showPlaylistSheet = true },
             )
             DropdownMenuItem(
                 text = { Text("Track info") },
@@ -423,44 +413,17 @@ private fun AlbumTrackRow(
             }
         }
 
-        // Level 2: playlist selection
-        DropdownMenu(
-            expanded = menuLevel == TrackMenuLevel.PLAYLISTS,
-            onDismissRequest = { menuLevel = TrackMenuLevel.HIDDEN },
-        ) {
-            DropdownMenuItem(
-                text = { Text("Back") },
-                leadingIcon = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                onClick = { menuLevel = TrackMenuLevel.MAIN },
-            )
-            if (playlists.isEmpty()) {
-                DropdownMenuItem(
-                    text = { Text("No playlists yet", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    onClick = {},
-                    enabled = false,
-                )
-            } else {
-                playlists.forEach { playlist ->
-                    val isInPlaylist = playlist.id in trackInPlaylistIds
-                    DropdownMenuItem(
-                        text = { Text("${playlist.icon ?: "🎵"}  ${playlist.name}") },
-                        trailingIcon = if (isInPlaylist) {
-                            { Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) }
-                        } else null,
-                        onClick = {
-                            if (isInPlaylist) onRemoveFromPlaylist(playlist) else onAddToPlaylist(playlist)
-                            menuLevel = TrackMenuLevel.HIDDEN
-                        },
-                    )
-                }
-            }
-        }
+    }
+
+    if (showPlaylistSheet) {
+        PlaylistPickerSheet(
+            playlists = playlists,
+            membershipIds = trackInPlaylistIds,
+            onAdd = onAddToPlaylist,
+            onRemove = onRemoveFromPlaylist,
+            onCreatePlaylist = onCreatePlaylist,
+            onDismiss = { showPlaylistSheet = false },
+        )
     }
 
     if (showTrackInfo) {

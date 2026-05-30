@@ -106,6 +106,12 @@ class LocalLibraryRepository @Inject constructor(
     suspend fun removeTrackFromPlaylist(playlistId: Int, filePath: String) =
         playlistDao.removeEntry(playlistId, filePath)
 
+    suspend fun reorderPlaylist(playlistId: Int, orderedPaths: List<String>) {
+        orderedPaths.forEachIndexed { index, path ->
+            playlistDao.updatePosition(playlistId, path, index)
+        }
+    }
+
     suspend fun getPlaylistContents(playlistId: Int): List<PlaylistTrackEntry> {
         val entries = playlistDao.getEntries(playlistId)
         val allTracks = trackDao.getAllTracks().associateBy { it.path }

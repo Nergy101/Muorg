@@ -6,7 +6,7 @@ pub use db::{
     get_playlist_entries, get_playlist_tracks, get_playlists_for_track, get_track_by_id,
     get_track_path_by_id, load_playlists, load_roots, load_tracks, record_play,
     record_track_backup, remove_playlist_entry_by_id, remove_root, remove_tracks_from_playlist,
-    rename_playlist, reorder_playlists, rescan_root, resolve_smart_playlist_track_ids, save_roots,
+    rename_playlist, reorder_playlist_tracks, reorder_playlists, rescan_root, resolve_smart_playlist_track_ids, save_roots,
     scan_and_insert, search_tracks, set_playlist_icon, set_smart_playlist_rules, set_track_rating,
     update_track_hash, update_track_metadata, update_track_path, CatalogTrack, LibraryStats,
     Playlist, PlaylistTrackEntry, TrackBackupRecord,

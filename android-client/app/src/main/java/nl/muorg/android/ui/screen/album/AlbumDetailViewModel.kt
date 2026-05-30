@@ -31,6 +31,7 @@ data class AlbumDetailUiState(
     val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
     val addConflict: AddConflictState? = null,
     val addToastMsg: String? = null,
+    val filterPlaylistId: Int? = null,
 )
 
 @HiltViewModel
@@ -48,17 +49,23 @@ class AlbumDetailViewModel @Inject constructor(
         loadPlaylists()
     }
 
-    fun loadAlbum(albumName: String) {
-        if (_uiState.value.albumName == albumName && _uiState.value.tracks.isNotEmpty()) return
+    fun loadAlbum(albumName: String, filterPlaylistId: Int? = null) {
+        val current = _uiState.value
+        if (current.albumName == albumName && current.tracks.isNotEmpty() && current.filterPlaylistId == filterPlaylistId) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, albumName = albumName) }
+            _uiState.update { it.copy(isLoading = true, albumName = albumName, filterPlaylistId = filterPlaylistId) }
             val mode = preferences.musicMode.first()
             if (mode == "local") {
                 runCatching { localRepository.getAllTracks() }.fold(
                     onSuccess = { allTracks ->
-                        val albumTracks = allTracks
+                        var albumTracks = allTracks
                             .filter { it.displayAlbum == albumName }
                             .sortedWith(compareBy({ it.discNumber ?: 0 }, { it.trackNumber ?: 0 }))
+                        if (filterPlaylistId != null) {
+                            val playlistPaths = localRepository.getPlaylistContents(filterPlaylistId)
+                                .mapNotNull { it.track?.path }.toSet()
+                            albumTracks = albumTracks.filter { it.path in playlistPaths }
+                        }
                         val rep = albumTracks.firstOrNull()
                         _uiState.update {
                             it.copy(
@@ -77,9 +84,14 @@ class AlbumDetailViewModel @Inject constructor(
             } else {
                 repository.getAllTracks().fold(
                     onSuccess = { allTracks ->
-                        val albumTracks = allTracks
+                        var albumTracks = allTracks
                             .filter { it.displayAlbum == albumName }
                             .sortedWith(compareBy({ it.discNumber ?: 0 }, { it.trackNumber ?: 0 }))
+                        if (filterPlaylistId != null) {
+                            val playlistTrackIds = playlistRepository.getPlaylistTracks(filterPlaylistId)
+                                .getOrElse { emptyList() }.toSet()
+                            albumTracks = albumTracks.filter { it.id in playlistTrackIds }
+                        }
                         val rep = albumTracks.firstOrNull()
                         val coverTrackId = albumTracks.firstOrNull { it.hasCover }?.id ?: rep?.id
                         _uiState.update {
@@ -193,6 +205,18 @@ class AlbumDetailViewModel @Inject constructor(
             } else {
                 playlistRepository.removeTracks(playlistId, listOf(track.id))
             }
+        }
+    }
+
+    fun createPlaylist(name: String) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                runCatching { localRepository.createPlaylist(name) }
+            } else {
+                runCatching { playlistRepository.createPlaylist(name, "🎵") }
+            }
+            loadPlaylists()
         }
     }
 

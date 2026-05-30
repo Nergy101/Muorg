@@ -46,4 +46,7 @@ interface LocalPlaylistDao {
 
     @Query("DELETE FROM local_playlist_entries WHERE filePath NOT IN (SELECT path FROM local_tracks)")
     suspend fun removeOrphanedEntries()
+
+    @Query("UPDATE local_playlist_entries SET position = :position WHERE playlistId = :playlistId AND filePath = :filePath")
+    suspend fun updatePosition(playlistId: Int, filePath: String, position: Int)
 }

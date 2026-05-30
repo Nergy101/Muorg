@@ -134,6 +134,7 @@ fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
             get(routes::playlists::get_tracks)
             .post(routes::playlists::add_tracks)
             .delete(routes::playlists::remove_tracks))
+        .route("/api/playlists/:id/tracks/order", put(routes::playlists::reorder_tracks))
         .route("/api/playlists/:id/entries", get(routes::playlists::get_entries))
         .route("/api/playlists/:id/entries/:entry_id",
             delete(routes::playlists::remove_entry))

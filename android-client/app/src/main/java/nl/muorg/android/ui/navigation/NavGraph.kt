@@ -71,8 +71,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import coil.ImageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -99,9 +102,10 @@ sealed class Screen(val route: String) {
     object Playlists : Screen("playlists")
     object Settings : Screen("settings")
     object Queue : Screen("queue")
-    object AlbumDetail : Screen("album/{albumName}") {
-        fun createRoute(albumName: String) =
-            "album/${java.net.URLEncoder.encode(albumName, "UTF-8")}"
+    object AlbumDetail : Screen("album/{albumName}?playlistId={playlistId}") {
+        fun createRoute(albumName: String, playlistId: Int? = null) =
+            "album/${java.net.URLEncoder.encode(albumName, "UTF-8")}" +
+            (if (playlistId != null) "?playlistId=$playlistId" else "")
     }
     object PlaylistAlbums : Screen("playlist/{playlistId}/albums") {
         fun createRoute(playlistId: Int) = "playlist/$playlistId/albums"
@@ -137,6 +141,11 @@ class NavViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = true,
     )
+
+    private val _scrollToActiveSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val scrollToActiveSignal: SharedFlow<Unit> = _scrollToActiveSignal.asSharedFlow()
+
+    fun requestScrollToActive() { _scrollToActiveSignal.tryEmit(Unit) }
 }
 
 @Composable
@@ -176,6 +185,11 @@ fun NavGraph() {
                     items = bottomNavItems,
                     currentDestination = currentDestination,
                     onNavigate = { screen ->
+                        val isOnLibrary = currentDestination?.hierarchy
+                            ?.any { it.route == Screen.Library.route } == true
+                        if (screen is Screen.Library && isOnLibrary) {
+                            navViewModel.requestScrollToActive()
+                        }
                         val route = if (screen is Screen.Library) Screen.Library.createRoute() else screen.route
                         navController.navigate(route) {
                             popUpTo(navController.graph.findStartDestination().id) {
@@ -240,17 +254,23 @@ fun NavGraph() {
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
                         },
                         showPlayerBar = showBottomBar,
+                        scrollToActiveSignal = navViewModel.scrollToActiveSignal,
                     )
                 }
 
                 composable(
                     route = Screen.AlbumDetail.route,
-                    arguments = listOf(navArgument("albumName") { type = NavType.StringType })
+                    arguments = listOf(
+                        navArgument("albumName") { type = NavType.StringType },
+                        navArgument("playlistId") { type = NavType.IntType; defaultValue = -1 },
+                    )
                 ) { backStackEntry ->
                     val encoded = backStackEntry.arguments?.getString("albumName") ?: ""
                     val albumName = java.net.URLDecoder.decode(encoded, "UTF-8")
+                    val filterPlaylistId = backStackEntry.arguments?.getInt("playlistId")?.takeIf { it != -1 }
                     AlbumDetailScreen(
                         albumName = albumName,
+                        filterPlaylistId = filterPlaylistId,
                         playerViewModel = playerViewModel,
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
@@ -351,13 +371,14 @@ fun NavGraph() {
                 composable(
                     route = Screen.PlaylistAlbums.route,
                     arguments = listOf(navArgument("playlistId") { type = NavType.IntType }),
-                ) {
+                ) { backStackEntry ->
+                    val currentPlaylistId = backStackEntry.arguments?.getInt("playlistId") ?: -1
                     PlaylistAlbumsScreen(
                         playerViewModel = playerViewModel,
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onAlbumClick = { albumName ->
-                            navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                            navController.navigate(Screen.AlbumDetail.createRoute(albumName, currentPlaylistId.takeIf { it != -1 }))
                         },
                         onBack = { navController.popBackStack() },
                         onPlayerBarClick = onPlayerBarClick,

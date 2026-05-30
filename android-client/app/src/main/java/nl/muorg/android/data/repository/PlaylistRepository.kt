@@ -4,6 +4,7 @@ import nl.muorg.android.data.api.CreatePlaylistRequest
 import nl.muorg.android.data.api.MuorgApiService
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.PlaylistTracksRequest
+import nl.muorg.android.data.api.ReorderPlaylistTracksRequest
 import nl.muorg.android.data.api.UpdatePlaylistRequest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,6 +46,11 @@ class PlaylistRepository @Inject constructor(
 
     suspend fun removeTracks(playlistId: Int, trackIds: List<Int>): Result<Unit> = runCatching {
         api.removeTracksFromPlaylist(playlistId, PlaylistTracksRequest(trackIds))
+        Unit
+    }
+
+    suspend fun reorderTracks(playlistId: Int, trackIds: List<Int>): Result<Unit> = runCatching {
+        api.reorderPlaylistTracks(playlistId, ReorderPlaylistTracksRequest(trackIds))
         Unit
     }
 }

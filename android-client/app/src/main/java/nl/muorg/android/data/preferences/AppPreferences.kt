@@ -40,6 +40,7 @@ class AppPreferences @Inject constructor(
         private val KEY_PLAYERBAR_TAP_OPENS_PLAYER = booleanPreferencesKey("playerbar_tap_opens_player")
         private val KEY_NOTIFICATION_ACTIONS = stringSetPreferencesKey("notification_actions")
         private val KEY_ALBUM_VIEW_STYLE = stringPreferencesKey("album_view_style")
+        private val KEY_PLAYLIST_VIEW_STYLE = stringPreferencesKey("playlist_view_style")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -60,6 +61,9 @@ class AppPreferences @Inject constructor(
 
     val albumViewStyle: Flow<String> = context.dataStore.data
         .map { it[KEY_ALBUM_VIEW_STYLE] ?: "grid" }
+
+    val playlistViewStyle: Flow<String> = context.dataStore.data
+        .map { it[KEY_PLAYLIST_VIEW_STYLE] ?: "grid" }
 
     val continuousPlayback: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_CONTINUOUS_PLAYBACK] ?: true }
@@ -123,6 +127,10 @@ class AppPreferences @Inject constructor(
 
     suspend fun setAlbumViewStyle(style: String) {
         context.dataStore.edit { it[KEY_ALBUM_VIEW_STYLE] = style }
+    }
+
+    suspend fun setPlaylistViewStyle(style: String) {
+        context.dataStore.edit { it[KEY_PLAYLIST_VIEW_STYLE] = style }
     }
 
     suspend fun clearCredentials() {

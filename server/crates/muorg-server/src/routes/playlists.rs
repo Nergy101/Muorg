@@ -122,6 +122,17 @@ pub struct ReorderBody {
     pub ids: Vec<i64>,
 }
 
+// PUT /api/playlists/:id/tracks/order
+pub async fn reorder_tracks(
+    Path(id): Path<i64>,
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<ReorderBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    muorg_core::catalog::reorder_playlist_tracks(&conn, id, &body.ids)?;
+    Ok(Json(serde_json::json!({"ok": true})))
+}
+
 // PUT /api/playlists/order
 pub async fn reorder(
     State(state): State<Arc<AppState>>,
