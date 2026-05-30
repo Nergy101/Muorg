@@ -28,9 +28,6 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
@@ -239,6 +236,26 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            IconButton(onClick = {
+                val next = when (uiState.albumViewStyle) {
+                    "grid" -> "list"
+                    "list" -> "tracks"
+                    else -> "grid"
+                }
+                viewModel.setAlbumViewStyle(next)
+            }) {
+                Icon(
+                    imageVector = when (uiState.albumViewStyle) {
+                        "grid" -> Icons.Filled.GridView
+                        "list" -> Icons.AutoMirrored.Filled.ViewList
+                        else -> Icons.Filled.MusicNote
+                    },
+                    contentDescription = "Switch layout",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
             IconButton(
                 onClick = {
                     val tracks = uiState.filteredTracks.ifEmpty {
@@ -259,41 +276,6 @@ fun LibraryScreen(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Spacer(modifier = Modifier.weight(1f))
-            SingleChoiceSegmentedButtonRow {
-                val styles = listOf(
-                    "grid" to Icons.Filled.GridView,
-                    "list" to Icons.AutoMirrored.Filled.ViewList,
-                    "tracks" to Icons.Filled.MusicNote,
-                )
-                styles.forEachIndexed { index, (style, icon) ->
-                    SegmentedButton(
-                        selected = uiState.albumViewStyle == style,
-                        onClick = {
-                            coroutineScope.launch {
-                                lazyGridState.scrollToItem(0)
-                                lazyListState.scrollToItem(0)
-                            }
-                            viewModel.setAlbumViewStyle(style)
-                        },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
-                        icon = {},
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = style,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-            }
-        }
 
         Box(modifier = Modifier.weight(1f).fillMaxSize()) {
             when {
