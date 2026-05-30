@@ -302,7 +302,11 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun toggleAlbumViewStyle() {
-        val newStyle = if (_uiState.value.albumViewStyle == "grid") "list" else "grid"
+        val newStyle = when (_uiState.value.albumViewStyle) {
+            "grid" -> "list"
+            "list" -> "tracks"
+            else -> "grid"
+        }
         _uiState.update { it.copy(albumViewStyle = newStyle) }
         viewModelScope.launch { preferences.setAlbumViewStyle(newStyle) }
     }

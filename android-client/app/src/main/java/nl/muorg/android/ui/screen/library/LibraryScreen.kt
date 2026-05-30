@@ -24,11 +24,15 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -242,12 +246,31 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            IconButton(onClick = viewModel::toggleAlbumViewStyle) {
+            Column(
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = viewModel::toggleAlbumViewStyle,
+                    )
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .widthIn(min = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Icon(
-                    imageVector = if (uiState.albumViewStyle == "list") Icons.Filled.GridView else Icons.Filled.ViewList,
-                    contentDescription = if (uiState.albumViewStyle == "list") "Switch to grid" else "Switch to list",
+                    imageVector = when (uiState.albumViewStyle) {
+                        "grid" -> Icons.AutoMirrored.Filled.ViewList
+                        "list" -> Icons.Filled.MusicNote
+                        else -> Icons.Filled.GridView
+                    },
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = uiState.albumViewStyle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -311,7 +334,7 @@ fun LibraryScreen(
                             .padding(16.dp),
                     )
                 }
-                searchText.isNotEmpty() || uiState.viewMode == ViewMode.TRACKS -> {
+                searchText.isNotEmpty() || uiState.viewMode == ViewMode.TRACKS || uiState.albumViewStyle == "tracks" -> {
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(),
