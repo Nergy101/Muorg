@@ -261,10 +261,7 @@ fun LibraryScreen(
                     val tracks = uiState.filteredTracks.ifEmpty {
                         uiState.filteredAlbums.flatMap { viewModel.getTracksForAlbum(it.albumName) }
                     }
-                    if (tracks.isNotEmpty()) {
-                        playerViewModel.enableShuffle()
-                        playerViewModel.playTrack(tracks.random(), tracks)
-                    }
+                    playerViewModel.startShuffleAll(tracks)
                 },
                 modifier = Modifier.padding(end = 8.dp),
             ) {

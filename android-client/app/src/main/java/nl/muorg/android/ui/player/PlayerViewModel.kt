@@ -35,6 +35,12 @@ class PlayerViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
 ) : ViewModel() {
 
+    // Shuffle-all mode: pool of all available tracks to draw random batches from.
+    // Empty means shuffle-all is not active.
+    private var shuffleAllPool: List<CatalogTrack> = emptyList()
+    // Guard: only refill when queue.size reaches this threshold, preventing double-fires.
+    private var shuffleAllMinQueueSize = Int.MAX_VALUE
+
     val isCasting: StateFlow<Boolean> = castManager.isCasting
     val castDeviceName: StateFlow<String?> = castManager.castDeviceName
     val castVolume: StateFlow<Float?> = castManager.castVolume
@@ -103,6 +109,21 @@ class PlayerViewModel @Inject constructor(
                     if (bothPlaying) playerController.playPause()
                 }
         }
+        // Auto-refill shuffle-all queue: when ≤1 track remains after the current one, append 20 more.
+        viewModelScope.launch {
+            playerController.state.collect { state ->
+                if (shuffleAllPool.isEmpty()) return@collect
+                val queue = state.queue
+                val currentTrack = state.currentTrack ?: return@collect
+                val currentIndex = queue.indexOfFirst { it.id == currentTrack.id }
+                if (currentIndex < 0) return@collect
+                val remaining = queue.size - 1 - currentIndex
+                if (remaining <= 1 && queue.size >= shuffleAllMinQueueSize) {
+                    shuffleAllMinQueueSize = queue.size + 1
+                    playerController.addTracksToQueue(shuffleAllPool.shuffled().take(20))
+                }
+            }
+        }
     }
 
     fun loadCurrentTrackMembership(track: CatalogTrack) {
@@ -153,10 +174,24 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun playTrack(track: CatalogTrack, queue: List<CatalogTrack>) {
+        shuffleAllPool = emptyList()
+        shuffleAllMinQueueSize = Int.MAX_VALUE
         viewModelScope.launch {
             playerController.updateTrackCache(queue)
             playerController.playTrack(track, queue)
             if (castManager.isCasting.value) castCurrentTrack(track)
+        }
+    }
+
+    fun startShuffleAll(allTracks: List<CatalogTrack>) {
+        if (allTracks.isEmpty()) return
+        shuffleAllPool = allTracks
+        shuffleAllMinQueueSize = 0
+        val firstBatch = allTracks.shuffled().take(20)
+        playerController.disableShuffle()
+        viewModelScope.launch {
+            playerController.updateTrackCache(firstBatch)
+            playerController.playTrack(firstBatch.first(), firstBatch)
         }
     }
 
@@ -206,6 +241,10 @@ class PlayerViewModel @Inject constructor(
 
     fun enableShuffle() {
         playerController.enableShuffle()
+    }
+
+    fun disableShuffle() {
+        playerController.disableShuffle()
     }
 
     fun cycleRepeatMode() {

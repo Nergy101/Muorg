@@ -289,6 +289,11 @@ class PlayerController @Inject constructor(
         ctrl.shuffleModeEnabled = true
     }
 
+    fun disableShuffle() {
+        val ctrl = controller ?: return
+        ctrl.shuffleModeEnabled = false
+    }
+
     fun cycleRepeatMode() {
         val ctrl = controller ?: return
         ctrl.repeatMode = when (ctrl.repeatMode) {
