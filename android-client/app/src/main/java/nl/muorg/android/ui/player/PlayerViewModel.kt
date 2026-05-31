@@ -269,12 +269,12 @@ class PlayerViewModel @Inject constructor(
     fun clearQueue() = playerController.clearQueue()
     fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
     fun addToQueue(track: CatalogTrack) {
-        playerController.addToQueue(track)
+        playerController.addToQueue(track, isUserAction = true)
         _toastEvent.tryEmit("Added to queue")
     }
     fun addTracksToQueue(tracks: List<CatalogTrack>) {
         if (tracks.isEmpty()) return
-        playerController.addTracksToQueue(tracks)
+        playerController.addTracksToQueue(tracks, isUserAction = true)
         _toastEvent.tryEmit("Added to queue")
     }
     fun toggleFavorite(track: CatalogTrack) {

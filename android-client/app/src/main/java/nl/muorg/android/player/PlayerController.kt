@@ -41,6 +41,8 @@ data class PlayerState(
     val favorites: Set<String> = emptySet(),
     val isSeekable: Boolean = true,
     val errorMessage: String? = null,
+    /** IDs of tracks that were explicitly added to the queue by the user (not auto-loaded with an album/playlist). */
+    val userQueueTrackIds: Set<Int> = emptySet(),
 )
 
 @Singleton
@@ -60,6 +62,9 @@ class PlayerController @Inject constructor(
 
     // Track list cache for building the play queue
     private var trackCache: List<CatalogTrack> = emptyList()
+
+    // IDs of tracks that were explicitly added by the user; empty = system-managed queue
+    private val _userQueueTrackIds = mutableSetOf<Int>()
 
     // For FLAC server streams: track seconds offset so position display is accurate
     // after a seek (which reloads the stream from a new start position).
@@ -147,6 +152,7 @@ class PlayerController @Inject constructor(
                 repeatMode = ctrl.repeatMode,
                 queue = queue,
                 isSeekable = ctrl.isCurrentMediaItemSeekable,
+                userQueueTrackIds = _userQueueTrackIds.toSet(),
             )
         }
     }
@@ -180,6 +186,7 @@ class PlayerController @Inject constructor(
     suspend fun playTrack(track: CatalogTrack, queue: List<CatalogTrack>) {
         ensureConnected()
         val ctrl = controller ?: return
+        _userQueueTrackIds.clear()
 
         scope.launch {
             _state.update { it.copy(errorMessage = null) }
@@ -320,6 +327,7 @@ class PlayerController @Inject constructor(
             .firstOrNull { ctrl.getMediaItemAt(it).mediaId == track.id.toString() } ?: return
         if (index == currentIndex) return
         ctrl.removeMediaItem(index)
+        _userQueueTrackIds.remove(track.id)
         syncState()
     }
 
@@ -329,6 +337,7 @@ class PlayerController @Inject constructor(
         for (i in (currentIndex + 1 until ctrl.mediaItemCount).reversed()) {
             ctrl.removeMediaItem(i)
         }
+        _userQueueTrackIds.clear()
         syncState()
     }
 
@@ -338,17 +347,28 @@ class PlayerController @Inject constructor(
         syncState()
     }
 
-    fun addToQueue(track: CatalogTrack) {
-        addTracksToQueue(listOf(track))
+    fun addToQueue(track: CatalogTrack, isUserAction: Boolean = false) {
+        addTracksToQueue(listOf(track), isUserAction)
     }
 
-    fun addTracksToQueue(tracks: List<CatalogTrack>) {
+    fun addTracksToQueue(tracks: List<CatalogTrack>, isUserAction: Boolean = false) {
         if (tracks.isEmpty()) return
         val ctrl = controller ?: return
         // Merge into trackCache immediately so syncState() can resolve them from the queue
         val toAdd = tracks.filter { t -> trackCache.none { it.id == t.id } }
         if (toAdd.isNotEmpty()) trackCache = trackCache + toAdd
+
+        // Capture before the coroutine: first user add clears the system-loaded tracks
+        val shouldClearSystemQueue = isUserAction && _userQueueTrackIds.isEmpty()
+        if (isUserAction) tracks.forEach { _userQueueTrackIds.add(it.id) }
+
         scope.launch {
+            if (shouldClearSystemQueue) {
+                val currentIndex = ctrl.currentMediaItemIndex
+                for (i in (currentIndex + 1 until ctrl.mediaItemCount).reversed()) {
+                    ctrl.removeMediaItem(i)
+                }
+            }
             val baseUrl = preferences.serverUrl.first().trimEnd('/')
             var failCount = 0
             for (track in tracks) {
