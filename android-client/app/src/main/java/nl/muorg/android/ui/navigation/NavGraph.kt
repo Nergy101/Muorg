@@ -34,11 +34,9 @@ import androidx.compose.material.icons.filled.VolumeMute
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
-import android.widget.Toast
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -177,10 +175,12 @@ fun NavGraph() {
     val navViewModel: NavViewModel = hiltViewModel()
     val playerViewModel: PlayerViewModel = hiltViewModel()
 
-    val context = LocalContext.current
+    var toastMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         playerViewModel.toastEvent.collect { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            toastMessage = message
+            delay(2000)
+            toastMessage = null
         }
     }
 
@@ -449,6 +449,29 @@ fun NavGraph() {
                 volume = castVolume,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
+
+            AnimatedVisibility(
+                visible = toastMessage != null,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 72.dp),
+                enter = fadeIn(tween(150)) + slideInVertically { it / 2 },
+                exit = fadeOut(tween(200)) + slideOutVertically { it / 2 },
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.inverseSurface,
+                    shadowElevation = 4.dp,
+                ) {
+                    Text(
+                        text = toastMessage ?: "",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
+                }
+            }
         }
     }
     } // MuorgTheme
