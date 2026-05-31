@@ -343,6 +343,14 @@ class PlayerController @Inject constructor(
 
     fun reorderQueue(fromIndex: Int, toIndex: Int) {
         val ctrl = controller ?: return
+        // Reordering is an implicit takeover of the queue — adopt all upcoming tracks so a
+        // subsequent addToQueue doesn't wipe them out.
+        if (_userQueueTrackIds.isEmpty()) {
+            val currentIndex = ctrl.currentMediaItemIndex
+            for (i in (currentIndex + 1) until ctrl.mediaItemCount) {
+                ctrl.getMediaItemAt(i).mediaId.toIntOrNull()?.let { _userQueueTrackIds.add(it) }
+            }
+        }
         ctrl.moveMediaItem(fromIndex, toIndex)
         syncState()
     }
