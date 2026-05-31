@@ -5,7 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -403,7 +403,7 @@ private fun QueueTrackRow(
             modifier = Modifier
                 .size(24.dp, 36.dp)
                 .pointerInput(track.id) {
-                    detectDragGesturesAfterLongPress(
+                    detectDragGestures(
                         onDragStart = { latestOnDragStart() },
                         onDrag = { change, amount ->
                             change.consume()

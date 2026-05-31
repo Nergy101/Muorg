@@ -34,9 +34,11 @@ import androidx.compose.material.icons.filled.VolumeMute
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import android.widget.Toast
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -174,6 +176,13 @@ fun NavGraph() {
 
     val navViewModel: NavViewModel = hiltViewModel()
     val playerViewModel: PlayerViewModel = hiltViewModel()
+
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        playerViewModel.toastEvent.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val baseUrl by navViewModel.serverUrl.collectAsStateWithLifecycle()
     val useTrueBlack by navViewModel.useTrueBlack.collectAsStateWithLifecycle()

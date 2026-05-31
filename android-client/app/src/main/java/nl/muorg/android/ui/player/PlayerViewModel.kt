@@ -3,9 +3,12 @@ package nl.muorg.android.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -66,6 +69,9 @@ class PlayerViewModel @Inject constructor(
 
     private val _currentTrackMembership = MutableStateFlow<Set<Int>>(emptySet())
     val currentTrackMembership: StateFlow<Set<Int>> = _currentTrackMembership.asStateFlow()
+
+    private val _toastEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -262,8 +268,15 @@ class PlayerViewModel @Inject constructor(
     fun removeFromQueue(track: CatalogTrack) = playerController.removeFromQueue(track)
     fun clearQueue() = playerController.clearQueue()
     fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
-    fun addToQueue(track: CatalogTrack) = playerController.addToQueue(track)
-    fun addTracksToQueue(tracks: List<CatalogTrack>) = playerController.addTracksToQueue(tracks)
+    fun addToQueue(track: CatalogTrack) {
+        playerController.addToQueue(track)
+        _toastEvent.tryEmit("Added to queue")
+    }
+    fun addTracksToQueue(tracks: List<CatalogTrack>) {
+        if (tracks.isEmpty()) return
+        playerController.addTracksToQueue(tracks)
+        _toastEvent.tryEmit("Added to queue")
+    }
     fun toggleFavorite(track: CatalogTrack) {
         viewModelScope.launch {
             val wasFavorite = track.id.toString() in playerController.state.value.favorites
