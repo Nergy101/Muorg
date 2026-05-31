@@ -394,14 +394,14 @@ private fun QueueTrackRow(
             .then(
                 if (isDragged) Modifier.border(2.dp, MuorgGreenLight, RoundedCornerShape(8.dp))
                 else Modifier
-            )
-            .combinedClickable(onClick = onSkipTo, onLongClick = onLongPress)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Left — drag handle only, no tap/long-press
         Box(
             modifier = Modifier
-                .size(24.dp, 36.dp)
+                .padding(start = 8.dp)
+                .size(40.dp, 52.dp)
                 .pointerInput(track.id) {
                     detectDragGestures(
                         onDragStart = { latestOnDragStart() },
@@ -417,42 +417,50 @@ private fun QueueTrackRow(
         ) {
             Icon(
                 Icons.Filled.DragIndicator,
-                contentDescription = null,
+                contentDescription = "Drag to reorder",
                 tint = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp),
             )
         }
-        Spacer(Modifier.width(8.dp))
-        CoverArt(track = track, baseUrl = baseUrl, imageLoader = imageLoader, size = 40, cornerDp = 4)
-        Spacer(Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            MarqueeText(
-                track.displayTitle,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurface,
-            )
-            MarqueeText(
-                track.displayArtist,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isDragged) MuorgGreenLight.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        track.durationSecs?.let { secs ->
-            val mins = (secs / 60).toInt()
-            val s = (secs % 60).toInt()
-            Text(
-                "%d:%02d".format(mins, s),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (isDragged) MuorgGreenLight.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        IconButton(onClick = onRemove) {
-            Icon(
-                Icons.Filled.Close,
-                contentDescription = "Remove",
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        // Right — track info: tap to play, long-press for action sheet
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .combinedClickable(onClick = onSkipTo, onLongClick = onLongPress)
+                .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CoverArt(track = track, baseUrl = baseUrl, imageLoader = imageLoader, size = 40, cornerDp = 4)
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                MarqueeText(
+                    track.displayTitle,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurface,
+                )
+                MarqueeText(
+                    track.displayArtist,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isDragged) MuorgGreenLight.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            track.durationSecs?.let { secs ->
+                val mins = (secs / 60).toInt()
+                val s = (secs % 60).toInt()
+                Text(
+                    "%d:%02d".format(mins, s),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isDragged) MuorgGreenLight.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onRemove) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Remove",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
