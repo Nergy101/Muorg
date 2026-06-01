@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import nl.muorg.android.cast.CastManager
 import nl.muorg.android.data.api.CatalogTrack
@@ -47,6 +49,13 @@ class PlayerViewModel @Inject constructor(
     val isCasting: StateFlow<Boolean> = castManager.isCasting
     val castDeviceName: StateFlow<String?> = castManager.castDeviceName
     val castVolume: StateFlow<Float?> = castManager.castVolume
+
+    private var sleepTimerJob: Job? = null
+    private val _sleepTimerRemainingMs = MutableStateFlow(0L)
+    val sleepTimerRemainingMs: StateFlow<Long> = _sleepTimerRemainingMs.asStateFlow()
+    val sleepTimerActive: StateFlow<Boolean> = _sleepTimerRemainingMs
+        .map { it > 0L }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun buildCastRouteSelector() = castManager.buildRouteSelector()
     fun setCastVolume(value: Float) = castManager.setCastVolume(value)
@@ -266,6 +275,28 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun startSleepTimer(durationMs: Long) {
+        sleepTimerJob?.cancel()
+        _sleepTimerRemainingMs.value = durationMs
+        sleepTimerJob = viewModelScope.launch {
+            while (_sleepTimerRemainingMs.value > 0L) {
+                delay(1000)
+                _sleepTimerRemainingMs.value = (_sleepTimerRemainingMs.value - 1000L).coerceAtLeast(0L)
+            }
+            if (castManager.isCasting.value) {
+                if (castManager.castPlaybackState.value.isPlaying) castManager.remotePlayPause()
+            } else {
+                if (playerController.state.value.isPlaying) playerController.playPause()
+            }
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerRemainingMs.value = 0L
+    }
+
     fun removeFromQueue(track: CatalogTrack) = playerController.removeFromQueue(track)
     fun clearQueue() = playerController.clearQueue()
     fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
@@ -290,6 +321,7 @@ class PlayerViewModel @Inject constructor(
             } else {
                 if (mode == "local") localRepository.addTracksToPlaylist(playlistId, listOf(track))
                 else playlistRepository.addTracks(playlistId, listOf(track.id))
+                _toastEvent.tryEmit("Added to favorites")
             }
             refreshPlaylists()
         }

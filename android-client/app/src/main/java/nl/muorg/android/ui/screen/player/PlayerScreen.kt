@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -34,16 +34,21 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material.icons.filled.VolumeDown
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -160,6 +165,11 @@ fun PlayerScreen(
     var localVolume by remember { mutableFloatStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVolume.toFloat()) }
     val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
 
+    val sleepTimerActive by playerViewModel.sleepTimerActive.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showSleepTimerPicker by remember { mutableStateOf(false) }
+
     var sheetOpen by remember { mutableStateOf(false) }
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
@@ -193,7 +203,6 @@ fun PlayerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -206,6 +215,17 @@ fun PlayerScreen(
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = {
+                    if (sleepTimerActive) showSleepTimerDialog = true
+                    else showSleepTimerPicker = true
+                }) {
+                    Icon(
+                        Icons.Filled.Snooze,
+                        contentDescription = if (sleepTimerActive) "Sleep timer active" else "Set sleep timer",
+                        tint = if (sleepTimerActive) Color.White else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
                 IconButton(onClick = {
                     val themedContext = ContextThemeWrapper(context, AppCompatR.style.Theme_AppCompat_DayNight_Dialog)
                     if (isCasting) {
@@ -523,6 +543,58 @@ fun PlayerScreen(
         }
     }
 
+    if (showSleepTimerDialog) {
+        AlertDialog(
+            onDismissRequest = { showSleepTimerDialog = false },
+            title = { Text("Sleep timer") },
+            text = { Text("Playback will stop in ${formatSleepTimer(sleepTimerRemainingMs)}.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    playerViewModel.cancelSleepTimer()
+                    showSleepTimerDialog = false
+                }) { Text("Turn off") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSleepTimerDialog = false }) { Text("Keep") }
+            },
+        )
+    }
+
+    if (showSleepTimerPicker) {
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { showSleepTimerPicker = false },
+            sheetState = sheetState,
+        ) {
+            Text(
+                text = "Sleep timer",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 24.dp, bottom = 16.dp),
+            )
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val presets = listOf(5, 10, 15, 20, 30, 45, 60, 90)
+                presets.forEach { mins ->
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            playerViewModel.startSleepTimer(mins * 60_000L)
+                            showSleepTimerPicker = false
+                        }
+                    ) {
+                        Text("${mins}m")
+                    }
+                }
+            }
+        }
+    }
+
     if (sheetOpen && currentTrack != null) {
         TrackActionsSheet(
             track = currentTrack,
@@ -551,6 +623,13 @@ fun PlayerScreen(
             },
         )
     }
+}
+
+private fun formatSleepTimer(ms: Long): String {
+    val totalSecs = (ms / 1000).coerceAtLeast(0)
+    val mins = totalSecs / 60
+    val secs = totalSecs % 60
+    return if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
 }
 
 private fun formatMs(ms: Long): String {

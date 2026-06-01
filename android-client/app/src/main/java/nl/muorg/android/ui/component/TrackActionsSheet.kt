@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -237,11 +236,6 @@ private fun MainLevel(
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-    ListItem(
-        headlineContent = { Text("Sleep timer", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingContent = { Icon(Icons.Filled.Timer, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = Modifier.clickable { onDismiss() },
-    )
     ListItem(
         headlineContent = { Text("Track info", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         leadingContent = { Icon(Icons.Filled.Info, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
