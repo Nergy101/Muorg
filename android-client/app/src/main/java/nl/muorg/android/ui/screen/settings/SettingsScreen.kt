@@ -58,6 +58,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +73,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.muorg.android.BuildConfig
 import nl.muorg.android.ui.screen.library.SortMode
+import androidx.compose.material.icons.filled.DataObject
 
 @Composable
 fun SettingsScreen(
@@ -78,6 +82,7 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showMetadataScanSheet by remember { mutableStateOf(false) }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -637,6 +642,24 @@ fun SettingsScreen(
             }
         }
 
+        HorizontalDivider()
+        SectionHeader("Library tools")
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Button(onClick = { showMetadataScanSheet = true }) {
+                Icon(Icons.Filled.DataObject, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Metadata scan")
+            }
+        }
+
+    }
+
+    if (showMetadataScanSheet) {
+        MetadataScanSheet(onDismiss = { showMetadataScanSheet = false })
     }
 
     if (uiState.showSwitchConfirmDialog) {

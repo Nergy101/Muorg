@@ -4,6 +4,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.data.api.MetadataUpdateRequest
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.db.LocalPlaylist
@@ -45,6 +46,20 @@ class LocalLibraryRepository @Inject constructor(
         artistCount = trackDao.artistCount(),
         totalDurationSecs = trackDao.totalDuration()?.toLong() ?: 0L,
     )
+
+    suspend fun updateTrackMetadata(localId: Int, update: MetadataUpdateRequest) {
+        trackDao.updateMetadata(
+            id = localId,
+            title = update.title,
+            artist = update.artist,
+            album = update.album,
+            albumArtist = update.albumArtist,
+            year = update.year,
+            genre = update.genre,
+            trackNumber = update.trackNumber,
+            discNumber = update.discNumber,
+        )
+    }
 
     suspend fun removeTracksForFolder(treeUri: String) {
         trackDao.deleteByTreePrefix("$treeUri/document/")

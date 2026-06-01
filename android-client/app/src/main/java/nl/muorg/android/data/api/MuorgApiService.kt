@@ -66,4 +66,10 @@ interface MuorgApiService {
         @Path("id") playlistId: Int,
         @Body request: ReorderPlaylistTracksRequest,
     ): Response<Unit>
+
+    @PATCH("api/tracks/{id}/metadata")
+    suspend fun patchTrackMetadata(
+        @Path("id") trackId: Int,
+        @Body request: MetadataUpdateRequest,
+    ): Response<Unit>
 }

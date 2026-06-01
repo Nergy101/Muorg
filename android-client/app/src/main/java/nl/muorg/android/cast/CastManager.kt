@@ -211,6 +211,15 @@ class CastManager @Inject constructor(
         }
     }
 
+    fun setCastVolume(value: Float) {
+        val session = castContext?.sessionManager?.currentCastSession ?: return
+        if (session.isConnected) {
+            val clamped = value.coerceIn(0f, 1f)
+            session.volume = clamped.toDouble()
+            _castVolume.value = clamped
+        }
+    }
+
     fun remotePlayPause() {
         val client = castContext?.sessionManager?.currentCastSession?.remoteMediaClient ?: return
         val status = client.mediaStatus ?: return

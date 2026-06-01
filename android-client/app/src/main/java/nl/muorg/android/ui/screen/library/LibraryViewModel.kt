@@ -380,7 +380,11 @@ class LibraryViewModel @Inject constructor(
     private fun applyFilters(tracks: List<CatalogTrack>, state: LibraryUiState): List<CatalogTrack> {
         var result = tracks
         if (state.artistFilter != null) {
-            result = result.filter { it.displayArtist == state.artistFilter }
+            val filter = state.artistFilter.lowercase()
+            result = result.filter { track ->
+                track.displayArtist.lowercase() == filter ||
+                    track.albumArtist?.lowercase() == filter
+            }
         }
         if (state.activePlaylistId != null && state.activePlaylistTrackIds.isNotEmpty()) {
             result = result.filter { it.id in state.activePlaylistTrackIds }
@@ -411,7 +415,8 @@ class LibraryViewModel @Inject constructor(
     private fun applyAlbumFilters(albums: List<AlbumGroup>, state: LibraryUiState): List<AlbumGroup> {
         var result = albums
         if (state.artistFilter != null) {
-            result = result.filter { album -> album.artist == state.artistFilter }
+            val filter = state.artistFilter.lowercase()
+            result = result.filter { album -> album.artist.lowercase() == filter }
         }
         if (state.activePlaylistId != null && state.activePlaylistTrackIds.isNotEmpty()) {
             val albumsInPlaylist = state.allTracks

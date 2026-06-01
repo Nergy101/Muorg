@@ -88,6 +88,24 @@ data class GithubRelease(
     @SerialName("html_url") val htmlUrl: String,
 )
 
+@Serializable
+data class MetadataUpdateRequest(
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    @SerialName("album_artist") val albumArtist: String? = null,
+    val featuring: String? = null,
+    val year: Int? = null,
+    val genre: String? = null,
+    @SerialName("track_number") val trackNumber: Int? = null,
+    @SerialName("disc_number") val discNumber: Int? = null,
+    @SerialName("backup_before_write") val backupBeforeWrite: Boolean = false,
+) {
+    fun hasAnyField() = title != null || artist != null || album != null ||
+        albumArtist != null || featuring != null || year != null ||
+        genre != null || trackNumber != null || discNumber != null
+}
+
 // Local model for grouping tracks by album
 data class AlbumGroup(
     val albumName: String,

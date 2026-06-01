@@ -2,6 +2,7 @@ package nl.muorg.android.data.repository
 
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.data.api.MetadataUpdateRequest
 import nl.muorg.android.data.api.MuorgApiService
 import nl.muorg.android.data.api.Stats
 import javax.inject.Inject
@@ -30,6 +31,11 @@ class LibraryRepository @Inject constructor(
 
     suspend fun getStreamToken(trackId: Int): Result<String> = runCatching {
         api.getStreamToken(trackId).token
+    }
+
+    suspend fun patchTrackMetadata(trackId: Int, update: MetadataUpdateRequest): Result<Unit> = runCatching {
+        api.patchTrackMetadata(trackId, update)
+        Unit
     }
 
     fun buildAlbumGroups(tracks: List<CatalogTrack>): List<AlbumGroup> {

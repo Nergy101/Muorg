@@ -59,7 +59,7 @@ import android.os.Build
 import android.view.ContextThemeWrapper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -157,7 +157,8 @@ fun PlayerScreen(
 
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
-    var volume by remember { mutableFloatStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()) }
+    var localVolume by remember { mutableFloatStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVolume.toFloat()) }
+    val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
 
     var sheetOpen by remember { mutableStateOf(false) }
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
@@ -172,10 +173,16 @@ fun PlayerScreen(
 
     val window = (context as? Activity)?.window
     if (window != null) {
-        SideEffect {
+        DisposableEffect(window) {
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            val prevLightStatus = insetsController.isAppearanceLightStatusBars
+            val prevLightNav = insetsController.isAppearanceLightNavigationBars
             insetsController.isAppearanceLightStatusBars = false
             insetsController.isAppearanceLightNavigationBars = false
+            onDispose {
+                insetsController.isAppearanceLightStatusBars = prevLightStatus
+                insetsController.isAppearanceLightNavigationBars = prevLightNav
+            }
         }
     }
 
@@ -186,6 +193,7 @@ fun PlayerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -480,17 +488,22 @@ fun PlayerScreen(
                             tint = Color.White.copy(alpha = 0.5f),
                             modifier = Modifier.size(18.dp),
                         )
+                        val displayVolume = if (isCasting) (castVolume ?: 0f) else localVolume
                         Slider(
-                            value = volume,
+                            value = displayVolume,
                             onValueChange = { newVol ->
-                                volume = newVol
-                                audioManager.setStreamVolume(
-                                    AudioManager.STREAM_MUSIC,
-                                    newVol.toInt(),
-                                    0,
-                                )
+                                if (isCasting) {
+                                    playerViewModel.setCastVolume(newVol)
+                                } else {
+                                    localVolume = newVol
+                                    audioManager.setStreamVolume(
+                                        AudioManager.STREAM_MUSIC,
+                                        (newVol * maxVolume).toInt(),
+                                        0,
+                                    )
+                                }
                             },
-                            valueRange = 0f..maxVolume.toFloat(),
+                            valueRange = 0f..1f,
                             colors = SliderDefaults.colors(
                                 thumbColor = controlColor.copy(alpha = 0.7f),
                                 activeTrackColor = controlColor.copy(alpha = 0.7f),

@@ -49,6 +49,7 @@ class PlayerViewModel @Inject constructor(
     val castVolume: StateFlow<Float?> = castManager.castVolume
 
     fun buildCastRouteSelector() = castManager.buildRouteSelector()
+    fun setCastVolume(value: Float) = castManager.setCastVolume(value)
 
     // When casting, mirror the Chromecast's playback state; otherwise use local ExoPlayer state.
     val playerState: StateFlow<PlayerState> = combine(
