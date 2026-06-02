@@ -105,6 +105,7 @@ jobs:
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: Muorg Android ${{ needs.version.outputs.tag }}
+          make_latest: false
           generate_release_notes: true
           files: dist/*.apk
         env:
