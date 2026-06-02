@@ -26,7 +26,7 @@ const stats = ref<LibraryStats>(statsFromTracks());
 onMounted(async () => {
   try {
     const s = await catalogApi.getStats();
-    stats.value = { track_count: s.total_tracks, artist_count: s.total_artists, album_count: s.total_albums, total_duration_secs: s.total_duration_secs };
+    stats.value = s;
   } catch {
     stats.value = statsFromTracks();
   }
