@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "nl.muorg.android"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "nl.muorg.android"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 21714
         versionName = "2.17.14"
 
