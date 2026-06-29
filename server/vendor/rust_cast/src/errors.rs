@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use openssl::error::ErrorStack;
 use openssl::ssl::HandshakeError;
 use protobuf::ProtobufError;
