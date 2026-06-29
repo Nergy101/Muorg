@@ -18,17 +18,6 @@ pub fn transcode_to_mp3(path: &str, start_secs: f32, tx: StreamTx) {
     }
 }
 
-/// Helper: pull the next packet, unwrapping the Option wrapper.
-fn next_packet(
-    format: &mut dyn symphonia::core::formats::FormatReader,
-) -> Result<Option<symphonia::core::packet::Packet>, symphonia::core::errors::Error> {
-    match format.next_packet() {
-        Ok(Some(p)) => Ok(Some(p)),
-        Ok(None) => Ok(None),
-        Err(e) => Err(e),
-    }
-}
-
 fn do_transcode(
     path: &str,
     start_secs: f32,
@@ -107,7 +96,7 @@ fn do_transcode(
             break;
         }
 
-        let packet = match next_packet(&mut *format) {
+        let packet = match format.next_packet() {
             Ok(Some(p)) => p,
             Ok(None) => break,
             Err(SymphoniaError::IoError(_)) | Err(SymphoniaError::ResetRequired) => break,

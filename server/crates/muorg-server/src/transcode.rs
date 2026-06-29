@@ -16,17 +16,6 @@ pub fn transcode_to_mp3(path: &str, start_secs: f32, tx: StreamTx) {
     }
 }
 
-/// Helper: pull the next packet, skipping the `Option` wrapper.
-fn next_packet(
-    format: &mut dyn symphonia::core::formats::FormatReader,
-) -> Result<Option<symphonia::core::packet::Packet>, symphonia::core::errors::Error> {
-    match format.next_packet() {
-        Ok(Some(p)) => Ok(Some(p)),
-        Ok(None) => Ok(None),
-        Err(e) => Err(e),
-    }
-}
-
 fn do_transcode(
     path: &str,
     start_secs: f32,
@@ -56,7 +45,6 @@ fn do_transcode(
         .clone();
 
     let track_id = track.id;
-    let time_base = track.time_base;
     let audio_params = track
         .codec_params
         .as_ref()
@@ -79,7 +67,7 @@ fn do_transcode(
 
         tracing::info!(path, start_secs, "seek requested");
 
-        let _seek_result = format.seek(
+        let _ = format.seek(
             SeekMode::Coarse,
             SeekTo::Time {
                 time: Time::try_from_secs_f64(target_secs).unwrap_or(Time::ZERO),
@@ -95,7 +83,7 @@ fn do_transcode(
         let mut skipped = 0u64;
         let mut found = None;
         loop {
-            let packet = match next_packet(&mut *format) {
+            let packet = match format.next_packet() {
                 Ok(Some(p)) => p,
                 Ok(None) => break,
                 Err(SymphoniaError::ResetRequired) => {
@@ -143,7 +131,7 @@ fn do_transcode(
         let packet = if let Some(p) = pending.take() {
             p
         } else {
-            match next_packet(&mut *format) {
+            match format.next_packet() {
                 Ok(Some(p)) => p,
                 Ok(None) => break,
                 Err(SymphoniaError::ResetRequired) => {
