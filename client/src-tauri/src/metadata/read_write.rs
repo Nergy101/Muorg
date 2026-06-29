@@ -80,16 +80,16 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         meta.artist = tag.artist().map(|s| s.to_string());
         meta.album = tag.album().map(|s| s.to_string());
         meta.album_artist = tag
-            .get_string(&lofty::tag::ItemKey::AlbumArtist)
+            .get_string(lofty::tag::ItemKey::AlbumArtist)
             .map(|s| s.to_string());
         // FEATURING is stored as a custom tag key ("FEATURING") across formats.
         if ext.as_deref() == Some("flac") {
             meta.featuring = tag
-                .get_string(&lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
+                .get_string(lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
                 .map(|s| s.to_string());
         } else if ext.as_deref() == Some("mp3") {
             meta.featuring = tag
-                .get_string(&lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
+                .get_string(lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
                 .map(|s| s.to_string());
         }
         meta.year = tag.year();
@@ -115,16 +115,16 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
             meta.picture_size_bytes = Some(pic.data().len() as u32);
         }
         meta.replaygain_track_gain_db = parse_replaygain_db(
-            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_TRACK_GAIN".to_string())),
+            tag.get_string(lofty::tag::ItemKey::Unknown("REPLAYGAIN_TRACK_GAIN".to_string())),
         );
         meta.replaygain_track_peak = parse_replaygain_plain(
-            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_TRACK_PEAK".to_string())),
+            tag.get_string(lofty::tag::ItemKey::Unknown("REPLAYGAIN_TRACK_PEAK".to_string())),
         );
         meta.replaygain_album_gain_db = parse_replaygain_db(
-            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_ALBUM_GAIN".to_string())),
+            tag.get_string(lofty::tag::ItemKey::Unknown("REPLAYGAIN_ALBUM_GAIN".to_string())),
         );
         meta.replaygain_album_peak = parse_replaygain_plain(
-            tag.get_string(&lofty::tag::ItemKey::Unknown("REPLAYGAIN_ALBUM_PEAK".to_string())),
+            tag.get_string(lofty::tag::ItemKey::Unknown("REPLAYGAIN_ALBUM_PEAK".to_string())),
         );
     }
 

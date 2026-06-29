@@ -259,7 +259,7 @@ pub fn compute_content_hash(path: &Path) -> Result<String, String> {
     let mut buf = Vec::with_capacity(TAIL_SIZE as usize);
     file.read_to_end(&mut buf).map_err(|e| e.to_string())?;
     hasher.update(&buf);
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect())
 }
 
 /// Update only the content_hash column for an existing track (looked up by path).

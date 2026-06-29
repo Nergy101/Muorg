@@ -70,15 +70,15 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         meta.artist = tag.artist().map(|s| s.to_string());
         meta.album = tag.album().map(|s| s.to_string());
         meta.album_artist = tag
-            .get_string(&lofty::tag::ItemKey::AlbumArtist)
+            .get_string(lofty::tag::ItemKey::AlbumArtist)
             .map(|s| s.to_string());
         if ext.as_deref() == Some("flac") {
             meta.featuring = tag
-                .get_string(&lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
+                .get_string(lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
                 .map(|s| s.to_string());
         } else if ext.as_deref() == Some("mp3") {
             meta.featuring = tag
-                .get_string(&lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
+                .get_string(lofty::tag::ItemKey::Unknown("FEATURING".to_string()))
                 .map(|s| s.to_string());
         }
         meta.year = tag.year();
