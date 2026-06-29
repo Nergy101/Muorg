@@ -92,7 +92,7 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
                 .and_then(|k| tag.get_string(k))
                 .map(|s| s.to_string());
         }
-        meta.year = tag.date().map(|d| d.year());
+        meta.year = tag.date().map(|d| d.year);
         if meta.year.is_none() && ext.as_deref() == Some("mp3") {
             // Fallback for MP3 files where Lofty doesn't surface year from legacy ID3 frames.
             if let Ok(id3_tag) = id3::Tag::read_from_path(path) {
@@ -320,28 +320,34 @@ fn write_metadata_flac(path: &Path, update: &MetadataUpdate) -> Result<(), Strin
     if let Some(v) = &update.title {
         match v {
             Some(t) => tag.set_title(t.clone()),
-            None => tag.remove_key(&lofty::tag::ItemKey::TrackTitle),
+            None => tag.remove_key(lofty::tag::ItemKey::TrackTitle),
         }
     }
     if let Some(v) = &update.artist {
         match v {
             Some(a) => tag.set_artist(a.clone()),
-            None => tag.remove_key(&lofty::tag::ItemKey::TrackArtist),
+            None => tag.remove_key(lofty::tag::ItemKey::TrackArtist),
         }
     }
     if let Some(v) = &update.album {
         match v {
             Some(a) => tag.set_album(a.clone()),
-            None => tag.remove_key(&lofty::tag::ItemKey::AlbumTitle),
+            None => tag.remove_key(lofty::tag::ItemKey::AlbumTitle),
         }
     }
     if let Some(v) = &update.featuring {
-        let key = lofty::tag::ItemKey::Unknown("FEATURING".to_string());
+        let key = lofty::tag::ItemKey::from_key(tag.tag_type(), "FEATURING");
         match v {
             Some(f) => {
-                tag.insert_text(key, f.clone());
+                if let Some(k) = key {
+                    tag.insert_text(k, f.clone());
+                }
             }
-            None => tag.remove_key(&key),
+            None => {
+                if let Some(k) = key {
+                    tag.remove_key(k);
+                }
+            }
         }
     }
     if let Some(v) = &update.album_artist {
@@ -349,31 +355,31 @@ fn write_metadata_flac(path: &Path, update: &MetadataUpdate) -> Result<(), Strin
             Some(a) => {
                 tag.insert_text(lofty::tag::ItemKey::AlbumArtist, a.clone());
             }
-            None => tag.remove_key(&lofty::tag::ItemKey::AlbumArtist),
+            None => tag.remove_key(lofty::tag::ItemKey::AlbumArtist),
         }
     }
     if let Some(v) = update.year {
         match v {
-            Some(y) => tag.set_year(y),
-            None => tag.remove_key(&lofty::tag::ItemKey::Year),
+            Some(y) => tag.set_date(lofty::tag::items::Timestamp { year: y as u16, month: None, day: None, hour: None, minute: None, second: None }),
+            None => tag.remove_key(lofty::tag::ItemKey::Year),
         }
     }
     if let Some(v) = &update.genre {
         match v {
             Some(g) => tag.set_genre(g.clone()),
-            None => tag.remove_key(&lofty::tag::ItemKey::Genre),
+            None => tag.remove_key(lofty::tag::ItemKey::Genre),
         }
     }
     if let Some(v) = update.track_number {
         match v {
             Some(t) => tag.set_track(t),
-            None => tag.remove_key(&lofty::tag::ItemKey::TrackNumber),
+            None => tag.remove_key(lofty::tag::ItemKey::TrackNumber),
         }
     }
     if let Some(v) = update.disc_number {
         match v {
             Some(d) => tag.set_disk(d),
-            None => tag.remove_key(&lofty::tag::ItemKey::DiscNumber),
+            None => tag.remove_key(lofty::tag::ItemKey::DiscNumber),
         }
     }
     if let Some(v) = &update.picture_base64 {

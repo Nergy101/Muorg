@@ -91,6 +91,9 @@ androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", v
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
+# Error Prone (required by Hilt/Dagger generated code with AGP 9.x)
+errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version = "2.36.0" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -110,4 +110,7 @@ dependencies {
 
     // Local HTTP server for Chromecast streaming of local files
     implementation(libs.nanohttpd)
+
+    // Error Prone (required by Hilt/Dagger generated code with AGP 9.x)
+    compileOnly(libs.errorprone.annotations)
 }
