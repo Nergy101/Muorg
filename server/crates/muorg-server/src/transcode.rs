@@ -1,12 +1,11 @@
 use bytes::Bytes;
 use mp3lame_encoder::{Builder, DualPcm, FlushNoGap};
-use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
+use symphonia::core::codecs::audio::{AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
+use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 use symphonia::core::units::Time;
 
 type StreamTx = tokio::sync::mpsc::Sender<Result<Bytes, Box<dyn std::error::Error + Send + Sync>>>;
@@ -37,7 +36,7 @@ fn do_transcode(
     let track = format
         .tracks()
         .iter()
-        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+        .find(|t| t.codec_params.codec != CODEC_ID_NULL_AUDIO)
         .ok_or("No audio track found")?
         .clone();
 
@@ -51,7 +50,7 @@ fn do_transcode(
         .min(2);
 
     let mut decoder =
-        symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
+        symphonia::default::get_codecs().make(&track.codec_params, &AudioDecoderOptions::default())?;
 
     // Seek to start_secs and return the first packet that covers the target timestamp.
     // We carry this packet into the encode loop rather than discarding it — for seeks
@@ -67,7 +66,7 @@ fn do_transcode(
         let seek_actual = format
             .seek(
                 SeekMode::Coarse,
-                SeekTo::Time { time: Time::from(target_secs), track_id: Some(track_id) },
+                SeekTo::Time { time: Time::try_from_secs_f64(target_secs).unwrap_or(Time::ZERO), track_id: Some(track_id) },
             )
             .map(|s| s.actual_ts)
             .unwrap_or(u64::MAX);
@@ -76,7 +75,7 @@ fn do_transcode(
             tracing::warn!(path, target_ts, "coarse seek failed — scanning from start");
         } else if seek_actual > target_ts {
             tracing::warn!(path, seek_actual, target_ts, "coarse seek overshot — rewinding");
-            let _ = format.seek(SeekMode::Coarse, SeekTo::TimeStamp { ts: 0, track_id });
+            let _ = format.seek(SeekMode::Coarse, SeekTo::Time { time: Time::ZERO, track_id: Some(track_id) });
         } else {
             tracing::info!(path, seek_actual, target_ts, "coarse seek ok");
         }
@@ -134,9 +133,8 @@ fn do_transcode(
         };
 
         let spec = *decoded.spec();
-        let mut buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
-        buf.copy_interleaved_ref(decoded);
-        let samples = buf.samples();
+        let mut samples: Vec<f32> = Vec::new();
+        decoded.copy_to_vec_interleaved(&mut samples);
 
         let mut mp3_buf: Vec<u8> = Vec::new();
         let n_per_channel = samples.len() / channels.max(1) as usize;
