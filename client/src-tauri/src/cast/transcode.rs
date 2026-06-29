@@ -26,14 +26,12 @@ fn do_transcode(
     let file = std::fs::File::open(path)?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
-    let probed = symphonia::default::get_probe().format(
+    let mut format = symphonia::default::get_probe().probe(
         &Hint::new(),
         mss,
-        &FormatOptions::default(),
-        &MetadataOptions::default(),
+        FormatOptions::default(),
+        MetadataOptions::default(),
     )?;
-
-    let mut format = probed.format;
 
     let track = format
         .tracks()
@@ -52,7 +50,7 @@ fn do_transcode(
         .min(2); // LAME handles up to stereo
 
     let mut decoder =
-        symphonia::default::get_codecs().make(&track.codec_params, &AudioDecoderOptions::default())?;
+        symphonia::default::get_codecs().make_audio_decoder(&track.codec_params, &AudioDecoderOptions::default())?;
 
     if start_secs > 0.0 {
         let _ = format.seek(
