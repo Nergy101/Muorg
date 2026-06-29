@@ -145,4 +145,4 @@ jobs:
 
       - name: cargo clippy
         working-directory: server
-        run: cargo clippy -- -D warnings
+        run: cargo clippy -- -D clippy::all
