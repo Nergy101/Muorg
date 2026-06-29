@@ -34,21 +34,31 @@ fn do_transcode(
     let track = format
         .tracks()
         .iter()
-        .find(|t| t.codec_params.codec != CODEC_ID_NULL_AUDIO)
+        .find(|t| {
+            t.codec_params
+                .as_ref()
+                .and_then(|p| p.audio())
+                .map(|a| a.codec_id != CODEC_ID_NULL_AUDIO)
+                .unwrap_or(false)
+        })
         .ok_or("No audio track found")?
         .clone();
 
     let track_id = track.id;
-    let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
-    let channels = track
+    let audio_params = track
         .codec_params
+        .as_ref()
+        .and_then(|p| p.audio())
+        .ok_or("No audio codec parameters")?;
+    let sample_rate = audio_params.sample_rate.unwrap_or(44100);
+    let channels = audio_params
         .channels
         .map(|c| c.count() as u8)
         .unwrap_or(2)
         .min(2);
 
-    let mut decoder =
-        symphonia::default::get_codecs().make_audio_decoder(&track.codec_params, &AudioDecoderOptions::default())?;
+    let mut decoder = symphonia::default::get_codecs()
+        .make_audio_decoder(audio_params, &AudioDecoderOptions::default())?;
 
     // Seek to start_secs and return the first packet that covers the target timestamp.
     // We carry this packet into the encode loop rather than discarding it — for seeks
@@ -56,7 +66,7 @@ fn do_transcode(
     // would leave the encoder with nothing to send.
     let first_seek_packet = if start_secs > 0.0 {
         let target_secs = start_secs as f64;
-        let sample_rate_f = track.codec_params.sample_rate.unwrap_or(44100) as f64;
+        let sample_rate_f = sample_rate as f64;
         let target_ts = (target_secs * sample_rate_f) as u64;
 
         tracing::info!(path, start_secs, target_ts, "seek requested");
