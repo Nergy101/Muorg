@@ -170,7 +170,7 @@ fn backup_file_name(path: &str) -> Result<String, String> {
         .as_secs();
     let mut hasher = Sha256::new();
     hasher.update(path.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
+    let hash = hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect::<String>();
     let ext = Path::new(path)
         .extension()
         .and_then(|e| e.to_str())
@@ -210,7 +210,7 @@ fn latest_backup_path(app: &tauri::AppHandle, path: &str) -> Result<Option<Strin
     entries.sort_by_key(|e| e.file_name());
     let mut hasher = Sha256::new();
     hasher.update(path.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
+    let hash = hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect::<String>();
     let needle = &hash[..12];
     for entry in entries.into_iter().rev() {
         let name = entry.file_name().to_string_lossy().to_string();
