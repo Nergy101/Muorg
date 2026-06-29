@@ -81,7 +81,7 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
                 .and_then(|k| tag.get_string(k))
                 .map(|s| s.to_string());
         }
-        meta.year = tag.date().map(|d| d.year);
+        meta.year = tag.date().map(|d| d.year as u32);
         if meta.year.is_none() && ext.as_deref() == Some("mp3") {
             if let Ok(id3_tag) = id3::Tag::read_from_path(path) {
                 if let Some(y) = id3_tag.year() {
@@ -351,12 +351,10 @@ fn write_metadata_flac(path: &Path, update: &MetadataUpdate) -> Result<(), Strin
             if !b64.is_empty() {
                 match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64) {
                     Ok(data) => {
-                        let picture = lofty::picture::Picture::new_unchecked(
-                            PictureType::CoverFront,
-                            Some(lofty::picture::MimeType::Jpeg),
-                            None,
-                            data,
-                        );
+                        let picture = lofty::picture::Picture::unchecked(data)
+                            .pic_type(PictureType::CoverFront)
+                            .mime_type(lofty::picture::MimeType::Jpeg)
+                            .build();
                         tag.push_picture(picture);
                     }
                     Err(_) => return Err("Invalid base64 for picture".to_string()),
