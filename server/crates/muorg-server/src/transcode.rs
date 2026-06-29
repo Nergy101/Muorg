@@ -16,6 +16,17 @@ pub fn transcode_to_mp3(path: &str, start_secs: f32, tx: StreamTx) {
     }
 }
 
+/// Helper: pull the next packet, skipping the `Option` wrapper.
+fn next_packet(
+    format: &mut dyn symphonia::core::formats::FormatReader,
+) -> Result<Option<symphonia::core::packet::Packet>, symphonia::core::errors::Error> {
+    match format.next_packet() {
+        Ok(Some(p)) => Ok(Some(p)),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 fn do_transcode(
     path: &str,
     start_secs: f32,
@@ -62,31 +73,18 @@ fn do_transcode(
         .make_audio_decoder(audio_params, &AudioDecoderOptions::default())?;
 
     // Seek to start_secs and return the first packet that covers the target timestamp.
-    // We carry this packet into the encode loop rather than discarding it — for seeks
-    // near the end of a file, the target packet may be the last one, so discarding it
-    // would leave the encoder with nothing to send.
     let first_seek_packet = if start_secs > 0.0 {
         let target_secs = start_secs as f64;
 
         tracing::info!(path, start_secs, "seek requested");
 
-        let seek_actual = format
-            .seek(
-                SeekMode::Coarse,
-                SeekTo::Time {
-                    time: Time::try_from_secs_f64(target_secs).unwrap_or(Time::ZERO),
-                    track_id: Some(track_id),
-                },
-            )
-            .map(|s| s.actual_ts);
-
-        if let Ok(actual) = seek_actual {
-            // Convert timestamp to seconds for logging
-            if let Some(tb) = time_base {
-                let actual_secs = tb.calc_time(actual);
-                tracing::info!(path, actual_secs = %actual_secs, "seek completed");
-            }
-        }
+        let _seek_result = format.seek(
+            SeekMode::Coarse,
+            SeekTo::Time {
+                time: Time::try_from_secs_f64(target_secs).unwrap_or(Time::ZERO),
+                track_id: Some(track_id),
+            },
+        );
 
         // Use a timestamp-based target for packet scanning
         let sample_rate_f = sample_rate as f64;
@@ -96,8 +94,9 @@ fn do_transcode(
         let mut skipped = 0u64;
         let mut found = None;
         loop {
-            let packet = match format.next_packet() {
-                Ok(p) => p,
+            let packet = match next_packet(&mut *format) {
+                Ok(Some(p)) => p,
+                Ok(None) => break,
                 Err(SymphoniaError::ResetRequired) => {
                     decoder.reset();
                     continue;
@@ -143,8 +142,9 @@ fn do_transcode(
         let packet = if let Some(p) = pending.take() {
             p
         } else {
-            match format.next_packet() {
-                Ok(p) => p,
+            match next_packet(&mut *format) {
+                Ok(Some(p)) => p,
+                Ok(None) => break,
                 Err(SymphoniaError::ResetRequired) => {
                     decoder.reset();
                     continue;
@@ -168,7 +168,7 @@ fn do_transcode(
             Err(_) => break,
         };
 
-        let spec = *decoded.spec();
+        let _spec = *decoded.spec();
         let mut samples: Vec<f32> = Vec::new();
         decoded.copy_to_vec_interleaved(&mut samples);
 
