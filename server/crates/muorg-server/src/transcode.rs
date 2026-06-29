@@ -6,7 +6,7 @@ use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::units::Time;
+use symphonia::core::units::{Time, TimeBase};
 
 type StreamTx = tokio::sync::mpsc::Sender<Result<Bytes, Box<dyn std::error::Error + Send + Sync>>>;
 
@@ -38,13 +38,14 @@ fn do_transcode(
             t.codec_params
                 .as_ref()
                 .and_then(|p| p.audio())
-                .map(|a| a.codec_id != CODEC_ID_NULL_AUDIO)
+                .map(|a| a.codec != CODEC_ID_NULL_AUDIO)
                 .unwrap_or(false)
         })
         .ok_or("No audio track found")?
         .clone();
 
     let track_id = track.id;
+    let time_base = track.time_base;
     let audio_params = track
         .codec_params
         .as_ref()
@@ -66,77 +67,104 @@ fn do_transcode(
     // would leave the encoder with nothing to send.
     let first_seek_packet = if start_secs > 0.0 {
         let target_secs = start_secs as f64;
-        let sample_rate_f = sample_rate as f64;
-        let target_ts = (target_secs * sample_rate_f) as u64;
 
-        tracing::info!(path, start_secs, target_ts, "seek requested");
+        tracing::info!(path, start_secs, "seek requested");
 
         let seek_actual = format
             .seek(
                 SeekMode::Coarse,
-                SeekTo::Time { time: Time::try_from_secs_f64(target_secs).unwrap_or(Time::ZERO), track_id: Some(track_id) },
+                SeekTo::Time {
+                    time: Time::try_from_secs_f64(target_secs).unwrap_or(Time::ZERO),
+                    track_id: Some(track_id),
+                },
             )
-            .map(|s| s.actual_ts)
-            .unwrap_or(u64::MAX);
+            .map(|s| s.actual_ts);
 
-        if seek_actual == u64::MAX {
-            tracing::warn!(path, target_ts, "coarse seek failed — scanning from start");
-        } else if seek_actual > target_ts {
-            tracing::warn!(path, seek_actual, target_ts, "coarse seek overshot — rewinding");
-            let _ = format.seek(SeekMode::Coarse, SeekTo::Time { time: Time::ZERO, track_id: Some(track_id) });
-        } else {
-            tracing::info!(path, seek_actual, target_ts, "coarse seek ok");
+        if let Ok(actual) = seek_actual {
+            // Convert timestamp to seconds for logging
+            if let Some(tb) = time_base {
+                let actual_secs = tb.calc_time(actual);
+                tracing::info!(path, actual_secs = %actual_secs, "seek completed");
+            }
         }
+
+        // Use a timestamp-based target for packet scanning
+        let sample_rate_f = sample_rate as f64;
+        let target_ts_val = (target_secs * sample_rate_f) as i64;
+        let target_ts = symphonia::core::units::Timestamp::from(target_ts_val);
 
         let mut skipped = 0u64;
         let mut found = None;
         loop {
             let packet = match format.next_packet() {
                 Ok(p) => p,
-                Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
+                Err(SymphoniaError::ResetRequired) => {
+                    decoder.reset();
+                    continue;
+                }
                 Err(_) => break,
             };
-            if packet.track_id() != track_id { continue; }
-            if packet.ts().saturating_add(packet.dur()) >= target_ts {
+            if packet.track_id != track_id {
+                continue;
+            }
+            if packet.pts.saturating_add(packet.dur) >= target_ts {
                 found = Some(packet);
                 break;
             }
             skipped += 1;
         }
-        tracing::info!(path, skipped_packets = skipped, target_ts, "fine-skip done");
+        tracing::info!(path, skipped_packets = skipped, "fine-skip done");
         found
     } else {
         None
     };
 
     let mut builder = Builder::new().ok_or("Failed to create LAME builder")?;
-    builder.set_num_channels(channels).map_err(|e| format!("{e:?}"))?;
-    builder.set_sample_rate(sample_rate).map_err(|e| format!("{e:?}"))?;
-    builder.set_brate(mp3lame_encoder::Bitrate::Kbps128).map_err(|e| format!("{e:?}"))?;
-    builder.set_quality(mp3lame_encoder::Quality::Good).map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_num_channels(channels)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_sample_rate(sample_rate)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_brate(mp3lame_encoder::Bitrate::Kbps128)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_quality(mp3lame_encoder::Quality::Good)
+        .map_err(|e| format!("{e:?}"))?;
     let mut encoder = builder.build().map_err(|e| format!("{e:?}"))?;
 
     let mut pending = first_seek_packet;
     loop {
-        if tx.is_closed() { break; }
+        if tx.is_closed() {
+            break;
+        }
 
         let packet = if let Some(p) = pending.take() {
             p
         } else {
             match format.next_packet() {
                 Ok(p) => p,
-                Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
+                Err(SymphoniaError::ResetRequired) => {
+                    decoder.reset();
+                    continue;
+                }
                 Err(SymphoniaError::IoError(_)) => break,
                 Err(_) => break,
             }
         };
 
-        if packet.track_id() != track_id { continue; }
+        if packet.track_id != track_id {
+            continue;
+        }
 
         let decoded = match decoder.decode(&packet) {
             Ok(d) => d,
             Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(SymphoniaError::ResetRequired) => { decoder.reset(); continue; }
+            Err(SymphoniaError::ResetRequired) => {
+                decoder.reset();
+                continue;
+            }
             Err(_) => break,
         };
 
@@ -151,11 +179,13 @@ fn do_transcode(
         let n = if channels == 2 {
             let left: Vec<f32> = samples.iter().step_by(2).copied().collect();
             let right: Vec<f32> = samples.iter().skip(1).step_by(2).copied().collect();
-            encoder.encode_to_vec(DualPcm { left: &left, right: &right }, &mut mp3_buf)
+            encoder
+                .encode_to_vec(DualPcm { left: &left, right: &right }, &mut mp3_buf)
                 .map_err(|e| format!("{e:?}"))?
         } else {
             let mono: Vec<f32> = samples.to_vec();
-            encoder.encode_to_vec(DualPcm { left: &mono, right: &mono }, &mut mp3_buf)
+            encoder
+                .encode_to_vec(DualPcm { left: &mono, right: &mono }, &mut mp3_buf)
                 .map_err(|e| format!("{e:?}"))?
         };
 
@@ -165,7 +195,9 @@ fn do_transcode(
     }
 
     let mut flush_buf: Vec<u8> = Vec::with_capacity(7200);
-    let n = encoder.flush_to_vec::<FlushNoGap>(&mut flush_buf).map_err(|e| format!("{e:?}"))?;
+    let n = encoder
+        .flush_to_vec::<FlushNoGap>(&mut flush_buf)
+        .map_err(|e| format!("{e:?}"))?;
     if n > 0 {
         let _ = tx.blocking_send(Ok(Bytes::copy_from_slice(&flush_buf)));
     }

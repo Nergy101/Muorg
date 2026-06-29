@@ -2,7 +2,7 @@ use bytes::Bytes;
 use mp3lame_encoder::{Builder, DualPcm, FlushNoGap};
 use symphonia::core::codecs::audio::{AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
 use symphonia::core::errors::Error as SymphoniaError;
-use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
+use symphonia::core::formats::{FormatOptions, SeekTo};
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
@@ -40,7 +40,7 @@ fn do_transcode(
             t.codec_params
                 .as_ref()
                 .and_then(|p| p.audio())
-                .map(|a| a.codec_id != CODEC_ID_NULL_AUDIO)
+                .map(|a| a.codec != CODEC_ID_NULL_AUDIO)
                 .unwrap_or(false)
         })
         .ok_or("No audio track found")?
@@ -64,7 +64,7 @@ fn do_transcode(
 
     if start_secs > 0.0 {
         let _ = format.seek(
-            SeekMode::Coarse,
+            symphonia::core::formats::SeekMode::Coarse,
             SeekTo::Time {
                 time: Time::try_from_secs_f64(start_secs as f64).unwrap_or(Time::ZERO),
                 track_id: None,
@@ -75,10 +75,18 @@ fn do_transcode(
 
     // Build LAME encoder
     let mut builder = Builder::new().ok_or("Failed to create LAME builder")?;
-    builder.set_num_channels(channels).map_err(|e| format!("{e:?}"))?;
-    builder.set_sample_rate(sample_rate).map_err(|e| format!("{e:?}"))?;
-    builder.set_brate(mp3lame_encoder::Bitrate::Kbps128).map_err(|e| format!("{e:?}"))?;
-    builder.set_quality(mp3lame_encoder::Quality::Good).map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_num_channels(channels)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_sample_rate(sample_rate)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_brate(mp3lame_encoder::Bitrate::Kbps128)
+        .map_err(|e| format!("{e:?}"))?;
+    builder
+        .set_quality(mp3lame_encoder::Quality::Good)
+        .map_err(|e| format!("{e:?}"))?;
     let mut encoder = builder.build().map_err(|e| format!("{e:?}"))?;
 
     loop {
@@ -93,7 +101,7 @@ fn do_transcode(
             Err(_) => break,
         };
 
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 
@@ -114,11 +122,13 @@ fn do_transcode(
         let n = if channels == 2 {
             let left: Vec<f32> = samples.iter().step_by(2).copied().collect();
             let right: Vec<f32> = samples.iter().skip(1).step_by(2).copied().collect();
-            encoder.encode_to_vec(DualPcm { left: &left, right: &right }, &mut mp3_buf)
+            encoder
+                .encode_to_vec(DualPcm { left: &left, right: &right }, &mut mp3_buf)
                 .map_err(|e| format!("{e:?}"))?
         } else {
             let mono: Vec<f32> = samples.to_vec();
-            encoder.encode_to_vec(DualPcm { left: &mono, right: &mono }, &mut mp3_buf)
+            encoder
+                .encode_to_vec(DualPcm { left: &mono, right: &mono }, &mut mp3_buf)
                 .map_err(|e| format!("{e:?}"))?
         };
 
@@ -129,7 +139,9 @@ fn do_transcode(
 
     // Flush remaining MP3 frames
     let mut flush_buf: Vec<u8> = Vec::with_capacity(7200);
-    let n = encoder.flush_to_vec::<FlushNoGap>(&mut flush_buf).map_err(|e| format!("{e:?}"))?;
+    let n = encoder
+        .flush_to_vec::<FlushNoGap>(&mut flush_buf)
+        .map_err(|e| format!("{e:?}"))?;
     if n > 0 {
         let _ = tx.blocking_send(Ok(Bytes::copy_from_slice(&flush_buf)));
     }
