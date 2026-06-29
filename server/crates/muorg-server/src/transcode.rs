@@ -6,7 +6,7 @@ use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::units::{Time, TimeBase};
+use symphonia::core::units::Time;
 
 type StreamTx = tokio::sync::mpsc::Sender<Result<Bytes, Box<dyn std::error::Error + Send + Sync>>>;
 
@@ -65,6 +65,7 @@ fn do_transcode(
     let sample_rate = audio_params.sample_rate.unwrap_or(44100);
     let channels = audio_params
         .channels
+        .clone()
         .map(|c| c.count() as u8)
         .unwrap_or(2)
         .min(2);
@@ -168,7 +169,6 @@ fn do_transcode(
             Err(_) => break,
         };
 
-        let _spec = *decoded.spec();
         let mut samples: Vec<f32> = Vec::new();
         decoded.copy_to_vec_interleaved(&mut samples);
 

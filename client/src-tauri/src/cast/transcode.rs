@@ -66,6 +66,7 @@ fn do_transcode(
     let sample_rate = audio_params.sample_rate.unwrap_or(44100);
     let channels = audio_params
         .channels
+        .clone()
         .map(|c| c.count() as u8)
         .unwrap_or(2)
         .min(2); // LAME handles up to stereo
@@ -123,7 +124,6 @@ fn do_transcode(
             Err(_) => break,
         };
 
-        let _spec = *decoded.spec();
         let mut samples: Vec<f32> = Vec::new();
         decoded.copy_to_vec_interleaved(&mut samples);
 
