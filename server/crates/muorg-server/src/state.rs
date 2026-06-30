@@ -43,6 +43,7 @@ impl StreamTokens {
 pub struct AppState {
     pub catalog: Arc<Catalog>,
     pub backup_dir: PathBuf,
+    pub backup_retention_count: usize,
     pub api_key: String,
     pub tokens: StreamTokens,
     pub server_port: u16,
@@ -54,6 +55,7 @@ impl AppState {
     pub fn new(
         catalog: Arc<Catalog>,
         backup_dir: PathBuf,
+        backup_retention_count: usize,
         api_key: String,
         server_port: u16,
     ) -> Self {
@@ -62,6 +64,7 @@ impl AppState {
         Self {
             catalog,
             backup_dir,
+            backup_retention_count,
             api_key,
             tokens: StreamTokens::new(),
             server_port,

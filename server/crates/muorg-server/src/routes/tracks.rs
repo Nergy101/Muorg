@@ -71,6 +71,8 @@ pub async fn patch_metadata(
         let backup_path_str = backup::create_backup(&state.backup_dir, &track_path)?;
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
         muorg_core::catalog::record_track_backup(&conn, &track_path, &backup_path_str)?;
+        // Prune old backups for this source file
+        let _ = backup::gc_old_backups(&state.backup_dir, state.backup_retention_count);
     }
 
     muorg_core::metadata::write_metadata(path::Path::new(&track_path), &body.update)?;

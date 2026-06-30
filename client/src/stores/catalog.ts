@@ -528,13 +528,29 @@ export const useCatalogStore = defineStore("catalog", {
     async undo() {
       const entry = this.undoStack.pop();
       if (!entry) return;
-      this.redoStack = [...this.redoStack, entry];
+      // Capture current state of affected tracks so redo can restore it
+      const currentPaths = entry.snapshots.map((s) => s.path);
+      const redoSnapshots = this._buildSnapshots(currentPaths);
+      if (redoSnapshots.length > 0) {
+        this.redoStack = [
+          ...this.redoStack.slice(-(50 - 1)),
+          { description: entry.description, snapshots: redoSnapshots },
+        ];
+      }
       await this._applySnapshots(entry);
     },
     async redo() {
       const entry = this.redoStack.pop();
       if (!entry) return;
-      this.undoStack = [...this.undoStack, entry];
+      // Capture current state of affected tracks so undo can restore it
+      const currentPaths = entry.snapshots.map((s) => s.path);
+      const undoSnapshots = this._buildSnapshots(currentPaths);
+      if (undoSnapshots.length > 0) {
+        this.undoStack = [
+          ...this.undoStack.slice(-(50 - 1)),
+          { description: entry.description, snapshots: undoSnapshots },
+        ];
+      }
       await this._applySnapshots(entry);
     },
     /** Bulk write with per-track custom updates. Pushes a single undo entry. */

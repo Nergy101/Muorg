@@ -1,6 +1,64 @@
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
+/// Extract the 12-char source-file hash from a backup filename like `12345-a1b2c3d4e5f6.mp3`.
+fn hash_from_filename(name: &str) -> Option<String> {
+    // Format: {timestamp}-{hash[..12]}.{ext}
+    let dash = name.find('-')?;
+    let rest = name.get(dash + 1..)?;
+    let dot = rest.rfind('.')?;
+    let hash_part = rest.get(..dot)?;
+    if hash_part.len() == 12 && hash_part.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(hash_part.to_string())
+    } else {
+        None
+    }
+}
+
+/// Remove old backups beyond the retention limit.
+/// Groups backups by their source-file hash (embedded in the filename)
+/// and keeps only the `retain` most recent entries per group.
+pub fn gc_old_backups(backup_dir: &Path, retain: usize) -> Result<usize, String> {
+    if retain == 0 || !backup_dir.exists() {
+        return Ok(0);
+    }
+    let dir_entries = std::fs::read_dir(backup_dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
+        .collect::<Vec<_>>();
+
+    // Group by source-file hash
+    let mut by_hash: std::collections::HashMap<String, Vec<(std::time::SystemTime, PathBuf)>> =
+        std::collections::HashMap::new();
+    for entry in &dir_entries {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(hash) = hash_from_filename(&name) {
+            if let Ok(meta) = entry.metadata() {
+                if let Ok(created) = meta.created() {
+                    by_hash.entry(hash).or_default().push((created, entry.path()));
+                }
+            }
+        }
+    }
+
+    let mut removed = 0;
+    for (_hash, mut entries) in by_hash {
+        if entries.len() <= retain {
+            continue;
+        }
+        // Sort newest-first by creation time
+        entries.sort_by(|a, b| b.0.cmp(&a.0));
+        // Remove all beyond the retention limit
+        for (_, path) in entries.iter().skip(retain) {
+            if std::fs::remove_file(path).is_ok() {
+                removed += 1;
+            }
+        }
+    }
+    Ok(removed)
+}
+
 pub fn backup_file_name(path: &str) -> Result<String, String> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

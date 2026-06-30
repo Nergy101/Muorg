@@ -6,6 +6,8 @@ import { useSettingsStore } from "../../stores/settings";
 import type { MetadataUpdate, TrackMetadataRead, TrackBackupRecord } from "../../types";
 import { extractBestFromPath, PATH_FIELD_MAP, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import { readFile } from "@tauri-apps/plugin-fs";
+import { open } from "@tauri-apps/plugin-shell";
+import { confirm as tauriConfirm } from "@tauri-apps/plugin-dialog";
 import * as catalogApi from "../../api/catalog";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import StarRating from "../shared/StarRating.vue";
@@ -826,9 +828,58 @@ async function save() {
     await nextTick();
     syncFromTracks();
   } catch (e) {
-    saveError.value = e instanceof Error ? e.message : String(e);
+    const msg = e instanceof Error ? e.message : String(e);
+    // If backup failed and backups are enabled, offer to retry without backup
+    if (
+      settingsStore.backupBeforeWrite &&
+      (msg.toLowerCase().includes("backup") || msg.includes("permission denied") || msg.includes("read-only"))
+    ) {
+      const shouldRetry = await showBackupFailDialog(msg);
+      if (shouldRetry) {
+        // Retry save without backup
+        saving.value = true;
+        saveError.value = null;
+        try {
+          const prev = settingsStore.backupBeforeWrite;
+          settingsStore.setBackupBeforeWrite(false);
+          const update = buildUpdate();
+          if (tracks.length > 1) {
+            await store.writeMetadataBulk(
+              tracks.map((t) => t.path),
+              update,
+            );
+          } else {
+            await store.writeMetadata(tracks[0].path, update);
+          }
+          settingsStore.setBackupBeforeWrite(prev);
+          clearCoverRequested.value = false;
+          await nextTick();
+          syncFromTracks();
+        } catch (e2) {
+          saveError.value = e2 instanceof Error ? e2.message : String(e2);
+        }
+      } else {
+        saveError.value = msg;
+      }
+    } else {
+      saveError.value = msg;
+    }
   } finally {
     saving.value = false;
+  }
+}
+
+/**
+ * Show a cross-platform confirm dialog for backup failures.
+ * Returns true if user wants to continue without backup.
+ */
+async function showBackupFailDialog(msg: string): Promise<boolean> {
+  const text = `Backup failed before saving metadata.\n\n${msg}\n\nContinue saving without backup?`;
+  try {
+    return await tauriConfirm(text, { title: "Backup Failed", kind: "warning" });
+  } catch {
+    // Fallback for web/mock mode
+    return window.confirm(text);
   }
 }
 
@@ -846,6 +897,15 @@ async function restoreLatestBackup() {
     saveError.value = e instanceof Error ? e.message : String(e);
   } finally {
     saving.value = false;
+  }
+}
+
+async function openBackupFolder() {
+  try {
+    const path = await catalogApi.getBackupDir();
+    await open(path);
+  } catch (e) {
+    saveError.value = `Failed to open backup folder: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
 
@@ -1303,6 +1363,14 @@ async function applyFromOtherTracks() {
                   : "Save to files"
             }}
           </button>
+          <span
+            class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs"
+            :class="settingsStore.backupBeforeWrite ? 'text-emerald-400' : 'text-stone-500'"
+            :title="settingsStore.backupBeforeWrite ? 'Backups enabled — file copies are created before each save' : 'Backups disabled — enable in Library Settings'"
+          >
+            <FeatherIcon :name="settingsStore.backupBeforeWrite ? 'lock' : 'unlock'" class="h-3 w-3" />
+            {{ settingsStore.backupBeforeWrite ? 'Backups ON' : 'Backups OFF' }}
+          </span>
           <button
             type="button"
             class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-50 disabled:pointer-events-none"
@@ -1344,6 +1412,16 @@ async function applyFromOtherTracks() {
           >
             <FeatherIcon name="rotate-ccw" class="h-4 w-4 shrink-0" />
             Restore backup
+          </button>
+          <button
+            v-if="selectedTracks.length === 1"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            title="Open backup folder in file manager"
+            @click="openBackupFolder"
+          >
+            <FeatherIcon name="folder" class="h-4 w-4 shrink-0" />
+            Backups folder
           </button>
           <template v-if="pathFormatTemplates.some(t => t.trim()) && selectedTracks.length">
             <span class="ml-1 border-l border-stone-600 pl-2" aria-hidden="true" />

@@ -141,6 +141,7 @@ fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
         .route("/api/admin/rescan", post(routes::admin::rescan))
         .route("/api/admin/remove-folder", post(routes::admin::remove_folder))
         .route("/api/admin/clear-cache", post(routes::admin::clear_cache))
+        .route("/api/admin/backup-directory", get(routes::admin::get_backup_directory))
         .route("/api/cast/devices", get(routes::cast::get_devices))
         .route("/api/cast/discovery/start", post(routes::cast::start_discovery))
         .route("/api/cast/discovery/stop", post(routes::cast::stop_discovery))
@@ -253,6 +254,7 @@ async fn main() {
     let state = Arc::new(AppState::new(
         Arc::new(catalog),
         config.storage.backup_dir.clone(),
+        config.storage.backup_retention_count,
         config.server.api_key.clone(),
         server_port,
     ));

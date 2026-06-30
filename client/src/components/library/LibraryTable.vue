@@ -5,7 +5,7 @@ import { useCatalogStore } from "../../stores/catalog";
 import * as catalogApi from "../../api/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistStore } from "../../stores/playlists";
-import type { CatalogTrack } from "../../types";
+import type { CatalogTrack, MetadataUpdate } from "../../types";
 import type { MissingMetadataField } from "../../stores/settings";
 import { extractBestFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
 import LibraryHeader from "./LibraryHeader.vue";
@@ -281,21 +281,19 @@ async function applyAllFromPath() {
   const total = reportTracks.length;
   store.setBulkProgress({ current: 0, total });
   try {
+    const updates: { path: string; update: MetadataUpdate }[] = [];
     for (let i = 0; i < reportTracks.length; i++) {
       const track = reportTracks[i];
       const extracted = extractBestFromPath(templates, track.path);
       if (extracted) {
         const update = buildUpdateFromExtracted(extracted);
         if (Object.keys(update).length > 0) {
-          const id = store._trackIdByPath(track.path);
-          if (id != null) {
-            await catalogApi.patchMetadata(id, update, settingsStore.backupBeforeWrite);
-          }
+          updates.push({ path: track.path, update });
         }
       }
       store.setBulkProgress({ current: i + 1, total });
     }
-    await store.loadTracks();
+    await store.writeMetadataCustomBulk(updates);
     store.setReportFilter(null);
   } finally {
     store.setBulkProgress(null);

@@ -131,6 +131,11 @@ export async function restoreFromLatestBackup(trackId: number): Promise<void> {
   await apiFetch(`/api/tracks/${trackId}/restore`, { method: "POST" });
 }
 
+export async function getBackupDir(): Promise<string> {
+  const result = await apiFetch<{ path: string }>("/api/admin/backup-directory");
+  return result.path;
+}
+
 export async function renameTrackFile(trackId: number, newPath: string): Promise<void> {
   await apiFetch(`/api/tracks/${trackId}/rename`, {
     method: "POST",

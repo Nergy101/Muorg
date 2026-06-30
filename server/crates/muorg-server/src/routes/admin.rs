@@ -59,3 +59,10 @@ pub async fn clear_cache(
     muorg_core::catalog::gc_deleted_tracks(&conn, 0)?;
     Ok(Json(serde_json::json!({"ok": true})))
 }
+
+pub async fn get_backup_directory(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let path = state.backup_dir.display().to_string();
+    Ok(Json(serde_json::json!({"path": path})))
+}

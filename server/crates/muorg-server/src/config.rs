@@ -44,13 +44,18 @@ fn default_true() -> bool { true }
 pub struct StorageConfig {
     pub db_path: PathBuf,
     pub backup_dir: PathBuf,
+    #[serde(default = "default_backup_retention")]
+    pub backup_retention_count: usize,
 }
+
+fn default_backup_retention() -> usize { 5 }
 
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             db_path: PathBuf::from("./muorg.db"),
             backup_dir: PathBuf::from("./muorg-backups"),
+            backup_retention_count: 5,
         }
     }
 }
