@@ -131,31 +131,30 @@ fn build_mb_query(query: &SearchQuery) -> String {
     let mut parts: Vec<String> = Vec::new();
 
     if let Some(ref artist) = query.artist {
-        let trimmed = artist.trim();
+        let trimmed = artist.trim().replace('"', "");
         if !trimmed.is_empty() {
-            // Quote multi-word artist names
             if trimmed.contains(' ') {
-                parts.push(format!("artist:\"{}\"", trimmed.replace('"', "")));
+                parts.push(format!("artist:\"{}\"", trimmed));
             } else {
                 parts.push(format!("artist:{}", trimmed));
             }
         }
     }
     if let Some(ref title) = query.title {
-        let trimmed = title.trim();
+        let trimmed = title.trim().replace('"', "");
         if !trimmed.is_empty() {
             if trimmed.contains(' ') {
-                parts.push(format!("recording:\"{}\"", trimmed.replace('"', "")));
+                parts.push(format!("recording:\"{}\"", trimmed));
             } else {
                 parts.push(format!("recording:{}", trimmed));
             }
         }
     }
     if let Some(ref album) = query.album {
-        let trimmed = album.trim();
+        let trimmed = album.trim().replace('"', "");
         if !trimmed.is_empty() {
             if trimmed.contains(' ') {
-                parts.push(format!("release:\"{}\"", trimmed.replace('"', "")));
+                parts.push(format!("release:\"{}\"", trimmed));
             } else {
                 parts.push(format!("release:{}", trimmed));
             }
