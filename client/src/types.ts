@@ -79,3 +79,17 @@ export interface MetadataUpdate {
   disc_number?: number | null;
   picture_base64?: string | null;
 }
+
+/** A snapshot of a single track's metadata state before a save operation. */
+export interface UndoSnapshot {
+  trackId: number;
+  path: string;
+  /** The metadata values at the time of the snapshot (all explicitly set). */
+  metadata: MetadataUpdate;
+}
+
+/** An undo/redo entry representing one user-facing save operation. */
+export interface UndoEntry {
+  description: string;
+  snapshots: UndoSnapshot[];
+}

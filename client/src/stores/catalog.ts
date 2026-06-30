@@ -7,6 +7,7 @@ import * as api from "../api/catalog";
 
 export type { CoverInfo } from "../api/catalog";
 import type { CoverInfo } from "../api/catalog";
+import type { UndoEntry, UndoSnapshot } from "../types";
 
 const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
 
@@ -72,6 +73,8 @@ export const useCatalogStore = defineStore("catalog", {
     pendingCoverImagePath: null as string | null,
     revealTrackId: null as number | null,
     bulkProgress: null as { current: number; total: number } | null,
+    undoStack: [] as UndoEntry[],
+    redoStack: [] as UndoEntry[],
   }),
   getters: {
     selectedTracks(state): CatalogTrack[] {
@@ -203,6 +206,12 @@ export const useCatalogStore = defineStore("catalog", {
       return state.queueTrackIds
         .map((id) => idToTrack.get(id))
         .filter((t): t is CatalogTrack => t != null);
+    },
+    canUndo(): boolean {
+      return this.undoStack.length > 0;
+    },
+    canRedo(): boolean {
+      return this.redoStack.length > 0;
     },
   },
   actions: {
@@ -423,7 +432,62 @@ export const useCatalogStore = defineStore("catalog", {
         this.loading = false;
       }
     },
+    /** Build undo snapshots for the given paths using current store track state. */
+    _buildSnapshots(paths: string[]): UndoSnapshot[] {
+      const settingsStore = useSettingsStore();
+      return paths
+        .map((path) => {
+          const track = this.tracks.find((t) => t.path === path);
+          if (!track) return null;
+          const cover = this.coverCache[path];
+          return {
+            trackId: track.id,
+            path,
+            metadata: {
+              title: track.title ?? null,
+              artist: track.artist ?? null,
+              album: track.album ?? null,
+              album_artist: track.album_artist ?? null,
+              featuring: track.featuring ?? null,
+              year: track.year ?? null,
+              genre: track.genre ?? null,
+              track_number: track.track_number ?? null,
+              disc_number: track.disc_number ?? null,
+              picture_base64: cover?.base64 ?? undefined,
+            },
+          } satisfies UndoSnapshot;
+        })
+        .filter((s): s is UndoSnapshot => s != null);
+    },
+
+    /** Push an undo entry and clear the redo stack. */
+    _pushUndo(paths: string[], description: string) {
+      const snapshots = this._buildSnapshots(paths);
+      if (snapshots.length === 0) return;
+      const MAX_UNDO = 50;
+      this.undoStack = [...this.undoStack.slice(-(MAX_UNDO - 1)), { description, snapshots }];
+      this.redoStack = [];
+    },
+
+    /** Restore an undo/redo entry's snapshots back to disk + DB. */
+    async _applySnapshots(entry: UndoEntry) {
+      const settingsStore = useSettingsStore();
+      for (const snap of entry.snapshots) {
+        await api.patchMetadata(snap.trackId, snap.metadata, false);
+        if ("picture_base64" in snap.metadata && snap.metadata.picture_base64 !== undefined) {
+          const next = { ...this.coverCache };
+          if (snap.path in next) {
+            delete next[snap.path];
+          }
+          this.coverCache = next;
+        }
+      }
+      await this.loadTracks();
+    },
+
     async writeMetadata(path: string, update: import("../types").MetadataUpdate) {
+      // Snapshot current state for undo before applying the change
+      this._pushUndo([path], `Edit "${this.tracks.find((t) => t.path === path)?.title ?? path}"`);
       const settingsStore = useSettingsStore();
       const id = this._trackIdByPath(path);
       if (id == null) throw new Error(`Track not found: ${path}`);
@@ -437,6 +501,8 @@ export const useCatalogStore = defineStore("catalog", {
     },
     async writeMetadataBulk(paths: string[], update: import("../types").MetadataUpdate) {
       if (paths.length === 0) return;
+      // Snapshot current state for undo before applying the change
+      this._pushUndo(paths, `Edit ${paths.length} tracks`);
       this.loading = true;
       this.error = null;
       const settingsStore = useSettingsStore();
@@ -450,6 +516,45 @@ export const useCatalogStore = defineStore("catalog", {
             delete nextCoverCache[path];
           }
           this.coverCache = nextCoverCache;
+        }
+        await this.loadTracks();
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async undo() {
+      const entry = this.undoStack.pop();
+      if (!entry) return;
+      this.redoStack = [...this.redoStack, entry];
+      await this._applySnapshots(entry);
+    },
+    async redo() {
+      const entry = this.redoStack.pop();
+      if (!entry) return;
+      this.undoStack = [...this.undoStack, entry];
+      await this._applySnapshots(entry);
+    },
+    /** Bulk write with per-track custom updates. Pushes a single undo entry. */
+    async writeMetadataCustomBulk(
+      updates: { path: string; update: import("../types").MetadataUpdate }[],
+    ) {
+      if (updates.length === 0) return;
+      const paths = updates.map((u) => u.path);
+      this._pushUndo(paths, `Edit ${paths.length} tracks`);
+      this.loading = true;
+      this.error = null;
+      const settingsStore = useSettingsStore();
+      try {
+        for (const { path, update } of updates) {
+          const id = this._trackIdByPath(path);
+          if (id == null) continue;
+          await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
+          const next = { ...this.coverCache };
+          if (path in next) delete next[path];
+          this.coverCache = next;
         }
         await this.loadTracks();
       } catch (e) {

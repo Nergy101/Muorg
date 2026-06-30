@@ -13,7 +13,7 @@ import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
-const { selectedTracks, openWikipediaModal, pendingCoverImagePath } = storeToRefs(store);
+const { selectedTracks, openWikipediaModal, pendingCoverImagePath, canUndo, canRedo } = storeToRefs(store);
 const { hideWikipediaCoverSearch, pathFormatTemplates } = storeToRefs(settingsStore);
 
 const title = ref("");
@@ -751,19 +751,19 @@ async function applyFromPath() {
     const total = tracks.length;
     store.setBulkProgress({ current: 0, total });
     try {
+      const updates: { path: string; update: MetadataUpdate }[] = [];
       for (let i = 0; i < tracks.length; i++) {
         const track = tracks[i];
         const extracted = extractBestFromPath(templates, track.path);
         if (extracted) {
           const update = buildUpdateFromExtracted(extracted);
           if (Object.keys(update).length > 0) {
-            const id = store._trackIdByPath(track.path);
-            if (id != null) await catalogApi.patchMetadata(id, update, settingsStore.backupBeforeWrite);
+            updates.push({ path: track.path, update });
           }
         }
         store.setBulkProgress({ current: i + 1, total });
       }
-      await store.loadTracks();
+      await store.writeMetadataCustomBulk(updates);
       await nextTick();
       syncFromTracks();
     } catch (e) {
@@ -869,6 +869,18 @@ function discard() {
 }
 
 function onPanelKeydown(e: KeyboardEvent) {
+  // Ctrl/Cmd+Z — Undo
+  if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+    e.preventDefault();
+    void store.undo();
+    return;
+  }
+  // Ctrl/Cmd+Shift+Z — Redo
+  if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+    e.preventDefault();
+    void store.redo();
+    return;
+  }
   if (e.key !== "Escape") return;
   if (showCoverPopup.value) {
     showCoverPopup.value = false;
@@ -1300,6 +1312,26 @@ async function applyFromOtherTracks() {
           >
             <FeatherIcon name="rotate-ccw" class="h-4 w-4 shrink-0" />
             Discard
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-30 disabled:pointer-events-none"
+            title="Undo (Ctrl+Z)"
+            :disabled="saving || !canUndo"
+            @click="store.undo()"
+          >
+            <FeatherIcon name="corner-up-left" class="h-4 w-4 shrink-0" />
+            Undo
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-30 disabled:pointer-events-none"
+            title="Redo (Ctrl+Shift+Z)"
+            :disabled="saving || !canRedo"
+            @click="store.redo()"
+          >
+            <FeatherIcon name="corner-up-right" class="h-4 w-4 shrink-0" />
+            Redo
           </button>
           <button
             v-if="selectedTracks.length === 1 && latestBackup && backupWouldChangeMetadata"
