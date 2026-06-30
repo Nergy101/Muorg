@@ -5,6 +5,7 @@
 
     <!-- Main app -->
     <template v-else>
+      <OfflineBanner />
       <LibraryHeader
         :show-back="!!openAlbum"
         @disconnect="disconnect"
@@ -41,6 +42,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watchEffect } from "vue";
 import ConnectionScreen from "./components/ConnectionScreen.vue";
+import OfflineBanner from "./components/OfflineBanner.vue";
 import LibraryHeader from "./components/LibraryHeader.vue";
 import PlaylistSidebar from "./components/PlaylistSidebar.vue";
 import AlbumGrid from "./components/AlbumGrid.vue";

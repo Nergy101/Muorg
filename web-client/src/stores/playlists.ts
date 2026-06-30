@@ -3,13 +3,15 @@ import { ref } from "vue";
 import {
   getPlaylists,
   createPlaylist as apiCreate,
+  createSmartPlaylist as apiCreateSmart,
+  updateSmartRules as apiUpdateSmartRules,
   renamePlaylist as apiRename,
   deletePlaylist as apiDelete,
   getPlaylistTracks,
   addTracksToPlaylist as apiAdd,
   removeTracksFromPlaylist as apiRemove,
 } from "../api/playlists";
-import type { Playlist } from "../types";
+import type { Playlist, SmartRule } from "../types";
 import { useLibraryStore } from "./library";
 
 export const usePlaylistStore = defineStore("playlists", () => {
@@ -32,6 +34,25 @@ export const usePlaylistStore = defineStore("playlists", () => {
   async function createPlaylist(name: string, icon?: string | null): Promise<void> {
     const p = await apiCreate(name, icon);
     playlists.value = [...playlists.value, p];
+  }
+
+  async function createSmartPlaylist(name: string, icon: string, rules: SmartRule[]): Promise<void> {
+    const rulesJson = JSON.stringify(rules);
+    const p = await apiCreateSmart(name, rulesJson);
+    // Set icon after creation
+    if (icon) {
+      await apiRename(p.id, name, icon);
+      p.icon = icon;
+    }
+    playlists.value = [...playlists.value, p];
+  }
+
+  async function updateSmartRules(playlistId: number, rules: SmartRule[]): Promise<void> {
+    const rulesJson = JSON.stringify(rules);
+    await apiUpdateSmartRules(playlistId, rulesJson);
+    playlists.value = playlists.value.map((p) =>
+      p.id === playlistId ? { ...p, smart_rules: rulesJson } : p,
+    );
   }
 
   async function renamePlaylist(id: number, name: string, icon?: string | null): Promise<void> {
@@ -124,6 +145,8 @@ export const usePlaylistStore = defineStore("playlists", () => {
     loading,
     loadPlaylists,
     createPlaylist,
+    createSmartPlaylist,
+    updateSmartRules,
     renamePlaylist,
     deletePlaylist,
     selectPlaylist,

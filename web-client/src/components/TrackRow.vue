@@ -14,8 +14,23 @@
     @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
   >
-    <!-- Cover art column (empty for track rows) -->
-    <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1.5 pl-3 pr-2' : 'w-px py-1 pl-1.5 pr-1 sm:w-10 sm:py-1.5 sm:pl-3 sm:pr-2'" />
+    <!-- Checkbox + cover art column -->
+    <td :class="lib.tableArtSize === 'large' ? 'w-28 py-1.5 pl-3 pr-2' : 'w-px py-1 pl-1.5 pr-1 sm:w-10 sm:py-1.5 sm:pl-3 sm:pr-2'">
+      <div class="flex items-center gap-1">
+        <label
+          class="checkbox-cell flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border border-stone-600 hover:border-stone-400 sm:h-5 sm:w-5"
+          :class="isSelected ? 'bg-accent border-accent' : ''"
+          @click.stop="lib.toggleTrackSelection(track.id, false)"
+        >
+          <svg
+            v-if="isSelected"
+            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </label>
+      </div>
+    </td>
 
     <!-- Title + track number + artist (stacked on mobile) -->
     <td class="max-w-0 py-1.5 pr-4">

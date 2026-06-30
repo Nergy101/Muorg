@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { getTracks, getStats, getCoverBlob, issueStreamToken, recordPlay } from "../api/catalog";
+import { getTracks, getStats, getCoverBlob, issueStreamToken, recordPlay, batchSetRating as apiBatchSetRating } from "../api/catalog";
 import { streamUrl } from "../api/client";
 import type {
   CatalogTrack,
@@ -79,6 +79,10 @@ export const useLibraryStore = defineStore("library", () => {
   // track how many seconds were skipped to get the real wall-clock position.
   let flacSeekOffset = 0;
   let _seekSeq = 0;
+
+  // Play queue
+  const playQueue = ref<CatalogTrack[]>([]);
+  const queueIndex = ref(-1);
 
   // Cover cache: trackId -> object URL
   const coverCache = ref<Map<number, string>>(new Map());
@@ -435,6 +439,44 @@ export const useLibraryStore = defineStore("library", () => {
     };
   }
 
+  /** Auto-advance to next track in queue when current track ends. */
+  function handleTrackEnded(): void {
+    if (playQueue.value.length > 0 && queueIndex.value < playQueue.value.length - 1) {
+      const next = playQueue.value[queueIndex.value + 1];
+      if (next) {
+        playTrack(next).catch(() => {});
+        queueIndex.value++;
+      }
+    }
+  }
+
+  // Wire up auto-advance
+  onTrackEnded(handleTrackEnded);
+
+  function addToQueue(track: CatalogTrack): void {
+    playQueue.value = [...playQueue.value, track];
+  }
+
+  function addMultipleToQueue(tracks: CatalogTrack[]): void {
+    playQueue.value = [...playQueue.value, ...tracks];
+  }
+
+  function removeFromQueue(index: number): void {
+    const next = [...playQueue.value];
+    next.splice(index, 1);
+    playQueue.value = next;
+    if (index <= queueIndex.value) queueIndex.value--;
+  }
+
+  function clearQueue(): void {
+    playQueue.value = [];
+    queueIndex.value = -1;
+  }
+
+  function setQueueIndex(index: number): void {
+    queueIndex.value = index;
+  }
+
   function initAudio(): HTMLAudioElement {
     if (audioEl.value) return audioEl.value;
     const el = new Audio();
@@ -546,6 +588,12 @@ export const useLibraryStore = defineStore("library", () => {
     if (audioEl.value) audioEl.value.volume = v;
   }
 
+  async function batchSetRating(trackIds: number[], rating: number | null): Promise<void> {
+    await apiBatchSetRating(trackIds, rating);
+    // Reload the library to reflect updated ratings
+    await loadLibrary();
+  }
+
   return {
     tracks,
     stats,
@@ -567,6 +615,8 @@ export const useLibraryStore = defineStore("library", () => {
     currentTimeSecs,
     durationSecs,
     volume,
+    playQueue,
+    queueIndex,
     coverCache,
     filteredTracks,
     albumGridItems,
@@ -590,5 +640,11 @@ export const useLibraryStore = defineStore("library", () => {
     togglePlayPause,
     seekTo,
     setVolume,
+    batchSetRating,
+    addToQueue,
+    addMultipleToQueue,
+    removeFromQueue,
+    clearQueue,
+    setQueueIndex,
   };
 });

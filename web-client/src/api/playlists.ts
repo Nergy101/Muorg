@@ -22,6 +22,26 @@ export async function createPlaylist(name: string, icon?: string | null): Promis
   return p;
 }
 
+export async function createSmartPlaylist(name: string, rulesJson: string): Promise<Playlist> {
+  return apiFetch<Playlist>("/api/playlists/smart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, rules_json: rulesJson }),
+  });
+}
+
+export async function updateSmartRules(playlistId: number, rulesJson: string): Promise<void> {
+  await apiFetch(`/api/playlists/smart/${playlistId}/rules`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rules_json: rulesJson }),
+  });
+}
+
+export async function getSmartTracks(playlistId: number): Promise<number[]> {
+  return apiFetch<number[]>(`/api/playlists/smart/${playlistId}/tracks`);
+}
+
 export async function renamePlaylist(id: number, name: string, icon?: string | null): Promise<void> {
   const body: Record<string, unknown> = { name };
   if (icon !== undefined) body.icon = icon;

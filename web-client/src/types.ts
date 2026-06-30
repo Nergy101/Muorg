@@ -72,3 +72,10 @@ export interface TableTrackRow {
 }
 
 export type TableRow = TableGroupRow | TableTrackRow;
+
+/** A single rule for smart playlist filtering. Matches the server's SmartRule. */
+export interface SmartRule {
+  field: string;
+  op: string;
+  value: string;
+}
