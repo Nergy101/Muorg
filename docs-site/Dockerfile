@@ -5,12 +5,12 @@ ENV CI=true
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Install dependencies first (better layer caching)
-COPY docs-site/package.json docs-site/pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --ignore-scripts
+COPY docs-site/package.json docs-site/package-lock.json* ./
+RUN npm install --no-audit --no-fund
 
 # Copy source and build
 COPY docs-site/ .
-RUN pnpm build
+RUN npm run build
 
 # Serve with nginx
 FROM nginx:alpine
