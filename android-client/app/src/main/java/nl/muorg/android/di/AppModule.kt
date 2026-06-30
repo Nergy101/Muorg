@@ -18,6 +18,7 @@ import nl.muorg.android.data.db.LocalPlaylistDao
 import nl.muorg.android.data.db.LocalTrackDao
 import nl.muorg.android.data.db.OfflineTrackDao
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.preferences.SearchHistoryManager
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -36,6 +37,12 @@ object AppModule {
     fun provideAppPreferences(
         @ApplicationContext context: Context,
     ): AppPreferences = AppPreferences(context)
+
+    @Provides
+    @Singleton
+    fun provideSearchHistoryManager(
+        @ApplicationContext context: Context,
+    ): SearchHistoryManager = SearchHistoryManager(context)
 
     @Provides
     @Singleton

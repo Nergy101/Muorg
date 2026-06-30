@@ -15,6 +15,8 @@ import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.preferences.SearchHistoryEntry
+import nl.muorg.android.data.preferences.SearchHistoryManager
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
@@ -61,6 +63,7 @@ class LibraryViewModel @Inject constructor(
     private val localRepository: LocalLibraryRepository,
     private val playlistRepository: PlaylistRepository,
     private val preferences: AppPreferences,
+    private val searchHistoryManager: SearchHistoryManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
@@ -303,7 +306,17 @@ class LibraryViewModel @Inject constructor(
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
+        // Record non-empty searches immediately (not on debounce)
+        if (query.isNotBlank()) {
+            searchHistoryManager.addSearch(query)
+        }
     }
+
+    /** Returns the list of recent searches (newest first). */
+    fun getRecentSearches(): List<SearchHistoryEntry> = searchHistoryManager.getRecentSearches()
+
+    /** Clears all search history. */
+    fun clearSearchHistory() = searchHistoryManager.clearAll()
 
     fun toggleViewMode() {
         _uiState.update { state ->

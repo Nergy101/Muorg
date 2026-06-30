@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "muorg-server"
-version = "2.18.1"
+version = "2.25.0"
 dependencies = [
  "axum",
  "base64",
@@ -1041,6 +1041,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "symphonia",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "toml",

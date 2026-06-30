@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MusicNote
@@ -35,6 +36,8 @@ import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -71,8 +74,9 @@ import nl.muorg.android.ui.component.AlbumDisplayMode
 import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.player.PlayerViewModel
+import nl.muorg.android.data.preferences.SearchHistoryEntry
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun LibraryScreen(
     playerViewModel: PlayerViewModel,
@@ -93,6 +97,7 @@ fun LibraryScreen(
     val currentAlbum = playerState.currentTrack?.displayAlbum
     var showSortMenu by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf(viewModel.rawSearchQuery) }
+    var recentSearches by remember { mutableStateOf(viewModel.getRecentSearches()) }
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
@@ -129,7 +134,14 @@ fun LibraryScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = searchText,
-            onValueChange = { searchText = it; viewModel.onSearchQueryChange(it) },
+            onValueChange = {
+                searchText = it
+                viewModel.onSearchQueryChange(it)
+                if (it.isNotEmpty()) {
+                    // Refresh recent searches to include the new one
+                    recentSearches = viewModel.getRecentSearches()
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -140,6 +152,7 @@ fun LibraryScreen(
                     IconButton(onClick = {
                         searchText = ""
                         viewModel.onSearchQueryChange("")
+                        recentSearches = viewModel.getRecentSearches()
                     }) {
                         Icon(Icons.Filled.Close, contentDescription = "Clear search")
                     }
@@ -152,6 +165,74 @@ fun LibraryScreen(
                 unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
             ),
         )
+
+        // Search history chips — show when search field is empty and there's history
+        if (searchText.isEmpty() && recentSearches.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 8.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.History,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+                Spacer(Modifier.size(4.dp))
+                Text(
+                    "Recent",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = {
+                        viewModel.clearSearchHistory()
+                        recentSearches = emptyList()
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Text("Clear all", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                recentSearches.take(10).forEach { entry ->
+                    AssistChip(
+                        onClick = {
+                            searchText = entry.query
+                            viewModel.onSearchQueryChange(entry.query)
+                            recentSearches = viewModel.getRecentSearches()
+                        },
+                        label = { Text(entry.query, style = MaterialTheme.typography.bodySmall) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.History,
+                                contentDescription = null,
+                                Modifier.size(14.dp),
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        ),
+                        border = AssistChipDefaults.assistChipBorder(
+                            enabled = true,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        ),
+                        shape = RoundedCornerShape(20),
+                    )
+                }
+            }
+        }
 
         AnimatedVisibility(visible = uiState.artistFilter != null) {
             Row(modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)) {
