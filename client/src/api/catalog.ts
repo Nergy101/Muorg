@@ -90,6 +90,16 @@ export async function patchMetadata(
   });
 }
 
+export async function patchMetadataBatch(
+  items: { id: number; update: MetadataUpdate }[],
+): Promise<{ ok: boolean; updated: number }> {
+  return apiFetch("/api/tracks/metadata/batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(items),
+  });
+}
+
 export async function recordPlay(trackId: number): Promise<void> {
   await apiFetch(`/api/tracks/${trackId}/play`, { method: "POST" });
 }

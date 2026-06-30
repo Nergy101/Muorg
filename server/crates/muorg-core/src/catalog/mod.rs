@@ -1,7 +1,7 @@
 mod db;
 
 pub use db::{
-    add_tracks_to_playlist, compute_content_hash, create_playlist, create_smart_playlist,
+    add_tracks_to_playlist, batch_update_track_metadata, compute_content_hash, create_playlist, create_smart_playlist,
     delete_playlist, gc_deleted_tracks, get_latest_track_backup, get_library_stats,
     get_playlist_entries, get_playlist_tracks, get_playlists_for_track, get_track_by_id,
     get_track_path_by_id, load_playlists, load_roots, load_tracks, record_play,

@@ -138,7 +138,7 @@ fn parse_replaygain_plain(v: Option<&str>) -> Option<f32> {
     v?.trim().parse::<f32>().ok()
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct MetadataUpdate {
     #[serde(default, deserialize_with = "double_option::deserialize")]
     pub title: Option<Option<String>>,

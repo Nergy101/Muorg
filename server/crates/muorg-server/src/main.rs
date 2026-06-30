@@ -125,6 +125,7 @@ fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
         .route("/api/tracks/:id/rename", post(routes::tracks::rename_file))
         .route("/api/tracks/:id/auto-tag-suggestions", post(routes::tracks::auto_tag_suggestions))
         .route("/api/tracks/:id/stream-token", get(routes::stream::issue_token))
+        .route("/api/tracks/metadata/batch", post(routes::tracks::batch_patch_metadata))
         .route("/api/playlists", get(routes::playlists::list).post(routes::playlists::create))
         .route("/api/playlists/order", put(routes::playlists::reorder))
         .route("/api/playlists/smart", post(routes::playlists::create_smart))

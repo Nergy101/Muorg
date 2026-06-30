@@ -114,6 +114,7 @@ fn schema_has_column(
 
 pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     conn.execute_batch("PRAGMA foreign_keys = ON;").map_err(|e| e.to_string())?;
+    conn.execute_batch("PRAGMA journal_mode = WAL;").map_err(|e| e.to_string())?;
     conn.execute_batch(SCHEMA).map_err(|e| e.to_string())?;
     if !schema_has_column(conn, "tracks", "has_cover")? {
         conn.execute(
@@ -979,6 +980,25 @@ pub fn update_track_metadata(
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     stmt.execute(rusqlite::params_from_iter(params.iter()))
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Update metadata for multiple tracks in a single transaction.
+/// This is significantly faster than calling update_track_metadata in a loop
+/// when updating many tracks at once.
+pub fn batch_update_track_metadata(
+    conn: &rusqlite::Connection,
+    updates: &[(&str, &crate::metadata::MetadataUpdate)],
+) -> Result<(), String> {
+    if updates.is_empty() {
+        return Ok(());
+    }
+    // Use a deferred transaction to batch all updates
+    conn.execute_batch("BEGIN DEFERRED").map_err(|e| e.to_string())?;
+    for (path, update) in updates {
+        update_track_metadata(conn, path, update)?;
+    }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     Ok(())
 }
 

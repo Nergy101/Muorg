@@ -90,6 +90,7 @@ export const useCatalogStore = defineStore("catalog", {
     filterGenre: initialFilter.filterGenre,
     groupBy: loadStoredDefaultGroupBy(),
     coverCache: {} as Record<string, CoverInfo | null>,
+    _coverCacheOrder: [] as string[],
     albumCoverCache: {} as Record<string, CoverInfo | null>,
     openWikipediaModal: false,
     multiSelectMode: false,
@@ -549,19 +550,25 @@ export const useCatalogStore = defineStore("catalog", {
       this.bulkProgress = { current: 0, total: paths.length };
       const settingsStore = useSettingsStore();
       try {
-        for (let i = 0; i < paths.length; i++) {
+        // Use batch endpoint when possible, fall back to per-track otherwise
+        const items = paths
+          .map((path) => {
+            const id = this._trackIdByPath(path);
+            return id != null ? { id, update } as const : null;
+          })
+          .filter((item): item is { id: number; update: import("../types").MetadataUpdate } => item != null);
+        if (items.length > 0) {
+          await api.patchMetadataBatch(items);
+        }
+        const nextCoverCache = { ...this.coverCache };
+        for (const path of paths) {
           if (this.bulkCancelled) break;
-          const path = paths[i];
-          const id = this._trackIdByPath(path);
-          if (id == null) continue;
-          await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
-          const nextCoverCache = { ...this.coverCache };
           if (path in nextCoverCache) {
             delete nextCoverCache[path];
           }
-          this.coverCache = nextCoverCache;
-          this.bulkProgress = { current: i + 1, total: paths.length };
         }
+        this.coverCache = nextCoverCache;
+        this.bulkProgress = { current: paths.length, total: paths.length };
         await this.loadTracks();
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
@@ -791,12 +798,46 @@ export const useCatalogStore = defineStore("catalog", {
       }
     },
     getCover(path: string): CoverInfo | null | undefined {
+      // Touch on access to keep LRU order accurate
+      if (path in this.coverCache) {
+        this._touchCover(path);
+      }
       return this.coverCache[path];
     },
     getCoverDataUrl(path: string): string | null {
       const c = this.coverCache[path];
       if (!c) return null;
+      this._touchCover(path);
       return `data:${c.mime};base64,${c.base64}`;
+    },
+    /** Touch a path in the LRU order (moves it to most-recently-used). */
+    _touchCover(path: string) {
+      const idx = this._coverCacheOrder.indexOf(path);
+      if (idx > 0) {
+        this._coverCacheOrder.splice(idx, 1);
+        this._coverCacheOrder.push(path);
+      } else if (idx < 0) {
+        this._coverCacheOrder.push(path);
+      }
+    },
+    /** Evict oldest entries if cache exceeds MAX_COVERS (500). */
+    _pruneCoverCache() {
+      const MAX_COVERS = 500;
+      if (this._coverCacheOrder.length <= MAX_COVERS) return;
+      const evict = this._coverCacheOrder.length - MAX_COVERS;
+      const evicted = new Set(this._coverCacheOrder.slice(0, evict));
+      this._coverCacheOrder = this._coverCacheOrder.slice(evict);
+      const next = { ...this.coverCache };
+      for (const path of evicted) {
+        delete next[path];
+      }
+      this.coverCache = next;
+    },
+    /** Set a cover entry in the cache and update LRU order. */
+    _setCover(path: string, cover: CoverInfo | null | undefined) {
+      this._touchCover(path);
+      this.coverCache = { ...this.coverCache, [path]: cover };
+      this._pruneCoverCache();
     },
     _drainCoverQueue() {
       while (_coverActive < COVER_CONCURRENCY && _coverQueue.length > 0) {
@@ -815,7 +856,7 @@ export const useCatalogStore = defineStore("catalog", {
               const id = this._trackIdByPath(path);
               cover = id != null ? await api.getCover(id) : null;
             }
-            this.coverCache = { ...this.coverCache, [path]: cover };
+            this._setCover(path, cover);
             const track = this.tracks.find((t) => t.path === path);
             if (track) {
               const albumKey = track.album ?? "—";
@@ -824,7 +865,7 @@ export const useCatalogStore = defineStore("catalog", {
               }
             }
           } catch {
-            this.coverCache = { ...this.coverCache, [path]: null };
+            this._setCover(path, null);
           } finally {
             _coverInFlight.delete(path);
             _coverActive--;

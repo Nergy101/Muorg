@@ -124,8 +124,8 @@ pub async fn get_backup(
 ) -> Result<Json<Option<TrackBackupRecord>>, ApiError> {
     let track_path = resolve_track(&state, id)?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    let record = muorg_core::catalog::get_latest_track_backup(&conn, &track_path)?;
-    Ok(Json(record))
+    let backup = muorg_core::catalog::get_latest_track_backup(&conn, &track_path)?;
+    Ok(Json(backup))
 }
 
 // POST /api/tracks/:id/restore
@@ -134,9 +134,11 @@ pub async fn restore_backup(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let track_path = resolve_track(&state, id)?;
-    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    let backup_record = muorg_core::catalog::get_latest_track_backup(&conn, &track_path)?
-        .ok_or_else(|| ApiError::not_found("No backup found for this track"))?;
+    let backup_record = {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        muorg_core::catalog::get_latest_track_backup(&conn, &track_path)?
+            .ok_or_else(|| ApiError::not_found("No backup available"))?
+    };
     std::fs::copy(&backup_record.backup_path, &track_path)
         .map_err(|e| format!("Restore failed: {e}"))?;
     let fresh = muorg_core::metadata::read_metadata(path::Path::new(&track_path))?;
@@ -203,4 +205,42 @@ pub async fn auto_tag_suggestions(
 
     let candidates = state.auto_tag.search(&query).await.map_err(|e| ApiError(StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(serde_json::json!({"candidates": candidates})))
+}
+
+#[derive(Deserialize)]
+pub struct BatchMetadataItem {
+    pub id: i64,
+    #[serde(flatten)]
+    pub update: MetadataUpdate,
+}
+
+// POST /api/tracks/metadata/batch
+pub async fn batch_patch_metadata(
+    State(state): State<Arc<AppState>>,
+    Json(items): Json<Vec<BatchMetadataItem>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if items.is_empty() {
+        return Ok(Json(serde_json::json!({"ok": true, "updated": 0})));
+    }
+
+    // Resolve all paths first
+    let mut updates: Vec<(String, MetadataUpdate)> = Vec::with_capacity(items.len());
+    for item in &items {
+        let track_path = resolve_track(&state, item.id)?;
+        updates.push((track_path, item.update.clone()));
+    }
+
+    // Write metadata to files
+    for (track_path, update) in &updates {
+        muorg_core::metadata::write_metadata(path::Path::new(&track_path), update)?;
+    }
+
+    // Batch update the DB in a single transaction
+    {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        let batch: Vec<(&str, &MetadataUpdate)> = updates.iter().map(|(p, u)| (p.as_str(), u)).collect();
+        muorg_core::catalog::batch_update_track_metadata(&conn, &batch)?;
+    }
+
+    Ok(Json(serde_json::json!({"ok": true, "updated": updates.len()})))
 }
