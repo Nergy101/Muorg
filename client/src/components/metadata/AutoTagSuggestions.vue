@@ -294,31 +294,37 @@ function onKeydown(e: KeyboardEvent) {
       </div>
 
       <!-- Footer actions -->
-      <div class="flex items-center justify-end gap-2 border-t border-stone-700 px-4 py-3">
-        <button
-          type="button"
-          class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-700 hover:text-stone-200"
-          @click="emit('close')"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-600 disabled:opacity-30 disabled:pointer-events-none"
-          :disabled="!selectedCandidate"
-          @click="applyToForm"
-        >
-          Apply to form
-        </button>
-        <button
-          type="button"
-          class="accent-btn rounded border px-3 py-1.5 text-xs text-white hover:opacity-90 disabled:opacity-30 disabled:pointer-events-none"
-          style="background-color: #5b7c32"
-          :disabled="!selectedCandidate"
-          @click="saveAndApply"
-        >
-          Save &amp; apply
-        </button>
+      <div class="flex flex-col gap-2 border-t border-stone-700 px-4 py-3">
+        <div class="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            @click="emit('close')"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-600 disabled:opacity-30 disabled:pointer-events-none"
+            :disabled="!selectedCandidate"
+            @click="applyToForm"
+          >
+            Apply to form
+          </button>
+          <button
+            type="button"
+            class="accent-btn rounded border px-3 py-1.5 text-xs text-white hover:opacity-90 disabled:opacity-30 disabled:pointer-events-none"
+            style="background-color: #5b7c32"
+            :disabled="!selectedCandidate"
+            @click="saveAndApply"
+          >
+            Save &amp; apply
+          </button>
+        </div>
+        <p class="text-[10px] leading-tight text-stone-500 text-right">
+          Data from <a href="https://musicbrainz.org" target="_blank" rel="noopener noreferrer" class="underline hover:text-stone-300">MusicBrainz</a>
+          — licensed under CC BY-NC-SA 3.0
+        </p>
       </div>
     </div>
   </div>

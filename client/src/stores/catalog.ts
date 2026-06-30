@@ -22,6 +22,7 @@ let _searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
 const HIDDEN_ROOTS_KEY = "muorg-hidden-roots";
+const FILTER_STATE_KEY = "muorg-filter-state";
 
 function loadStoredDefaultGroupBy(): "none" | "artist" | "album" {
   if (typeof window === "undefined") return "album";
@@ -42,8 +43,39 @@ function loadStoredHiddenRoots(): string[] {
   }
 }
 
+function loadStoredFilterState(): { searchQuery: string; filterMinRating: number | null; filterGenre: string | null } {
+  if (typeof window === "undefined") return { searchQuery: "", filterMinRating: null, filterGenre: null };
+  try {
+    const stored = window.sessionStorage.getItem(FILTER_STATE_KEY);
+    if (!stored) return { searchQuery: "", filterMinRating: null, filterGenre: null };
+    const parsed = JSON.parse(stored) as unknown;
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed as Record<string, unknown>;
+      return {
+        searchQuery: typeof obj.searchQuery === "string" ? obj.searchQuery : "",
+        filterMinRating: typeof obj.filterMinRating === "number" ? obj.filterMinRating : null,
+        filterGenre: typeof obj.filterGenre === "string" ? obj.filterGenre : null,
+      };
+    }
+    return { searchQuery: "", filterMinRating: null, filterGenre: null };
+  } catch {
+    return { searchQuery: "", filterMinRating: null, filterGenre: null };
+  }
+}
+
+function persistFilterState(searchQuery: string, filterMinRating: number | null, filterGenre: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(FILTER_STATE_KEY, JSON.stringify({ searchQuery, filterMinRating, filterGenre }));
+  } catch {
+    // ignore
+  }
+}
+
 export const useCatalogStore = defineStore("catalog", {
-  state: () => ({
+  state: () => {
+    const initialFilter = loadStoredFilterState();
+    return {
     roots: [] as string[],
     tracks: [] as CatalogTrack[],
     selectedTrackIds: [] as number[],
@@ -53,9 +85,9 @@ export const useCatalogStore = defineStore("catalog", {
     searchResults: null as CatalogTrack[] | null,
     loading: false,
     error: null as string | null,
-    searchQuery: "",
-    filterMinRating: null as number | null,
-    filterGenre: null as string | null,
+    searchQuery: initialFilter.searchQuery,
+    filterMinRating: initialFilter.filterMinRating,
+    filterGenre: initialFilter.filterGenre,
     groupBy: loadStoredDefaultGroupBy(),
     coverCache: {} as Record<string, CoverInfo | null>,
     albumCoverCache: {} as Record<string, CoverInfo | null>,
@@ -75,7 +107,8 @@ export const useCatalogStore = defineStore("catalog", {
     bulkProgress: null as { current: number; total: number } | null,
     undoStack: [] as UndoEntry[],
     redoStack: [] as UndoEntry[],
-  }),
+    };
+  },
   getters: {
     selectedTracks(state): CatalogTrack[] {
       const set = new Set(state.selectedTrackIds);
@@ -483,9 +516,10 @@ export const useCatalogStore = defineStore("catalog", {
       await this.loadTracks();
     },
 
-    async writeMetadata(path: string, update: import("../types").MetadataUpdate) {
+    async writeMetadata(path: string, update: import("../types").MetadataUpdate, description?: string) {
       // Snapshot current state for undo before applying the change
-      this._pushUndo([path], `Edit "${this.tracks.find((t) => t.path === path)?.title ?? path}"`);
+      const trackTitle = this.tracks.find((t) => t.path === path)?.title ?? path;
+      this._pushUndo([path], description ?? `Edit "${trackTitle}"`);
       const settingsStore = useSettingsStore();
       const id = this._trackIdByPath(path);
       if (id == null) throw new Error(`Track not found: ${path}`);
@@ -644,6 +678,7 @@ export const useCatalogStore = defineStore("catalog", {
     setSearchQuery(q: string) {
       this.searchQuery = q;
       this.searchResults = null;
+      persistFilterState(q, this.filterMinRating, this.filterGenre);
       if (_searchDebounceTimer) {
         clearTimeout(_searchDebounceTimer);
         _searchDebounceTimer = null;
@@ -664,9 +699,11 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setFilterMinRating(rating: number | null) {
       this.filterMinRating = rating;
+      persistFilterState(this.searchQuery, rating, this.filterGenre);
     },
     setFilterGenre(genre: string | null) {
       this.filterGenre = genre;
+      persistFilterState(this.searchQuery, this.filterMinRating, genre);
     },
     setRevealTrackId(id: number | null) {
       this.revealTrackId = id;

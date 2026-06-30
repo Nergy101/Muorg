@@ -100,6 +100,7 @@ const latestBackup = ref<TrackBackupRecord | null>(null);
 const backupPreviewText = ref<string>("");
 const backupWouldChangeMetadata = ref(false);
 const showAutoTag = ref(false);
+const lastAction = ref<string | null>(null);
 
 function onAutoTagApply(candidate: AutoTagCandidate) {
   // Fill form fields from the candidate
@@ -740,6 +741,7 @@ async function applyFromPath() {
   if (!tracks.length || !templates.some((t) => t.trim())) return;
 
   if (tracks.length === 1) {
+    lastAction.value = "apply_from_path";
     const extracted = extractBestFromPath(templates, tracks[0].path);
     if (!extracted) return;
     for (const [key, value] of Object.entries(extracted)) {
@@ -843,7 +845,11 @@ async function save() {
         update,
       );
     } else {
-      await store.writeMetadata(tracks[0].path, update);
+      const desc = lastAction.value === "apply_from_path"
+        ? `Apply from path "${tracks[0].title ?? tracks[0].path}"`
+        : undefined;
+      lastAction.value = null;
+      await store.writeMetadata(tracks[0].path, update, desc);
     }
     clearCoverRequested.value = false;
     await nextTick();
