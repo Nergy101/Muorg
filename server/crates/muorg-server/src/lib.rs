@@ -41,31 +41,31 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/tracks", get(routes::library::get_tracks))
         .route("/api/search", get(routes::library::search_tracks))
         .route("/api/stats", get(routes::library::get_stats))
-        .route("/api/tracks/:id/cover", get(routes::tracks::get_cover))
-        .route("/api/tracks/:id/metadata",
+        .route("/api/tracks/{id}/cover", get(routes::tracks::get_cover))
+        .route("/api/tracks/{id}/metadata",
             get(routes::tracks::get_metadata).patch(routes::tracks::patch_metadata))
-        .route("/api/tracks/:id/rating", post(routes::tracks::set_rating))
-        .route("/api/tracks/:id/play", post(routes::tracks::record_play))
-        .route("/api/tracks/:id/backup", get(routes::tracks::get_backup))
-        .route("/api/tracks/:id/restore", post(routes::tracks::restore_backup))
-        .route("/api/tracks/:id/rename", post(routes::tracks::rename_file))
-        .route("/api/tracks/:id/auto-tag-suggestions", post(routes::tracks::auto_tag_suggestions))
-        .route("/api/tracks/:id/stream-token", get(routes::stream::issue_token))
+        .route("/api/tracks/{id}/rating", post(routes::tracks::set_rating))
+        .route("/api/tracks/{id}/play", post(routes::tracks::record_play))
+        .route("/api/tracks/{id}/backup", get(routes::tracks::get_backup))
+        .route("/api/tracks/{id}/restore", post(routes::tracks::restore_backup))
+        .route("/api/tracks/{id}/rename", post(routes::tracks::rename_file))
+        .route("/api/tracks/{id}/auto-tag-suggestions", post(routes::tracks::auto_tag_suggestions))
+        .route("/api/tracks/{id}/stream-token", get(routes::stream::issue_token))
         .route("/api/tracks/metadata/batch", post(routes::tracks::batch_patch_metadata))
         .route("/api/playlists", get(routes::playlists::list).post(routes::playlists::create))
         .route("/api/playlists/order", put(routes::playlists::reorder))
         .route("/api/playlists/smart", post(routes::playlists::create_smart))
-        .route("/api/playlists/smart/:id/rules", patch(routes::playlists::update_smart_rules))
-        .route("/api/playlists/smart/:id/tracks", get(routes::playlists::get_smart_tracks))
-        .route("/api/playlists/:id",
+        .route("/api/playlists/smart/{id}/rules", patch(routes::playlists::update_smart_rules))
+        .route("/api/playlists/smart/{id}/tracks", get(routes::playlists::get_smart_tracks))
+        .route("/api/playlists/{id}",
             patch(routes::playlists::update).delete(routes::playlists::delete))
-        .route("/api/playlists/:id/tracks",
+        .route("/api/playlists/{id}/tracks",
             get(routes::playlists::get_tracks)
             .post(routes::playlists::add_tracks)
             .delete(routes::playlists::remove_tracks))
-        .route("/api/playlists/:id/tracks/order", put(routes::playlists::reorder_tracks))
-        .route("/api/playlists/:id/entries", get(routes::playlists::get_entries))
-        .route("/api/playlists/:id/entries/:entry_id",
+        .route("/api/playlists/{id}/tracks/order", put(routes::playlists::reorder_tracks))
+        .route("/api/playlists/{id}/entries", get(routes::playlists::get_entries))
+        .route("/api/playlists/{id}/entries/{entry_id}",
             delete(routes::playlists::remove_entry))
         .route("/api/admin/rescan", post(routes::admin::rescan))
         .route("/api/admin/remove-folder", post(routes::admin::remove_folder))
@@ -90,7 +90,7 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
     let public = Router::new()
         .route("/", get(routes::util::home))
         .route("/api/health", get(routes::util::health))
-        .route("/stream/:id", get(routes::stream::stream_audio));
+        .route("/stream/{id}", get(routes::stream::stream_audio));
 
     Router::new()
         .merge(public)
