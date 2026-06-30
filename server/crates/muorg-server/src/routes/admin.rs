@@ -1,4 +1,8 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::State,
+    response::{IntoResponse, Response},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::routes::ApiError;
@@ -65,4 +69,74 @@ pub async fn get_backup_directory(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let path = state.backup_dir.display().to_string();
     Ok(Json(serde_json::json!({"path": path})))
+}
+
+// GET /api/admin/health
+pub async fn health(
+    State(state): State<Arc<AppState>>,
+) -> Json<serde_json::Value> {
+    let db_ok = (|| -> Result<(), String> {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        let _ = muorg_core::catalog::load_roots(&conn)?;
+        Ok(())
+    })().is_ok();
+
+    Json(serde_json::json!({
+        "status": if db_ok { "ok" } else { "degraded" },
+        "server": "muorg-server",
+        "version": env!("CARGO_PKG_VERSION"),
+    }))
+}
+
+// GET /api/admin/metrics — Prometheus-formatted metrics text
+pub async fn metrics(
+    State(state): State<Arc<AppState>>,
+) -> Result<axum::response::Response, ApiError> {
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    let tracks = muorg_core::catalog::load_tracks(&conn)?;
+    let roots = muorg_core::catalog::load_roots(&conn)?;
+
+    let track_count = tracks.len();
+    let root_count = roots.len();
+    let artist_count = {
+        let mut artists = std::collections::HashSet::new();
+        for t in &tracks {
+            if let Some(ref a) = t.artist { artists.insert(a.clone()); }
+        }
+        artists.len()
+    };
+    let album_count = {
+        let mut albums = std::collections::HashSet::new();
+        for t in &tracks {
+            if let Some(ref a) = t.album { albums.insert(a.clone()); }
+        }
+        albums.len()
+    };
+    let total_duration: i64 = tracks.iter().map(|t| t.duration_secs.unwrap_or(0)).sum();
+
+    let body = format!(
+        "# HELP muorg_track_count Total number of tracks in the catalog\n\
+         # TYPE muorg_track_count gauge\n\
+         muorg_track_count {}\n\n\
+         # HELP muorg_artist_count Total number of unique artists\n\
+         # TYPE muorg_artist_count gauge\n\
+         muorg_artist_count {}\n\n\
+         # HELP muorg_album_count Total number of unique albums\n\
+         # TYPE muorg_album_count gauge\n\
+         muorg_album_count {}\n\n\
+         # HELP muorg_root_count Number of content roots/folders\n\
+         # TYPE muorg_root_count gauge\n\
+         muorg_root_count {}\n\n\
+         # HELP muorg_total_duration_secs Total playback duration across all tracks\n\
+         # TYPE muorg_total_duration_secs gauge\n\
+         muorg_total_duration_secs {}\n",
+        track_count, artist_count, album_count, root_count, total_duration,
+    );
+
+    let headers = [(
+        "Content-Type",
+        "text/plain; version=0.0.4; charset=utf-8",
+    )];
+
+    Ok((headers, body).into_response())
 }

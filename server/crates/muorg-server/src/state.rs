@@ -1,5 +1,7 @@
 use crate::cast::{CastState, DiscoveryState};
+use crate::config::TranscodingConfig;
 use crate::musicbrainz::AutoTagService;
+use crate::ratelimit::RateLimiter;
 use muorg_core::catalog::Catalog;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -51,6 +53,8 @@ pub struct AppState {
     pub server_port: u16,
     pub cast_discovery: DiscoveryState,
     pub cast_session: CastState,
+    pub transcoding_config: TranscodingConfig,
+    pub rate_limiter: RateLimiter,
 }
 
 impl AppState {
@@ -60,6 +64,7 @@ impl AppState {
         backup_retention_count: usize,
         api_key: String,
         server_port: u16,
+        transcoding_config: TranscodingConfig,
     ) -> Self {
         let cast_discovery = DiscoveryState::new();
         cast_discovery.start();
@@ -73,6 +78,8 @@ impl AppState {
             server_port,
             cast_discovery,
             cast_session: CastState::new(),
+            transcoding_config,
+            rate_limiter: RateLimiter::new(100, 60),
         }
     }
 }

@@ -1,10 +1,11 @@
 use axum::{
     body::Body,
-    extract::State,
+    extract::{ConnectInfo, State},
     http::{Request, StatusCode},
     middleware::Next,
     response::Response,
 };
+use std::net::SocketAddr;
 use std::sync::Arc;
 use crate::state::AppState;
 
@@ -23,6 +24,20 @@ pub async fn auth_middleware(
         Some(key) if constant_time_eq(key, &state.api_key) => Ok(next.run(request).await),
         _ => Err(StatusCode::UNAUTHORIZED),
     }
+}
+
+pub async fn rate_limit_middleware(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    // Apply rate limiting per IP
+    let allowed = state.rate_limiter.check(addr);
+    if !allowed {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+    Ok(next.run(request).await)
 }
 
 fn constant_time_eq(a: &str, b: &str) -> bool {

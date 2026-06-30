@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use mp3lame_encoder::{Builder, DualPcm, FlushNoGap};
+use mp3lame_encoder::{Bitrate, Builder, DualPcm, FlushNoGap};
 use symphonia::core::codecs::audio::{AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
@@ -7,11 +7,12 @@ use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::units::Time;
+use crate::config::TranscodingConfig;
 
 type StreamTx = tokio::sync::mpsc::Sender<Result<Bytes, Box<dyn std::error::Error + Send + Sync>>>;
 
-pub fn transcode_to_mp3(path: &str, start_secs: f32, tx: StreamTx) {
-    if let Err(e) = do_transcode(path, start_secs, &tx) {
+pub fn transcode_to_mp3(path: &str, start_secs: f32, config: &TranscodingConfig, tx: StreamTx) {
+    if let Err(e) = do_transcode(path, start_secs, config, &tx) {
         let _ = tx.blocking_send(Err(e));
     }
 }
@@ -19,6 +20,7 @@ pub fn transcode_to_mp3(path: &str, start_secs: f32, tx: StreamTx) {
 fn do_transcode(
     path: &str,
     start_secs: f32,
+    config: &TranscodingConfig,
     tx: &StreamTx,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let file = std::fs::File::open(path)?;
@@ -50,7 +52,7 @@ fn do_transcode(
         .as_ref()
         .and_then(|p| p.audio())
         .ok_or("No audio codec parameters")?;
-    let sample_rate = audio_params.sample_rate.unwrap_or(44100);
+    let sample_rate = config.sample_rate as u32;
     let channels = audio_params
         .channels
         .clone()
@@ -115,7 +117,14 @@ fn do_transcode(
         .set_sample_rate(sample_rate)
         .map_err(|e| format!("{e:?}"))?;
     builder
-        .set_brate(mp3lame_encoder::Bitrate::Kbps128)
+        .set_brate(match config.bitrate {
+            128 => Bitrate::Kbps128,
+            160 => Bitrate::Kbps160,
+            192 => Bitrate::Kbps192,
+            256 => Bitrate::Kbps256,
+            320 => Bitrate::Kbps320,
+            _ => Bitrate::Kbps128,
+        })
         .map_err(|e| format!("{e:?}"))?;
     builder
         .set_quality(mp3lame_encoder::Quality::Good)

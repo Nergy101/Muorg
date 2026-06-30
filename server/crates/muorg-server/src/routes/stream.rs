@@ -96,8 +96,9 @@ pub async fn stream_audio(
         let path = track_path.clone();
         let start_secs = params.start.unwrap_or(0.0).max(0.0);
         tracing::info!(track_id = id, path = %track_path, start_secs, "stream flac→mp3");
+        let cfg = state.transcoding_config.clone();
         tokio::task::spawn_blocking(move || {
-            transcode::transcode_to_mp3(&path, start_secs, tx);
+            transcode::transcode_to_mp3(&path, start_secs, &cfg, tx);
         });
         let stream = ReceiverStream::new(rx);
         let body = Body::from_stream(stream);

@@ -11,6 +11,8 @@ pub struct Config {
     pub storage: StorageConfig,
     #[serde(default)]
     pub cors: CorsConfig,
+    #[serde(default)]
+    pub transcoding: TranscodingConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,6 +74,33 @@ impl Default for CorsConfig {
                 "tauri://localhost".to_string(),
                 "http://tauri.localhost".to_string(),
             ],
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TranscodingConfig {
+    /// Audio bitrate in kbps (default: 128)
+    #[serde(default = "default_transcode_bitrate")]
+    pub bitrate: u32,
+    /// Output format: "mp3" only for now (default: "mp3")
+    #[serde(default = "default_transcode_format")]
+    pub format: String,
+    /// Output sample rate in Hz (default: 44100)
+    #[serde(default = "default_transcode_sample_rate")]
+    pub sample_rate: u32,
+}
+
+fn default_transcode_bitrate() -> u32 { 128 }
+fn default_transcode_format() -> String { "mp3".to_string() }
+fn default_transcode_sample_rate() -> u32 { 44100 }
+
+impl Default for TranscodingConfig {
+    fn default() -> Self {
+        Self {
+            bitrate: 128,
+            format: "mp3".to_string(),
+            sample_rate: 44100,
         }
     }
 }

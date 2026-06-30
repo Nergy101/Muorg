@@ -3,6 +3,7 @@ mod backup;
 mod cast;
 mod config;
 mod musicbrainz;
+mod ratelimit;
 mod routes;
 mod state;
 mod transcode;
@@ -145,6 +146,8 @@ fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
         .route("/api/admin/remove-folder", post(routes::admin::remove_folder))
         .route("/api/admin/clear-cache", post(routes::admin::clear_cache))
         .route("/api/admin/backup-directory", get(routes::admin::get_backup_directory))
+        .route("/api/admin/health", get(routes::admin::health))
+        .route("/api/admin/metrics", get(routes::admin::metrics))
         .route("/api/cast/devices", get(routes::cast::get_devices))
         .route("/api/cast/discovery/start", post(routes::cast::start_discovery))
         .route("/api/cast/discovery/stop", post(routes::cast::stop_discovery))
@@ -156,7 +159,8 @@ fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
         .route("/api/cast/seek", post(routes::cast::seek))
         .route("/api/cast/volume", post(routes::cast::set_volume))
         .route("/api/fetch-image", post(routes::util::fetch_image))
-        .layer(middleware::from_fn_with_state(state.clone(), auth::auth_middleware));
+        .layer(middleware::from_fn_with_state(state.clone(), auth::auth_middleware))
+        .layer(middleware::from_fn_with_state(state.clone(), auth::rate_limit_middleware));
 
     let public = Router::new()
         .route("/", get(routes::util::home))
@@ -260,6 +264,7 @@ async fn main() {
         config.storage.backup_retention_count,
         config.server.api_key.clone(),
         server_port,
+        config.transcoding,
     ));
 
     let app = build_router(state, &config.cors.allowed_origins);
@@ -267,5 +272,5 @@ async fn main() {
     let listen_addr = listener.local_addr().unwrap_or(addr);
     tracing::info!(address = %listen_addr, "listening");
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
 }
