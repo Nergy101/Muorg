@@ -56,6 +56,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <receiver
+            android:name=".ui.widget.NowPlayingWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="nl.muorg.android.UPDATE_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/now_playing_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
