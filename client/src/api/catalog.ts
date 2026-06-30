@@ -144,6 +144,34 @@ export async function renameTrackFile(trackId: number, newPath: string): Promise
   });
 }
 
+// ── Auto-tagging (MusicBrainz) ────────────────────────────────────────────────
+
+export interface AutoTagCandidate {
+  confidence: number;
+  mbid: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  year: number | null;
+  track_number: number | null;
+  album_artist: string | null;
+}
+
+export interface AutoTagResponse {
+  candidates: AutoTagCandidate[];
+}
+
+export async function getAutoTagSuggestions(
+  trackId: number,
+  query?: { artist?: string; title?: string; album?: string },
+): Promise<AutoTagResponse> {
+  return apiFetch<AutoTagResponse>(`/api/tracks/${trackId}/auto-tag-suggestions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: query ? JSON.stringify(query) : undefined,
+  });
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

@@ -11,6 +11,7 @@ const props = defineProps<{
   canSavePlaylist?: boolean;
   canApplyFromPath?: boolean;
   applyFromPathTooltip?: string;
+  canAutoTag?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -18,6 +19,7 @@ const emit = defineEmits<{
   (e: "selectTrack", track: CatalogTrack): void;
   (e: "saveAsPlaylist"): void;
   (e: "applyAllFromPath"): void;
+  (e: "autoTagAll"): void;
 }>();
 
 const hasTracks = computed(() => props.tracks.length > 0);
@@ -90,6 +92,15 @@ function onKeydown(e: KeyboardEvent) {
             >
               <FeatherIcon name="zap" class="h-3.5 w-3.5 shrink-0" />
               Apply from path
+            </button>
+            <button
+              v-if="canAutoTag"
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              @click="emit('autoTagAll')"
+            >
+              <FeatherIcon name="search" class="h-3.5 w-3.5 shrink-0" />
+              Auto-tag all
             </button>
             <button
               type="button"

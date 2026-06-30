@@ -2,6 +2,7 @@ mod auth;
 mod backup;
 mod cast;
 mod config;
+mod musicbrainz;
 mod routes;
 mod state;
 mod transcode;
@@ -122,6 +123,7 @@ fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
         .route("/api/tracks/:id/backup", get(routes::tracks::get_backup))
         .route("/api/tracks/:id/restore", post(routes::tracks::restore_backup))
         .route("/api/tracks/:id/rename", post(routes::tracks::rename_file))
+        .route("/api/tracks/:id/auto-tag-suggestions", post(routes::tracks::auto_tag_suggestions))
         .route("/api/tracks/:id/stream-token", get(routes::stream::issue_token))
         .route("/api/playlists", get(routes::playlists::list).post(routes::playlists::create))
         .route("/api/playlists/order", put(routes::playlists::reorder))

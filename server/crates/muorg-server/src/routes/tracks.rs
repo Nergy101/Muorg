@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::path;
 use std::sync::Arc;
 use crate::backup;
+use crate::musicbrainz::SearchQuery;
 use crate::routes::ApiError;
 use crate::state::AppState;
 use muorg_core::catalog::TrackBackupRecord;
@@ -178,4 +179,28 @@ pub async fn rename_file(
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::update_track_path(&conn, &old_path, &body.new_path)?;
     Ok(Json(serde_json::json!({"ok": true})))
+}
+
+// POST /api/tracks/:id/auto-tag-suggestions
+pub async fn auto_tag_suggestions(
+    Path(id): Path<i64>,
+    State(state): State<Arc<AppState>>,
+    body: Option<Json<SearchQuery>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let track_path = resolve_track(&state, id)?;
+    let meta = muorg_core::metadata::read_metadata(path::Path::new(&track_path))?;
+
+    // Build query from request body or fall back to file metadata
+    let query = match body {
+        Some(Json(q)) => q,
+        None => SearchQuery {
+            artist: meta.artist.clone(),
+            title: meta.title.clone(),
+            album: meta.album.clone(),
+            duration_secs: meta.duration_secs.map(|s| s as u32),
+        },
+    };
+
+    let candidates = state.auto_tag.search(&query).await.map_err(|e| ApiError(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    Ok(Json(serde_json::json!({"candidates": candidates})))
 }

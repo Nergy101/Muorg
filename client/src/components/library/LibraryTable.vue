@@ -250,6 +250,7 @@ const showReportModal = computed(() => !!reportFilter.value && !!activeReportTit
 const isMissingMetadataReport = computed(() => reportFilter.value === "missing_metadata");
 const canSavePlaylist = computed(() => isMissingMetadataReport.value && activeReportTracks.value.length > 0);
 const canApplyFromPath = computed(() => isMissingMetadataReport.value && activeReportTracks.value.length > 0 && pathFormatTemplates.value.some((t) => t.trim()));
+const canAutoTag = computed(() => isMissingMetadataReport.value && activeReportTracks.value.length > 0);
 const applyFromPathTooltip = computed(() => {
   const templates = pathFormatTemplates.value;
   const reportTracks = activeReportTracks.value;
@@ -294,6 +295,59 @@ async function applyAllFromPath() {
     }
     await store.writeMetadataCustomBulk(updates);
     store.setReportFilter(null);
+  } finally {
+    store.setBulkProgress(null);
+  }
+}
+
+async function autoTagAll() {
+  const tracks = activeReportTracks.value;
+  if (!tracks.length) return;
+  const total = tracks.length;
+  store.setBulkProgress({ current: 0, total });
+  const updates: { path: string; update: import("../../types").MetadataUpdate }[] = [];
+  let skipped = 0;
+  try {
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
+      store.setBulkProgress({ current: i + 1, total });
+      // Skip tracks that already have title and artist
+      if (track.title && track.artist) continue;
+      try {
+        const result = await catalogApi.getAutoTagSuggestions(track.id, {
+          artist: track.artist ?? undefined,
+          title: track.title ?? undefined,
+          album: track.album ?? undefined,
+        });
+        const best = result.candidates[0];
+        if (best && best.confidence >= 0.9) {
+          const update: import("../../types").MetadataUpdate = {};
+          if (!track.title) update.title = best.title;
+          if (!track.artist) update.artist = best.artist;
+          if (!track.album && best.album) update.album = best.album;
+          if (!track.album_artist && best.album_artist) update.album_artist = best.album_artist;
+          if (!track.year && best.year) update.year = best.year;
+          if (Object.keys(update).length > 0) {
+            updates.push({ path: track.path, update });
+          }
+        } else {
+          skipped++;
+        }
+      } catch {
+        skipped++;
+      }
+    }
+    if (updates.length > 0) {
+      await store.writeMetadataCustomBulk(updates);
+    }
+    const applied = updates.length;
+    const msg = applied > 0
+      ? `Auto-tagged ${applied} track${applied === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped — low confidence)` : ""}`
+      : "No tracks could be auto-tagged (all had low confidence)";
+    // Show message through existing UI
+    if (applied > 0) {
+      store.setReportFilter(null);
+    }
   } finally {
     store.setBulkProgress(null);
   }
@@ -394,10 +448,12 @@ function goBackToAlbums() {
       :canSavePlaylist="canSavePlaylist"
       :canApplyFromPath="canApplyFromPath"
       :applyFromPathTooltip="applyFromPathTooltip"
+      :canAutoTag="canAutoTag"
       @close="store.setReportFilter(null)"
       @selectTrack="selectTrackFromReport"
       @saveAsPlaylist="saveReportAsPlaylist"
       @applyAllFromPath="applyAllFromPath"
+      @autoTagAll="autoTagAll"
     />
   </div>
 </template>

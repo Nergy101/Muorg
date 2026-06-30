@@ -1,4 +1,5 @@
 use crate::cast::{CastState, DiscoveryState};
+use crate::musicbrainz::AutoTagService;
 use muorg_core::catalog::Catalog;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -44,6 +45,7 @@ pub struct AppState {
     pub catalog: Arc<Catalog>,
     pub backup_dir: PathBuf,
     pub backup_retention_count: usize,
+    pub auto_tag: AutoTagService,
     pub api_key: String,
     pub tokens: StreamTokens,
     pub server_port: u16,
@@ -65,6 +67,7 @@ impl AppState {
             catalog,
             backup_dir,
             backup_retention_count,
+            auto_tag: AutoTagService::new(),
             api_key,
             tokens: StreamTokens::new(),
             server_port,

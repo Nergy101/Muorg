@@ -11,6 +11,8 @@ import { confirm as tauriConfirm } from "@tauri-apps/plugin-dialog";
 import * as catalogApi from "../../api/catalog";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import StarRating from "../shared/StarRating.vue";
+import AutoTagSuggestions from "./AutoTagSuggestions.vue";
+import type { AutoTagCandidate } from "../../api/catalog";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 
 const store = useCatalogStore();
@@ -97,6 +99,25 @@ const replayGainMeta = ref<TrackMetadataRead | null>(null);
 const latestBackup = ref<TrackBackupRecord | null>(null);
 const backupPreviewText = ref<string>("");
 const backupWouldChangeMetadata = ref(false);
+const showAutoTag = ref(false);
+
+function onAutoTagApply(candidate: AutoTagCandidate) {
+  // Fill form fields from the candidate
+  title.value = candidate.title;
+  artist.value = candidate.artist;
+  album.value = candidate.album ?? album.value;
+  albumArtist.value = candidate.album_artist ?? albumArtist.value;
+  if (candidate.year != null) year.value = candidate.year;
+  if (candidate.track_number != null) trackNumber.value = candidate.track_number;
+  // Mark all changed fields as edited
+  const fields = ["title", "artist", "album", "albumArtist", "year", "trackNumber"] as const;
+  for (const f of fields) markEdited(f);
+}
+
+async function onAutoTagSaveAndApply(candidate: AutoTagCandidate) {
+  onAutoTagApply(candidate);
+  await save();
+}
 
 const coverDragOver = ref(false);
 const coverDragDepth = ref(0);
@@ -1458,6 +1479,21 @@ async function applyFromOtherTracks() {
               </button>
             </span>
           </template>
+          <span
+            v-if="selectedTracks.length === 1"
+            class="ml-1 border-l border-stone-600 pl-2"
+            aria-hidden="true"
+          />
+          <button
+            v-if="selectedTracks.length === 1"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            title="Search MusicBrainz for matching metadata"
+            @click="showAutoTag = true"
+          >
+            <FeatherIcon name="search" class="h-3.5 w-3.5 shrink-0" />
+            Find matches…
+          </button>
         </div>
       </div>
       <div class="shrink-0 border-t border-stone-700 pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
@@ -1721,5 +1757,11 @@ async function applyFromOtherTracks() {
         {{ tooltipPopover.text }}
       </div>
     </Teleport>
+    <AutoTagSuggestions
+      v-if="showAutoTag"
+      @close="showAutoTag = false"
+      @apply="onAutoTagApply"
+      @save-and-apply="onAutoTagSaveAndApply"
+    />
   </div>
 </template>
