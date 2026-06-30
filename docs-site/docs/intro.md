@@ -14,3 +14,4 @@ sidebar_position: 1
 | **Server** | Standalone REST API (Rust + Axum) | [Server](/docs/server/) |
 | **Web Client** | Browser-based UI (Vue 3 + Vite) | [Web Client](/docs/web-client/) |
 | **Android** | Native Android app (Kotlin + Jetpack Compose) | [Android](/docs/android/) |
+
