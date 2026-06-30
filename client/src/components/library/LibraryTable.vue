@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
-import * as catalogApi from "../../api/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack, MetadataUpdate } from "../../types";

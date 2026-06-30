@@ -434,9 +434,8 @@ export const useCatalogStore = defineStore("catalog", {
     },
     /** Build undo snapshots for the given paths using current store track state. */
     _buildSnapshots(paths: string[]): UndoSnapshot[] {
-      const settingsStore = useSettingsStore();
       return paths
-        .map((path) => {
+        .map((path): UndoSnapshot | null => {
           const track = this.tracks.find((t) => t.path === path);
           if (!track) return null;
           const cover = this.coverCache[path];
@@ -455,7 +454,7 @@ export const useCatalogStore = defineStore("catalog", {
               disc_number: track.disc_number ?? null,
               picture_base64: cover?.base64 ?? undefined,
             },
-          } satisfies UndoSnapshot;
+          };
         })
         .filter((s): s is UndoSnapshot => s != null);
     },
@@ -471,7 +470,6 @@ export const useCatalogStore = defineStore("catalog", {
 
     /** Restore an undo/redo entry's snapshots back to disk + DB. */
     async _applySnapshots(entry: UndoEntry) {
-      const settingsStore = useSettingsStore();
       for (const snap of entry.snapshots) {
         await api.patchMetadata(snap.trackId, snap.metadata, false);
         if ("picture_base64" in snap.metadata && snap.metadata.picture_base64 !== undefined) {
