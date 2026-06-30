@@ -1,6 +1,7 @@
 package nl.muorg.android.ui.component
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,7 +58,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO }
+private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO, EDIT_METADATA }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +76,7 @@ fun TrackActionsSheet(
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
     onRemoveFromQueue: (() -> Unit)? = null,
+    onSaveMetadata: ((title: String?, artist: String?, album: String?, albumArtist: String?, genre: String?, year: Int?) -> Unit)? = null,
 ) {
     var level by remember { mutableStateOf(SheetLevel.MAIN) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -109,6 +113,7 @@ fun TrackActionsSheet(
                 onViewArtist = onViewArtist,
                 onViewAlbum = onViewAlbum,
                 onRemoveFromQueue = onRemoveFromQueue,
+                onGoToEditMetadata = { level = SheetLevel.EDIT_METADATA },
             )
             SheetLevel.PLAYLISTS -> PlaylistsLevel(
                 playlists = playlists,
@@ -121,6 +126,14 @@ fun TrackActionsSheet(
             SheetLevel.TRACK_INFO -> TrackInfoLevel(
                 track = track,
                 onBack = { level = SheetLevel.MAIN },
+            )
+            SheetLevel.EDIT_METADATA -> MetadataEditLevel(
+                track = track,
+                onBack = { level = SheetLevel.MAIN },
+                onSave = { title, artist, album, albumArtist, genre, year ->
+                    onSaveMetadata?.invoke(title, artist, album, albumArtist, genre, year)
+                    onDismiss()
+                },
             )
         }
     }
@@ -136,6 +149,7 @@ private fun MainLevel(
     onDismiss: () -> Unit,
     onGoToPlaylists: () -> Unit,
     onGoToTrackInfo: () -> Unit,
+    onGoToEditMetadata: () -> Unit,
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
     onRemoveFromQueue: (() -> Unit)? = null,
@@ -240,6 +254,11 @@ private fun MainLevel(
         headlineContent = { Text("Track info", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         leadingContent = { Icon(Icons.Filled.Info, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToTrackInfo() },
+    )
+    ListItem(
+        headlineContent = { Text("Edit metadata", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+        leadingContent = { Icon(Icons.Filled.Edit, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        modifier = Modifier.clickable { onGoToEditMetadata() },
     )
     Spacer(Modifier.height(16.dp))
 }
@@ -382,5 +401,101 @@ private fun TrackInfoLevel(
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun MetadataEditLevel(
+    track: CatalogTrack,
+    onBack: () -> Unit,
+    onSave: (title: String?, artist: String?, album: String?, albumArtist: String?, genre: String?, year: Int?) -> Unit,
+) {
+    var editTitle by remember { mutableStateOf(track.title ?: "") }
+    var editArtist by remember { mutableStateOf(track.artist ?: "") }
+    var editAlbum by remember { mutableStateOf(track.album ?: "") }
+    var editAlbumArtist by remember { mutableStateOf(track.albumArtist ?: "") }
+    var editGenre by remember { mutableStateOf(track.genre ?: "") }
+    var editYear by remember { mutableStateOf(track.year?.toString() ?: "") }
+
+    ListItem(
+        headlineContent = { Text("Back") },
+        leadingContent = { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(18.dp)) },
+        modifier = Modifier.clickable { onBack() },
+    )
+    Text(
+        "EDIT METADATA",
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.8.sp,
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp).padding(bottom = 6.dp),
+    )
+
+    Column(
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp),
+    ) {
+        MetadataField("Title", editTitle) { editTitle = it }
+        MetadataField("Artist", editArtist) { editArtist = it }
+        MetadataField("Album", editAlbum) { editAlbum = it }
+        MetadataField("Album Artist", editAlbumArtist) { editAlbumArtist = it }
+        MetadataField("Genre", editGenre) { editGenre = it }
+        MetadataField("Year", editYear) { editYear = it }
+
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = onBack) {
+                Text("Cancel")
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    onSave(
+                        editTitle.ifBlank { null },
+                        editArtist.ifBlank { null },
+                        editAlbum.ifBlank { null },
+                        editAlbumArtist.ifBlank { null },
+                        editGenre.ifBlank { null },
+                        editYear.toIntOrNull(),
+                    )
+                },
+            ) {
+                Text("Save")
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun MetadataField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(100.dp),
+        )
+        androidx.compose.material3.OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f),
+        )
     }
 }

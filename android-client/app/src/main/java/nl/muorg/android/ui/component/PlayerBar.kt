@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -44,6 +45,7 @@ fun PlayerBar(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onOpenQueue: () -> Unit = {},
+    sleepTimerText: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val currentTrack = playerState.currentTrack
@@ -134,6 +136,22 @@ fun PlayerBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (sleepTimerText != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Snooze,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(12.dp),
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = sleepTimerText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                 }
 
                 // Queue

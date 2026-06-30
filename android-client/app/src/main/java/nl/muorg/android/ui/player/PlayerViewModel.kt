@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import nl.muorg.android.cast.CastManager
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.data.api.MetadataUpdateRequest
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
@@ -309,6 +310,43 @@ class PlayerViewModel @Inject constructor(
         playerController.addTracksToQueue(tracks, isUserAction = true)
         _toastEvent.tryEmit("Added to queue")
     }
+    fun saveMetadata(
+        track: CatalogTrack,
+        title: String?,
+        artist: String?,
+        album: String?,
+        albumArtist: String?,
+        genre: String?,
+        year: Int?,
+    ) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            val update = MetadataUpdateRequest(
+                title = title?.takeIf { it != track.title && it.isNotBlank() },
+                artist = artist?.takeIf { it != track.artist && it.isNotBlank() },
+                album = album?.takeIf { it != track.album && it.isNotBlank() },
+                albumArtist = albumArtist?.takeIf { it != track.albumArtist && it.isNotBlank() },
+                genre = genre?.takeIf { it != track.genre && it.isNotBlank() },
+                year = year?.takeIf { it != track.year },
+            )
+            if (!update.hasAnyField()) {
+                _toastEvent.tryEmit("No changes to save")
+                return@launch
+            }
+            if (mode == "local") {
+                runCatching {
+                    localRepository.updateTrackMetadata(-track.id, update)
+                }.onFailure { e ->
+                    _toastEvent.tryEmit("Failed to save: ${e.message}")
+                }
+            } else {
+                libraryRepository.patchTrackMetadata(track.id, update).onFailure { e ->
+                    _toastEvent.tryEmit("Failed to save: ${e.message}")
+                }
+            }
+        }
+    }
+
     fun toggleFavorite(track: CatalogTrack) {
         viewModelScope.launch {
             val wasFavorite = track.id.toString() in playerController.state.value.favorites

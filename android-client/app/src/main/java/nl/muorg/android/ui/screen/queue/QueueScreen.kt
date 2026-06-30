@@ -80,6 +80,7 @@ fun QueueScreen(
     val currentTrack = playerState.currentTrack
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     var sheetTrack by remember { mutableStateOf<CatalogTrack?>(null) }
 
     LaunchedEffect(sheetTrack) {
@@ -304,6 +305,12 @@ fun QueueScreen(
                 onClick = onPlayerBarClick,
                 onPlayPause = playerViewModel::playPause,
                 onNext = playerViewModel::skipNext,
+                sleepTimerText = if (sleepTimerRemainingMs > 0L) {
+                    val totalSecs = (sleepTimerRemainingMs / 1000).coerceAtLeast(0)
+                    val mins = totalSecs / 60
+                    val secs = totalSecs % 60
+                    if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
+                } else null,
             )
         }
     }
@@ -323,6 +330,10 @@ fun QueueScreen(
             onViewArtist = { sheetTrack = null },
             onViewAlbum = { sheetTrack = null },
             onRemoveFromQueue = { playerViewModel.removeFromQueue(track) },
+            onSaveMetadata = { title, artist, album, albumArtist, genre, year ->
+                sheetTrack = null
+                playerViewModel.saveMetadata(track, title, artist, album, albumArtist, genre, year)
+            },
         )
     }
 }

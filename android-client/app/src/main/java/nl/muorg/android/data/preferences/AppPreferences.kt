@@ -49,7 +49,7 @@ class AppPreferences @Inject constructor(
     val serverUrl: Flow<String> = context.dataStore.data
         .map { prefs -> prefs[KEY_SERVER_URL] ?: "" }
 
-    val apiKey: Flow<String> = context.dataStore.data
+    val apiKey = context.dataStore.data
         .map { prefs -> prefs[KEY_API_KEY] ?: "" }
 
     // Eagerly-cached StateFlows for synchronous reads in OkHttp interceptors.

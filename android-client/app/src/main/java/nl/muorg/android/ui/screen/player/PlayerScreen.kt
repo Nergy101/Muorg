@@ -621,6 +621,10 @@ fun PlayerScreen(
                 sheetOpen = false
                 onViewAlbum(currentTrack.displayAlbum)
             },
+            onSaveMetadata = { title, artist, album, albumArtist, genre, year ->
+                sheetOpen = false
+                playerViewModel.saveMetadata(currentTrack, title, artist, album, albumArtist, genre, year)
+            },
         )
     }
 }

@@ -89,6 +89,7 @@ fun LibraryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val currentAlbum = playerState.currentTrack?.displayAlbum
     var showSortMenu by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf(viewModel.rawSearchQuery) }
@@ -498,6 +499,8 @@ fun LibraryScreen(
                 onPlayPause = playerViewModel::playPause,
                 onNext = playerViewModel::skipNext,
                 onOpenQueue = onOpenQueue,
+                sleepTimerText = if (sleepTimerRemainingMs > 0L)
+                    formatSleepTimer(sleepTimerRemainingMs) else null,
             )
         }
     }
@@ -525,4 +528,11 @@ fun LibraryScreen(
             },
         )
     }
+}
+
+private fun formatSleepTimer(ms: Long): String {
+    val totalSecs = (ms / 1000).coerceAtLeast(0)
+    val mins = totalSecs / 60
+    val secs = totalSecs % 60
+    return if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
 }
