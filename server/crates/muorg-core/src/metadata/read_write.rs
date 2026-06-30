@@ -94,7 +94,14 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         meta.genre = tag.genre().map(|s| s.to_string());
         meta.track_number = tag.track();
         meta.disc_number = tag.disk();
-        if let Some(pic) = tag.get_picture_type(PictureType::CoverFront) {
+        // Prefer an explicit front cover, but fall back to any embedded picture.
+        // Many files (especially FLAC, and MP3s tagged by various tools) store
+        // artwork as PictureType::Other or with no front-cover designation, so
+        // matching CoverFront alone would drop their cover art entirely.
+        let pic = tag
+            .get_picture_type(PictureType::CoverFront)
+            .or_else(|| tag.pictures().first());
+        if let Some(pic) = pic {
             meta.picture_base64 = Some(base64::Engine::encode(
                 &base64::engine::general_purpose::STANDARD,
                 pic.data(),
