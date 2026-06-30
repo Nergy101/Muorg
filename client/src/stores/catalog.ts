@@ -105,6 +105,8 @@ export const useCatalogStore = defineStore("catalog", {
     pendingCoverImagePath: null as string | null,
     revealTrackId: null as number | null,
     bulkProgress: null as { current: number; total: number } | null,
+    bulkCancelled: false,
+    sessionBackupCount: 0,
     undoStack: [] as UndoEntry[],
     redoStack: [] as UndoEntry[],
     };
@@ -503,8 +505,13 @@ export const useCatalogStore = defineStore("catalog", {
 
     /** Restore an undo/redo entry's snapshots back to disk + DB. */
     async _applySnapshots(entry: UndoEntry) {
+      let hadBackupTrack = false;
       for (const snap of entry.snapshots) {
         await api.patchMetadata(snap.trackId, snap.metadata, false);
+        if (!hadBackupTrack) {
+          const backup = await api.getLatestBackup(snap.trackId).catch(() => null);
+          if (backup) hadBackupTrack = true;
+        }
         if ("picture_base64" in snap.metadata && snap.metadata.picture_base64 !== undefined) {
           const next = { ...this.coverCache };
           if (snap.path in next) {
@@ -513,6 +520,7 @@ export const useCatalogStore = defineStore("catalog", {
           this.coverCache = next;
         }
       }
+      if (hadBackupTrack) this.sessionBackupCount += 1;
       await this.loadTracks();
     },
 
@@ -537,9 +545,13 @@ export const useCatalogStore = defineStore("catalog", {
       this._pushUndo(paths, `Edit ${paths.length} tracks`);
       this.loading = true;
       this.error = null;
+      this.bulkCancelled = false;
+      this.bulkProgress = { current: 0, total: paths.length };
       const settingsStore = useSettingsStore();
       try {
-        for (const path of paths) {
+        for (let i = 0; i < paths.length; i++) {
+          if (this.bulkCancelled) break;
+          const path = paths[i];
           const id = this._trackIdByPath(path);
           if (id == null) continue;
           await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
@@ -548,6 +560,7 @@ export const useCatalogStore = defineStore("catalog", {
             delete nextCoverCache[path];
           }
           this.coverCache = nextCoverCache;
+          this.bulkProgress = { current: i + 1, total: paths.length };
         }
         await this.loadTracks();
       } catch (e) {
@@ -555,6 +568,7 @@ export const useCatalogStore = defineStore("catalog", {
         throw e;
       } finally {
         this.loading = false;
+        this.bulkProgress = null;
       }
     },
     async undo() {
@@ -594,15 +608,20 @@ export const useCatalogStore = defineStore("catalog", {
       this._pushUndo(paths, `Edit ${paths.length} tracks`);
       this.loading = true;
       this.error = null;
+      this.bulkCancelled = false;
+      this.bulkProgress = { current: 0, total: updates.length };
       const settingsStore = useSettingsStore();
       try {
-        for (const { path, update } of updates) {
+        for (let i = 0; i < updates.length; i++) {
+          if (this.bulkCancelled) break;
+          const { path, update } = updates[i];
           const id = this._trackIdByPath(path);
           if (id == null) continue;
           await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
           const next = { ...this.coverCache };
           if (path in next) delete next[path];
           this.coverCache = next;
+          this.bulkProgress = { current: i + 1, total: updates.length };
         }
         await this.loadTracks();
       } catch (e) {
@@ -610,6 +629,7 @@ export const useCatalogStore = defineStore("catalog", {
         throw e;
       } finally {
         this.loading = false;
+        this.bulkProgress = null;
       }
     },
     async setRatingForSelection(rating: number | null) {
@@ -710,6 +730,10 @@ export const useCatalogStore = defineStore("catalog", {
     },
     setBulkProgress(progress: { current: number; total: number } | null) {
       this.bulkProgress = progress;
+      if (progress === null) this.bulkCancelled = false;
+    },
+    setBulkCancelled(value: boolean) {
+      this.bulkCancelled = value;
     },
     setGroupBy(mode: "none" | "artist" | "album") {
       this.groupBy = mode;

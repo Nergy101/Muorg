@@ -110,16 +110,11 @@ const textPanelStyle = computed(() => {
   >
     <!-- Album art area -->
     <div class="relative h-40 w-full shrink-0 overflow-hidden bg-stone-800">
-      <!-- Spinner: shown while fetching OR while browser is decoding the image -->
+      <!-- Skeleton placeholder: shown while fetching OR while browser is decoding the image -->
       <div
         v-if="displayState === 'spinner'"
-        class="absolute inset-0 flex items-center justify-center"
-      >
-        <svg class="album-cover-spinner h-7 w-7 text-stone-500" viewBox="0 0 24 24" fill="none">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" />
-          <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-      </div>
+        class="absolute inset-0 animate-pulse bg-gradient-to-r from-stone-800 via-stone-700 to-stone-800 bg-[length:200%_100%]"
+      />
 
       <!-- No cover placeholder -->
       <div
@@ -157,12 +152,3 @@ const textPanelStyle = computed(() => {
   </button>
 </template>
 
-<style scoped>
-@keyframes album-cover-spin {
-  to { transform: rotate(360deg); }
-}
-.album-cover-spinner {
-  animation: album-cover-spin 0.9s linear infinite;
-  transform-origin: center;
-}
-</style>

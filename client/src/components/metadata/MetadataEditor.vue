@@ -1441,6 +1441,16 @@ async function applyFromOtherTracks() {
             Restore backup
           </button>
           <button
+            v-if="store.sessionBackupCount > 0"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            title="Open backup folder — session has {{ store.sessionBackupCount }} backup{{ store.sessionBackupCount === 1 ? '' : 's' }} available via undo"
+            @click="openBackupFolder"
+          >
+            <FeatherIcon name="archive" class="h-4 w-4 shrink-0" />
+            {{ store.sessionBackupCount }} backup{{ store.sessionBackupCount === 1 ? '' : 's' }}
+          </button>
+          <button
             v-if="selectedTracks.length === 1"
             type="button"
             class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"

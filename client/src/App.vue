@@ -650,6 +650,13 @@ onUnmounted(() => {
             {{ store.bulkProgress.current }} / {{ store.bulkProgress.total }}
             <span class="ml-1.5 text-stone-500">({{ Math.round(store.bulkProgress.current / store.bulkProgress.total * 100) }}%)</span>
           </div>
+          <button
+            type="button"
+            class="rounded border border-stone-600 px-3 py-1 text-xs text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            @click="store.setBulkCancelled(true)"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </Teleport>
