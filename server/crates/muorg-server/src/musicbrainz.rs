@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Instant;
+use sha2::Digest;
 
 /// Query parameters for searching MusicBrainz.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchQuery {
     pub artist: Option<String>,
     pub title: Option<String>,
@@ -46,6 +46,12 @@ pub struct AutoTagService {
     last_request: Mutex<Instant>,
 }
 
+impl Default for AutoTagService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AutoTagService {
     pub fn new() -> Self {
         Self {
@@ -72,12 +78,14 @@ impl AutoTagService {
 
         // Rate limit: ensure at least 1 second since last request
         {
-            let mut last = self.last_request.lock().map_err(|e| e.to_string())?;
-            let elapsed = last.elapsed();
-            if elapsed < std::time::Duration::from_secs(1) {
-                tokio::time::sleep(std::time::Duration::from_secs(1) - elapsed).await;
+            let wait = {
+                let last = self.last_request.lock().map_err(|e| e.to_string())?;
+                std::time::Duration::from_secs(1).checked_sub(last.elapsed())
+            };
+            if let Some(wait) = wait {
+                tokio::time::sleep(wait).await;
             }
-            *last = Instant::now();
+            *self.last_request.lock().map_err(|e| e.to_string())? = Instant::now();
         }
 
         // Build MusicBrainz query
@@ -281,7 +289,7 @@ fn parse_mb_response(json_text: &str, query: &SearchQuery) -> Result<Vec<MatchCa
     }
 
     // Sort by confidence descending (with album/year bonuses)
-    candidates.sort_by(|a, b| b.sort_key().cmp(&a.sort_key()));
+    candidates.sort_by_key(|b| std::cmp::Reverse(b.sort_key()));
 
     // Deduplicate by MBID + album — keep highest confidence
     let mut seen = std::collections::HashSet::new();
@@ -342,8 +350,8 @@ fn compute_confidence(
     // Duration match bonus (within 3 seconds)
     if let Some(q_dur) = query.duration_secs {
         if let Some(r_dur_ms) = result_length_ms {
-            let r_dur = r_dur_ms / 1000;
-            let diff = if q_dur > r_dur { q_dur - r_dur } else { r_dur - q_dur };
+            let r_dur = (r_dur_ms / 1000) as u32;
+            let diff = q_dur.abs_diff(r_dur);
             if diff <= 3 {
                 score += 0.1;
             }

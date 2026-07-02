@@ -16,7 +16,7 @@ pub struct TestServer {
     /// Kept alive so the temp dir isn't deleted until Drop.
     _temp_dir: TempDir,
     /// Sender to trigger graceful shutdown.
-    shutdown_tx: tokio::sync::oneshot::Sender<()>,
+    shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
 impl TestServer {
@@ -74,7 +74,7 @@ impl TestServer {
             api_key,
             client,
             _temp_dir: temp_dir,
-            shutdown_tx,
+            shutdown_tx: Some(shutdown_tx),
         }
     }
 
@@ -112,6 +112,8 @@ impl TestServer {
 
 impl Drop for TestServer {
     fn drop(&mut self) {
-        let _ = self.shutdown_tx.send(());
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
     }
 }

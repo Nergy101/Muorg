@@ -52,7 +52,7 @@ fn do_transcode(
         .as_ref()
         .and_then(|p| p.audio())
         .ok_or("No audio codec parameters")?;
-    let sample_rate = config.sample_rate as u32;
+    let sample_rate = config.sample_rate;
     let channels = audio_params
         .channels
         .clone()

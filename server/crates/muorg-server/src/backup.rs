@@ -48,7 +48,7 @@ pub fn gc_old_backups(backup_dir: &Path, retain: usize) -> Result<usize, String>
             continue;
         }
         // Sort newest-first by creation time
-        entries.sort_by(|a, b| b.0.cmp(&a.0));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.0));
         // Remove all beyond the retention limit
         for (_, path) in entries.iter().skip(retain) {
             if std::fs::remove_file(path).is_ok() {

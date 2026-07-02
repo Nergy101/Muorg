@@ -84,8 +84,10 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/cast/seek", post(routes::cast::seek))
         .route("/api/cast/volume", post(routes::cast::set_volume))
         .route("/api/fetch-image", post(routes::util::fetch_image))
-        .layer(middleware::from_fn_with_state(state.clone(), auth::auth_middleware))
-        .layer(middleware::from_fn_with_state(state.clone(), auth::rate_limit_middleware));
+        // route_layer (not layer): middleware only runs when a route matches,
+        // so unknown paths fall through to the 404 fallback instead of 401.
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth::auth_middleware))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth::rate_limit_middleware));
 
     let public = Router::new()
         .route("/", get(routes::util::home))

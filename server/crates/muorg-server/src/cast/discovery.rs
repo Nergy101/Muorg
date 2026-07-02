@@ -15,6 +15,12 @@ pub struct DiscoveryState {
     stop_tx: Arc<Mutex<Option<std::sync::mpsc::Sender<()>>>>,
 }
 
+impl Default for DiscoveryState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DiscoveryState {
     pub fn new() -> Self {
         Self {

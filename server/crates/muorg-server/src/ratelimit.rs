@@ -35,6 +35,8 @@ impl RateLimiter {
     pub fn check(&self, addr: SocketAddr) -> bool {
         let mut inner = self.inner.lock().unwrap();
         let now = Instant::now();
+        let window_secs = inner.window_secs;
+        let max_requests = inner.max_requests;
 
         // Garbage-collect expired entries periodically
         if inner.entries.len() > 1000 {
@@ -43,15 +45,15 @@ impl RateLimiter {
 
         let entry = inner.entries.entry(addr).or_insert(Window {
             count: 0,
-            reset_at: now + Duration::from_secs(inner.window_secs),
+            reset_at: now + Duration::from_secs(window_secs),
         });
 
         if now >= entry.reset_at {
             entry.count = 0;
-            entry.reset_at = now + Duration::from_secs(inner.window_secs);
+            entry.reset_at = now + Duration::from_secs(window_secs);
         }
 
-        if entry.count >= inner.max_requests {
+        if entry.count >= max_requests {
             return false;
         }
 

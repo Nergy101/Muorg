@@ -18,6 +18,12 @@ pub struct StreamTokens {
     inner: Mutex<HashMap<String, StreamToken>>,
 }
 
+impl Default for StreamTokens {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StreamTokens {
     pub fn new() -> Self {
         Self { inner: Mutex::new(HashMap::new()) }

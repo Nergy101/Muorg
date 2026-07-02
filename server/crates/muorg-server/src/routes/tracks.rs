@@ -154,6 +154,7 @@ pub async fn restore_backup(
         disc_number: Some(fresh.disc_number.map(Some).unwrap_or(None)),
         picture_base64: Some(fresh.picture_base64.map(Some).unwrap_or(None)),
     };
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::update_track_metadata(&conn, &track_path, &update)?;
     if let Ok(new_hash) = muorg_core::catalog::compute_content_hash(path::Path::new(&track_path)) {
         let _ = muorg_core::catalog::update_track_hash(&conn, &track_path, &new_hash);

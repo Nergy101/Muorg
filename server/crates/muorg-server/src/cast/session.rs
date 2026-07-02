@@ -44,6 +44,12 @@ pub struct CastState {
     cmd_tx: Arc<Mutex<Option<std::sync::mpsc::Sender<CastCommand>>>>,
 }
 
+impl Default for CastState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CastState {
     pub fn new() -> Self {
         Self {
