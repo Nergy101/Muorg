@@ -36,10 +36,11 @@
             @keydown.escape="emit('cancel')"
           />
           <EmojiPicker
-            :open="showEmojiPicker"
+            v-if="showEmojiPicker"
+            :model-value="localIcon"
             class="absolute left-0 top-full z-50 mt-1"
             @click.stop
-            @pick="localIcon = $event; showEmojiPicker = false"
+            @update:modelValue="(v) => { localIcon = v ?? ''; showEmojiPicker = false }"
           />
         </div>
 
