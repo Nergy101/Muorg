@@ -28,8 +28,8 @@ if [[ "$BRANCH" != "main" ]]; then
   [[ "$answer" =~ ^[Yy]$ ]] || exit 1
 fi
 
-if git -C "$REPO_ROOT" rev-parse "android-v$VERSION" &>/dev/null; then
-  echo "Error: tag android-v$VERSION already exists." >&2
+if git -C "$REPO_ROOT" rev-parse "v$VERSION" &>/dev/null; then
+  echo "Error: tag v$VERSION already exists." >&2
   exit 1
 fi
 
@@ -95,9 +95,9 @@ git -C "$REPO_ROOT" add \
 
 git -C "$REPO_ROOT" commit -m "🔖 chore: bump version to $VERSION"
 
-git -C "$REPO_ROOT" tag "android-v$VERSION"
+git -C "$REPO_ROOT" tag "v$VERSION"
 
-echo "Pushing commit and tag android-v$VERSION..."
-git -C "$REPO_ROOT" push origin main "android-v$VERSION"
+echo "Pushing commit and tag v$VERSION..."
+git -C "$REPO_ROOT" push origin main "v$VERSION"
 
-echo "Done. Release android-v$VERSION triggered — check GitHub Actions for progress."
+echo "Done. Release v$VERSION triggered — check GitHub Actions for progress."

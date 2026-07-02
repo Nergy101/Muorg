@@ -143,6 +143,10 @@ jobs:
         working-directory: server
         run: cargo check
 
+      - name: cargo test
+        working-directory: server
+        run: cargo test
+
       - name: cargo clippy
         working-directory: server
         run: cargo clippy -- -D clippy::all
