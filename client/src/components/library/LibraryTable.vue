@@ -7,6 +7,7 @@ import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack, MetadataUpdate } from "../../types";
 import type { MissingMetadataField } from "../../stores/settings";
 import { extractBestFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
+import * as catalogApi from "../../api/catalog";
 import LibraryHeader from "./LibraryHeader.vue";
 import LibraryTableBody from "./LibraryTableBody.vue";
 import AlbumGridView, { type AlbumGridItem } from "./AlbumGridView.vue";
@@ -341,10 +342,6 @@ async function autoTagAll() {
       await store.writeMetadataCustomBulk(updates);
     }
     const applied = updates.length;
-    const msg = applied > 0
-      ? `Auto-tagged ${applied} track${applied === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped — low confidence)` : ""}`
-      : "No tracks could be auto-tagged (all had low confidence)";
-    // Show message through existing UI
     if (applied > 0) {
       store.setReportFilter(null);
     }

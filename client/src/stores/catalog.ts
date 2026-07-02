@@ -548,7 +548,6 @@ export const useCatalogStore = defineStore("catalog", {
       this.error = null;
       this.bulkCancelled = false;
       this.bulkProgress = { current: 0, total: paths.length };
-      const settingsStore = useSettingsStore();
       try {
         // Use batch endpoint when possible, fall back to per-track otherwise
         const items = paths
@@ -836,7 +835,7 @@ export const useCatalogStore = defineStore("catalog", {
     /** Set a cover entry in the cache and update LRU order. */
     _setCover(path: string, cover: CoverInfo | null | undefined) {
       this._touchCover(path);
-      this.coverCache = { ...this.coverCache, [path]: cover };
+      this.coverCache = { ...this.coverCache, [path]: cover ?? null };
       this._pruneCoverCache();
     },
     _drainCoverQueue() {
