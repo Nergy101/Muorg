@@ -99,4 +99,11 @@ class PlaybackService : MediaSessionService() {
         }
         super.onDestroy()
     }
+
+    companion object {
+        const val ACTION_PLAY = "nl.muorg.android.action.PLAY"
+        const val ACTION_PAUSE = "nl.muorg.android.action.PAUSE"
+        const val ACTION_NEXT = "nl.muorg.android.action.NEXT"
+        const val ACTION_PREVIOUS = "nl.muorg.android.action.PREVIOUS"
+    }
 }
