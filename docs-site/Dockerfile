@@ -1,8 +1,9 @@
-FROM node:22-alpine AS build
+# --platform=$BUILDPLATFORM: the Docusaurus output is arch-independent static
+# files, so build natively instead of under QEMU (node crashes emulated).
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 
 ENV CI=true
-RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Install dependencies first (better layer caching)
 COPY docs-site/package.json docs-site/package-lock.json* ./

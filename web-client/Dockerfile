@@ -1,4 +1,6 @@
-FROM node:22-alpine AS build
+# --platform=$BUILDPLATFORM: the Vite output is arch-independent static files,
+# so build natively instead of under QEMU (node crashes with SIGILL emulated).
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 
 ENV CI=true
