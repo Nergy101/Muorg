@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     libmp3lame0 \
     && rm -rf /var/lib/apt/lists/*
+# Working directory matters: the server looks for ./muorg-server.toml in its cwd
+# (docker-compose mounts the config at /app/muorg-server.toml).
+WORKDIR /app
 COPY binaries/muorg-server-${TARGETARCH} /usr/local/bin/muorg-server
 VOLUME ["/data"]
 EXPOSE 7700

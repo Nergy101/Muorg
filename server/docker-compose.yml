@@ -1,6 +1,6 @@
 services:
   muorg-server:
-    image: nergy101/muorg-server:latest
+    image: ghcr.io/nergy101/muorg-server:latest
     ports:
       - "7700:7700"
     volumes:
