@@ -814,7 +814,7 @@ watch(transformMatches, () => {
                       class="underline decoration-dotted underline-offset-2 hover:text-stone-200"
                       @click="
                         openReleaseUrl(
-                          releaseTagUrl(availableUpdate.version),
+                          releaseTagUrl(availableUpdate!.version),
                         )
                       "
                     >
