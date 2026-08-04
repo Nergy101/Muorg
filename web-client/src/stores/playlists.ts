@@ -3,23 +3,25 @@ import { ref } from "vue";
 import {
   getPlaylists,
   createPlaylist as apiCreate,
-  createSmartPlaylist as apiCreateSmart,
-  updateSmartRules as apiUpdateSmartRules,
   renamePlaylist as apiRename,
   deletePlaylist as apiDelete,
-  getPlaylistTracks,
   addTracksToPlaylist as apiAdd,
   removeTracksFromPlaylist as apiRemove,
+  reorderPlaylistTracks as apiReorder,
+  getTracksForPlaylist,
 } from "../api/playlists";
-import type { Playlist, SmartRule } from "../types";
-import { useLibraryStore } from "./library";
+import type { Playlist } from "../types";
+import { usePlayerStore } from "./player";
+
+/** Shared with the Android client so a common library stays consistent. */
+const FAVORITES_NAME = "Favorites";
+const FAVORITES_ICON = "⭐";
 
 export const usePlaylistStore = defineStore("playlists", () => {
   const playlists = ref<Playlist[]>([]);
-  const activePlaylistId = ref<number | null>(null);
   const loading = ref(false);
 
-  // Cache of track-ID sets per playlist, populated lazily
+  /** Cache of track-ID sets per playlist, populated lazily. */
   const trackIdSets = ref<Map<number, Set<number>>>(new Map());
 
   async function loadPlaylists(): Promise<void> {
@@ -29,30 +31,26 @@ export const usePlaylistStore = defineStore("playlists", () => {
     } finally {
       loading.value = false;
     }
+    await hydrateFavorites();
   }
 
-  async function createPlaylist(name: string, icon?: string | null): Promise<void> {
+  /** Seeds the player's favourite ids from the server-side Favorites playlist. */
+  async function hydrateFavorites(): Promise<void> {
+    const fav = playlists.value.find((p) => p.name === FAVORITES_NAME);
+    if (!fav) return;
+    try {
+      const ids = await getTracksForPlaylist(fav);
+      trackIdSets.value = new Map(trackIdSets.value).set(fav.id, new Set(ids));
+      usePlayerStore().favorites = new Set(ids);
+    } catch {
+      /* favourites are cosmetic; a failed read must not break boot */
+    }
+  }
+
+  async function createPlaylist(name: string, icon?: string | null): Promise<Playlist> {
     const p = await apiCreate(name, icon);
     playlists.value = [...playlists.value, p];
-  }
-
-  async function createSmartPlaylist(name: string, icon: string, rules: SmartRule[]): Promise<void> {
-    const rulesJson = JSON.stringify(rules);
-    const p = await apiCreateSmart(name, rulesJson);
-    // Set icon after creation
-    if (icon) {
-      await apiRename(p.id, name, icon);
-      p.icon = icon;
-    }
-    playlists.value = [...playlists.value, p];
-  }
-
-  async function updateSmartRules(playlistId: number, rules: SmartRule[]): Promise<void> {
-    const rulesJson = JSON.stringify(rules);
-    await apiUpdateSmartRules(playlistId, rulesJson);
-    playlists.value = playlists.value.map((p) =>
-      p.id === playlistId ? { ...p, smart_rules: rulesJson } : p,
-    );
+    return p;
   }
 
   async function renamePlaylist(id: number, name: string, icon?: string | null): Promise<void> {
@@ -66,32 +64,34 @@ export const usePlaylistStore = defineStore("playlists", () => {
     await apiDelete(id);
     playlists.value = playlists.value.filter((p) => p.id !== id);
     trackIdSets.value.delete(id);
-    if (activePlaylistId.value === id) {
-      await selectPlaylist(null);
-    }
-  }
-
-  async function selectPlaylist(id: number | null): Promise<void> {
-    activePlaylistId.value = id;
-    const lib = useLibraryStore();
-    if (id === null) {
-      lib.playlistTrackIds = null;
-    } else {
-      lib.playlistTrackIds = await getPlaylistTracks(id);
-    }
   }
 
   async function loadTrackIdsForPlaylist(playlistId: number): Promise<Set<number>> {
     const cached = trackIdSets.value.get(playlistId);
     if (cached) return cached;
-    const ids = await getPlaylistTracks(playlistId);
+    const playlist = playlists.value.find((p) => p.id === playlistId);
+    if (!playlist) return new Set();
+    const ids = await getTracksForPlaylist(playlist);
     const s = new Set(ids);
     trackIdSets.value = new Map(trackIdSets.value).set(playlistId, s);
     return s;
   }
 
-  async function getPlaylistsContainingTrack(trackId: number): Promise<Set<number>> {
+  /** Ordered track ids — smart playlists resolve through the smart endpoint. */
+  async function loadTrackOrderForPlaylist(playlistId: number): Promise<number[]> {
+    const playlist = playlists.value.find((p) => p.id === playlistId);
+    if (!playlist) return [];
+    const ids = await getTracksForPlaylist(playlist);
+    trackIdSets.value = new Map(trackIdSets.value).set(playlistId, new Set(ids));
+    return ids;
+  }
+
+  async function loadAllTrackIds(): Promise<void> {
     await Promise.all(playlists.value.map((p) => loadTrackIdsForPlaylist(p.id)));
+  }
+
+  async function getPlaylistsContainingTrack(trackId: number): Promise<Set<number>> {
+    await loadAllTrackIds();
     const result = new Set<number>();
     for (const [pid, set] of trackIdSets.value) {
       if (set.has(trackId)) result.add(pid);
@@ -102,20 +102,13 @@ export const usePlaylistStore = defineStore("playlists", () => {
   async function addTracks(playlistId: number, trackIds: number[]): Promise<void> {
     await apiAdd(playlistId, trackIds);
     playlists.value = playlists.value.map((p) =>
-      p.id === playlistId
-        ? { ...p, track_count: p.track_count + trackIds.length }
-        : p,
+      p.id === playlistId ? { ...p, track_count: p.track_count + trackIds.length } : p,
     );
-    // Update cache if present
     const cached = trackIdSets.value.get(playlistId);
     if (cached) {
       const updated = new Set(cached);
       for (const id of trackIds) updated.add(id);
       trackIdSets.value = new Map(trackIdSets.value).set(playlistId, updated);
-    }
-    if (activePlaylistId.value === playlistId) {
-      const lib = useLibraryStore();
-      lib.playlistTrackIds = await getPlaylistTracks(playlistId);
     }
   }
 
@@ -126,32 +119,46 @@ export const usePlaylistStore = defineStore("playlists", () => {
         ? { ...p, track_count: Math.max(0, p.track_count - trackIds.length) }
         : p,
     );
-    // Update cache if present
     const cached = trackIdSets.value.get(playlistId);
     if (cached) {
       const updated = new Set(cached);
       for (const id of trackIds) updated.delete(id);
       trackIdSets.value = new Map(trackIdSets.value).set(playlistId, updated);
     }
-    if (activePlaylistId.value === playlistId) {
-      const lib = useLibraryStore();
-      lib.playlistTrackIds = await getPlaylistTracks(playlistId);
-    }
+  }
+
+  async function reorderTracks(playlistId: number, trackIds: number[]): Promise<void> {
+    await apiReorder(playlistId, trackIds);
+  }
+
+  async function ensureFavoritesPlaylist(): Promise<Playlist> {
+    const existing = playlists.value.find((p) => p.name === FAVORITES_NAME);
+    if (existing) return existing;
+    return createPlaylist(FAVORITES_NAME, FAVORITES_ICON);
+  }
+
+  function reset(): void {
+    playlists.value = [];
+    loading.value = false;
+    trackIdSets.value = new Map();
   }
 
   return {
     playlists,
-    activePlaylistId,
     loading,
+    trackIdSets,
     loadPlaylists,
     createPlaylist,
-    createSmartPlaylist,
-    updateSmartRules,
     renamePlaylist,
     deletePlaylist,
-    selectPlaylist,
+    loadTrackIdsForPlaylist,
+    loadTrackOrderForPlaylist,
+    loadAllTrackIds,
     getPlaylistsContainingTrack,
     addTracks,
     removeTracks,
+    reorderTracks,
+    ensureFavoritesPlaylist,
+    reset,
   };
 });

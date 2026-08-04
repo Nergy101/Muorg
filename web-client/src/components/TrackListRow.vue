@@ -1,0 +1,93 @@
+<template>
+  <div
+    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left"
+    @click="emit('play')"
+    @touchstart.passive="lp.onTouchstart"
+    @touchmove.passive="lp.onTouchmove"
+    @touchend="lp.onTouchend"
+    @contextmenu.prevent="emit('actions')"
+  >
+    <!-- Leading: equalizer while playing, else cover / index / placeholder -->
+    <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded">
+      <EqualizerBars v-if="isPlaying" class="text-primary" />
+      <img
+        v-else-if="coverUrl"
+        :src="coverUrl"
+        :alt="track.album ?? ''"
+        class="h-12 w-12 rounded object-cover"
+        decoding="async"
+      />
+      <span
+        v-else-if="leading === 'index'"
+        class="text-body-md tabular-nums text-on-surface-variant"
+      >{{ track.track_number ?? "·" }}</span>
+      <FeatherIcon v-else name="music" class="h-5 w-5 text-on-surface-variant/60" />
+    </div>
+
+    <!-- Title + artist -->
+    <div class="min-w-0 flex-1">
+      <MarqueeText
+        :text="track.title ?? '—'"
+        :class="isPlaying ? 'text-body-lg text-primary' : 'text-body-lg text-on-surface'"
+      />
+      <MarqueeText
+        :text="track.artist ?? track.album_artist ?? '—'"
+        class="text-body-md text-on-surface-variant"
+      />
+    </div>
+
+    <span
+      v-if="showFormatBadge !== false"
+      class="shrink-0 rounded-[3px] px-1 py-0.5 text-label-sm uppercase"
+      :class="track.format === 'flac'
+        ? 'bg-primary/[0.12] text-primary'
+        : 'bg-on-surface-variant/10 text-on-surface-variant'"
+    >{{ track.format.toUpperCase() }}</span>
+
+    <span class="shrink-0 text-label-md tabular-nums text-on-surface-variant">{{ duration }}</span>
+
+    <button
+      type="button"
+      class="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
+      aria-label="Track actions"
+      @click.stop="emit('actions')"
+    >
+      <FeatherIcon name="more-vertical" class="h-5 w-5" />
+    </button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from "vue";
+import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import EqualizerBars from "./EqualizerBars.vue";
+import MarqueeText from "./MarqueeText.vue";
+import { useLibraryStore, formatDuration } from "../stores/library";
+import { useLongPress } from "../composables/useLongPress";
+import type { CatalogTrack } from "../types";
+
+const props = withDefaults(
+  defineProps<{
+    track: CatalogTrack;
+    leading?: "cover" | "index";
+    isPlaying?: boolean;
+    showFormatBadge?: boolean;
+  }>(),
+  { leading: "cover", showFormatBadge: true },
+);
+
+const emit = defineEmits<{ play: []; actions: [] }>();
+
+const lib = useLibraryStore();
+const lp = useLongPress(() => emit("actions"));
+
+const coverUrl = computed(() => {
+  if (props.leading !== "cover" || !props.track.has_cover) return null;
+  lib.requestCover(props.track.id);
+  return lib.coverCache.get(props.track.id) ?? null;
+});
+
+const duration = computed(() =>
+  props.track.duration_secs ? formatDuration(props.track.duration_secs) : "",
+);
+</script>

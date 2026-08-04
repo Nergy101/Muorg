@@ -47,35 +47,7 @@ export interface AlbumGridItem {
   trackIds: number[];
 }
 
-export type ViewMode = "grid" | "table";
-export type GridSortBy = "album" | "artist" | "year";
-export type TableSortCol = "title" | "artist" | "album" | "year" | "duration";
-export type SortDir = "asc" | "desc";
-export type GroupBy = "none" | "album" | "artist";
-
-export interface TableGroupRow {
-  type: "group";
-  key: string;
-  label: string;
-  coverTrackId: number | null;
-  hasCover: boolean;
-  trackCount: number;
-  totalDurationSecs: number;
-  year: number | null;
-  collapsed: boolean;
-}
-
-export interface TableTrackRow {
-  type: "track";
-  track: CatalogTrack;
-  groupKey: string;
-}
-
-export type TableRow = TableGroupRow | TableTrackRow;
-
-/** A single rule for smart playlist filtering. Matches the server's SmartRule. */
-export interface SmartRule {
-  field: string;
-  op: string;
-  value: string;
-}
+export type AlbumViewStyle = "grid" | "list" | "tracks";
+export type SortMode = "album" | "artist" | "year";
+export type ThemeMode = "dark" | "light" | "system";
+export type RepeatMode = "off" | "all" | "one";

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { resolve } from "path";
 import { VitePWA } from "vite-plugin-pwa";
+import pkg from "./package.json" with { type: "json" };
 
 export default defineConfig({
   plugins: [
@@ -52,6 +53,11 @@ export default defineConfig({
       },
     }),
   ],
+  // The Docker image passes the release version as VITE_APP_VERSION (the
+  // docker-web CI job never rewrites package.json), so that wins when set.
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || pkg.version),
+  },
   base: "./",
   resolve: {
     alias: {
