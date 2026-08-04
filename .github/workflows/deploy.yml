@@ -16,14 +16,22 @@ jobs:
     environment:
       name: Production
     steps:
-      # Steps are guarded on the secrets being present so the workflow
-      # skips cleanly until SSH_HOST/USERNAME/KEY are added to this repo.
+      - name: Check SSH secrets configured
+        run: |
+          if [[ -n "${{ secrets.SSH_HOST }}" && -n "${{ secrets.SSH_USERNAME }}" && -n "${{ secrets.SSH_KEY }}" ]]; then
+            echo "SSH_OK=true" >> $GITHUB_ENV
+            echo "SSH secrets found — deploy will run"
+          else
+            echo "SSH_OK=false" >> $GITHUB_ENV
+            echo "::warning::SSH secrets not configured on this repo — deploy skipped"
+          fi
+
       - name: Get Known Hosts value
-        if: ${{ secrets.SSH_HOST != '' }}
+        if: ${{ env.SSH_OK == 'true' }}
         run: echo "KNOWN_HOSTS=$(ssh-keyscan -H ${{ secrets.SSH_HOST }})" >> $GITHUB_ENV
 
       - name: Install SSH Key
-        if: ${{ secrets.SSH_KEY != '' }}
+        if: ${{ env.SSH_OK == 'true' }}
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.SSH_KEY }}
@@ -32,7 +40,7 @@ jobs:
           if_key_exists: replace
 
       - name: Pull and start docker images on VM
-        if: ${{ secrets.SSH_HOST != '' && secrets.SSH_KEY != '' }}
+        if: ${{ env.SSH_OK == 'true' }}
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
