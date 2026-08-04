@@ -1,0 +1,45 @@
+name: 🚀 Deploy Muorg (VPS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['main']
+    tags: ['v*']
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Skip (cleanly) until the SSH secrets are added to this repo
+    if: ${{ secrets.SSH_HOST != '' && secrets.SSH_USERNAME != '' && secrets.SSH_KEY != '' }}
+    environment:
+      name: Production
+      url: http://${{ secrets.SSH_HOST }}:7800
+    steps:
+      - name: Get Known Hosts value
+        run: echo "KNOWN_HOSTS=$(ssh-keyscan -H ${{ secrets.SSH_HOST }})" >> $GITHUB_ENV
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          name: github-actions
+          known_hosts: ${{ env.KNOWN_HOSTS }}
+          if_key_exists: replace
+
+      - name: Pull and start docker images on VM
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /root/code/muorg
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
+            curl -sf http://localhost:7700/api/health > /dev/null && echo "✅ muorg-server healthy" || echo "⚠️ server health check failed"
+            curl -sf -o /dev/null http://localhost:7800 && echo "✅ muorg-web up" || echo "⚠️ web check failed"
