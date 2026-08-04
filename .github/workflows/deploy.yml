@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Production
-      url: http://${{ secrets.SSH_HOST }}:7800
     steps:
       # Steps are guarded on the secrets being present so the workflow
       # skips cleanly until SSH_HOST/USERNAME/KEY are added to this repo.
