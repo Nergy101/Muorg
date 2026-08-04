@@ -6,7 +6,7 @@
     <!-- Mobile-only: progress bar row above main controls -->
     <div class="flex items-center gap-2 pb-1.5 sm:hidden">
       <span class="w-8 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
-      <div class="relative min-w-0 flex-1 cursor-pointer py-2" @pointerdown.prevent="seekByClick">
+      <div class="relative min-h-6 min-w-0 flex-1 cursor-pointer" @pointerdown.prevent="seekByClick">
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-600">
           <div class="h-full rounded-full bg-accent transition-none" :style="{ width: progressPercent + '%' }" />
         </div>
@@ -90,50 +90,50 @@
       <div class="flex shrink-0 items-center gap-0.5 sm:hidden">
         <button
           type="button"
-          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          class="flex h-10 w-10 items-center justify-center rounded text-stone-400 active:bg-stone-700 active:text-stone-200"
           aria-label="Restart"
-          @click="restart"
+          @click="restart; haptic()"
         >
           <FeatherIcon name="square" class="h-4 w-4" />
         </button>
         <button
           type="button"
-          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          class="flex h-10 w-10 items-center justify-center rounded text-stone-400 active:bg-stone-700 active:text-stone-200"
           aria-label="Previous track"
-          @click="playPrevious()"
+          @click="playPrevious(); haptic()"
         >
           <FeatherIcon name="skip-back" class="h-5 w-5" />
         </button>
         <button
           type="button"
-          class="flex items-center justify-center rounded bg-accent p-2 text-stone-50 hover:bg-[var(--accent-hover)]"
+          class="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-stone-50 active:bg-[var(--accent-hover)]"
           :aria-label="lib.isPlaying ? 'Pause' : 'Play'"
-          @click="lib.togglePlayPause()"
+          @click="lib.togglePlayPause(); haptic()"
         >
           <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-5 w-5" />
         </button>
         <button
           type="button"
-          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          class="flex h-10 w-10 items-center justify-center rounded text-stone-400 active:bg-stone-700 active:text-stone-200"
           aria-label="Next track"
-          @click="playNext()"
+          @click="playNext(); haptic()"
         >
           <FeatherIcon name="skip-forward" class="h-5 w-5" />
         </button>
         <button
           type="button"
-          class="flex items-center justify-center rounded p-2 hover:bg-stone-700 hover:text-stone-200"
+          class="flex h-10 w-10 items-center justify-center rounded active:bg-stone-700 active:text-stone-200"
           :class="shuffle ? 'text-accent' : 'text-stone-400'"
           aria-label="Shuffle"
-          @click="shuffle = !shuffle"
+          @click="shuffle = !shuffle; haptic()"
         >
           <FeatherIcon name="shuffle" class="h-4 w-4" />
         </button>
         <button
           type="button"
-          class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          class="flex h-10 w-10 items-center justify-center rounded text-stone-400 active:bg-stone-700 active:text-stone-200"
           aria-label="Expand player"
-          @click="showOverlay = true"
+          @click="showOverlay = true; haptic()"
         >
           <FeatherIcon name="maximize-2" class="h-4 w-4" />
         </button>
@@ -229,105 +229,125 @@
           </template>
         </div>
 
-        <!-- Cover art -->
-        <div class="relative z-10 flex flex-1 items-center justify-center px-8 pt-8">
-          <div class="aspect-square w-full max-w-sm overflow-hidden rounded-2xl shadow-2xl">
-            <img v-if="coverUrl" :src="coverUrl" class="h-full w-full object-cover" />
-            <div v-else class="flex h-full w-full items-center justify-center bg-stone-800">
-              <FeatherIcon name="music" class="h-16 w-16 text-stone-600" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Bottom controls -->
-        <div class="relative z-10 flex flex-col gap-4 px-3 pt-6" style="padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem)">
-          <!-- Track info -->
-          <div class="text-center">
-            <p class="truncate text-xl font-bold text-stone-100">{{ lib.nowPlaying.title ?? '—' }}</p>
-            <p class="truncate text-stone-400">{{ lib.nowPlaying.artist ?? lib.nowPlaying.album_artist ?? '—' }}</p>
-            <p class="truncate text-sm text-stone-600">{{ lib.nowPlaying.album }}</p>
-          </div>
-
-          <!-- Progress bar row -->
-          <div class="flex items-center gap-3">
-            <span class="w-9 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
-            <div class="relative min-w-0 flex-1 cursor-pointer" @click="seekByClick">
-              <div class="h-2 w-full overflow-hidden rounded-full bg-stone-700">
-                <div class="h-full rounded-full bg-accent transition-none" :style="{ width: progressPercent + '%' }" />
+        <!-- Draggable content: swipe down to dismiss -->
+        <div
+          class="relative z-10 flex min-h-0 flex-1 flex-col landscape:md:flex-row"
+          :style="{ transform: `translateY(${dragY}px)`, transition: dragTracking ? 'none' : 'transform 0.25s ease-out' }"
+          @touchstart.passive="onOverlayTouchStart"
+          @touchmove.passive="onOverlayTouchMove"
+          @touchend="onOverlayTouchEnd"
+          @touchcancel="onOverlayTouchEnd"
+        >
+          <!-- Cover art -->
+          <div class="relative flex flex-1 items-center justify-center px-8 pt-8 landscape:md:w-1/2 landscape:md:pt-0">
+            <div class="aspect-square w-full max-w-sm overflow-hidden rounded-2xl shadow-2xl">
+              <img v-if="coverUrl" :src="coverUrl" class="h-full w-full object-cover" />
+              <div v-else class="flex h-full w-full items-center justify-center bg-stone-800">
+                <FeatherIcon name="music" class="h-16 w-16 text-stone-600" />
               </div>
             </div>
-            <span class="w-9 shrink-0 text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
           </div>
 
-          <!-- Main controls: restart | prev | play/pause | next | shuffle -->
-          <div class="flex items-center justify-center gap-1">
-            <button
-              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
-              title="Restart"
-              @click="restart"
-            >
-              <FeatherIcon name="square" class="h-5 w-5" />
-            </button>
-            <button
-              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
-              @click="playPrevious()"
-            >
-              <FeatherIcon name="skip-back" class="h-5 w-5" />
-            </button>
-            <button
-              class="flex items-center justify-center rounded bg-accent p-2 text-stone-50 hover:bg-[var(--accent-hover)]"
-              @click="lib.togglePlayPause()"
-            >
-              <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-5 w-5" />
-            </button>
-            <button
-              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
-              @click="playNext()"
-            >
-              <FeatherIcon name="skip-forward" class="h-5 w-5" />
-            </button>
-          </div>
+          <!-- Bottom controls -->
+          <div class="relative flex flex-col gap-4 px-3 pt-6 landscape:md:w-1/2 landscape:md:justify-center" style="padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem)">
+            <!-- Track info -->
+            <div class="text-center landscape:md:text-left">
+              <p class="truncate text-xl font-bold text-stone-100">{{ lib.nowPlaying.title ?? '—' }}</p>
+              <p class="truncate text-stone-400">{{ lib.nowPlaying.artist ?? lib.nowPlaying.album_artist ?? '—' }}</p>
+              <p class="truncate text-sm text-stone-600">{{ lib.nowPlaying.album }}</p>
+            </div>
 
-          <!-- Secondary controls: repeat | volume | shuffle | minimize -->
-          <div class="flex items-center gap-1">
-            <button
-              class="relative flex items-center justify-center rounded p-2 hover:bg-stone-800 hover:text-stone-200"
-              :class="repeat !== 'none' ? 'text-accent' : 'text-stone-400'"
-              title="Repeat"
-              @click="cycleRepeat"
-            >
-              <FeatherIcon name="repeat" class="h-5 w-5" />
-              <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
-            </button>
-            <button
-              class="flex items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
-              title="Toggle mute"
-              @click="toggleMute"
-            >
-              <FeatherIcon :name="lib.volume === 0 ? 'volume-x' : lib.volume < 0.5 ? 'volume-1' : 'volume-2'" class="h-5 w-5" />
-            </button>
-            <input
-              type="range" min="0" max="1" step="0.02"
-              :value="lib.volume"
-              class="player-volume-slider min-w-0 flex-1"
-              :style="{ '--volume-percent': (lib.volume * 100) + '%' }"
-              @input="lib.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <button
-              class="flex shrink-0 items-center justify-center rounded p-2 hover:bg-stone-800 hover:text-stone-200"
-              :class="shuffle ? 'text-accent' : 'text-stone-400'"
-              title="Shuffle"
-              @click="shuffle = !shuffle"
-            >
-              <FeatherIcon name="shuffle" class="h-5 w-5" />
-            </button>
-            <button
-              class="flex shrink-0 items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-800 hover:text-stone-200"
-              title="Minimize player"
-              @click="showOverlay = false"
-            >
-              <FeatherIcon name="minimize-2" class="h-5 w-5" />
-            </button>
+            <!-- Progress bar row (draggable seek with visible thumb) -->
+            <div class="flex items-center gap-3">
+              <span class="w-9 shrink-0 text-right text-xs tabular-nums text-stone-500">{{ currentTimeLabel }}</span>
+              <div
+                class="overlay-seekbar relative flex h-8 min-w-0 flex-1 cursor-pointer items-center touch-none"
+                @pointerdown="onSeekPointerDown"
+                @pointermove="onSeekPointerMove"
+                @pointerup="onSeekPointerUp"
+                @pointercancel="onSeekPointerUp"
+              >
+                <div class="h-1.5 w-full overflow-hidden rounded-full bg-stone-700">
+                  <div class="h-full rounded-full bg-accent" :style="{ width: seekDisplayPercent + '%' }" />
+                </div>
+                <div
+                  class="absolute h-4 w-4 -translate-x-1/2 rounded-full bg-accent shadow-md"
+                  :style="{ left: seekDisplayPercent + '%' }"
+                />
+              </div>
+              <span class="w-9 shrink-0 text-xs tabular-nums text-stone-500">{{ durationLabel }}</span>
+            </div>
+
+            <!-- Main controls: restart | prev | play/pause | next -->
+            <div class="flex items-center justify-center gap-1 landscape:md:justify-start">
+              <button
+                class="flex h-12 w-12 items-center justify-center rounded-full text-stone-400 active:bg-stone-800 active:text-stone-200"
+                title="Restart"
+                @click="restart; haptic()"
+              >
+                <FeatherIcon name="square" class="h-5 w-5" />
+              </button>
+              <button
+                class="flex h-12 w-12 items-center justify-center rounded-full text-stone-400 active:bg-stone-800 active:text-stone-200"
+                @click="playPrevious(); haptic()"
+              >
+                <FeatherIcon name="skip-back" class="h-5 w-5" />
+              </button>
+              <button
+                class="mx-1 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-stone-50 shadow-lg active:bg-[var(--accent-hover)]"
+                @click="lib.togglePlayPause(); haptic()"
+              >
+                <FeatherIcon :name="lib.isPlaying ? 'pause' : 'play'" class="h-6 w-6" />
+              </button>
+              <button
+                class="flex h-12 w-12 items-center justify-center rounded-full text-stone-400 active:bg-stone-800 active:text-stone-200"
+                @click="playNext(); haptic()"
+              >
+                <FeatherIcon name="skip-forward" class="h-5 w-5" />
+              </button>
+            </div>
+
+            <!-- Secondary controls: repeat | volume | shuffle | minimize -->
+            <div class="flex items-center gap-1 landscape:md:justify-start">
+              <button
+                class="relative flex h-11 w-11 items-center justify-center rounded-full active:bg-stone-800 active:text-stone-200"
+                :class="repeat !== 'none' ? 'text-accent' : 'text-stone-400'"
+                title="Repeat"
+                @click="cycleRepeat(); haptic()"
+              >
+                <FeatherIcon name="repeat" class="h-5 w-5" />
+                <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+              </button>
+              <button
+                class="flex h-11 w-11 items-center justify-center rounded-full text-stone-400 active:bg-stone-800 active:text-stone-200"
+                title="Toggle mute"
+                @click="toggleMute(); haptic()"
+              >
+                <FeatherIcon :name="lib.volume === 0 ? 'volume-x' : lib.volume < 0.5 ? 'volume-1' : 'volume-2'" class="h-5 w-5" />
+              </button>
+              <input
+                type="range" min="0" max="1" step="0.02"
+                :value="lib.volume"
+                class="player-volume-slider min-w-0 flex-1"
+                :style="{ '--volume-percent': (lib.volume * 100) + '%' }"
+                @input="lib.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
+              />
+              <button
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-stone-800 active:text-stone-200"
+                :class="shuffle ? 'text-accent' : 'text-stone-400'"
+                title="Shuffle"
+                @click="shuffle = !shuffle; haptic()"
+              >
+                <FeatherIcon name="shuffle" class="h-5 w-5" />
+              </button>
+              <button
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-stone-400 active:bg-stone-800 active:text-stone-200"
+                title="Minimize player"
+                @click="showOverlay = false; haptic()"
+              >
+                <FeatherIcon name="minimize-2" class="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -366,7 +386,13 @@ import { useDominantColor, useEdgeColors, getGlowBlobs, isColorBland, hasOpposin
 
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
-const showOverlay = ref(false);
+
+const props = defineProps<{ overlayOpen: boolean }>();
+const emit = defineEmits<{ "update:overlayOpen": [v: boolean] }>();
+const showOverlay = computed({
+  get: () => props.overlayOpen,
+  set: (v: boolean) => emit("update:overlayOpen", v),
+});
 
 // Context menu on the now-playing track info
 const nowPlayingCtxRef = ref<InstanceType<typeof TrackContextMenu> | null>(null);
@@ -461,6 +487,74 @@ function seekByClick(e: PointerEvent | MouseEvent): void {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   lib.seekTo(Math.floor(ratio * lib.durationSecs));
+}
+
+// ── Overlay: draggable seek bar (visible thumb) ──────────────────────────
+const seeking = ref(false);
+const seekPreview = ref<number | null>(null);
+
+const seekDisplayPercent = computed(() => {
+  if (seeking.value && seekPreview.value !== null) return seekPreview.value;
+  return progressPercent.value;
+});
+
+function seekFromEvent(e: PointerEvent): number {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  return Math.floor(ratio * lib.durationSecs);
+}
+
+function onSeekPointerDown(e: PointerEvent): void {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  seeking.value = true;
+  (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  seekPreview.value = (progressPercent.value / 100) * 100;
+  const secs = seekFromEvent(e);
+  seekPreview.value = lib.durationSecs ? (secs / lib.durationSecs) * 100 : 0;
+}
+
+function onSeekPointerMove(e: PointerEvent): void {
+  if (!seeking.value) return;
+  const secs = seekFromEvent(e);
+  seekPreview.value = lib.durationSecs ? (secs / lib.durationSecs) * 100 : 0;
+}
+
+function onSeekPointerUp(e: PointerEvent): void {
+  if (!seeking.value) return;
+  seeking.value = false;
+  const secs = seekFromEvent(e);
+  lib.seekTo(secs);
+  seekPreview.value = null;
+}
+
+// ── Overlay: swipe down to dismiss ───────────────────────────────────────
+const dragY = ref(0);
+const dragTracking = ref(false);
+let dragStartY = 0;
+let dragFromSeekbar = false;
+
+function onOverlayTouchStart(e: TouchEvent): void {
+  dragTracking.value = true;
+  dragStartY = e.touches[0].clientY;
+  dragFromSeekbar = (e.target as HTMLElement).closest(".overlay-seekbar") !== null;
+}
+
+function onOverlayTouchMove(e: TouchEvent): void {
+  if (!dragTracking.value || dragFromSeekbar) return;
+  const dy = e.touches[0].clientY - dragStartY;
+  dragY.value = dy > 0 ? dy * 0.5 : 0;
+}
+
+function onOverlayTouchEnd(): void {
+  if (!dragTracking.value) return;
+  dragTracking.value = false;
+  if (dragY.value > 110) showOverlay.value = false;
+  dragY.value = 0;
+}
+
+// ── Haptics (mobile only) ────────────────────────────────────────────────
+function haptic(): void {
+  if ("vibrate" in navigator) navigator.vibrate?.(8);
 }
 
 function toggleMute(): void {

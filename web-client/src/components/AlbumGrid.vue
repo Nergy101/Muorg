@@ -1,40 +1,55 @@
 <template>
-  <div class="flex-1 overflow-y-auto p-4">
-    <div
-      v-if="lib.loading"
-      class="flex h-32 items-center justify-center text-stone-500 text-sm"
-    >
-      Loading library…
+  <div ref="scrollEl" class="relative flex-1 overflow-y-auto overscroll-contain">
+    <!-- Pull-to-refresh indicator -->
+    <div class="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center" :style="indicatorStyle">
+      <div
+        class="mt-2 flex h-9 w-9 items-center justify-center rounded-full border border-stone-600 bg-stone-800 shadow-lg"
+      >
+        <FeatherIcon name="refresh-cw" class="h-4 w-4 text-accent" :class="ptr.refreshing ? 'animate-spin' : ''" />
+      </div>
     </div>
 
-    <div
-      v-else-if="lib.error"
-      class="flex h-32 flex-col items-center justify-center gap-2 text-sm"
-    >
-      <span class="text-red-400">Failed to load library: {{ lib.error }}</span>
-      <button class="text-xs text-stone-400 underline hover:text-stone-200" @click="lib.loadLibrary()">Retry</button>
-    </div>
+    <div :style="{ transform: contentTransform }">
+      <!-- Skeleton loading state -->
+      <div v-if="lib.loading" class="grid gap-3 p-4" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr))">
+        <div v-for="i in 8" :key="i" class="flex min-h-[220px] flex-col overflow-hidden rounded border border-stone-800">
+          <div class="skeleton h-40 w-full rounded-none" />
+          <div class="space-y-1.5 bg-stone-900/90 px-3 pb-3 pt-2.5">
+            <div class="skeleton h-3.5 w-3/4" />
+            <div class="skeleton h-3 w-1/2" />
+          </div>
+        </div>
+      </div>
 
-    <div
-      v-else-if="items.length === 0"
-      class="flex h-32 items-center justify-center text-stone-500 text-sm"
-    >
-      No albums found.
-    </div>
+      <div
+        v-else-if="lib.error"
+        class="flex h-32 flex-col items-center justify-center gap-2 p-4 text-sm"
+      >
+        <span class="text-red-400">Failed to load library: {{ lib.error }}</span>
+        <button class="text-xs text-stone-400 underline hover:text-stone-200" @click="lib.loadLibrary()">Retry</button>
+      </div>
 
-    <div
-      v-else
-      class="grid gap-3"
-      style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr))"
-    >
-      <AlbumCard
-        v-for="item in items"
-        :key="item.key"
-        :item="item"
-        :is-playing="isAlbumPlaying(item)"
-        @play="emit('open-album', item)"
-        @contextmenu="openAlbumMenu($event, item)"
-      />
+      <div
+        v-else-if="items.length === 0"
+        class="flex h-32 items-center justify-center p-4 text-sm text-stone-500"
+      >
+        No albums found.
+      </div>
+
+      <div
+        v-else
+        class="grid gap-3 p-4"
+        style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr))"
+      >
+        <AlbumCard
+          v-for="item in items"
+          :key="item.key"
+          :item="item"
+          :is-playing="isAlbumPlaying(item)"
+          @play="emit('open-album', item)"
+          @contextmenu="openAlbumMenu($event, item)"
+        />
+      </div>
     </div>
 
     <!-- Album context menu -->
@@ -43,8 +58,10 @@
       <div
         v-if="ctxItem && ctxPos"
         class="ctx-menu fixed z-50"
+        :class="isMobile ? 'ctx-sheet' : ''"
         :style="{ top: ctxPos.y + 'px', left: ctxPos.x + 'px' }"
       >
+        <div class="ctx-sheet-handle" />
         <button class="ctx-menu-item" @click.stop="emit('open-album', ctxItem!); ctxItem = null">
           <FeatherIcon name="disc" class="h-3.5 w-3.5" />
           Open album
@@ -75,6 +92,7 @@ import AlbumCard from "./AlbumCard.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
+import { usePullToRefresh } from "../composables/usePullToRefresh";
 import type { AlbumGridItem } from "../types";
 
 const emit = defineEmits<{ "open-album": [item: AlbumGridItem] }>();
@@ -82,6 +100,14 @@ const emit = defineEmits<{ "open-album": [item: AlbumGridItem] }>();
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
 const items = computed(() => lib.albumGridItems);
+
+const scrollEl = ref<HTMLElement | null>(null);
+const ptr = usePullToRefresh(scrollEl, async () => {
+  await Promise.all([lib.loadLibrary(), playlistStore.loadPlaylists()]);
+});
+const { indicatorStyle, contentTransform } = ptr;
+
+const isMobile = computed(() => window.matchMedia("(max-width: 639px)").matches);
 
 watch(() => lib.revealTrackId, (id) => {
   if (id === null) return;

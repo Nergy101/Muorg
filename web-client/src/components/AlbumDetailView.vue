@@ -1,9 +1,9 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <!-- Album header -->
-    <div class="flex shrink-0 items-center gap-5 border-b border-stone-800 px-5 py-4">
+    <div class="flex shrink-0 items-center gap-4 border-b border-stone-800 px-4 py-4 md:gap-5 md:px-5">
       <!-- Cover art -->
-      <div class="relative h-28 w-28 shrink-0 overflow-hidden rounded bg-stone-800">
+      <div class="relative h-36 w-36 shrink-0 overflow-hidden rounded-lg bg-stone-800 md:h-28 md:w-28 md:rounded">
         <img
           v-if="coverUrl"
           :src="coverUrl"
@@ -16,26 +16,49 @@
       </div>
 
       <!-- Info -->
-      <div class="min-w-0">
-        <div class="truncate text-lg font-semibold text-stone-100">{{ item.album }}</div>
+      <div class="min-w-0 flex-1">
+        <div class="truncate text-lg font-semibold text-stone-100 md:text-xl">{{ item.album }}</div>
         <div class="mt-1 truncate text-sm text-stone-300">{{ item.albumArtist }}</div>
         <div v-if="item.year" class="mt-1 text-xs text-stone-500">{{ item.year }}</div>
         <div class="mt-2 text-xs text-stone-500">{{ tracks.length }} tracks · {{ totalDuration }}</div>
       </div>
 
-      <!-- Play button -->
+      <!-- Play button: FAB on mobile, text button on desktop -->
       <button
         type="button"
-        class="ml-auto flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
+        class="ml-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent text-white shadow-lg active:bg-[var(--accent-hover)] md:h-auto md:w-auto md:gap-2 md:rounded-lg md:px-4 md:py-2 md:text-sm md:font-medium md:shadow-none"
         @click="lib.playAlbum(item)"
       >
-        <FeatherIcon name="play" class="h-4 w-4" />
-        Play
+        <FeatherIcon name="play" class="h-6 w-6 md:h-4 md:w-4" />
+        <span class="hidden md:inline">Play</span>
       </button>
     </div>
 
     <!-- Track list -->
-    <div class="flex-1 overflow-auto">
+    <div class="relative min-h-0 flex-1 overflow-hidden">
+      <!-- Compact sticky bar (mobile, after scrolling past the hero) -->
+      <div
+        v-if="compactBar"
+        class="absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-stone-800 bg-stone-900/95 px-3 py-1.5 backdrop-blur sm:hidden"
+      >
+        <div class="h-8 w-8 shrink-0 overflow-hidden rounded bg-stone-800">
+          <img v-if="coverUrl" :src="coverUrl" :alt="item.album" class="h-full w-full object-cover" />
+          <div v-else class="flex h-full w-full items-center justify-center text-stone-600">♪</div>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-medium text-stone-100">{{ item.album }}</div>
+          <div class="truncate text-xs text-stone-500">{{ item.albumArtist }}</div>
+        </div>
+        <button
+          type="button"
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-white active:bg-[var(--accent-hover)]"
+          aria-label="Play album"
+          @click="lib.playAlbum(item)"
+        >
+          <FeatherIcon name="play" class="h-5 w-5" />
+        </button>
+      </div>
+      <div ref="listScrollEl" class="h-full overflow-auto" @scroll="onListScroll">
       <table class="w-full border-collapse text-left">
         <thead class="sticky top-0 z-10 bg-stone-900 text-xs uppercase tracking-wide text-stone-500">
           <tr class="border-b border-stone-700">
@@ -58,11 +81,22 @@
             @touchmove.passive="onTouchMove"
             @touchend="onTouchEnd"
           >
-            <td class="py-2 pl-4 pr-2 text-right text-xs text-stone-500">
+            <td class="py-2.5 pl-4 pr-2 text-right text-xs text-stone-500 md:py-2">
               {{ track.track_number ?? '—' }}
             </td>
-            <td class="max-w-0 py-2 pr-4">
-              <div class="truncate text-sm text-stone-200">{{ track.title ?? 'Unknown' }}</div>
+            <td class="max-w-0 py-2.5 pr-4 md:py-2">
+              <div class="flex items-center gap-2">
+                <img
+                  v-if="coverThumb(track)"
+                  :src="coverThumb(track)"
+                  :alt="track.title ?? ''"
+                  class="h-9 w-9 shrink-0 rounded object-cover sm:hidden"
+                />
+                <div class="min-w-0">
+                  <div class="truncate text-sm text-stone-200">{{ track.title ?? 'Unknown' }}</div>
+                  <div class="truncate text-xs text-stone-400 sm:hidden">{{ track.artist ?? track.album_artist ?? '—' }}</div>
+                </div>
+              </div>
             </td>
             <td class="hidden max-w-0 py-2 pr-4 sm:table-cell">
               <div class="truncate text-xs text-stone-400">{{ track.artist ?? track.album_artist ?? '—' }}</div>
@@ -79,6 +113,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 
@@ -115,10 +150,23 @@ const props = defineProps<{ item: AlbumGridItem }>();
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
 
+const listScrollEl = ref<HTMLElement | null>(null);
+const compactBar = ref(false);
+
+function onListScroll(): void {
+  compactBar.value = (listScrollEl.value?.scrollTop ?? 0) > 120;
+}
+
 const coverUrl = computed(() => {
   if (!props.item.hasCover || props.item.coverTrackId === null) return null;
   return lib.coverCache.get(props.item.coverTrackId) ?? null;
 });
+
+function coverThumb(track: CatalogTrack): string | undefined {
+  if (!track.has_cover) return undefined;
+  lib.requestCover(track.id);
+  return lib.coverCache.get(track.id) ?? undefined;
+}
 
 const tracks = computed(() => {
   const ids = new Set(props.item.trackIds);
