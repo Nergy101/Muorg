@@ -26,13 +26,14 @@
 <script setup lang="ts">
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
-export type MobileTab = "music" | "albums" | "playlists" | "now-playing";
+export type MobileTab = "home" | "music" | "albums" | "playlists" | "now-playing";
 
 defineProps<{ active: MobileTab }>();
 
 const emit = defineEmits<{ select: [tab: MobileTab] }>();
 
 const tabs: { id: MobileTab; label: string; icon: string }[] = [
+  { id: "home", label: "Home", icon: "home" },
   { id: "music", label: "Music", icon: "music" },
   { id: "albums", label: "Albums", icon: "disc" },
   { id: "playlists", label: "Playlists", icon: "layers" },

@@ -15,6 +15,18 @@
         </svg>
         Play
       </button>
+      <button class="ctx-menu-item" @click.stop="emit('play-next'); close()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+        </svg>
+        Play next
+      </button>
+      <button class="ctx-menu-item" @click.stop="emit('add-to-queue'); close()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+        </svg>
+        Add to queue
+      </button>
       <button v-if="showFind" class="ctx-menu-item" @click.stop="emit('find'); close()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -79,6 +91,8 @@ import { usePlaylistStore } from "../stores/playlists";
 const props = defineProps<{ trackId: number | null; showFind?: boolean }>();
 const emit = defineEmits<{
   play: [];
+  "play-next": [];
+  "add-to-queue": [];
   find: [];
   "add-to-playlist": [id: number];
   "remove-from-playlist": [id: number];

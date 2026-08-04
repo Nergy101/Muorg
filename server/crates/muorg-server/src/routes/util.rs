@@ -1,8 +1,52 @@
-use axum::{extract::State, response::{Html, IntoResponse}, http::StatusCode, Json};
+use axum::{
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    response::{Html, IntoResponse, Response},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::routes::ApiError;
 use crate::state::AppState;
+
+/// Build ETag / Last-Modified validators for a file and return a 304 response
+/// when the request's validators match. Returns `None` when the caller should
+/// serve the full body. Callers should also set `Cache-Control` themselves.
+pub fn check_not_modified(
+    etag: &str,
+    modified: Option<std::time::SystemTime>,
+    req_headers: &HeaderMap,
+) -> Option<Response> {
+    if let Some(inm) = req_headers
+        .get("if-none-match")
+        .and_then(|v| v.to_str().ok())
+    {
+        if inm == "*" || inm.split(',').any(|t| t.trim() == etag) {
+            return Some(StatusCode::NOT_MODIFIED.into_response());
+        }
+    } else if let Some(ims) = req_headers
+        .get("if-modified-since")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| httpdate::parse_http_date(v).ok())
+    {
+        if let Some(m) = modified {
+            if m.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+                <= ims.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+            {
+                return Some(StatusCode::NOT_MODIFIED.into_response());
+            }
+        }
+    }
+    None
+}
+
+pub fn file_mtime(path: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).ok()?.modified().ok()
+}
+
+pub fn http_date(t: std::time::SystemTime) -> String {
+    httpdate::fmt_http_date(t)
+}
 
 pub async fn home() -> Html<String> {
     Html(include_str!("home.html").replace("{{VERSION}}", env!("CARGO_PKG_VERSION")))

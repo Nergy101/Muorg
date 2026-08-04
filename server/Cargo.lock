@@ -1032,11 +1032,12 @@ dependencies = [
 
 [[package]]
 name = "muorg-server"
-version = "2.26.5"
+version = "2.27.0"
 dependencies = [
  "axum",
  "base64 0.23.0",
  "bytes",
+ "httpdate",
  "local-ip-address",
  "mdns-sd",
  "mp3lame-encoder",
