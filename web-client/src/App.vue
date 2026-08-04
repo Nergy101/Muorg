@@ -1,5 +1,8 @@
 <template>
-  <div class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background">
+  <!-- pt keeps the header/top bar clear of the notch and status bar. -->
+  <div
+    class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)]"
+  >
     <OfflineBanner />
 
     <div class="relative min-h-0 flex-1">

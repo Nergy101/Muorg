@@ -1,35 +1,36 @@
 <template>
+  <!-- The safe-area inset is padding on the <nav>, not inside the row: with
+       `h-16` on the nav itself the inset would eat into the 64px touch row. -->
   <nav
-    class="relative flex h-16 shrink-0 items-stretch border-t border-outline/30 bg-surface-container pb-[env(safe-area-inset-bottom)]"
+    class="shrink-0 border-t border-outline/30 bg-surface-container pb-[calc(env(safe-area-inset-bottom,0px)+4px)]"
   >
-    <!-- Sliding selection pill -->
-    <div
-      class="pointer-events-none absolute top-1.5 left-0 flex w-1/4 justify-center transition-transform duration-300"
-      style="transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1)"
-      :style="{ transform: `translateX(${activeIndex * 100}%)` }"
-      aria-hidden="true"
-    >
-      <div class="h-10 w-14 rounded-full bg-primary/[0.18]" />
-    </div>
+    <div class="relative flex h-16 items-stretch">
+      <!-- Sliding selection pill -->
+      <div
+        class="pointer-events-none absolute left-0 top-1/2 flex w-1/4 justify-center transition-transform duration-300"
+        style="transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1)"
+        :style="{ transform: `translateX(${activeIndex * 100}%) translateY(-50%)` }"
+        aria-hidden="true"
+      >
+        <div class="h-10 w-14 rounded-full bg-primary/[0.18]" />
+      </div>
 
-    <RouterLink
-      v-for="(tab, i) in TABS"
-      :key="tab.name"
-      :to="{ name: tab.name }"
-      class="relative z-10 flex flex-1 flex-col items-center justify-center gap-0.5"
-      :aria-current="activeIndex === i ? 'page' : undefined"
-      @click="onTabClick(tab.name)"
-    >
-      <FeatherIcon
-        :name="tab.icon"
-        class="h-5 w-5 transition-transform duration-200"
-        :class="activeIndex === i ? 'scale-[1.22] text-primary' : 'text-on-surface-variant'"
-      />
-      <span
-        class="text-label-sm"
-        :class="activeIndex === i ? 'text-primary' : 'text-on-surface-variant'"
-      >{{ tab.label }}</span>
-    </RouterLink>
+      <RouterLink
+        v-for="(tab, i) in TABS"
+        :key="tab.name"
+        :to="{ name: tab.name }"
+        class="relative z-10 flex flex-1 items-center justify-center"
+        :aria-label="tab.label"
+        :aria-current="activeIndex === i ? 'page' : undefined"
+        @click="onTabClick(tab.name)"
+      >
+        <FeatherIcon
+          :name="tab.icon"
+          class="h-6 w-6 transition-transform duration-200"
+          :class="activeIndex === i ? 'scale-[1.15] text-primary' : 'text-on-surface-variant'"
+        />
+      </RouterLink>
+    </div>
   </nav>
 </template>
 
