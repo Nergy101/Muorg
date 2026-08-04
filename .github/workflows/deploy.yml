@@ -13,16 +13,18 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Skip (cleanly) until the SSH secrets are added to this repo
-    if: ${{ secrets.SSH_HOST != '' && secrets.SSH_USERNAME != '' && secrets.SSH_KEY != '' }}
     environment:
       name: Production
       url: http://${{ secrets.SSH_HOST }}:7800
     steps:
+      # Steps are guarded on the secrets being present so the workflow
+      # skips cleanly until SSH_HOST/USERNAME/KEY are added to this repo.
       - name: Get Known Hosts value
+        if: ${{ secrets.SSH_HOST != '' }}
         run: echo "KNOWN_HOSTS=$(ssh-keyscan -H ${{ secrets.SSH_HOST }})" >> $GITHUB_ENV
 
       - name: Install SSH Key
+        if: ${{ secrets.SSH_KEY != '' }}
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.SSH_KEY }}
@@ -31,6 +33,7 @@ jobs:
           if_key_exists: replace
 
       - name: Pull and start docker images on VM
+        if: ${{ secrets.SSH_HOST != '' && secrets.SSH_KEY != '' }}
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
