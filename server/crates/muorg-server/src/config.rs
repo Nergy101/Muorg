@@ -20,7 +20,11 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub api_key: String,
+    #[serde(default = "default_shutdown_timeout")]
+    pub shutdown_timeout_secs: u64,
 }
+
+fn default_shutdown_timeout() -> u64 { 30 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
@@ -28,6 +32,7 @@ impl Default for ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 7700,
             api_key: "change-me".to_string(),
+            shutdown_timeout_secs: 30,
         }
     }
 }

@@ -3,8 +3,10 @@
 host = "0.0.0.0"
 port = 7700
 # IMPORTANT: change this to a long random string before exposing to the internet.
-# All API requests must include: Authorization: Bearer <api_key>
+# All API requests must include: Authorization: Bearer ***
 api_key = "change-me-to-something-secret"
+# Graceful shutdown: wait up to this many seconds for in-flight requests before force-exiting.
+shutdown_timeout_secs = 30
 
 [library]
 # Paths to scan for music files. Sub-folders are scanned recursively.
