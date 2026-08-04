@@ -1,14 +1,47 @@
 name: Release
 
+# Each artifact is released independently: the desktop apps and the three
+# Docker images no longer share a dependency chain, so publishing a web image
+# does not wait ~25 minutes behind the macOS and Windows Tauri builds.
+#
+#   version ─┬─ desktop ── release            (dmg / msi / AppImage + latest.json)
+#            ├─ server-binaries ── docker-server
+#            ├─ docker-web
+#            └─ docker-docs
+#
+# Pushing a v* tag releases everything. workflow_dispatch releases whichever
+# targets you tick, so a single image can be rebuilt on its own.
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (defaults to the version in web-client/package.json)'
+        required: false
+        type: string
+      desktop:
+        description: 'Build + release the desktop apps'
+        type: boolean
+        default: false
+      docker_server:
+        description: 'Build + push muorg-server image'
+        type: boolean
+        default: false
+      docker_web:
+        description: 'Build + push muorg-web image'
+        type: boolean
+        default: false
+      docker_docs:
+        description: 'Build + push muorg-docs image'
+        type: boolean
+        default: false
 
 concurrency:
-  group: release
-  cancel-in-progress: true
+  group: release-${{ github.ref }}
+  # Never cancel a release mid-publish; a half-pushed manifest is worse than a queue.
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: never
@@ -20,27 +53,114 @@ jobs:
       version: ${{ steps.set.outputs.version }}
       tag: ${{ steps.set.outputs.tag }}
       prerelease: ${{ steps.set.outputs.prerelease }}
+      desktop: ${{ steps.targets.outputs.desktop }}
+      docker_server: ${{ steps.targets.outputs.docker_server }}
+      docker_web: ${{ steps.targets.outputs.docker_web }}
+      docker_docs: ${{ steps.targets.outputs.docker_docs }}
     steps:
       - uses: actions/checkout@v7
+
       - id: set
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
-            TAG="${GITHUB_REF_NAME}"
-            PRERELEASE="false"
+          elif [[ -n "${INPUT_VERSION}" ]]; then
+            VERSION="${INPUT_VERSION#v}"
           else
-            VERSION="0.1.0-alpha.${GITHUB_RUN_NUMBER}"
-            TAG="v${VERSION}"
-            PRERELEASE="true"
+            # Fall back to the committed version so a manual run publishes the
+            # same number the app itself reports.
+            VERSION="$(node -p "require('./web-client/package.json').version")"
           fi
+          # Anything with a semver pre-release suffix is flagged as such.
+          if [[ "${VERSION}" == *-* ]]; then PRERELEASE="true"; else PRERELEASE="false"; fi
           {
             echo "version=${VERSION}"
-            echo "tag=${TAG}"
+            echo "tag=v${VERSION}"
             echo "prerelease=${PRERELEASE}"
           } >> "$GITHUB_OUTPUT"
 
-  build:
+      # A tag release publishes every artifact; a manual run publishes only the
+      # boxes that were ticked.
+      - id: targets
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            {
+              echo "desktop=true"
+              echo "docker_server=true"
+              echo "docker_web=true"
+              echo "docker_docs=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "desktop=${{ inputs.desktop }}"
+              echo "docker_server=${{ inputs.docker_server }}"
+              echo "docker_web=${{ inputs.docker_web }}"
+              echo "docker_docs=${{ inputs.docker_docs }}"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+  # Linux server binaries for the Docker image only. Lifted out of the desktop
+  # matrix so muorg-server can publish without a Tauri build in the graph.
+  server-binaries:
     needs: version
+    if: needs.version.outputs.docker_server == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server -> target
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev libmp3lame-dev
+
+      - name: Set up arm64 cross-compilation
+        run: |
+          sudo dpkg --add-architecture arm64
+          printf '%s\n' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse' \
+            | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
+          # Update only the new arm64 source — leaves existing sources (e.g. microsoft-prod.list) untouched
+          sudo apt-get update \
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu-arm64.list \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y gcc-aarch64-linux-gnu libmp3lame-dev:arm64 libssl-dev:arm64
+          rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+
+      - name: Build server binary (x86_64-linux)
+        working-directory: server
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Build server binary (aarch64-linux)
+        working-directory: server
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          PKG_CONFIG_ALLOW_CROSS: "1"
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+
+      - name: Upload Docker server binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-server-binaries
+          path: |
+            server/target/x86_64-unknown-linux-gnu/release/muorg-server
+            server/target/aarch64-unknown-linux-gnu/release/muorg-server
+
+  desktop:
+    needs: version
+    if: needs.version.outputs.desktop == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -156,42 +276,6 @@ jobs:
           Copy-Item "server/target/$target/release/muorg-server.exe" `
             "client/src-tauri/binaries/muorg-server-${target}.exe"
 
-      # ── Linux only: cross-compile arm64 server binary for the Docker image ──
-      - name: Set up arm64 cross-compilation
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo dpkg --add-architecture arm64
-          printf '%s\n' \
-            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse' \
-            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse' \
-            | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
-          # Update only the new arm64 source — leaves existing sources (e.g. microsoft-prod.list) untouched
-          sudo apt-get update \
-            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu-arm64.list \
-            -o Dir::Etc::sourceparts=- \
-            -o APT::Get::List-Cleanup=0
-          sudo apt-get install -y gcc-aarch64-linux-gnu libmp3lame-dev:arm64 libssl-dev:arm64
-          rustup target add aarch64-unknown-linux-gnu
-
-      - name: Build server binary (aarch64-linux)
-        if: matrix.platform == 'ubuntu-22.04'
-        working-directory: server
-        run: cargo build --release --target aarch64-unknown-linux-gnu
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-
-      - name: Upload Docker server binaries
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v7
-        with:
-          name: docker-server-binaries
-          path: |
-            server/target/x86_64-unknown-linux-gnu/release/muorg-server
-            server/target/aarch64-unknown-linux-gnu/release/muorg-server
-      # ── end Docker binaries ──
-
       - name: Install frontend dependencies
         working-directory: client
         run: pnpm install --frozen-lockfile
@@ -256,9 +340,9 @@ jobs:
             ${{ steps.bundle.outputs.path }}/appimage/*.AppImage.sig
 
   release:
-    needs: [version, build]
+    needs: [version, desktop]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: needs.version.outputs.desktop == 'true'
     permissions:
       contents: write
     steps:
@@ -362,9 +446,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker-server:
-    needs: [version, build]
+    needs: [version, server-binaries]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: needs.version.outputs.docker_server == 'true'
     permissions:
       packages: write
     steps:
@@ -409,9 +493,9 @@ jobs:
           cache-to: type=gha,mode=max
 
   docker-web:
-    needs: [version, build]
+    needs: version
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: needs.version.outputs.docker_web == 'true'
     permissions:
       packages: write
     steps:
@@ -446,9 +530,9 @@ jobs:
           cache-to: type=gha,mode=max
 
   docker-docs:
-    needs: [version, build]
+    needs: version
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: needs.version.outputs.docker_docs == 'true'
     permissions:
       packages: write
     steps:

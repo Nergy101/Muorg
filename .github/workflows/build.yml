@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
@@ -14,8 +15,55 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Which parts of the monorepo did this push/PR actually touch? Every build
+  # job below is gated on this so an Android-only change stops paying for a
+  # Tauri build and vice versa.
+  #
+  # Two things drive the filters beyond the obvious directory:
+  #   - `src/**` is the @shared alias, consumed by both client and web-client.
+  #   - the desktop client bundles the server as a sidecar, so a server change
+  #     has to rebuild the client too.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    # A manual run has no diff to inspect (paths-filter would compare main to
+    # itself and report nothing changed), so dispatch forces a full build.
+    outputs:
+      client: ${{ steps.filter.outputs.client == 'true' || github.event_name == 'workflow_dispatch' }}
+      web-client: ${{ steps.filter.outputs.web-client == 'true' || github.event_name == 'workflow_dispatch' }}
+      android: ${{ steps.filter.outputs.android == 'true' || github.event_name == 'workflow_dispatch' }}
+      server: ${{ steps.filter.outputs.server == 'true' || github.event_name == 'workflow_dispatch' }}
+      docs-site: ${{ steps.filter.outputs.docs-site == 'true' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            client:
+              - '.github/workflows/build.yml'
+              - 'client/**'
+              - 'src/**'
+              - 'server/**'
+            web-client:
+              - '.github/workflows/build.yml'
+              - 'web-client/**'
+              - 'src/**'
+            android:
+              - '.github/workflows/build.yml'
+              - 'android-client/**'
+            server:
+              - '.github/workflows/build.yml'
+              - 'server/**'
+            docs-site:
+              - '.github/workflows/build.yml'
+              - 'docs-site/**'
+
   client:
     name: Client (TypeScript + Tauri)
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -64,6 +112,8 @@ jobs:
 
   web-client:
     name: Web Client (Vue 3)
+    needs: changes
+    if: needs.changes.outputs.web-client == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -88,6 +138,8 @@ jobs:
 
   android:
     name: Android (lint + build)
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -120,6 +172,8 @@ jobs:
 
   server:
     name: Server (Rust)
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -153,6 +207,8 @@ jobs:
 
   docs-site:
     name: Docs Site (Docusaurus)
+    needs: changes
+    if: needs.changes.outputs.docs-site == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -169,3 +225,25 @@ jobs:
       - name: Build
         working-directory: docs-site
         run: npm run build
+
+  # Single stable check to require on the branch: skipped jobs report as
+  # "skipped" rather than "success", so branch protection cannot depend on the
+  # individual gated jobs above.
+  build:
+    name: Build
+    needs: [changes, client, web-client, android, server, docs-site]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no build job failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::a build job reported '$r'"
+              exit 1
+            fi
+          done
+          echo "all build jobs passed or were skipped as unchanged"
