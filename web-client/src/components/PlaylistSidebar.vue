@@ -2,10 +2,10 @@
   <aside
     :class="[
       'relative z-40 flex flex-col border-r border-stone-800 bg-stone-800/80 transition-all duration-200',
-      open ? 'w-52' : 'w-0 overflow-hidden',
+      open ? 'w-[85vw] max-w-xs md:w-52' : 'w-0 overflow-hidden',
     ]"
   >
-    <div class="flex min-w-0 flex-col overflow-hidden" style="width: 208px;">
+    <div class="flex min-w-0 flex-col overflow-hidden w-full">
       <!-- Sidebar header -->
       <div class="flex shrink-0 items-center border-b border-stone-700 px-3 py-2">
         <span class="text-xs font-semibold uppercase tracking-wide text-stone-500">Playlists</span>
@@ -15,7 +15,7 @@
         <div class="mb-1 flex flex-col gap-1">
           <button
             type="button"
-            class="flex w-full items-center gap-2 rounded border border-stone-600 bg-stone-700 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-600"
+            class="flex w-full items-center gap-2 rounded border border-stone-600 bg-stone-700 px-3 py-2.5 text-left text-sm text-stone-200 hover:bg-stone-600 active:bg-stone-600 md:py-2"
             @click="showCreateModal = true"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 shrink-0 text-stone-400">
@@ -25,7 +25,7 @@
           </button>
           <button
             type="button"
-            class="flex w-full items-center gap-2 rounded border border-stone-700 bg-stone-800 px-3 py-2 text-left text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            class="flex w-full items-center gap-2 rounded border border-stone-700 bg-stone-800 px-3 py-2.5 text-left text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200 active:bg-stone-700 md:py-2"
             @click="showSmartEditor = true"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 shrink-0 text-stone-500">
@@ -37,7 +37,7 @@
 
         <button
           type="button"
-          class="flex w-full items-center gap-2 rounded border px-1.5 py-1.5 text-left text-sm transition-colors"
+          class="flex w-full items-center gap-2 rounded border px-2 py-2.5 text-left text-sm transition-colors md:py-1.5"
           :class="activeId === null ? 'border-stone-500 bg-stone-700 text-stone-100' : 'border-transparent text-stone-400 hover:bg-stone-700/50 hover:text-stone-200'"
           @click="select(null)"
         >
@@ -60,7 +60,7 @@
           >
             <button
               type="button"
-              class="flex min-w-0 flex-1 items-center gap-2 truncate px-1.5 py-1.5 text-left"
+              class="flex min-w-0 flex-1 items-center gap-2 truncate px-2 py-2.5 text-left md:py-1.5"
               @click="select(p.id)"
             >
               <span class="shrink-0 text-base leading-none">{{ p.icon || '🎵' }}</span>
@@ -88,12 +88,14 @@
         v-if="ctxMenu"
         ref="ctxMenuRef"
         class="fixed z-[300] min-w-[140px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+        :class="isMobile ? 'ctx-sheet' : ''"
         :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
         @click.stop
       >
+        <div class="ctx-sheet-handle" />
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50 active:bg-stone-700 md:py-2"
           @click="select(ctxMenu.playlist.id); ctxMenu = null"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 shrink-0 text-stone-400">
@@ -107,7 +109,7 @@
         <button
           v-if="ctxMenu.playlist.smart_rules"
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50 active:bg-stone-700 md:py-2"
           @click="editSmartRules(ctxMenu.playlist); ctxMenu = null"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 shrink-0 text-stone-400">
@@ -118,7 +120,7 @@
 
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50 active:bg-stone-700 md:py-2"
           @click="startRename(ctxMenu.playlist); ctxMenu = null"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 shrink-0 text-stone-400">
@@ -128,7 +130,7 @@
         </button>
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
+          class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300 active:bg-stone-700 md:py-2"
           @click="deletePlaylist(ctxMenu.playlist); ctxMenu = null"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 shrink-0">
@@ -197,6 +199,8 @@ import { usePlaylistStore } from "../stores/playlists";
 import type { Playlist, SmartRule } from "../types";
 
 defineProps<{ open: boolean }>();
+
+const isMobile = computed(() => window.matchMedia("(max-width: 639px)").matches);
 
 const store = usePlaylistStore();
 const playlists = computed(() => store.playlists);
