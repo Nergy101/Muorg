@@ -81,3 +81,14 @@ export async function removeTracksFromPlaylist(
     body: JSON.stringify({ track_ids: trackIds }),
   });
 }
+
+export async function reorderPlaylistTracks(
+  playlistId: number,
+  orderedIds: number[],
+): Promise<void> {
+  await apiFetch(`/api/playlists/${playlistId}/tracks/order`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: orderedIds }),
+  });
+}

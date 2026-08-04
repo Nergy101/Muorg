@@ -50,6 +50,9 @@ export const useLibraryStore = defineStore("library", () => {
   const stats = ref<LibraryStats | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  // Progressive loading: total known from X-Total-Count, pages filled in background
+  const totalTracks = ref(0);
+  const loadingMore = ref(false);
 
   const viewMode = ref<ViewMode>(loadPref("muorg-web-view", "grid"));
   const tableArtSize = ref<"small" | "large">(loadPref("muorg-web-art-size", "small"));
@@ -94,10 +97,12 @@ export const useLibraryStore = defineStore("library", () => {
   const filteredTracks = computed(() => {
     let result = tracks.value;
 
-    // Playlist filter
+    // Playlist filter (preserves playlist order)
     if (playlistTrackIds.value !== null) {
-      const ids = new Set(playlistTrackIds.value);
-      result = result.filter((t) => ids.has(t.id));
+      const order = playlistTrackIds.value;
+      const byId = new Map<number, CatalogTrack>();
+      for (const t of result) byId.set(t.id, t);
+      result = order.map((id) => byId.get(id)).filter((t): t is CatalogTrack => t !== undefined);
     }
 
     // Search filter
@@ -289,17 +294,47 @@ export const useLibraryStore = defineStore("library", () => {
   });
 
   // --- Actions ---
+  const PAGE_SIZE = 500;
+
   async function loadLibrary(): Promise<void> {
     loading.value = true;
     error.value = null;
     try {
-      const [t, s] = await Promise.all([getTracks(), getStats()]);
-      tracks.value = t;
-      stats.value = s;
+      const first = await getTracks(0, PAGE_SIZE);
+      tracks.value = first.tracks;
+      totalTracks.value = first.total;
+      if (first.total > first.tracks.length) {
+        // Fill remaining pages in the background — the UI stays usable immediately
+        void loadRemainingPages(first.tracks.length);
+      }
+      stats.value = await getStats();
     } catch (e) {
       error.value = (e as Error).message;
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function loadRemainingPages(start: number): Promise<void> {
+    if (loadingMore.value) return;
+    loadingMore.value = true;
+    try {
+      const seen = new Set(tracks.value.map((t) => t.id));
+      for (let offset = start; offset < totalTracks.value; offset += PAGE_SIZE) {
+        const page = await getTracks(offset, PAGE_SIZE);
+        totalTracks.value = page.total;
+        const fresh = page.tracks.filter((t) => !seen.has(t.id));
+        for (const t of fresh) seen.add(t.id);
+        if (fresh.length > 0) {
+          tracks.value = [...tracks.value, ...fresh];
+        }
+        // Gentle pacing between pages
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    } catch {
+      // Background fill failure is non-fatal — the first page is already usable
+    } finally {
+      loadingMore.value = false;
     }
   }
 
@@ -439,26 +474,59 @@ export const useLibraryStore = defineStore("library", () => {
     };
   }
 
-  /** Auto-advance to next track in queue when current track ends. */
-  function handleTrackEnded(): void {
-    if (playQueue.value.length > 0 && queueIndex.value < playQueue.value.length - 1) {
-      const next = playQueue.value[queueIndex.value + 1];
-      if (next) {
-        playTrack(next).catch(() => {});
-        queueIndex.value++;
-      }
-    }
-  }
-
-  // Wire up auto-advance
-  onTrackEnded(handleTrackEnded);
-
   function addToQueue(track: CatalogTrack): void {
     playQueue.value = [...playQueue.value, track];
   }
 
   function addMultipleToQueue(tracks: CatalogTrack[]): void {
     playQueue.value = [...playQueue.value, ...tracks];
+  }
+
+  /** Insert a track right after the currently playing one. */
+  function playNextTrack(track: CatalogTrack): void {
+    const idx = queueIndex.value >= 0 ? queueIndex.value : 0;
+    const next = [...playQueue.value];
+    next.splice(idx + 1, 0, track);
+    playQueue.value = next;
+  }
+
+  /** The track right after the current one in the queue, if any. */
+  function nextQueuedTrack(): CatalogTrack | null {
+    if (playQueue.value.length === 0 || queueIndex.value < 0) return null;
+    if (queueIndex.value + 1 < playQueue.value.length) {
+      return playQueue.value[queueIndex.value + 1];
+    }
+    return null;
+  }
+
+  /** The track right before the current one in the queue, if any. */
+  function prevQueuedTrack(): CatalogTrack | null {
+    if (queueIndex.value > 0 && queueIndex.value < playQueue.value.length) {
+      return playQueue.value[queueIndex.value - 1];
+    }
+    return null;
+  }
+
+  /** Advance to the next queued track. Returns false at the end of the queue. */
+  function autoAdvanceQueue(): boolean {
+    const next = nextQueuedTrack();
+    if (next) {
+      queueIndex.value++;
+      playTrack(next).catch(() => {});
+      return true;
+    }
+    return false;
+  }
+
+  /** Randomize everything after the current track (shuffle on). */
+  function shuffleRemainingQueue(): void {
+    const start = Math.max(0, queueIndex.value + 1);
+    const rest = playQueue.value.slice(start);
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    playQueue.value = [...playQueue.value.slice(0, start), ...rest];
   }
 
   function removeFromQueue(index: number): void {
@@ -507,6 +575,15 @@ export const useLibraryStore = defineStore("library", () => {
 
   async function playTrack(track: CatalogTrack, startSecs?: number): Promise<void> {
     if (nowPlaying.value?.id === track.id && startSecs === undefined) return;
+    // Queue bookkeeping: if the track is already queued, jump to it; otherwise
+    // start a fresh one-track queue.
+    const existingIdx = playQueue.value.findIndex((t) => t.id === track.id);
+    if (existingIdx >= 0 && queueIndex.value >= 0) {
+      queueIndex.value = existingIdx;
+    } else {
+      playQueue.value = [track];
+      queueIndex.value = 0;
+    }
     try {
       const token = await issueStreamToken(track.id);
       streamToken.value = token;
@@ -525,8 +602,18 @@ export const useLibraryStore = defineStore("library", () => {
   }
 
   async function playAlbum(item: AlbumGridItem): Promise<void> {
-    const first = tracks.value.find((t) => t.id === item.trackIds[0]);
-    if (first) await playTrack(first);
+    const ordered = tracks.value
+      .filter((t) => item.trackIds.includes(t.id))
+      .sort((a, b) => {
+        const discA = a.disc_number ?? 1;
+        const discB = b.disc_number ?? 1;
+        if (discA !== discB) return discA - discB;
+        return (a.track_number ?? 0) - (b.track_number ?? 0);
+      });
+    if (ordered.length === 0) return;
+    playQueue.value = ordered;
+    queueIndex.value = 0;
+    await playTrack(ordered[0]);
   }
 
   function togglePlayPause(): void {
@@ -599,6 +686,8 @@ export const useLibraryStore = defineStore("library", () => {
     stats,
     loading,
     error,
+    totalTracks,
+    loadingMore,
     viewMode,
     tableArtSize,
     gridSortBy,
@@ -643,6 +732,11 @@ export const useLibraryStore = defineStore("library", () => {
     batchSetRating,
     addToQueue,
     addMultipleToQueue,
+    playNextTrack,
+    nextQueuedTrack,
+    prevQueuedTrack,
+    autoAdvanceQueue,
+    shuffleRemainingQueue,
     removeFromQueue,
     clearQueue,
     setQueueIndex,

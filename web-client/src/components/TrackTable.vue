@@ -195,6 +195,8 @@
       :track-id="ctxTrack?.id ?? null"
       @play="ctxTrack && lib.playTrack(ctxTrack)"
       @edit="editingTrack = ctxTrack"
+      @add-to-queue="ctxTrack && lib.addToQueue(ctxTrack)"
+      @play-next="ctxTrack && lib.playNextTrack(ctxTrack)"
       @add-to-playlist="id => ctxTrack && playlistStore.addTracks(id, [ctxTrack!.id])"
       @remove-from-playlist="id => ctxTrack && playlistStore.removeTracks(id, [ctxTrack!.id])"
       @new-playlist="newPlaylistForTrack"

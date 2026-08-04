@@ -38,8 +38,20 @@
         <button
           type="button"
           class="flex w-full items-center gap-2 rounded border px-2 py-2.5 text-left text-sm transition-colors md:py-1.5"
+          :class="props.homeActive ? 'border-stone-500 bg-stone-700 text-stone-100' : 'border-transparent text-stone-400 hover:bg-stone-700/50 hover:text-stone-200'"
+          @click="emit('go-home')"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5 shrink-0 text-stone-500">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          <span class="min-w-0 flex-1 truncate text-xs">Home</span>
+        </button>
+
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 rounded border px-2 py-2.5 text-left text-sm transition-colors md:py-1.5"
           :class="activeId === null ? 'border-stone-500 bg-stone-700 text-stone-100' : 'border-transparent text-stone-400 hover:bg-stone-700/50 hover:text-stone-200'"
-          @click="select(null)"
+          @click="select(null); emit('go-library')"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5 shrink-0 text-stone-500">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
@@ -198,7 +210,8 @@ import SmartPlaylistEditor from "./SmartPlaylistEditor.vue";
 import { usePlaylistStore } from "../stores/playlists";
 import type { Playlist, SmartRule } from "../types";
 
-defineProps<{ open: boolean }>();
+const props = defineProps<{ open: boolean; homeActive?: boolean }>();
+const emit = defineEmits<{ "go-home": []; "go-library": [] }>();
 
 const isMobile = computed(() => window.matchMedia("(max-width: 639px)").matches);
 

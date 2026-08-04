@@ -91,14 +91,6 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded text-stone-400 active:bg-stone-700 active:text-stone-200"
-          aria-label="Restart"
-          @click="restart; haptic()"
-        >
-          <FeatherIcon name="square" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded text-stone-400 active:bg-stone-700 active:text-stone-200"
           aria-label="Previous track"
           @click="playPrevious(); haptic()"
         >
@@ -125,17 +117,17 @@
           class="flex h-10 w-10 items-center justify-center rounded active:bg-stone-700 active:text-stone-200"
           :class="shuffle ? 'text-accent' : 'text-stone-400'"
           aria-label="Shuffle"
-          @click="shuffle = !shuffle; haptic()"
+          @click="toggleShuffle()"
         >
           <FeatherIcon name="shuffle" class="h-4 w-4" />
         </button>
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded text-stone-400 active:bg-stone-700 active:text-stone-200"
-          aria-label="Expand player"
-          @click="showOverlay = true; haptic()"
+          aria-label="Queue"
+          @click="showQueue = true; haptic()"
         >
-          <FeatherIcon name="maximize-2" class="h-4 w-4" />
+          <FeatherIcon name="list" class="h-4 w-4" />
         </button>
       </div>
 
@@ -146,7 +138,7 @@
           class="flex items-center justify-center rounded p-1.5 hover:bg-stone-700 hover:text-stone-200"
           :class="shuffle ? 'text-accent' : 'text-stone-400'"
           aria-label="Shuffle"
-          @click="shuffle = !shuffle"
+          @click="toggleShuffle()"
         >
           <FeatherIcon name="shuffle" class="h-4 w-4" />
         </button>
@@ -180,6 +172,15 @@
             @input="lib.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
           />
         </div>
+        <button
+          type="button"
+          class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          aria-label="Queue"
+          title="Queue"
+          @click="showQueue = true"
+        >
+          <FeatherIcon name="list" class="h-4 w-4" />
+        </button>
         <button
           type="button"
           class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
@@ -336,9 +337,16 @@
                 class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-stone-800 active:text-stone-200"
                 :class="shuffle ? 'text-accent' : 'text-stone-400'"
                 title="Shuffle"
-                @click="shuffle = !shuffle; haptic()"
+                @click="toggleShuffle()"
               >
                 <FeatherIcon name="shuffle" class="h-5 w-5" />
+              </button>
+              <button
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-stone-400 active:bg-stone-800 active:text-stone-200"
+                title="Queue"
+                @click="showQueue = true; showOverlay = false; haptic()"
+              >
+                <FeatherIcon name="list" class="h-5 w-5" />
               </button>
               <button
                 class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-stone-400 active:bg-stone-800 active:text-stone-200"
@@ -361,6 +369,8 @@
     :show-find="true"
     @play="lib.nowPlaying && lib.playTrack(lib.nowPlaying)"
     @find="lib.nowPlaying && lib.revealTrack(lib.nowPlaying)"
+    @add-to-queue="lib.nowPlaying && lib.addToQueue(lib.nowPlaying)"
+    @play-next="lib.nowPlaying && lib.playNextTrack(lib.nowPlaying)"
     @add-to-playlist="addNowPlayingToPlaylist"
     @remove-from-playlist="removeNowPlayingFromPlaylist"
     @new-playlist="showNewPlaylistModal = true"
@@ -372,6 +382,9 @@
     confirm-label="Create"
     @confirm="createPlaylistForNowPlaying"
   />
+
+  <!-- Queue panel (bottom sheet on mobile, slide-over on desktop) -->
+  <QueuePanel :open="showQueue" @close="showQueue = false" />
 </template>
 
 <script setup lang="ts">
@@ -381,11 +394,13 @@ import { usePlaylistStore } from "../stores/playlists";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import TrackContextMenu from "./TrackContextMenu.vue";
 import PlaylistModal from "./PlaylistModal.vue";
+import QueuePanel from "./QueuePanel.vue";
 import MarqueeCell from "@shared/components/MarqueeCell.vue";
 import { useDominantColor, useEdgeColors, getGlowBlobs, isColorBland, hasOpposingEdgeColors } from "../composables/useDominantColor";
 
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
+const showQueue = ref(false);
 
 const props = defineProps<{ overlayOpen: boolean }>();
 const emit = defineEmits<{ "update:overlayOpen": [v: boolean] }>();
@@ -424,6 +439,16 @@ let prevVolume = 1;
 
 // Shuffle history: track IDs in play order so Previous can go back
 const shuffleHistory: number[] = [];
+
+function toggleShuffle(): void {
+  shuffle.value = !shuffle.value;
+  haptic();
+  if (shuffle.value) {
+    lib.shuffleRemainingQueue();
+  } else {
+    shuffleHistory.length = 0;
+  }
+}
 
 watch(shuffle, (on) => {
   if (!on) shuffleHistory.length = 0;
@@ -571,6 +596,20 @@ function cycleRepeat(): void {
 }
 
 function playNext(fromAuto = false): void {
+  // Queue-aware navigation (albums and "play next" builds a queue)
+  if (lib.playQueue.length > 1) {
+    const nxt = lib.nextQueuedTrack();
+    if (nxt) {
+      lib.playTrack(nxt);
+      return;
+    }
+    // At the end of the queue: wrap when repeat-all or on manual next
+    if (lib.playQueue.length > 0 && (repeat.value === "all" || !fromAuto)) {
+      lib.playTrack(lib.playQueue[0]);
+    }
+    return;
+  }
+
   const tracks = lib.filteredTracks;
   if (!tracks.length) return;
 
@@ -592,6 +631,16 @@ function playNext(fromAuto = false): void {
 }
 
 function playPrevious(): void {
+  if (lib.playQueue.length > 1) {
+    const prev = lib.prevQueuedTrack();
+    if (prev) {
+      lib.playTrack(prev);
+      return;
+    }
+    // At the start of the queue: restart the current track
+    lib.seekTo(0);
+    return;
+  }
   if (shuffle.value && shuffleHistory.length > 0) {
     const prevId = shuffleHistory.pop()!;
     const track = lib.filteredTracks.find((t) => t.id === prevId);
@@ -610,6 +659,13 @@ function restart(): void {
 function handleTrackEnded(): void {
   if (repeat.value === "one" && lib.nowPlaying) {
     lib.playTrack(lib.nowPlaying);
+    return;
+  }
+  // Queue-based auto-advance first (albums / play-next builds the queue)
+  if (lib.autoAdvanceQueue()) return;
+  // Queue exhausted or single-track: loop the queue on repeat-all, else library order
+  if (repeat.value === "all" && lib.playQueue.length > 1) {
+    lib.playTrack(lib.playQueue[0]);
     return;
   }
   playNext(true);

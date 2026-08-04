@@ -10,6 +10,7 @@ import {
   getPlaylistTracks,
   addTracksToPlaylist as apiAdd,
   removeTracksFromPlaylist as apiRemove,
+  reorderPlaylistTracks as apiReorder,
 } from "../api/playlists";
 import type { Playlist, SmartRule } from "../types";
 import { useLibraryStore } from "./library";
@@ -139,6 +140,22 @@ export const usePlaylistStore = defineStore("playlists", () => {
     }
   }
 
+  /**
+   * Reorder a playlist's tracks with an optimistic local update.
+   * Reverts the local order if the API call fails.
+   */
+  async function reorderTracks(playlistId: number, orderedIds: number[]): Promise<void> {
+    const lib = useLibraryStore();
+    const previous = lib.playlistTrackIds;
+    lib.playlistTrackIds = orderedIds;
+    try {
+      await apiReorder(playlistId, orderedIds);
+    } catch (e) {
+      lib.playlistTrackIds = previous;
+      throw e;
+    }
+  }
+
   return {
     playlists,
     activePlaylistId,
@@ -153,5 +170,6 @@ export const usePlaylistStore = defineStore("playlists", () => {
     getPlaylistsContainingTrack,
     addTracks,
     removeTracks,
+    reorderTracks,
   };
 });
