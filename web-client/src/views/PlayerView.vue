@@ -121,7 +121,9 @@
       </div>
 
       <!-- Transport row -->
-      <div class="flex shrink-0 items-center justify-center gap-4 px-6 py-4">
+      <div
+        class="flex shrink-0 items-center justify-center gap-4 px-6 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)]"
+      >
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center"
@@ -168,21 +170,6 @@
             class="absolute bottom-0.5 right-0.5 text-label-sm font-bold leading-none"
           >1</span>
         </button>
-      </div>
-
-      <!-- Volume row -->
-      <div class="flex shrink-0 items-center gap-3 px-6 pb-4">
-        <FeatherIcon name="volume-1" class="h-4 w-4 shrink-0 text-white/55" />
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.02"
-          class="min-w-0 flex-1"
-          :value="player.volume"
-          @input="player.setVolume(parseFloat(($event.target as HTMLInputElement).value))"
-        />
-        <FeatherIcon name="volume-2" class="h-4 w-4 shrink-0 text-white/55" />
       </div>
     </div>
 

@@ -78,11 +78,6 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-miniplayer-tap", v);
   }
 
-  function setVolume(v: number): void {
-    volume.value = v;
-    savePref("muorg-web-volume", v);
-  }
-
   function addSearch(q: string): void {
     const trimmed = q.trim();
     if (!trimmed) return;
@@ -118,7 +113,6 @@ export const useSettingsStore = defineStore("settings", () => {
     setAlbumViewStyle,
     cycleAlbumViewStyle,
     setMiniPlayerTapOpensPlayer,
-    setVolume,
     addSearch,
     clearSearchHistory,
   };

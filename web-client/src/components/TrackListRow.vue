@@ -44,7 +44,10 @@
         : 'bg-on-surface-variant/10 text-on-surface-variant'"
     >{{ track.format.toUpperCase() }}</span>
 
-    <span class="shrink-0 text-label-md tabular-nums text-on-surface-variant">{{ duration }}</span>
+    <span
+      v-if="showDuration !== false"
+      class="shrink-0 text-label-md tabular-nums text-on-surface-variant"
+    >{{ duration }}</span>
 
     <button
       type="button"
@@ -72,8 +75,9 @@ const props = withDefaults(
     leading?: "cover" | "index";
     isPlaying?: boolean;
     showFormatBadge?: boolean;
+    showDuration?: boolean;
   }>(),
-  { leading: "cover", showFormatBadge: true },
+  { leading: "cover", showFormatBadge: true, showDuration: true },
 );
 
 const emit = defineEmits<{ play: []; actions: [] }>();

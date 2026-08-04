@@ -26,9 +26,13 @@
         <FeatherIcon name="menu" class="h-5 w-5" />
       </button>
 
+      <!-- Format and duration are dropped here: the queue is narrower than the
+           other lists (drag handle + remove button), so the title gets the room. -->
       <TrackListRow
         class="min-w-0 flex-1"
         :track="track"
+        :show-format-badge="false"
+        :show-duration="false"
         @play="emit('play')"
         @actions="emit('actions')"
       />

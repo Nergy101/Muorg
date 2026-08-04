@@ -41,6 +41,12 @@ export const usePlayerStore = defineStore("player", () => {
   const favorites = ref<Set<number>>(new Set());
   const errorMessage = ref<string | null>(null);
   const sleepTimerRemainingMs = ref(0);
+  /**
+   * True while a "Shuffle all" queue is what is playing. Stays true after the
+   * pool drains — the shuffled playlist is still on — and only clears when the
+   * user starts something else or the player is reset.
+   */
+  const shuffleAllActive = ref(false);
 
   const currentIndex = computed(() => playOrder.value[playOrderPos.value] ?? -1);
   const currentTrack = computed(() => queue.value[currentIndex.value] ?? null);
@@ -70,7 +76,10 @@ export const usePlayerStore = defineStore("player", () => {
   let _seekSeq = 0;
   let errorTimer: ReturnType<typeof setTimeout> | undefined;
   let sleepInterval: ReturnType<typeof setInterval> | undefined;
-  /** Backing pool for "Shuffle all"; empty when shuffle-all is not active. */
+  /**
+   * Backing pool for "Shuffle all". Empties once every track has been queued,
+   * which is why it cannot double as the button's active state.
+   */
   let shuffleAllPool: CatalogTrack[] = [];
 
   function setError(msg: string): void {
@@ -175,6 +184,7 @@ export const usePlayerStore = defineStore("player", () => {
 
   async function playTrack(track: CatalogTrack, newQueue: CatalogTrack[]): Promise<void> {
     shuffleAllPool = [];
+    shuffleAllActive.value = false;
     queue.value = [...newQueue];
     rebuildPlayOrder(newQueue.findIndex((t) => t.id === track.id));
     await playCurrent(0);
@@ -253,12 +263,6 @@ export const usePlayerStore = defineStore("player", () => {
         });
       }
     }
-  }
-
-  function setVolume(v: number): void {
-    volume.value = v;
-    settings.setVolume(v);
-    if (audioEl.value) audioEl.value.volume = v;
   }
 
   function toggleShuffle(): void {
@@ -387,9 +391,10 @@ export const usePlayerStore = defineStore("player", () => {
     if (allTracks.length === 0) return;
     shuffleEnabled.value = false;
     const batch = sample(allTracks, SHUFFLE_ALL_BATCH);
-    // playTrack clears the pool synchronously, so seed it afterwards.
     void playTrack(batch[0], batch);
+    // playTrack clears both synchronously, so seed them afterwards.
     shuffleAllPool = allTracks;
+    shuffleAllActive.value = true;
   }
 
   // Top up the queue as shuffle-all nears the end of what it queued.
@@ -548,6 +553,7 @@ export const usePlayerStore = defineStore("player", () => {
     clearTimeout(errorTimer);
     errorTimer = undefined;
     shuffleAllPool = [];
+    shuffleAllActive.value = false;
     queue.value = [];
     playOrder.value = [];
     playOrderPos.value = -1;
@@ -568,6 +574,7 @@ export const usePlayerStore = defineStore("player", () => {
     durationSecs,
     volume,
     shuffleEnabled,
+    shuffleAllActive,
     repeatMode,
     favorites,
     errorMessage,
@@ -584,7 +591,6 @@ export const usePlayerStore = defineStore("player", () => {
     skipNext,
     skipPrevious,
     seekTo,
-    setVolume,
     toggleShuffle,
     cycleRepeatMode,
     skipTo,

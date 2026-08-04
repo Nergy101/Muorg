@@ -117,8 +117,10 @@
 
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full text-primary"
+          class="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+          :class="player.shuffleAllActive ? 'text-primary' : 'text-on-surface'"
           aria-label="Shuffle all"
+          :aria-pressed="player.shuffleAllActive"
           @click="player.startShuffleAll(lib.filteredTracks)"
         >
           <FeatherIcon name="shuffle" class="h-4 w-4" />
