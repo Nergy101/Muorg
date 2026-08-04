@@ -1,10 +1,10 @@
 <template>
-  <header class="flex min-w-0 items-start gap-2 border-b border-stone-700 bg-stone-900 px-4 py-2">
+  <header class="safe-top flex min-w-0 items-start gap-2 border-b border-stone-700 bg-stone-900 px-4 py-2">
 
     <!-- Mobile sidebar toggle -->
     <button
       type="button"
-      class="mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200 md:hidden"
+      class="mr-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200 active:bg-stone-700 md:h-8 md:w-8 md:hidden"
       aria-label="Toggle sidebar"
       @click="emit('toggle-sidebar')"
     >
@@ -18,7 +18,7 @@
       <button
         v-if="props.showBack"
         type="button"
-        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+        class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200 active:bg-stone-700 md:h-8 md:w-8"
         aria-label="Back"
         @click="emit('back')"
       >
@@ -46,10 +46,10 @@
       <div class="flex shrink-0 items-center">
         <button
           type="button"
-          class="inline-flex h-8 w-8 shrink-0 items-center justify-center border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          class="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200 active:bg-stone-700 md:h-8 md:w-8"
           :class="searchExpanded ? 'rounded-l border-r-0' : 'rounded'"
           aria-label="Search"
-          @click="expandSearch"
+          @click="onSearchClick"
         >
           <FeatherIcon name="search" class="h-4 w-4" />
         </button>
@@ -64,7 +64,7 @@
               :tabindex="searchExpanded ? 0 : -1"
               type="text"
               placeholder="Search title, artist, album…"
-              class="h-8 w-[212px] rounded-r border border-l-0 border-stone-600 bg-stone-800 py-0 pl-2 pr-7 text-sm text-stone-200 placeholder-stone-500"
+              class="h-10 w-[212px] rounded-r border border-l-0 border-stone-600 bg-stone-800 py-0 pl-2 pr-7 text-sm text-stone-200 placeholder-stone-500 md:h-8"
               @input="lib.searchQuery = ($event.target as HTMLInputElement).value"
               @blur="onSearchBlur"
               @keydown.escape="lib.searchQuery = ''; searchExpandedLocal = false"
@@ -86,7 +86,7 @@
       <div v-if="viewMode === 'table'" ref="groupByRef" class="relative shrink-0">
         <button
           type="button"
-          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-2 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700 active:bg-stone-700 md:py-1"
           :class="groupByOpen ? 'border-stone-500 bg-stone-700' : ''"
           @click="groupByOpen = !groupByOpen"
         >
@@ -119,7 +119,7 @@
       <div v-if="viewMode === 'grid'" ref="gridSortRef" class="relative shrink-0">
         <button
           type="button"
-          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-2 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700 active:bg-stone-700 md:py-1"
           :class="gridSortOpen ? 'border-stone-500 bg-stone-700' : ''"
           @click="gridSortOpen = !gridSortOpen"
         >
@@ -152,7 +152,7 @@
       <div class="flex items-center gap-1 rounded border border-stone-600 bg-stone-800 p-0.5">
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
+          class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded transition-colors"
           :class="viewMode === 'grid' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
           aria-label="Album grid layout"
           @click="lib.setViewMode('grid')"
@@ -161,7 +161,7 @@
         </button>
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
+          class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded transition-colors"
           :class="viewMode === 'table' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
           aria-label="Table layout"
           @click="lib.setViewMode('table')"
@@ -177,7 +177,7 @@
       >
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
+          class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded transition-colors"
           :class="lib.tableArtSize === 'small' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
           title="Small cover art"
           @click="lib.setTableArtSize('small')"
@@ -186,7 +186,7 @@
         </button>
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
+          class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded transition-colors"
           :class="lib.tableArtSize === 'large' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
           title="Large cover art"
           @click="lib.setTableArtSize('large')"
@@ -201,7 +201,7 @@
     <div class="flex shrink-0 items-center gap-1">
       <button
         type="button"
-        class="hidden sm:inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        class="hidden sm:inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200 active:bg-stone-600"
         title="Mouse controls"
         @click="showKeymap = true"
       >
@@ -210,7 +210,7 @@
       <button
         v-if="canInstall"
         type="button"
-        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200 active:bg-stone-600"
         :title="isIos ? 'Install: tap Share → Add to Home Screen' : 'Install Muorg as app'"
         @click="install"
       >
@@ -219,7 +219,7 @@
       <div class="relative" ref="versionRef">
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+          class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200 active:bg-stone-600"
           @click="versionOpen = !versionOpen"
         >
           <FeatherIcon name="info" class="h-4 w-4" />
@@ -233,7 +233,7 @@
       </div>
       <button
         type="button"
-        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200 active:bg-stone-600"
         title="Statistics"
         @click="emit('open-stats')"
       >
@@ -241,7 +241,7 @@
       </button>
       <button
         type="button"
-        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        class="inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200 active:bg-stone-600"
         title="Disconnect"
         @click="emit('disconnect')"
       >
@@ -269,6 +269,7 @@ const emit = defineEmits<{
   "toggle-sidebar": [];
   back: [];
   "open-stats": [];
+  "open-mobile-search": [];
 }>();
 
 const lib = useLibraryStore();
@@ -298,6 +299,17 @@ const searchExpanded = computed(() => searchExpandedLocal.value || !!lib.searchQ
 function expandSearch() {
   searchExpandedLocal.value = true;
   nextTick(() => searchInputRef.value?.focus());
+}
+
+// On phones the search button opens the full-screen search screen instead
+const isMobile = computed(() => window.matchMedia("(max-width: 767px)").matches);
+
+function onSearchClick(): void {
+  if (isMobile.value) {
+    emit("open-mobile-search");
+    return;
+  }
+  expandSearch();
 }
 
 function onSearchBlur() {
