@@ -5,8 +5,10 @@
       v-if="visible"
       ref="menuEl"
       class="ctx-menu"
+      :class="isMobile ? 'ctx-sheet' : ''"
       :style="{ top: y + 'px', left: x + 'px' }"
     >
+      <div class="ctx-sheet-handle" />
       <button class="ctx-menu-item" @click.stop="emit('play'); close()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <polygon points="5 3 19 12 5 21 5 3" />
@@ -91,6 +93,8 @@ const y = ref(0);
 let openedAt = 0;
 const menuEl = ref<HTMLElement | null>(null);
 const membershipIds = ref<Set<number> | null>(null);
+
+const isMobile = computed(() => window.matchMedia("(max-width: 639px)").matches);
 
 const playlistsIn = computed(() =>
   membershipIds.value === null
