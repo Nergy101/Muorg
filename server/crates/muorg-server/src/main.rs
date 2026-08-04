@@ -127,6 +127,13 @@ async fn main() {
         let _ = muorg_core::catalog::gc_deleted_tracks(&conn, thirty_days);
     }
 
+    // Prune play history older than 90 days
+    {
+        let conn = catalog.db.lock().unwrap();
+        let ninety_days = 90 * 24 * 60 * 60;
+        let _ = muorg_core::catalog::prune_play_history(&conn, ninety_days);
+    }
+
     if config.library.scan_on_startup {
         let conn = catalog.db.lock().unwrap();
         for root in &config.library.content_paths {
@@ -166,5 +173,61 @@ async fn main() {
     let listen_addr = listener.local_addr().unwrap_or(addr);
     tracing::info!(address = %listen_addr, "listening");
 
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
+    let shutdown_timeout = config.server.shutdown_timeout_secs.max(1);
+    let (shutdown_started_tx, shutdown_started_rx) = tokio::sync::oneshot::channel::<()>();
+    let server = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            tracing::info!("shutting down gracefully, waiting for in-flight requests");
+            let _ = shutdown_started_tx.send(());
+        });
+
+    let server_fut = async {
+        if let Err(e) = server.await {
+            tracing::error!("server error: {e}");
+        }
+    };
+    tokio::pin!(server_fut);
+
+    // Wait for either a clean drain or the shutdown timeout, whichever first.
+    let outcome = tokio::select! {
+        _ = &mut server_fut => "drained",
+        _ = async {
+            let _ = shutdown_started_rx.await;
+            tokio::time::sleep(std::time::Duration::from_secs(shutdown_timeout)).await;
+        } => "timeout",
+    };
+
+    // Flush the async log writer before the process exits
+    if outcome == "timeout" {
+        tracing::warn!(timeout_secs = shutdown_timeout, "shutdown timeout exceeded, forcing exit");
+    }
+    drop(_log_guard);
+    if outcome == "timeout" {
+        std::process::exit(1);
+    }
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c().await.ok();
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        if let Ok(mut sig) =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        {
+            sig.recv().await;
+        }
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+    tracing::info!("received shutdown signal");
 }

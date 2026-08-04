@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Default (dark) theme – no data-theme or data-theme="dark" */
 html, body {

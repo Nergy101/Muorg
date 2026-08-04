@@ -91,6 +91,13 @@ CREATE TABLE IF NOT EXISTS track_backups (
     created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_track_backups_track_path ON track_backups(track_path);
+CREATE TABLE IF NOT EXISTS play_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    played_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_play_history_track ON play_history(track_id);
+CREATE INDEX IF NOT EXISTS idx_play_history_played ON play_history(played_at);
 ";
 
 fn schema_has_column(
@@ -161,6 +168,16 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     if !schema_has_column(conn, "tracks", "last_played_at")? {
         conn.execute("ALTER TABLE tracks ADD COLUMN last_played_at INTEGER", [])
             .map_err(|e| e.to_string())?;
+    }
+    if !schema_has_column(conn, "tracks", "created_at")? {
+        conn.execute("ALTER TABLE tracks ADD COLUMN created_at INTEGER", [])
+            .map_err(|e| e.to_string())?;
+        // Backfill from mtime so recently-added ordering works for existing libraries
+        conn.execute(
+            "UPDATE tracks SET created_at = COALESCE(created_at, mtime_secs) WHERE created_at IS NULL",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
     }
     if !schema_has_column(conn, "playlists", "smart_rules")? {
         conn.execute("ALTER TABLE playlists ADD COLUMN smart_rules TEXT", [])
@@ -311,11 +328,30 @@ pub fn load_roots(conn: &rusqlite::Connection) -> Result<Vec<String>, String> {
 }
 
 pub fn load_tracks(conn: &rusqlite::Connection) -> Result<Vec<CatalogTrack>, String> {
-    load_tracks_filtered(conn, None)
+    load_tracks_filtered(conn, None, None)
+}
+
+pub fn count_tracks(conn: &rusqlite::Connection) -> Result<i64, String> {
+    let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
+    let filter = if deleted_at_col { " WHERE deleted_at IS NULL" } else { "" };
+    conn.query_row(&format!("SELECT COUNT(*) FROM tracks{filter}"), [], |r| r.get(0))
+        .map_err(|e| e.to_string())
+}
+
+pub fn load_tracks_paginated(
+    conn: &rusqlite::Connection,
+    offset: i64,
+    limit: i64,
+) -> Result<(Vec<CatalogTrack>, i64), String> {
+    let total = count_tracks(conn)?;
+    let limit = limit.clamp(1, 5000);
+    let offset = offset.max(0);
+    let tracks = load_tracks_filtered(conn, None, Some((limit, offset)))?;
+    Ok((tracks, total))
 }
 
 pub fn get_track_by_id(conn: &rusqlite::Connection, id: i64) -> Result<Option<CatalogTrack>, String> {
-    let tracks = load_tracks_filtered(conn, Some(&[id]))?;
+    let tracks = load_tracks_filtered(conn, Some(&[id]), None)?;
     Ok(tracks.into_iter().next())
 }
 
@@ -335,6 +371,7 @@ pub fn get_track_path_by_id(conn: &rusqlite::Connection, id: i64) -> Result<Opti
 fn load_tracks_filtered(
     conn: &rusqlite::Connection,
     id_order: Option<&[i64]>,
+    pagination: Option<(i64, i64)>, // (limit, offset)
 ) -> Result<Vec<CatalogTrack>, String> {
     let has_cover_col = schema_has_column(conn, "tracks", "has_cover")?;
     let featuring_col = schema_has_column(conn, "tracks", "featuring")?;
@@ -364,7 +401,7 @@ fn load_tracks_filtered(
 
     let year_base: usize = if featuring_col { 8 } else { 7 };
 
-    let sql = match id_order {
+    let mut sql = match id_order {
         None => {
             let filter = if deleted_at_col { " WHERE deleted_at IS NULL" } else { "" };
             format!(
@@ -381,6 +418,9 @@ fn load_tracks_filtered(
             )
         }
     };
+    if let Some((limit, offset)) = pagination {
+        sql.push_str(&format!(" LIMIT {limit} OFFSET {offset}"));
+    }
 
     let map_row = move |r: &rusqlite::Row| {
         let featuring = feat_idx.and_then(|i| r.get::<_, Option<String>>(i).ok().flatten());
@@ -665,7 +705,7 @@ fn insert_track_row(
     let mut cols = vec![
         "root_id", "path", "title", "artist", "album", "album_artist",
         "year", "genre", "track_number", "disc_number", "duration_secs",
-        "format", "mtime_secs", "has_cover",
+        "format", "mtime_secs", "has_cover", "created_at",
     ];
     if featuring_col { cols.push("featuring"); }
     if content_hash.is_some() { cols.push("content_hash"); }
@@ -676,6 +716,7 @@ fn insert_track_row(
         placeholders.join(", ")
     );
 
+    let now = now_secs().unwrap_or(0);
     let mut params: Vec<rusqlite::types::Value> = vec![
         rusqlite::types::Value::Integer(root_id),
         rusqlite::types::Value::Text(path_str.to_string()),
@@ -691,6 +732,7 @@ fn insert_track_row(
         rusqlite::types::Value::Text(format.to_string()),
         rusqlite::types::Value::Integer(mtime_secs),
         rusqlite::types::Value::Integer(if has_cover { 1 } else { 0 }),
+        rusqlite::types::Value::Integer(now),
     ];
     if featuring_col {
         params.push(meta.featuring.clone().map(rusqlite::types::Value::Text).unwrap_or(rusqlite::types::Value::Null));
@@ -1047,11 +1089,94 @@ pub fn get_latest_track_backup(conn: &rusqlite::Connection, track_path: &str) ->
 
 pub fn record_play(conn: &rusqlite::Connection, path: &str) -> Result<(), String> {
     let now = now_secs()?;
+    let track_id: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM tracks WHERE path = ?1 AND deleted_at IS NULL",
+            [path],
+            |r| r.get(0),
+        )
+        .ok();
     conn.execute(
         "UPDATE tracks SET play_count = COALESCE(play_count, 0) + 1, last_played_at = ?1 WHERE path = ?2",
         rusqlite::params![now, path],
     ).map_err(|e| e.to_string())?;
+    if let Some(id) = track_id {
+        conn.execute(
+            "INSERT INTO play_history (track_id, played_at) VALUES (?1, ?2)",
+            rusqlite::params![id, now],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
+}
+
+// ── Play history ──────────────────────────────────────────────────────────
+
+pub fn prune_play_history(conn: &rusqlite::Connection, older_than_secs: i64) -> Result<(), String> {
+    let cutoff = now_secs()? - older_than_secs;
+    conn.execute("DELETE FROM play_history WHERE played_at < ?1", [cutoff])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Last N distinct played tracks, most recent first.
+pub fn load_recently_played(conn: &rusqlite::Connection, limit: i64) -> Result<Vec<CatalogTrack>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT track_id FROM play_history \
+             GROUP BY track_id \
+             ORDER BY MAX(played_at) DESC \
+             LIMIT ?",
+        )
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map([limit.clamp(1, 500)], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if ids.is_empty() { return Ok(Vec::new()); }
+    load_tracks_filtered(conn, Some(&ids), None)
+}
+
+/// Most played tracks in the last N days.
+pub fn load_most_played(conn: &rusqlite::Connection, limit: i64, days: i64) -> Result<Vec<CatalogTrack>, String> {
+    let cutoff = now_secs()? - days.max(0) * 86_400;
+    let mut stmt = conn
+        .prepare(
+            "SELECT track_id FROM play_history \
+             WHERE played_at >= ?1 \
+             GROUP BY track_id \
+             ORDER BY COUNT(*) DESC, MAX(played_at) DESC \
+             LIMIT ?",
+        )
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if ids.is_empty() { return Ok(Vec::new()); }
+    load_tracks_filtered(conn, Some(&ids), None)
+}
+
+/// Newest tracks first (created_at, falling back to mtime).
+pub fn load_recently_added(conn: &rusqlite::Connection, limit: i64) -> Result<Vec<CatalogTrack>, String> {
+    let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
+    let filter = if deleted_at_col { " WHERE deleted_at IS NULL" } else { "" };
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT id FROM tracks{filter} \
+             ORDER BY COALESCE(created_at, mtime_secs) DESC, id DESC \
+             LIMIT ?"
+        ))
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map([limit.clamp(1, 500)], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if ids.is_empty() { return Ok(Vec::new()); }
+    load_tracks_filtered(conn, Some(&ids), None)
 }
 
 pub fn search_tracks(conn: &rusqlite::Connection, query: &str) -> Result<Vec<CatalogTrack>, String> {
@@ -1072,7 +1197,7 @@ pub fn search_tracks(conn: &rusqlite::Connection, query: &str) -> Result<Vec<Cat
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
     if ids.is_empty() { return Ok(Vec::new()); }
-    load_tracks_filtered(conn, Some(&ids))
+    load_tracks_filtered(conn, Some(&ids), None)
 }
 
 #[derive(Debug, serde::Serialize)]

@@ -90,6 +90,16 @@ pub async fn stream_audio(
 
     let is_flac = track_path.to_lowercase().ends_with(".flac");
 
+    // Shared validators: file mtime is the natural cache key
+    let mtime = crate::routes::util::file_mtime(std::path::Path::new(&track_path));
+    let etag = format!(
+        "\"stream-{id}-{}\"",
+        mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
+    );
+    if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
+        return resp;
+    }
+
     if is_flac {
         type StreamChunk = Result<Bytes, Box<dyn std::error::Error + Send + Sync>>;
         let (tx, rx) = tokio::sync::mpsc::channel::<StreamChunk>(128);
@@ -104,6 +114,12 @@ pub async fn stream_audio(
         let body = Body::from_stream(stream);
         let mut headers = HeaderMap::new();
         headers.insert("Content-Type", "audio/mpeg".parse().unwrap());
+        headers.insert("Cache-Control", "no-cache".parse().unwrap());
+        headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+        headers.insert("ETag", etag.parse().unwrap());
+        if let Some(m) = mtime {
+            headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+        }
         (StatusCode::OK, headers, body).into_response()
     } else {
         let range_header = req_headers.get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
@@ -118,6 +134,12 @@ pub async fn stream_audio(
                 let mut headers = HeaderMap::new();
                 headers.insert("Content-Type", "audio/mpeg".parse().unwrap());
                 headers.insert("Accept-Ranges", "bytes".parse().unwrap());
+                headers.insert("Cache-Control", "no-cache".parse().unwrap());
+                headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+                headers.insert("ETag", etag.parse().unwrap());
+                if let Some(m) = mtime {
+                    headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+                }
 
                 if let Some(r) = range {
                     let body = data[r.start..=r.end].to_vec();

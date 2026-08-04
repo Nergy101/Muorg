@@ -1,11 +1,72 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Theme tokens — ported 1:1 from android-client ui/theme/{Theme,Color}.kt
-   Selected by `data-theme` on <html>: "dark" | "black" | "light".
+   Design tokens — ported 1:1 from android-client ui/theme/{Theme,Color}.kt.
+
+   Tailwind v4 is CSS-first: `@theme` is what generates the utilities
+   (`bg-surface`, `text-body-lg`, …). The values indirect through the
+   `--primary`-style vars below so that swapping `data-theme` on <html>
+   re-themes everything at runtime.
    --------------------------------------------------------------------------- */
+@theme {
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-secondary: var(--secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-background: var(--background);
+  --color-on-background: var(--on-background);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-surface-container: var(--surface-container);
+  --color-outline: var(--outline);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+  --color-accent: var(--primary);
+
+  --font-sans: system-ui, sans-serif;
+
+  /* Android type scale */
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 24px;
+  --text-body-lg--letter-spacing: 0.5px;
+  --text-body-md: 14px;
+  --text-body-md--line-height: 20px;
+  --text-body-md--letter-spacing: 0.25px;
+  --text-body-sm: 12px;
+  --text-body-sm--line-height: 16px;
+  --text-body-sm--letter-spacing: 0.4px;
+  --text-title-lg: 22px;
+  --text-title-lg--line-height: 28px;
+  --text-title-md: 16px;
+  --text-title-md--line-height: 24px;
+  --text-title-md--letter-spacing: 0.15px;
+  --text-title-sm: 14px;
+  --text-title-sm--line-height: 20px;
+  --text-title-sm--letter-spacing: 0.1px;
+  --text-label-lg: 14px;
+  --text-label-lg--line-height: 20px;
+  --text-label-lg--letter-spacing: 0.1px;
+  --text-label-md: 12px;
+  --text-label-md--line-height: 16px;
+  --text-label-md--letter-spacing: 0.5px;
+  --text-label-sm: 11px;
+  --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0.5px;
+  --text-headline-sm: 24px;
+  --text-headline-sm--line-height: 32px;
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 40px;
+}
+
+/* Theme variable sets, selected by `data-theme` on <html>. */
 :root,
 [data-theme="dark"] {
   --primary: #5b7c32;
@@ -89,7 +150,10 @@ body {
 }
 
 body {
-  @apply bg-background text-on-background antialiased;
+  background-color: var(--background);
+  color: var(--on-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Focus ring */
@@ -128,17 +192,6 @@ input[type="range"]::-moz-range-thumb {
   background: var(--primary);
   border: none;
   cursor: pointer;
-}
-
-/* Progress track fill */
-.progress-input {
-  background: linear-gradient(
-    to right,
-    var(--primary) 0%,
-    var(--primary) var(--val, 0%),
-    var(--surface-variant) var(--val, 0%),
-    var(--surface-variant) 100%
-  );
 }
 
 /* Equalizer bars (EqualizerBars.vue) */

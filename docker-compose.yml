@@ -1,0 +1,32 @@
+# Production deployment manifest (VPS: /root/code/muorg)
+# Pulls the images built by the Release workflow (ghcr.io/nergy101/muorg-*).
+services:
+  muorg-server:
+    image: ghcr.io/nergy101/muorg-server:latest
+    ports:
+      - "7700:7700"
+    volumes:
+      # Config — copy muorg-server.example.toml → muorg-server.toml and edit it.
+      # The server reads ./muorg-server.toml from its working directory (/app).
+      - ./muorg-server.toml:/app/muorg-server.toml:ro
+      # Persistent data (SQLite DB + backups)
+      - muorg-data:/data
+      # Your music library — adjust the host path to wherever your music lives.
+      # Match this with content_paths in muorg-server.toml.
+      - /path/to/your/music:/music:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -sf http://localhost:7700/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  muorg-web:
+    image: ghcr.io/nergy101/muorg-web:latest
+    ports:
+      - "7800:80"
+    restart: unless-stopped
+
+volumes:
+  muorg-data:

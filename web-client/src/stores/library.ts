@@ -5,6 +5,8 @@ import { useSettingsStore } from "./settings";
 import type { CatalogTrack, LibraryStats, AlbumGridItem } from "../types";
 
 const MAX_COVER_CONCURRENT = 8;
+/** Page size for `/api/tracks`; matches the server's default limit. */
+const PAGE_SIZE = 500;
 
 function normalize(s: string | null | undefined): string {
   return (s ?? "").toLowerCase();
@@ -70,6 +72,8 @@ export const useLibraryStore = defineStore("library", () => {
   const tracks = ref<CatalogTrack[]>([]);
   const stats = ref<LibraryStats | null>(null);
   const loading = ref(false);
+  const loadingMore = ref(false);
+  const totalTracks = ref(0);
   const error = ref<string | null>(null);
 
   const searchQuery = ref("");
@@ -148,17 +152,45 @@ export const useLibraryStore = defineStore("library", () => {
     return tracks.value.filter((t) => albumKeyFor(t) === key).sort(compareTrackOrder);
   }
 
+  /**
+   * `/api/tracks` is paginated. The first page renders immediately and the
+   * rest stream in behind it, so search and the album grid stay usable on a
+   * large library instead of blocking on the whole catalog.
+   */
   async function loadLibrary(): Promise<void> {
     loading.value = true;
     error.value = null;
     try {
-      const [t, s] = await Promise.all([getTracks(), getStats()]);
-      tracks.value = t;
-      stats.value = s;
+      const first = await getTracks(0, PAGE_SIZE);
+      tracks.value = first.tracks;
+      totalTracks.value = first.total;
+      if (first.total > first.tracks.length) {
+        void loadRemainingPages(first.tracks.length);
+      }
+      stats.value = await getStats();
     } catch (e) {
       error.value = (e as Error).message;
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function loadRemainingPages(start: number): Promise<void> {
+    if (loadingMore.value) return;
+    loadingMore.value = true;
+    try {
+      const seen = new Set(tracks.value.map((t) => t.id));
+      for (let offset = start; offset < totalTracks.value; offset += PAGE_SIZE) {
+        const page = await getTracks(offset, PAGE_SIZE);
+        totalTracks.value = page.total;
+        const fresh = page.tracks.filter((t) => !seen.has(t.id));
+        for (const t of fresh) seen.add(t.id);
+        if (fresh.length > 0) tracks.value = [...tracks.value, ...fresh];
+      }
+    } catch (e) {
+      error.value = (e as Error).message;
+    } finally {
+      loadingMore.value = false;
     }
   }
 
@@ -200,6 +232,8 @@ export const useLibraryStore = defineStore("library", () => {
     tracks.value = [];
     stats.value = null;
     loading.value = false;
+    loadingMore.value = false;
+    totalTracks.value = 0;
     error.value = null;
     searchQuery.value = "";
     artistFilter.value = null;
@@ -213,6 +247,8 @@ export const useLibraryStore = defineStore("library", () => {
     tracks,
     stats,
     loading,
+    loadingMore,
+    totalTracks,
     error,
     searchQuery,
     artistFilter,

@@ -1,0 +1,55 @@
+name: 🚀 Deploy Muorg (VPS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['main']
+    tags: ['v*']
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+    steps:
+      - name: Check SSH secrets configured
+        run: |
+          if [[ -n "${{ secrets.SSH_HOST }}" && -n "${{ secrets.SSH_USERNAME }}" && -n "${{ secrets.SSH_KEY }}" ]]; then
+            echo "SSH_OK=true" >> $GITHUB_ENV
+            echo "SSH secrets found — deploy will run"
+          else
+            echo "SSH_OK=false" >> $GITHUB_ENV
+            echo "::warning::SSH secrets not configured on this repo — deploy skipped"
+          fi
+
+      - name: Get Known Hosts value
+        if: ${{ env.SSH_OK == 'true' }}
+        run: echo "KNOWN_HOSTS=$(ssh-keyscan -H ${{ secrets.SSH_HOST }})" >> $GITHUB_ENV
+
+      - name: Install SSH Key
+        if: ${{ env.SSH_OK == 'true' }}
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          name: github-actions
+          known_hosts: ${{ env.KNOWN_HOSTS }}
+          if_key_exists: replace
+
+      - name: Pull and start docker images on VM
+        if: ${{ env.SSH_OK == 'true' }}
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /root/code/muorg
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
+            curl -sf http://localhost:7700/api/health > /dev/null && echo "✅ muorg-server healthy" || echo "⚠️ server health check failed"
+            curl -sf -o /dev/null http://localhost:7800 && echo "✅ muorg-web up" || echo "⚠️ web check failed"

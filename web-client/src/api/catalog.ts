@@ -1,8 +1,24 @@
-import { apiFetch, apiFetchBlob } from "./client";
+import { apiFetch, apiFetchBlob, getApiKey, getServerUrl } from "./client";
 import type { CatalogTrack, LibraryStats } from "../types";
 
-export async function getTracks(): Promise<CatalogTrack[]> {
-  return apiFetch<CatalogTrack[]>("/api/tracks");
+export interface TracksPage {
+  tracks: CatalogTrack[];
+  total: number;
+}
+
+/** Fetch a page of tracks plus the total count (via X-Total-Count header). */
+export async function getTracks(offset = 0, limit = 500): Promise<TracksPage> {
+  const url = `${getServerUrl()}/api/tracks?offset=${offset}&limit=${limit}`;
+  const headers = new Headers();
+  const key = getApiKey();
+  if (key) headers.set("Authorization", `Bearer ${key}`);
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const total = Number(res.headers.get("X-Total-Count") ?? 0);
+  const tracks = (await res.json()) as CatalogTrack[];
+  return { tracks, total };
 }
 
 export async function getStats(): Promise<LibraryStats> {

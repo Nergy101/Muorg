@@ -25,8 +25,18 @@ fn resolve_track(state: &AppState, id: i64) -> Result<String, ApiError> {
 pub async fn get_cover(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
+    req_headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let track_path = resolve_track(&state, id)?;
+    let mtime = crate::routes::util::file_mtime(path::Path::new(&track_path));
+    let etag = format!(
+        "\"cover-{id}-{}\"",
+        mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
+    );
+    if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
+        return Ok(resp);
+    }
+
     let meta = muorg_core::metadata::read_metadata(path::Path::new(&track_path))?;
 
     let b64 = match meta.picture_base64 {
@@ -40,6 +50,12 @@ pub async fn get_cover(
     let mut headers = HeaderMap::new();
     headers.insert("Content-Type", mime.parse().unwrap());
     headers.insert("Content-Length", data.len().to_string().parse().unwrap());
+    headers.insert("Cache-Control", "public, max-age=86400".parse().unwrap());
+    headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+    headers.insert("ETag", etag.parse().unwrap());
+    if let Some(m) = mtime {
+        headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+    }
     Ok((StatusCode::OK, headers, Body::from(data)).into_response())
 }
 
