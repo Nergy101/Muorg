@@ -109,11 +109,31 @@ async fn main() {
         "muorg-server starting"
     );
 
+    // Built before the catalog opens so a typo'd endpoint or a missing key is a
+    // startup failure rather than a silently empty library.
+    let remotes = Arc::new(
+        muorg_server::storage::RemoteStores::from_config(&config.library.remotes)
+            .unwrap_or_else(|e| {
+                eprintln!("Remote storage config error: {e}");
+                std::process::exit(1);
+            }),
+    );
+
+    let cover_cache_dir = config.storage.cover_cache_dir.clone().unwrap_or_else(|| {
+        config
+            .storage
+            .db_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("covers")
+    });
+
     // Ensure storage dirs exist
     if let Some(parent) = config.storage.db_path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
     std::fs::create_dir_all(&config.storage.backup_dir).ok();
+    std::fs::create_dir_all(&cover_cache_dir).ok();
 
     let catalog = Catalog::new(&config.storage.db_path).unwrap_or_else(|e| {
         tracing::error!("Failed to open database: {e}");
@@ -166,9 +186,34 @@ async fn main() {
         config.server.api_key.clone(),
         server_port,
         config.transcoding,
+        remotes,
+        Arc::new(muorg_server::storage::covers::CoverCache::new(
+            cover_cache_dir,
+            config.storage.cover_cache_max_bytes,
+        )),
+        config.library.remote_scan_concurrency,
     ));
 
-    let app = build_router(state, &config.cors.allowed_origins);
+    let app = build_router(state.clone(), &config.cors.allowed_origins);
+
+    // Remote scans run in the background: a first-time index of a large bucket
+    // must not delay the listener, and the track list fills in as it goes.
+    if config.library.scan_on_startup && !state.remotes.is_empty() {
+        let st = state.clone();
+        let conc = state.remote_scan_concurrency;
+        tokio::spawn(async move {
+            for remote in st.remotes.all() {
+                let root = remote.root_uri();
+                tracing::info!(root = %root, "scanning remote library");
+                match muorg_server::storage::scan::scan_remote_root(&st, &remote, conc).await {
+                    Ok((upserted, removed)) => {
+                        tracing::info!(root = %root, upserted, removed, "remote scan complete")
+                    }
+                    Err(e) => tracing::error!(root = %root, "remote scan failed: {e}"),
+                }
+            }
+        });
+    }
 
     let listen_addr = listener.local_addr().unwrap_or(addr);
     tracing::info!(address = %listen_addr, "listening");

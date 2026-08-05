@@ -35,6 +35,9 @@ impl TestServer {
         let catalog = Arc::new(Catalog::new(&db_path).expect("failed to open temp catalog"));
         let api_key = "test-key-123".to_string();
 
+        let cover_cache_dir = temp_dir.path().join("covers");
+        std::fs::create_dir_all(&cover_cache_dir).ok();
+
         let state = Arc::new(AppState::new(
             catalog,
             backup_dir,
@@ -42,6 +45,12 @@ impl TestServer {
             api_key.clone(),
             0, // server_port placeholder; real port will be from listener
             TranscodingConfig::default(),
+            Arc::new(muorg_server::storage::RemoteStores::default()),
+            Arc::new(muorg_server::storage::covers::CoverCache::new(
+                cover_cache_dir,
+                64 * 1024 * 1024,
+            )),
+            8,
         ));
 
         let app = build_router(state, &["*".to_string()]);
