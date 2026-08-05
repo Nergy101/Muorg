@@ -6,6 +6,7 @@ pub mod musicbrainz;
 pub mod ratelimit;
 pub mod routes;
 pub mod state;
+pub mod storage;
 pub mod transcode;
 
 use axum::{

@@ -43,9 +43,46 @@ pub struct LibraryConfig {
     pub content_paths: Vec<String>,
     #[serde(default = "default_true")]
     pub scan_on_startup: bool,
+    /// S3-compatible buckets indexed alongside `content_paths`.
+    #[serde(default)]
+    pub remotes: Vec<RemoteConfig>,
+    /// Objects to read tags from in parallel during a remote scan.
+    #[serde(default = "default_remote_scan_concurrency")]
+    pub remote_scan_concurrency: usize,
 }
 
 fn default_true() -> bool { true }
+fn default_remote_scan_concurrency() -> usize { 8 }
+
+/// One S3-compatible bucket. Tracks from it are stored as
+/// `remote://<name>/<object-key>`.
+#[derive(Debug, Deserialize, Clone)]
+pub struct RemoteConfig {
+    /// Letters, digits, `-` and `_` only — it becomes part of the track URI.
+    pub name: String,
+    pub bucket: String,
+    /// Provider endpoint, e.g. `https://nbg1.your-objectstorage.com`. Omit for AWS S3.
+    #[serde(default)]
+    pub endpoint: Option<String>,
+    #[serde(default = "default_region")]
+    pub region: String,
+    #[serde(default)]
+    pub access_key_id: Option<String>,
+    #[serde(default)]
+    pub secret_access_key: Option<String>,
+    /// Optional sub-folder inside the bucket.
+    #[serde(default)]
+    pub prefix: Option<String>,
+    /// `true` for providers that require `<bucket>.<host>` addressing (Hetzner).
+    #[serde(default)]
+    pub virtual_hosted_style: bool,
+    /// Send `UNSIGNED-PAYLOAD` instead of signing request bodies. Some Ceph-based
+    /// gateways need this for uploads.
+    #[serde(default)]
+    pub unsigned_payload: bool,
+}
+
+fn default_region() -> String { "auto".to_string() }
 
 #[derive(Debug, Deserialize)]
 pub struct StorageConfig {
@@ -53,9 +90,16 @@ pub struct StorageConfig {
     pub backup_dir: PathBuf,
     #[serde(default = "default_backup_retention")]
     pub backup_retention_count: usize,
+    /// Where extracted cover art for remote tracks is cached. Defaults to
+    /// `covers/` next to the database.
+    #[serde(default)]
+    pub cover_cache_dir: Option<PathBuf>,
+    #[serde(default = "default_cover_cache_max_bytes")]
+    pub cover_cache_max_bytes: u64,
 }
 
 fn default_backup_retention() -> usize { 5 }
+fn default_cover_cache_max_bytes() -> u64 { 536_870_912 }
 
 impl Default for StorageConfig {
     fn default() -> Self {
@@ -63,6 +107,8 @@ impl Default for StorageConfig {
             db_path: PathBuf::from("./muorg.db"),
             backup_dir: PathBuf::from("./muorg-backups"),
             backup_retention_count: 5,
+            cover_cache_dir: None,
+            cover_cache_max_bytes: 536_870_912,
         }
     }
 }
