@@ -66,6 +66,12 @@
   --text-headline-lg--line-height: 40px;
 }
 
+/* PWA shell: disable double-tap-to-zoom on rapid taps. touch-action keeps
+   pinch zoom and accessibility (user-scalable=no is ignored by iOS anyway). */
+html {
+  touch-action: manipulation;
+}
+
 /* Theme variable sets, selected by `data-theme` on <html>. */
 :root,
 [data-theme="dark"] {
