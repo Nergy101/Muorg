@@ -9,8 +9,9 @@ name: Release
 #            ├─ docker-web
 #            └─ docker-docs
 #
-# Pushing a v* tag releases everything. workflow_dispatch releases whichever
-# targets you tick, so a single image can be rebuilt on its own.
+# Pushing a v* tag releases only the artifacts whose source paths changed since
+# the previous v* tag. workflow_dispatch releases whichever targets you tick, so
+# a single image can be rebuilt on its own.
 on:
   push:
     tags:
@@ -59,6 +60,9 @@ jobs:
       docker_docs: ${{ steps.targets.outputs.docker_docs }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history + tags: the targets step diffs against the previous v* tag.
+          fetch-depth: 0
 
       - id: set
         env:
@@ -81,25 +85,81 @@ jobs:
             echo "prerelease=${PRERELEASE}"
           } >> "$GITHUB_OUTPUT"
 
-      # A tag release publishes every artifact; a manual run publishes only the
+      # What a tag release publishes is derived from the paths that actually
+      # changed since the previous v* tag, so a web-only fix no longer drags the
+      # ~25-minute Tauri matrix along with it. A manual run publishes only the
       # boxes that were ticked.
+      #
+      # The tagged commit is itself the version bump — scripts/release.sh rewrites
+      # every manifest — which would otherwise mark client/, server/ and
+      # web-client/ dirty on every single release and defeat the whole filter.
+      # When the tagged commit touches nothing but those manifests we compare from
+      # its parent instead, leaving exactly the real work between two releases.
+      #
+      # A change to this workflow deliberately does NOT force a rebuild: the bits
+      # inside each artifact come from its own source tree. Use workflow_dispatch
+      # to force one.
       - id: targets
+        env:
+          TAG_REF: ${{ github.ref_name }}
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            {
-              echo "desktop=true"
-              echo "docker_server=true"
-              echo "docker_web=true"
-              echo "docker_docs=true"
-            } >> "$GITHUB_OUTPUT"
-          else
+          set -uo pipefail
+
+          if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
             {
               echo "desktop=${{ inputs.desktop }}"
               echo "docker_server=${{ inputs.docker_server }}"
               echo "docker_web=${{ inputs.docker_web }}"
               echo "docker_docs=${{ inputs.docker_docs }}"
             } >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # Files scripts/release.sh rewrites purely to carry the new number.
+          BUMP_ONLY='^(client/package\.json|client/src-tauri/tauri\.conf\.json|client/src-tauri/Cargo\.toml|server/crates/muorg-server/Cargo\.toml|android-client/app/build\.gradle\.kts|web-client/package\.json)$'
+
+          HEAD_REF="${TAG_REF}"
+          TAG_FILES="$(git diff --name-only "${TAG_REF}^" "${TAG_REF}" 2>/dev/null || true)"
+          if [[ -n "${TAG_FILES}" ]] && ! grep -qvE "${BUMP_ONLY}" <<< "${TAG_FILES}"; then
+            HEAD_REF="${TAG_REF}^"
+            echo "Tagged commit is a pure version bump; comparing from its parent."
+          fi
+
+          # --match 'v*' keeps android-v* tags out of the comparison.
+          PREV="$(git describe --tags --abbrev=0 --match 'v*' "${TAG_REF}^" 2>/dev/null || true)"
+
+          if [[ -z "${PREV}" ]]; then
+            echo "::warning::No previous v* tag found — releasing every artifact."
+            {
+              echo "desktop=true"
+              echo "docker_server=true"
+              echo "docker_web=true"
+              echo "docker_docs=true"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED="$(git diff --name-only "${PREV}" "${HEAD_REF}")"
+          echo "Changed paths ${PREV}..${HEAD_REF}:"
+          echo "${CHANGED}"
+
+          changed() { grep -qE "$1" <<< "${CHANGED}"; }
+
+          desktop=false; docker_server=false; docker_web=false; docker_docs=false
+          # src/ holds components shared by the desktop and web front-ends, and the
+          # desktop bundle ships the server as a sidecar binary.
+          if changed '^(client/|src/|server/)'; then desktop=true;       fi
+          if changed '^server/';                then docker_server=true; fi
+          if changed '^(web-client/|src/)';     then docker_web=true;    fi
+          if changed '^docs-site/';             then docker_docs=true;   fi
+
+          echo "Targets: desktop=${desktop} docker_server=${docker_server} docker_web=${docker_web} docker_docs=${docker_docs}"
+          {
+            echo "desktop=${desktop}"
+            echo "docker_server=${docker_server}"
+            echo "docker_web=${docker_web}"
+            echo "docker_docs=${docker_docs}"
+          } >> "$GITHUB_OUTPUT"
 
   # Linux server binaries for the Docker image only. Lifted out of the desktop
   # matrix so muorg-server can publish without a Tauri build in the graph.
@@ -342,52 +402,75 @@ jobs:
   release:
     needs: [version, desktop]
     runs-on: ubuntu-latest
-    if: needs.version.outputs.desktop == 'true'
+    # Runs even when the desktop matrix was filtered out, so every v* tag still
+    # gets a GitHub Release page. The installer and updater steps below no-op on
+    # a Docker-only release.
+    if: >-
+      always() && needs.version.result == 'success'
+      && needs.desktop.result != 'failure' && needs.desktop.result != 'cancelled'
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
 
       - name: Download all artifacts
+        if: needs.version.outputs.desktop == 'true'
         uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: muorg-*
 
       - name: Organize release files
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          DESKTOP: ${{ needs.version.outputs.desktop }}
+          DOCKER_SERVER: ${{ needs.version.outputs.docker_server }}
+          DOCKER_WEB: ${{ needs.version.outputs.docker_web }}
+          DOCKER_DOCS: ${{ needs.version.outputs.docker_docs }}
         run: |
-          VERSION="${{ needs.version.outputs.version }}"
           mkdir -p dist extras
 
-          # ── Main installers (clean, consistent filenames) ──────────────────
-          find artifacts -name '*.dmg' \
-            -exec cp {} "dist/muorg-${VERSION}-macos.dmg" \; 2>/dev/null || true
-          find artifacts -name '*.msi' ! -name '*.sig' \
-            -exec cp {} "dist/muorg-${VERSION}-windows.msi" \; 2>/dev/null || true
-          find artifacts -name '*.AppImage' ! -name '*.sig' \
-            -exec cp {} "dist/muorg-${VERSION}-linux.AppImage" \; 2>/dev/null || true
+          if [ "${DESKTOP}" = "true" ]; then
+            # ── Main installers (clean, consistent filenames) ────────────────
+            find artifacts -name '*.dmg' \
+              -exec cp {} "dist/muorg-${VERSION}-macos.dmg" \; 2>/dev/null || true
+            find artifacts -name '*.msi' ! -name '*.sig' \
+              -exec cp {} "dist/muorg-${VERSION}-windows.msi" \; 2>/dev/null || true
+            find artifacts -name '*.AppImage' ! -name '*.sig' \
+              -exec cp {} "dist/muorg-${VERSION}-linux.AppImage" \; 2>/dev/null || true
 
-          # ── Tauri auto-updater bundle (macOS — referenced by latest.json) ──
-          find artifacts -name '*.app.tar.gz' ! -name '*.sig' \
-            -exec cp {} "dist/muorg-${VERSION}-macos.app.tar.gz" \; 2>/dev/null || true
+            # ── Tauri auto-updater bundle (macOS — referenced by latest.json) ─
+            find artifacts -name '*.app.tar.gz' ! -name '*.sig' \
+              -exec cp {} "dist/muorg-${VERSION}-macos.app.tar.gz" \; 2>/dev/null || true
 
-          # ── Extras zip (signatures, alternate installers, .deb) ────────────
-          find artifacts \( -name '*.sig' -o -name '*.exe' -o -name '*.deb' \) \
-            -exec cp {} extras/ \; 2>/dev/null || true
-          if [ "$(ls -A extras)" ]; then
-            zip -j "dist/muorg-${VERSION}-extras.zip" extras/*
+            # ── Extras zip (signatures, alternate installers, .deb) ──────────
+            find artifacts \( -name '*.sig' -o -name '*.exe' -o -name '*.deb' \) \
+              -exec cp {} extras/ \; 2>/dev/null || true
+            if [ "$(ls -A extras)" ]; then
+              zip -j "dist/muorg-${VERSION}-extras.zip" extras/*
+            fi
+          else
+            echo "Desktop build filtered out — this release carries no installers."
           fi
 
-          # ── Docker image references ────────────────────────────────────────
-          cat > dist/docker.txt << EOF
-          Server image:  docker pull ghcr.io/nergy101/muorg-server:${VERSION}
-          Web image:     docker pull ghcr.io/nergy101/muorg-web:${VERSION}
-          Docs image:    docker pull ghcr.io/nergy101/muorg-docs:${VERSION}
-
-          Tags pushed: ${VERSION}  latest
-          EOF
+          # ── Docker image references (only what this release actually built) ─
+          {
+            echo "Images published by this release:"
+            if [ "${DOCKER_SERVER}" = "true" ]; then
+              echo "  docker pull ghcr.io/nergy101/muorg-server:${VERSION}"
+            fi
+            if [ "${DOCKER_WEB}" = "true" ]; then
+              echo "  docker pull ghcr.io/nergy101/muorg-web:${VERSION}"
+            fi
+            if [ "${DOCKER_DOCS}" = "true" ]; then
+              echo "  docker pull ghcr.io/nergy101/muorg-docs:${VERSION}"
+            fi
+            echo ""
+            echo "Tags pushed: ${VERSION}  latest"
+          } > dist/docker.txt
 
       - name: Generate latest.json for updater
+        if: needs.version.outputs.desktop == 'true'
         run: |
           VERSION="${{ needs.version.outputs.version }}"
           TAG="${{ needs.version.outputs.tag }}"
