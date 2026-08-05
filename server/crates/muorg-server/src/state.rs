@@ -61,9 +61,15 @@ pub struct AppState {
     pub cast_session: CastState,
     pub transcoding_config: TranscodingConfig,
     pub rate_limiter: RateLimiter,
+    pub remotes: Arc<crate::storage::RemoteStores>,
+    pub cover_cache: Arc<crate::storage::covers::CoverCache>,
+    /// From `library.remote_scan_concurrency`, clamped to `>= 1`. Lets the
+    /// rescan route drive a remote scan without carrying the whole `Config`.
+    pub remote_scan_concurrency: usize,
 }
 
 impl AppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         catalog: Arc<Catalog>,
         backup_dir: PathBuf,
@@ -71,6 +77,9 @@ impl AppState {
         api_key: String,
         server_port: u16,
         transcoding_config: TranscodingConfig,
+        remotes: Arc<crate::storage::RemoteStores>,
+        cover_cache: Arc<crate::storage::covers::CoverCache>,
+        remote_scan_concurrency: usize,
     ) -> Self {
         let cast_discovery = DiscoveryState::new();
         cast_discovery.start();
@@ -86,6 +95,9 @@ impl AppState {
             cast_session: CastState::new(),
             transcoding_config,
             rate_limiter: RateLimiter::new(100, 60),
+            remotes,
+            cover_cache,
+            remote_scan_concurrency: remote_scan_concurrency.max(1),
         }
     }
 }
