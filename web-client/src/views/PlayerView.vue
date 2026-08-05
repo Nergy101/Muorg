@@ -52,14 +52,6 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
-          aria-label="Queue"
-          @click="router.push({ name: 'queue' })"
-        >
-          <MageIcon name="stack" class="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
           aria-label="Track actions"
           @click="openTrackActions"
         >
@@ -102,6 +94,14 @@
           <p class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
         </div>
         <div class="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
+            aria-label="Queue"
+            @click="router.push({ name: 'queue' })"
+          >
+            <MageIcon name="stack" class="h-6 w-6" />
+          </button>
           <button
             type="button"
             class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
