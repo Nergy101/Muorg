@@ -12,6 +12,13 @@ services:
       # Your music library — adjust the host path to wherever your music lives.
       # Match this with content_paths in muorg-server.toml.
       - /path/to/your/music:/music:ro
+    # Cloud storage credentials, if you configured [[library.remotes]].
+    # Keeping them here (from a sibling .env file) rather than in the mounted
+    # TOML means secrets never land in a config file.
+    # env_file: .env
+    # environment:
+    #   MUORG_REMOTE_CLOUD_ACCESS_KEY_ID: ${MUORG_REMOTE_CLOUD_ACCESS_KEY_ID}
+    #   MUORG_REMOTE_CLOUD_SECRET_ACCESS_KEY: ${MUORG_REMOTE_CLOUD_SECRET_ACCESS_KEY}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -sf http://localhost:7700/api/health || exit 1"]

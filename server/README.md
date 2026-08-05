@@ -73,6 +73,82 @@ Multiple music directories are supported — just add more volume mounts and lis
 
 ---
 
+## Cloud storage (S3-compatible)
+
+A library that outgrows the server's disk can live in an S3-compatible bucket
+instead. Cloud tracks behave exactly like local ones — search, playback with
+seeking, FLAC transcoding, cover art, Chromecast, metadata editing and backups
+all work — and local `content_paths` and buckets can coexist in one library.
+
+Reads are ranged HTTP GETs, so nothing is mirrored to disk: seeking to the
+middle of a track fetches only that slice.
+
+### 1. Create a bucket and S3 credentials
+
+Using Hetzner Object Storage as the example (cheapest per-GB EU option, and the
+setup this was verified against): Hetzner Console → Object Storage → create a
+bucket, then **Generate S3 credentials**. The secret is shown only once.
+
+### 2. Upload your library
+
+No S3 CLI needs to be installed — Docker is enough:
+
+```bash
+export AK=<access key> SK=<secret key>
+docker run --rm -v "$HOME/Music:/music:ro" -e AK -e SK --entrypoint /bin/sh minio/mc -c '
+  mc alias set hz https://nbg1.your-objectstorage.com "$AK" "$SK" --api s3v4 --path off &&
+  mc mirror --overwrite /music hz/muorg'
+```
+
+`--path off` selects virtual-hosted addressing, which is what Hetzner expects.
+
+### 3. Point the server at it
+
+In `muorg-server.toml`:
+
+```toml
+[[library.remotes]]
+name = "cloud"                  # letters/digits/-/_ only
+bucket = "muorg"
+endpoint = "https://nbg1.your-objectstorage.com"
+region = "nbg1"
+virtual_hosted_style = true     # required for Hetzner
+# prefix = "albums"             # optional sub-folder inside the bucket
+```
+
+Credentials come from the environment so they stay out of the config file:
+`MUORG_REMOTE_CLOUD_ACCESS_KEY_ID` and `MUORG_REMOTE_CLOUD_SECRET_ACCESS_KEY`
+(the `CLOUD` part is the remote's `name`, uppercased). They can also be set as
+`access_key_id` / `secret_access_key` in the TOML, but the environment wins.
+
+### Provider settings
+
+Only three values differ between providers:
+
+| Provider | `endpoint` | `region` | `virtual_hosted_style` |
+|---|---|---|---|
+| Hetzner Object Storage | `https://<loc>.your-objectstorage.com` (`loc` = `nbg1`/`fsn1`/`hel1`) | same location code | `true` |
+| Cloudflare R2 | `https://<account-id>.r2.cloudflarestorage.com` | `auto` | `false` |
+| Backblaze B2 | `https://s3.<region>.backblazeb2.com` | e.g. `us-west-004` | `false` |
+| Wasabi | `https://s3.<region>.wasabisys.com` | e.g. `eu-central-1` | `false` |
+| MinIO (self-hosted) | `http://host:9000` | `us-east-1` | `false` |
+
+### Notes
+
+- The first scan of a large library (~60 k tracks) takes roughly 20 minutes at
+  the default concurrency and runs in the **background** — the API and clients
+  are usable while it runs, with the track list filling in as it goes.
+- Later scans issue one bucket listing and no per-object reads: only objects
+  whose `last_modified` changed are re-read.
+- Cover art for cloud tracks is cached on disk (`storage.cover_cache_dir`,
+  512 MiB by default) so browsing a library does not hit the bucket per row.
+- Editing tags on a cloud track downloads the object, rewrites it and uploads it
+  again. It is a user-initiated action, so the extra round trip is deliberate.
+- If an upload fails with a payload or checksum error, set
+  `unsigned_payload = true` on that remote.
+
+---
+
 ## Configuration reference (`muorg-server.toml`)
 
 ```toml
@@ -84,10 +160,21 @@ api_key = "secret"         # Bearer token required on all /api/* requests
 [library]
 content_paths = ["/music"] # music directories to index (inside the container)
 scan_on_startup = true     # re-scan on every container start
+remote_scan_concurrency = 8       # parallel tag reads during a cloud scan
+
+# Optional, repeatable — see "Cloud storage (S3-compatible)" above.
+# [[library.remotes]]
+# name = "cloud"
+# bucket = "muorg"
+# endpoint = "https://nbg1.your-objectstorage.com"
+# region = "nbg1"
+# virtual_hosted_style = true
 
 [storage]
 db_path = "/data/muorg.db"        # SQLite database location
 backup_dir = "/data/backups"      # metadata backup directory
+cover_cache_dir = "/data/covers"  # cover cache for cloud tracks (default: <db dir>/covers)
+cover_cache_max_bytes = 536870912 # 512 MiB
 
 [cors]
 allowed_origins = ["*"]    # restrict to your domain for public deployments
