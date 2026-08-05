@@ -8,6 +8,7 @@
 
 pub mod covers;
 pub mod reader;
+pub mod scan;
 
 use object_store::aws::AmazonS3Builder;
 use object_store::path::Path as ObjPath;
