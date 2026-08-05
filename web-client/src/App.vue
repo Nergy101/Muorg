@@ -1,7 +1,7 @@
 <template>
   <!-- pt keeps the header/top bar clear of the notch and status bar. -->
   <div
-    class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-[1200px]"
+    class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-[2400px]"
   >
     <OfflineBanner />
 

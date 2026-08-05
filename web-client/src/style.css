@@ -162,6 +162,26 @@ body {
   flex-direction: column;
 }
 
+/* Desktop reads as a wide app, but single-column content — search, sort rows,
+   track lists — keeps a comfortable measure instead of stretching across a
+   2400px shell. Album grids deliberately opt out and stay full-bleed.
+   900px matches the md shell width, so tablet and desktop show the same measure.
+   Inert below lg, which is what keeps mobile and tablet unchanged. */
+@media (min-width: 64rem) {
+  .content-col {
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  /* Same cap applied to each direct child. Goes on a scroll container so the
+     scrollbar stays at the window edge while its rows centre — the alternative
+     is capping the scroller itself, which drags the scrollbar inwards. */
+  .content-col-children > * {
+    max-width: 900px;
+    margin-inline: auto;
+  }
+}
+
 body {
   background-color: var(--background);
   color: var(--on-background);

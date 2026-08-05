@@ -1,6 +1,6 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="flex h-14 shrink-0 items-center px-2">
+    <div class="content-col flex h-14 shrink-0 items-center px-2">
       <button
         type="button"
         class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface"
@@ -12,7 +12,7 @@
     </div>
 
     <template v-if="!item">
-      <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+      <div class="content-col flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
         <p class="text-body-md text-on-surface-variant">Album not found</p>
         <button
           type="button"
@@ -23,7 +23,7 @@
     </template>
 
     <template v-else>
-      <div class="flex shrink-0 items-start gap-4 px-4 pb-4">
+      <div class="content-col flex shrink-0 items-start gap-4 px-4 pb-4">
         <div class="h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[10px] bg-surface-variant">
           <img
             v-if="coverUrl"
@@ -63,9 +63,9 @@
         </div>
       </div>
 
-      <div class="shrink-0 border-t border-outline/30" />
+      <div class="content-col shrink-0 border-t border-outline/30" />
 
-      <div class="min-h-0 flex-1 overflow-y-auto pb-4">
+      <div class="content-col-children min-h-0 flex-1 overflow-y-auto pb-4">
         <TrackListRow
           v-for="track in tracks"
           :key="track.id"

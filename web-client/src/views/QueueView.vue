@@ -1,6 +1,6 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="flex h-14 shrink-0 items-center gap-2 px-2">
+    <div class="content-col flex h-14 shrink-0 items-center gap-2 px-2">
       <button
         type="button"
         class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface"
@@ -17,7 +17,7 @@
       >Clear all</button>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto">
+    <div class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <template v-if="player.currentTrack">
         <div class="px-4 pb-1 pt-2 text-label-sm uppercase tracking-[0.8px] text-primary">
           Now playing

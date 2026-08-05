@@ -1,7 +1,7 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <!-- Search field: pinned, not part of the scrolling body -->
-    <div class="shrink-0 px-4 pb-2 pt-3">
+    <div class="content-col shrink-0 px-4 pb-2 pt-3">
       <div class="flex h-11 items-center gap-2 rounded-full bg-surface px-4">
         <FeatherIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         <input
@@ -25,7 +25,7 @@
 
     <div class="min-h-0 flex-1 overflow-y-auto">
       <!-- Search history -->
-      <div v-if="!query && settings.searchHistory.length > 0" class="px-4 pb-2">
+      <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2">
         <div class="flex items-center justify-between py-1">
           <div class="flex items-center gap-1.5 text-label-lg text-on-surface-variant">
             <FeatherIcon name="clock" class="h-4 w-4" />
@@ -53,7 +53,7 @@
       </div>
 
       <!-- Artist filter chip -->
-      <div v-if="artistLabel" class="px-4 pb-2">
+      <div v-if="artistLabel" class="content-col px-4 pb-2">
         <div class="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5">
           <FeatherIcon name="user" class="h-4 w-4 text-on-surface-variant" />
           <span class="text-label-lg text-on-surface">{{ artistLabel }}</span>
@@ -69,7 +69,7 @@
       </div>
 
       <!-- Toolbar -->
-      <div class="flex items-center gap-1 px-4 py-2">
+      <div class="content-col flex items-center gap-1 px-4 py-2">
         <div ref="sortMenuRef" class="relative">
           <button
             type="button"
@@ -132,16 +132,19 @@
         <FeatherIcon name="refresh-cw" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>
 
-      <div v-else-if="lib.error" class="px-6 py-12 text-center text-body-md text-error">
+      <div v-else-if="lib.error" class="content-col px-6 py-12 text-center text-body-md text-error">
         {{ lib.error }}
       </div>
 
-      <div v-else-if="showEmptyState" class="flex flex-col items-center gap-2 px-6 py-12 text-center">
+      <div
+        v-else-if="showEmptyState"
+        class="content-col flex flex-col items-center gap-2 px-6 py-12 text-center"
+      >
         <FeatherIcon name="music" class="h-12 w-12 text-on-surface-variant/40" />
         <span class="text-body-md text-on-surface-variant">{{ emptyMessage }}</span>
       </div>
 
-      <div v-else-if="showTrackList" class="pb-4">
+      <div v-else-if="showTrackList" class="content-col pb-4">
         <TrackListRow
           v-for="track in lib.filteredTracks"
           :key="track.id"
@@ -152,7 +155,7 @@
         />
       </div>
 
-      <div v-else-if="settings.albumViewStyle === 'list'" class="pb-4">
+      <div v-else-if="settings.albumViewStyle === 'list'" class="content-col pb-4">
         <AlbumCard
           v-for="item in lib.albumGridItems"
           :key="item.key"
@@ -164,7 +167,13 @@
         />
       </div>
 
-      <div v-else class="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-3 lg:grid-cols-4">
+      <!-- Deliberately not content-col: the grid is the one thing that should use
+           the whole shell. auto-fill keeps tiles ~200-240px at any width, where a
+           fixed 4-column rule would balloon them to ~590px at 2400px. -->
+      <div
+        v-else
+        class="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
+      >
         <AlbumCard
           v-for="item in lib.albumGridItems"
           :key="item.key"

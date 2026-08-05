@@ -1,7 +1,7 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <template v-if="!playlist">
-      <div class="flex h-14 shrink-0 items-center gap-1 px-2">
+      <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
         <button
           type="button"
           class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface"
@@ -17,7 +17,7 @@
     </template>
 
     <template v-else>
-      <div class="flex h-14 shrink-0 items-center gap-1 px-2">
+      <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
         <button
           type="button"
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface"
@@ -53,11 +53,11 @@
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <div v-if="tracks.length === 0" class="flex justify-center py-12">
+        <div v-if="tracks.length === 0" class="content-col flex justify-center py-12">
           <p class="text-body-md text-on-surface-variant">No tracks in this playlist</p>
         </div>
 
-        <div v-else-if="settings.albumViewStyle === 'tracks'">
+        <div v-else-if="settings.albumViewStyle === 'tracks'" class="content-col">
           <div
             v-for="(id, i) in reorderedIds"
             :key="id"
@@ -83,7 +83,7 @@
           </div>
         </div>
 
-        <div v-else-if="settings.albumViewStyle === 'list'">
+        <div v-else-if="settings.albumViewStyle === 'list'" class="content-col">
           <AlbumCard
             v-for="item in albumItems"
             :key="item.key"
@@ -95,7 +95,11 @@
           />
         </div>
 
-        <div v-else class="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-3 lg:grid-cols-4">
+        <!-- Full-bleed by design; see LibraryView for the auto-fill rationale. -->
+        <div
+          v-else
+          class="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
+        >
           <AlbumCard
             v-for="item in albumItems"
             :key="item.key"

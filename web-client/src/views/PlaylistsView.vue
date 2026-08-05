@@ -1,6 +1,6 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="flex h-14 shrink-0 items-center justify-between px-4">
+    <div class="content-col flex h-14 shrink-0 items-center justify-between px-4">
       <span class="text-title-lg text-on-surface">Playlists</span>
       <button
         type="button"
@@ -12,7 +12,7 @@
       </button>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto">
+    <div class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <div v-if="playlistStore.loading" class="flex justify-center py-12">
         <FeatherIcon name="refresh-cw" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>
