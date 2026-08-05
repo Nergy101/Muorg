@@ -256,3 +256,25 @@ input[type="range"]::-moz-range-thumb {
 .slide-up-leave-to {
   transform: translateY(100%);
 }
+
+/* Favorite heart pop (PlayerView): springy bounce when a track is favourited */
+@keyframes heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.35) rotate(-6deg);
+  }
+  50% {
+    transform: scale(0.9) rotate(4deg);
+  }
+  70% {
+    transform: scale(1.15) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+.heart-pop {
+  animation: heart-pop 550ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}

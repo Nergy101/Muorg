@@ -113,9 +113,10 @@
           <button
             type="button"
             class="flex h-10 w-10 items-center justify-center rounded-full"
-            :class="isFavorite ? 'text-primary' : 'text-white/75'"
+            :class="[isFavorite ? 'text-primary' : 'text-white/75', heartPulse ? 'heart-pop' : '']"
             :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
             @click="onToggleFavorite"
+            @animationend="heartPulse = false"
           >
             <!-- CSS `fill` beats the presentation attribute feather emits, so the
                  heart reads as solid once favourited. -->
@@ -380,10 +381,16 @@ const isFavorite = computed(() =>
   player.currentTrack ? player.favorites.has(player.currentTrack.id) : false,
 );
 
+/** One-shot pop while the heart is being favourited (cleared by animationend). */
+const heartPulse = ref(false);
+
 function onToggleFavorite(): void {
   const t = player.currentTrack;
+  if (!t) return;
+  // Bounce only on favouriting, not on un-favouriting.
+  if (!player.favorites.has(t.id)) heartPulse.value = true;
   // The store owns the optimistic flip, the toast and the revert on failure.
-  if (t) void player.toggleFavorite(t);
+  void player.toggleFavorite(t);
 }
 
 function onViewArtist(): void {
