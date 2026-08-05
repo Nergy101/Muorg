@@ -11,20 +11,38 @@ use crate::config::TranscodingConfig;
 
 type StreamTx = tokio::sync::mpsc::Sender<Result<Bytes, Box<dyn std::error::Error + Send + Sync>>>;
 
-pub fn transcode_to_mp3(path: &str, start_secs: f32, config: &TranscodingConfig, tx: StreamTx) {
-    if let Err(e) = do_transcode(path, start_secs, config, &tx) {
+/// Where a transcode reads its input. Object-storage tracks arrive as a
+/// `MediaSource` so `symphonia` pulls only the bytes it decodes instead of the
+/// server downloading whole files.
+pub enum TranscodeSource {
+    LocalPath(String),
+    Remote(Box<dyn symphonia::core::io::MediaSource>),
+}
+
+pub fn transcode_to_mp3(
+    source: TranscodeSource,
+    start_secs: f32,
+    config: &TranscodingConfig,
+    tx: StreamTx,
+) {
+    if let Err(e) = do_transcode(source, start_secs, config, &tx) {
         let _ = tx.blocking_send(Err(e));
     }
 }
 
 fn do_transcode(
-    path: &str,
+    source: TranscodeSource,
     start_secs: f32,
     config: &TranscodingConfig,
     tx: &StreamTx,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let file = std::fs::File::open(path)?;
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    // The label keeps the seek logs useful for both backends; the remote key
+    // itself is logged by the stream route.
+    let (ms, source_label): (Box<dyn symphonia::core::io::MediaSource>, String) = match source {
+        TranscodeSource::LocalPath(p) => (Box::new(std::fs::File::open(&p)?), p),
+        TranscodeSource::Remote(m) => (m, "<remote object>".to_string()),
+    };
+    let mss = MediaSourceStream::new(ms, Default::default());
 
     let mut format = symphonia::default::get_probe().probe(
         &Hint::new(),
@@ -67,7 +85,7 @@ fn do_transcode(
     let first_seek_packet = if start_secs > 0.0 {
         let target_secs = start_secs as f64;
 
-        tracing::info!(path, start_secs, "seek requested");
+        tracing::info!(source = %source_label, start_secs, "seek requested");
 
         let _ = format.seek(
             SeekMode::Coarse,
@@ -103,7 +121,7 @@ fn do_transcode(
             }
             skipped += 1;
         }
-        tracing::info!(path, skipped_packets = skipped, "fine-skip done");
+        tracing::info!(source = %source_label, skipped_packets = skipped, "fine-skip done");
         found
     } else {
         None
