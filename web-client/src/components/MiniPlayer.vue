@@ -56,7 +56,7 @@
           aria-label="Queue"
           @click="router.push({ name: 'queue' })"
         >
-          <FeatherIcon name="align-justify" class="h-5 w-5" />
+          <FeatherIcon name="list" class="h-5 w-5" />
         </button>
         <button
           type="button"

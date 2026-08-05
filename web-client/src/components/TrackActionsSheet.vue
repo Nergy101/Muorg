@@ -49,7 +49,7 @@
           <span>Remove from queue</span>
         </button>
         <button v-else type="button" :class="ROW" @click="onAddToQueue">
-          <FeatherIcon name="align-justify" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <FeatherIcon name="list" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Add to queue</span>
         </button>
 
