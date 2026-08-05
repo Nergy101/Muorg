@@ -1,9 +1,9 @@
 <template>
-  <!-- The safe-area inset is padding on the <nav>, not inside the row: with
-       `h-16` on the nav itself the inset would eat into the 64px touch row. -->
-  <nav
-    class="shrink-0 border-t border-outline/30 bg-surface-container pb-[calc(env(safe-area-inset-bottom,0px)+4px)]"
-  >
+  <!-- Deliberately flush to the bottom edge: no safe-area padding. Installed as
+       a PWA there is no browser chrome below us, and the icons sit centred in
+       the 64px row, well clear of the home indicator. Padding the inset here
+       pushed the bar ~38px up off the edge, which read as a dead gap. -->
+  <nav class="shrink-0 border-t border-outline/30 bg-surface-container">
     <div class="relative flex h-16 items-stretch">
       <!-- Sliding selection pill -->
       <div
