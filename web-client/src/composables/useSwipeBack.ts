@@ -18,14 +18,14 @@ export interface SwipeBackHandlers {
 /**
  * Edge swipe that pops the navigation stack.
  *
- * The gesture commits the pop and lets the normal `nav-pop` transition play,
- * rather than transforming the current view under the finger. That is a
- * deliberate limit: the shell keeps exactly one routed view mounted (a single
- * `<KeepAlive>` slot), so the screen being returned to does not exist in the DOM
- * mid-gesture — a finger-following card would slide over empty background
- * instead of revealing the previous screen. Committing lets Vue mount it and
- * animate the reveal properly. `progress` drives an edge affordance so the
- * gesture is still legible while undecided.
+ * The gesture commits the pop on release rather than transforming the current
+ * view under the finger. That is a deliberate limit: the shell keeps exactly one
+ * routed view mounted (a single `<KeepAlive>` slot), so the screen being
+ * returned to does not exist in the DOM mid-gesture — a finger-following card
+ * would slide over empty background instead of revealing the previous screen.
+ * `progress` drives an edge affordance so the gesture is still legible while
+ * undecided. The commit itself swaps the views with no transition, since a pop
+ * is never animated by us (see `resolveNavTransition`).
  *
  * Only active in an installed PWA: in a browser tab the platform's own
  * back-swipe already handles this, and handling both would pop twice.

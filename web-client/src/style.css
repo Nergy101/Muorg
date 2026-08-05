@@ -292,14 +292,14 @@ input[type="range"]::-moz-range-thumb {
    stays on the compositor.
    --------------------------------------------------------------------------- */
 
-/* Modal (the full-screen player): only the sheet travels. The view it covers
-   recedes slightly instead of sliding away, matching how iOS presents a sheet —
-   and it keeps a real transition on the leaving element, without which Vue sees
-   no animation and unmounts it instantly, flashing empty space behind the
-   rising sheet. */
+/* Modal (the full-screen player): only the sheet travels. Opening it lets the
+   view it covers recede slightly instead of sliding away, matching how iOS
+   presents a sheet — and it keeps a real transition on the leaving element,
+   without which Vue sees no animation and unmounts it instantly, flashing empty
+   space behind the rising sheet. Dismissing it only lowers the sheet: the view
+   underneath is left completely alone, it just becomes visible again. */
 .modal-in-enter-active,
 .modal-in-leave-active,
-.modal-out-enter-active,
 .modal-out-leave-active {
   transition:
     transform var(--nav-duration) var(--nav-ease),
@@ -309,8 +309,7 @@ input[type="range"]::-moz-range-thumb {
 .modal-out-leave-to {
   transform: translateY(100%);
 }
-.modal-in-leave-to,
-.modal-out-enter-from {
+.modal-in-leave-to {
   transform: scale(0.96);
   filter: brightness(calc(1 - var(--nav-scrim)));
 }
@@ -368,6 +367,10 @@ input[type="range"]::-moz-range-thumb {
 .nav-fade-leave-to {
   opacity: 0;
 }
+
+/* NOTE: there is deliberately no pop counterpart to any of the above. A
+   backward navigation resolves to no transition at all, because the platform
+   animates the pop itself — see resolveNavTransition. */
 
 /* Shared by every overlay surface (sheets, dialogs, banners, toasts) so they
    all move on the same curve as route navigation. */

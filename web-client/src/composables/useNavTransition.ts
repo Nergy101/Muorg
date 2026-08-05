@@ -6,12 +6,10 @@ import type { RouteLocationNormalized } from "vue-router";
  *
  * A single `<Transition>` names one animation for both the entering and the
  * leaving view, so the *pair* has to be chosen up front from the direction of
- * travel. Without this, push and pop are indistinguishable and back-navigation
- * slides in from the same side as forward — the thing that makes a web app feel
- * unlike a native one.
+ * travel. Only forward motion is animated here — see `resolveNavTransition`.
  */
 export type NavTransition =
-  | "" // first paint: no animation to fade in from nothing
+  | "" // no animation: first paint, and every backward navigation
   | "modal-in"
   | "modal-out"
   | "nav-push"
@@ -46,16 +44,14 @@ function isQueue(r: RouteLocationNormalized): boolean {
 }
 
 /**
- * Compares stack depth to classify the move. Modal wins over depth: entering or
- * leaving the full-screen player always reads as a sheet, whatever it came from.
+ * Compares stack depth to classify a forward move. Modal wins over depth:
+ * entering or leaving the full-screen player always reads as a sheet, whatever
+ * it came from. Backward moves are never animated.
  */
 export function resolveNavTransition(
   to: RouteLocationNormalized,
   from: RouteLocationNormalized,
 ): NavTransition {
-  // Depth alone cannot order the player sheet against the queue page ("modal"
-  // vs a plain number), so that pair reads direction from the history position
-  // to tell a push from a pop.
   const position = currentPosition();
   const isBack = lastPosition !== null && position !== null && position < lastPosition;
   lastPosition = position;
@@ -63,16 +59,20 @@ export function resolveNavTransition(
   // Cold boot / deep link: there is no outgoing view to animate against.
   if (from.matched.length === 0) return "";
 
+  // A pop animates nothing at all. The platform already runs its own page
+  // transition for a back navigation — conspicuously so in an installed iOS
+  // PWA — so anything of ours plays *on top of* that one and reads as a double
+  // animation. And there is nothing to animate in regardless: the view being
+  // returned to was already there and belongs exactly where it is.
+  if (isBack) return "";
+
   const toDepth = depthOf(to);
   const fromDepth = depthOf(from);
 
-  // The queue is a pushed page that may sit on top of the player sheet, so the
-  // pair animates as a normal stack push/pop instead of a sheet open/close:
-  // pushing the queue slides it in from the right, popping back reveals the
-  // player from the left rather than re-rising it from the bottom. Only a
-  // forward queue -> player (tapping the mini player) still opens the sheet.
-  if (toDepth === "modal" && isQueue(from)) return isBack ? "nav-pop" : "modal-in";
-  if (fromDepth === "modal" && isQueue(to)) return isBack ? "nav-pop" : "nav-push";
+  // Depth cannot order the player sheet against the queue page ("modal" vs a
+  // plain number), so that one pair is named explicitly: the queue is a page
+  // pushed on top of the sheet, not another sheet.
+  if (fromDepth === "modal" && isQueue(to)) return "nav-push";
 
   if (toDepth === "modal") return "modal-in";
   if (fromDepth === "modal") return "modal-out";
