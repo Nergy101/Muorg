@@ -422,7 +422,6 @@ export const usePlayerStore = defineStore("player", () => {
       const fav = await playlistStore.ensureFavoritesPlaylist();
       if (wasFavorite) await playlistStore.removeTracks(fav.id, [track.id]);
       else await playlistStore.addTracks(fav.id, [track.id]);
-      showToast(wasFavorite ? "Removed from favorites" : "Added to favorites");
     } catch (e) {
       const reverted = new Set(favorites.value);
       if (wasFavorite) reverted.add(track.id);

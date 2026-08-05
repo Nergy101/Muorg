@@ -62,7 +62,9 @@ useSettingsStore();
 const showMiniPlayer = computed(
   () => (player.currentTrack != null || player.errorMessage != null) && route.name !== "player",
 );
-const showBottomNav = computed(() => !["connect", "player"].includes(String(route.name)));
+const showBottomNav = computed(
+  () => !["connect", "player", "queue"].includes(String(route.name)),
+);
 // Transition name comes from the router hook, which compares stack depth so a
 // pop is the visual inverse of the push that got there.
 

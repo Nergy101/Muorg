@@ -52,7 +52,8 @@
       <div class="flex shrink-0 items-center gap-0.5 pr-2">
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant"
+          class="flex h-10 w-10 items-center justify-center rounded-full"
+          :class="route.name === 'queue' ? 'text-primary' : 'text-on-surface-variant'"
           aria-label="Queue"
           @click="router.push({ name: 'queue' })"
         >
@@ -81,12 +82,13 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 
+const route = useRoute();
 const router = useRouter();
 const player = usePlayerStore();
 const settings = useSettingsStore();

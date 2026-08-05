@@ -389,7 +389,7 @@ function onToggleFavorite(): void {
   if (!t) return;
   // Bounce only on favouriting, not on un-favouriting.
   if (!player.favorites.has(t.id)) heartPulse.value = true;
-  // The store owns the optimistic flip, the toast and the revert on failure.
+  // The store owns the optimistic flip and the revert on failure.
   void player.toggleFavorite(t);
 }
 
