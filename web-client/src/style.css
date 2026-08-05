@@ -325,11 +325,11 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* Stack push: the new screen comes in from the right, the old one slides a
-   short way left under a scrim. Pop is the exact inverse, which is what makes
-   back feel like an undo rather than another forward move. */
+   short way left under a scrim. Pop keeps the screen being revealed static —
+   only the top screen travels, sliding right — so going back never re-animates
+   the screen you're returning to. */
 .nav-push-enter-active,
 .nav-push-leave-active,
-.nav-pop-enter-active,
 .nav-pop-leave-active {
   transition:
     transform var(--nav-duration) var(--nav-ease),
@@ -339,10 +339,8 @@ input[type="range"]::-moz-range-thumb {
 .nav-push-enter-from {
   transform: translateX(100%);
 }
-.nav-push-leave-to,
-.nav-pop-enter-from {
+.nav-push-leave-to {
   transform: translateX(calc(-1 * var(--nav-parallax)));
-  /* Cheaper than stacking a real scrim element, and it composites. */
   filter: brightness(calc(1 - var(--nav-scrim)));
 }
 .nav-pop-leave-to {

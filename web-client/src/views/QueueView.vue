@@ -17,7 +17,7 @@
       >Clear all</button>
     </div>
 
-    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-6">
       <template v-if="player.currentTrack">
         <div class="px-4 pb-1 pt-2 text-label-sm uppercase tracking-[0.8px] text-primary">
           Now playing
@@ -69,7 +69,7 @@
         Queue is empty
       </p>
 
-      <div v-else class="pb-4">
+      <div v-else>
         <QueueRow
           v-for="(entry, i) in player.upNext"
           :key="entry.track.id"
