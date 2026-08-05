@@ -22,36 +22,54 @@
         <p class="text-body-md text-on-surface-variant">Tap + to create one.</p>
       </div>
 
-      <div v-else class="py-2">
+      <div v-else class="px-4 py-2">
         <div
-          v-for="p in playlistStore.playlists"
-          :key="p.id"
-          class="mx-4 mb-2 flex items-center gap-3 rounded-xl bg-surface px-4 py-3"
-          @click="router.push({ name: 'playlist', params: { id: String(p.id) } })"
+          class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
         >
-          <span class="text-title-lg">{{ p.icon ?? "🎵" }}</span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-body-lg text-on-surface">{{ p.name }}</p>
-            <p class="text-body-sm text-on-surface-variant">
-              {{ p.track_count === 1 ? "1 track" : `${p.track_count} tracks` }}
-            </p>
+          <div
+            v-for="p in playlistStore.sortedPlaylists"
+            :key="p.id"
+            class="flex aspect-square w-full select-none flex-col rounded-xl bg-surface-variant transition-transform duration-150 active:scale-95"
+            role="button"
+            tabindex="0"
+            @click="router.push({ name: 'playlist', params: { id: String(p.id) } })"
+            @keydown.enter="router.push({ name: 'playlist', params: { id: String(p.id) } })"
+          >
+            <div class="flex items-center justify-end gap-0.5 p-1">
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-full"
+                :class="playlistStore.isPinned(p.id) ? 'fill-current text-primary' : 'text-on-surface-variant'"
+                :aria-label="playlistStore.isPinned(p.id) ? 'Unpin playlist' : 'Pin playlist'"
+                @click.stop="playlistStore.togglePin(p.id)"
+              >
+                <MageIcon name="pin" class="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+                aria-label="Edit playlist"
+                @click.stop="openEdit(p)"
+              >
+                <MageIcon name="edit" class="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-error"
+                aria-label="Delete playlist"
+                @click.stop="deleteTarget = p"
+              >
+                <MageIcon name="trash" class="h-4 w-4" />
+              </button>
+            </div>
+            <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-0.5 px-2 pb-2 text-center">
+              <span class="text-3xl leading-none">{{ p.icon ?? "🎵" }}</span>
+              <p class="w-full truncate text-label-lg font-semibold text-on-surface">{{ p.name }}</p>
+              <p class="text-label-sm text-on-surface-variant">
+                {{ p.track_count === 1 ? "1 track" : `${p.track_count} tracks` }}
+              </p>
+            </div>
           </div>
-          <button
-            type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
-            aria-label="Edit playlist"
-            @click.stop="openEdit(p)"
-          >
-            <MageIcon name="edit" class="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-error"
-            aria-label="Delete playlist"
-            @click.stop="deleteTarget = p"
-          >
-            <MageIcon name="trash" class="h-5 w-5" />
-          </button>
         </div>
       </div>
     </div>

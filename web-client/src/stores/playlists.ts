@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import {
   getPlaylists,
   createPlaylist as apiCreate,
@@ -17,12 +17,58 @@ import { usePlayerStore } from "./player";
 const FAVORITES_NAME = "Favorites";
 const FAVORITES_ICON = "⭐";
 
+/** Client-side pin state (per device, survives reloads). Pins may move to the
+ *  server later; for now order = the order in which playlists were pinned. */
+const PIN_KEY = "muorg:pinned-playlists";
+
+function loadPinnedIds(): number[] {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(PIN_KEY) ?? "[]");
+    return Array.isArray(raw) ? raw.filter((x): x is number => typeof x === "number") : [];
+  } catch {
+    return [];
+  }
+}
+
 export const usePlaylistStore = defineStore("playlists", () => {
   const playlists = ref<Playlist[]>([]);
   const loading = ref(false);
 
   /** Cache of track-ID sets per playlist, populated lazily. */
   const trackIdSets = ref<Map<number, Set<number>>>(new Map());
+
+  /** Pinned playlist ids in pin order (earliest pin first). */
+  const pinnedIds = ref<number[]>(loadPinnedIds());
+
+  function persistPinned(): void {
+    localStorage.setItem(PIN_KEY, JSON.stringify(pinnedIds.value));
+  }
+
+  function isPinned(playlistId: number): boolean {
+    return pinnedIds.value.includes(playlistId);
+  }
+
+  /** Pin/unpin a playlist; pin order = order in which pins happened. */
+  function togglePin(playlistId: number): void {
+    pinnedIds.value = isPinned(playlistId)
+      ? pinnedIds.value.filter((id) => id !== playlistId)
+      : [...pinnedIds.value, playlistId];
+    persistPinned();
+  }
+
+  /** Pinned playlists first (in pin order), then the rest in server order. */
+  const sortedPlaylists = computed<Playlist[]>(() => {
+    const byId = new Map<number, Playlist>();
+    const rest: Playlist[] = [];
+    for (const p of playlists.value) {
+      if (isPinned(p.id)) byId.set(p.id, p);
+      else rest.push(p);
+    }
+    const pinned = pinnedIds.value
+      .map((id) => byId.get(id))
+      .filter((p): p is Playlist => p !== undefined);
+    return [...pinned, ...rest];
+  });
 
   async function loadPlaylists(): Promise<void> {
     loading.value = true;
@@ -64,6 +110,10 @@ export const usePlaylistStore = defineStore("playlists", () => {
     await apiDelete(id);
     playlists.value = playlists.value.filter((p) => p.id !== id);
     trackIdSets.value.delete(id);
+    if (isPinned(id)) {
+      pinnedIds.value = pinnedIds.value.filter((x) => x !== id);
+      persistPinned();
+    }
   }
 
   async function loadTrackIdsForPlaylist(playlistId: number): Promise<Set<number>> {
@@ -147,6 +197,10 @@ export const usePlaylistStore = defineStore("playlists", () => {
     playlists,
     loading,
     trackIdSets,
+    pinnedIds,
+    sortedPlaylists,
+    isPinned,
+    togglePin,
     loadPlaylists,
     createPlaylist,
     renamePlaylist,

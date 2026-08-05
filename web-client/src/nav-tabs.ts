@@ -7,7 +7,7 @@
  */
 export const NAV_TABS = [
   { name: "library", label: "Library", icon: "compact-disk" },
-  { name: "playlists", label: "Playlists", icon: "playlist" },
+  { name: "playlists", label: "Playlists", icon: "dashboard" },
   { name: "settings", label: "Settings", icon: "settings" },
 ] as const;
 
