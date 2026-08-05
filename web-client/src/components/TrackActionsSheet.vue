@@ -239,6 +239,8 @@ const props = defineProps<{
   open: boolean;
   track: CatalogTrack | null;
   canRemoveFromQueue?: boolean;
+  /** Which level to open on. Lets a caller jump straight to the playlist picker. */
+  initialLevel?: "main" | "playlists";
 }>();
 
 const emit = defineEmits<{
@@ -257,7 +259,10 @@ const level = ref<"main" | "playlists" | "info" | "edit">("main");
 watch(
   () => props.open,
   (isOpen) => {
-    if (isOpen) level.value = "main";
+    if (!isOpen) return;
+    // openPlaylists also loads membership, which "main" doesn't need.
+    if (props.initialLevel === "playlists") void openPlaylists();
+    else level.value = "main";
   },
 );
 

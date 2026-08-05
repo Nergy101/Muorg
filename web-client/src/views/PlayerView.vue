@@ -58,21 +58,22 @@
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
           aria-label="Track actions"
-          @click="showActionsSheet = true"
+          @click="openTrackActions"
         >
           <FeatherIcon name="more-vertical" class="h-5 w-5" />
         </button>
       </div>
 
-      <!-- Centre: cover + titles -->
-      <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-6">
-        <div class="relative flex w-[72%] items-center justify-center">
+      <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
+           short viewport; object-cover absorbs the crop if it ever clamps. -->
+      <div class="flex min-h-0 flex-1 items-center justify-center px-6">
+        <div class="relative flex max-h-full w-[86%] items-center justify-center">
           <div
             class="absolute inset-0 rounded-full"
             :style="{ background: `radial-gradient(circle, rgba(${glowRgb},0.45) 0%, transparent 70%)`, filter: 'blur(32px)' }"
             aria-hidden="true"
           />
-          <div class="relative aspect-square w-full overflow-hidden rounded-2xl shadow-2xl">
+          <div class="relative aspect-square max-h-full w-full overflow-hidden rounded-2xl shadow-2xl">
             <img
               v-if="coverUrl"
               :src="coverUrl"
@@ -84,13 +85,37 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="w-full text-center">
+      <!-- Track info bottom-left, quick actions opposite, both above the seek bar -->
+      <div class="flex shrink-0 items-end gap-3 px-6 pb-3">
+        <div class="min-w-0 flex-1">
           <MarqueeText :text="player.currentTrack.title ?? '—'" class="text-title-lg text-white" />
           <p class="truncate text-body-md text-white/75">
             {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
           </p>
           <p class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
+        </div>
+        <div class="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
+            aria-label="Add to playlist"
+            @click="openAddToPlaylist"
+          >
+            <FeatherIcon name="plus" class="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full"
+            :class="isFavorite ? 'text-primary' : 'text-white/75'"
+            :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+            @click="onToggleFavorite"
+          >
+            <!-- CSS `fill` beats the presentation attribute feather emits, so the
+                 heart reads as solid once favourited. -->
+            <FeatherIcon name="heart" class="h-6 w-6" :class="isFavorite ? 'fill-current' : ''" />
+          </button>
         </div>
       </div>
 
@@ -200,6 +225,7 @@
 
     <TrackActionsSheet
       :open="showActionsSheet"
+      :initial-level="actionsInitialLevel"
       :track="player.currentTrack"
       @close="showActionsSheet = false"
       @view-artist="onViewArtist"
@@ -331,6 +357,29 @@ function onSleepTurnOff(): void {
 
 // --- Track actions sheet ---
 const showActionsSheet = ref(false);
+/** The "+" jumps straight to the sheet's playlist picker. */
+const actionsInitialLevel = ref<"main" | "playlists">("main");
+
+function openTrackActions(): void {
+  actionsInitialLevel.value = "main";
+  showActionsSheet.value = true;
+}
+
+function openAddToPlaylist(): void {
+  actionsInitialLevel.value = "playlists";
+  showActionsSheet.value = true;
+}
+
+// --- Favourite ---
+const isFavorite = computed(() =>
+  player.currentTrack ? player.favorites.has(player.currentTrack.id) : false,
+);
+
+function onToggleFavorite(): void {
+  const t = player.currentTrack;
+  // The store owns the optimistic flip, the toast and the revert on failure.
+  if (t) void player.toggleFavorite(t);
+}
 
 function onViewArtist(): void {
   const t = player.currentTrack as CatalogTrack | null;
