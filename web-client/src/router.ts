@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import { isConnected } from "./api/client";
+import { navTransition, resolveNavTransition } from "./composables/useNavTransition";
 import { useLibraryStore } from "./stores/library";
 import { usePlaylistStore } from "./stores/playlists";
 
@@ -23,18 +24,37 @@ export async function loadData(): Promise<void> {
   await Promise.all([lib.loadLibrary(), playlistStore.loadPlaylists()]);
 }
 
+/**
+ * Position in the navigation stack. The transition between two routes is chosen
+ * by comparing depths: deeper is a push, shallower a pop, equal a sibling move.
+ * `modal` opts out and rises from the bottom instead.
+ */
+export type NavDepth = number | "modal";
+
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: "/", redirect: "/library" },
-    { path: "/connect", name: "connect", component: ConnectView },
-    { path: "/library", name: "library", component: LibraryView },
-    { path: "/album/:albumKey", name: "album", component: AlbumDetailView, props: true },
-    { path: "/playlists", name: "playlists", component: PlaylistsView },
-    { path: "/playlist/:id", name: "playlist", component: PlaylistDetailView, props: true },
-    { path: "/queue", name: "queue", component: QueueView },
-    { path: "/player", name: "player", component: PlayerView },
-    { path: "/settings", name: "settings", component: SettingsView },
+    { path: "/connect", name: "connect", component: ConnectView, meta: { depth: 0 } },
+    { path: "/library", name: "library", component: LibraryView, meta: { depth: 0 } },
+    {
+      path: "/album/:albumKey",
+      name: "album",
+      component: AlbumDetailView,
+      props: true,
+      meta: { depth: 1 },
+    },
+    { path: "/playlists", name: "playlists", component: PlaylistsView, meta: { depth: 0 } },
+    {
+      path: "/playlist/:id",
+      name: "playlist",
+      component: PlaylistDetailView,
+      props: true,
+      meta: { depth: 1 },
+    },
+    { path: "/queue", name: "queue", component: QueueView, meta: { depth: 1 } },
+    { path: "/player", name: "player", component: PlayerView, meta: { depth: "modal" } },
+    { path: "/settings", name: "settings", component: SettingsView, meta: { depth: 0 } },
     { path: "/:pathMatch(.*)*", redirect: "/library" },
   ],
 });
@@ -49,6 +69,13 @@ router.beforeEach((to) => {
     if (lib.tracks.length === 0 && !lib.loading) void loadData();
   }
   return true;
+});
+
+// Classify the move before the shell re-renders, so <Transition> gets the name
+// that matches the direction of travel. afterEach only fires on a confirmed
+// navigation, and the routed component swaps after it, so this is never stale.
+router.afterEach((to, from) => {
+  navTransition.value = resolveNavTransition(to, from);
 });
 
 export default router;
