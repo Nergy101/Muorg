@@ -206,6 +206,20 @@
         </div>
       </template>
 
+      <!-- ─── Development ─────────────────────────────────────────────── -->
+      <div :class="SECTION">Development</div>
+      <a
+        :class="ROW"
+        href="https://github.com/Nergy101/Muorg"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <div class="flex min-w-0 flex-1 items-center gap-3">
+          <MageIcon name="github" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <p class="text-body-lg text-on-surface">See github repo</p>
+        </div>
+      </a>
+
       <div class="h-6" />
     </div>
 
