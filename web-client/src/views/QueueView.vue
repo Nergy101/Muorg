@@ -43,7 +43,7 @@
             />
             <p class="truncate text-body-sm text-on-surface-variant">{{ currentSubtitle }}</p>
           </div>
-          <EqualizerBars class="text-primary" />
+          <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
         </div>
       </template>
 

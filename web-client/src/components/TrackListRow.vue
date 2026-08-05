@@ -9,7 +9,7 @@
   >
     <!-- Leading: equalizer while playing, else cover / index / placeholder -->
     <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded">
-      <EqualizerBars v-if="isPlaying" class="text-primary" />
+      <EqualizerBars v-if="isPlaying" class="text-primary" :paused="!player.isPlaying" />
       <img
         v-else-if="coverUrl"
         :src="coverUrl"
@@ -66,6 +66,7 @@ import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import EqualizerBars from "./EqualizerBars.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
+import { usePlayerStore } from "../stores/player";
 import { useLongPress } from "../composables/useLongPress";
 import type { CatalogTrack } from "../types";
 
@@ -83,6 +84,9 @@ const props = withDefaults(
 const emit = defineEmits<{ play: []; actions: [] }>();
 
 const lib = useLibraryStore();
+// `isPlaying` means "this row is the current track"; the store says whether
+// audio is actually running, which is what freezes the bars.
+const player = usePlayerStore();
 const lp = useLongPress(() => emit("actions"));
 
 const coverUrl = computed(() => {
