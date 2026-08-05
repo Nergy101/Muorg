@@ -18,10 +18,34 @@ content_paths = [
 # Rescan all content_paths on startup (true) or only when triggered via API (false).
 scan_on_startup = true
 
+# ── Cloud storage (S3-compatible) ─────────────────────────────────────────────
+# Optional. Index music straight out of an S3-compatible bucket instead of (or
+# alongside) content_paths. Works with Hetzner Object Storage, Cloudflare R2,
+# Backblaze B2, Wasabi, MinIO, AWS S3, and anything else speaking the S3 API.
+#
+# Example: Hetzner Object Storage, bucket "muorg" in Nuremberg.
+# [[library.remotes]]
+# name = "cloud"                  # letters/digits/-/_ only; used internally as remote://cloud/<key>
+# bucket = "muorg"
+# endpoint = "https://nbg1.your-objectstorage.com"
+# region = "nbg1"                 # the Hetzner location code
+# virtual_hosted_style = true     # REQUIRED for Hetzner
+# prefix = ""                     # optional sub-folder inside the bucket
+# access_key_id = "..."           # or MUORG_REMOTE_CLOUD_ACCESS_KEY_ID
+# secret_access_key = "..."       # or MUORG_REMOTE_CLOUD_SECRET_ACCESS_KEY
+
+# How many objects to read tags from in parallel during a remote scan.
+# remote_scan_concurrency = 8
+
 [storage]
 # In Docker: keep these inside the /data volume so they persist across restarts.
 db_path = "/data/muorg.db"
 backup_dir = "/data/backups"
+
+# Extracted album art for cloud tracks is cached here so covers do not hit the
+# bucket on every request. Local-folder tracks are unaffected.
+# cover_cache_dir = "/data/covers"
+# cover_cache_max_bytes = 536870912   # 512 MiB
 
 [cors]
 # Origins allowed to call the API.
