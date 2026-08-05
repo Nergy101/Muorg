@@ -244,18 +244,30 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Number of trailing bytes of a track that feed the content hash.
+pub const CONTENT_HASH_TAIL_BYTES: u64 = 65_536;
+
+/// Content hash from its two inputs: the total size and the last
+/// [`CONTENT_HASH_TAIL_BYTES`] bytes (fewer for a shorter file).
+///
+/// Split out of [`compute_content_hash`] so sources without a local file —
+/// object storage — produce byte-identical hashes, which is what makes
+/// hash-based move detection work across backends.
+pub fn content_hash_from_parts(file_size: u64, tail: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(file_size.to_le_bytes());
+    hasher.update(tail);
+    hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect()
+}
+
 pub fn compute_content_hash(path: &Path) -> Result<String, String> {
     let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
     let file_size = file.metadata().map_err(|e| e.to_string())?.len();
-    let mut hasher = Sha256::new();
-    hasher.update(file_size.to_le_bytes());
-    const TAIL_SIZE: u64 = 65_536;
-    let offset = file_size.saturating_sub(TAIL_SIZE);
+    let offset = file_size.saturating_sub(CONTENT_HASH_TAIL_BYTES);
     file.seek(SeekFrom::Start(offset)).map_err(|e| e.to_string())?;
-    let mut buf = Vec::with_capacity(TAIL_SIZE as usize);
+    let mut buf = Vec::with_capacity(CONTENT_HASH_TAIL_BYTES as usize);
     file.read_to_end(&mut buf).map_err(|e| e.to_string())?;
-    hasher.update(&buf);
-    Ok(hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect())
+    Ok(content_hash_from_parts(file_size, &buf))
 }
 
 pub fn update_track_hash(
@@ -366,6 +378,54 @@ pub fn get_track_path_by_id(conn: &rusqlite::Connection, id: i64) -> Result<Opti
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// `(path, mtime_secs)` for a live track. Lets callers that need both avoid a
+/// second query — the cover cache keys on `mtime_secs`.
+pub fn get_track_path_and_mtime_by_id(
+    conn: &rusqlite::Connection,
+    id: i64,
+) -> Result<Option<(String, i64)>, String> {
+    let result = conn.query_row(
+        "SELECT path, mtime_secs FROM tracks WHERE id = ?1 AND deleted_at IS NULL",
+        [id],
+        |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+    );
+    match result {
+        Ok(row) => Ok(Some(row)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// `mtime_secs` of a live track by path; `None` when absent or soft-deleted.
+pub fn get_track_mtime_by_path(
+    conn: &rusqlite::Connection,
+    path: &str,
+) -> Result<Option<i64>, String> {
+    let result = conn.query_row(
+        "SELECT mtime_secs FROM tracks WHERE path = ?1 AND deleted_at IS NULL",
+        [path],
+        |r| r.get::<_, i64>(0),
+    );
+    match result {
+        Ok(mtime) => Ok(Some(mtime)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+pub fn update_track_mtime(
+    conn: &rusqlite::Connection,
+    path: &str,
+    mtime_secs: i64,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE tracks SET mtime_secs = ?1 WHERE path = ?2",
+        rusqlite::params![mtime_secs, path],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn load_tracks_filtered(
@@ -490,25 +550,201 @@ fn format_from_path(path: &Path) -> Option<&'static str> {
         })
 }
 
-pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u64, String> {
-    let root_id: i64 = conn
-        .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| {
-            r.get(0)
+/// One track as observed by a scanner, ready to be upserted.
+pub struct ScannedTrack<'a> {
+    /// Local absolute path or `remote://` URI, stored verbatim.
+    pub path: &'a str,
+    /// `"mp3"` or `"flac"`.
+    pub format: &'a str,
+    pub mtime_secs: i64,
+    pub content_hash: Option<&'a str>,
+    /// Carried explicitly rather than derived from `meta` so scanners can drop
+    /// large embedded pictures before batching rows.
+    pub has_cover: bool,
+    pub meta: &'a metadata::TrackMetadata,
+}
+
+/// Per-root upsert context: resolves the root id and schema capability flags
+/// once, then applies the move/rename detection to each scanned track.
+pub struct RootUpsert<'c> {
+    conn: &'c rusqlite::Connection,
+    root_id: i64,
+    featuring_col: bool,
+    use_smart_upsert: bool,
+}
+
+impl<'c> RootUpsert<'c> {
+    pub fn new(conn: &'c rusqlite::Connection, root_path: &str) -> Result<Self, String> {
+        let root_id: i64 = conn
+            .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| {
+                r.get(0)
+            })
+            .map_err(|e| e.to_string())?;
+        let featuring_col = schema_has_column(conn, "tracks", "featuring")?;
+        let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
+        let content_hash_col = schema_has_column(conn, "tracks", "content_hash")?;
+        Ok(Self {
+            conn,
+            root_id,
+            featuring_col,
+            use_smart_upsert: deleted_at_col && content_hash_col,
         })
+    }
+
+    /// Inserts or updates one track. On a schema with soft deletes and content
+    /// hashes this reuses an existing row when the track merely moved, so
+    /// playlists, ratings and play counts survive a rename: exact
+    /// `root_id + path`, then the same path in any root, then an identical
+    /// content hash, then a matching path suffix.
+    pub fn upsert(&self, t: &ScannedTrack<'_>) -> Result<(), String> {
+        let conn = self.conn;
+        let root_id = self.root_id;
+        let featuring_col = self.featuring_col;
+        let ScannedTrack { path: path_str, format, mtime_secs, content_hash: hash, has_cover, meta } = *t;
+
+        if self.use_smart_upsert {
+            let by_path: Option<i64> = conn
+                .query_row(
+                    "SELECT id FROM tracks WHERE root_id = ?1 AND path = ?2",
+                    rusqlite::params![root_id, path_str],
+                    |r| r.get(0),
+                )
+                .ok();
+
+            if let Some(track_id) = by_path {
+                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+            }
+
+            let by_path_any_root: Option<i64> = conn
+                .query_row(
+                    "SELECT id FROM tracks WHERE path = ?1 AND deleted_at IS NOT NULL LIMIT 1",
+                    [path_str],
+                    |r| r.get(0),
+                )
+                .ok();
+
+            if let Some(track_id) = by_path_any_root {
+                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+            }
+
+            if let Some(h) = hash {
+                let by_hash: Option<i64> = conn
+                    .query_row(
+                        "SELECT id FROM tracks WHERE content_hash = ?1 AND deleted_at IS NOT NULL LIMIT 1",
+                        [h],
+                        |r| r.get(0),
+                    )
+                    .ok();
+
+                if let Some(track_id) = by_hash {
+                    return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+                }
+            }
+
+            let by_suffix: Option<i64> = conn
+                .query_row(
+                    "SELECT t.id FROM tracks t \
+                     JOIN roots r ON r.id = t.root_id \
+                     WHERE t.deleted_at IS NOT NULL \
+                     AND t.content_hash IS NULL \
+                     AND ?1 LIKE '%' || SUBSTR(t.path, LENGTH(r.path) + 2) \
+                     ORDER BY LENGTH(t.path) DESC \
+                     LIMIT 1",
+                    [path_str],
+                    |r| r.get(0),
+                )
+                .ok();
+
+            if let Some(track_id) = by_suffix {
+                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+            }
+
+            return insert_track_row(conn, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+        }
+
+        let insert_sql = if featuring_col {
+            "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"
+        } else {
+            "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
+        };
+        let mut legacy_insert = conn.prepare_cached(insert_sql).map_err(|e| e.to_string())?;
+        if featuring_col {
+            legacy_insert
+                .execute(rusqlite::params![
+                    root_id, path_str, meta.title, meta.artist, meta.album, meta.album_artist,
+                    meta.featuring, meta.year.map(|y| y as i64), meta.genre,
+                    meta.track_number.map(|n| n as i64), meta.disc_number.map(|n| n as i64),
+                    meta.duration_secs.map(|d| d as i64), format, mtime_secs,
+                    if has_cover { 1i64 } else { 0i64 },
+                ])
+                .map_err(|e| e.to_string())?;
+        } else {
+            legacy_insert
+                .execute(rusqlite::params![
+                    root_id, path_str, meta.title, meta.artist, meta.album, meta.album_artist,
+                    meta.year.map(|y| y as i64), meta.genre,
+                    meta.track_number.map(|n| n as i64), meta.disc_number.map(|n| n as i64),
+                    meta.duration_secs.map(|d| d as i64), format, mtime_secs,
+                    if has_cover { 1i64 } else { 0i64 },
+                ])
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+}
+
+/// Soft-deletes (hard-deletes on a legacy schema) live tracks of `root_path`
+/// whose path is not in `present`, and returns how many were removed.
+///
+/// The counterpart to [`rescan_root`]'s `Path::exists()` sweep for backends
+/// where presence comes from a listing rather than the filesystem.
+pub fn sweep_missing_tracks(
+    conn: &rusqlite::Connection,
+    root_path: &str,
+    present: &std::collections::HashSet<String>,
+) -> Result<u64, String> {
+    let root_id: i64 = conn
+        .query_row("SELECT id FROM roots WHERE path = ?1", [root_path], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
+    let mut stmt = conn
+        .prepare("SELECT id, path FROM tracks WHERE root_id = ?1 AND deleted_at IS NULL")
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<(i64, String)> = stmt
+        .query_map([root_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    let mut count = 0u64;
-    let featuring_col = schema_has_column(conn, "tracks", "featuring")?;
-    let deleted_at_col = schema_has_column(conn, "tracks", "deleted_at")?;
-    let content_hash_col = schema_has_column(conn, "tracks", "content_hash")?;
-    let use_smart_upsert = deleted_at_col && content_hash_col;
-
-    let insert_sql = if featuring_col {
-        "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, featuring, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"
+    let mut removed = 0u64;
+    if deleted_at_col {
+        let now = now_secs()?;
+        let mut soft_del = conn
+            .prepare("UPDATE tracks SET deleted_at = ?1 WHERE id = ?2")
+            .map_err(|e| e.to_string())?;
+        for (id, path) in rows {
+            if !present.contains(&path) {
+                soft_del.execute(rusqlite::params![now, id]).map_err(|e| e.to_string())?;
+                removed += 1;
+            }
+        }
     } else {
-        "INSERT OR REPLACE INTO tracks (root_id, path, title, artist, album, album_artist, year, genre, track_number, disc_number, duration_secs, format, mtime_secs, has_cover) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"
-    };
-    let mut legacy_insert = conn.prepare(insert_sql).map_err(|e| e.to_string())?;
+        let mut del = conn
+            .prepare("DELETE FROM tracks WHERE id = ?1")
+            .map_err(|e| e.to_string())?;
+        for (id, path) in rows {
+            if !present.contains(&path) {
+                del.execute([id]).map_err(|e| e.to_string())?;
+                removed += 1;
+            }
+        }
+    }
+    Ok(removed)
+}
+
+pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u64, String> {
+    let up = RootUpsert::new(conn, root_path)?;
+    let mut count = 0u64;
 
     for entry in WalkDir::new(root_path)
         .follow_links(false)
@@ -536,103 +772,20 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
             Err(_) => continue,
         };
 
-        let has_cover = meta.picture_base64.as_ref().is_some_and(|s| !s.is_empty());
-
-        if use_smart_upsert {
-            let hash = compute_content_hash(path).ok();
-
-            let by_path: Option<i64> = conn
-                .query_row(
-                    "SELECT id FROM tracks WHERE root_id = ?1 AND path = ?2",
-                    rusqlite::params![root_id, &path_str],
-                    |r| r.get(0),
-                )
-                .ok();
-
-            if let Some(track_id) = by_path {
-                update_track_row(conn, track_id, root_id, &path_str, &meta, format, mtime_secs, has_cover, hash.as_deref(), featuring_col)?;
-                count += 1;
-                continue;
-            }
-
-            let by_path_any_root: Option<i64> = conn
-                .query_row(
-                    "SELECT id FROM tracks WHERE path = ?1 AND deleted_at IS NOT NULL LIMIT 1",
-                    [&path_str],
-                    |r| r.get(0),
-                )
-                .ok();
-
-            if let Some(track_id) = by_path_any_root {
-                update_track_row(conn, track_id, root_id, &path_str, &meta, format, mtime_secs, has_cover, hash.as_deref(), featuring_col)?;
-                count += 1;
-                continue;
-            }
-
-            if let Some(ref h) = hash {
-                let by_hash: Option<i64> = conn
-                    .query_row(
-                        "SELECT id FROM tracks WHERE content_hash = ?1 AND deleted_at IS NOT NULL LIMIT 1",
-                        [h],
-                        |r| r.get(0),
-                    )
-                    .ok();
-
-                if let Some(track_id) = by_hash {
-                    update_track_row(conn, track_id, root_id, &path_str, &meta, format, mtime_secs, has_cover, hash.as_deref(), featuring_col)?;
-                    count += 1;
-                    continue;
-                }
-            }
-
-            {
-                let by_suffix: Option<i64> = conn
-                    .query_row(
-                        "SELECT t.id FROM tracks t \
-                         JOIN roots r ON r.id = t.root_id \
-                         WHERE t.deleted_at IS NOT NULL \
-                         AND t.content_hash IS NULL \
-                         AND ?1 LIKE '%' || SUBSTR(t.path, LENGTH(r.path) + 2) \
-                         ORDER BY LENGTH(t.path) DESC \
-                         LIMIT 1",
-                        [&path_str],
-                        |r| r.get(0),
-                    )
-                    .ok();
-
-                if let Some(track_id) = by_suffix {
-                    update_track_row(conn, track_id, root_id, &path_str, &meta, format, mtime_secs, has_cover, hash.as_deref(), featuring_col)?;
-                    count += 1;
-                    continue;
-                }
-            }
-
-            insert_track_row(conn, root_id, &path_str, &meta, format, mtime_secs, has_cover, hash.as_deref(), featuring_col)?;
-            count += 1;
-            continue;
-        }
-
-        if featuring_col {
-            legacy_insert
-                .execute(rusqlite::params![
-                    root_id, path_str, meta.title, meta.artist, meta.album, meta.album_artist,
-                    meta.featuring, meta.year.map(|y| y as i64), meta.genre,
-                    meta.track_number.map(|n| n as i64), meta.disc_number.map(|n| n as i64),
-                    meta.duration_secs.map(|d| d as i64), format, mtime_secs,
-                    if has_cover { 1i64 } else { 0i64 },
-                ])
-                .map_err(|e| e.to_string())?;
+        let hash = if up.use_smart_upsert {
+            compute_content_hash(path).ok()
         } else {
-            legacy_insert
-                .execute(rusqlite::params![
-                    root_id, path_str, meta.title, meta.artist, meta.album, meta.album_artist,
-                    meta.year.map(|y| y as i64), meta.genre,
-                    meta.track_number.map(|n| n as i64), meta.disc_number.map(|n| n as i64),
-                    meta.duration_secs.map(|d| d as i64), format, mtime_secs,
-                    if has_cover { 1i64 } else { 0i64 },
-                ])
-                .map_err(|e| e.to_string())?;
-        }
+            None
+        };
+
+        up.upsert(&ScannedTrack {
+            path: &path_str,
+            format,
+            mtime_secs,
+            content_hash: hash.as_deref(),
+            has_cover: meta.picture_base64.as_ref().is_some_and(|s| !s.is_empty()),
+            meta: &meta,
+        })?;
         count += 1;
     }
     Ok(count)
