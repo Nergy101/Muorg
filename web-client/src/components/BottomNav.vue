@@ -29,7 +29,7 @@
         @click="onTabClick(tab.name)"
       >
         <MageIcon
-          :name="tab.icon"
+          :name="activeIndex === i ? tab.iconActive : tab.icon"
           class="h-6 w-6 transition-transform duration-200"
           :class="activeIndex === i ? 'scale-[1.15] text-primary' : 'text-on-surface-variant'"
         />
