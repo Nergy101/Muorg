@@ -28,7 +28,7 @@
         :aria-current="activeIndex === i ? 'page' : undefined"
         @click="onTabClick(tab.name)"
       >
-        <FeatherIcon
+        <MageIcon
           :name="tab.icon"
           class="h-6 w-6 transition-transform duration-200"
           :class="activeIndex === i ? 'scale-[1.15] text-primary' : 'text-on-surface-variant'"
@@ -41,7 +41,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "./MageIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
 

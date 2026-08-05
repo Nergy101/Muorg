@@ -3,7 +3,7 @@
     <!-- Search field: pinned, not part of the scrolling body -->
     <div class="content-col shrink-0 px-4 pb-2 pt-3">
       <div class="flex h-11 items-center gap-2 rounded-full bg-surface px-4">
-        <FeatherIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+        <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         <input
           v-model="query"
           type="text"
@@ -18,7 +18,7 @@
           aria-label="Clear search"
           @click="clearSearch"
         >
-          <FeatherIcon name="x" class="h-4 w-4" />
+          <MageIcon name="multiply" class="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -28,7 +28,7 @@
       <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2">
         <div class="flex items-center justify-between py-1">
           <div class="flex items-center gap-1.5 text-label-lg text-on-surface-variant">
-            <FeatherIcon name="clock" class="h-4 w-4" />
+            <MageIcon name="clock" class="h-4 w-4" />
             <span>Recent</span>
           </div>
           <button
@@ -55,7 +55,7 @@
       <!-- Artist filter chip -->
       <div v-if="artistLabel" class="content-col px-4 pb-2">
         <div class="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5">
-          <FeatherIcon name="user" class="h-4 w-4 text-on-surface-variant" />
+          <MageIcon name="user" class="h-4 w-4 text-on-surface-variant" />
           <span class="text-label-lg text-on-surface">{{ artistLabel }}</span>
           <button
             type="button"
@@ -63,7 +63,7 @@
             aria-label="Clear artist filter"
             @click="clearArtistFilter"
           >
-            <FeatherIcon name="x" class="h-3.5 w-3.5" />
+            <MageIcon name="multiply" class="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -90,7 +90,7 @@
               @click="selectSort(opt.value)"
             >
               <span>{{ opt.label }}</span>
-              <FeatherIcon v-if="settings.sortMode === opt.value" name="check" class="h-4 w-4 text-primary" />
+              <MageIcon v-if="settings.sortMode === opt.value" name="check" class="h-4 w-4 text-primary" />
             </button>
           </div>
         </div>
@@ -101,7 +101,7 @@
           :aria-label="settings.sortAscending ? 'Sort descending' : 'Sort ascending'"
           @click="settings.setSortAscending(!settings.sortAscending)"
         >
-          <FeatherIcon :name="settings.sortAscending ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
+          <MageIcon :name="settings.sortAscending ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
         </button>
 
         <div class="flex-1" />
@@ -112,7 +112,7 @@
           aria-label="Change layout"
           @click="settings.cycleAlbumViewStyle()"
         >
-          <FeatherIcon :name="viewStyleIcon" class="h-4 w-4" />
+          <MageIcon :name="viewStyleIcon" class="h-4 w-4" />
         </button>
 
         <button
@@ -123,13 +123,13 @@
           :aria-pressed="player.shuffleAllActive"
           @click="player.startShuffleAll(lib.filteredTracks)"
         >
-          <FeatherIcon name="shuffle" class="h-4 w-4" />
+          <MageIcon name="exchange" class="h-4 w-4" />
         </button>
       </div>
 
       <!-- Content -->
       <div v-if="lib.loading" class="flex items-center justify-center py-12">
-        <FeatherIcon name="refresh-cw" class="h-7 w-7 animate-spin text-on-surface-variant" />
+        <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>
 
       <div v-else-if="lib.error" class="content-col px-6 py-12 text-center text-body-md text-error">
@@ -140,7 +140,7 @@
         v-else-if="showEmptyState"
         class="content-col flex flex-col items-center gap-2 px-6 py-12 text-center"
       >
-        <FeatherIcon name="music" class="h-12 w-12 text-on-surface-variant/40" />
+        <MageIcon name="music" class="h-12 w-12 text-on-surface-variant/40" />
         <span class="text-body-md text-on-surface-variant">{{ emptyMessage }}</span>
       </div>
 
@@ -210,7 +210,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
@@ -301,9 +301,9 @@ const sortLabel = computed(
 );
 
 const viewStyleIcon = computed(() => {
-  if (settings.albumViewStyle === "list") return "list";
+  if (settings.albumViewStyle === "list") return "arrowlist";
   if (settings.albumViewStyle === "tracks") return "music";
-  return "grid";
+  return "layout-grid";
 });
 
 function selectSort(mode: SortMode): void {

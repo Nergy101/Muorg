@@ -21,7 +21,7 @@
         decoding="async"
       />
       <div v-else class="flex h-full w-full items-center justify-center">
-        <FeatherIcon name="music" class="h-5 w-5 text-on-surface-variant/60" />
+        <MageIcon name="music" class="h-5 w-5 text-on-surface-variant/60" />
       </div>
     </div>
 
@@ -36,7 +36,7 @@
     </div>
 
     <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
-      <FeatherIcon name="music" class="h-3.5 w-3.5" />
+      <MageIcon name="music" class="h-3.5 w-3.5" />
       <span class="text-label-md tabular-nums">{{ item.trackCount }}</span>
     </div>
   </div>
@@ -64,7 +64,7 @@
       decoding="async"
     />
     <div v-else class="absolute inset-0 flex items-center justify-center">
-      <FeatherIcon name="music" class="h-10 w-10 text-on-surface-variant/50" />
+      <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/50" />
     </div>
 
     <!-- Scrim so the caption stays legible over any artwork -->
@@ -79,7 +79,7 @@
         <div class="truncate text-label-sm text-white/75">{{ item.albumArtist }}</div>
       </div>
       <div class="flex shrink-0 items-center gap-1 pb-0.5 text-white/75">
-        <FeatherIcon name="music" class="h-3 w-3" />
+        <MageIcon name="music" class="h-3 w-3" />
         <span class="text-label-sm tabular-nums">{{ item.trackCount }}</span>
       </div>
     </div>
@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore } from "../stores/library";
 import { useLongPress } from "../composables/useLongPress";

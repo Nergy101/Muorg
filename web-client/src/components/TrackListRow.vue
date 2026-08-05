@@ -21,7 +21,7 @@
         v-else-if="leading === 'index'"
         class="text-body-md tabular-nums text-on-surface-variant"
       >{{ track.track_number ?? "·" }}</span>
-      <FeatherIcon v-else name="music" class="h-5 w-5 text-on-surface-variant/60" />
+      <MageIcon v-else name="music" class="h-5 w-5 text-on-surface-variant/60" />
     </div>
 
     <!-- Title + artist -->
@@ -55,14 +55,14 @@
       aria-label="Track actions"
       @click.stop="emit('actions')"
     >
-      <FeatherIcon name="more-vertical" class="h-5 w-5" />
+      <MageIcon name="dots" class="h-5 w-5" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "./MageIcon.vue";
 import EqualizerBars from "./EqualizerBars.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";

@@ -18,17 +18,17 @@
     >
       <span class="text-title-lg leading-none">{{ p.icon ?? "🎵" }}</span>
       <span class="min-w-0 flex-1 truncate text-body-lg text-on-surface">{{ p.name }}</span>
-      <FeatherIcon
+      <MageIcon
         v-if="stateFor(p.id) === 'full'"
         name="check-circle"
         class="h-5 w-5 shrink-0 text-primary"
       />
-      <FeatherIcon
+      <MageIcon
         v-else-if="stateFor(p.id) === 'partial'"
         name="check-circle"
         class="h-5 w-5 shrink-0 text-secondary opacity-70"
       />
-      <FeatherIcon v-else name="circle" class="h-5 w-5 shrink-0 text-on-surface-variant/40" />
+      <span v-else class="h-5 w-5 shrink-0 rounded-full border-2 border-on-surface-variant/40" />
     </button>
 
     <div class="my-1 border-t border-outline/30" />
@@ -39,7 +39,7 @@
       class="flex h-14 w-full items-center gap-3 px-6 text-left text-primary"
       @click="startCreating"
     >
-      <FeatherIcon name="plus" class="h-5 w-5" />
+      <MageIcon name="plus" class="h-5 w-5" />
       <span class="text-body-lg">New playlist</span>
     </button>
 
@@ -73,7 +73,7 @@
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import type { Playlist } from "../types";
 

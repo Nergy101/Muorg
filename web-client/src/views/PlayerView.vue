@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="player.currentTrack"
-    class="absolute inset-0 flex flex-col overflow-hidden"
+    class="absolute inset-x-0 bottom-0 -top-[env(safe-area-inset-top)] flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]"
     :style="{ backgroundColor: glowBgColor }"
   >
     <!-- Dominant-colour backdrop -->
@@ -37,7 +37,7 @@
           aria-label="Back"
           @click="router.back()"
         >
-          <FeatherIcon name="chevron-left" class="h-6 w-6" />
+          <MageIcon name="chevron-left" class="h-6 w-6" />
         </button>
         <div class="flex-1" />
         <button
@@ -47,7 +47,7 @@
           aria-label="Sleep timer"
           @click="onSleepButton"
         >
-          <FeatherIcon name="moon" class="h-5 w-5" />
+          <MageIcon name="moon" class="h-5 w-5" />
         </button>
         <button
           type="button"
@@ -55,7 +55,7 @@
           aria-label="Queue"
           @click="router.push({ name: 'queue' })"
         >
-          <FeatherIcon name="list" class="h-5 w-5" />
+          <MageIcon name="stack" class="h-5 w-5" />
         </button>
         <button
           type="button"
@@ -63,7 +63,7 @@
           aria-label="Track actions"
           @click="openTrackActions"
         >
-          <FeatherIcon name="more-vertical" class="h-5 w-5" />
+          <MageIcon name="dots" class="h-5 w-5" />
         </button>
       </div>
 
@@ -86,7 +86,7 @@
               class="h-full w-full object-cover"
             />
             <div v-else class="flex h-full w-full items-center justify-center bg-black/30">
-              <FeatherIcon name="music" class="h-10 w-10 text-white/50" />
+              <MageIcon name="music" class="h-10 w-10 text-white/50" />
             </div>
           </div>
         </div>
@@ -108,7 +108,7 @@
             aria-label="Add to playlist"
             @click="openAddToPlaylist"
           >
-            <FeatherIcon name="plus" class="h-6 w-6" />
+            <MageIcon name="playlist-add" class="h-6 w-6" />
           </button>
           <button
             type="button"
@@ -119,7 +119,7 @@
           >
             <!-- CSS `fill` beats the presentation attribute feather emits, so the
                  heart reads as solid once favourited. -->
-            <FeatherIcon name="heart" class="h-6 w-6" :class="isFavorite ? 'fill-current' : ''" />
+            <MageIcon name="heart" class="h-6 w-6" :class="isFavorite ? 'fill-current' : ''" />
           </button>
         </div>
       </div>
@@ -161,7 +161,7 @@
           aria-label="Shuffle"
           @click="player.toggleShuffle()"
         >
-          <FeatherIcon name="shuffle" class="h-7 w-7" />
+          <MageIcon name="exchange" class="h-7 w-7" />
         </button>
         <button
           type="button"
@@ -169,7 +169,7 @@
           aria-label="Previous track"
           @click="player.skipPrevious()"
         >
-          <FeatherIcon name="skip-back" class="h-7 w-7" />
+          <MageIcon name="previous" class="h-7 w-7" />
         </button>
         <button
           type="button"
@@ -177,7 +177,7 @@
           :aria-label="player.isPlaying ? 'Pause' : 'Play'"
           @click="player.playPause()"
         >
-          <FeatherIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-8 w-8" />
+          <MageIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-8 w-8" />
         </button>
         <button
           type="button"
@@ -185,7 +185,7 @@
           aria-label="Next track"
           @click="player.skipNext()"
         >
-          <FeatherIcon name="skip-forward" class="h-7 w-7" />
+          <MageIcon name="next" class="h-7 w-7" />
         </button>
         <button
           type="button"
@@ -194,7 +194,7 @@
           aria-label="Repeat mode"
           @click="player.cycleRepeatMode()"
         >
-          <FeatherIcon name="repeat" class="h-7 w-7" />
+          <MageIcon name="reload" class="h-7 w-7" />
           <span
             v-if="player.repeatMode === 'one'"
             class="absolute bottom-0.5 right-0.5 text-label-sm font-bold leading-none"
@@ -242,7 +242,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import BottomSheet from "../components/BottomSheet.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";

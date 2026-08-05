@@ -21,7 +21,7 @@
           </p>
         </div>
         <button type="button" class="flex items-center gap-1 px-2 text-label-lg text-primary" @click="install()">
-          <FeatherIcon name="download" class="h-4 w-4" />
+          <MageIcon name="download" class="h-4 w-4" />
           <span>Install</span>
         </button>
       </div>
@@ -76,7 +76,7 @@
             @click="sortMenuOpen = !sortMenuOpen"
           >
             <span>{{ sortLabel }}</span>
-            <FeatherIcon name="chevron-down" class="h-4 w-4" />
+            <MageIcon name="chevron-down" class="h-4 w-4" />
           </button>
           <div
             v-if="sortMenuOpen"
@@ -90,7 +90,7 @@
               @click="selectSort(opt.value)"
             >
               <span>{{ opt.label }}</span>
-              <FeatherIcon
+              <MageIcon
                 v-if="settings.sortMode === opt.value"
                 name="check"
                 class="h-4 w-4 text-primary"
@@ -224,7 +224,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import SegmentedControl from "../components/SegmentedControl.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { disconnect, getServerUrl } from "../api/client";

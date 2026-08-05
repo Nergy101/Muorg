@@ -12,7 +12,7 @@
               class="h-full w-full object-cover"
             />
             <div v-else class="flex h-full w-full items-center justify-center">
-              <FeatherIcon name="music" class="h-4 w-4 text-on-surface-variant/60" />
+              <MageIcon name="music" class="h-4 w-4 text-on-surface-variant/60" />
             </div>
           </div>
           <div class="min-w-0 flex-1">
@@ -24,7 +24,7 @@
         <div class="my-1 border-t border-outline/30" />
 
         <button type="button" :class="ROW" @click="onToggleFavorite">
-          <FeatherIcon
+          <MageIcon
             name="heart"
             class="h-5 w-5 shrink-0"
             :class="isFavorite ? 'text-primary' : 'text-on-surface-variant'"
@@ -35,7 +35,7 @@
         </button>
 
         <button type="button" :class="ROW" @click="openPlaylists">
-          <FeatherIcon name="plus" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <MageIcon name="playlist-add" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Add to playlist</span>
         </button>
 
@@ -45,11 +45,11 @@
           :class="[ROW, 'text-error']"
           @click="onRemoveQueue"
         >
-          <FeatherIcon name="trash-2" class="h-5 w-5 shrink-0" />
+          <MageIcon name="trash" class="h-5 w-5 shrink-0" />
           <span>Remove from queue</span>
         </button>
         <button v-else type="button" :class="ROW" @click="onAddToQueue">
-          <FeatherIcon name="list" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <MageIcon name="stack" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Add to queue</span>
         </button>
 
@@ -61,7 +61,7 @@
           class="flex min-h-14 w-full items-center gap-4 px-6 py-2 text-left"
           @click="emit('view-artist'); emit('close')"
         >
-          <FeatherIcon name="user" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <MageIcon name="user" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span class="min-w-0 flex-1">
             <span class="block text-body-lg text-on-surface">View artist</span>
             <span class="block truncate text-body-sm text-on-surface-variant">{{ artistName }}</span>
@@ -74,7 +74,7 @@
           class="flex min-h-14 w-full items-center gap-4 px-6 py-2 text-left"
           @click="emit('view-album'); emit('close')"
         >
-          <FeatherIcon name="music" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <MageIcon name="music" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span class="min-w-0 flex-1">
             <span class="block text-body-lg text-on-surface">View album</span>
             <span class="block truncate text-body-sm text-on-surface-variant">{{ track.album }}</span>
@@ -84,11 +84,11 @@
         <div class="my-1 border-t border-outline/30" />
 
         <button type="button" :class="ROW" @click="level = 'info'">
-          <FeatherIcon name="info" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <MageIcon name="information-circle" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Track info</span>
         </button>
         <button type="button" :class="ROW" @click="openEdit">
-          <FeatherIcon name="edit-2" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <MageIcon name="edit" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Edit metadata</span>
         </button>
         <div class="h-4" />
@@ -97,13 +97,13 @@
       <!-- ─── playlists ────────────────────────────────────────────────── -->
       <template v-else-if="level === 'playlists'">
         <button type="button" :class="ROW" @click="level = 'main'">
-          <FeatherIcon name="arrow-left" class="h-5 w-5 shrink-0" />
+          <MageIcon name="arrow-left" class="h-5 w-5 shrink-0" />
           <span>Back</span>
         </button>
         <div :class="LABEL">ADD TO…</div>
 
         <div v-if="membershipLoading" class="flex justify-center py-6">
-          <FeatherIcon name="refresh-cw" class="h-6 w-6 animate-spin text-on-surface-variant" />
+          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
         </div>
 
         <template v-else>
@@ -116,18 +116,18 @@
           >
             <span class="text-title-lg leading-none">{{ p.icon ?? "🎵" }}</span>
             <span class="min-w-0 flex-1 truncate text-body-lg text-on-surface">{{ p.name }}</span>
-            <FeatherIcon
+            <MageIcon
               v-if="isInPlaylist(p)"
               name="check-circle"
               class="h-5 w-5 shrink-0 text-primary"
             />
-            <FeatherIcon v-else name="circle" class="h-5 w-5 shrink-0 text-on-surface-variant/40" />
+            <span v-else class="h-5 w-5 shrink-0 rounded-full border-2 border-on-surface-variant/40" />
           </button>
 
           <div class="my-1 border-t border-outline/30" />
 
           <button v-if="!creating" type="button" :class="[ROW, 'text-primary']" @click="startCreating">
-            <FeatherIcon name="plus" class="h-5 w-5 shrink-0" />
+            <MageIcon name="plus" class="h-5 w-5 shrink-0" />
             <span>New playlist…</span>
           </button>
           <div v-else class="px-6 pb-4 pt-2">
@@ -160,7 +160,7 @@
       <!-- ─── info ─────────────────────────────────────────────────────── -->
       <template v-else-if="level === 'info'">
         <button type="button" :class="ROW" @click="level = 'main'">
-          <FeatherIcon name="arrow-left" class="h-5 w-5 shrink-0" />
+          <MageIcon name="arrow-left" class="h-5 w-5 shrink-0" />
           <span>Back</span>
         </button>
         <div :class="LABEL">TRACK INFO</div>
@@ -178,7 +178,7 @@
       <!-- ─── edit ─────────────────────────────────────────────────────── -->
       <template v-else>
         <button type="button" :class="ROW" @click="level = 'main'">
-          <FeatherIcon name="arrow-left" class="h-5 w-5 shrink-0" />
+          <MageIcon name="arrow-left" class="h-5 w-5 shrink-0" />
           <span>Back</span>
         </button>
         <div :class="LABEL">EDIT METADATA</div>
@@ -211,7 +211,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";

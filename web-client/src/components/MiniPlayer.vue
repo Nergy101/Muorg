@@ -27,7 +27,7 @@
             class="h-full w-full object-cover"
           />
           <div v-else class="flex h-full w-full items-center justify-center">
-            <FeatherIcon name="music" class="h-5 w-5 text-on-surface-variant/60" />
+            <MageIcon name="music" class="h-5 w-5 text-on-surface-variant/60" />
           </div>
         </div>
 
@@ -43,7 +43,7 @@
             v-if="player.sleepTimerActive"
             class="flex items-center gap-1 text-label-sm text-primary"
           >
-            <FeatherIcon name="moon" class="h-3 w-3" />
+            <MageIcon name="moon" class="h-3 w-3" />
             <span>{{ sleepLabel }}</span>
           </div>
         </div>
@@ -56,7 +56,7 @@
           aria-label="Queue"
           @click="router.push({ name: 'queue' })"
         >
-          <FeatherIcon name="list" class="h-5 w-5" />
+          <MageIcon name="stack" class="h-5 w-5" />
         </button>
         <button
           type="button"
@@ -64,7 +64,7 @@
           :aria-label="player.isPlaying ? 'Pause' : 'Play'"
           @click="player.playPause()"
         >
-          <FeatherIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-6 w-6" />
+          <MageIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-6 w-6" />
         </button>
         <button
           type="button"
@@ -72,7 +72,7 @@
           aria-label="Next track"
           @click="player.skipNext()"
         >
-          <FeatherIcon name="skip-forward" class="h-5 w-5" />
+          <MageIcon name="next" class="h-5 w-5" />
         </button>
       </div>
     </div>
@@ -82,7 +82,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";

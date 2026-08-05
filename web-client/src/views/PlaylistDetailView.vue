@@ -8,7 +8,7 @@
           aria-label="Back"
           @click="router.back()"
         >
-          <FeatherIcon name="chevron-left" class="h-5 w-5" />
+          <MageIcon name="chevron-left" class="h-5 w-5" />
         </button>
       </div>
       <div class="flex min-h-0 flex-1 items-center justify-center">
@@ -24,7 +24,7 @@
           aria-label="Back"
           @click="router.back()"
         >
-          <FeatherIcon name="chevron-left" class="h-5 w-5" />
+          <MageIcon name="chevron-left" class="h-5 w-5" />
         </button>
 
         <span class="min-w-0 flex-1 truncate text-title-md text-on-surface">
@@ -38,7 +38,7 @@
           :class="hasUnsavedOrder ? 'text-primary' : 'text-on-surface-variant'"
           @click="commitOrder"
         >
-          <FeatherIcon :name="hasUnsavedOrder ? 'save' : 'menu'" class="h-5 w-5" />
+          <MageIcon :name="hasUnsavedOrder ? 'save-floppy' : 'dash-menu'" class="h-5 w-5" />
           <span class="text-label-md">{{ hasUnsavedOrder ? "save" : "reorder" }}</span>
         </button>
 
@@ -48,7 +48,7 @@
           aria-label="Change layout"
           @click="settings.cycleAlbumViewStyle()"
         >
-          <FeatherIcon :name="viewIcon" class="h-5 w-5" />
+          <MageIcon :name="viewIcon" class="h-5 w-5" />
         </button>
       </div>
 
@@ -70,7 +70,7 @@
               style="touch-action: none"
               @pointerdown="drag.start(i, $event)"
             >
-              <FeatherIcon name="menu" class="h-5 w-5" />
+              <MageIcon name="dash-menu" class="h-5 w-5" />
             </div>
             <TrackListRow
               v-if="trackById.get(id)"
@@ -126,7 +126,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
@@ -150,7 +150,7 @@ const playlistId = computed(() => Number(props.id));
 const playlist = computed(() => playlistStore.playlists.find((p) => p.id === playlistId.value) ?? null);
 
 const viewIcon = computed(
-  () => ({ grid: "grid", list: "list", tracks: "music" })[settings.albumViewStyle],
+  () => ({ grid: "layout-grid", list: "arrowlist", tracks: "music" })[settings.albumViewStyle],
 );
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));

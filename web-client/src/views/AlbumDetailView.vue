@@ -7,7 +7,7 @@
         aria-label="Back"
         @click="router.back()"
       >
-        <FeatherIcon name="chevron-left" class="h-6 w-6" />
+        <MageIcon name="chevron-left" class="h-6 w-6" />
       </button>
     </div>
 
@@ -32,7 +32,7 @@
             class="h-full w-full object-cover"
           />
           <div v-else class="flex h-full w-full items-center justify-center">
-            <FeatherIcon name="music" class="h-8 w-8 text-on-surface-variant/60" />
+            <MageIcon name="music" class="h-8 w-8 text-on-surface-variant/60" />
           </div>
         </div>
 
@@ -50,7 +50,7 @@
             aria-label="Play album"
             @click="playAlbum"
           >
-            <FeatherIcon name="play" class="h-6 w-6" />
+            <MageIcon name="play" class="h-6 w-6" />
           </button>
           <button
             type="button"
@@ -58,7 +58,7 @@
             aria-label="Add album to playlist"
             @click="openPicker"
           >
-            <FeatherIcon name="plus" class="h-5 w-5" />
+            <MageIcon name="playlist-add" class="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -102,7 +102,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";

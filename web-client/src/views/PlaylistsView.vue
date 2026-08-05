@@ -8,13 +8,13 @@
         aria-label="New playlist"
         @click="openCreate"
       >
-        <FeatherIcon name="plus" class="h-5 w-5" />
+        <MageIcon name="plus" class="h-5 w-5" />
       </button>
     </div>
 
     <div class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <div v-if="playlistStore.loading" class="flex justify-center py-12">
-        <FeatherIcon name="refresh-cw" class="h-7 w-7 animate-spin text-on-surface-variant" />
+        <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>
 
       <div v-else-if="playlistStore.playlists.length === 0" class="flex flex-col items-center gap-1 py-12">
@@ -42,7 +42,7 @@
             aria-label="Edit playlist"
             @click.stop="openEdit(p)"
           >
-            <FeatherIcon name="edit-2" class="h-5 w-5" />
+            <MageIcon name="edit" class="h-5 w-5" />
           </button>
           <button
             type="button"
@@ -50,7 +50,7 @@
             aria-label="Delete playlist"
             @click.stop="deleteTarget = p"
           >
-            <FeatherIcon name="trash-2" class="h-5 w-5" />
+            <MageIcon name="trash" class="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -81,7 +81,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import PlaylistFormDialog from "../components/PlaylistFormDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { usePlaylistStore } from "../stores/playlists";

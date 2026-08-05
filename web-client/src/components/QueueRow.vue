@@ -5,7 +5,7 @@
       v-if="swipe.offsetX.value < 0"
       class="absolute inset-0 flex items-center justify-end bg-error-container pr-6"
     >
-      <FeatherIcon name="trash-2" class="h-5 w-5 text-on-error-container" />
+      <MageIcon name="trash" class="h-5 w-5 text-on-error-container" />
     </div>
 
     <!-- Foreground row -->
@@ -23,7 +23,7 @@
         aria-label="Reorder"
         @pointerdown.stop="emit('drag-start', $event)"
       >
-        <FeatherIcon name="menu" class="h-5 w-5" />
+        <MageIcon name="dash-menu" class="h-5 w-5" />
       </button>
 
       <!-- Format and duration are dropped here: the queue is narrower than the
@@ -43,14 +43,14 @@
         aria-label="Remove from queue"
         @click="emit('remove')"
       >
-        <FeatherIcon name="x" class="h-5 w-5" />
+        <MageIcon name="multiply" class="h-5 w-5" />
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "./MageIcon.vue";
 import TrackListRow from "./TrackListRow.vue";
 import { useSwipeToRemove } from "../composables/useSwipeToRemove";
 import type { CatalogTrack } from "../types";

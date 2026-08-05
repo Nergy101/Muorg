@@ -7,7 +7,7 @@
         aria-label="Back"
         @click="router.back()"
       >
-        <FeatherIcon name="chevron-left" class="h-6 w-6" />
+        <MageIcon name="chevron-left" class="h-6 w-6" />
       </button>
       <span class="flex-1 text-title-lg text-on-surface">Queue</span>
       <button
@@ -33,7 +33,7 @@
               class="h-full w-full object-cover"
             />
             <div v-else class="flex h-full w-full items-center justify-center">
-              <FeatherIcon name="music" class="h-5 w-5 text-on-surface-variant/60" />
+              <MageIcon name="music" class="h-5 w-5 text-on-surface-variant/60" />
             </div>
           </div>
           <div class="min-w-0 flex-1">
@@ -57,7 +57,7 @@
           :class="player.shuffleEnabled ? 'text-primary' : 'text-on-surface-variant'"
           @click="player.toggleShuffle()"
         >
-          <FeatherIcon name="shuffle" class="h-4 w-4" />
+          <MageIcon name="exchange" class="h-4 w-4" />
           <span class="text-label-lg">Shuffle</span>
         </button>
       </div>
@@ -100,7 +100,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import EqualizerBars from "../components/EqualizerBars.vue";
 import QueueRow from "../components/QueueRow.vue";

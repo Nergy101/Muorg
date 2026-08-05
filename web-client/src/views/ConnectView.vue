@@ -50,7 +50,7 @@
                 class="absolute inset-y-0 right-3 flex items-center text-on-surface-variant"
                 @click="showKey = !showKey"
               >
-                <FeatherIcon :name="showKey ? 'eye-off' : 'eye'" class="h-5 w-5" />
+                <MageIcon :name="showKey ? 'eye-off' : 'eye'" class="h-5 w-5" />
               </button>
             </div>
           </div>
@@ -62,7 +62,7 @@
             :disabled="busy"
             class="flex w-full items-center justify-center rounded-full bg-primary px-4 py-3 text-label-lg text-on-primary disabled:opacity-60"
           >
-            <FeatherIcon v-if="busy" name="refresh-cw" class="h-5 w-5 animate-spin" />
+            <MageIcon v-if="busy" name="refresh" class="h-5 w-5 animate-spin" />
             <span v-else>Connect</span>
           </button>
         </form>
@@ -77,7 +77,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import MageIcon from "../components/MageIcon.vue";
 import { getServerUrl, getApiKey, setServerUrl, setApiKey, testConnection } from "../api/client";
 import { router, loadData } from "../router";
 
