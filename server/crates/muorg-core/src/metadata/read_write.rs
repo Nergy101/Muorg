@@ -40,23 +40,59 @@ pub struct TrackMetadata {
     pub replaygain_album_peak: Option<f32>,
 }
 
-pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|s| s.to_lowercase());
-    if ext.as_deref() != Some("mp3") && ext.as_deref() != Some("flac") {
-        return Err("Unsupported format".to_string());
+/// Audio container formats muorg can read tags from.
+///
+/// Exists so callers outside this crate can pick a format without depending on
+/// `lofty`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioFormat {
+    Mp3,
+    Flac,
+}
+
+impl AudioFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mp3 => "mp3",
+            Self::Flac => "flac",
+        }
     }
 
-    let file_type = match ext.as_deref() {
-        Some("mp3") => FileType::Mpeg,
-        Some("flac") => FileType::Flac,
-        _ => return Err("Unsupported format".to_string()),
-    };
+    fn file_type(self) -> FileType {
+        match self {
+            Self::Mp3 => FileType::Mpeg,
+            Self::Flac => FileType::Flac,
+        }
+    }
+}
+
+/// Maps a file extension to a supported format. `ext` is matched
+/// case-insensitively and must not include the leading dot.
+pub fn format_from_ext(ext: &str) -> Option<AudioFormat> {
+    match ext.to_lowercase().as_str() {
+        "mp3" => Some(AudioFormat::Mp3),
+        "flac" => Some(AudioFormat::Flac),
+        _ => None,
+    }
+}
+
+pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
+    let format = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .and_then(format_from_ext)
+        .ok_or_else(|| "Unsupported format".to_string())?;
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let reader = BufReader::new(file);
-    let tagged_file = Probe::with_file_type(reader, file_type)
+    read_metadata_from_reader(BufReader::new(file), format)
+}
+
+/// Reads tags from any seekable source. Used for object-storage tracks, where
+/// there is no local file to open.
+pub fn read_metadata_from_reader<R: std::io::Read + std::io::Seek>(
+    mut reader: R,
+    format: AudioFormat,
+) -> Result<TrackMetadata, String> {
+    let tagged_file = Probe::with_file_type(&mut reader, format.file_type())
         .read()
         .map_err(|e| e.to_string())?;
 
@@ -72,21 +108,19 @@ pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
         meta.album_artist = tag
             .get_string(lofty::tag::ItemKey::AlbumArtist)
             .map(|s| s.to_string());
-        if ext.as_deref() == Some("flac") {
-            meta.featuring = lofty::tag::ItemKey::from_key(tag.tag_type(), "FEATURING")
-                .and_then(|k| tag.get_string(k))
-                .map(|s| s.to_string());
-        } else if ext.as_deref() == Some("mp3") {
-            meta.featuring = lofty::tag::ItemKey::from_key(tag.tag_type(), "FEATURING")
-                .and_then(|k| tag.get_string(k))
-                .map(|s| s.to_string());
-        }
+        meta.featuring = lofty::tag::ItemKey::from_key(tag.tag_type(), "FEATURING")
+            .and_then(|k| tag.get_string(k))
+            .map(|s| s.to_string());
         meta.year = tag.date().map(|d| d.year as u32);
-        if meta.year.is_none() && ext.as_deref() == Some("mp3") {
-            if let Ok(id3_tag) = id3::Tag::read_from_path(path) {
-                if let Some(y) = id3_tag.year() {
-                    if y > 0 {
-                        meta.year = Some(y as u32);
+        if meta.year.is_none() && format == AudioFormat::Mp3 {
+            // lofty does not surface a bare ID3v2 TYER/TDRC year on every file;
+            // fall back to id3's own parse before giving up.
+            if reader.seek(std::io::SeekFrom::Start(0)).is_ok() {
+                if let Ok(id3_tag) = id3::Tag::read_from2(&mut reader) {
+                    if let Some(y) = id3_tag.year() {
+                        if y > 0 {
+                            meta.year = Some(y as u32);
+                        }
                     }
                 }
             }
