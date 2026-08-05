@@ -1,9 +1,9 @@
 <template>
-  <!-- A tiny fixed 8px, not the safe-area inset: the full ~34px inset pushed the
+  <!-- A tiny fixed 12px, not the safe-area inset: the full ~34px inset pushed the
        bar up off the edge and read as a dead gap. This lifts the icon row clear
        of the home indicator and its gesture strip while the background, which
        fills the padding box, still runs to the physical bottom of the screen. -->
-  <nav class="shrink-0 border-t border-outline/30 bg-surface-container pb-2">
+  <nav class="shrink-0 border-t border-outline/30 bg-surface-container pb-3">
     <div class="relative flex h-16 items-stretch">
       <!-- Sliding selection pill -->
       <div
