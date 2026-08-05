@@ -6,7 +6,7 @@
  * player screen, not as a top-level destination.
  */
 export const NAV_TABS = [
-  { name: "library", label: "Library", icon: "home" },
+  { name: "library", label: "Library", icon: "disc" },
   { name: "playlists", label: "Playlists", icon: "list" },
   { name: "settings", label: "Settings", icon: "settings" },
 ] as const;
