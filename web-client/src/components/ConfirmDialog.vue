@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition
-      enter-active-class="transition-opacity duration-200"
+      enter-active-class="sheet-motion"
       enter-from-class="opacity-0"
-      leave-active-class="transition-opacity duration-200"
+      leave-active-class="sheet-motion"
       leave-to-class="opacity-0"
     >
       <div

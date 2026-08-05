@@ -1,8 +1,8 @@
 <template>
   <Transition
-    enter-active-class="transition-transform duration-300"
+    enter-active-class="sheet-motion"
     enter-from-class="-translate-y-full"
-    leave-active-class="transition-transform duration-300"
+    leave-active-class="sheet-motion"
     leave-to-class="-translate-y-full"
   >
     <div

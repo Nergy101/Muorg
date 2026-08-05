@@ -72,6 +72,38 @@ html {
   touch-action: manipulation;
 }
 
+/* ---------------------------------------------------------------------------
+   Motion tokens.
+
+   One duration and one curve for every navigation surface — routes, sheets,
+   banners, toasts. The curve is the iOS navigation ease: a near-instant start
+   that settles slowly, which is what makes a push read as "physical" rather
+   than as a timed fade. Enter and leave deliberately share a duration; an
+   asymmetric pair is the main reason mismatched transitions feel broken.
+   --------------------------------------------------------------------------- */
+:root {
+  --nav-duration: 320ms;
+  --nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Sheets and dialogs travel a shorter distance, so they read better slightly
+     quicker — same curve, so the vocabulary stays one family. */
+  --sheet-duration: 260ms;
+  /* How far the outgoing view slides under the incoming one. iOS never pushes
+     it fully off-screen; the parallax is the depth cue. */
+  --nav-parallax: 30%;
+  /* Scrim laid over the outgoing view at full travel. */
+  --nav-scrim: 0.28;
+}
+
+/* Honour the OS setting: keep the state change, drop the travel. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --nav-duration: 1ms;
+    --sheet-duration: 1ms;
+    --nav-parallax: 0%;
+    --nav-scrim: 0;
+  }
+}
+
 /* Theme variable sets, selected by `data-theme` on <html>. */
 :root,
 [data-theme="dark"] {
@@ -251,16 +283,100 @@ input[type="range"]::-moz-range-thumb {
   margin: auto;
 }
 
-/* Full-screen player route transition */
-.slide-up-enter-active {
-  transition: transform 300ms cubic-bezier(0.33, 1, 0.68, 1);
+/* ---------------------------------------------------------------------------
+   Route transitions.
+
+   Every view root is `absolute inset-0`, so enter and leave overlap in the same
+   box and no `mode="out-in"` is needed — serialising them would double the
+   perceived latency. Only `transform` and `opacity` animate, so the whole thing
+   stays on the compositor.
+   --------------------------------------------------------------------------- */
+
+/* Modal (the full-screen player): only the sheet travels. The view it covers
+   recedes slightly instead of sliding away, matching how iOS presents a sheet —
+   and it keeps a real transition on the leaving element, without which Vue sees
+   no animation and unmounts it instantly, flashing empty space behind the
+   rising sheet. */
+.modal-in-enter-active,
+.modal-in-leave-active,
+.modal-out-enter-active,
+.modal-out-leave-active {
+  transition:
+    transform var(--nav-duration) var(--nav-ease),
+    filter var(--nav-duration) var(--nav-ease);
 }
-.slide-up-leave-active {
-  transition: transform 260ms cubic-bezier(0.32, 0, 0.67, 0);
-}
-.slide-up-enter-from,
-.slide-up-leave-to {
+.modal-in-enter-from,
+.modal-out-leave-to {
   transform: translateY(100%);
+}
+.modal-in-leave-to,
+.modal-out-enter-from {
+  transform: scale(0.96);
+  filter: brightness(calc(1 - var(--nav-scrim)));
+}
+/* The sheet is always the upper layer, rising or falling. */
+.modal-in-enter-active,
+.modal-out-leave-active {
+  z-index: 1;
+}
+.modal-in-leave-active,
+.modal-out-enter-active {
+  z-index: 0;
+}
+
+/* Stack push: the new screen comes in from the right, the old one slides a
+   short way left under a scrim. Pop is the exact inverse, which is what makes
+   back feel like an undo rather than another forward move. */
+.nav-push-enter-active,
+.nav-push-leave-active,
+.nav-pop-enter-active,
+.nav-pop-leave-active {
+  transition:
+    transform var(--nav-duration) var(--nav-ease),
+    filter var(--nav-duration) var(--nav-ease);
+}
+
+.nav-push-enter-from {
+  transform: translateX(100%);
+}
+.nav-push-leave-to,
+.nav-pop-enter-from {
+  transform: translateX(calc(-1 * var(--nav-parallax)));
+  /* Cheaper than stacking a real scrim element, and it composites. */
+  filter: brightness(calc(1 - var(--nav-scrim)));
+}
+.nav-pop-leave-to {
+  transform: translateX(100%);
+}
+
+/* The screen being revealed on pop, and the one being covered on push, must sit
+   below the moving screen. */
+.nav-push-leave-active,
+.nav-pop-enter-active {
+  z-index: 0;
+}
+.nav-push-enter-active,
+.nav-pop-leave-active {
+  z-index: 1;
+}
+
+/* Sideways move between sibling tabs: no depth change, so no parallax — a
+   short cross-fade keeps it from reading as a push. */
+.nav-fade-enter-active,
+.nav-fade-leave-active {
+  transition: opacity var(--sheet-duration) var(--nav-ease);
+}
+.nav-fade-enter-from,
+.nav-fade-leave-to {
+  opacity: 0;
+}
+
+/* Shared by every overlay surface (sheets, dialogs, banners, toasts) so they
+   all move on the same curve as route navigation. */
+.sheet-motion {
+  transition:
+    transform var(--sheet-duration) var(--nav-ease),
+    opacity var(--sheet-duration) var(--nav-ease);
 }
 
 /* Favorite heart pop (PlayerView): springy bounce when a track is favourited */

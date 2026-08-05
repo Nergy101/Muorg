@@ -1,18 +1,18 @@
 <template>
   <Teleport to="body">
     <Transition
-      enter-active-class="transition-opacity duration-250"
+      enter-active-class="sheet-motion"
       enter-from-class="opacity-0"
-      leave-active-class="transition-opacity duration-250"
+      leave-active-class="sheet-motion"
       leave-to-class="opacity-0"
     >
       <div v-if="open" class="fixed inset-0 z-50 bg-black/50" @click="emit('close')" />
     </Transition>
 
     <Transition
-      enter-active-class="transition-transform duration-250 ease-out"
+      enter-active-class="sheet-motion"
       enter-from-class="translate-y-full"
-      leave-active-class="transition-transform duration-250 ease-in"
+      leave-active-class="sheet-motion"
       leave-to-class="translate-y-full"
     >
       <div
