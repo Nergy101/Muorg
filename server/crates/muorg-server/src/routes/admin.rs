@@ -23,21 +23,34 @@ pub async fn rescan(
     body: Option<Json<RescanBody>>,
 ) -> Result<Json<RescanResult>, ApiError> {
     let root_path = body.and_then(|b| b.0.root_path);
-    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
 
-    let tracks_added = if let Some(path) = root_path {
-        // Upsert root (adds if new, resurrects if soft-deleted) then rescan.
-        muorg_core::catalog::save_roots(&conn, std::slice::from_ref(&path))?;
-        muorg_core::catalog::rescan_root(&conn, &path)?
-    } else {
-        // Rescan all active roots.
-        let roots = muorg_core::catalog::load_roots(&conn)?;
-        let mut total = 0u64;
-        for root in roots {
-            total += muorg_core::catalog::rescan_root(&conn, &root)?;
+    // Each DB section is scoped: a `MutexGuard` is `!Send` and cannot be held
+    // across the remote scanner's `.await`s.
+    let roots = match root_path {
+        Some(path) => {
+            // Upsert root (adds if new, resurrects if soft-deleted) then rescan.
+            let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+            muorg_core::catalog::save_roots(&conn, std::slice::from_ref(&path))?;
+            vec![path]
         }
-        total
+        None => {
+            let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+            muorg_core::catalog::load_roots(&conn)?
+        }
     };
+
+    let mut tracks_added = 0u64;
+    for root in roots {
+        if let Some(remote) = state.remotes.resolve_root(&root) {
+            tracks_added +=
+                crate::storage::scan::scan_remote_root(&state, &remote, state.remote_scan_concurrency)
+                    .await?
+                    .0;
+        } else {
+            let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+            tracks_added += muorg_core::catalog::rescan_root(&conn, &root)?;
+        }
+    }
 
     Ok(Json(RescanResult { tracks_added }))
 }

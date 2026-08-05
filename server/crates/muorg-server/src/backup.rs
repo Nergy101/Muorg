@@ -74,13 +74,15 @@ pub fn backup_file_name(path: &str) -> Result<String, String> {
     Ok(format!("{}-{}.{}", now, &hash[..12], ext))
 }
 
-pub fn create_backup(backup_dir: &Path, path: &str) -> Result<String, String> {
-    let src = Path::new(path);
+/// Copies `src` into `backup_dir`. `name_key` is the track's identity — its
+/// path or `remote://` URI — and determines the backup file name, so backups
+/// stay grouped per track even when the bytes come from a temp file.
+pub fn create_backup(backup_dir: &Path, src: &Path, name_key: &str) -> Result<String, String> {
     if !src.exists() {
         return Err("Track file does not exist".to_string());
     }
     std::fs::create_dir_all(backup_dir).map_err(|e| e.to_string())?;
-    let backup_path = backup_dir.join(backup_file_name(path)?);
+    let backup_path = backup_dir.join(backup_file_name(name_key)?);
     std::fs::copy(src, &backup_path).map_err(|e| format!("Backup failed: {e}"))?;
     backup_path
         .to_str()
