@@ -7,9 +7,11 @@
     <!-- Bar spans the shell, tabs stay grouped: four icons spread over 1200px
          would sit absurdly far apart. -->
     <div class="relative mx-auto flex h-16 w-full max-w-[600px] items-stretch">
-      <!-- Sliding selection pill -->
+      <!-- Sliding selection pill. Hidden off-tab (the queue screen) rather than
+           parked on Library, which would claim the wrong destination. -->
       <div
-        class="pointer-events-none absolute left-0 top-1/2 flex w-1/4 justify-center transition-transform duration-300"
+        v-if="activeIndex >= 0"
+        class="pointer-events-none absolute left-0 top-1/2 flex w-1/3 justify-center transition-transform duration-300"
         style="transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1)"
         :style="{ transform: `translateX(${activeIndex * 100}%) translateY(-50%)` }"
         aria-hidden="true"
@@ -41,24 +43,12 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
-
-const TABS = [
-  { name: "library", label: "Library", icon: "home" },
-  { name: "playlists", label: "Playlists", icon: "list" },
-  { name: "queue", label: "Queue", icon: "align-justify" },
-  { name: "settings", label: "Settings", icon: "settings" },
-] as const;
+import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
 
 const route = useRoute();
 
-/** Album and playlist detail keep their parent tab lit. */
-const activeIndex = computed(() => {
-  const name = String(route.name);
-  if (name === "album") return 0;
-  if (name === "playlist") return 1;
-  const i = TABS.findIndex((t) => t.name === name);
-  return i < 0 ? 0 : i;
-});
+/** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
+const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
 
 function onTabClick(name: string): void {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;
