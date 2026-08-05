@@ -24,6 +24,10 @@ impl ApiError {
     pub fn not_found(msg: impl ToString) -> Self {
         ApiError(StatusCode::NOT_FOUND, msg.to_string())
     }
+
+    pub fn bad_request(msg: impl ToString) -> Self {
+        ApiError(StatusCode::BAD_REQUEST, msg.to_string())
+    }
 }
 
 impl From<String> for ApiError {
