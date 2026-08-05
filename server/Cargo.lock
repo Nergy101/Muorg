@@ -1223,7 +1223,7 @@ dependencies = [
 
 [[package]]
 name = "muorg-server"
-version = "2.32.3"
+version = "2.32.7"
 dependencies = [
  "axum",
  "base64 0.23.0",
