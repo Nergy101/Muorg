@@ -31,10 +31,10 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
-          aria-label="Close"
+          aria-label="Back"
           @click="router.back()"
         >
-          <FeatherIcon name="chevron-down" class="h-6 w-6" />
+          <FeatherIcon name="chevron-left" class="h-6 w-6" />
         </button>
         <div class="flex-1" />
         <button

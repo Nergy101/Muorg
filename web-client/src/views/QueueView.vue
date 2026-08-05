@@ -4,10 +4,10 @@
       <button
         type="button"
         class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface"
-        aria-label="Close queue"
+        aria-label="Back"
         @click="router.back()"
       >
-        <FeatherIcon name="chevron-down" class="h-6 w-6" />
+        <FeatherIcon name="chevron-left" class="h-6 w-6" />
       </button>
       <span class="flex-1 text-title-lg text-on-surface">Queue</span>
       <button
