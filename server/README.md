@@ -116,6 +116,10 @@ virtual_hosted_style = true     # required for Hetzner
 # prefix = "albums"             # optional sub-folder inside the bucket
 ```
 
+Put this block **at the end of the `[library]` section**. TOML binds every bare
+key after a table header to that table, so a plain `[library]` setting placed
+below it (like `remote_scan_concurrency`) would be read as part of the remote.
+
 Credentials come from the environment so they stay out of the config file:
 `MUORG_REMOTE_CLOUD_ACCESS_KEY_ID` and `MUORG_REMOTE_CLOUD_SECRET_ACCESS_KEY`
 (the `CLOUD` part is the remote's `name`, uppercased). They can also be set as

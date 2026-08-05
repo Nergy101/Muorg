@@ -18,10 +18,17 @@ content_paths = [
 # Rescan all content_paths on startup (true) or only when triggered via API (false).
 scan_on_startup = true
 
+# How many objects to read tags from in parallel during a remote scan.
+# Must stay above the [[library.remotes]] block below — in TOML a bare key
+# after a table header belongs to that table.
+# remote_scan_concurrency = 8
+
 # ── Cloud storage (S3-compatible) ─────────────────────────────────────────────
 # Optional. Index music straight out of an S3-compatible bucket instead of (or
 # alongside) content_paths. Works with Hetzner Object Storage, Cloudflare R2,
 # Backblaze B2, Wasabi, MinIO, AWS S3, and anything else speaking the S3 API.
+#
+# Keep this block last in [library]: every key below it belongs to the remote.
 #
 # Example: Hetzner Object Storage, bucket "muorg" in Nuremberg.
 # [[library.remotes]]
@@ -33,9 +40,6 @@ scan_on_startup = true
 # prefix = ""                     # optional sub-folder inside the bucket
 # access_key_id = "..."           # or MUORG_REMOTE_CLOUD_ACCESS_KEY_ID
 # secret_access_key = "..."       # or MUORG_REMOTE_CLOUD_SECRET_ACCESS_KEY
-
-# How many objects to read tags from in parallel during a remote scan.
-# remote_scan_concurrency = 8
 
 [storage]
 # In Docker: keep these inside the /data volume so they persist across restarts.
