@@ -12,7 +12,7 @@
       </button>
     </div>
 
-    <div class="content-col-children min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <div v-if="playlistStore.loading" class="flex justify-center py-12">
         <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>
@@ -102,11 +102,15 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import PlaylistFormDialog from "../components/PlaylistFormDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import { useScrollMemory } from "../composables/useScrollMemory";
 import { usePlaylistStore } from "../stores/playlists";
 import type { Playlist } from "../types";
 
 const router = useRouter();
 const playlistStore = usePlaylistStore();
+
+const scroller = ref<HTMLElement | null>(null);
+useScrollMemory(scroller);
 
 const formOpen = ref(false);
 const formMode = ref<"create" | "edit">("create");

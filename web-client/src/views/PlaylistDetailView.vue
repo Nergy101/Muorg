@@ -52,7 +52,7 @@
         </button>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-y-auto">
+      <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
         <div v-if="tracks.length === 0" class="content-col flex justify-center py-12">
           <p class="text-body-md text-on-surface-variant">No tracks in this playlist</p>
         </div>
@@ -131,6 +131,7 @@ import TrackListRow from "../components/TrackListRow.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { useDragReorder, REORDER_ROW_HEIGHT } from "../composables/useDragReorder";
+import { useScrollMemory } from "../composables/useScrollMemory";
 import { showToast } from "../composables/useToast";
 import { usePlaylistStore } from "../stores/playlists";
 import { usePlayerStore } from "../stores/player";
@@ -299,4 +300,7 @@ function onViewAlbum(): void {
   }
   closeActions();
 }
+
+const scroller = ref<HTMLElement | null>(null);
+useScrollMemory(scroller);
 </script>

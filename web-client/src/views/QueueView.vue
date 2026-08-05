@@ -17,7 +17,7 @@
       >Clear all</button>
     </div>
 
-    <div class="content-col-children min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <template v-if="player.currentTrack">
         <div class="px-4 pb-1 pt-2 text-label-sm uppercase tracking-[0.8px] text-primary">
           Now playing
@@ -106,6 +106,7 @@ import EqualizerBars from "../components/EqualizerBars.vue";
 import QueueRow from "../components/QueueRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { REORDER_ROW_HEIGHT, useDragReorder } from "../composables/useDragReorder";
+import { useScrollMemory } from "../composables/useScrollMemory";
 import { albumKeyFor, useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import type { CatalogTrack } from "../types";
@@ -186,4 +187,7 @@ function onViewAlbum(): void {
   if (!t) return;
   void router.push({ name: "album", params: { albumKey: albumKeyFor(t) } });
 }
+
+const scroller = ref<HTMLElement | null>(null);
+useScrollMemory(scroller);
 </script>

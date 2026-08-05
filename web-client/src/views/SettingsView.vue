@@ -4,7 +4,7 @@
       <span class="text-title-lg text-on-surface">Settings</span>
     </div>
 
-    <div class="content-col-children min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <!-- ─── Muorg Info ─────────────────────────────────────────────── -->
       <div :class="SECTION">Muorg Info</div>
       <div :class="ROW">
@@ -247,6 +247,7 @@ import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
+import { useScrollMemory } from "../composables/useScrollMemory";
 import type { AlbumViewStyle, SortMode, ThemeMode } from "../types";
 
 const SECTION = "px-4 pt-5 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
@@ -294,6 +295,9 @@ function knobClass(on: boolean): string {
 
 const sortMenuOpen = ref(false);
 const sortMenuRef = ref<HTMLElement | null>(null);
+
+const scroller = ref<HTMLElement | null>(null);
+useScrollMemory(scroller);
 
 const sortLabel = computed(
   () => SORT_OPTIONS.find((o) => o.value === settings.sortMode)?.label ?? "Album",

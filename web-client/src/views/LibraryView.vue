@@ -23,7 +23,7 @@
       </div>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
       <!-- Search history -->
       <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2">
         <div class="flex items-center justify-between py-1">
@@ -220,6 +220,7 @@ import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { usePlaylistStore } from "../stores/playlists";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
+import { useScrollMemory } from "../composables/useScrollMemory";
 import { showToast } from "../composables/useToast";
 import type { AlbumGridItem, CatalogTrack, Playlist, SortMode } from "../types";
 
@@ -422,4 +423,12 @@ watch(scrollToActiveSignal, () => {
   const el = document.querySelector(`[data-album-key="${CSS.escape(key)}"]`);
   el?.scrollIntoView({ behavior: "smooth", block: "center" });
 });
+
+// --- Scroll memory ---------------------------------------------------------
+// Restores the list offset when coming back from an album. Cannot collide with
+// the scroll-to-active above: BottomNav only bumps that signal when Library is
+// already the active route, so a re-tap never triggers an activation and an
+// activation never triggers a re-tap.
+const scroller = ref<HTMLElement | null>(null);
+useScrollMemory(scroller);
 </script>

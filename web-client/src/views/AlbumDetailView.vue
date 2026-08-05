@@ -65,7 +65,7 @@
 
       <div class="content-col shrink-0 border-t border-outline/30" />
 
-      <div class="content-col-children min-h-0 flex-1 overflow-y-auto pb-4">
+      <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-4">
         <TrackListRow
           v-for="track in tracks"
           :key="track.id"
@@ -110,6 +110,7 @@ import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
 import { albumKeyFor, useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
+import { useScrollMemory } from "../composables/useScrollMemory";
 import { showToast } from "../composables/useToast";
 import type { CatalogTrack, Playlist } from "../types";
 
@@ -244,4 +245,10 @@ async function onPickerCreate(name: string): Promise<void> {
   );
   showToast(`Added to ${p.name}`);
 }
+
+// KeepAlive reuses this one instance for every album, so the offset is keyed by
+// path — opening a second album starts at the top, returning to the first does
+// not.
+const scroller = ref<HTMLElement | null>(null);
+useScrollMemory(scroller);
 </script>
