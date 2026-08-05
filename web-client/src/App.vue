@@ -10,7 +10,12 @@
     <div class="relative min-h-0 flex-1" @pointerdown="swipe.onPointerdown">
       <RouterView v-slot="{ Component }">
         <Transition :name="transitionName">
-          <component :is="Component" />
+          <!-- KeepAlive: tab/detail views stay mounted while covered, so the
+               library (and every other screen) keeps its scroll position and
+               state when you navigate back instead of remounting at the top. -->
+          <KeepAlive>
+            <component :is="Component" />
+          </KeepAlive>
         </Transition>
       </RouterView>
     </div>
