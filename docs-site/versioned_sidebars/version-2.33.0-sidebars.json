@@ -1,0 +1,76 @@
+{
+  "docs": [
+    {
+      "type": "doc",
+      "id": "intro",
+      "label": "Welcome"
+    },
+    {
+      "type": "doc",
+      "id": "installation",
+      "label": "Installation"
+    },
+    {
+      "type": "doc",
+      "id": "quick-start",
+      "label": "Quick Start"
+    },
+    {
+      "type": "category",
+      "label": "Desktop App",
+      "link": {
+        "type": "doc",
+        "id": "desktop/index"
+      },
+      "items": [
+        "desktop/index"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Server",
+      "link": {
+        "type": "doc",
+        "id": "server/index"
+      },
+      "items": [
+        "server/index",
+        "server/configuration",
+        "server/docker"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Web Client",
+      "link": {
+        "type": "doc",
+        "id": "web-client/index"
+      },
+      "items": [
+        "web-client/index"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Android",
+      "link": {
+        "type": "doc",
+        "id": "android/index"
+      },
+      "items": [
+        "android/index"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Development",
+      "link": {
+        "type": "doc",
+        "id": "development/index"
+      },
+      "items": [
+        "development/index"
+      ]
+    }
+  ]
+}

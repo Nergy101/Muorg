@@ -1,0 +1,90 @@
+.heroBanner {
+  padding: 5rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(
+    ellipse at top,
+    rgba(91, 124, 50, 0.18),
+    transparent 60%
+  );
+}
+
+.heroLogo {
+  height: 110px;
+  width: 110px;
+  margin-bottom: 1.2rem;
+}
+
+.heroLead {
+  font-size: 1.15rem;
+  max-width: 640px;
+  margin: 0 auto 2rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.features {
+  padding: 2.5rem 0 3rem;
+}
+
+.featureCol {
+  margin-bottom: 1.5rem;
+}
+
+.featureCard {
+  display: block;
+  height: 100%;
+  padding: 1.5rem 1.4rem;
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-color-emphasis-100);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  color: var(--ifm-font-color-base);
+}
+
+.featureCard:hover {
+  text-decoration: none;
+  color: var(--ifm-font-color-base);
+  border-color: var(--ifm-color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.featureIcon {
+  font-size: 2.2rem;
+  margin-bottom: 0.8rem;
+}
+
+.featureCard h3 {
+  margin-bottom: 0.6rem;
+  font-size: 1.15rem;
+}
+
+.featureCard p {
+  font-size: 0.92rem;
+  color: var(--ifm-color-emphasis-700);
+  margin-bottom: 0;
+}
+
+.github {
+  padding: 2.5rem 0 4rem;
+  text-align: center;
+}
+
+.github h2 {
+  margin-bottom: 0.6rem;
+}
+
+.github p {
+  max-width: 560px;
+  margin: 0 auto 1.5rem;
+  color: var(--ifm-color-emphasis-700);
+}

@@ -7,6 +7,7 @@ module.exports = {
       type: "category",
       label: "Desktop App",
       link: { type: "doc", id: "desktop/index" },
+      collapsed: false,
       items: [
         "desktop/index",
       ],
@@ -15,9 +16,11 @@ module.exports = {
       type: "category",
       label: "Server",
       link: { type: "doc", id: "server/index" },
+      collapsed: false,
       items: [
         "server/index",
         "server/configuration",
+        "server/api",
         "server/docker",
       ],
     },
@@ -45,5 +48,8 @@ module.exports = {
         "development/index",
       ],
     },
+    { type: "doc", id: "releases", label: "Release Notes" },
+    { type: "doc", id: "faq", label: "FAQ & Troubleshooting" },
+    { type: "doc", id: "compatibility", label: "Version Compatibility" },
   ],
 };
