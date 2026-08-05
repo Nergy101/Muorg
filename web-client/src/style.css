@@ -143,6 +143,19 @@ body {
   overflow: hidden;
 }
 
+/* dvh, not %: installed as a PWA on iOS the percentage height chain stops above
+   the home-indicator strip, so the bottom nav floated short of the screen edge
+   with a band of `--background` under it. Viewport units honour
+   `viewport-fit=cover` and span the full screen. Kept as a separate @supports
+   rule because a minifier collapses two `height` declarations in one block and
+   drops the percentage fallback. */
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
+}
+
 #app {
   height: 100%;
   display: flex;
