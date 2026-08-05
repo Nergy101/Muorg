@@ -1,6 +1,6 @@
 [package]
 name = "muorg"
-version = "2.30.6"
+version = "2.30.7"
 description = "The Music Organizer from Hell"
 authors = ["you"]
 edition = "2021"
