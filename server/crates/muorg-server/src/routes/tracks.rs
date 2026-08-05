@@ -21,14 +21,64 @@ fn resolve_track(state: &AppState, id: i64) -> Result<String, ApiError> {
         .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))
 }
 
+fn resolve_track_with_mtime(state: &AppState, id: i64) -> Result<(String, i64), ApiError> {
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    muorg_core::catalog::get_track_path_and_mtime_by_id(&conn, id)?
+        .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))
+}
+
+/// Reads tags from a track wherever it lives. Remote tracks are read through a
+/// ranged reader, so only the bytes the tag parser touches leave the bucket.
+pub async fn read_track_metadata(
+    state: &AppState,
+    track_path: &str,
+) -> Result<TrackMetadata, ApiError> {
+    if let Some((remote, key)) = state.remotes.resolve(track_path) {
+        let format = path::Path::new(track_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .and_then(muorg_core::metadata::format_from_ext)
+            .ok_or_else(|| ApiError::bad_request("Unsupported format"))?;
+        use object_store::ObjectStoreExt;
+        let head = remote
+            .store
+            .head(&key)
+            .await
+            .map_err(|e| format!("Object store error: {e}"))?;
+        let store = remote.store.clone();
+        let handle = tokio::runtime::Handle::current();
+        let size = head.size;
+        return tokio::task::spawn_blocking(move || {
+            let mut r = crate::storage::reader::RemoteReader::new(store, key, size, handle);
+            muorg_core::metadata::read_metadata_from_reader(&mut r, format)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(ApiError::from);
+    }
+    let p = track_path.to_string();
+    tokio::task::spawn_blocking(move || muorg_core::metadata::read_metadata(path::Path::new(&p)))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(ApiError::from)
+}
+
 // GET /api/tracks/:id/cover — returns binary image with correct Content-Type
 pub async fn get_cover(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
     req_headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let track_path = resolve_track(&state, id)?;
-    let mtime = crate::routes::util::file_mtime(path::Path::new(&track_path));
+    let (track_path, track_mtime_secs) = resolve_track_with_mtime(&state, id)?;
+    let is_remote = crate::storage::is_remote_uri(&track_path);
+
+    // Remote covers key off the catalog's mtime so a cache hit costs no request
+    // at all; local ones stay on the file's own mtime, as before.
+    let mtime = if is_remote {
+        Some(std::time::UNIX_EPOCH + std::time::Duration::from_secs(track_mtime_secs.max(0) as u64))
+    } else {
+        crate::routes::util::file_mtime(path::Path::new(&track_path))
+    };
     let etag = format!(
         "\"cover-{id}-{}\"",
         mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
@@ -37,15 +87,23 @@ pub async fn get_cover(
         return Ok(resp);
     }
 
-    let meta = muorg_core::metadata::read_metadata(path::Path::new(&track_path))?;
-
-    let b64 = match meta.picture_base64 {
-        Some(b) if !b.is_empty() => b,
-        _ => return Err(ApiError::not_found("No cover art")),
+    let (data, mime) = match state.cover_cache.get(id, track_mtime_secs).filter(|_| is_remote) {
+        Some(hit) => hit,
+        None => {
+            let meta = read_track_metadata(&state, &track_path).await?;
+            let b64 = match meta.picture_base64 {
+                Some(b) if !b.is_empty() => b,
+                _ => return Err(ApiError::not_found("No cover art")),
+            };
+            let mime = meta.picture_mime.unwrap_or_else(|| "image/jpeg".to_string());
+            let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64)
+                .map_err(|e| e.to_string())?;
+            if is_remote {
+                state.cover_cache.put(id, &mime, &data);
+            }
+            (data, mime)
+        }
     };
-    let mime = meta.picture_mime.unwrap_or_else(|| "image/jpeg".to_string());
-    let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64)
-        .map_err(|e| e.to_string())?;
 
     let mut headers = HeaderMap::new();
     headers.insert("Content-Type", mime.parse().unwrap());
@@ -65,7 +123,7 @@ pub async fn get_metadata(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<TrackMetadata>, ApiError> {
     let track_path = resolve_track(&state, id)?;
-    let meta = muorg_core::metadata::read_metadata(path::Path::new(&track_path))?;
+    let meta = read_track_metadata(&state, &track_path).await?;
     Ok(Json(meta))
 }
 
@@ -76,6 +134,75 @@ pub struct PatchMetadataBody {
     pub backup_before_write: Option<bool>,
 }
 
+/// What a remote write changed, and what the caller must therefore persist.
+struct RemoteWrite {
+    /// The object's new last-modified time. `tracks.mtime_secs` must follow it:
+    /// it is both the cover cache's validity key and the scanner's change key.
+    new_mtime: i64,
+    /// Hash of the bytes actually uploaded, computed locally from the temp file.
+    new_hash: Option<String>,
+}
+
+/// Writes `update` into the track's file or object.
+///
+/// Local tracks are edited in place. Remote ones are fetched to a temp file,
+/// rewritten and re-uploaded, because both taggers need a seekable read-write
+/// file. Returns `Some(_)` only for remote tracks.
+async fn write_track_metadata(
+    state: &AppState,
+    track_path: &str,
+    update: &MetadataUpdate,
+    backup: bool,
+) -> Result<Option<RemoteWrite>, ApiError> {
+    let record_backup = |state: &AppState, src: &path::Path| -> Result<(), ApiError> {
+        let backup_path_str = backup::create_backup(&state.backup_dir, src, track_path)?;
+        {
+            let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+            muorg_core::catalog::record_track_backup(&conn, track_path, &backup_path_str)?;
+        }
+        // Prune old backups for this source file
+        let _ = backup::gc_old_backups(&state.backup_dir, state.backup_retention_count);
+        Ok(())
+    };
+
+    let Some((remote, key)) = state.remotes.resolve(track_path) else {
+        if backup {
+            record_backup(state, path::Path::new(track_path))?;
+        }
+        let (p, upd) = (track_path.to_string(), update.clone());
+        tokio::task::spawn_blocking(move || {
+            muorg_core::metadata::write_metadata(path::Path::new(&p), &upd)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        return Ok(None);
+    };
+
+    let ext = path::Path::new(track_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("bin");
+    let tmp = crate::storage::fetch_to_temp(&remote, &key, ext).await?;
+
+    if backup {
+        record_backup(state, tmp.path())?;
+    }
+
+    let (tmp_path, upd) = (tmp.path().to_path_buf(), update.clone());
+    tokio::task::spawn_blocking(move || muorg_core::metadata::write_metadata(&tmp_path, &upd))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    let new_meta = crate::storage::put_from_file(&remote, &key, tmp.path()).await?;
+    // Identical to the hash the scanner would compute from the bucket, because
+    // both go through `content_hash_from_parts`.
+    let new_hash = muorg_core::catalog::compute_content_hash(tmp.path()).ok();
+    Ok(Some(RemoteWrite {
+        new_mtime: new_meta.last_modified.timestamp(),
+        new_hash,
+    }))
+}
+
 // PATCH /api/tracks/:id/metadata
 pub async fn patch_metadata(
     Path(id): Path<i64>,
@@ -83,23 +210,34 @@ pub async fn patch_metadata(
     Json(body): Json<PatchMetadataBody>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let track_path = resolve_track(&state, id)?;
-
-    if body.backup_before_write.unwrap_or(false) {
-        let backup_path_str = backup::create_backup(&state.backup_dir, &track_path)?;
-        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-        muorg_core::catalog::record_track_backup(&conn, &track_path, &backup_path_str)?;
-        // Prune old backups for this source file
-        let _ = backup::gc_old_backups(&state.backup_dir, state.backup_retention_count);
-    }
-
-    muorg_core::metadata::write_metadata(path::Path::new(&track_path), &body.update)?;
+    let remote_write = write_track_metadata(
+        &state,
+        &track_path,
+        &body.update,
+        body.backup_before_write.unwrap_or(false),
+    )
+    .await?;
 
     {
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
         muorg_core::catalog::update_track_metadata(&conn, &track_path, &body.update)?;
-        if let Ok(new_hash) = muorg_core::catalog::compute_content_hash(path::Path::new(&track_path)) {
-            let _ = muorg_core::catalog::update_track_hash(&conn, &track_path, &new_hash);
+        match &remote_write {
+            Some(w) => {
+                if let Some(h) = &w.new_hash {
+                    let _ = muorg_core::catalog::update_track_hash(&conn, &track_path, h);
+                }
+                muorg_core::catalog::update_track_mtime(&conn, &track_path, w.new_mtime)?;
+            }
+            None => {
+                if let Ok(new_hash) = muorg_core::catalog::compute_content_hash(path::Path::new(&track_path)) {
+                    let _ = muorg_core::catalog::update_track_hash(&conn, &track_path, &new_hash);
+                }
+            }
         }
+    }
+
+    if remote_write.is_some() {
+        state.cover_cache.invalidate(id);
     }
 
     Ok(Json(serde_json::json!({"ok": true})))
@@ -155,9 +293,25 @@ pub async fn restore_backup(
         muorg_core::catalog::get_latest_track_backup(&conn, &track_path)?
             .ok_or_else(|| ApiError::not_found("No backup available"))?
     };
-    std::fs::copy(&backup_record.backup_path, &track_path)
-        .map_err(|e| format!("Restore failed: {e}"))?;
-    let fresh = muorg_core::metadata::read_metadata(path::Path::new(&track_path))?;
+    // The backup itself is always a local file; only the destination differs.
+    let restored_mtime = match state.remotes.resolve(&track_path) {
+        Some((remote, key)) => Some(
+            crate::storage::put_from_file(
+                &remote,
+                &key,
+                path::Path::new(&backup_record.backup_path),
+            )
+            .await?
+            .last_modified
+            .timestamp(),
+        ),
+        None => {
+            std::fs::copy(&backup_record.backup_path, &track_path)
+                .map_err(|e| format!("Restore failed: {e}"))?;
+            None
+        }
+    };
+    let fresh = muorg_core::metadata::read_metadata(path::Path::new(&backup_record.backup_path))?;
     let update = MetadataUpdate {
         title: Some(fresh.title.map(Some).unwrap_or(None)),
         artist: Some(fresh.artist.map(Some).unwrap_or(None)),
@@ -170,10 +324,22 @@ pub async fn restore_backup(
         disc_number: Some(fresh.disc_number.map(Some).unwrap_or(None)),
         picture_base64: Some(fresh.picture_base64.map(Some).unwrap_or(None)),
     };
-    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    muorg_core::catalog::update_track_metadata(&conn, &track_path, &update)?;
-    if let Ok(new_hash) = muorg_core::catalog::compute_content_hash(path::Path::new(&track_path)) {
-        let _ = muorg_core::catalog::update_track_hash(&conn, &track_path, &new_hash);
+    {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        muorg_core::catalog::update_track_metadata(&conn, &track_path, &update)?;
+        let hash_src = match restored_mtime {
+            Some(m) => {
+                muorg_core::catalog::update_track_mtime(&conn, &track_path, m)?;
+                path::Path::new(&backup_record.backup_path)
+            }
+            None => path::Path::new(&track_path),
+        };
+        if let Ok(new_hash) = muorg_core::catalog::compute_content_hash(hash_src) {
+            let _ = muorg_core::catalog::update_track_hash(&conn, &track_path, &new_hash);
+        }
+    }
+    if restored_mtime.is_some() {
+        state.cover_cache.invalidate(id);
     }
     Ok(Json(serde_json::json!({"ok": true})))
 }
@@ -190,6 +356,35 @@ pub async fn rename_file(
     Json(body): Json<RenameBody>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let old_path = resolve_track(&state, id)?;
+
+    if let Some((remote, old_key)) = state.remotes.resolve(&old_path) {
+        // A rename is a copy+delete inside one bucket; crossing backends would
+        // be a transfer, which this endpoint does not do.
+        let new_key = match state.remotes.resolve(&body.new_path) {
+            Some((new_remote, k)) if new_remote.name == remote.name => k,
+            _ => {
+                return Err(ApiError::bad_request(
+                    "Cannot move a track between storage backends",
+                ))
+            }
+        };
+        use object_store::ObjectStoreExt;
+        remote
+            .store
+            .rename(&old_key, &new_key)
+            .await
+            .map_err(|e| format!("Rename failed: {e}"))?;
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        muorg_core::catalog::update_track_path(&conn, &old_path, &body.new_path)?;
+        return Ok(Json(serde_json::json!({"ok": true})));
+    }
+
+    if crate::storage::is_remote_uri(&body.new_path) {
+        return Err(ApiError::bad_request(
+            "Cannot move a track between storage backends",
+        ));
+    }
+
     let new = path::Path::new(&body.new_path);
     if let Some(parent) = new.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -207,7 +402,7 @@ pub async fn auto_tag_suggestions(
     body: Option<Json<SearchQuery>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let track_path = resolve_track(&state, id)?;
-    let meta = muorg_core::metadata::read_metadata(path::Path::new(&track_path))?;
+    let meta = read_track_metadata(&state, &track_path).await?;
 
     // Build query from request body or fall back to file metadata
     let query = match body {
@@ -241,22 +436,38 @@ pub async fn batch_patch_metadata(
     }
 
     // Resolve all paths first
-    let mut updates: Vec<(String, MetadataUpdate)> = Vec::with_capacity(items.len());
+    let mut updates: Vec<(i64, String, MetadataUpdate)> = Vec::with_capacity(items.len());
     for item in &items {
         let track_path = resolve_track(&state, item.id)?;
-        updates.push((track_path, item.update.clone()));
+        updates.push((item.id, track_path, item.update.clone()));
     }
 
-    // Write metadata to files
-    for (track_path, update) in &updates {
-        muorg_core::metadata::write_metadata(path::Path::new(&track_path), update)?;
+    // Write metadata to each track's file or object
+    let mut remote_writes: Vec<(usize, RemoteWrite)> = Vec::new();
+    for (i, (_, track_path, update)) in updates.iter().enumerate() {
+        if let Some(w) = write_track_metadata(&state, track_path, update, false).await? {
+            remote_writes.push((i, w));
+        }
     }
 
     // Batch update the DB in a single transaction
     {
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-        let batch: Vec<(&str, &MetadataUpdate)> = updates.iter().map(|(p, u)| (p.as_str(), u)).collect();
+        let batch: Vec<(&str, &MetadataUpdate)> =
+            updates.iter().map(|(_, p, u)| (p.as_str(), u)).collect();
         muorg_core::catalog::batch_update_track_metadata(&conn, &batch)?;
+        // Remote objects changed identity: mtime drives the cover cache and the
+        // scanner, the hash drives move detection.
+        for (i, w) in &remote_writes {
+            let track_path = updates[*i].1.as_str();
+            muorg_core::catalog::update_track_mtime(&conn, track_path, w.new_mtime)?;
+            if let Some(h) = &w.new_hash {
+                let _ = muorg_core::catalog::update_track_hash(&conn, track_path, h);
+            }
+        }
+    }
+    for (i, _) in &remote_writes {
+        state.cover_cache.invalidate(updates[*i].0);
     }
 
     Ok(Json(serde_json::json!({"ok": true, "updated": updates.len()})))
