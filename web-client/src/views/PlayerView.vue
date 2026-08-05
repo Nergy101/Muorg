@@ -25,7 +25,10 @@
       </template>
     </div>
 
-    <div class="relative z-10 flex min-h-0 flex-1 flex-col">
+    <!-- The glow backdrop above still spans the full shell; only the controls
+         column is centred, so seek and transport stay near the art on desktop
+         instead of stretching to the edges. Uncapped below md. -->
+    <div class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto md:max-w-[640px]">
       <!-- Top row -->
       <div class="flex h-14 shrink-0 items-center px-2">
         <button
@@ -67,7 +70,9 @@
       <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
            short viewport; object-cover absorbs the crop if it ever clamps. -->
       <div class="flex min-h-0 flex-1 items-center justify-center px-6">
-        <div class="relative flex max-h-full w-[86%] items-center justify-center">
+        <!-- 50vh cap: on a wide shell 86% would be taller than the centre column,
+             so the art would clamp to a cropped rectangle. Never binds on phones. -->
+        <div class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center">
           <div
             class="absolute inset-0 rounded-full"
             :style="{ background: `radial-gradient(circle, rgba(${glowRgb},0.45) 0%, transparent 70%)`, filter: 'blur(32px)' }"

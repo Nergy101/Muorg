@@ -164,7 +164,7 @@
         />
       </div>
 
-      <div v-else class="grid grid-cols-2 gap-3 px-4 pb-4">
+      <div v-else class="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-3 lg:grid-cols-4">
         <AlbumCard
           v-for="item in lib.albumGridItems"
           :key="item.key"

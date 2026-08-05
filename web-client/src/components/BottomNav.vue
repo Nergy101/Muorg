@@ -4,7 +4,9 @@
        of the home indicator and its gesture strip while the background, which
        fills the padding box, still runs to the physical bottom of the screen. -->
   <nav class="shrink-0 border-t border-outline/30 bg-surface-container pb-3">
-    <div class="relative flex h-16 items-stretch">
+    <!-- Bar spans the shell, tabs stay grouped: four icons spread over 1200px
+         would sit absurdly far apart. -->
+    <div class="relative mx-auto flex h-16 w-full max-w-[600px] items-stretch">
       <!-- Sliding selection pill -->
       <div
         class="pointer-events-none absolute left-0 top-1/2 flex w-1/4 justify-center transition-transform duration-300"
