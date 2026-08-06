@@ -25,6 +25,21 @@ export async function getStats(): Promise<LibraryStats> {
   return apiFetch<LibraryStats>("/api/stats");
 }
 
+/** Most recently scanned tracks (newest first). */
+export async function getRecentlyAdded(limit = 20): Promise<CatalogTrack[]> {
+  return apiFetch<CatalogTrack[]>(`/api/tracks/recently-added?limit=${limit}`);
+}
+
+/** Most recently played tracks (newest first). */
+export async function getRecentPlayHistory(limit = 20): Promise<CatalogTrack[]> {
+  return apiFetch<CatalogTrack[]>(`/api/play-history/recent?limit=${limit}`);
+}
+
+/** Most played tracks within the last `days` days (highest count first). */
+export async function getTopPlayHistory(limit = 20, days = 30): Promise<CatalogTrack[]> {
+  return apiFetch<CatalogTrack[]>(`/api/play-history/top?limit=${limit}&days=${days}`);
+}
+
 export async function getCoverBlob(trackId: number): Promise<Blob | null> {
   try {
     return await apiFetchBlob(`/api/tracks/${trackId}/cover`);

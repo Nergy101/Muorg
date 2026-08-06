@@ -6,6 +6,7 @@
  * player screen, not as a top-level destination.
  */
 export const NAV_TABS = [
+  { name: "home", label: "Home", icon: "home", iconActive: "home-fill" },
   { name: "library", label: "Library", icon: "compact-disk", iconActive: "compact-disk-fill" },
   { name: "playlists", label: "Playlists", icon: "dashboard", iconActive: "dashboard-fill" },
   { name: "settings", label: "Settings", icon: "settings", iconActive: "settings-fill" },
@@ -18,7 +19,7 @@ export type NavTabName = (typeof NAV_TABS)[number]["name"];
  * (the queue screen). Detail screens keep their parent tab lit.
  */
 export function tabIndexForRoute(routeName: string): number {
-  if (routeName === "album") return 0;
-  if (routeName === "playlist") return 1;
+  if (routeName === "album") return 1;
+  if (routeName === "playlist") return 2;
   return NAV_TABS.findIndex((t) => t.name === routeName);
 }
