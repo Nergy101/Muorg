@@ -97,10 +97,14 @@ function makeAlbumItem(
  * Groups tracks into albums, name-first: every track with the same album title
  * starts in one bucket, so per-track artist differences can never split an
  * album. The album artist only splits a bucket when the same title genuinely
- * maps to several different album artists (two releases sharing a name, e.g.
- * "Greatest Hits" by different artists). Tracks without an album-artist tag
- * ride along with their title bucket — and, in a split bucket, with the
- * largest sub-group.
+ * maps to several different albums (two releases sharing a name, e.g.
+ * "Greatest Hits" by different artists) — identified by every album-artist
+ * value also appearing as a track artist. Album-artist tags that match NO
+ * track artist (e.g. featured artists leaked into the tag on a deluxe
+ * edition, while every track's artist is the main act) are treated as one
+ * album. Tracks without an album-artist tag ride along with their title
+ * bucket — and, in a split bucket, join the sub-group whose album artist
+ * matches their track artist, else the largest sub-group.
  */
 export function groupAlbums(source: CatalogTrack[]): Map<string, AlbumGridItem> {
   // Pass 1: bucket by normalized album name.
@@ -117,9 +121,12 @@ export function groupAlbums(source: CatalogTrack[]): Map<string, AlbumGridItem> 
 
   for (const [name, bucket] of byName) {
     const albumArtists = new Set<string>();
+    const trackArtists = new Set<string>();
     for (const t of bucket) {
-      const a = normalize(t.album_artist);
-      if (a) albumArtists.add(a);
+      const aa = normalize(t.album_artist);
+      if (aa) albumArtists.add(aa);
+      const ar = normalize(t.artist);
+      if (ar) trackArtists.add(ar);
     }
 
     if (albumArtists.size === 0) {
@@ -130,9 +137,11 @@ export function groupAlbums(source: CatalogTrack[]): Map<string, AlbumGridItem> 
       // One album artist owns this title; untagged tracks join it.
       const key = `${name}|||${[...albumArtists][0]}`;
       map.set(key, makeAlbumItem(key, albumName(bucket[0]), pickAlbumArtist(bucket), bucket));
-    } else {
-      // Same title, several album artists: genuinely different albums. Split by
-      // album artist; untagged tracks ride along with the largest sub-group.
+    } else if ([...albumArtists].every((a) => trackArtists.has(a))) {
+      // Same title, several album artists that all match track artists:
+      // genuinely different albums. Split by album artist; untagged tracks join
+      // the sub-group whose album artist matches their track artist, else the
+      // largest sub-group.
       const subs = new Map<string, CatalogTrack[]>();
       for (const t of bucket) {
         const a = normalize(t.album_artist);
@@ -150,12 +159,19 @@ export function groupAlbums(source: CatalogTrack[]): Map<string, AlbumGridItem> 
         }
       }
       for (const t of bucket) {
-        if (!normalize(t.album_artist)) subs.get(dominant)!.push(t);
+        if (normalize(t.album_artist)) continue;
+        (subs.get(normalize(t.artist)) ?? subs.get(dominant)!).push(t);
       }
       for (const [a, sub] of subs) {
         const key = `${name}|||${a}`;
         map.set(key, makeAlbumItem(key, albumName(bucket[0]), pickAlbumArtist(sub), sub));
       }
+    } else {
+      // Several album-artist tags that match no track artist — featured
+      // artists leaked into the album-artist tag while every track's artist is
+      // the main act. Still one album.
+      const key = `${name}|||`;
+      map.set(key, makeAlbumItem(key, albumName(bucket[0]), displayArtistFor(bucket), bucket));
     }
   }
   return map;
