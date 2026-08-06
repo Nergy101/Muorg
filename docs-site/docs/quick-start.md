@@ -6,13 +6,15 @@ sidebar_position: 3
 
 Muorg works two ways — pick the one that fits:
 
-- **Run locally** — music files live on your own machine; the desktop app manages everything offline.
+- **Run locally** — music files live on your own machine; the desktop app manages everything offline. On Android, the app can also manage an offline library (and sync playlists from your server when you have one).
 - **Self-host** — run a **muorg-server** (e.g. on a NAS or VPS) so every device — desktop, web, Android — streams from the same library.
 
 ## Run locally
 
-1. **Download** the desktop app for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases) (see [Installation](/docs/installation) for the exact file names).
-2. **Launch** Muorg and add your music folders.
+1. **Download** the app for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases) (see [Installation](/docs/installation) for the exact file names):
+   - **Desktop** — macOS, Windows, or Linux installer
+   - **Android** — the *"Muorg Android"* release APK
+2. **Launch** Muorg and add your music folders (or the app's music folder on Android).
 3. **Browse** your library with the album grid or track table.
 4. **Edit** metadata by clicking a track and opening the metadata editor — every write is backed up first, so mistakes are recoverable.
 
