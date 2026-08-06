@@ -8,7 +8,14 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
-      registerType: "autoUpdate",
+      // 'prompt' (not 'autoUpdate'): a new service worker waits instead of
+      // force-reloading, and the app surfaces an "update available" banner +
+      // settings button (composables/usePwaUpdate.ts) so the user refreshes
+      // on their own terms.
+      registerType: "prompt",
+      // Registration is handled manually via the virtual:pwa-register module
+      // in usePwaUpdate.ts — no injected <script>.
+      injectRegister: false,
       includeAssets: ["favicon.svg", "icons/*.png"],
       manifest: {
         name: "Muorg",

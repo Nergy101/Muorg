@@ -12,6 +12,15 @@
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Version</p>
         </div>
+        <button
+          v-if="pwaUpdateAvailable"
+          type="button"
+          class="flex items-center gap-1 px-2 text-label-lg text-primary"
+          @click="refreshApp"
+        >
+          <MageIcon name="reload" class="h-4 w-4" />
+          <span>Refresh now</span>
+        </button>
         <span class="text-body-md text-on-surface-variant">{{ version }}</span>
       </div>
       <div v-if="canInstall" :class="ROW">
@@ -242,6 +251,7 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import SegmentedControl from "../components/SegmentedControl.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import { pwaUpdateAvailable, refreshApp } from "../composables/usePwaUpdate";
 import { disconnect, getServerUrl } from "../api/client";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";

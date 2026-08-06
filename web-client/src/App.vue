@@ -4,6 +4,7 @@
     class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-[2400px]"
   >
     <OfflineBanner />
+    <UpdateBanner />
 
     <!-- Swipe pages between tabs, or pops the stack from the left edge. Bound
          here, not on the shell, so a drag on the bottom nav or mini player
@@ -43,6 +44,7 @@
 import { computed, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import OfflineBanner from "./components/OfflineBanner.vue";
+import UpdateBanner from "./components/UpdateBanner.vue";
 import BottomNav from "./components/BottomNav.vue";
 import MiniPlayer from "./components/MiniPlayer.vue";
 import Toast from "./components/Toast.vue";
