@@ -55,7 +55,7 @@ function Hero() {
           </Link>
           <Link
             className="button button--secondary button--lg"
-            to="https://github.com/Nergy101/Muorg/releases/latest"
+            to="https://github.com/Nergy101/Muorg/releases"
           >
             Download
           </Link>
