@@ -11,7 +11,7 @@ Muorg works in two modes:
 
 ## Desktop App
 
-Download the latest installer from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
+Download the latest installer from the [Releases page](https://github.com/Nergy101/Muorg/releases):
 
 | Platform | File |
 |----------|------|
@@ -20,6 +20,14 @@ Download the latest installer from the [Releases page](https://github.com/Nergy1
 | Windows | `Muorg_*_x64-setup.exe` |
 | Linux (Debian/Ubuntu) | `muorg_*_amd64.deb` |
 | Linux (AppImage) | `Muorg_*_amd64.AppImage` |
+
+## Android App
+
+Download the APK from the [Android release](https://github.com/Nergy101/Muorg/releases) — it's published as a separate *"Muorg Android"* release (`muorg-<version>.apk`):
+
+- On your phone, open the **Muorg Android** release and download the `.apk` file.
+- Allow installation from unknown sources when prompted (the APK is not on Google Play).
+- Open the downloaded file to install, then connect to your [server](/docs/server/) or start streaming.
 
 ## Server (Docker)
 
