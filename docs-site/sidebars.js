@@ -47,6 +47,7 @@ module.exports = {
       link: { type: "doc", id: "web-client/index" },
       items: [
         "web-client/index",
+        "web-client/smart-playlists",
       ],
     },
     {
