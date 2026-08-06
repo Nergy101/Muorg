@@ -32,7 +32,7 @@
         </span>
 
         <button
-          v-if="settings.albumViewStyle === 'tracks'"
+          v-if="settings.albumViewStyle === 'tracks' && !isSmart"
           type="button"
           class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2"
           :class="hasUnsavedOrder ? 'text-primary' : 'text-on-surface-variant'"
@@ -40,6 +40,16 @@
         >
           <MageIcon :name="hasUnsavedOrder ? 'save-floppy' : 'dash-menu'" class="h-5 w-5" />
           <span class="text-label-md">{{ hasUnsavedOrder ? "save" : "reorder" }}</span>
+        </button>
+
+        <button
+          v-if="isSmart"
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
+          aria-label="Edit rules"
+          @click="openSmartEditor"
+        >
+          <MageIcon name="zap" class="h-5 w-5" />
         </button>
 
         <button
@@ -71,6 +81,7 @@
                 :style="rowStyle(entry.index)"
               >
                 <div
+                  v-if="!isSmart"
                   class="flex h-14 w-10 shrink-0 items-center justify-center text-on-surface-variant"
                   style="touch-action: none"
                   @pointerdown="drag.start(entry.index, $event)"
@@ -137,6 +148,17 @@
       </div>
     </template>
 
+    <SmartPlaylistDialog
+      :open="smartEditorOpen"
+      is-editing
+      :initial-name="playlist?.name"
+      :initial-icon="playlist?.icon ?? undefined"
+      :initial-rules="smartEditorRules"
+      :genres="genres"
+      @confirm="onSmartEdited"
+      @cancel="smartEditorOpen = false"
+    />
+
     <TrackActionsSheet
       :open="actionsTrack !== null"
       :track="actionsTrack"
@@ -154,16 +176,17 @@ import MageIcon from "../components/MageIcon.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
+import SmartPlaylistDialog from "../components/SmartPlaylistDialog.vue";
 import { useDragReorder, REORDER_ROW_HEIGHT } from "../composables/useDragReorder";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useVirtualList } from "../composables/useVirtualList";
 import { useGridColumns } from "../composables/useGridColumns";
 import { showToast } from "../composables/useToast";
-import { usePlaylistStore } from "../stores/playlists";
+import { usePlaylistStore, rulesToSmartJson, parseSmartRules } from "../stores/playlists";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
-import type { AlbumGridItem, CatalogTrack } from "../types";
+import type { AlbumGridItem, CatalogTrack, SmartRule } from "../types";
 
 const props = defineProps<{ id: string }>();
 
@@ -175,6 +198,28 @@ const lib = useLibraryStore();
 
 const playlistId = computed(() => Number(props.id));
 const playlist = computed(() => playlistStore.playlists.find((p) => p.id === playlistId.value) ?? null);
+
+/** Smart playlists are rule-driven: no manual reorder, rules editable in place. */
+const isSmart = computed(() => playlist.value?.smart_rules != null);
+
+const genres = computed(() =>
+  [...new Set(lib.tracks.map((t) => t.genre).filter((g): g is string => g != null))].sort(),
+);
+
+const smartEditorOpen = ref(false);
+const smartEditorRules = ref<SmartRule[]>([]);
+
+function openSmartEditor(): void {
+  smartEditorRules.value = parseSmartRules(playlist.value?.smart_rules ?? null);
+  smartEditorOpen.value = true;
+}
+
+async function onSmartEdited(_name: string, _icon: string, rules: SmartRule[]): Promise<void> {
+  if (!playlist.value) return;
+  await playlistStore.updateSmartPlaylistRules(playlist.value.id, rulesToSmartJson(rules));
+  smartEditorOpen.value = false;
+  await loadOrder();
+}
 
 const viewIcon = computed(
   () => ({ grid: "layout-grid", list: "arrowlist", tracks: "music" })[settings.albumViewStyle],
