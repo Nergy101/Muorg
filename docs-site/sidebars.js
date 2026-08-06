@@ -2,7 +2,24 @@ module.exports = {
   docs: [
     { type: "doc", id: "intro", label: "Welcome" },
     { type: "doc", id: "installation", label: "Installation" },
-    { type: "doc", id: "quick-start", label: "Quick Start" },
+    {
+      type: "category",
+      label: "Quick Start",
+      collapsed: false,
+      items: [
+        "quick-start",
+        {
+          type: "doc",
+          id: "desktop/index",
+          label: "Run Locally",
+        },
+        {
+          type: "doc",
+          id: "server/index",
+          label: "Self-host",
+        },
+      ],
+    },
     {
       type: "category",
       label: "Desktop App",

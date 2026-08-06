@@ -1,63 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./index.module.css";
-
-function QuickStartMenu() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const onPointerDown = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, []);
-
-  return (
-    <div className={styles.quickStartWrap} ref={ref}>
-      <button
-        type="button"
-        className={clsx("button button--primary button--lg", styles.quickStartBtn)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        Quick Start <span className={styles.caret}>▾</span>
-      </button>
-      {open && (
-        <ul className={styles.quickStartMenu} role="menu">
-          <li role="none">
-            <Link role="menuitem" to="/docs/quick-start" onClick={() => setOpen(false)}>
-              Quick Start
-            </Link>
-          </li>
-          <li role="none">
-            <Link role="menuitem" to="/docs/desktop/" onClick={() => setOpen(false)}>
-              Run Locally
-            </Link>
-          </li>
-          <li role="none">
-            <Link role="menuitem" to="/docs/server/" onClick={() => setOpen(false)}>
-              Self-host
-            </Link>
-          </li>
-        </ul>
-      )}
-    </div>
-  );
-}
 
 const components = [
   {
@@ -103,7 +50,9 @@ function Hero() {
           Organize, clean up and play your library — locally or from your own server.
         </p>
         <div className={styles.buttons}>
-          <QuickStartMenu />
+          <Link className="button button--primary button--lg" to="/docs/quick-start">
+            Quick Start
+          </Link>
           <Link
             className="button button--secondary button--lg"
             to="https://github.com/Nergy101/Muorg/releases"

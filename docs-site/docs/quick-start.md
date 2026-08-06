@@ -35,4 +35,4 @@ Muorg works two ways — pick the one that fits:
 
 That's it — your library is now available on every device.
 
-See [Desktop](/docs/desktop/), [Server](/docs/server/), or [Web Client](/docs/web-client/) docs for more details.
+See [Desktop](/docs/desktop/), [Server](/docs/server/), or [Web App](/docs/web-client/) docs for more details.
