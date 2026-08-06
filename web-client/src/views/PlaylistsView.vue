@@ -1,7 +1,10 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div class="content-col flex h-14 shrink-0 items-center justify-between px-4">
-      <span class="text-title-lg text-on-surface">Playlists</span>
+      <div class="flex min-w-0 items-center gap-2">
+        <MageIcon name="dashboard-fill" class="h-5 w-5 text-primary" />
+        <span class="truncate text-title-lg text-on-surface">Playlists</span>
+      </div>
       <button
         type="button"
         class="flex h-9 w-9 items-center justify-center rounded-full text-primary"

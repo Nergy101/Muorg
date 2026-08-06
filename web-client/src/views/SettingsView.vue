@@ -1,6 +1,7 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center px-4">
+    <div class="content-col flex h-14 shrink-0 items-center gap-2 px-4">
+      <MageIcon name="settings-fill" class="h-5 w-5 text-primary" />
       <span class="text-title-lg text-on-surface">Settings</span>
     </div>
 

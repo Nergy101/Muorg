@@ -9,6 +9,7 @@
       >
         <MageIcon name="chevron-left" class="h-6 w-6" />
       </button>
+      <MageIcon name="stack" class="h-5 w-5 text-primary" />
       <span class="flex-1 text-title-lg text-on-surface">Queue</span>
       <button
         type="button"

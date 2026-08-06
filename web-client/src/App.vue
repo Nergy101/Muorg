@@ -62,11 +62,13 @@ useSettingsStore();
 const showMiniPlayer = computed(
   () => (player.currentTrack != null || player.errorMessage != null) && route.name !== "player",
 );
-const showBottomNav = computed(
-  () => !["connect", "player", "queue"].includes(String(route.name)),
-);
+// The queue keeps both bars: it is reached from the mini player, so hiding the
+// bar you tapped to get there — and the tabs with it — stranded the screen. The
+// nav renders with no tab lit (tabIndexForRoute returns -1) rather than
+// pretending the queue belongs to one.
+const showBottomNav = computed(() => !["connect", "player"].includes(String(route.name)));
 // Transition name comes from the router hook, which compares stack depth so a
-// pop is the visual inverse of the push that got there.
+// forward move animates and a pop does not.
 
 // --- Swipe between tabs ---
 // Only pages from a tab itself: on album/playlist detail or the queue a
