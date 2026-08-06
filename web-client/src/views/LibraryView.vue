@@ -306,8 +306,15 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
 const query = ref(lib.searchQuery);
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** Applies the query to the live library filter (debounced while typing). */
 function commitSearch(value: string): void {
   lib.searchQuery = value;
+}
+
+/** Records a committed search in the history — Enter or tapping a history
+ *  chip only, never intermediate keystrokes (the debounced watcher just
+ *  filters live). */
+function recordSearch(value: string): void {
   const trimmed = value.trim();
   if (trimmed.length > 0) settings.addSearch(trimmed);
 }
@@ -320,6 +327,7 @@ watch(query, (value) => {
 function onSearchEnter(): void {
   clearTimeout(debounceTimer);
   commitSearch(query.value);
+  recordSearch(query.value);
 }
 
 function clearSearch(): void {
@@ -332,6 +340,7 @@ function selectHistoryChip(entry: string): void {
   clearTimeout(debounceTimer);
   query.value = entry;
   commitSearch(entry);
+  recordSearch(entry);
 }
 
 onUnmounted(() => clearTimeout(debounceTimer));

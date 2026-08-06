@@ -5,6 +5,15 @@ import type { AlbumViewStyle, SortMode, ThemeMode } from "../types";
 
 const MAX_SEARCH_HISTORY = 10;
 
+/**
+ * Drops keystroke-fragment artifacts recorded by an older build that added
+ * every debounced fragment to history: any entry that is a proper prefix of a
+ * longer entry (typing "metallica" used to record "m", "me", "met", …).
+ */
+function sanitizeSearchHistory(history: string[]): string[] {
+  return history.filter((h) => !history.some((other) => other.length > h.length && other.startsWith(h)));
+}
+
 /** Mirrors the Android app's AppPreferences. */
 export const useSettingsStore = defineStore("settings", () => {
   const theme = ref<ThemeMode>(loadPref("muorg-web-theme", "dark"));
@@ -15,7 +24,14 @@ export const useSettingsStore = defineStore("settings", () => {
   const albumViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-album-view", "grid"));
   const miniPlayerTapOpensPlayer = ref(loadPref("muorg-web-miniplayer-tap", true));
   const volume = ref(loadPref("muorg-web-volume", 1));
-  const searchHistory = ref<string[]>(loadPref("muorg-web-search-history", []));
+  // Sanitize once and persist the cleaned list: an older build recorded every
+  // debounced keystroke fragment, and without the write-back the junk would
+  // linger in storage and re-filter on every load forever.
+  const rawHistory = loadPref<string[]>("muorg-web-search-history", []);
+  const searchHistory = ref<string[]>(sanitizeSearchHistory(rawHistory));
+  if (searchHistory.value.length !== rawHistory.length) {
+    savePref("muorg-web-search-history", searchHistory.value);
+  }
 
   const systemPrefersDark = ref(
     typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches,
