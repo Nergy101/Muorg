@@ -197,6 +197,8 @@ export const useLibraryStore = defineStore("library", () => {
   const searchQuery = ref("");
   /** Set from the `?artist=` query on /library. */
   const artistFilter = ref<string | null>(null);
+  /** Normalized genre value selected in the Library toolbar dropdown. */
+  const genreFilter = ref<string | null>(null);
 
   // Cover cache: trackId -> object URL
   const coverCache = ref<Map<number, string>>(new Map());
@@ -204,12 +206,31 @@ export const useLibraryStore = defineStore("library", () => {
   let inFlight = 0;
   const coverQueue: number[] = [];
 
+  /** Distinct genres across the catalog, original casing, sorted A–Z. */
+  const genres = computed(() => {
+    const seen = new Map<string, string>();
+    for (const t of tracks.value) {
+      const g = t.genre;
+      if (!g) continue;
+      const key = g.toLowerCase();
+      if (!seen.has(key)) seen.set(key, g);
+    }
+    return [...seen.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([value, label]) => ({ value, label }));
+  });
+
   const filteredTracks = computed(() => {
     let result = tracks.value;
 
     const artist = artistFilter.value?.trim().toLowerCase();
     if (artist) {
       result = result.filter((t) => normalize(t.artist ?? t.album_artist) === artist);
+    }
+
+    if (genreFilter.value) {
+      const genre = genreFilter.value;
+      result = result.filter((t) => normalize(t.genre) === genre);
     }
 
     const q = searchQuery.value.trim().toLowerCase();
@@ -414,6 +435,7 @@ export const useLibraryStore = defineStore("library", () => {
     error.value = null;
     searchQuery.value = "";
     artistFilter.value = null;
+    genreFilter.value = null;
     for (const url of coverCache.value.values()) URL.revokeObjectURL(url);
     coverCache.value = new Map();
     coverPending.value = new Set();
@@ -429,6 +451,8 @@ export const useLibraryStore = defineStore("library", () => {
     error,
     searchQuery,
     artistFilter,
+    genreFilter,
+    genres,
     coverCache,
     filteredTracks,
     albumGridItems,

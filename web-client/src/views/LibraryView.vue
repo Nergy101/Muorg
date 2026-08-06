@@ -104,6 +104,40 @@
           <MageIcon :name="settings.sortAscending ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
         </button>
 
+        <div ref="genreMenuRef" class="relative">
+          <button
+            type="button"
+            class="flex max-w-28 items-center gap-1 text-label-lg text-primary"
+            @click="genreMenuOpen = !genreMenuOpen"
+          >
+            <span class="truncate">Genre: {{ genreLabel }}</span>
+            <MageIcon :name="genreMenuOpen ? 'chevron-up' : 'chevron-down'" class="h-4 w-4 shrink-0" />
+          </button>
+          <div
+            v-if="genreMenuOpen"
+            class="absolute left-0 top-full z-20 mt-1 max-h-72 w-48 overflow-y-auto rounded-xl bg-surface-container py-1 shadow-xl"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center justify-between px-3 py-2 text-label-lg text-on-surface"
+              @click="selectGenre(null)"
+            >
+              <span>All genres</span>
+              <MageIcon v-if="!lib.genreFilter" name="check" class="h-4 w-4 text-primary" />
+            </button>
+            <button
+              v-for="g in lib.genres"
+              :key="g.value"
+              type="button"
+              class="flex w-full items-center justify-between gap-2 px-3 py-2 text-label-lg text-on-surface"
+              @click="selectGenre(g.value)"
+            >
+              <span class="truncate">{{ g.label }}</span>
+              <MageIcon v-if="lib.genreFilter === g.value" name="check" class="h-4 w-4 shrink-0 text-primary" />
+            </button>
+          </div>
+        </div>
+
         <div class="flex-1" />
 
         <button
@@ -342,10 +376,29 @@ function selectSort(mode: SortMode): void {
   sortMenuOpen.value = false;
 }
 
+// --- Toolbar: genre filter dropdown ------------------------------------------
+
+const genreMenuOpen = ref(false);
+const genreMenuRef = ref<HTMLElement | null>(null);
+
+const genreLabel = computed(
+  () => lib.genres.find((g) => g.value === lib.genreFilter)?.label ?? "All",
+);
+
+function selectGenre(value: string | null): void {
+  lib.genreFilter = value;
+  genreMenuOpen.value = false;
+}
+
 function onDocumentClick(e: MouseEvent): void {
-  if (!sortMenuOpen.value) return;
-  const el = sortMenuRef.value;
-  if (el && !el.contains(e.target as Node)) sortMenuOpen.value = false;
+  if (!sortMenuOpen.value && !genreMenuOpen.value) return;
+  const target = e.target as Node;
+  if (sortMenuOpen.value && sortMenuRef.value && !sortMenuRef.value.contains(target)) {
+    sortMenuOpen.value = false;
+  }
+  if (genreMenuOpen.value && genreMenuRef.value && !genreMenuRef.value.contains(target)) {
+    genreMenuOpen.value = false;
+  }
 }
 
 onMounted(() => document.addEventListener("click", onDocumentClick));
