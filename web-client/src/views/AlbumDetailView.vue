@@ -107,7 +107,7 @@ import MarqueeText from "../components/MarqueeText.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
-import { albumKeyFor, useLibraryStore } from "../stores/library";
+import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useScrollMemory } from "../composables/useScrollMemory";
@@ -187,7 +187,7 @@ function onViewArtist(): void {
 function onViewAlbum(): void {
   const t = sheetTrack.value;
   if (!t) return;
-  void router.push({ name: "album", params: { albumKey: albumKeyFor(t) } });
+  void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
 
 // --- Album playlist picker -------------------------------------------------

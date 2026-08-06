@@ -243,7 +243,7 @@ import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
-import { albumKeyFor, useLibraryStore } from "../stores/library";
+import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { usePlaylistStore } from "../stores/playlists";
@@ -383,7 +383,7 @@ function onViewArtist(): void {
 function onViewAlbum(): void {
   const t = sheetTrack.value;
   if (!t) return;
-  void router.push({ name: "album", params: { albumKey: albumKeyFor(t) } });
+  void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
 
 // --- Album playlist picker -------------------------------------------------
@@ -513,7 +513,7 @@ watch(scrollToActiveSignal, () => {
     if (i >= 0) tracksList.scrollToIndex(i);
     return;
   }
-  const i = lib.albumGridItems.findIndex((item) => item.key === albumKeyFor(t));
+  const i = lib.albumGridItems.findIndex((item) => item.key === lib.keyForTrack(t));
   if (i < 0) return;
   (settings.albumViewStyle === "list" ? albumsList : albumGrid).scrollToIndex(i);
 });

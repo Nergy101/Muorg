@@ -256,13 +256,14 @@ import {
   useEdgeColors,
 } from "../composables/useDominantColor";
 import { usePlayerStore } from "../stores/player";
-import { albumKeyFor, formatDuration } from "../stores/library";
+import { formatDuration, useLibraryStore } from "../stores/library";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 
 const router = useRouter();
 const player = usePlayerStore();
+const lib = useLibraryStore();
 
 onMounted(() => {
   if (!player.currentTrack) void router.replace({ name: "library" });
@@ -402,6 +403,6 @@ function onViewArtist(): void {
 function onViewAlbum(): void {
   const t = player.currentTrack as CatalogTrack | null;
   if (!t) return;
-  void router.push({ name: "album", params: { albumKey: albumKeyFor(t) } });
+  void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
 </script>

@@ -162,7 +162,7 @@ import { showToast } from "../composables/useToast";
 import { usePlaylistStore } from "../stores/playlists";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
-import { useLibraryStore, albumKeyFor } from "../stores/library";
+import { useLibraryStore } from "../stores/library";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const props = defineProps<{ id: string }>();
@@ -253,20 +253,25 @@ function rowStyle(i: number): Record<string, string> {
 function buildAlbumItems(source: CatalogTrack[]): AlbumGridItem[] {
   const map = new Map<string, AlbumGridItem>();
   for (const t of source) {
-    const key = albumKeyFor(t);
+    const key = lib.keyForTrack(t);
     let item = map.get(key);
     if (!item) {
-      item = {
-        key,
-        album: t.album ?? "Unknown Album",
-        albumArtist: t.album_artist ?? t.artist ?? "Unknown Artist",
-        year: null,
-        trackCount: 0,
-        totalDurationSecs: 0,
-        coverTrackId: t.has_cover ? t.id : null,
-        hasCover: t.has_cover,
-        trackIds: [],
-      };
+      // Seed display fields from the full-catalog album so the playlist grid
+      // shows the same album identity (artist, year) as the library grid.
+      const seed = lib.albumByKey(key);
+      item = seed
+        ? { ...seed, trackCount: 0, totalDurationSecs: 0, coverTrackId: null, hasCover: false, trackIds: [] }
+        : {
+            key,
+            album: t.album ?? "Unknown Album",
+            albumArtist: t.album_artist ?? t.artist ?? "Unknown Artist",
+            year: null,
+            trackCount: 0,
+            totalDurationSecs: 0,
+            coverTrackId: t.has_cover ? t.id : null,
+            hasCover: t.has_cover,
+            trackIds: [],
+          };
       map.set(key, item);
     }
     item.trackCount++;
@@ -322,7 +327,7 @@ function onViewArtist(): void {
 function onViewAlbum(): void {
   const track = actionsTrack.value;
   if (track) {
-    router.push({ name: "album", params: { albumKey: albumKeyFor(track) } });
+    router.push({ name: "album", params: { albumKey: lib.keyForTrack(track) } });
   }
   closeActions();
 }

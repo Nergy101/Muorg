@@ -108,7 +108,7 @@ import QueueRow from "../components/QueueRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { REORDER_ROW_HEIGHT, useDragReorder } from "../composables/useDragReorder";
 import { useScrollMemory } from "../composables/useScrollMemory";
-import { albumKeyFor, useLibraryStore } from "../stores/library";
+import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import type { CatalogTrack } from "../types";
 
@@ -186,7 +186,7 @@ function onViewArtist(): void {
 function onViewAlbum(): void {
   const t = sheetTrack.value;
   if (!t) return;
-  void router.push({ name: "album", params: { albumKey: albumKeyFor(t) } });
+  void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
 
 const scroller = ref<HTMLElement | null>(null);
