@@ -59,56 +59,80 @@
 
         <div v-else-if="settings.albumViewStyle === 'tracks'" class="content-col">
           <div
-            v-for="(id, i) in reorderedIds"
-            :key="id"
-            class="relative flex h-14 items-center"
-            :class="rowClass(i)"
-            :style="rowStyle(i)"
+            ref="tracksAnchor"
+            :style="{ height: `${tracksList.totalHeight.value}px` }"
           >
-            <div
-              class="flex h-14 w-10 shrink-0 items-center justify-center text-on-surface-variant"
-              style="touch-action: none"
-              @pointerdown="drag.start(i, $event)"
-            >
-              <MageIcon name="dash-menu" class="h-5 w-5" />
+            <div :style="{ transform: `translateY(${tracksList.offsetTop.value}px)` }">
+              <div
+                v-for="entry in visibleTrackEntries"
+                :key="entry.id"
+                class="relative flex h-14 items-center"
+                :class="rowClass(entry.index)"
+                :style="rowStyle(entry.index)"
+              >
+                <div
+                  class="flex h-14 w-10 shrink-0 items-center justify-center text-on-surface-variant"
+                  style="touch-action: none"
+                  @pointerdown="drag.start(entry.index, $event)"
+                >
+                  <MageIcon name="dash-menu" class="h-5 w-5" />
+                </div>
+                <TrackListRow
+                  v-if="trackById.get(entry.id)"
+                  class="min-w-0 flex-1"
+                  :track="trackById.get(entry.id)!"
+                  :is-playing="player.currentTrack?.id === entry.id"
+                  @play="player.playTrack(trackById.get(entry.id)!, tracks)"
+                  @actions="openActions(trackById.get(entry.id)!)"
+                />
+              </div>
             </div>
-            <TrackListRow
-              v-if="trackById.get(id)"
-              class="min-w-0 flex-1"
-              :track="trackById.get(id)!"
-              :is-playing="player.currentTrack?.id === id"
-              @play="player.playTrack(trackById.get(id)!, tracks)"
-              @actions="openActions(trackById.get(id)!)"
-            />
           </div>
         </div>
 
         <div v-else-if="settings.albumViewStyle === 'list'" class="content-col">
-          <AlbumCard
-            v-for="item in albumItems"
-            :key="item.key"
-            :item="item"
-            mode="list"
-            :is-active="isAlbumActive(item)"
-            @open="openAlbum(item)"
-            @actions="openAlbumActions(item)"
-          />
+          <div
+            ref="albumsListAnchor"
+            :style="{ height: `${albumsList.totalHeight.value}px` }"
+          >
+            <div :style="{ transform: `translateY(${albumsList.offsetTop.value}px)` }">
+              <AlbumCard
+                v-for="item in visibleAlbumListItems"
+                :key="item.key"
+                :item="item"
+                mode="list"
+                :is-active="isAlbumActive(item)"
+                @open="openAlbum(item)"
+                @actions="openAlbumActions(item)"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- Full-bleed by design; see LibraryView for the auto-fill rationale. -->
         <div
           v-else
-          class="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
+          ref="albumsAnchor"
+          class="px-4 pb-4"
+          :style="{ height: `${albumGrid.totalHeight.value + 16}px` }"
         >
-          <AlbumCard
-            v-for="item in albumItems"
-            :key="item.key"
-            :item="item"
-            mode="grid"
-            :is-active="isAlbumActive(item)"
-            @open="openAlbum(item)"
-            @actions="openAlbumActions(item)"
-          />
+          <div
+            class="grid gap-3"
+            :style="{
+              transform: `translateY(${albumGrid.offsetTop.value}px)`,
+              gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+            }"
+          >
+            <AlbumCard
+              v-for="item in visibleGridItems"
+              :key="item.key"
+              :item="item"
+              mode="grid"
+              :is-active="isAlbumActive(item)"
+              @open="openAlbum(item)"
+              @actions="openAlbumActions(item)"
+            />
+          </div>
         </div>
       </div>
     </template>
@@ -132,6 +156,8 @@ import AlbumCard from "../components/AlbumCard.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { useDragReorder, REORDER_ROW_HEIGHT } from "../composables/useDragReorder";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { useVirtualList } from "../composables/useVirtualList";
+import { useGridColumns } from "../composables/useGridColumns";
 import { showToast } from "../composables/useToast";
 import { usePlaylistStore } from "../stores/playlists";
 import { usePlayerStore } from "../stores/player";
@@ -303,4 +329,60 @@ function onViewAlbum(): void {
 
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
+
+// --- Virtualized lists -----------------------------------------------------
+// A playlist can be thousands of tracks; only the rows near the viewport are
+// mounted (each row carries MarqueeText animations, touch handlers and a cover
+// fetch). The anchors reserve the full heights. Grid column count mirrors the
+// static grid's breakpoints (grid-cols-2 / md:grid-cols-3 / lg:auto-fill).
+const tracksAnchor = ref<HTMLElement | null>(null);
+const albumsListAnchor = ref<HTMLElement | null>(null);
+const albumsAnchor = ref<HTMLElement | null>(null);
+const gridCols = useGridColumns(scroller);
+
+const tracksList = useVirtualList({
+  scroller,
+  anchor: tracksAnchor,
+  count: () => reorderedIds.value.length,
+  rowHeight: () => REORDER_ROW_HEIGHT,
+  columns: () => 1,
+});
+
+const albumsList = useVirtualList({
+  scroller,
+  anchor: albumsListAnchor,
+  count: () => albumItems.value.length,
+  rowHeight: () => REORDER_ROW_HEIGHT,
+  columns: () => 1,
+});
+
+/** Tile height (aspect-square) + gap; the grid's row pitch. */
+function gridPitch(): number {
+  const w = scroller.value?.clientWidth ?? 0;
+  const c = gridCols.value;
+  const tile = w > 0 ? (w - 32 - (c - 1) * 12) / c : 200;
+  return Math.max(1, tile + 12);
+}
+
+const albumGrid = useVirtualList({
+  scroller,
+  anchor: albumsAnchor,
+  count: () => albumItems.value.length,
+  rowHeight: gridPitch,
+  columns: () => gridCols.value,
+});
+
+/** Visible track rows with their absolute indices (drag reorder needs them). */
+const visibleTrackEntries = computed(() => {
+  const s = tracksList.start.value;
+  const e = tracksList.end.value;
+  return reorderedIds.value.slice(s, e).map((id, i) => ({ id, index: s + i }));
+});
+
+const visibleAlbumListItems = computed(() =>
+  albumItems.value.slice(albumsList.start.value, albumsList.end.value),
+);
+const visibleGridItems = computed(() =>
+  albumItems.value.slice(albumGrid.start.value, albumGrid.end.value),
+);
 </script>
