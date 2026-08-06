@@ -58,17 +58,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from "vue";
-
-/** The exact palette and order used by the Android PlaylistsScreen. */
-const PLAYLIST_EMOJIS = [
-  "🎵", "🎶", "🎸", "🎹", "🎺", "🎻", "🥁", "🎷",
-  "🎤", "🎧", "📻", "🎼", "🎙", "🎛", "🎚", "🔊",
-  "❤️", "💜", "💚", "💙", "💛", "🧡", "🖤", "🤍",
-  "🔥", "⭐", "🌟", "✨", "💫", "🌙", "☀️", "🌈",
-  "🏃", "💪", "🧘", "🎉", "🎊", "🥳", "😴", "😌",
-  "🌿", "🌺", "🍂", "🌊", "⛰️", "🌃", "🌆", "🏖️",
-  "🎮", "📚", "🏀", "⚽", "🚀", "🌍", "🦋", "🐾",
-];
+import { PLAYLIST_EMOJIS } from "../playlistEmojis";
 
 const props = defineProps<{
   open: boolean;
