@@ -34,7 +34,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Android",
+      label: "Android App",
       link: { type: "doc", id: "android/index" },
       items: [
         "android/index",
