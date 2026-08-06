@@ -12,7 +12,7 @@ sidebar_position: 1
 |-----------|-------------|------|
 | **Desktop Client** | Cross-platform desktop app (Tauri 2 + Vue 3) | [Desktop](/docs/desktop/) |
 | **Server** | Standalone REST API (Rust + Axum) | [Server](/docs/server/) |
-| **Web Client** | Browser-based UI (Vue 3 + Vite) | [Web Client](/docs/web-client/) |
+| **Web App** | Browser-based UI (Vue 3 + Vite) | [Web App](/docs/web-client/) |
 | **Android** | Native Android app (Kotlin + Jetpack Compose) | [Android](/docs/android/) |
 
 ## Getting around

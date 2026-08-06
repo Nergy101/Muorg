@@ -41,7 +41,7 @@ cd server
 cargo build --release --bin muorg-server
 ```
 
-### Web Client
+### Web App
 
 ```bash
 cd web-client

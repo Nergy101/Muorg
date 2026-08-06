@@ -2,15 +2,17 @@
 sidebar_position: 1
 ---
 
-# Web Client
+# Web App
 
-The Muorg web client is a browser-based UI (Vue 3 + Vite) that connects to a [muorg-server](/docs/server/) instance. It is mobile-first, installable as a PWA, and mirrors the Android client's experience — no app store required.
+The Muorg web app is a browser-based UI (Vue 3 + Vite) that connects to a [muorg-server](/docs/server/) instance. It is mobile-first, installable as a PWA, and mirrors the Android app's experience — no app store required.
 
-## Deploying the web client
+![Web app library grid](/img/screenshots/web-app-library.jpg)
+
+## Deploying the web app
 
 ### Option 1 — Docker (recommended)
 
-The web client ships as a static site in an nginx container:
+The web app ships as a static site in an nginx container:
 
 ```bash
 docker pull nergy101/muorg-web:latest
@@ -23,7 +25,7 @@ docker run -d -p 8080:80 \
 
 ### Option 2 — Docker Compose (with the server)
 
-The [docker-compose.yml](https://raw.githubusercontent.com/Nergy101/Muorg/main/server/docker-compose.yml) in the repo starts both the server and the web client:
+The [docker-compose.yml](https://raw.githubusercontent.com/Nergy101/Muorg/main/server/docker-compose.yml) in the repo starts both the server and the web app:
 
 ```bash
 curl -O https://raw.githubusercontent.com/Nergy101/Muorg/main/server/docker-compose.yml
@@ -33,11 +35,11 @@ cp muorg-server.example.toml muorg-server.toml
 docker compose up -d
 ```
 
-The web client is then available at `http://<host>:8080`.
+The web app is then available at `http://<host>:8080`.
 
 ### Option 3 — Static hosting
 
-The web client build is a plain static site. Build it yourself and host it anywhere:
+The web app build is a plain static site. Build it yourself and host it anywhere:
 
 ```bash
 cd web-client
@@ -58,6 +60,9 @@ The client stores the connection locally. If the connection is lost, the connect
 ## Feature tour
 
 - **Library** — album grid and track table views, with search and filter
+
+![Web app album detail](/img/screenshots/web-app-album.png)
+
 - **Album view** — tap an album to see its tracks and play them
 - **Playlists** — regular and smart playlists, with a playlist editor
 - **Queue** — now playing queue with reordering

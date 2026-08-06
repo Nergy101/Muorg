@@ -26,7 +26,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Web Client",
+      label: "Web App",
       link: { type: "doc", id: "web-client/index" },
       items: [
         "web-client/index",

@@ -75,7 +75,7 @@ const components = [
     icon: "🗄️",
   },
   {
-    title: "Web Client",
+    title: "Web App",
     description:
       "A browser-based UI (Vue 3 + Vite) that connects to a muorg-server instance. Same library experience, no install, PWA offline support.",
     to: "/docs/web-client/",

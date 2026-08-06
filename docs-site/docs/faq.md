@@ -41,7 +41,7 @@ Check, in order:
 1. **Server is up** — `curl http://<host>:7700/api/health` returns `Healthy`. If not, check the server logs.
 2. **Reachable** — from the client device, the URL must be reachable. On the same machine `localhost`/`127.0.0.1` works; for other devices use the LAN IP (`ipconfig getifaddr en0` on macOS, `ip addr` on Linux) or a domain. In Docker, make sure the port is published (`ports: ["7700:7700"]`).
 3. **API key matches** — the client must use the exact `api_key` from the server config. Changing the key on the server invalidates all existing client connections.
-4. **CORS** — for browser clients, `allowed_origins` must include your web client's origin. `["*"]` works for LAN/home use.
+4. **CORS** — for browser clients, `allowed_origins` must include your web app's origin. `["*"]` works for LAN/home use.
 
 ## Music files are not appearing after I added a folder
 
@@ -58,9 +58,9 @@ The server (or desktop app) needs **write access** to the music directory to edi
 - On Linux: check directory permissions (`ls -ld /path/to/music`). The user running the server needs write permission.
 - Some files may be flagged read-only themselves — make them writable and retry.
 
-## The PWA / web client behaves oddly offline
+## The PWA / web app behaves oddly offline
 
-The web client is a PWA: the app shell is cached and works offline, but **streaming** requires the server. If the server is unreachable, the library view may be stale and playback will fail — reconnect to the server for full functionality.
+The web app is a PWA: the app shell is cached and works offline, but **streaming** requires the server. If the server is unreachable, the library view may be stale and playback will fail — reconnect to the server for full functionality.
 
 If the cached shell looks outdated after a new release, hard-refresh (`Cmd/Ctrl+Shift+R`) or clear site data once.
 
@@ -75,7 +75,7 @@ Local libraries are scanned into the app's data directory; playlists, metadata e
 
 ## Does Muorg need an internet connection?
 
-No. Everything runs on your own machines — desktop app, server, web client, and Android app are all self-hosted. The only internet-dependent feature is **MusicBrainz auto-tagging** (optional, used when you explicitly request tag suggestions).
+No. Everything runs on your own machines — desktop app, server, web app, and Android app are all self-hosted. The only internet-dependent feature is **MusicBrainz auto-tagging** (optional, used when you explicitly request tag suggestions).
 
 ## Android widget shows no artwork / stale info
 

@@ -31,7 +31,7 @@ Muorg works two ways — pick the one that fits:
    docker compose up -d
    ```
 
-3. **Point your clients at it** — in the desktop app, web client, or Android app, enter your server's address (e.g. `http://192.168.1.50:7700`) and the `api_key` from your config.
+3. **Point your clients at it** — in the desktop app, web app, or Android app, enter your server's address (e.g. `http://192.168.1.50:7700`) and the `api_key` from your config.
 
 That's it — your library is now available on every device.
 

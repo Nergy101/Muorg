@@ -7,7 +7,7 @@ sidebar_position: 1
 The Muorg desktop client is built with **Tauri 2 + Vue 3** and runs on macOS, Windows, and Linux. It works fully offline with local music folders, and can also connect to a [muorg-server](/docs/server/) for remote libraries.
 
 :::note Screenshots
-Product screenshots are planned — the [screenshots script](https://github.com/Nergy101/Muorg/blob/main/docs/screenshots/screenshots.sh) captures them; they land in `docs-site/static/img/screenshots/` and are referenced here.
+Desktop screenshots are still being captured — the [screenshots script](https://github.com/Nergy101/Muorg/blob/main/docs/screenshots/screenshots.sh) captures them; they land in `docs-site/static/img/screenshots/` and are referenced here.
 :::
 
 ## Install

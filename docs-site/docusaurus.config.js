@@ -79,7 +79,7 @@ module.exports = {
             { label: "Getting Started", to: "/docs/intro" },
             { label: "Desktop App", to: "/docs/desktop/" },
             { label: "Server Setup", to: "/docs/server/" },
-            { label: "Web Client", to: "/docs/web-client/" },
+            { label: "Web App", to: "/docs/web-client/" },
             { label: "Android", to: "/docs/android/" },
             { label: "Release Notes", to: "/docs/releases" },
             { label: "FAQ", to: "/docs/faq" },

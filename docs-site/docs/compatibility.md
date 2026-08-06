@@ -4,7 +4,7 @@ sidebar_position: 10
 
 # Version Compatibility
 
-Muorg is a multi-component product: the desktop app, web client, and Android app all talk to the muorg-server over its REST API.
+Muorg is a multi-component product: the desktop app, web app, and Android app all talk to the muorg-server over its REST API.
 
 ## General rule
 
@@ -19,7 +19,7 @@ Muorg is a multi-component product: the desktop app, web client, and Android app
 | Upgrading clients only | Upgrade the server in the same maintenance window to stay safe |
 | Upgrading the server | Older clients keep working; new client features may not be available until clients are updated |
 | Self-hosted all-in-one (desktop sidecar) | Everything ships together — just update the app |
-| Docker server + web client | Use the same tagged version for both images (`nergy101/muorg-server:v2.33.1` + `nergy101/muorg-web:v2.33.1`), or `latest` for both |
+| Docker server + web app | Use the same tagged version for both images (`nergy101/muorg-server:v2.33.1` + `nergy101/muorg-web:v2.33.1`), or `latest` for both |
 
 ## API key changes
 
