@@ -9,13 +9,49 @@ import {
   removeTracksFromPlaylist as apiRemove,
   reorderPlaylistTracks as apiReorder,
   getTracksForPlaylist,
+  createSmartPlaylist as apiCreateSmart,
+  updateSmartPlaylistRules as apiUpdateSmartRules,
+  getSmartTracks,
 } from "../api/playlists";
-import type { Playlist } from "../types";
+import type { Playlist, SmartRule } from "../types";
 import { usePlayerStore } from "./player";
 
 /** Shared with the Android client so a common library stays consistent. */
 const FAVORITES_NAME = "Favorites";
 const FAVORITES_ICON = "⭐";
+
+/** Fields whose rule values must be sent as JSON numbers, not strings. */
+const SMART_NUMERIC_FIELDS = new Set(["rating", "play_count", "year", "last_played_at", "has_cover"]);
+
+/** Serialize editor rules to the server's rules_json format. */
+export function rulesToSmartJson(rules: SmartRule[]): string {
+  return JSON.stringify(
+    rules.map((r) => ({
+      field: r.field,
+      op: r.op,
+      value:
+        r.op === "is_null" || r.op === "is_not_null"
+          ? undefined
+          : SMART_NUMERIC_FIELDS.has(r.field) && r.value.trim() !== ""
+            ? Number(r.value)
+            : r.value,
+    })),
+  );
+}
+
+/** Parse a stored rules_json string back into editor rows. */
+export function parseSmartRules(json: string | null): SmartRule[] {
+  try {
+    const raw = JSON.parse(json ?? "[]") as { field: string; op: string; value?: unknown }[];
+    return raw.map((r) => ({
+      field: r.field,
+      op: r.op,
+      value: r.value == null ? "" : String(r.value),
+    }));
+  } catch {
+    return [];
+  }
+}
 
 /** Client-side pin state (per device, survives reloads). Pins may move to the
  *  server later; for now order = the order in which playlists were pinned. */
@@ -97,6 +133,23 @@ export const usePlaylistStore = defineStore("playlists", () => {
     const p = await apiCreate(name, icon);
     playlists.value = [...playlists.value, p];
     return p;
+  }
+
+  async function createSmartPlaylist(name: string, rulesJson: string): Promise<Playlist> {
+    const p = await apiCreateSmart(name, rulesJson);
+    playlists.value = [...playlists.value, p];
+    return p;
+  }
+
+  async function updateSmartPlaylistRules(id: number, rulesJson: string): Promise<void> {
+    await apiUpdateSmartRules(id, rulesJson);
+    const ids = await getSmartTracks(id).catch(() => null);
+    playlists.value = playlists.value.map((p) =>
+      p.id === id ? { ...p, smart_rules: rulesJson, track_count: ids?.length ?? p.track_count } : p,
+    );
+    if (ids) {
+      trackIdSets.value = new Map(trackIdSets.value).set(id, new Set(ids));
+    }
   }
 
   async function renamePlaylist(id: number, name: string, icon?: string | null): Promise<void> {
@@ -203,6 +256,8 @@ export const usePlaylistStore = defineStore("playlists", () => {
     togglePin,
     loadPlaylists,
     createPlaylist,
+    createSmartPlaylist,
+    updateSmartPlaylistRules,
     renamePlaylist,
     deletePlaylist,
     loadTrackIdsForPlaylist,
