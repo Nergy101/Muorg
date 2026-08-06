@@ -108,7 +108,7 @@
 
         <template v-else>
           <button
-            v-for="p in playlistStore.playlists"
+            v-for="p in manualPlaylists"
             :key="p.id"
             type="button"
             class="flex h-14 w-full items-center gap-3 px-6 text-left"
@@ -308,6 +308,9 @@ const membershipLoading = ref(false);
 const creating = ref(false);
 const newName = ref("");
 const nameInput = ref<HTMLInputElement | null>(null);
+
+/** Smart playlists are rule-driven; manual membership toggles are meaningless. */
+const manualPlaylists = computed(() => playlistStore.playlists.filter((p) => p.smart_rules == null));
 
 async function openPlaylists(): Promise<void> {
   const t = props.track;
