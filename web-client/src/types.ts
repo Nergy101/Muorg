@@ -35,6 +35,14 @@ export interface Playlist {
   smart_rules: string | null;
 }
 
+/** One row of a smart playlist's rules editor. Serialized as
+ *  { field, op, value } per the server's rules_json format. */
+export interface SmartRule {
+  field: string;
+  op: string;
+  value: string;
+}
+
 export interface AlbumGridItem {
   key: string;
   album: string;
