@@ -60,6 +60,11 @@ function Hero() {
             Download
           </Link>
         </div>
+        <div className={styles.heroLinks}>
+          <Link to="/docs/desktop/">Run Locally</Link>
+          <span className={styles.heroLinkSep}>·</span>
+          <Link to="/docs/server/">Self-host</Link>
+        </div>
       </div>
     </header>
   );
