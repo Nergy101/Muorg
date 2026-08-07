@@ -5,6 +5,7 @@ import { useLibraryStore } from "./stores/library";
 import { usePlaylistStore } from "./stores/playlists";
 
 import ConnectView from "./views/ConnectView.vue";
+import HomeView from "./views/HomeView.vue";
 import LibraryView from "./views/LibraryView.vue";
 import AlbumDetailView from "./views/AlbumDetailView.vue";
 import PlaylistsView from "./views/PlaylistsView.vue";
@@ -34,8 +35,9 @@ export type NavDepth = number | "modal";
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: "/", redirect: "/library" },
+    { path: "/", redirect: "/home" },
     { path: "/connect", name: "connect", component: ConnectView, meta: { depth: 0 } },
+    { path: "/home", name: "home", component: HomeView, meta: { depth: 0 } },
     { path: "/library", name: "library", component: LibraryView, meta: { depth: 0 } },
     {
       path: "/album/:albumKey",
@@ -62,7 +64,7 @@ export const router = createRouter({
 router.beforeEach((to) => {
   const connected = isConnected();
   if (!connected && to.name !== "connect") return { name: "connect" };
-  if (connected && to.name === "connect") return { name: "library" };
+  if (connected && to.name === "connect") return { name: "home" };
 
   if (connected) {
     const lib = useLibraryStore();

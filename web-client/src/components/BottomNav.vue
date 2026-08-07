@@ -11,9 +11,12 @@
            parked on Library, which would claim the wrong destination. -->
       <div
         v-if="activeIndex >= 0"
-        class="pointer-events-none absolute left-0 top-1/2 flex w-1/3 justify-center transition-transform duration-300"
-        style="transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1)"
-        :style="{ transform: `translateX(${activeIndex * 100}%) translateY(-50%)` }"
+        class="pointer-events-none absolute left-0 top-1/2 flex justify-center transition-transform duration-300"
+        :style="{
+          width: `${100 / TABS.length}%`,
+          transform: `translateX(${activeIndex * 100}%) translateY(-50%)`,
+          transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }"
         aria-hidden="true"
       >
         <div class="h-10 w-14 rounded-full bg-primary/[0.18]" />
