@@ -3,7 +3,7 @@
        bar up off the edge and read as a dead gap. This lifts the icon row clear
        of the home indicator and its gesture strip while the background, which
        fills the padding box, still runs to the physical bottom of the screen. -->
-  <nav class="shrink-0 border-t border-outline/30 bg-surface-container pb-3">
+  <nav class="shrink-0 bg-surface pb-3">
     <!-- Bar spans the shell, tabs stay grouped: four icons spread over 1200px
          would sit absurdly far apart. -->
     <div class="relative mx-auto flex h-16 w-full max-w-[600px] items-stretch">

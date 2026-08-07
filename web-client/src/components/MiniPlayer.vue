@@ -8,7 +8,7 @@
     {{ player.errorMessage }}
   </div>
 
-  <div v-else-if="player.currentTrack" class="relative shrink-0 bg-surface shadow-lg">
+  <div v-else-if="player.currentTrack" class="relative shrink-0 bg-surface">
     <!-- Progress line stays on the bar, not the content column: a 900px line
          floating mid-bar would read as broken rather than as progress. -->
     <div class="absolute inset-x-0 top-0 h-0.5 bg-surface-variant">
