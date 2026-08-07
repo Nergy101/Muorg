@@ -41,7 +41,7 @@ jobs:
 
       - name: Pull and start docker images on VM
         if: ${{ env.SSH_OK == 'true' }}
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
