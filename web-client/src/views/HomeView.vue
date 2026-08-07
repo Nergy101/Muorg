@@ -12,7 +12,10 @@
            to the server. Opening one shows its tracks; saving goes through
            the New-playlist flow. -->
       <section class="content-col px-4 pt-4">
-        <h2 class="pb-2 text-label-lg font-semibold text-on-surface">Mixes</h2>
+        <h2 class="flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
+          <MageIcon name="zap" class="h-4 w-4 text-primary" />
+          Mixes
+        </h2>
 
         <div v-if="mixes.length === 0 && lib.loading" class="flex justify-center py-6">
           <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
@@ -42,7 +45,10 @@
       </section>
 
       <section v-for="shelf in shelfViews" :key="shelf.key" class="content-col px-4 pt-4">
-        <h2 class="pb-2 text-label-lg font-semibold text-on-surface">{{ shelf.label }}</h2>
+        <h2 class="flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
+          <MageIcon :name="shelf.icon" class="h-4 w-4 text-primary" />
+          {{ shelf.label }}
+        </h2>
 
         <div v-if="shelf.loading" class="flex justify-center py-6">
           <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
@@ -91,6 +97,7 @@ useScrollMemory(scroller);
 interface Shelf {
   key: string;
   label: string;
+  icon: string;
   load: () => Promise<CatalogTrack[]>;
   tracks: CatalogTrack[];
   loading: boolean;
@@ -101,6 +108,7 @@ const shelves = reactive<Shelf[]>([
   {
     key: "recently-played",
     label: "Recently Played",
+    icon: "clock",
     load: () => getRecentPlayHistory(20),
     tracks: [],
     loading: false,
@@ -109,6 +117,7 @@ const shelves = reactive<Shelf[]>([
   {
     key: "most-played",
     label: "Most Played",
+    icon: "chart-up",
     load: () => getTopPlayHistory(20, 30),
     tracks: [],
     loading: false,
@@ -161,6 +170,7 @@ const shelfViews = computed(() =>
   shelves.map((s) => ({
     key: s.key,
     label: s.label,
+    icon: s.icon,
     loading: s.loading,
     error: s.error,
     items: buildShelfItems(s.tracks),
