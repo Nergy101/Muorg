@@ -37,7 +37,10 @@
       </div>
 
       <!-- ─── Playback ───────────────────────────────────────────────── -->
-      <div :class="SECTION">Playback</div>
+      <div :class="[SECTION, 'flex items-center gap-1.5']">
+        <MageIcon name="play" class="h-3.5 w-3.5" />
+        <span>Playback</span>
+      </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Continuous playback</p>
@@ -74,7 +77,10 @@
       </div>
 
       <!-- ─── Library ────────────────────────────────────────────────── -->
-      <div :class="SECTION">Library</div>
+      <div :class="[SECTION, 'flex items-center gap-1.5']">
+        <MageIcon name="music" class="h-3.5 w-3.5" />
+        <span>Library</span>
+      </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Default sort order</p>
@@ -136,7 +142,10 @@
       </div>
 
       <!-- ─── Theme ──────────────────────────────────────────────────── -->
-      <div :class="SECTION">Theme</div>
+      <div :class="[SECTION, 'flex items-center gap-1.5']">
+        <MageIcon name="sun" class="h-3.5 w-3.5" />
+        <span>Theme</span>
+      </div>
       <div class="px-4 py-2">
         <p class="pb-2 text-body-lg text-on-surface">Mode</p>
         <SegmentedControl
@@ -164,7 +173,10 @@
       </div>
 
       <!-- ─── Server ─────────────────────────────────────────────────── -->
-      <div :class="SECTION">Server</div>
+      <div :class="[SECTION, 'flex items-center gap-1.5']">
+        <MageIcon name="server" class="h-3.5 w-3.5" />
+        <span>Server</span>
+      </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Server URL</p>
@@ -217,7 +229,10 @@
       </template>
 
       <!-- ─── Development ─────────────────────────────────────────────── -->
-      <div :class="SECTION">Development</div>
+      <div :class="[SECTION, 'flex items-center gap-1.5']">
+        <MageIcon name="wrench" class="h-3.5 w-3.5" />
+        <span>Development</span>
+      </div>
       <a
         :class="ROW"
         href="https://github.com/Nergy101/Muorg"
