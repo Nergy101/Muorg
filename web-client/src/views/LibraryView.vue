@@ -1,5 +1,12 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+    <div class="content-col flex h-14 shrink-0 items-center justify-between px-4">
+      <div class="flex min-w-0 items-center gap-2">
+        <MageIcon name="compact-disk-fill" class="h-5 w-5 text-primary" />
+        <span class="truncate text-title-lg text-on-surface">Library</span>
+      </div>
+    </div>
+
     <!-- Search field: pinned, not part of the scrolling body -->
     <div class="content-col shrink-0 px-4 pb-2 pt-3">
       <div class="flex h-11 items-center gap-2 rounded-full bg-surface px-4">
