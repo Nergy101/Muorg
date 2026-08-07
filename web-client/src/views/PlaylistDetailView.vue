@@ -32,7 +32,7 @@
         </span>
 
         <button
-          v-if="settings.albumViewStyle === 'tracks' && !isSmart && !isMix"
+          v-if="viewStyle === 'tracks' && !isSmart && !isMix"
           type="button"
           class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2"
           :class="hasUnsavedOrder ? 'text-primary' : 'text-on-surface-variant'"
@@ -66,7 +66,7 @@
           type="button"
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
           aria-label="Change layout"
-          @click="settings.cycleAlbumViewStyle()"
+          @click="toggleViewStyle"
         >
           <MageIcon :name="viewIcon" class="h-5 w-5" />
         </button>
@@ -77,7 +77,7 @@
           <p class="text-body-md text-on-surface-variant">No tracks in this playlist</p>
         </div>
 
-        <div v-else-if="settings.albumViewStyle === 'tracks'" class="content-col">
+        <div v-else-if="viewStyle === 'tracks'" class="content-col">
           <div
             ref="tracksAnchor"
             :style="{ height: `${tracksList.totalHeight.value}px` }"
@@ -111,7 +111,7 @@
           </div>
         </div>
 
-        <div v-else-if="settings.albumViewStyle === 'list'" class="content-col">
+        <div v-else-if="viewStyle === 'list'" class="content-col">
           <div
             ref="albumsListAnchor"
             :style="{ height: `${albumsList.totalHeight.value}px` }"
@@ -208,7 +208,7 @@ import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
 import { findMix } from "../composables/useMixes";
-import type { AlbumGridItem, CatalogTrack, Playlist, SmartRule } from "../types";
+import type { AlbumGridItem, AlbumViewStyle, CatalogTrack, Playlist, SmartRule } from "../types";
 
 const props = defineProps<{ id: string }>();
 
@@ -261,8 +261,34 @@ async function onSmartEdited(_name: string, _icon: string, rules: SmartRule[]): 
 }
 
 const viewIcon = computed(
-  () => ({ grid: "layout-grid", list: "arrowlist", tracks: "music" })[settings.albumViewStyle],
+  () => ({ grid: "layout-grid", list: "arrowlist", tracks: "music" })[viewStyle.value],
 );
+
+// --- View style ---
+// Mixes open as track rows by default, independent of the global album-view
+// preference (which keeps applying to real playlists). The in-header toggle
+// cycles the mix's own style with the same grid → list → tracks → grid order.
+const mixViewStyle = ref<AlbumViewStyle>("tracks");
+const viewStyle = computed<AlbumViewStyle>(() =>
+  isMix.value ? mixViewStyle.value : settings.albumViewStyle,
+);
+
+watch(
+  () => (isMix.value ? playlistId.value : null),
+  (id) => {
+    if (id != null) mixViewStyle.value = "tracks";
+  },
+  { immediate: true },
+);
+
+function toggleViewStyle(): void {
+  if (isMix.value) {
+    mixViewStyle.value =
+      mixViewStyle.value === "grid" ? "list" : mixViewStyle.value === "list" ? "tracks" : "grid";
+    return;
+  }
+  settings.cycleAlbumViewStyle();
+}
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 

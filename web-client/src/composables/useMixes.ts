@@ -4,9 +4,11 @@ import type { CatalogTrack } from "../types";
 
 /**
  * Ephemeral "Mixes" for the Home tab: 8 randomly assembled ~20-track
- * playlists. They are never written to the server; opening one renders it via
- * the playlist detail view, and saving goes through the normal New-playlist
- * flow (name + emoji, then the mix's tracks are added to the new playlist).
+ * playlists, each sampled from genres that fit its name (Gym Fuel is
+ * metalcore, Deep Focus is metal + electronic, …). They are never written to
+ * the server; opening one renders it via the playlist detail view, and saving
+ * goes through the normal New-playlist flow (name + emoji, then the mix's
+ * tracks are added to the new playlist).
  *
  * A module-level cache keeps the same 8 mixes stable for the whole session:
  * KeepAlive keeps Home mounted, the mix detail view reads the same list, and
@@ -23,26 +25,34 @@ export interface Mix {
 
 const MIX_SIZE = 20;
 
-const MIX_DEFS: { name: string; emoji: string }[] = [
-  { name: "Midnight Drive", emoji: "🌙" },
-  { name: "Morning Coffee", emoji: "☀️" },
-  { name: "Summer Breeze", emoji: "🏖️" },
-  { name: "Gym Fuel", emoji: "🔥" },
-  { name: "Rainy Day", emoji: "🌧️" },
-  { name: "Road Trip", emoji: "🚗" },
-  { name: "Deep Focus", emoji: "💫" },
-  { name: "Party Starter", emoji: "🎉" },
+/** Genres per mix, chosen to match the library's actual tags (verified against
+ *  the live catalog). If a cohort yields fewer than MIX_SIZE tracks the mix
+ *  falls back to the full catalog so it never comes up short. */
+const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
+  { name: "Midnight Drive", emoji: "🌙", genres: ["Electronic", "Lo-Fi", "Indie", "Instrumental"] },
+  { name: "Morning Coffee", emoji: "☀️", genres: ["Indie Rock", "Indie", "Pop", "Pop Rock"] },
+  { name: "Summer Breeze", emoji: "🏖️", genres: ["Country", "Indie Rock", "Indie", "Pop Rock"] },
+  { name: "Gym Fuel", emoji: "🔥", genres: ["Metalcore", "Hardcore", "Nu Metal"] },
+  { name: "Rainy Day", emoji: "🌧️", genres: ["Emo", "Post-Hardcore", "Alternative"] },
+  { name: "Road Trip", emoji: "🚗", genres: ["Punk Rock", "Pop Punk", "Classic Rock"] },
+  { name: "Deep Focus", emoji: "💫", genres: ["Metal", "Electronic", "Progressive Metal", "Instrumental"] },
+  { name: "Party Starter", emoji: "🎉", genres: ["Nu Metal", "Pop", "Electronic", "Rap"] },
 ];
 
-/** MIX_SIZE distinct random track ids (partial Fisher–Yates shuffle). */
-function sampleTrackIds(tracks: CatalogTrack[]): number[] {
-  const pool = [...tracks];
+/** MIX_SIZE distinct random track ids from the cohort pool (partial
+ *  Fisher–Yates shuffle); falls back to the full catalog when the cohort is
+ *  smaller than MIX_SIZE. */
+function sampleTrackIds(tracks: CatalogTrack[], genres: string[]): number[] {
+  const wanted = new Set(genres.map((g) => g.trim().toLowerCase()));
+  const pool = tracks.filter((t) => t.genre != null && wanted.has(t.genre.trim().toLowerCase()));
+  const source = pool.length >= MIX_SIZE ? pool : tracks;
+  const copy = [...source];
   const out: number[] = [];
-  const n = Math.min(MIX_SIZE, pool.length);
+  const n = Math.min(MIX_SIZE, copy.length);
   for (let i = 0; i < n; i++) {
-    const j = i + Math.floor(Math.random() * (pool.length - i));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-    out.push(pool[i].id);
+    const j = i + Math.floor(Math.random() * (copy.length - i));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+    out.push(copy[i].id);
   }
   return out;
 }
@@ -59,7 +69,7 @@ export function useMixes(): { mixes: ComputedRef<Mix[]> } {
       id: i + 1,
       name: def.name,
       emoji: def.emoji,
-      trackIds: sampleTrackIds(tracks),
+      trackIds: sampleTrackIds(tracks, def.genres),
     }));
     return sessionMixes;
   });
