@@ -143,7 +143,7 @@
 
       <!-- ─── Theme ──────────────────────────────────────────────────── -->
       <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="sun" class="h-3.5 w-3.5" />
+        <MageIcon :name="themeIcon" class="h-3.5 w-3.5" />
         <span>Theme</span>
       </div>
       <div class="px-4 py-2">
@@ -304,6 +304,10 @@ const { canInstall, isIos, install } = useInstallPrompt();
 
 const version = __APP_VERSION__;
 const serverUrl = computed(() => getServerUrl() || "Not configured");
+// Theme icon follows the effective theme: moon when dark, sun when light.
+// Auto (system) resolves to whichever the system is currently using, and the
+// store's matchMedia listener keeps this reactive to live OS theme changes.
+const themeIcon = computed(() => (settings.resolvedTheme === "dark" ? "moon" : "sun"));
 
 function switchClass(on: boolean): string {
   return `flex h-8 w-[52px] shrink-0 items-center rounded-full px-1 transition-colors duration-200 ${
