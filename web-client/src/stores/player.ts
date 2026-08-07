@@ -70,6 +70,18 @@ export const usePlayerStore = defineStore("player", () => {
   );
 
   const audioEl = ref<HTMLAudioElement | null>(null);
+  /**
+   * Second hidden element that buffers the NEXT track while the current one
+   * plays, so the handoff is a resume instead of a cold start: gapless in the
+   * foreground, and the best shot iOS's suspended background page has at
+   * auto-advance (WebKit wakes it briefly at 'ended', but a fresh token fetch
+   * + src swap + play() usually gets suspended before audio starts).
+   */
+  let preloadEl: HTMLAudioElement | null = null;
+  /** The track currently sitting in `preloadEl` (null = empty/stale). */
+  let preloadedTrack: CatalogTrack | null = null;
+  /** Guards async preloads against queue changes racing the token fetch. */
+  let preloadSeq = 0;
   // FLAC seeks reload the stream, so el.currentTime restarts at 0; this holds
   // the seconds the server skipped so the wall-clock position stays right.
   let flacSeekOffset = 0;
@@ -91,13 +103,17 @@ export const usePlayerStore = defineStore("player", () => {
     }, ERROR_CLEAR_MS);
   }
 
-  function initAudio(): HTMLAudioElement {
-    if (audioEl.value) return audioEl.value;
+  /** Wires the shared listener set onto one hidden, DOM-attached audio element.
+   * Only the ACTIVE element may write playback state; the preload element fires
+   * durationchange (and briefly play/pause) while it's just buffering. */
+  function makeAudioEl(): HTMLAudioElement {
     const el = new Audio();
     el.addEventListener("timeupdate", () => {
+      if (el !== audioEl.value) return;
       positionSecs.value = el.currentTime + flacSeekOffset;
     });
     el.addEventListener("durationchange", () => {
+      if (el !== audioEl.value) return;
       if (Number.isFinite(el.duration)) {
         durationSecs.value = el.duration + flacSeekOffset;
       } else {
@@ -105,23 +121,37 @@ export const usePlayerStore = defineStore("player", () => {
       }
     });
     el.addEventListener("ended", () => {
+      if (el !== audioEl.value) return;
       isPlaying.value = false;
       positionSecs.value = 0;
       if (repeatMode.value === "one") {
         void playCurrent(0);
         return;
       }
-      advance(true);
+      const next = nextPlayOrderPos();
+      if (next < 0) return; // end of queue — playback is done
+      playOrderPos.value = next;
+      void playIndexAt(0);
     });
-    el.addEventListener("play", () => (isPlaying.value = true));
-    el.addEventListener("pause", () => (isPlaying.value = false));
+    el.addEventListener("play", () => {
+      if (el === audioEl.value) isPlaying.value = true;
+    });
+    el.addEventListener("pause", () => {
+      if (el === audioEl.value) isPlaying.value = false;
+    });
     el.volume = volume.value;
     // Must be in the DOM for the iOS Now Playing widget to register.
     el.style.display = "none";
     document.body.appendChild(el);
-    audioEl.value = el;
-    setupMediaSession();
     return el;
+  }
+
+  function initAudio(): HTMLAudioElement {
+    if (!audioEl.value) audioEl.value = makeAudioEl();
+    // reset() keeps the active element but drops the preload one — recreate it.
+    if (!preloadEl) preloadEl = makeAudioEl();
+    setupMediaSession();
+    return audioEl.value;
   }
 
   /** Rebuilds `playOrder` around `anchor` (an index into `queue`). */
@@ -162,24 +192,99 @@ export const usePlayerStore = defineStore("player", () => {
       durationSecs.value = track.duration_secs ?? 0;
       await el.play();
       recordPlay(track.id);
+      void preloadNext();
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
-  /** Steps to the next entry in `playOrder`, honouring repeat-all wraparound. */
-  function advance(auto: boolean): void {
+  /** Index of the next entry in `playOrder`, or -1 at the end of the queue
+   * (repeat-all wraps around to 0). */
+  function nextPlayOrderPos(): number {
     if (playOrderPos.value + 1 < playOrder.value.length) {
-      playOrderPos.value++;
-      void playCurrent(0);
-      return;
+      return playOrderPos.value + 1;
     }
     if (repeatMode.value === "all" && playOrder.value.length > 0) {
-      playOrderPos.value = 0;
-      void playCurrent(0);
+      return 0;
+    }
+    return -1;
+  }
+
+  /** Starts the track at `playOrder[playOrderPos]`, preferring the preloaded
+   * element (a resume) over a cold start. */
+  async function playIndexAt(startSecs: number): Promise<void> {
+    if (startSecs === 0 && tryHandoffToPreloaded()) return;
+    await playCurrent(startSecs);
+  }
+
+  /**
+   * Swaps the preloaded element in as the active one if it already holds the
+   * current track with data buffered. Returns false to fall back to a cold
+   * start (stale preload, repeat-one, seek, or the buffer never filled).
+   */
+  function tryHandoffToPreloaded(): boolean {
+    const target = currentTrack.value;
+    const buf = preloadEl;
+    const old = audioEl.value;
+    if (!target || !buf || !old) return false;
+    if (preloadedTrack?.id !== target.id) return false;
+    if (buf.readyState < 2) return false; // HAVE_CURRENT_DATA — not ready yet
+
+    audioEl.value = buf;
+    preloadEl = old;
+    preloadedTrack = null;
+    // Free the old element so it becomes the next preload target.
+    old.pause();
+    old.removeAttribute("src");
+    old.load();
+    flacSeekOffset = 0;
+    positionSecs.value = 0;
+    durationSecs.value = target.duration_secs ?? 0;
+    buf.play().catch((e) => setError((e as Error).message));
+    recordPlay(target.id);
+    void preloadNext();
+    return true;
+  }
+
+  /**
+   * Starts buffering the next track (per the play order) into `preloadEl`
+   * while the current one plays. Tokens live 8h on the server
+   * (`state.tokens.issue(id, 28800)`), so a token minted now still validates
+   * whenever the handoff happens. Failure just means a cold start later.
+   */
+  async function preloadNext(): Promise<void> {
+    const buf = preloadEl;
+    if (!buf) return;
+    const nextPos = nextPlayOrderPos();
+    const next = nextPos >= 0 ? queue.value[playOrder.value[nextPos]] : null;
+    if (!next) {
+      preloadedTrack = null;
+      buf.removeAttribute("src");
+      buf.load();
       return;
     }
-    if (auto) isPlaying.value = false;
+    if (preloadedTrack?.id === next.id && buf.src) return; // already buffering it
+    const seq = ++preloadSeq;
+    try {
+      const token = await issueStreamToken(next.id);
+      if (seq !== preloadSeq || !preloadEl) return;
+      preloadedTrack = next;
+      buf.src = streamUrl(next.id, token, 0);
+      buf.load(); // preload=auto — the browser fills the buffer now
+    } catch {
+      preloadedTrack = null;
+    }
+  }
+
+  /** Steps to the next entry in `playOrder`, honouring repeat-all wraparound. */
+  function advance(auto: boolean): void {
+    const next = nextPlayOrderPos();
+    if (next < 0) {
+      if (auto) isPlaying.value = false;
+      return;
+    }
+    playOrderPos.value = next;
+    void playIndexAt(0);
   }
 
   async function playTrack(track: CatalogTrack, newQueue: CatalogTrack[]): Promise<void> {
@@ -548,6 +653,14 @@ export const usePlayerStore = defineStore("player", () => {
       el.pause();
       el.src = "";
     }
+    if (preloadEl) {
+      preloadEl.pause();
+      preloadEl.removeAttribute("src");
+      preloadEl.load();
+      preloadEl = null;
+    }
+    preloadedTrack = null;
+    preloadSeq++;
     cancelSleepTimer();
     clearTimeout(errorTimer);
     errorTimer = undefined;
