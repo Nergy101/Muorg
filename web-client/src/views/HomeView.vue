@@ -8,6 +8,39 @@
     </div>
 
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
+      <!-- Mixes: 8 session-stable random ~20-track playlists, never written
+           to the server. Opening one shows its tracks; saving goes through
+           the New-playlist flow. -->
+      <section class="content-col px-4 pt-4">
+        <h2 class="pb-2 text-label-lg font-semibold text-on-surface">Mixes</h2>
+
+        <div v-if="mixes.length === 0 && lib.loading" class="flex justify-center py-6">
+          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
+        </div>
+
+        <div v-else-if="mixes.length === 0" class="py-4 text-body-sm text-on-surface-variant">
+          Nothing here yet.
+        </div>
+
+        <div v-else class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+          <button
+            v-for="mix in mixes"
+            :key="mix.id"
+            type="button"
+            class="w-36 shrink-0 rounded-2xl bg-surface p-3 text-left"
+            @click="openMix(mix.id)"
+          >
+            <div
+              class="flex h-20 w-full items-center justify-center rounded-xl bg-surface-variant text-4xl"
+            >
+              {{ mix.emoji }}
+            </div>
+            <p class="mt-2 truncate text-body-md font-semibold text-on-surface">{{ mix.name }}</p>
+            <p class="text-body-sm text-on-surface-variant">{{ mix.trackIds.length }} tracks</p>
+          </button>
+        </div>
+      </section>
+
       <section v-for="shelf in shelfViews" :key="shelf.key" class="content-col px-4 pt-4">
         <h2 class="pb-2 text-label-lg font-semibold text-on-surface">{{ shelf.label }}</h2>
 
@@ -44,8 +77,9 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import { useLibraryStore } from "../stores/library";
-import { getRecentlyAdded, getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
+import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { useMixes } from "../composables/useMixes";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
@@ -64,14 +98,6 @@ interface Shelf {
 }
 
 const shelves = reactive<Shelf[]>([
-  {
-    key: "recently-added",
-    label: "Recently Added",
-    load: () => getRecentlyAdded(20),
-    tracks: [],
-    loading: false,
-    error: false,
-  },
   {
     key: "recently-played",
     label: "Recently Played",
@@ -167,5 +193,11 @@ onActivated(() => {
 
 function openAlbum(item: AlbumGridItem): void {
   void router.push({ name: "album", params: { albumKey: item.key } });
+}
+
+const { mixes } = useMixes();
+
+function openMix(id: number): void {
+  void router.push({ name: "mix", params: { id: String(id) } });
 }
 </script>

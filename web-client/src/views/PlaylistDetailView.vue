@@ -32,7 +32,7 @@
         </span>
 
         <button
-          v-if="settings.albumViewStyle === 'tracks' && !isSmart"
+          v-if="settings.albumViewStyle === 'tracks' && !isSmart && !isMix"
           type="button"
           class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2"
           :class="hasUnsavedOrder ? 'text-primary' : 'text-on-surface-variant'"
@@ -50,6 +50,16 @@
           @click="openSmartEditor"
         >
           <MageIcon name="zap" class="h-5 w-5" />
+        </button>
+
+        <button
+          v-if="isMix"
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
+          aria-label="Save mix as playlist"
+          @click="saveMixOpen = true"
+        >
+          <MageIcon name="save-floppy" class="h-5 w-5" />
         </button>
 
         <button
@@ -81,7 +91,7 @@
                 :style="rowStyle(entry.index)"
               >
                 <div
-                  v-if="!isSmart"
+                  v-if="!isSmart && !isMix"
                   class="flex h-14 w-10 shrink-0 items-center justify-center text-on-surface-variant"
                   style="touch-action: none"
                   @pointerdown="drag.start(entry.index, $event)"
@@ -159,6 +169,16 @@
       @cancel="smartEditorOpen = false"
     />
 
+    <PlaylistFormDialog
+      :open="saveMixOpen"
+      title="New playlist"
+      confirm-label="Save"
+      :initial-name="mix?.name"
+      :initial-icon="mix?.emoji"
+      @confirm="onSaveMix"
+      @cancel="saveMixOpen = false"
+    />
+
     <TrackActionsSheet
       :open="actionsTrack !== null"
       :track="actionsTrack"
@@ -171,12 +191,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import SmartPlaylistDialog from "../components/SmartPlaylistDialog.vue";
+import PlaylistFormDialog from "../components/PlaylistFormDialog.vue";
 import { useDragReorder, REORDER_ROW_HEIGHT } from "../composables/useDragReorder";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useVirtualList } from "../composables/useVirtualList";
@@ -186,10 +207,12 @@ import { usePlaylistStore, rulesToSmartJson, parseSmartRules } from "../stores/p
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
-import type { AlbumGridItem, CatalogTrack, SmartRule } from "../types";
+import { findMix } from "../composables/useMixes";
+import type { AlbumGridItem, CatalogTrack, Playlist, SmartRule } from "../types";
 
 const props = defineProps<{ id: string }>();
 
+const route = useRoute();
 const router = useRouter();
 const playlistStore = usePlaylistStore();
 const player = usePlayerStore();
@@ -197,7 +220,23 @@ const settings = useSettingsStore();
 const lib = useLibraryStore();
 
 const playlistId = computed(() => Number(props.id));
-const playlist = computed(() => playlistStore.playlists.find((p) => p.id === playlistId.value) ?? null);
+
+/** True when this route renders an ephemeral client-side mix, not a server playlist. */
+const isMix = computed(() => route.name === "mix");
+const mix = computed(() => (isMix.value ? findMix(playlistId.value) : null));
+
+const playlist = computed<Playlist | null>(() => {
+  if (mix.value) {
+    return {
+      id: mix.value.id,
+      name: mix.value.name,
+      track_count: mix.value.trackIds.length,
+      icon: mix.value.emoji,
+      smart_rules: null,
+    };
+  }
+  return playlistStore.playlists.find((p) => p.id === playlistId.value) ?? null;
+});
 
 /** Smart playlists are rule-driven: no manual reorder, rules editable in place. */
 const isSmart = computed(() => playlist.value?.smart_rules != null);
@@ -243,7 +282,23 @@ watch(
 );
 
 async function loadOrder(): Promise<void> {
+  if (mix.value) {
+    orderedIds.value = [...mix.value.trackIds];
+    return;
+  }
   orderedIds.value = await playlistStore.loadTrackOrderForPlaylist(playlistId.value);
+}
+
+/** Save the current mix as a real playlist: New-playlist modal, then the mix's
+ *  tracks are added to the freshly created playlist. */
+const saveMixOpen = ref(false);
+
+async function onSaveMix(name: string, icon: string): Promise<void> {
+  if (!mix.value) return;
+  const created = await playlistStore.createPlaylist(name, icon);
+  await playlistStore.addTracks(created.id, mix.value.trackIds);
+  saveMixOpen.value = false;
+  showToast("Mix saved as playlist");
 }
 
 onMounted(loadOrder);
@@ -342,7 +397,9 @@ function openAlbum(item: AlbumGridItem): void {
   router.push({
     name: "album",
     params: { albumKey: item.key },
-    query: { playlistId: String(playlistId.value) },
+    // Mixes aren't server playlists; a playlistId query would try to resolve
+    // one and filter the album to nothing.
+    ...(isMix.value ? {} : { query: { playlistId: String(playlistId.value) } }),
   });
 }
 

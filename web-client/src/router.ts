@@ -56,6 +56,15 @@ export const router = createRouter({
     },
     { path: "/queue", name: "queue", component: QueueView, meta: { depth: 1 } },
     { path: "/player", name: "player", component: PlayerView, meta: { depth: "modal" } },
+    // A client-side, ephemeral mix: rendered by the playlist detail view with
+    // a Save affordance instead of the server-backed playlist actions.
+    {
+      path: "/mix/:id",
+      name: "mix",
+      component: PlaylistDetailView,
+      props: true,
+      meta: { depth: 1 },
+    },
     { path: "/settings", name: "settings", component: SettingsView, meta: { depth: 0 } },
     { path: "/:pathMatch(.*)*", redirect: "/library" },
   ],
