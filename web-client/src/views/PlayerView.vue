@@ -2,7 +2,8 @@
   <div
     v-if="player.currentTrack"
     class="absolute inset-x-0 bottom-0 -top-[env(safe-area-inset-top)] flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]"
-    :style="{ backgroundColor: glowBgColor }"
+    :style="rootStyle"
+    @pointerdown="onPlayerPointerdown"
   >
     <!-- Dominant-colour backdrop -->
     <div class="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
@@ -37,7 +38,7 @@
           aria-label="Back"
           @click="router.back()"
         >
-          <MageIcon name="chevron-left" class="h-6 w-6" />
+          <MageIcon name="chevron-down" class="h-6 w-6" />
         </button>
         <div class="flex-1" />
         <button
@@ -129,6 +130,7 @@
       <div class="shrink-0 px-6">
         <div
           ref="seekTrack"
+          data-no-dismiss
           class="relative h-4 flex items-center"
           @pointerdown="onSeekPointerdown"
         >
@@ -255,6 +257,7 @@ import {
   useDominantColor,
   useEdgeColors,
 } from "../composables/useDominantColor";
+import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import type { CatalogTrack } from "../types";
@@ -291,6 +294,29 @@ const glowBgColor = computed(() => {
   const [r, g, b] = parts;
   return `rgb(${Math.round(r * 0.08)},${Math.round(g * 0.08)},${Math.round(b * 0.08)})`;
 });
+
+// --- Swipe down to dismiss ---
+// The sheet is a modal; the shell's edge-back gesture deliberately skips it,
+// so the dismiss gesture lives here. The inline transform is only applied
+// while a drag is in progress — a persistent one would override the
+// modal-in/modal-out transition classes and kill the rise/fall animation.
+const swipeDown = useSwipeDown({
+  enabled: () => true,
+  onCommit: () => router.back(),
+});
+const swipeProgress = swipeDown.progress;
+const rootStyle = computed(() => ({
+  ...(swipeProgress.value > 0
+    ? { transform: `translateY(${Math.round(swipeProgress.value * 64)}px)` }
+    : {}),
+  backgroundColor: glowBgColor.value,
+}));
+
+function onPlayerPointerdown(e: PointerEvent): void {
+  // The seek bar handles its own drags; don't arm a dismiss on top of them.
+  if ((e.target as HTMLElement).closest("[data-no-dismiss]")) return;
+  swipeDown.onPointerdown(e);
+}
 
 // --- Seek slider ---
 const seekTrack = ref<HTMLElement | null>(null);
