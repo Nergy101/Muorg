@@ -3,7 +3,9 @@ module.exports = {
   tagline: "The Music Organizer from Hell",
   url: "https://docs.muorg.nergy.space",
   baseUrl: "/",
-  onBrokenLinks: "warn",
+  // Broken internal links are a build failure: the docs are the product surface
+  // for self-hosters, and a dead link there costs someone an evening.
+  onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
   organizationName: "Nergy101",
@@ -16,13 +18,10 @@ module.exports = {
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
           editUrl: "https://github.com/Nergy101/Muorg/edit/main/docs-site/",
-          // The rewritten docs track the latest release and are the default view;
-          // v2.33.0 is kept as an archival snapshot for users on that release.
-          lastVersion: "current",
-          versions: {
-            current: { label: "v2.33.1", banner: "none" },
-            "2.33.0": { label: "v2.33.0", banner: "none" },
-          },
+          // Unversioned on purpose: every component ships in lockstep and
+          // patch releases land weekly, so a frozen snapshot rots faster than
+          // it helps. These docs always describe the latest release.
+          // See docs/development/index.md → "Docs site".
         },
         blog: false,
         theme: {
@@ -55,14 +54,14 @@ module.exports = {
         alt: "Muorg Logo",
         src: "img/logo.svg",
       },
+      // Same order as the sidebar: apps first, then the server behind them.
       items: [
         { type: "doc", docId: "intro", position: "left", label: "Docs" },
         { type: "doc", docId: "desktop/index", position: "left", label: "Desktop" },
-        { type: "doc", docId: "server/index", position: "left", label: "Server" },
         { type: "doc", docId: "web-client/index", position: "left", label: "Web" },
         { type: "doc", docId: "android/index", position: "left", label: "Android" },
+        { type: "doc", docId: "server/index", position: "left", label: "Server" },
         { type: "doc", docId: "releases", position: "left", label: "Releases" },
-        { type: "docsVersionDropdown", position: "right" },
         {
           href: "https://github.com/Nergy101/Muorg",
           label: "GitHub",
@@ -74,23 +73,37 @@ module.exports = {
       style: "dark",
       links: [
         {
-          title: "Docs",
+          title: "Get Started",
           items: [
-            { label: "Getting Started", to: "/docs/intro" },
-            { label: "Desktop App", to: "/docs/desktop/" },
-            { label: "Server Setup", to: "/docs/server/" },
-            { label: "Web App", to: "/docs/web-client/" },
-            { label: "Android", to: "/docs/android/" },
-            { label: "Release Notes", to: "/docs/releases" },
-            { label: "FAQ", to: "/docs/faq" },
+            { label: "Welcome", to: "/docs/intro" },
+            { label: "Quick Start", to: "/docs/quick-start" },
+            { label: "Install & Update", to: "/docs/installation" },
           ],
         },
         {
-          title: "Community",
+          title: "Components",
+          items: [
+            { label: "Desktop App", to: "/docs/desktop/" },
+            { label: "Web App", to: "/docs/web-client/" },
+            { label: "Android App", to: "/docs/android/" },
+            { label: "Server", to: "/docs/server/" },
+          ],
+        },
+        {
+          title: "Reference",
+          items: [
+            { label: "FAQ & Troubleshooting", to: "/docs/faq" },
+            { label: "Version Compatibility", to: "/docs/compatibility" },
+            { label: "Release Notes", to: "/docs/releases" },
+            { label: "Development", to: "/docs/development/" },
+          ],
+        },
+        {
+          title: "Project",
           items: [
             { label: "GitHub", href: "https://github.com/Nergy101/Muorg" },
             { label: "Issues", href: "https://github.com/Nergy101/Muorg/issues" },
-            { label: "Releases", href: "https://github.com/Nergy101/Muorg/releases" },
+            { label: "Downloads", href: "https://github.com/Nergy101/Muorg/releases" },
           ],
         },
       ],

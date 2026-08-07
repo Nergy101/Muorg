@@ -1,84 +1,111 @@
 ---
-sidebar_position: 1
+title: Desktop App
+description: The Muorg desktop client for macOS, Windows and Linux — library views, metadata editing, smart playlists, reports and playback.
 ---
 
-# Desktop App
-
-The Muorg desktop client is built with **Tauri 2 + Vue 3** and runs on macOS, Windows, and Linux. It works fully offline with local music folders, and can also connect to a [muorg-server](/docs/server/) for remote libraries.
-
-:::note Screenshots
-Desktop screenshots are still being captured — the [screenshots script](https://github.com/Nergy101/Muorg/blob/main/docs/screenshots/screenshots.sh) captures them; they land in `docs-site/static/img/screenshots/` and are referenced here.
-:::
+The Muorg desktop client is built with **Tauri 2 + Vue 3** and runs on macOS, Windows and Linux. It is the most complete Muorg client: everything the metadata editor, reports and playlist tooling can do, it does here.
 
 ## Install
 
-Download the installer for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
+Download the installer for your platform from the [latest release](https://github.com/Nergy101/Muorg/releases/latest):
 
 | Platform | File |
 |----------|------|
-| macOS (Apple Silicon) | `Muorg_*_aarch64.dmg` |
-| macOS (Intel) | `Muorg_*_x86_64.dmg` |
-| Windows | `Muorg_*_x64-setup.exe` |
-| Linux (Debian/Ubuntu) | `muorg_*_amd64.deb` |
-| Linux (AppImage) | `Muorg_*_amd64.AppImage` |
+| macOS (Apple Silicon) | `muorg-<version>-macos.dmg` |
+| Windows (x64) | `muorg-<version>-windows.msi` |
+| Linux (x64) | `muorg-<version>-linux.AppImage` |
+| Linux (Debian/Ubuntu) | `muorg_*_amd64.deb`, inside `muorg-<version>-extras.zip` |
 
-On macOS, drag the app into your Applications folder. On Windows, run the setup wizard. On Linux, install the `.deb` (`sudo apt install ./muorg_*.deb`) or make the AppImage executable and run it.
+See [Install & Update](/docs/installation) for the full asset list and how the built-in updater works.
 
-## First Launch
+## How it connects
 
-When you start Muorg for the first time you are asked where your music lives. You can:
+The desktop app is an HTTP client to a muorg-server — it just usually talks to its own.
 
-- **Add a local folder** — pick a directory on this machine. Muorg scans it recursively for music files.
-- **Connect to a server** — point Muorg at a [muorg-server](/docs/server/) URL with your API key to browse a remote library instead.
+- **Local mode (default)** — the app bundles a `muorg-server` binary and starts it automatically on launch, bound to `127.0.0.1:7700`. There is nothing to configure.
+- **Online mode** — in **Settings → Connection**, switch to a remote server and enter its URL and API key to browse a shared library instead.
 
-You can add or remove folders later from **Settings → Music folders**.
+:::caution The bundled server is local-only
+The sidecar binds to `127.0.0.1`, so other devices on your network **cannot** reach it. To share one library across desktop, browser and phone, run a standalone [muorg-server](/docs/server/) and point every client at that.
+:::
 
-## The Library
+## First launch
 
-The library is the heart of the app. Two layouts are available from the top bar:
+You are asked where your music lives:
 
-- **Table view** (default) — every track with album art, title, artist, album, year, duration, and path. Full-text search; group by album or artist; multi-select for bulk actions.
-- **Album view** — browse your collection as a grid of album covers. Click an album to see its tracks.
+- **Add a local folder** — pick a directory; Muorg scans it recursively for MP3 and FLAC files.
+- **Connect to a server** — enter a [muorg-server](/docs/server/) URL and API key.
 
-### Search
+Folders can be added and removed later from the **Folders** tab in the sidebar. You can also drag files or folders onto the window to add them.
 
-Type in the search box to filter the current view. Search matches titles, artists, albums, and file names as you type.
+## The library
 
-### Multi-select
+Two layouts, switchable in the toolbar and remembered in Settings:
 
-Select one or more tracks (hold `Shift` or `Cmd/Ctrl` while clicking, or use the checkbox column) to run bulk actions: edit metadata, add to a playlist, or remove from the library.
+- **Table view** (default) — one row per track with cover, title, artist, album, year, duration and path. Columns and row density are configurable.
+- **Album grid** — your collection as album covers; click through to an album's tracks.
 
-## Editing Metadata
+Search filters the current view as you type across titles, artists, albums and file names. Tracks can be grouped by album or artist, and sorted by any visible column.
 
-Select any track to open the bottom panel, then open the **Metadata** tab:
+**Multi-select** with `Shift`-click, `Cmd/Ctrl`-click or `Cmd/Ctrl+A`, then apply a bulk action: edit metadata, add to a playlist, add to the queue, or remove from the library.
 
-- Edit title, artist, album, year, genre, track number, and more
-- Embed or replace album art
-- **Bulk edit** — select multiple tracks and apply a change to all of them at once
-- **Auto-tag** — fetch tag suggestions from MusicBrainz and apply them
+## Editing metadata
+
+Select a track to open the bottom panel and switch to the **Metadata** tab.
+
+- Edit title, artist, album, album artist, featuring, year, genre (with autocomplete over genres already in your library), track number and disc number.
+- Embed or replace **cover art**, including fetching one from the web.
+- **Bulk edit** — with several tracks selected, only the fields you actually touch are written to all of them.
+- **Apply from path** — pull artist/album/title out of the folder and file names using a configurable pattern.
+- **Auto-tag** — fetch tag suggestions from [MusicBrainz](https://musicbrainz.org/) and apply them, per track or across a whole report.
+- **Undo/redo** with `Cmd/Ctrl+Z` and `Cmd/Ctrl+Shift+Z` before you save.
+
+### Backups
+
+With **backup before write** enabled (Settings → Library), Muorg copies the original file before writing tags, and the editor offers a one-click **restore from backup**. If a write fails because the file or folder is read-only, the app offers to retry without the backup step.
 
 ## Playlists
 
-- Create, rename, delete, and reorder playlists
-- **Smart playlists** — dynamic rules (e.g. "all tracks by artist X rated 4+") that update automatically as your library changes
-- Export any playlist to **M3U**
+- Create, rename, reorder and delete playlists; drag tracks to reorder within one.
+- **Smart playlists** — rule-driven and always current. Rules combine `rating`, `play count`, `genre`, `year`, `artist`, `album`, `title`, `last played` and `has cover` with type-appropriate operators (numeric comparisons, text `is` / `contains` / `is empty`, and so on). Rules can be edited after creation.
+- **Export to M3U** — from a playlist's context menu. Paths are written relative to the music root folder configured in **Settings → Exports**.
 
 ## Reports
 
-The Reports section finds problem tracks so you can clean them up:
+The **Reports** tab in the sidebar shows live counts and opens a results table you can act on in bulk:
 
-- Tracks with **missing metadata** (e.g. no artist or album)
-- **Duplicates** (same track hashed in multiple places)
-- Tracks with **missing album art**
+| Report | What it finds |
+|--------|---------------|
+| Missing metadata | Tracks missing any of the fields you selected in Settings |
+| Duplicates | Tracks sharing the same artist + album + title |
+| Missing album cover | Tracks with no embedded artwork |
+| Recently played | Your recent listening |
+| Most played | Your top tracks by play count |
+
+From the results table you can **save the report as a playlist** for auditing, **apply from path** in bulk, or **auto-tag all**.
 
 ## Playback
 
-Press play on any track to start playback. The player bar at the bottom offers play/pause, previous/next, seek, volume, mute, and shuffle. Click the maximize button to switch to a full player view with large album art.
+The player bar offers play/pause, previous/next, seek, volume and mute, shuffle, a repeat cycle (off → all → one), a star rating for the current track, and a Chromecast button. Continuous playback carries on through the rest of the current list when the queue empties.
 
-## Sidecar server mode
+Press `Cmd/Ctrl+M` for the maximized player — large artwork with a colour glow derived from the cover — and `Escape` to go back.
 
-When you add local folders, the desktop app can run a built-in **sidecar** muorg-server process so your other devices (web client, Android) can reach the same library. This is managed automatically — no configuration needed. See [Server](/docs/server/) if you want to run a standalone server instead.
+**Chromecast**: the desktop app discovers and controls Cast devices through the server's cast API, so casting works against whichever server the app is currently connected to.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl+M` | Maximize the player |
+| `Escape` | Leave the maximized player |
+| `Cmd/Ctrl+S` | Show/hide the sidebar |
+| `Cmd/Ctrl+A` | Select all tracks in the current view |
+| `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` | Undo / redo in the metadata editor |
+
+## Settings
+
+**Settings** covers connection (local vs. remote server), theme, library layout (table/grid, density, visible columns), playback (autoplay, continuous playback, cover glow), ReplayGain mode, backup-before-write, the *apply from path* patterns, which fields count as "missing metadata", the M3U export root, the default sidebar tab, and the update check.
 
 :::info Client ↔ server compatibility
-See [Version compatibility](/docs/compatibility) for which client versions work with which server versions.
+See [Version Compatibility](/docs/compatibility) for which client versions work with which server versions.
 :::

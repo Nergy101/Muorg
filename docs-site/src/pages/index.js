@@ -10,30 +10,30 @@ const components = [
   {
     title: "Desktop App",
     description:
-      "The full Muorg experience on macOS, Windows and Linux. Album grid, track table, metadata editor, smart playlists, reports and playback.",
+      "The full editing experience on macOS, Windows and Linux. Track table, album grid, metadata editor with MusicBrainz auto-tagging, smart playlists and library reports.",
     to: "/docs/desktop/",
     icon: "🖥️",
   },
   {
-    title: "Server",
-    description:
-      "A standalone REST API (Rust + Axum) that serves your library to every client. Docker-friendly, transcoding, remote/cloud storage.",
-    to: "/docs/server/",
-    icon: "🗄️",
-  },
-  {
     title: "Web App",
     description:
-      "A browser-based UI (Vue 3 + Vite) that connects to a muorg-server instance. Same library experience, no install, PWA offline support.",
+      "A mobile-first browser UI (Vue 3 + Vite) that connects to your server. Installable as a PWA, no app store, works on every device with a browser.",
     to: "/docs/web-client/",
     icon: "🌐",
   },
   {
-    title: "Android",
+    title: "Android App",
     description:
-      "A native Android app (Kotlin + Jetpack Compose) for streaming from your server on the go, with offline playlists, widget and Chromecast.",
+      "A native app (Kotlin + Jetpack Compose) that streams from your server or plays an on-device library. Home-screen widget, Chromecast and a sleep timer.",
     to: "/docs/android/",
     icon: "📱",
+  },
+  {
+    title: "Server",
+    description:
+      "A standalone REST API (Rust + Axum) that serves your library to every client. Docker-friendly, streams from local folders or S3-compatible cloud storage.",
+    to: "/docs/server/",
+    icon: "🗄️",
   },
 ];
 

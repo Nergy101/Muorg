@@ -1,32 +1,26 @@
+/**
+ * Docs sidebar.
+ *
+ * Ordering follows the reader's journey:
+ *   what is this → get it running → the app you use → the server behind it →
+ *   reference material → contributing.
+ *
+ * This file is the single source of truth for order and labels; doc pages do
+ * not carry `sidebar_position` frontmatter.
+ */
 module.exports = {
   docs: [
     { type: "doc", id: "intro", label: "Welcome" },
-    { type: "doc", id: "installation", label: "Installation" },
+    { type: "doc", id: "quick-start", label: "Quick Start" },
+    { type: "doc", id: "installation", label: "Install & Update" },
     {
       type: "category",
-      label: "Quick Start",
+      label: "Apps",
       collapsed: false,
       items: [
-        "quick-start",
-        {
-          type: "doc",
-          id: "desktop/index",
-          label: "Run Locally",
-        },
-        {
-          type: "doc",
-          id: "server/index",
-          label: "Self-host",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Desktop App",
-      link: { type: "doc", id: "desktop/index" },
-      collapsed: false,
-      items: [
-        "desktop/index",
+        { type: "doc", id: "desktop/index", label: "Desktop App" },
+        { type: "doc", id: "web-client/index", label: "Web App" },
+        { type: "doc", id: "android/index", label: "Android App" },
       ],
     },
     {
@@ -35,39 +29,21 @@ module.exports = {
       link: { type: "doc", id: "server/index" },
       collapsed: false,
       items: [
-        "server/index",
-        "server/configuration",
-        "server/api",
-        "server/docker",
+        { type: "doc", id: "server/configuration", label: "Configuration" },
+        { type: "doc", id: "server/docker", label: "Docker Deployment" },
+        { type: "doc", id: "server/api", label: "HTTP API" },
       ],
     },
     {
       type: "category",
-      label: "Web App",
-      link: { type: "doc", id: "web-client/index" },
+      label: "Reference",
+      collapsed: false,
       items: [
-        "web-client/index",
-        "web-client/smart-playlists",
+        { type: "doc", id: "faq", label: "FAQ & Troubleshooting" },
+        { type: "doc", id: "compatibility", label: "Version Compatibility" },
+        { type: "doc", id: "releases", label: "Release Notes" },
       ],
     },
-    {
-      type: "category",
-      label: "Android App",
-      link: { type: "doc", id: "android/index" },
-      items: [
-        "android/index",
-      ],
-    },
-    {
-      type: "category",
-      label: "Development",
-      link: { type: "doc", id: "development/index" },
-      items: [
-        "development/index",
-      ],
-    },
-    { type: "doc", id: "releases", label: "Release Notes" },
-    { type: "doc", id: "faq", label: "FAQ & Troubleshooting" },
-    { type: "doc", id: "compatibility", label: "Version Compatibility" },
+    { type: "doc", id: "development/index", label: "Development" },
   ],
 };
