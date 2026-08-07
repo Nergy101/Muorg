@@ -3,17 +3,19 @@ import { useLibraryStore } from "../stores/library";
 import type { CatalogTrack } from "../types";
 
 /**
- * Ephemeral "Mixes" for the Home tab: 8 randomly assembled ~20-track
- * playlists, each sampled from genres that fit its name (Gym Fuel is
- * metalcore, Deep Focus is metal + electronic, …). They are never written to
- * the server; opening one renders it via the playlist detail view, and saving
- * goes through the normal New-playlist flow (name + emoji, then the mix's
- * tracks are added to the new playlist).
+ * Ephemeral "Mixes" for the Home tab: a rotating set of randomly assembled
+ * ~20-track playlists, each sampled from genres that fit its name (Gym Fuel is
+ * metalcore, Deep Focus is metal + electronic, …). Sixteen cohorts exist but
+ * only eight are shown per session, picked at random — so the lineup moves
+ * in and out between page loads. They are never written to the server; opening
+ * one renders it via the playlist detail view, and saving goes through the
+ * normal New-playlist flow (name + emoji, then the mix's tracks are added to
+ * the new playlist).
  *
- * A module-level cache keeps the same 8 mixes stable for the whole session:
- * KeepAlive keeps Home mounted, the mix detail view reads the same list, and
- * opening a mix then going back does not re-roll it under you. A fresh page
- * load re-rolls everything.
+ * A module-level cache keeps the chosen 8 mixes (and their track picks) stable
+ * for the whole session: KeepAlive keeps Home mounted, the mix detail view
+ * reads the same list, and opening a mix then going back does not re-roll it
+ * under you. A fresh page load re-rolls both the lineup and the tracks.
  */
 
 export interface Mix {
@@ -24,10 +26,12 @@ export interface Mix {
 }
 
 const MIX_SIZE = 20;
+/** How many of the cohorts are shown per session. */
+const MIX_COUNT = 8;
 
-/** Genres per mix, chosen to match the library's actual tags (verified against
- *  the live catalog). If a cohort yields fewer than MIX_SIZE tracks the mix
- *  falls back to the full catalog so it never comes up short. */
+/** Sixteen genre cohorts, chosen to match the library's actual tags (verified
+ *  against the live catalog). If a cohort yields fewer than MIX_SIZE tracks the
+ *  mix falls back to the full catalog so it never comes up short. */
 const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
   { name: "Midnight Drive", emoji: "🌙", genres: ["Electronic", "Lo-Fi", "Indie", "Instrumental"] },
   { name: "Morning Coffee", emoji: "☀️", genres: ["Indie Rock", "Indie", "Pop", "Pop Rock"] },
@@ -37,6 +41,14 @@ const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
   { name: "Road Trip", emoji: "🚗", genres: ["Punk Rock", "Pop Punk", "Classic Rock"] },
   { name: "Deep Focus", emoji: "💫", genres: ["Metal", "Electronic", "Progressive Metal", "Instrumental"] },
   { name: "Party Starter", emoji: "🎉", genres: ["Nu Metal", "Pop", "Electronic", "Rap"] },
+  { name: "Mosh Pit", emoji: "🤘", genres: ["Trash Metal", "Death Metal", "Metal"] },
+  { name: "Golden Hour", emoji: "🌅", genres: ["Alternative Rock", "Indie Rock", "Pop Rock"] },
+  { name: "Late Night Lo-Fi", emoji: "😴", genres: ["Lo-Fi", "Rap", "Instrumental"] },
+  { name: "Skatepark", emoji: "🛹", genres: ["Pop Punk", "Punk Rock", "Hardcore"] },
+  { name: "Sunday Chill", emoji: "😌", genres: ["Alternative Indie", "Indie", "Pop"] },
+  { name: "Thunderstorm", emoji: "⛈️", genres: ["Trash Metal", "Death Metal", "Hard Rock"] },
+  { name: "Sing-Along", emoji: "🎤", genres: ["Pop", "Pop Rock", "Pop Punk"] },
+  { name: "Power Hour", emoji: "⚡", genres: ["Nu Metal", "Hard Rock", "Metalcore"] },
 ];
 
 /** MIX_SIZE distinct random track ids from the cohort pool (partial
@@ -65,7 +77,14 @@ export function useMixes(): { mixes: ComputedRef<Mix[]> } {
     if (sessionMixes) return sessionMixes;
     const tracks = lib.tracks;
     if (tracks.length === 0) return [];
-    sessionMixes = MIX_DEFS.map((def, i) => ({
+    // Rotate the lineup: partial shuffle of the cohorts, keep the first
+    // MIX_COUNT. Same shuffle pattern as the track sampling.
+    const selected = [...MIX_DEFS];
+    for (let i = 0; i < MIX_COUNT; i++) {
+      const j = i + Math.floor(Math.random() * (selected.length - i));
+      [selected[i], selected[j]] = [selected[j], selected[i]];
+    }
+    sessionMixes = selected.slice(0, MIX_COUNT).map((def, i) => ({
       id: i + 1,
       name: def.name,
       emoji: def.emoji,
