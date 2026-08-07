@@ -13,7 +13,7 @@
            the New-playlist flow. -->
       <section class="content-col px-4 pt-4">
         <h2 class="flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
-          <MageIcon name="zap" class="h-4 w-4 text-primary" />
+          <MageIcon name="color-swatch" class="h-4 w-4 text-primary" />
           Mixes
         </h2>
 
