@@ -14,6 +14,69 @@ const SHUFFLE_ALL_BATCH = 20;
 /** Below this many seconds, Previous restarts the track instead of stepping back. */
 const RESTART_THRESHOLD_SECS = 3;
 const ERROR_CLEAR_MS = 4000;
+/** localStorage key for the queue/position snapshot (NER-305). */
+const PLAYER_STATE_KEY = "muorg-player-state";
+/** Queue/mode changes are debounced before writing the snapshot. */
+const SNAPSHOT_DEBOUNCE_MS = 500;
+/** While playing, the position is persisted at most this often. */
+const POSITION_SAVE_INTERVAL_MS = 5000;
+
+interface PlayerStateSnapshot {
+  v: 1;
+  queue: CatalogTrack[];
+  playOrder: number[];
+  playOrderPos: number;
+  shuffleEnabled: boolean;
+  repeatMode: RepeatMode;
+  /** Last known playback position; null once the queue was replaced. */
+  position: { trackId: number; secs: number } | null;
+}
+
+/** Tolerant reader: any malformed/partial payload simply restores nothing. */
+function readPlayerSnapshot(): PlayerStateSnapshot | null {
+  try {
+    const raw = localStorage.getItem(PLAYER_STATE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Partial<PlayerStateSnapshot>;
+    if (data.v !== 1) return null;
+    if (!Array.isArray(data.queue) || data.queue.length === 0) return null;
+    if (!Array.isArray(data.playOrder) || data.playOrder.length === 0) return null;
+    const playOrderPos = data.playOrderPos;
+    if (
+      typeof playOrderPos !== "number" ||
+      !Number.isInteger(playOrderPos) ||
+      playOrderPos < 0 ||
+      playOrderPos >= data.playOrder.length
+    ) {
+      return null;
+    }
+    // Drop indices that no longer point into the queue (stale snapshot after a
+    // catalog change), and park the position on the last surviving entry.
+    const queueLen = data.queue.length;
+    const playOrder = data.playOrder.filter((i) => Number.isInteger(i) && i >= 0 && i < queueLen);
+    if (playOrder.length === 0) return null;
+    const clampedPos = Math.min(playOrderPos, playOrder.length - 1);
+    const repeatMode: RepeatMode =
+      data.repeatMode === "off" || data.repeatMode === "all" || data.repeatMode === "one"
+        ? data.repeatMode
+        : "off";
+    const position =
+      data.position && typeof data.position.trackId === "number"
+        ? { trackId: data.position.trackId, secs: Math.max(0, data.position.secs ?? 0) }
+        : null;
+    return {
+      v: 1,
+      queue: data.queue as CatalogTrack[],
+      playOrder,
+      playOrderPos: clampedPos,
+      shuffleEnabled: !!data.shuffleEnabled,
+      repeatMode,
+      position,
+    };
+  } catch {
+    return null;
+  }
+}
 
 function sample(pool: CatalogTrack[], n: number): CatalogTrack[] {
   const copy = [...pool];
@@ -187,12 +250,21 @@ export const usePlayerStore = defineStore("player", () => {
     shuffleAllActive.value = false;
     queue.value = [...newQueue];
     rebuildPlayOrder(newQueue.findIndex((t) => t.id === track.id));
+    // A fresh play session replaces the stored position so a reload cannot
+    // resurrect the previous session's spot (the queue itself is re-saved by
+    // the snapshot watcher with the new state).
+    writeSnapshot(null);
     await playCurrent(0);
   }
 
   function playPause(): void {
     const el = audioEl.value;
-    if (!el) return;
+    if (!el) {
+      // Restored session: no <audio> element exists yet — start playback from
+      // the restored position instead of silently doing nothing.
+      if (currentTrack.value) void playCurrent(positionSecs.value);
+      return;
+    }
     if (el.paused) el.play().catch(() => null);
     else el.pause();
   }
@@ -541,6 +613,78 @@ export const usePlayerStore = defineStore("player", () => {
     if (t?.has_cover) useLibraryStore().requestCover(t.id);
   });
 
+  // --- Session persistence (queue, modes, position) across reloads ---
+
+  let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastPositionSave = 0;
+
+  function currentPositionSnapshot(): { trackId: number; secs: number } | null {
+    const t = currentTrack.value;
+    if (!t) return null;
+    return { trackId: t.id, secs: positionSecs.value };
+  }
+
+  function writeSnapshot(position: { trackId: number; secs: number } | null): void {
+    try {
+      const snapshot: PlayerStateSnapshot = {
+        v: 1,
+        queue: queue.value,
+        playOrder: playOrder.value,
+        playOrderPos: playOrderPos.value,
+        shuffleEnabled: shuffleEnabled.value,
+        repeatMode: repeatMode.value,
+        position,
+      };
+      localStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(snapshot));
+    } catch {
+      /* storage full or unavailable — persistence is best-effort */
+    }
+  }
+
+  function scheduleSnapshot(): void {
+    clearTimeout(snapshotTimer);
+    snapshotTimer = setTimeout(() => writeSnapshot(currentPositionSnapshot()), SNAPSHOT_DEBOUNCE_MS);
+  }
+
+  // Queue/mode changes are debounced; a full reload can only ever restore what
+  // was last written, so there is no point writing on every single mutation.
+  watch([queue, playOrder, playOrderPos, shuffleEnabled, repeatMode], () => {
+    scheduleSnapshot();
+  });
+
+  // While playing, persist the position at a throttled cadence so a reload
+  // mid-track resumes close to where it was.
+  watch([positionSecs, isPlaying], () => {
+    if (!isPlaying.value) return;
+    const now = Date.now();
+    if (now - lastPositionSave >= POSITION_SAVE_INTERVAL_MS) {
+      lastPositionSave = now;
+      writeSnapshot(currentPositionSnapshot());
+    }
+  });
+
+  // Restore on boot, before any play action could have started. Only the
+  // position matching the restored current track is applied; anything else is
+  // discarded so a stale queue never forces itself onto a fresh session.
+  {
+    const snapshot = readPlayerSnapshot();
+    if (snapshot) {
+      queue.value = snapshot.queue;
+      playOrder.value = snapshot.playOrder;
+      playOrderPos.value = snapshot.playOrderPos;
+      shuffleEnabled.value = snapshot.shuffleEnabled;
+      repeatMode.value = snapshot.repeatMode;
+      if (
+        snapshot.position &&
+        snapshot.position.trackId === currentTrack.value?.id &&
+        currentTrack.value?.duration_secs != null
+      ) {
+        positionSecs.value = Math.min(snapshot.position.secs, currentTrack.value.duration_secs);
+        durationSecs.value = currentTrack.value.duration_secs;
+      }
+    }
+  }
+
   /** Stops playback and drops all session state (logout). */
   function reset(): void {
     const el = audioEl.value;
@@ -551,6 +695,13 @@ export const usePlayerStore = defineStore("player", () => {
     cancelSleepTimer();
     clearTimeout(errorTimer);
     errorTimer = undefined;
+    clearTimeout(snapshotTimer);
+    snapshotTimer = undefined;
+    try {
+      localStorage.removeItem(PLAYER_STATE_KEY);
+    } catch {
+      /* ignore */
+    }
     shuffleAllPool = [];
     shuffleAllActive.value = false;
     queue.value = [];
