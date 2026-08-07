@@ -24,30 +24,33 @@
       <MageIcon v-else name="music" class="h-5 w-5 text-on-surface-variant/60" />
     </div>
 
-    <!-- Title + artist -->
+    <!-- Title + artist (format tag and duration sit on the artist's line so
+         the title row keeps the full width) -->
     <div class="min-w-0 flex-1">
       <MarqueeText
         :text="track.title ?? '—'"
         :class="isPlaying ? 'text-body-lg text-primary' : 'text-body-lg text-on-surface'"
       />
-      <MarqueeText
-        :text="track.artist ?? track.album_artist ?? '—'"
-        class="text-body-md text-on-surface-variant"
-      />
+      <div class="flex min-w-0 items-center gap-1.5">
+        <div class="min-w-0 flex-1">
+          <MarqueeText
+            :text="track.artist ?? track.album_artist ?? '—'"
+            class="text-body-md text-on-surface-variant"
+          />
+        </div>
+        <span
+          v-if="showFormatBadge !== false"
+          class="ml-auto shrink-0 rounded-[3px] px-1 py-[1px] text-[10px] leading-none uppercase"
+          :class="track.format === 'flac'
+            ? 'bg-primary/[0.12] text-primary'
+            : 'bg-on-surface-variant/10 text-on-surface-variant'"
+        >{{ track.format.toUpperCase() }}</span>
+        <span
+          v-if="showDuration !== false"
+          class="shrink-0 text-[10px] leading-none tabular-nums text-on-surface-variant"
+        >{{ duration }}</span>
+      </div>
     </div>
-
-    <span
-      v-if="showFormatBadge !== false"
-      class="shrink-0 rounded-[3px] px-1 py-0.5 text-label-sm uppercase"
-      :class="track.format === 'flac'
-        ? 'bg-primary/[0.12] text-primary'
-        : 'bg-on-surface-variant/10 text-on-surface-variant'"
-    >{{ track.format.toUpperCase() }}</span>
-
-    <span
-      v-if="showDuration !== false"
-      class="shrink-0 text-label-md tabular-nums text-on-surface-variant"
-    >{{ duration }}</span>
 
     <button
       type="button"
