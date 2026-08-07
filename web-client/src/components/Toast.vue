@@ -33,7 +33,10 @@ const player = usePlayerStore();
 // Sit above whatever chrome is currently on screen.
 const bottomOffset = computed(() => {
   const name = String(route.name);
-  if (name === "player" || name === "connect") return "calc(env(safe-area-inset-bottom) + 1.5rem)";
+  // Bareless routes (see App.vue): nothing below the toast but the safe area.
+  if (name === "player" || name === "player-queue" || name === "connect") {
+    return "calc(env(safe-area-inset-bottom) + 1.5rem)";
+  }
   const hasMini = player.currentTrack != null || player.errorMessage != null;
   return `calc(env(safe-area-inset-bottom) + ${hasMini ? "9.5rem" : "5rem"})`;
 });

@@ -99,7 +99,7 @@
             type="button"
             class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
             aria-label="Queue"
-            @click="router.push({ name: 'queue' })"
+            @click="router.push({ name: 'player-queue' })"
           >
             <MageIcon name="stack" class="h-6 w-6" />
           </button>

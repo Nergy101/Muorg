@@ -12,6 +12,7 @@ import PlaylistsView from "./views/PlaylistsView.vue";
 import PlaylistDetailView from "./views/PlaylistDetailView.vue";
 import QueueView from "./views/QueueView.vue";
 import PlayerView from "./views/PlayerView.vue";
+import PlayerQueueView from "./views/PlayerQueueView.vue";
 import SettingsView from "./views/SettingsView.vue";
 
 /**
@@ -63,6 +64,14 @@ export const router = createRouter({
       name: "mix",
       component: PlaylistDetailView,
       props: true,
+      meta: { depth: 1 },
+    },
+    // Sits at the same depth as /queue: a page pushed over the player sheet,
+    // and a plain pop back to it.
+    {
+      path: "/player/queue",
+      name: "player-queue",
+      component: PlayerQueueView,
       meta: { depth: 1 },
     },
     { path: "/settings", name: "settings", component: SettingsView, meta: { depth: 0 } },

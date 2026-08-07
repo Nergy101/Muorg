@@ -48,10 +48,16 @@
           <MageIcon name="trash" class="h-5 w-5 shrink-0" />
           <span>Remove from queue</span>
         </button>
-        <button v-else type="button" :class="ROW" @click="onAddToQueue">
-          <MageIcon name="stack" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-          <span>Add to queue</span>
-        </button>
+        <template v-else>
+          <button type="button" :class="ROW" @click="onPlayNext">
+            <MageIcon name="arrow-up" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+            <span>Play next</span>
+          </button>
+          <button type="button" :class="ROW" @click="onAddToQueue">
+            <MageIcon name="stack" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+            <span>Add to queue</span>
+          </button>
+        </template>
 
         <div class="my-1 border-t border-outline/30" />
 
@@ -286,6 +292,13 @@ function onToggleFavorite(): void {
   const t = props.track;
   if (!t) return;
   void player.toggleFavorite(t);
+  emit("close");
+}
+
+function onPlayNext(): void {
+  const t = props.track;
+  if (!t) return;
+  player.playNext(t);
   emit("close");
 }
 

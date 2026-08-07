@@ -90,7 +90,7 @@ function sample(pool: CatalogTrack[], n: number): CatalogTrack[] {
 export const usePlayerStore = defineStore("player", () => {
   const settings = useSettingsStore();
 
-  /** Display order — what QueueView shows and reorders. */
+  /** Display order — what QueuePanel shows and reorders. */
   const queue = ref<CatalogTrack[]>([]);
   /** Indices into `queue`, in playback order. Shuffle is a permutation of this. */
   const playOrder = ref<number[]>([]);
@@ -110,27 +110,53 @@ export const usePlayerStore = defineStore("player", () => {
    * user starts something else or the player is reset.
    */
   const shuffleAllActive = ref(false);
+  /**
+   * The user queue: tracks the user explicitly added ("add to queue" appends to
+   * the bottom, "play next" inserts at the top). It has priority over the
+   * system queue — playback runs through it first, and only continues the
+   * system queue (album/playlist/mix/shuffle-all context) once it is empty.
+   */
+  const userQueue = ref<CatalogTrack[]>([]);
+  /** Index of the track currently playing from `userQueue`, or -1. */
+  const userQueuePos = ref(-1);
 
   const currentIndex = computed(() => playOrder.value[playOrderPos.value] ?? -1);
-  const currentTrack = computed(() => queue.value[currentIndex.value] ?? null);
+  const currentTrack = computed(() => {
+    if (userQueuePos.value >= 0) return userQueue.value[userQueuePos.value] ?? null;
+    return queue.value[currentIndex.value] ?? null;
+  });
   const progress = computed(() =>
     durationSecs.value ? positionSecs.value / durationSecs.value : 0,
   );
   const sleepTimerActive = computed(() => sleepTimerRemainingMs.value > 0);
   /**
-   * Up-next entries. `orderPos` is the entry's position within `playOrder` —
-   * that is what reordering acts on, since this list *is* the play order.
+   * Up-next entries, user queue first (it has priority), then the system
+   * queue's remainder. `orderPos` is the entry's position within its own
+   * queue (`userQueue` index or `playOrder` position) — that is what
+   * reordering acts on, since this list *is* the play order.
    */
-  const upNext = computed(() =>
-    playOrder.value
+  const upNext = computed(() => {
+    const userStart = userQueuePos.value >= 0 ? userQueuePos.value + 1 : 0;
+    const user = userQueue.value
+      .slice(userStart)
+      .map((track, i) => ({
+        track,
+        queueIndex: -1,
+        orderPos: userStart + i,
+        origin: "user" as const,
+      }))
+      .filter((e) => e.track != null);
+    const system = playOrder.value
       .slice(playOrderPos.value + 1)
       .map((queueIndex, i) => ({
         track: queue.value[queueIndex],
         queueIndex,
         orderPos: playOrderPos.value + 1 + i,
+        origin: "system" as const,
       }))
-      .filter((e) => e.track != null),
-  );
+      .filter((e) => e.track != null);
+    return [...user, ...system];
+  });
 
   const audioEl = ref<HTMLAudioElement | null>(null);
   /**
@@ -311,15 +337,23 @@ export const usePlayerStore = defineStore("player", () => {
 
   /**
    * Starts buffering the next track (per the play order) into `preloadEl`
-   * while the current one plays. Tokens live 8h on the server
+   * while the current one plays. The user queue has priority — its next track
+   * is what will actually play. Tokens live 8h on the server
    * (`state.tokens.issue(id, 28800)`), so a token minted now still validates
    * whenever the handoff happens. Failure just means a cold start later.
    */
   async function preloadNext(): Promise<void> {
     const buf = preloadEl;
     if (!buf) return;
-    const nextPos = nextPlayOrderPos();
-    const next = nextPos >= 0 ? queue.value[playOrder.value[nextPos]] : null;
+    let next: CatalogTrack | null = null;
+    if (userQueue.value.length > 0) {
+      const ui = userQueuePos.value + 1;
+      if (ui < userQueue.value.length) next = userQueue.value[ui];
+    }
+    if (!next) {
+      const nextPos = nextPlayOrderPos();
+      next = nextPos >= 0 ? queue.value[playOrder.value[nextPos]] : null;
+    }
     if (!next) {
       preloadedTrack = null;
       buf.removeAttribute("src");
@@ -339,8 +373,21 @@ export const usePlayerStore = defineStore("player", () => {
     }
   }
 
-  /** Steps to the next entry in `playOrder`, honouring repeat-all wraparound. */
+  /** Steps to the next entry, honouring repeat-all wraparound. The user queue
+   *  has priority: queued tracks play first, and only once it is empty does
+   *  playback continue the system queue where it left off. */
   function advance(auto: boolean): void {
+    if (userQueuePos.value >= 0 || userQueue.value.length > 0) {
+      const next = userQueuePos.value + 1;
+      if (next < userQueue.value.length) {
+        userQueuePos.value = next;
+        void playIndexAt(0);
+        return;
+      }
+      // User queue exhausted — resume the system queue.
+      userQueuePos.value = -1;
+      userQueue.value = [];
+    }
     const next = nextPlayOrderPos();
     if (next < 0) {
       if (auto) isPlaying.value = false;
@@ -353,6 +400,10 @@ export const usePlayerStore = defineStore("player", () => {
   async function playTrack(track: CatalogTrack, newQueue: CatalogTrack[]): Promise<void> {
     shuffleAllPool = [];
     shuffleAllActive.value = false;
+    // A new context (album/playlist/mix/shuffle-all) resets the user queue —
+    // queued tracks belonged to the previous context.
+    userQueue.value = [];
+    userQueuePos.value = -1;
     queue.value = [...newQueue];
     rebuildPlayOrder(newQueue.findIndex((t) => t.id === track.id));
     // A fresh play session replaces the stored position so a reload cannot
@@ -383,6 +434,12 @@ export const usePlayerStore = defineStore("player", () => {
       void seekTo(0);
       return;
     }
+    if (userQueuePos.value > 0) {
+      userQueuePos.value--;
+      void playCurrent(0);
+      return;
+    }
+    if (userQueuePos.value === 0) return; // first user track: nothing before it
     if (playOrderPos.value > 0) {
       playOrderPos.value--;
       void playCurrent(0);
@@ -453,6 +510,13 @@ export const usePlayerStore = defineStore("player", () => {
   }
 
   function skipTo(track: CatalogTrack): void {
+    // The user queue has priority — jumping to one of its tracks plays it now.
+    const ui = userQueue.value.findIndex((t) => t.id === track.id);
+    if (ui >= 0) {
+      userQueuePos.value = ui;
+      void playCurrent(0);
+      return;
+    }
     const i = queue.value.findIndex((t) => t.id === track.id);
     if (i < 0) return;
     const pos = playOrder.value.indexOf(i);
@@ -489,9 +553,17 @@ export const usePlayerStore = defineStore("player", () => {
     }
   }
 
+  /** Appends to the bottom of the user queue. The user queue plays before the
+   *  system queue, so these tracks come up before the rest of the album /
+   *  playlist / shuffle-all context. */
   function addTracksToQueue(tracks: CatalogTrack[]): void {
     if (tracks.length === 0) return;
-    appendToQueue(tracks);
+    userQueue.value = [...userQueue.value, ...tracks];
+    // Nothing playing at all: start with the first added track.
+    if (currentTrack.value == null) {
+      userQueuePos.value = 0;
+      void playCurrent(0);
+    }
     showToast("Added to queue");
   }
 
@@ -499,7 +571,42 @@ export const usePlayerStore = defineStore("player", () => {
     addTracksToQueue([track]);
   }
 
+  /** Inserts a track at the top of the user queue — it plays immediately after
+   *  the current one, ahead of anything else queued. */
+  function playNext(track: CatalogTrack): void {
+    const at = userQueuePos.value >= 0 ? userQueuePos.value + 1 : 0;
+    userQueue.value = [...userQueue.value.slice(0, at), track, ...userQueue.value.slice(at)];
+    if (currentTrack.value == null) {
+      userQueuePos.value = 0;
+      void playCurrent(0);
+    }
+    showToast("Will play next");
+  }
+
   function removeFromQueue(track: CatalogTrack): void {
+    const ui = userQueue.value.findIndex((t) => t.id === track.id);
+    if (ui >= 0) {
+      const wasCurrent = ui === userQueuePos.value;
+      const next = [...userQueue.value];
+      next.splice(ui, 1);
+      userQueue.value = next;
+      if (wasCurrent) {
+        if (userQueuePos.value < next.length) {
+          void playCurrent(0); // next user track keeps playing
+        } else {
+          // The last user track is gone — fall back to the system queue.
+          userQueuePos.value = -1;
+          if (currentTrack.value) void playCurrent(0);
+          else {
+            audioEl.value?.pause();
+            positionSecs.value = 0;
+          }
+        }
+      } else if (ui < userQueuePos.value) {
+        userQueuePos.value--;
+      }
+      return;
+    }
     const i = queue.value.findIndex((t) => t.id === track.id);
     if (i < 0) return;
     const wasCurrent = i === currentIndex.value;
@@ -515,7 +622,10 @@ export const usePlayerStore = defineStore("player", () => {
     playOrder.value = nextOrder;
     playOrderPos.value = Math.min(nextPos, nextOrder.length - 1);
 
-    if (wasCurrent) {
+    // Only the system track is really "current" when the user queue isn't
+    // playing — while a user track is up, removing the paused system entry
+    // must not restart playback.
+    if (wasCurrent && userQueuePos.value < 0) {
       if (currentTrack.value) void playCurrent(0);
       else {
         audioEl.value?.pause();
@@ -524,8 +634,16 @@ export const usePlayerStore = defineStore("player", () => {
     }
   }
 
-  /** Drops everything after the current track; the current one keeps playing. */
+  /** Drops everything after the current track; the current one keeps playing.
+   *  Clears the user queue (it is all up-next) and the system queue's
+   *  remainder after the current position. */
   function clearQueue(): void {
+    if (userQueuePos.value >= 0) {
+      // Keep the currently-playing user track and everything before it.
+      userQueue.value = userQueue.value.slice(0, userQueuePos.value + 1);
+    } else {
+      userQueue.value = [];
+    }
     if (currentIndex.value < 0) {
       queue.value = [];
       playOrder.value = [];
@@ -562,6 +680,24 @@ export const usePlayerStore = defineStore("player", () => {
     playOrder.value = order;
     // The current track must stay current even if positions shifted around it.
     playOrderPos.value = order.indexOf(currentEntry);
+  }
+
+  /** Moves an entry within the user queue. `from`/`to` are positions in that
+   *  array (a user upNext entry's `orderPos`). */
+  function reorderUserQueue(from: number, to: number): void {
+    const n = userQueue.value.length;
+    if (from === to || from < 0 || from >= n || to < 0 || to >= n) return;
+
+    const currentEntry = userQueue.value[userQueuePos.value];
+    const next = [...userQueue.value];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    userQueue.value = next;
+
+    if (userQueuePos.value >= 0) {
+      // The current track must stay current even if positions shifted.
+      userQueuePos.value = next.indexOf(currentEntry);
+    }
   }
 
   function startShuffleAll(allTracks: CatalogTrack[]): void {
@@ -820,6 +956,8 @@ export const usePlayerStore = defineStore("player", () => {
     queue.value = [];
     playOrder.value = [];
     playOrderPos.value = -1;
+    userQueue.value = [];
+    userQueuePos.value = -1;
     isPlaying.value = false;
     positionSecs.value = 0;
     durationSecs.value = 0;
@@ -832,6 +970,8 @@ export const usePlayerStore = defineStore("player", () => {
     queue,
     playOrder,
     playOrderPos,
+    userQueue,
+    userQueuePos,
     isPlaying,
     positionSecs,
     durationSecs,
@@ -859,9 +999,11 @@ export const usePlayerStore = defineStore("player", () => {
     skipTo,
     addToQueue,
     addTracksToQueue,
+    playNext,
     removeFromQueue,
     clearQueue,
     reorderQueue,
+    reorderUserQueue,
     startShuffleAll,
     toggleFavorite,
     startSleepTimer,

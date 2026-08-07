@@ -39,10 +39,6 @@ function currentPosition(): number | null {
   return typeof s?.position === "number" ? s.position : null;
 }
 
-function isQueue(r: RouteLocationNormalized): boolean {
-  return r.name === "queue";
-}
-
 /**
  * Compares stack depth to classify a forward move. Modal wins over depth:
  * entering or leaving the full-screen player always reads as a sheet, whatever
@@ -69,10 +65,12 @@ export function resolveNavTransition(
   const toDepth = depthOf(to);
   const fromDepth = depthOf(from);
 
-  // Depth cannot order the player sheet against the queue page ("modal" vs a
+  // Depth cannot order the player sheet against the queue pages ("modal" vs a
   // plain number), so that one pair is named explicitly: the queue is a page
   // pushed on top of the sheet, not another sheet.
-  if (fromDepth === "modal" && isQueue(to)) return "nav-push";
+  if (fromDepth === "modal" && (to.name === "queue" || to.name === "player-queue")) {
+    return "nav-push";
+  }
 
   if (toDepth === "modal") return "modal-in";
   if (fromDepth === "modal") return "modal-out";

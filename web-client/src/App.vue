@@ -61,14 +61,20 @@ const player = usePlayerStore();
 // Instantiating the store installs the data-theme effect.
 useSettingsStore();
 
+const BARELESS = ["connect", "player", "player-queue"];
+
 const showMiniPlayer = computed(
-  () => (player.currentTrack != null || player.errorMessage != null) && route.name !== "player",
+  () =>
+    (player.currentTrack != null || player.errorMessage != null) &&
+    !BARELESS.includes(String(route.name)),
 );
-// The queue keeps both bars: it is reached from the mini player, so hiding the
-// bar you tapped to get there — and the tabs with it — stranded the screen. The
-// nav renders with no tab lit (tabIndexForRoute returns -1) rather than
-// pretending the queue belongs to one.
-const showBottomNav = computed(() => !["connect", "player"].includes(String(route.name)));
+// The /queue page keeps both bars: it is reached from the mini player, so
+// hiding the bar you tapped to get there — and the tabs with it — stranded the
+// screen. The nav renders with no tab lit (tabIndexForRoute returns -1) rather
+// than pretending the queue belongs to one. /player/queue is the opposite case:
+// it is pushed from the maximized player, which has no bars either, so it stays
+// full-bleed.
+const showBottomNav = computed(() => !BARELESS.includes(String(route.name)));
 // Transition name comes from the router hook, which compares stack depth so a
 // forward move animates and a pop does not.
 
