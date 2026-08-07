@@ -81,6 +81,13 @@ No. Everything runs on your own machines — desktop app, server, web app, and A
 
 Widgets refresh when the app updates playback state. If the widget is stuck, remove and re-add it, or restart the app. The widget needs the app to be connected to a server to show current track info.
 
+## How do smart playlists work?
+
+Smart playlists match tracks by rules instead of a stored track list, so they
+update automatically as your library changes. The rules editor lives in the
+web app (⚡ button) and desktop app. For the full reference — fields,
+operators, and how rules combine — see the [smart playlist reference](/docs/web-client/smart-playlists).
+
 ## More help
 
 - [GitHub Issues](https://github.com/Nergy101/Muorg/issues) — report bugs and ask questions

@@ -64,7 +64,8 @@ The client stores the connection locally. If the connection is lost, the connect
 ![Web app album detail](/img/screenshots/web-app-album.png)
 
 - **Album view** — tap an album to see its tracks and play them
-- **Playlists** — regular and smart playlists, with a playlist editor
+- **Playlists** — regular and smart playlists, with a playlist editor. Smart
+  playlists match tracks by rules — see the [smart playlist reference](/docs/web-client/smart-playlists).
 - **Queue** — now playing queue with reordering
 - **Player** — full player screen with artwork, quick actions, and favorites
 - **Playback** — streaming from the server with seek
