@@ -5,7 +5,7 @@
   <aside class="hidden w-60 shrink-0 flex-col border-r border-outline/20 bg-surface lg:flex">
     <!-- Brand -->
     <div class="flex h-14 shrink-0 items-center gap-2.5 px-5">
-      <MageIcon name="compact-disk-fill" class="h-6 w-6 text-primary" />
+      <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />
       <span class="text-title-md font-bold tracking-tight text-on-surface">Muorg</span>
     </div>
 
@@ -49,6 +49,7 @@ import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
+import logoUrl from "../assets/muorg-logo.svg";
 
 const route = useRoute();
 const router = useRouter();
