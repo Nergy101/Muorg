@@ -92,7 +92,7 @@
           class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
           :class="route.name === 'queue' ? 'text-primary' : 'text-on-surface-variant'"
           aria-label="Queue"
-          @click="router.push({ name: 'queue' })"
+          @click="onQueueClick"
         >
           <MageIcon name="stack" class="h-5 w-5" />
         </button>
@@ -138,5 +138,15 @@ const sleepLabel = computed(() => {
 function onBodyTap(): void {
   if (settings.miniPlayerTapOpensPlayer) void router.push({ name: "player" });
   else player.playPause();
+}
+
+/** Queue icon doubles as a toggle: already looking at the queue → back. */
+function onQueueClick(): void {
+  if (route.name === "queue") {
+    if (window.history.state?.back) router.back();
+    else void router.push({ name: "home" });
+  } else {
+    void router.push({ name: "queue" });
+  }
 }
 </script>

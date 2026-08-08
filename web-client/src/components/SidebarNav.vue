@@ -30,6 +30,7 @@
         class="flex h-11 items-center gap-3 rounded-lg px-3 text-label-lg transition-colors"
         :class="isQueue ? 'bg-primary/[0.15] text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
         :aria-current="isQueue ? 'page' : undefined"
+        @click="onQueueClick"
       >
         <MageIcon name="stack" class="h-5 w-5 shrink-0" />
         <span class="font-medium">Queue</span>
@@ -44,12 +45,13 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
 
 const route = useRoute();
+const router = useRouter();
 
 /** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
 const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
@@ -58,5 +60,13 @@ const isQueue = computed(() => route.name === "queue" || route.name === "player-
 
 function onTabClick(name: string): void {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;
+}
+
+/** Queue doubles as a toggle: already on a queue screen → back to the last one. */
+function onQueueClick(e: MouseEvent): void {
+  if (!isQueue.value) return;
+  e.preventDefault();
+  if (window.history.state?.back) router.back();
+  else void router.push({ name: "home" });
 }
 </script>
