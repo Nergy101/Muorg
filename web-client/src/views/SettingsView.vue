@@ -140,6 +140,40 @@
           @update:model-value="settings.setAlbumViewStyle($event as AlbumViewStyle)"
         />
       </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Reduce motion</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Keep navigation, skip the slide and fade travel
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.reduceMotion)"
+          role="switch"
+          :aria-checked="settings.reduceMotion"
+          @click="settings.setReduceMotion(!settings.reduceMotion)"
+        >
+          <span :class="knobClass(settings.reduceMotion)" />
+        </button>
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Open on last tab</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Restore the last visited tab after a reload
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.openOnLastTab)"
+          role="switch"
+          :aria-checked="settings.openOnLastTab"
+          @click="settings.setOpenOnLastTab(!settings.openOnLastTab)"
+        >
+          <span :class="knobClass(settings.openOnLastTab)" />
+        </button>
+      </div>
 
       <!-- ─── Theme ──────────────────────────────────────────────────── -->
       <div :class="[SECTION, 'flex items-center gap-1.5']">
@@ -170,6 +204,24 @@
         >
           <span :class="knobClass(settings.trueBlack)" />
         </button>
+      </div>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Accent color</p>
+        <div class="flex flex-wrap gap-2.5">
+          <button
+            v-for="opt in ACCENT_OPTIONS"
+            :key="opt.value"
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-full transition-transform hover:scale-110"
+            :class="settings.accent === opt.value ? 'ring-2 ring-on-surface ring-offset-2 ring-offset-background' : ''"
+            :style="{ backgroundColor: opt.color }"
+            :aria-label="opt.label"
+            :aria-pressed="settings.accent === opt.value"
+            @click="settings.setAccent(opt.value)"
+          >
+            <MageIcon v-if="settings.accent === opt.value" name="check" class="h-4 w-4 text-white" />
+          </button>
+        </div>
       </div>
 
       <!-- ─── Server ─────────────────────────────────────────────────── -->
@@ -274,7 +326,7 @@ import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
-import type { AlbumViewStyle, SortMode, ThemeMode } from "../types";
+import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types";
 
 const SECTION = "px-4 pt-5 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
 const ROW = "flex min-h-14 items-center justify-between gap-4 px-4 py-2";
@@ -293,6 +345,15 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark" },
   { value: "light", label: "Light" },
   { value: "system", label: "Auto" },
+];
+/** Swatch colors mirror the accent palettes in style.css. */
+const ACCENT_OPTIONS: { value: AccentColor; label: string; color: string }[] = [
+  { value: "green", label: "Green", color: "#5b7c32" },
+  { value: "blue", label: "Blue", color: "#4a7fc1" },
+  { value: "purple", label: "Purple", color: "#7d63b8" },
+  { value: "orange", label: "Orange", color: "#b97a2a" },
+  { value: "red", label: "Red", color: "#b84a4a" },
+  { value: "teal", label: "Teal", color: "#3d8f85" },
 ];
 
 const router = useRouter();

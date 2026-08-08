@@ -58,4 +58,5 @@ export interface AlbumGridItem {
 export type AlbumViewStyle = "grid" | "list" | "tracks";
 export type SortMode = "album" | "artist" | "year";
 export type ThemeMode = "dark" | "light" | "system";
+export type AccentColor = "green" | "blue" | "purple" | "orange" | "red" | "teal";
 export type RepeatMode = "off" | "all" | "one";

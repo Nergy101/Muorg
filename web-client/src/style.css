@@ -104,6 +104,16 @@ html {
   }
 }
 
+/* Manual "Reduce motion" setting (Settings → Layout): the same effect as the
+   OS block above, keyed on data-reduce-motion so it works independently of the
+   system preference. */
+:root[data-reduce-motion] {
+  --nav-duration: 1ms;
+  --sheet-duration: 1ms;
+  --nav-parallax: 0%;
+  --nav-scrim: 0;
+}
+
 /* Theme variable sets, selected by `data-theme` on <html>. */
 :root,
 [data-theme="dark"] {
@@ -173,6 +183,60 @@ html {
   --on-error: #ffffff;
   --error-container: #f9dedc;
   --on-error-container: #370b1e;
+}
+
+/* Accent presets, selected by `data-accent` on <html> (Settings → Theme).
+   Each overrides the accent family the theme blocks above define; green is the
+   default and ships as those values, so it needs no block. Kept theme-neutral:
+   one set of tones works across dark/black/light. */
+:root[data-accent="blue"] {
+  --primary: #4a7fc1;
+  --primary-container: #2c4d79;
+  --on-primary-container: #8fb8e6;
+  --secondary: #8fb8e6;
+  --secondary-container: #2c4d79;
+  --on-secondary-container: #e7e5e4;
+  --tertiary: #a8a29e;
+}
+
+:root[data-accent="purple"] {
+  --primary: #7d63b8;
+  --primary-container: #4c3a75;
+  --on-primary-container: #b39fe0;
+  --secondary: #b39fe0;
+  --secondary-container: #4c3a75;
+  --on-secondary-container: #e7e5e4;
+  --tertiary: #a8a29e;
+}
+
+:root[data-accent="orange"] {
+  --primary: #b97a2a;
+  --primary-container: #745024;
+  --on-primary-container: #e0b478;
+  --secondary: #e0b478;
+  --secondary-container: #745024;
+  --on-secondary-container: #e7e5e4;
+  --tertiary: #a8a29e;
+}
+
+:root[data-accent="red"] {
+  --primary: #b84a4a;
+  --primary-container: #753030;
+  --on-primary-container: #e69a9a;
+  --secondary: #e69a9a;
+  --secondary-container: #753030;
+  --on-secondary-container: #e7e5e4;
+  --tertiary: #a8a29e;
+}
+
+:root[data-accent="teal"] {
+  --primary: #3d8f85;
+  --primary-container: #2a5c57;
+  --on-primary-container: #8fd0c8;
+  --secondary: #8fd0c8;
+  --secondary-container: #2a5c57;
+  --on-secondary-container: #e7e5e4;
+  --tertiary: #a8a29e;
 }
 
 html,

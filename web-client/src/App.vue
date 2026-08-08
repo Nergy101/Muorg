@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watchEffect } from "vue";
+import { computed, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import OfflineBanner from "./components/OfflineBanner.vue";
 import UpdateBanner from "./components/UpdateBanner.vue";
@@ -63,12 +63,13 @@ import { useSwipeBack } from "./composables/useSwipeBack";
 import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
 import { navTransition } from "./composables/useNavTransition";
 import { NAV_TABS } from "./nav-tabs";
+import { loadPref, savePref } from "./stores/prefs";
 
 const route = useRoute();
 const router = useRouter();
 const player = usePlayerStore();
 // Instantiating the store installs the data-theme effect.
-useSettingsStore();
+const settings = useSettingsStore();
 // Desktop transport keys (Space/K, ←/→, J/L, Ctrl+←/→, M).
 useKeyboardShortcuts();
 
@@ -137,4 +138,33 @@ watchEffect(() => {
     document.title = "Muorg Web";
   }
 });
+
+// --- "Open on last tab" (Settings → Layout) --------------------------------
+// Remember which tab the user last stood on, and restore it after a reload —
+// unless the load is a deep link (then the URL wins) or the setting is off.
+const TAB_NAMES = new Set<string>(NAV_TABS.map((t) => t.name));
+
+watch(
+  () => route.name,
+  (name) => {
+    if (typeof name === "string" && TAB_NAMES.has(name)) savePref("muorg-web-last-tab", name);
+  },
+);
+
+if (settings.openOnLastTab) {
+  // Read the saved tab synchronously at setup: the "/" → home redirect below
+  // writes "home" as the last tab before the initial navigation settles, so
+  // reading inside isReady() would always see "home" and never restore.
+  const savedLastTab = loadPref("muorg-web-last-tab", "") as string;
+  void router.isReady().then(() => {
+    // Only a bare boot (the "/" → home redirect) gets redirected: a deep link
+    // in the URL wins, so a shared album link isn't clobbered by the restore.
+    const current = String(router.currentRoute.value.name);
+    if (current !== "home") return;
+    const tab = NAV_TABS.find((t) => t.name === savedLastTab);
+    if (tab && tab.name !== current) {
+      void router.replace({ name: tab.name });
+    }
+  });
+}
 </script>

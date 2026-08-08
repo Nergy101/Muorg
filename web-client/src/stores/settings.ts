@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref, watchEffect } from "vue";
 import { loadPref, savePref } from "./prefs";
-import type { AlbumViewStyle, SortMode, ThemeMode } from "../types";
+import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types";
 
 const MAX_SEARCH_HISTORY = 10;
 
@@ -24,6 +24,9 @@ export const useSettingsStore = defineStore("settings", () => {
   const albumViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-album-view", "grid"));
   const miniPlayerTapOpensPlayer = ref(loadPref("muorg-web-miniplayer-tap", true));
   const volume = ref(loadPref("muorg-web-volume", 1));
+  const accent = ref<AccentColor>(loadPref("muorg-web-accent", "green"));
+  const reduceMotion = ref(loadPref("muorg-web-reduce-motion", false));
+  const openOnLastTab = ref(loadPref("muorg-web-open-last-tab", true));
   // Sanitize once and persist the cleaned list: an older build recorded every
   // debounced keystroke fragment, and without the write-back the junk would
   // linger in storage and re-filter on every load forever.
@@ -50,6 +53,22 @@ export const useSettingsStore = defineStore("settings", () => {
   watchEffect(() => {
     document.documentElement.dataset.theme =
       resolvedTheme.value === "dark" && trueBlack.value ? "black" : resolvedTheme.value;
+  });
+
+  // Accent palettes are keyed on data-accent in style.css; green is the default
+  // (the values in the theme blocks), so no attribute means green.
+  watchEffect(() => {
+    const el = document.documentElement;
+    if (accent.value === "green") delete el.dataset.accent;
+    else el.dataset.accent = accent.value;
+  });
+
+  // Mirrors the OS prefers-reduced-motion block: zero the travel, keep the
+  // state change. Keyed on data-reduce-motion in style.css.
+  watchEffect(() => {
+    const el = document.documentElement;
+    if (reduceMotion.value) el.dataset.reduceMotion = "true";
+    else delete el.dataset.reduceMotion;
   });
 
   function setTheme(t: ThemeMode): void {
@@ -100,6 +119,21 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-volume", clamped);
   }
 
+  function setAccent(a: AccentColor): void {
+    accent.value = a;
+    savePref("muorg-web-accent", a);
+  }
+
+  function setReduceMotion(v: boolean): void {
+    reduceMotion.value = v;
+    savePref("muorg-web-reduce-motion", v);
+  }
+
+  function setOpenOnLastTab(v: boolean): void {
+    openOnLastTab.value = v;
+    savePref("muorg-web-open-last-tab", v);
+  }
+
   function addSearch(q: string): void {
     const trimmed = q.trim();
     if (!trimmed) return;
@@ -125,6 +159,9 @@ export const useSettingsStore = defineStore("settings", () => {
     albumViewStyle,
     miniPlayerTapOpensPlayer,
     volume,
+    accent,
+    reduceMotion,
+    openOnLastTab,
     searchHistory,
     resolvedTheme,
     setTheme,
@@ -136,6 +173,9 @@ export const useSettingsStore = defineStore("settings", () => {
     cycleAlbumViewStyle,
     setMiniPlayerTapOpensPlayer,
     setVolume,
+    setAccent,
+    setReduceMotion,
+    setOpenOnLastTab,
     addSearch,
     clearSearchHistory,
   };
