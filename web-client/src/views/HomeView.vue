@@ -113,6 +113,9 @@ interface Shelf {
   error: boolean;
 }
 
+/** How many album cards a home shelf shows at most (both layouts). */
+const SHELF_CAP = 8;
+
 const shelves = reactive<Shelf[]>([
   {
     key: "recently-played",
@@ -182,7 +185,7 @@ const shelfViews = computed(() =>
     icon: s.icon,
     loading: s.loading,
     error: s.error,
-    items: buildShelfItems(s.tracks),
+    items: buildShelfItems(s.tracks).slice(0, SHELF_CAP),
   })),
 );
 

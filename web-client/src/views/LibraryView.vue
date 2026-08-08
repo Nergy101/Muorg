@@ -9,13 +9,15 @@
 
     <!-- Search field: pinned, not part of the scrolling body -->
     <div class="content-col shrink-0 px-4 pb-2 pt-3">
-      <div class="flex h-11 items-center gap-2 rounded-full bg-surface px-4">
+      <div
+        class="flex h-11 items-center gap-2 rounded-full bg-surface px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
+      >
         <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         <input
           v-model="query"
           type="text"
           placeholder="Search albums, artists…"
-          class="flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
+          class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
           @keyup.enter="onSearchEnter"
         />
         <button

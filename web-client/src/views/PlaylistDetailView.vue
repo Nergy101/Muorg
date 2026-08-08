@@ -4,11 +4,12 @@
       <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface"
+          class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface transition-colors lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
           aria-label="Back"
           @click="router.back()"
         >
           <MageIcon name="chevron-left" class="h-5 w-5" />
+          <span class="hidden lg:inline">Back</span>
         </button>
       </div>
       <div class="flex min-h-0 flex-1 items-center justify-center">
@@ -20,11 +21,12 @@
       <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
         <button
           type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
           aria-label="Back"
           @click="router.back()"
         >
           <MageIcon name="chevron-left" class="h-5 w-5" />
+          <span class="hidden lg:inline">Back</span>
         </button>
 
         <span class="min-w-0 flex-1 truncate text-title-md text-on-surface">

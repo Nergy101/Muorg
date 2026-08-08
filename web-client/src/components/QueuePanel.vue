@@ -3,11 +3,12 @@
     <div class="content-col flex h-14 shrink-0 items-center gap-2 px-2">
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface"
+        class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface transition-colors lg:h-9 lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
         aria-label="Back"
         @click="router.back()"
       >
-        <MageIcon name="chevron-left" class="h-6 w-6" />
+        <MageIcon name="chevron-left" class="h-6 w-6 lg:h-5 lg:w-5" />
+        <span class="hidden lg:inline">Back</span>
       </button>
       <MageIcon name="stack" class="h-5 w-5 text-primary" />
       <span class="flex-1 text-title-lg text-on-surface">Queue</span>

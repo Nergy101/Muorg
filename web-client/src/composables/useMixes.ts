@@ -25,7 +25,7 @@ export interface Mix {
   trackIds: number[];
 }
 
-const MIX_SIZE = 20;
+const MIX_SIZE = 40;
 /** How many of the cohorts are shown per session. */
 const MIX_COUNT = 8;
 
