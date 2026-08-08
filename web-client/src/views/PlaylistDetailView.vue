@@ -55,6 +55,16 @@
         </button>
 
         <button
+          v-if="isMix && tracks.length > 0"
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
+          aria-label="Play mix"
+          @click="playMix"
+        >
+          <MageIcon name="play" class="h-4 w-4" />
+        </button>
+
+        <button
           v-if="isMix"
           type="button"
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
@@ -290,6 +300,13 @@ function toggleViewStyle(): void {
     return;
   }
   settings.cycleAlbumViewStyle();
+}
+
+/** Header play button for mixes: start the first track with the whole mix
+ *  queued behind it, so Next/auto-advance plays through the mix. */
+function playMix(): void {
+  const first = tracks.value[0];
+  if (first) player.playTrack(first, tracks.value);
 }
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
