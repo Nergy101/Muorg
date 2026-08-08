@@ -171,7 +171,7 @@
 
           <!-- Transport row -->
           <div
-            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] lg:justify-start lg:gap-5 lg:px-0 lg:pb-0"
+            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-5 lg:px-0 lg:pb-0"
           >
             <button
               type="button"
