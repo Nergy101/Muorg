@@ -14,8 +14,8 @@ android {
         applicationId = "nl.muorg.android"
         minSdk = 26
         targetSdk = 37
-        versionCode = 23412
-        versionName = "2.34.12"
+        versionCode = 23413
+        versionName = "2.34.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
