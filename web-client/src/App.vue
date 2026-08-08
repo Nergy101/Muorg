@@ -60,6 +60,7 @@ import { usePlayerStore } from "./stores/player";
 import { useSettingsStore } from "./stores/settings";
 import { useSwipeNavigate } from "./composables/useSwipeNavigate";
 import { useSwipeBack } from "./composables/useSwipeBack";
+import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
 import { navTransition } from "./composables/useNavTransition";
 import { NAV_TABS } from "./nav-tabs";
 
@@ -68,6 +69,8 @@ const router = useRouter();
 const player = usePlayerStore();
 // Instantiating the store installs the data-theme effect.
 useSettingsStore();
+// Desktop transport keys (Space/K, ←/→, J/L, Ctrl+←/→, M).
+useKeyboardShortcuts();
 
 const BARELESS = ["connect", "player", "player-queue"];
 

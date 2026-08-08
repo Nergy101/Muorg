@@ -425,6 +425,26 @@ export const usePlayerStore = defineStore("player", () => {
     else el.pause();
   }
 
+  /** Last non-zero level, so unmute restores where the user was. */
+  let lastVolume = 0.8;
+
+  function setVolume(v: number): void {
+    const clamped = Math.min(1, Math.max(0, v));
+    volume.value = clamped;
+    settings.setVolume(clamped);
+    const el = audioEl.value;
+    if (el) el.volume = clamped;
+  }
+
+  function toggleMute(): void {
+    if (volume.value > 0) {
+      lastVolume = volume.value;
+      setVolume(0);
+    } else {
+      setVolume(lastVolume || 0.8);
+    }
+  }
+
   function skipNext(): void {
     advance(false);
   }
@@ -991,6 +1011,8 @@ export const usePlayerStore = defineStore("player", () => {
     initAudio,
     playTrack,
     playPause,
+    setVolume,
+    toggleMute,
     skipNext,
     skipPrevious,
     seekTo,

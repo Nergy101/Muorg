@@ -54,7 +54,7 @@ const route = useRoute();
 /** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
 const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
 
-const isQueue = computed(() => route.name === "queue");
+const isQueue = computed(() => route.name === "queue" || route.name === "player-queue");
 
 function onTabClick(name: string): void {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;
