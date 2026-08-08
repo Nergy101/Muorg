@@ -25,12 +25,17 @@
           Nothing here yet.
         </div>
 
-        <div v-else class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+        <!-- -mx-4 cancels the section padding so the row can scroll edge to
+             edge; on desktop it wraps into a grid with larger tiles. -->
+        <div
+          v-else
+          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-3"
+        >
           <button
             v-for="mix in mixes"
             :key="mix.id"
             type="button"
-            class="w-36 shrink-0 rounded-2xl bg-surface p-3 text-left"
+            class="w-36 shrink-0 rounded-2xl bg-surface p-3 text-left transition-transform duration-150 active:scale-95 lg:w-44 lg:hover:scale-[1.02]"
             @click="openMix(mix.id)"
           >
             <div
@@ -62,12 +67,16 @@
           Nothing here yet.
         </div>
 
-        <!-- -mx-4 cancels the section padding so the row can scroll edge to edge -->
-        <div v-else class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+        <!-- -mx-4 cancels the section padding so the row can scroll edge to
+             edge; on desktop it wraps into a grid with larger tiles. -->
+        <div
+          v-else
+          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-3"
+        >
           <div
             v-for="item in shelf.items"
             :key="item.key"
-            class="w-36 shrink-0"
+            class="w-36 shrink-0 lg:w-44"
           >
             <AlbumCard :item="item" mode="grid" @open="openAlbum(item)" />
           </div>

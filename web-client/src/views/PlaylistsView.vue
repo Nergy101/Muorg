@@ -42,7 +42,7 @@
           <div
             v-for="p in playlistStore.sortedPlaylists"
             :key="p.id"
-            class="flex aspect-square w-full select-none flex-col rounded-xl bg-surface-variant transition-transform duration-150 active:scale-95"
+            class="flex aspect-square w-full select-none flex-col rounded-xl bg-surface-variant transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02]"
             role="button"
             tabindex="0"
             @click="router.push({ name: 'playlist', params: { id: String(p.id) } })"

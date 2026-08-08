@@ -368,6 +368,38 @@ input[type="range"]::-moz-range-thumb {
   opacity: 0;
 }
 
+/* Desktop (≥1024px): views live inside the content pane beside the sidebar, so
+   a full-pane flight would read as a long slide across a wide window. They
+   travel a short distance with a fade instead — a gentle reveal that keeps the
+   push/pop vocabulary without the distance. Modal (player sheet) is untouched:
+   a bottom rise still reads right on a wide pane. */
+@media (min-width: 64rem) {
+  .nav-push-enter-active,
+  .nav-push-leave-active,
+  .nav-pop-leave-active {
+    transition:
+      transform var(--nav-duration) var(--nav-ease),
+      opacity var(--nav-duration) var(--nav-ease),
+      filter var(--nav-duration) var(--nav-ease);
+  }
+
+  .nav-push-enter-from {
+    transform: translateX(56px);
+    opacity: 0;
+  }
+
+  .nav-push-leave-to {
+    transform: translateX(-16px);
+    filter: brightness(calc(1 - var(--nav-scrim)));
+    opacity: 0.35;
+  }
+
+  .nav-pop-leave-to {
+    transform: translateX(56px);
+    opacity: 0;
+  }
+}
+
 /* NOTE: there is deliberately no pop counterpart to any of the above. A
    backward navigation resolves to no transition at all, because the platform
    animates the pop itself — see resolveNavTransition. */

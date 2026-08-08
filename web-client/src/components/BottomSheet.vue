@@ -18,7 +18,7 @@
       <div
         v-if="open"
         ref="panel"
-        class="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] max-w-[600px] overflow-y-auto rounded-t-[28px] bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl"
+        class="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] max-w-[600px] overflow-y-auto rounded-t-[28px] bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl lg:bottom-4 lg:max-w-md lg:rounded-2xl lg:border lg:border-outline/20 lg:pb-2"
         :style="dragStyle"
         role="dialog"
         aria-modal="true"

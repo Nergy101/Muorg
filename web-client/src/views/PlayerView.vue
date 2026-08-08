@@ -29,7 +29,9 @@
     <!-- The glow backdrop above still spans the full shell; only the controls
          column is centred, so seek and transport stay near the art on desktop
          instead of stretching to the edges. Uncapped below md. -->
-    <div class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto md:max-w-[640px]">
+    <div
+      class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto md:max-w-[640px] lg:max-w-5xl"
+    >
       <!-- Top row -->
       <div class="flex h-14 shrink-0 items-center px-2">
         <button
@@ -60,149 +62,165 @@
         </button>
       </div>
 
-      <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
-           short viewport; object-cover absorbs the crop if it ever clamps. -->
-      <div class="flex min-h-0 flex-1 items-center justify-center px-6">
-        <!-- 50vh cap: on a wide shell 86% would be taller than the centre column,
-             so the art would clamp to a cropped rectangle. Never binds on phones. -->
-        <div class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center">
+      <!-- Desktop (lg) is a two-pane layout: art left, info + controls right.
+           Mobile keeps the stacked column — art centred, controls below. -->
+      <div
+        class="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-center lg:gap-12 lg:px-10 lg:pb-6"
+      >
+        <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
+             short viewport; object-cover absorbs the crop if it ever clamps. -->
+        <div
+          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:w-[44%] lg:flex-none lg:px-0"
+        >
+          <!-- 50vh cap: on a wide shell 86% would be taller than the centre column,
+               so the art would clamp to a cropped rectangle. Never binds on phones. -->
           <div
-            class="absolute inset-0 rounded-full"
-            :style="{ background: `radial-gradient(circle, rgba(${glowRgb},0.45) 0%, transparent 70%)`, filter: 'blur(32px)' }"
-            aria-hidden="true"
-          />
-          <div class="relative aspect-square max-h-full w-full overflow-hidden rounded-2xl shadow-2xl">
-            <img
-              v-if="coverUrl"
-              :src="coverUrl"
-              :alt="player.currentTrack.album ?? ''"
-              class="h-full w-full object-cover"
+            class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center lg:w-full lg:max-w-[420px]"
+          >
+            <div
+              class="absolute inset-0 rounded-full"
+              :style="{ background: `radial-gradient(circle, rgba(${glowRgb},0.45) 0%, transparent 70%)`, filter: 'blur(32px)' }"
+              aria-hidden="true"
             />
-            <div v-else class="flex h-full w-full items-center justify-center bg-black/30">
-              <MageIcon name="music" class="h-10 w-10 text-white/50" />
+            <div class="relative aspect-square max-h-full w-full overflow-hidden rounded-2xl shadow-2xl">
+              <img
+                v-if="coverUrl"
+                :src="coverUrl"
+                :alt="player.currentTrack.album ?? ''"
+                class="h-full w-full object-cover"
+              />
+              <div v-else class="flex h-full w-full items-center justify-center bg-black/30">
+                <MageIcon name="music" class="h-10 w-10 text-white/50" />
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Track info bottom-left, quick actions opposite, both above the seek bar -->
-      <div class="flex shrink-0 items-end gap-3 px-6 pb-3">
-        <div class="min-w-0 flex-1">
-          <MarqueeText :text="player.currentTrack.title ?? '—'" class="text-title-lg text-white" />
-          <p class="truncate text-body-md text-white/75">
-            {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
-          </p>
-          <p class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
-            aria-label="Queue"
-            @click="router.push({ name: 'player-queue' })"
-          >
-            <MageIcon name="stack" class="h-6 w-6" />
-          </button>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
-            aria-label="Add to playlist"
-            @click="openAddToPlaylist"
-          >
-            <MageIcon name="playlist-add" class="h-6 w-6" />
-          </button>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-full"
-            :class="[isFavorite ? 'text-primary' : 'text-white/75', heartPulse ? 'heart-pop' : '']"
-            :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-            @click="onToggleFavorite"
-            @animationend="heartPulse = false"
-          >
-            <!-- CSS `fill` beats the presentation attribute feather emits, so the
-                 heart reads as solid once favourited. -->
-            <MageIcon name="heart" class="h-6 w-6" :class="isFavorite ? 'fill-current' : ''" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Seek row -->
-      <div class="shrink-0 px-6">
-        <div
-          ref="seekTrack"
-          data-no-dismiss
-          class="relative h-4 flex items-center"
-          @pointerdown="onSeekPointerdown"
-        >
-          <div class="h-1 w-full rounded-full bg-white/25">
-            <div
-              class="h-full rounded-full bg-primary"
-              :style="{ width: `${displayedFraction * 100}%` }"
-            />
+        <!-- Info + controls -->
+        <div class="flex shrink-0 flex-col lg:w-[56%] lg:shrink lg:gap-4">
+          <!-- Track info bottom-left, quick actions opposite, both above the seek bar -->
+          <div class="flex shrink-0 items-end gap-3 px-6 pb-3 lg:items-center lg:px-0 lg:pb-0">
+            <div class="min-w-0 flex-1">
+              <MarqueeText
+                :text="player.currentTrack.title ?? '—'"
+                class="text-title-lg text-white lg:text-headline-sm"
+              />
+              <p class="truncate text-body-md text-white/75">
+                {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
+              </p>
+              <p class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Queue"
+                @click="router.push({ name: 'player-queue' })"
+              >
+                <MageIcon name="stack" class="h-6 w-6" />
+              </button>
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Add to playlist"
+                @click="openAddToPlaylist"
+              >
+                <MageIcon name="playlist-add" class="h-6 w-6" />
+              </button>
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+                :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+                :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+                @click="onToggleFavorite"
+                @animationend="heartPulse = false"
+              >
+                <!-- CSS `fill` beats the presentation attribute feather emits, so the
+                     heart reads as solid once favourited. -->
+                <MageIcon name="heart" class="h-6 w-6" :class="isFavorite ? 'fill-current' : ''" />
+              </button>
+            </div>
           </div>
-          <div
-            class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-primary shadow"
-            :style="{ left: `${displayedFraction * 100}%` }"
-          />
-        </div>
-        <div class="flex items-center justify-between pt-1">
-          <span class="text-label-md tabular-nums text-white/55">{{ formatDuration(displayedSecs) }}</span>
-          <span class="text-label-md tabular-nums text-white/55">
-            -{{ formatDuration(Math.max(0, player.durationSecs - displayedSecs)) }}
-          </span>
-        </div>
-      </div>
 
-      <!-- Transport row -->
-      <div
-        class="flex shrink-0 items-center justify-center gap-4 px-6 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)]"
-      >
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center"
-          :class="player.shuffleEnabled ? 'text-primary' : 'text-white/75'"
-          aria-label="Shuffle"
-          @click="player.toggleShuffle()"
-        >
-          <MageIcon name="exchange" class="h-7 w-7" />
-        </button>
-        <button
-          type="button"
-          class="flex h-14 w-14 items-center justify-center text-white"
-          aria-label="Previous track"
-          @click="player.skipPrevious()"
-        >
-          <MageIcon name="previous" class="h-7 w-7" />
-        </button>
-        <button
-          type="button"
-          class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary text-on-primary"
-          :aria-label="player.isPlaying ? 'Pause' : 'Play'"
-          @click="player.playPause()"
-        >
-          <MageIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-8 w-8" />
-        </button>
-        <button
-          type="button"
-          class="flex h-14 w-14 items-center justify-center text-white"
-          aria-label="Next track"
-          @click="player.skipNext()"
-        >
-          <MageIcon name="next" class="h-7 w-7" />
-        </button>
-        <button
-          type="button"
-          class="relative flex h-10 w-10 items-center justify-center"
-          :class="player.repeatMode !== 'off' ? 'text-primary' : 'text-white/75'"
-          aria-label="Repeat mode"
-          @click="player.cycleRepeatMode()"
-        >
-          <MageIcon name="reload" class="h-7 w-7" />
-          <span
-            v-if="player.repeatMode === 'one'"
-            class="absolute bottom-0.5 right-0.5 text-label-sm font-bold leading-none"
-          >1</span>
-        </button>
+          <!-- Seek row -->
+          <div class="shrink-0 px-6 lg:px-0">
+            <div
+              ref="seekTrack"
+              data-no-dismiss
+              class="relative h-4 flex items-center"
+              @pointerdown="onSeekPointerdown"
+            >
+              <div class="h-1 w-full rounded-full bg-white/25">
+                <div
+                  class="h-full rounded-full bg-primary"
+                  :style="{ width: `${displayedFraction * 100}%` }"
+                />
+              </div>
+              <div
+                class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-primary shadow"
+                :style="{ left: `${displayedFraction * 100}%` }"
+              />
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <span class="text-label-md tabular-nums text-white/55">{{ formatDuration(displayedSecs) }}</span>
+              <span class="text-label-md tabular-nums text-white/55">
+                -{{ formatDuration(Math.max(0, player.durationSecs - displayedSecs)) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Transport row -->
+          <div
+            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] lg:justify-start lg:gap-5 lg:px-0 lg:pb-0"
+          >
+            <button
+              type="button"
+              class="flex h-10 w-10 items-center justify-center transition-colors hover:text-white"
+              :class="player.shuffleEnabled ? 'text-primary' : 'text-white/75'"
+              aria-label="Shuffle"
+              @click="player.toggleShuffle()"
+            >
+              <MageIcon name="exchange" class="h-7 w-7" />
+            </button>
+            <button
+              type="button"
+              class="flex h-14 w-14 items-center justify-center text-white transition-transform hover:scale-110"
+              aria-label="Previous track"
+              @click="player.skipPrevious()"
+            >
+              <MageIcon name="previous" class="h-7 w-7" />
+            </button>
+            <button
+              type="button"
+              class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
+              :aria-label="player.isPlaying ? 'Pause' : 'Play'"
+              @click="player.playPause()"
+            >
+              <MageIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-8 w-8" />
+            </button>
+            <button
+              type="button"
+              class="flex h-14 w-14 items-center justify-center text-white transition-transform hover:scale-110"
+              aria-label="Next track"
+              @click="player.skipNext()"
+            >
+              <MageIcon name="next" class="h-7 w-7" />
+            </button>
+            <button
+              type="button"
+              class="relative flex h-10 w-10 items-center justify-center transition-colors hover:text-white"
+              :class="player.repeatMode !== 'off' ? 'text-primary' : 'text-white/75'"
+              aria-label="Repeat mode"
+              @click="player.cycleRepeatMode()"
+            >
+              <MageIcon name="reload" class="h-7 w-7" />
+              <span
+                v-if="player.repeatMode === 'one'"
+                class="absolute bottom-0.5 right-0.5 text-label-sm font-bold leading-none"
+              >1</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

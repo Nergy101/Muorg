@@ -1,41 +1,48 @@
 <template>
-  <!-- pt keeps the header/top bar clear of the notch and status bar. -->
+  <!-- pt keeps the header/top bar clear of the notch and status bar. On desktop
+       the layout widens into a sidebar + content pane (lg). -->
   <div
-    class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-[2400px]"
+    class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-[1600px] lg:flex-row lg:pt-0"
   >
-    <OfflineBanner />
-    <UpdateBanner />
+    <!-- Desktop navigation rail; mobile keeps the bottom nav. -->
+    <SidebarNav v-if="showSidebar" />
 
-    <!-- Swipe pages between tabs, or pops the stack from the left edge. Bound
-         here, not on the shell, so a drag on the bottom nav or mini player
-         doesn't navigate. -->
-    <div
-      class="relative min-h-0 flex-1 [touch-action:pan-y_pinch-zoom]"
-      @pointerdown="onPointerdown"
-    >
-      <RouterView v-slot="{ Component }">
-        <Transition :name="navTransition">
-          <!-- KeepAlive keeps each view's component state (filters, loaded
-               data) while it is covered. Scroll position is NOT covered by it:
-               a deactivated subtree is detached, which resets scrollTop, so
-               views restore their own offset via useScrollMemory. -->
-          <KeepAlive>
-            <component :is="Component" />
-          </KeepAlive>
-        </Transition>
-      </RouterView>
+    <!-- Main column: banners, routed views, mini player, bottom nav. -->
+    <div class="flex min-h-0 flex-1 flex-col">
+      <OfflineBanner />
+      <UpdateBanner />
 
-      <!-- Edge affordance: tracks an in-progress back gesture so the swipe is
-           legible before it commits. -->
+      <!-- Swipe pages between tabs, or pops the stack from the left edge. Bound
+           here, not on the shell, so a drag on the bottom nav or mini player
+           doesn't navigate. -->
       <div
-        v-if="backProgress > 0"
-        class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-black/30 to-transparent"
-        :style="{ opacity: backProgress }"
-      />
-    </div>
+        class="relative min-h-0 flex-1 [touch-action:pan-y_pinch-zoom]"
+        @pointerdown="onPointerdown"
+      >
+        <RouterView v-slot="{ Component }">
+          <Transition :name="navTransition">
+            <!-- KeepAlive keeps each view's component state (filters, loaded
+                 data) while it is covered. Scroll position is NOT covered by it:
+                 a deactivated subtree is detached, which resets scrollTop, so
+                 views restore their own offset via useScrollMemory. -->
+            <KeepAlive>
+              <component :is="Component" />
+            </KeepAlive>
+          </Transition>
+        </RouterView>
 
-    <MiniPlayer v-if="showMiniPlayer" />
-    <BottomNav v-if="showBottomNav" />
+        <!-- Edge affordance: tracks an in-progress back gesture so the swipe is
+             legible before it commits. -->
+        <div
+          v-if="backProgress > 0"
+          class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-black/30 to-transparent"
+          :style="{ opacity: backProgress }"
+        />
+      </div>
+
+      <MiniPlayer v-if="showMiniPlayer" />
+      <BottomNav v-if="showBottomNav" class="lg:hidden" />
+    </div>
   </div>
   <Toast />
 </template>
@@ -46,6 +53,7 @@ import { useRoute, useRouter } from "vue-router";
 import OfflineBanner from "./components/OfflineBanner.vue";
 import UpdateBanner from "./components/UpdateBanner.vue";
 import BottomNav from "./components/BottomNav.vue";
+import SidebarNav from "./components/SidebarNav.vue";
 import MiniPlayer from "./components/MiniPlayer.vue";
 import Toast from "./components/Toast.vue";
 import { usePlayerStore } from "./stores/player";
@@ -62,6 +70,11 @@ const player = usePlayerStore();
 useSettingsStore();
 
 const BARELESS = ["connect", "player", "player-queue"];
+
+// The connect screen is a full-pane onboarding flow — no nav rail beside it.
+// Everything else (including the player sheet) keeps the rail on desktop so
+// navigation stays one click away; mobile hides the rail via CSS regardless.
+const showSidebar = computed(() => String(route.name) !== "connect");
 
 const showMiniPlayer = computed(
   () =>

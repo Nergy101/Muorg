@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left"
+    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer lg:hover:bg-surface-container/50"
     @click="emit('play')"
     @touchstart.passive="lp.onTouchstart"
     @touchmove.passive="lp.onTouchmove"
@@ -54,7 +54,7 @@
 
     <button
       type="button"
-      class="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
+      class="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container/70"
       aria-label="Track actions"
       @click.stop="emit('actions')"
     >
