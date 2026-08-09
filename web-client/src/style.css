@@ -245,16 +245,35 @@ body {
   overflow: hidden;
 }
 
-/* dvh, not %: installed as a PWA on iOS the percentage height chain stops above
-   the home-indicator strip, so the bottom nav floated short of the screen edge
-   with a band of `--background` under it. Viewport units honour
-   `viewport-fit=cover` and span the full screen. Kept as a separate @supports
-   rule because a minifier collapses two `height` declarations in one block and
-   drops the percentage fallback. */
+/* Height of the app shell, in three layers.
+
+   `100%` is the floor: the percentage chain works everywhere except an
+   installed iOS PWA, where it stops above the home-indicator strip and leaves
+   the bottom nav short of the screen edge with a band of `--background` under
+   it.
+
+   `100dvh` is what a browser tab wants: it tracks the collapsing URL bar, and
+   it honours `viewport-fit=cover` so the shell spans the full screen. Kept in
+   its own `@supports` rule because a minifier collapses two `height`
+   declarations in one block and drops the percentage fallback.
+
+   `100vh` is what an installed PWA needs. There is no browser chrome in
+   standalone mode, so there is no small/large viewport split for `dvh` to
+   resolve — but WebKit still resolves it lazily: on a cold start it can come
+   back short by the bottom inset, and it re-resolves on resume, which is the
+   gap that appears, disappears and flickers between the two values. `100vh` is
+   the static large viewport and is stable from the first paint. */
 @supports (height: 100dvh) {
   html,
   body {
     height: 100dvh;
+  }
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html,
+  body {
+    height: 100vh;
   }
 }
 

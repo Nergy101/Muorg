@@ -1,9 +1,13 @@
 <template>
-  <!-- A tiny fixed 12px, not the safe-area inset: the full ~34px inset pushed the
-       bar up off the edge and read as a dead gap. This lifts the icon row clear
-       of the home indicator and its gesture strip while the background, which
-       fills the padding box, still runs to the physical bottom of the screen. -->
-  <nav class="shrink-0 bg-surface pb-3">
+  <!-- The inset, floored at 12px. The shell now spans the whole screen, so the
+       nav background reaches the physical bottom edge on its own; this padding
+       is only what lifts the icon row clear of the home indicator and its
+       gesture strip. Historically it was a flat 12px, which was compensating
+       for a shell that stopped short of the edge — with that fixed, a flat
+       12px leaves the icons sitting under the indicator. `max()` keeps the
+       12px on hardware with no inset, and degrades to it if WebKit hands us a
+       stale `0px` on a cold start. -->
+  <nav class="shrink-0 bg-surface pb-[max(env(safe-area-inset-bottom),0.75rem)]">
     <!-- Bar spans the shell, tabs stay grouped: four icons spread over 1200px
          would sit absurdly far apart. -->
     <div class="relative mx-auto flex h-16 w-full max-w-[600px] items-stretch">
