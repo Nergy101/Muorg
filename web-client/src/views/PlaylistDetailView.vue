@@ -75,6 +75,16 @@
         </button>
 
         <button
+          v-if="tracks.length > 0"
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
+          aria-label="Export playlist"
+          @click="exportM3U"
+        >
+          <MageIcon name="download" class="h-5 w-5" />
+        </button>
+
+        <button
           type="button"
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
           aria-label="Change layout"
@@ -220,6 +230,8 @@ import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
 import { findMix } from "../composables/useMixes";
+import { issueStreamToken } from "../api/catalog";
+import { getServerUrl, streamUrl } from "../api/client";
 import type { AlbumGridItem, AlbumViewStyle, CatalogTrack, Playlist, SmartRule } from "../types";
 
 const props = defineProps<{ id: string }>();
@@ -360,6 +372,40 @@ async function commitOrder(): Promise<void> {
   await playlistStore.reorderTracks(playlistId.value, reorderedIds.value);
   orderedIds.value = [...reorderedIds.value];
   showToast("Order saved");
+}
+
+/** Export the playlist (or mix) as a client-side .m3u file. Stream tokens are
+ *  valid ~8h each, so the exported file is playable by any M3U-capable client
+ *  in that window. Tokens are issued in parallel; a track whose token fails
+ *  is still listed (with its plain stream URL) rather than dropped. */
+async function exportM3U(): Promise<void> {
+  const list = tracks.value;
+  if (list.length === 0) return;
+  try {
+    const tokens = await Promise.all(
+      list.map((t) => issueStreamToken(t.id).catch(() => null)),
+    );
+    const lines: string[] = ["#EXTM3U"];
+    list.forEach((t, i) => {
+      const title =
+        [t.artist, t.title].filter(Boolean).join(" - ") || `Track ${t.id}`;
+      lines.push(`#EXTINF:${t.duration_secs ?? -1},${title}`);
+      const tok = tokens[i];
+      lines.push(tok ? streamUrl(t.id, tok) : `${getServerUrl()}/stream/${t.id}`);
+    });
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "audio/x-mpegurl" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeName =
+      (playlist.value?.name ?? "playlist").replace(/[^\w\- ]+/g, "").trim() || "playlist";
+    a.href = url;
+    a.download = `${safeName}.m3u`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Playlist exported");
+  } catch (e) {
+    showToast("Export failed");
+  }
 }
 
 const drag = useDragReorder({
