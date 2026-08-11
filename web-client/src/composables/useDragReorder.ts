@@ -83,7 +83,10 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
 
-    if (opts.immediate) {
+    // Mouse drags arm straight away (a natural click-and-drag); touch/pen
+    // still long-press to arm, so both gestures work on every viewport.
+    if (opts.immediate || e.pointerType === "mouse") {
+      e.preventDefault();
       draggingIndex.value = index;
       dropIndex.value = index;
       return;
