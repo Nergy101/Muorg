@@ -41,7 +41,7 @@ const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
   { name: "Rainy Day", emoji: "🌧️", genres: ["Emo", "Post-Hardcore", "Alternative"] },
   { name: "Road Trip", emoji: "🚗", genres: ["Punk Rock", "Pop Punk", "Classic Rock"] },
   { name: "Deep Focus", emoji: "💫", genres: ["Metal", "Electronic", "Progressive Metal", "Instrumental"] },
-  { name: "Party Starter", emoji: "🎉", genres: ["Nu Metal", "Pop", "Electronic", "Rap"] },
+  { name: "Party Starter", emoji: "🎉", genres: ["Nu Metal", "Pop", "Electronic", "Rap", "Punk", "Pop Punk", "Pop Rock", "Indie Rock"] },
   { name: "Mosh Pit", emoji: "🤘", genres: ["Thrash Metal", "Death Metal", "Metal", "Nu Metal", "Hard Rock", "Metalcore"] },
   { name: "Golden Hour", emoji: "🌅", genres: ["Alternative Rock", "Indie Rock", "Pop Rock"] },
   { name: "Late Night Lo-Fi", emoji: "😴", genres: ["Lo-Fi", "Rap", "Instrumental"] },
