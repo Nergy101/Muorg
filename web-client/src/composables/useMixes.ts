@@ -48,7 +48,7 @@ const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
   { name: "Skatepark", emoji: "🛹", genres: ["Pop Punk", "Punk Rock", "Hardcore"] },
   { name: "Sunday Chill", emoji: "😌", genres: ["Alternative Indie", "Indie", "Pop"] },
   { name: "Thunderstorm", emoji: "⛈️", genres: ["Thrash Metal", "Death Metal", "Hard Rock"] },
-  { name: "Sing-Along", emoji: "🎤", genres: ["Pop", "Pop Rock", "Pop Punk"] },
+  { name: "Sing-Along", emoji: "🎤", genres: ["Pop", "Pop Rock", "Pop Punk", "Indie", "Indie Rock"] },
   { name: "Power Hour", emoji: "⚡", genres: ["Nu Metal", "Hard Rock", "Metalcore"] },
 ];
 
