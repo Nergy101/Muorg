@@ -61,8 +61,11 @@
         </div>
       </div>
 
-      <!-- Artist filter chip -->
-      <div v-if="artistLabel" class="content-col px-4 pb-2">
+      <!-- Filters / toolbar: pinned (sticky) on desktop so sort, genre, layout
+           and shuffle stay visible while the grid scrolls beneath. -->
+      <div class="sticky top-0 z-10 bg-background">
+        <!-- Artist filter chip -->
+        <div v-if="artistLabel" class="content-col px-4 pb-2 pt-2">
         <div class="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-1.5">
           <button
             type="button"
@@ -175,6 +178,7 @@
         >
           <MageIcon name="exchange" class="h-4 w-4" />
         </button>
+        </div>
       </div>
 
       <!-- Content -->

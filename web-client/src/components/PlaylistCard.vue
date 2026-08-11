@@ -76,17 +76,23 @@
           <MageIcon name="trash" class="h-4 w-4" />
         </button>
       </div>
-    </div>
 
-    <!-- Emoji + title + count below the card -->
-    <div class="flex items-center gap-1.5 px-1 pt-1.5">
-      <span class="text-xl leading-none">{{ playlist.icon ?? "🎵" }}</span>
-      <div class="min-w-0 flex-1">
-        <p class="truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
-        <p class="flex items-center gap-1 text-label-sm text-on-surface-variant">
-          <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
-          {{ trackCountText }}
-        </p>
+      <!-- Bottom scrim so the emoji + title stay legible over any artwork -->
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-gradient-to-t from-[#111111e6] via-[#1111118c] to-transparent"
+        aria-hidden="true"
+      />
+
+      <!-- Emoji + title + count at the bottom of the card -->
+      <div class="absolute inset-x-0 bottom-0 flex items-center gap-1.5 px-2.5 pb-2">
+        <span class="text-xl leading-none drop-shadow">{{ playlist.icon ?? "🎵" }}</span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-label-lg font-semibold text-white">{{ playlist.name }}</p>
+          <p class="flex items-center gap-1 text-label-sm text-white/70">
+            <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
+            {{ trackCountText }}
+          </p>
+        </div>
       </div>
     </div>
 

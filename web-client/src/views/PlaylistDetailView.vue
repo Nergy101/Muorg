@@ -63,27 +63,29 @@
           <MageIcon name="save-floppy" class="h-5 w-5" />
         </button>
 
-        <!-- Reorder toggle (separate from the save/commit action) -->
-        <button
-          v-if="viewStyle === 'tracks' && !isSmart && !isMix"
-          type="button"
-          class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2"
-          :class="reorderMode ? 'text-primary' : 'text-on-surface-variant'"
-          @click="reorderMode = !reorderMode"
-        >
-          <MageIcon name="dash-menu" class="h-5 w-5" />
-          <span class="text-label-md">{{ reorderMode ? "done" : "reorder" }}</span>
-        </button>
-
-        <!-- Save order: only visible while reordering and there are unsaved changes -->
+        <!-- Save order: icon only, appears while reordering with unsaved changes.
+             Sits to the LEFT of the reorder toggle so the layout button (always
+             rightmost) never shifts position. -->
         <button
           v-if="reorderMode && hasUnsavedOrder"
           type="button"
-          class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2 text-primary"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
+          aria-label="Save order"
           @click="commitOrder"
         >
           <MageIcon name="save-floppy" class="h-5 w-5" />
-          <span class="text-label-md">save</span>
+        </button>
+
+        <!-- Reorder toggle: compact icon, sits right next to the layout button -->
+        <button
+          v-if="viewStyle === 'tracks' && !isSmart && !isMix"
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          :class="reorderMode ? 'text-primary' : 'text-on-surface-variant'"
+          :aria-label="reorderMode ? 'Done reordering' : 'Reorder'"
+          @click="reorderMode = !reorderMode"
+        >
+          <MageIcon name="dash-menu" class="h-5 w-5" />
         </button>
 
         <button

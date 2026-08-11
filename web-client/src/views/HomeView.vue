@@ -1,6 +1,6 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center justify-between px-4">
+    <div class="flex h-14 shrink-0 items-center justify-between px-4">
       <div class="flex min-w-0 items-center gap-2">
         <MageIcon name="home-fill" class="h-5 w-5 text-primary" />
         <span class="truncate text-title-lg text-on-surface">Home</span>
@@ -11,7 +11,7 @@
       <!-- Mixes: 8 session-stable random ~20-track playlists, never written
            to the server. Opening one shows its tracks; saving goes through
            the New-playlist flow. -->
-      <section class="content-col px-4 pt-4">
+      <section class="px-4 pt-4">
         <h2 class="flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
           <MageIcon name="color-swatch" class="h-4 w-4 text-primary" />
           Mixes
@@ -26,30 +26,22 @@
         </div>
 
         <!-- -mx-4 cancels the section padding so the row can scroll edge to
-             edge; on desktop it wraps into a grid with larger tiles. -->
+             edge; on desktop it fills the window width as a wrapping grid. -->
         <div
           v-else
-          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-3"
+          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(176px,1fr))] lg:overflow-visible lg:px-0 lg:pb-3"
         >
-          <button
+          <MixCard
             v-for="mix in mixes"
             :key="mix.id"
-            type="button"
-            class="w-36 shrink-0 rounded-2xl bg-surface p-3 text-left transition-transform duration-150 active:scale-95 lg:w-44 lg:hover:scale-[1.02]"
-            @click="openMix(mix.id)"
-          >
-            <div
-              class="flex h-20 w-full items-center justify-center rounded-xl bg-surface-variant text-4xl"
-            >
-              {{ mix.emoji }}
-            </div>
-            <p class="mt-2 truncate text-body-md font-semibold text-on-surface">{{ mix.name }}</p>
-            <p class="text-body-sm text-on-surface-variant">{{ mix.trackIds.length }} tracks</p>
-          </button>
+            :mix="mix"
+            class="w-36 shrink-0 lg:w-full"
+            @open="openMix(mix.id)"
+          />
         </div>
       </section>
 
-      <section v-for="shelf in shelfViews" :key="shelf.key" class="content-col px-4 pt-4">
+      <section v-for="shelf in shelfViews" :key="shelf.key" class="px-4 pt-4">
         <h2 class="flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
           <MageIcon :name="shelf.icon" class="h-4 w-4 text-primary" />
           {{ shelf.label }}
@@ -68,15 +60,15 @@
         </div>
 
         <!-- -mx-4 cancels the section padding so the row can scroll edge to
-             edge; on desktop it wraps into a grid with larger tiles. -->
+             edge; on desktop it fills the window width as a wrapping grid. -->
         <div
           v-else
-          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-3"
+          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(176px,1fr))] lg:overflow-visible lg:px-0 lg:pb-3"
         >
           <div
             v-for="item in shelf.items"
             :key="item.key"
-            class="w-36 shrink-0 lg:w-44"
+            class="w-36 shrink-0 lg:w-full"
           >
             <AlbumCard :item="item" mode="grid" @open="openAlbum(item)" />
           </div>
@@ -91,6 +83,7 @@ import { computed, onActivated, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
+import MixCard from "../components/MixCard.vue";
 import { useLibraryStore } from "../stores/library";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";

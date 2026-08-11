@@ -37,30 +37,57 @@
           </div>
         </div>
 
-        <div class="min-w-0 flex-1">
-          <MarqueeText :text="item.album" class="text-title-md text-on-surface" />
-          <p class="truncate text-body-md text-on-surface-variant">{{ item.albumArtist }}</p>
-          <p class="text-body-sm text-on-surface-variant">{{ metaLine }}</p>
-        </div>
+        <div class="flex h-[120px] min-w-0 flex-1 flex-col justify-center gap-3">
+          <div class="min-w-0">
+            <MarqueeText :text="item.album" class="text-title-md text-on-surface" />
+            <p class="truncate text-body-md text-on-surface-variant">{{ item.albumArtist }}</p>
+            <p class="text-body-sm text-on-surface-variant">{{ metaLine }}</p>
+          </div>
 
-        <div class="flex shrink-0 flex-col items-center gap-2">
-          <button
-            type="button"
-            class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50"
-            :disabled="tracks.length === 0"
-            aria-label="Play album"
-            @click="playAlbum"
-          >
-            <MageIcon name="play" class="h-6 w-6" />
-          </button>
-          <button
-            type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
-            aria-label="Add album to playlist"
-            @click="openPicker"
-          >
-            <MageIcon name="playlist-add" class="h-5 w-5" />
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50"
+              :disabled="tracks.length === 0"
+              aria-label="Play album"
+              @click="playAlbum"
+            >
+              <MageIcon name="play" class="h-6 w-6" />
+            </button>
+            <button
+              type="button"
+              class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
+              aria-label="Add album to playlist"
+              @click="openPicker"
+            >
+              <MageIcon name="playlist-add" class="h-5 w-5" />
+            </button>
+            <div class="relative">
+              <button
+                type="button"
+                class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
+                aria-label="More album options"
+                @click="menuOpen = !menuOpen"
+              >
+                <MageIcon name="dots" class="h-5 w-5" />
+              </button>
+              <div v-if="menuOpen" class="fixed inset-0 z-30" @click="menuOpen = false"></div>
+              <div
+                v-if="menuOpen"
+                class="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl bg-surface-container py-1 shadow-xl"
+              >
+                <button
+                  v-if="item?.albumArtist"
+                  type="button"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface"
+                  @click="viewArtistFromAlbum"
+                >
+                  <MageIcon name="user" class="h-4 w-4 text-primary" />
+                  <span>View artist</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -170,6 +197,16 @@ const metaLine = computed(() => {
 function playAlbum(): void {
   if (tracks.value.length === 0) return;
   void player.playTrack(tracks.value[0], tracks.value);
+}
+
+// --- Album header menu -----------------------------------------------------
+
+const menuOpen = ref(false);
+
+function viewArtistFromAlbum(): void {
+  const name = item.value?.albumArtist;
+  menuOpen.value = false;
+  if (name) void router.push({ name: "artist", params: { name } });
 }
 
 // --- Track actions sheet ---------------------------------------------------
