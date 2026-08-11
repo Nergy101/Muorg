@@ -29,20 +29,9 @@
           <span class="hidden lg:inline">Back</span>
         </button>
 
-        <span class="min-w-0 flex-1 truncate text-title-md text-on-surface">
+        <span class="ml-2 min-w-0 flex-1 truncate text-title-md text-on-surface">
           {{ playlist.icon ?? "🎵" }} {{ playlist.name }}
         </span>
-
-        <button
-          v-if="viewStyle === 'tracks' && !isSmart && !isMix"
-          type="button"
-          class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2"
-          :class="hasUnsavedOrder ? 'text-primary' : 'text-on-surface-variant'"
-          @click="commitOrder"
-        >
-          <MageIcon :name="hasUnsavedOrder ? 'save-floppy' : 'dash-menu'" class="h-5 w-5" />
-          <span class="text-label-md">{{ hasUnsavedOrder ? "save" : "reorder" }}</span>
-        </button>
 
         <button
           v-if="isSmart"
@@ -74,14 +63,27 @@
           <MageIcon name="save-floppy" class="h-5 w-5" />
         </button>
 
+        <!-- Reorder toggle (separate from the save/commit action) -->
         <button
-          v-if="tracks.length > 0"
+          v-if="viewStyle === 'tracks' && !isSmart && !isMix"
           type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
-          aria-label="Export playlist"
-          @click="exportM3U"
+          class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2"
+          :class="reorderMode ? 'text-primary' : 'text-on-surface-variant'"
+          @click="reorderMode = !reorderMode"
         >
-          <MageIcon name="download" class="h-5 w-5" />
+          <MageIcon name="dash-menu" class="h-5 w-5" />
+          <span class="text-label-md">{{ reorderMode ? "done" : "reorder" }}</span>
+        </button>
+
+        <!-- Save order: only visible while reordering and there are unsaved changes -->
+        <button
+          v-if="reorderMode && hasUnsavedOrder"
+          type="button"
+          class="flex h-9 shrink-0 items-center gap-1 rounded-full px-2 text-primary"
+          @click="commitOrder"
+        >
+          <MageIcon name="save-floppy" class="h-5 w-5" />
+          <span class="text-label-md">save</span>
         </button>
 
         <button
@@ -116,7 +118,7 @@
                   v-if="!isSmart && !isMix"
                   class="flex h-14 w-10 shrink-0 items-center justify-center text-on-surface-variant"
                   style="touch-action: none"
-                  @pointerdown="drag.start(entry.index, $event)"
+                  @pointerdown="onRowPointerdown(entry.index, $event)"
                 >
                   <MageIcon name="dash-menu" class="h-5 w-5" />
                 </div>
@@ -230,8 +232,6 @@ import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
 import { findMix } from "../composables/useMixes";
-import { issueStreamToken } from "../api/catalog";
-import { getServerUrl, streamUrl } from "../api/client";
 import type { AlbumGridItem, AlbumViewStyle, CatalogTrack, Playlist, SmartRule } from "../types";
 
 const props = defineProps<{ id: string }>();
@@ -328,6 +328,8 @@ const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 const orderedIds = ref<number[]>([]);
 const reorderedIds = ref<number[]>([]);
 const hasUnsavedOrder = ref(false);
+/** Reorder mode: drag handles only reorder while this is on. */
+const reorderMode = ref(false);
 
 watch(
   orderedIds,
@@ -371,41 +373,14 @@ async function commitOrder(): Promise<void> {
   if (!hasUnsavedOrder.value) return;
   await playlistStore.reorderTracks(playlistId.value, reorderedIds.value);
   orderedIds.value = [...reorderedIds.value];
+  hasUnsavedOrder.value = false;
+  reorderMode.value = false;
   showToast("Order saved");
 }
 
-/** Export the playlist (or mix) as a client-side .m3u file. Stream tokens are
- *  valid ~8h each, so the exported file is playable by any M3U-capable client
- *  in that window. Tokens are issued in parallel; a track whose token fails
- *  is still listed (with its plain stream URL) rather than dropped. */
-async function exportM3U(): Promise<void> {
-  const list = tracks.value;
-  if (list.length === 0) return;
-  try {
-    const tokens = await Promise.all(
-      list.map((t) => issueStreamToken(t.id).catch(() => null)),
-    );
-    const lines: string[] = ["#EXTM3U"];
-    list.forEach((t, i) => {
-      const title =
-        [t.artist, t.title].filter(Boolean).join(" - ") || `Track ${t.id}`;
-      lines.push(`#EXTINF:${t.duration_secs ?? -1},${title}`);
-      const tok = tokens[i];
-      lines.push(tok ? streamUrl(t.id, tok) : `${getServerUrl()}/stream/${t.id}`);
-    });
-    const blob = new Blob([lines.join("\n") + "\n"], { type: "audio/x-mpegurl" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const safeName =
-      (playlist.value?.name ?? "playlist").replace(/[^\w\- ]+/g, "").trim() || "playlist";
-    a.href = url;
-    a.download = `${safeName}.m3u`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("Playlist exported");
-  } catch (e) {
-    showToast("Export failed");
-  }
+/** Drag only reorders while reorder mode is active; otherwise the handle is inert. */
+function onRowPointerdown(index: number, e: PointerEvent): void {
+  if (reorderMode.value) drag.start(index, e);
 }
 
 const drag = useDragReorder({
