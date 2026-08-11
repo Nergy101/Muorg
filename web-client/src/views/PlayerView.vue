@@ -43,33 +43,35 @@
           <MageIcon name="chevron-down" class="h-6 w-6" />
         </button>
         <div class="flex-1" />
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full"
-          :class="player.sleepTimerActive ? 'text-primary' : 'text-white/55'"
-          aria-label="Sleep timer"
-          @click="onSleepButton"
-        >
-          <MageIcon name="moon" class="h-5 w-5" />
-        </button>
-        <button
-          v-if="hasLyrics"
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full"
-          :class="showLyrics ? 'text-primary' : 'text-white/55'"
-          :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
-          @click="showLyrics = !showLyrics"
-        >
-          <MageIcon name="note-text" class="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
-          aria-label="Track actions"
-          @click="openTrackActions"
-        >
-          <MageIcon name="dots" class="h-5 w-5" />
-        </button>
+        <div class="flex items-center overflow-hidden rounded-full bg-black/25">
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors"
+            :class="player.sleepTimerActive ? 'text-primary' : ''"
+            aria-label="Sleep timer"
+            @click="onSleepButton"
+          >
+            <MageIcon name="moon" class="h-5 w-5" />
+          </button>
+          <button
+            v-if="hasLyrics"
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full border-l border-white/10 text-white transition-colors"
+            :class="showLyrics ? 'text-primary' : ''"
+            :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
+            @click="showLyrics = !showLyrics"
+          >
+            <MageIcon name="note-text" class="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full border-l border-white/10 text-white transition-colors"
+            aria-label="Track actions"
+            @click="openTrackActions"
+          >
+            <MageIcon name="dots" class="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       <!-- Desktop (lg) is a two-pane layout: art left, info + controls right.

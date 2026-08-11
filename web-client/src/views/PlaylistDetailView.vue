@@ -37,7 +37,7 @@
           <button
             v-if="isSmart"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center text-primary transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center text-white transition-colors lg:hover:bg-black/10"
             aria-label="Edit rules"
             @click="openSmartEditor"
           >
@@ -45,19 +45,9 @@
           </button>
 
           <button
-            v-if="isMix && tracks.length > 0"
-            type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-on-primary transition-transform hover:scale-105"
-            aria-label="Play mix"
-            @click="playMix"
-          >
-            <MageIcon name="play" class="h-4 w-4" />
-          </button>
-
-          <button
             v-if="isMix"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-primary transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
             aria-label="Save mix as playlist"
             @click="saveMixOpen = true"
           >
@@ -70,7 +60,7 @@
           <button
             v-if="hasUnsavedOrder"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-primary transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
             aria-label="Save order"
             @click="commitOrder"
           >
@@ -79,13 +69,23 @@
 
           <button
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-on-surface-variant transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
             aria-label="Change layout"
             @click="toggleViewStyle"
           >
             <MageIcon :name="viewIcon" class="h-5 w-5" />
           </button>
         </div>
+
+        <button
+          v-if="isMix && tracks.length > 0"
+          type="button"
+          class="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
+          aria-label="Play mix"
+          @click="playMix"
+        >
+          <MageIcon name="play" class="h-4 w-4" />
+        </button>
       </div>
 
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
