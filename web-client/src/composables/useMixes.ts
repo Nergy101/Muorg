@@ -30,8 +30,9 @@ const MIX_SIZE = 40;
 const MIX_COUNT = 8;
 
 /** Sixteen genre cohorts, chosen to match the library's actual tags (verified
- *  against the live catalog). If a cohort yields fewer than MIX_SIZE tracks the
- *  mix falls back to the full catalog so it never comes up short. */
+ *  against the live catalog). Each mix samples from its own genre pool only
+ *  (up to MIX_SIZE tracks) — a small pool just makes a shorter mix, never a
+ *  mix polluted with unrelated genres. */
 const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
   { name: "Midnight Drive", emoji: "🌙", genres: ["Electronic", "Lo-Fi", "Indie", "Instrumental"] },
   { name: "Morning Coffee", emoji: "☀️", genres: ["Indie Rock", "Indie", "Pop", "Pop Rock"] },
@@ -41,24 +42,23 @@ const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
   { name: "Road Trip", emoji: "🚗", genres: ["Punk Rock", "Pop Punk", "Classic Rock"] },
   { name: "Deep Focus", emoji: "💫", genres: ["Metal", "Electronic", "Progressive Metal", "Instrumental"] },
   { name: "Party Starter", emoji: "🎉", genres: ["Nu Metal", "Pop", "Electronic", "Rap"] },
-  { name: "Mosh Pit", emoji: "🤘", genres: ["Trash Metal", "Death Metal", "Metal"] },
+  { name: "Mosh Pit", emoji: "🤘", genres: ["Thrash Metal", "Death Metal", "Metal"] },
   { name: "Golden Hour", emoji: "🌅", genres: ["Alternative Rock", "Indie Rock", "Pop Rock"] },
   { name: "Late Night Lo-Fi", emoji: "😴", genres: ["Lo-Fi", "Rap", "Instrumental"] },
   { name: "Skatepark", emoji: "🛹", genres: ["Pop Punk", "Punk Rock", "Hardcore"] },
   { name: "Sunday Chill", emoji: "😌", genres: ["Alternative Indie", "Indie", "Pop"] },
-  { name: "Thunderstorm", emoji: "⛈️", genres: ["Trash Metal", "Death Metal", "Hard Rock"] },
+  { name: "Thunderstorm", emoji: "⛈️", genres: ["Thrash Metal", "Death Metal", "Hard Rock"] },
   { name: "Sing-Along", emoji: "🎤", genres: ["Pop", "Pop Rock", "Pop Punk"] },
   { name: "Power Hour", emoji: "⚡", genres: ["Nu Metal", "Hard Rock", "Metalcore"] },
 ];
 
-/** MIX_SIZE distinct random track ids from the cohort pool (partial
- *  Fisher–Yates shuffle); falls back to the full catalog when the cohort is
- *  smaller than MIX_SIZE. */
+/** Up to MIX_SIZE distinct random track ids from the cohort's genre pool
+ *  (partial Fisher–Yates shuffle). If the pool is smaller than MIX_SIZE the
+ *  mix just takes what's there — it never mixes in unrelated genres. */
 function sampleTrackIds(tracks: CatalogTrack[], genres: string[]): number[] {
   const wanted = new Set(genres.map((g) => g.trim().toLowerCase()));
   const pool = tracks.filter((t) => t.genre != null && wanted.has(t.genre.trim().toLowerCase()));
-  const source = pool.length >= MIX_SIZE ? pool : tracks;
-  const copy = [...source];
+  const copy = [...pool];
   const out: number[] = [];
   const n = Math.min(MIX_SIZE, copy.length);
   for (let i = 0; i < n; i++) {
