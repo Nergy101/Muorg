@@ -31,7 +31,10 @@
           </button>
         </div>
 
-        <div v-if="mixes.length === 0 && lib.loading" class="flex justify-center py-6">
+        <div
+          v-if="mixes.length === 0 && (lib.loading || lib.loadingMore)"
+          class="flex justify-center py-6"
+        >
           <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
         </div>
 

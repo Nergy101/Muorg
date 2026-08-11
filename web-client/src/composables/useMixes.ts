@@ -89,6 +89,12 @@ const sessionMixes = ref<Mix[] | null>(null);
 export function useMixes(): { mixes: ComputedRef<Mix[]>; refresh: () => void } {
   const lib = useLibraryStore();
   const mixes = computed<Mix[]>(() => {
+    // The catalog streams in pages (loadingMore stays true while they fetch).
+    // Only build and cache the lineup once it's fully loaded — generating from
+    // a partial catalog could freeze a mix at 0 tracks if its genres live on a
+    // later page.
+    const fullyLoaded = !lib.loading && !lib.loadingMore;
+    if (!fullyLoaded) return sessionMixes.value ?? [];
     if (sessionMixes.value) return sessionMixes.value;
     const tracks = lib.tracks;
     if (tracks.length === 0) return [];
