@@ -12,10 +12,24 @@
            to the server. Opening one shows its tracks; saving goes through
            the New-playlist flow. -->
       <section class="px-4 pt-4">
-        <h2 class="flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
-          <MageIcon name="color-swatch" class="h-4 w-4 text-primary" />
-          Mixes
-        </h2>
+        <div class="flex items-center justify-between pb-2">
+          <h2 class="flex items-center gap-1.5 text-label-lg font-semibold text-on-surface">
+            <MageIcon name="color-swatch" class="h-4 w-4 text-primary" />
+            Mixes
+          </h2>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
+            aria-label="New mixes"
+            @click="refreshMixes"
+          >
+            <MageIcon
+              name="refresh"
+              class="h-5 w-5"
+              :class="mixesRefreshing ? 'animate-spin' : ''"
+            />
+          </button>
+        </div>
 
         <div v-if="mixes.length === 0 && lib.loading" class="flex justify-center py-6">
           <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
@@ -210,7 +224,16 @@ function openAlbum(item: AlbumGridItem): void {
   void router.push({ name: "album", params: { albumKey: item.key } });
 }
 
-const { mixes } = useMixes();
+const { mixes, refresh } = useMixes();
+
+const mixesRefreshing = ref(false);
+function refreshMixes(): void {
+  mixesRefreshing.value = true;
+  refresh();
+  window.setTimeout(() => {
+    mixesRefreshing.value = false;
+  }, 700);
+}
 
 function openMix(id: number): void {
   void router.push({ name: "mix", params: { id: String(id) } });

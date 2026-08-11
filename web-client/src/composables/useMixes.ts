@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from "vue";
+import { computed, ref, type ComputedRef } from "vue";
 import { useLibraryStore } from "../stores/library";
 import type { CatalogTrack } from "../types";
 
@@ -52,12 +52,26 @@ const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
   { name: "Power Hour", emoji: "⚡", genres: ["Nu Metal", "Hard Rock", "Metalcore"] },
 ];
 
+/** Lowercase + strip punctuation/whitespace so "Lo-Fi", "Lofi" and "Lo Fi"
+ *  all normalise to "lofi". */
+function normalizeGenre(g: string): string {
+  return g.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /** Up to MIX_SIZE distinct random track ids from the cohort's genre pool
  *  (partial Fisher–Yates shuffle). If the pool is smaller than MIX_SIZE the
- *  mix just takes what's there — it never mixes in unrelated genres. */
+ *  mix just takes what's there — it never mixes in unrelated genres. Matching
+ *  is lenient: a cohort genre matches when either side contains the other
+ *  (so "Lo-Fi" catches "Lofi" / "Lo-Fi, Electronic", and "Metal" catches
+ *  "Progressive Metal"). */
 function sampleTrackIds(tracks: CatalogTrack[], genres: string[]): number[] {
-  const wanted = new Set(genres.map((g) => g.trim().toLowerCase()));
-  const pool = tracks.filter((t) => t.genre != null && wanted.has(t.genre.trim().toLowerCase()));
+  const wanted = genres.map(normalizeGenre).filter(Boolean);
+  const pool = tracks.filter((t) => {
+    if (t.genre == null) return false;
+    const g = normalizeGenre(t.genre);
+    if (!g) return false;
+    return wanted.some((w) => g.includes(w) || w.includes(g));
+  });
   const copy = [...pool];
   const out: number[] = [];
   const n = Math.min(MIX_SIZE, copy.length);
@@ -69,12 +83,13 @@ function sampleTrackIds(tracks: CatalogTrack[], genres: string[]): number[] {
   return out;
 }
 
-let sessionMixes: Mix[] | null = null;
+// Reactive so the Home refresh button can re-roll the lineup mid-session.
+const sessionMixes = ref<Mix[] | null>(null);
 
-export function useMixes(): { mixes: ComputedRef<Mix[]> } {
+export function useMixes(): { mixes: ComputedRef<Mix[]>; refresh: () => void } {
   const lib = useLibraryStore();
   const mixes = computed<Mix[]>(() => {
-    if (sessionMixes) return sessionMixes;
+    if (sessionMixes.value) return sessionMixes.value;
     const tracks = lib.tracks;
     if (tracks.length === 0) return [];
     // Rotate the lineup: partial shuffle of the cohorts, keep the first
@@ -84,18 +99,24 @@ export function useMixes(): { mixes: ComputedRef<Mix[]> } {
       const j = i + Math.floor(Math.random() * (selected.length - i));
       [selected[i], selected[j]] = [selected[j], selected[i]];
     }
-    sessionMixes = selected.slice(0, MIX_COUNT).map((def, i) => ({
+    sessionMixes.value = selected.slice(0, MIX_COUNT).map((def, i) => ({
       id: i + 1,
       name: def.name,
       emoji: def.emoji,
       trackIds: sampleTrackIds(tracks, def.genres),
     }));
-    return sessionMixes;
+    return sessionMixes.value;
   });
-  return { mixes };
+
+  /** Re-roll the lineup (clears the session cache; the computed regenerates). */
+  function refresh(): void {
+    sessionMixes.value = null;
+  }
+
+  return { mixes, refresh };
 }
 
 /** The session mix with this id, or null (e.g. a deep link after a reload). */
 export function findMix(id: number): Mix | null {
-  return sessionMixes?.find((m) => m.id === id) ?? null;
+  return sessionMixes.value?.find((m) => m.id === id) ?? null;
 }

@@ -350,6 +350,15 @@ async function onSaveMix(name: string, icon: string): Promise<void> {
 
 onMounted(loadOrder);
 watch(playlistId, loadOrder);
+// KeepAlive reuses this instance across navigation, and a refreshed mix can
+// keep the same id but change contents — so also reload when the resolved mix
+// object itself changes (its trackIds are replaced by the Home refresh).
+watch(mix, (m) => {
+  if (m) {
+    orderedIds.value = [...m.trackIds];
+    hasUnsavedOrder.value = false;
+  }
+});
 
 const tracks = computed<CatalogTrack[]>(() =>
   orderedIds.value

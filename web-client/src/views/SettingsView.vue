@@ -255,30 +255,28 @@
         </button>
       </div>
 
-      <template v-if="lib.stats">
-        <div :class="ROW">
-          <span class="min-w-0 flex-1 text-body-lg text-on-surface">Tracks</span>
-          <span class="text-body-md text-on-surface-variant">
-            {{ lib.stats.track_count.toLocaleString() }}
-          </span>
-        </div>
-        <div :class="ROW">
-          <span class="min-w-0 flex-1 text-body-lg text-on-surface">Albums</span>
-          <span class="text-body-md text-on-surface-variant">
-            {{ lib.stats.album_count.toLocaleString() }}
-          </span>
-        </div>
-        <div :class="ROW">
-          <span class="min-w-0 flex-1 text-body-lg text-on-surface">Artists</span>
-          <span class="text-body-md text-on-surface-variant">
-            {{ lib.stats.artist_count.toLocaleString() }}
-          </span>
-        </div>
-        <div :class="ROW">
-          <span class="min-w-0 flex-1 text-body-lg text-on-surface">Total duration</span>
-          <span class="text-body-md text-on-surface-variant">{{ totalDurationLabel }}</span>
-        </div>
-      </template>
+      <div :class="ROW">
+        <span class="min-w-0 flex-1 text-body-lg text-on-surface">Tracks</span>
+        <span class="text-body-md text-on-surface-variant">
+          {{ trackCount.toLocaleString() }}
+        </span>
+      </div>
+      <div :class="ROW">
+        <span class="min-w-0 flex-1 text-body-lg text-on-surface">Albums</span>
+        <span class="text-body-md text-on-surface-variant">
+          {{ albumCount.toLocaleString() }}
+        </span>
+      </div>
+      <div :class="ROW">
+        <span class="min-w-0 flex-1 text-body-lg text-on-surface">Artists</span>
+        <span class="text-body-md text-on-surface-variant">
+          {{ artistCount.toLocaleString() }}
+        </span>
+      </div>
+      <div :class="ROW">
+        <span class="min-w-0 flex-1 text-body-lg text-on-surface">Total duration</span>
+        <span class="text-body-md text-on-surface-variant">{{ totalDurationLabel }}</span>
+      </div>
 
       <!-- ─── Development ─────────────────────────────────────────────── -->
       <div :class="[SECTION, 'flex items-center gap-1.5']">
@@ -442,8 +440,22 @@ onUnmounted(() => clearTimeout(refreshTimer));
 
 // --- Stats -----------------------------------------------------------------
 
+// Prefer the server /api/stats totals; fall back to the loaded catalog so the
+// counts always show even before the stats round-trip lands (or if it fails).
+const trackCount = computed(() => lib.stats?.track_count ?? lib.tracks.length);
+const albumCount = computed(() => {
+  if (lib.stats != null) return lib.stats.album_count;
+  return new Set(lib.tracks.map((t) => lib.keyForTrack(t))).size;
+});
+const artistCount = computed(() => {
+  if (lib.stats != null) return lib.stats.artist_count;
+  return new Set(lib.tracks.map((t) => t.album_artist ?? t.artist ?? "")).size;
+});
+
 const totalDurationLabel = computed(() => {
-  const secs = lib.stats?.total_duration_secs ?? 0;
+  const secs =
+    lib.stats?.total_duration_secs ??
+    lib.tracks.reduce((s, t) => s + (t.duration_secs ?? 0), 0);
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;

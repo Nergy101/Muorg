@@ -8,7 +8,6 @@
   >
     <!-- Cover collage: up to 4 distinct covers from the mix's tracks -->
     <div
-      ref="cardEl"
       class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02]"
     >
       <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center text-4xl">
@@ -55,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, watch } from "vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import type { Mix } from "../composables/useMixes";
 
@@ -63,7 +62,6 @@ const props = defineProps<{ mix: Mix }>();
 const emit = defineEmits<{ open: [] }>();
 
 const lib = useLibraryStore();
-const cardEl = ref<HTMLElement | null>(null);
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 
@@ -88,21 +86,13 @@ const coverUrls = computed<(string | null)[]>(
 );
 const coverCount = computed(() => coverUrls.value.filter(Boolean).length);
 
-// Request covers only when the card is near the viewport.
-let observer: IntersectionObserver | null = null;
-onMounted(() => {
-  observer = new IntersectionObserver(
-    (entries) => {
-      if (entries[0]?.isIntersecting) {
-        observer?.disconnect();
-        for (const id of coverTrackIds.value) {
-          if (!lib.coverCache.has(id)) lib.requestCover(id);
-        }
-      }
-    },
-    { rootMargin: "200px" },
-  );
-  if (cardEl.value) observer.observe(cardEl.value);
-});
-onUnmounted(() => observer?.disconnect());
+// Request covers whenever the mix's distinct covers change — both on mount and
+// when the Home refresh swaps in a new mix (same card instance, new trackIds).
+watch(
+  coverTrackIds,
+  (ids) => {
+    for (const id of ids) if (!lib.coverCache.has(id)) lib.requestCover(id);
+  },
+  { immediate: true },
+);
 </script>

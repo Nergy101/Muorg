@@ -231,7 +231,7 @@
               mode="list"
               :is-active="isAlbumActive(item)"
               @open="openAlbum(item)"
-              @actions="openAlbumPicker(item)"
+              @actions="albumActions = item"
             />
           </div>
         </div>
@@ -262,7 +262,7 @@
             mode="grid"
             :is-active="isAlbumActive(item)"
             @open="openAlbum(item)"
-            @actions="openAlbumPicker(item)"
+            @actions="albumActions = item"
           />
         </div>
       </div>
@@ -274,6 +274,16 @@
       @close="sheetTrack = null"
       @view-artist="onViewArtist"
       @view-album="onViewAlbum"
+    />
+
+    <AlbumActionsSheet
+      :open="albumActions !== null"
+      :item="albumActions"
+      @close="albumActions = null"
+      @play="playAlbumFromSheet"
+      @add-to-playlist="onAlbumAddToPlaylist"
+      @view-artist="onAlbumViewArtist"
+      @view-album="onAlbumViewAlbum"
     />
 
     <PlaylistPickerSheet
@@ -296,6 +306,7 @@ import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
+import AlbumActionsSheet from "../components/AlbumActionsSheet.vue";
 import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
@@ -474,6 +485,41 @@ function onViewAlbum(): void {
   const t = sheetTrack.value;
   if (!t) return;
   void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
+}
+
+// --- Album actions sheet --------------------------------------------------
+
+const albumActions = ref<AlbumGridItem | null>(null);
+
+function playAlbumFromSheet(): void {
+  const album = albumActions.value;
+  if (!album) return;
+  const tracks = lib.tracksForAlbum(album.key);
+  albumActions.value = null;
+  if (tracks.length === 0) return;
+  void player.playTrack(tracks[0], tracks);
+}
+
+function onAlbumAddToPlaylist(): void {
+  const album = albumActions.value;
+  if (!album) return;
+  albumActions.value = null;
+  void openAlbumPicker(album);
+}
+
+function onAlbumViewArtist(): void {
+  const album = albumActions.value;
+  if (!album) return;
+  albumActions.value = null;
+  const name = album.albumArtist;
+  if (name) void router.push({ name: "artist", params: { name } });
+}
+
+function onAlbumViewAlbum(): void {
+  const album = albumActions.value;
+  if (!album) return;
+  albumActions.value = null;
+  void router.push({ name: "album", params: { albumKey: album.key } });
 }
 
 // --- Album playlist picker -------------------------------------------------
