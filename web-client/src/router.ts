@@ -8,6 +8,7 @@ import ConnectView from "./views/ConnectView.vue";
 import HomeView from "./views/HomeView.vue";
 import LibraryView from "./views/LibraryView.vue";
 import AlbumDetailView from "./views/AlbumDetailView.vue";
+import ArtistDetailView from "./views/ArtistDetailView.vue";
 import PlaylistsView from "./views/PlaylistsView.vue";
 import PlaylistDetailView from "./views/PlaylistDetailView.vue";
 import QueueView from "./views/QueueView.vue";
@@ -44,6 +45,13 @@ export const router = createRouter({
       path: "/album/:albumKey",
       name: "album",
       component: AlbumDetailView,
+      props: true,
+      meta: { depth: 1 },
+    },
+    {
+      path: "/artist/:name",
+      name: "artist",
+      component: ArtistDetailView,
       props: true,
       meta: { depth: 1 },
     },

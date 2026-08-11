@@ -511,9 +511,9 @@ function closeActions(): void {
 
 function onViewArtist(): void {
   const track = actionsTrack.value;
-  if (track) {
-    router.push({ name: "library", query: { artist: track.artist ?? track.album_artist ?? undefined } });
-  }
+  if (!track) return;
+  const name = track.artist ?? track.album_artist;
+  if (name) void router.push({ name: "artist", params: { name } });
   closeActions();
 }
 

@@ -63,9 +63,16 @@
 
       <!-- Artist filter chip -->
       <div v-if="artistLabel" class="content-col px-4 pb-2">
-        <div class="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1.5">
-          <MageIcon name="user" class="h-4 w-4 text-on-surface-variant" />
-          <span class="text-label-lg text-on-surface">{{ artistLabel }}</span>
+        <div class="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-1.5">
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-full px-1 text-on-surface lg:hover:opacity-80"
+            aria-label="Browse artist"
+            @click="openArtist"
+          >
+            <MageIcon name="user" class="h-4 w-4 text-on-surface-variant" />
+            <span class="text-label-lg text-on-surface">{{ artistLabel }}</span>
+          </button>
           <button
             type="button"
             class="text-on-surface-variant"
@@ -374,6 +381,13 @@ function clearArtistFilter(): void {
   void router.replace({ name: "library" });
 }
 
+/** Open the artist browse view for the currently filtered artist. */
+function openArtist(): void {
+  if (artistLabel.value) {
+    void router.push({ name: "artist", params: { name: artistLabel.value } });
+  }
+}
+
 // --- Toolbar: sort dropdown -------------------------------------------------
 
 const sortMenuOpen = ref(false);
@@ -448,7 +462,8 @@ const sheetTrack = ref<CatalogTrack | null>(null);
 function onViewArtist(): void {
   const t = sheetTrack.value;
   if (!t) return;
-  void router.push({ name: "library", query: { artist: t.artist ?? t.album_artist } });
+  const name = t.artist ?? t.album_artist;
+  if (name) void router.push({ name: "artist", params: { name } });
 }
 
 function onViewAlbum(): void {
