@@ -78,11 +78,11 @@
         </div>
 
         <button
-          v-if="isMix && tracks.length > 0"
+          v-if="tracks.length > 0"
           type="button"
           class="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
-          aria-label="Play mix"
-          @click="playMix"
+          aria-label="Play"
+          @click="playAll"
         >
           <MageIcon name="play" class="h-4 w-4" />
         </button>
@@ -306,9 +306,9 @@ function toggleViewStyle(): void {
   settings.cycleAlbumViewStyle();
 }
 
-/** Header play button for mixes: start the first track with the whole mix
- *  queued behind it, so Next/auto-advance plays through the mix. */
-function playMix(): void {
+/** Header play button (mix or playlist): start the first track with the whole
+ *  list queued behind it, so Next/auto-advance plays through. */
+function playAll(): void {
   const first = tracks.value[0];
   if (first) player.playTrack(first, tracks.value);
 }
