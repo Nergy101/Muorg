@@ -65,6 +65,10 @@ The app uses hash-based routing, so no server-side rewrite rules are required.
 
 ![Web app album detail](/img/screenshots/web-app-album.png)
 
+The full-screen player shows album art with a dominant-colour backdrop, seek bar and transport controls, and can toggle to synced lyrics when a track has them.
+
+![Web app player](/img/screenshots/web-app-player.jpg)
+
 The bottom bar has four tabs — **Home**, **Library**, **Playlists** and **Settings**. The queue and full player are reached from the mini player.
 
 ### Library
