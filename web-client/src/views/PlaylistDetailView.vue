@@ -286,7 +286,7 @@ const viewIcon = computed(
 // cycles the mix's own style with the same grid → list → tracks → grid order.
 const mixViewStyle = ref<AlbumViewStyle>("tracks");
 const viewStyle = computed<AlbumViewStyle>(() =>
-  isMix.value ? mixViewStyle.value : settings.albumViewStyle,
+  isMix.value ? mixViewStyle.value : settings.playlistViewStyle,
 );
 
 watch(
@@ -303,7 +303,7 @@ function toggleViewStyle(): void {
       mixViewStyle.value === "grid" ? "list" : mixViewStyle.value === "list" ? "tracks" : "grid";
     return;
   }
-  settings.cycleAlbumViewStyle();
+  settings.cyclePlaylistViewStyle();
 }
 
 /** Header play button (mix or playlist): start the first track with the whole

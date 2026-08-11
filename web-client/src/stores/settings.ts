@@ -22,6 +22,10 @@ export const useSettingsStore = defineStore("settings", () => {
   const sortMode = ref<SortMode>(loadPref("muorg-web-sort", "album"));
   const sortAscending = ref(loadPref("muorg-web-sort-asc", true));
   const albumViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-album-view", "grid"));
+  /** Layout for the playlist/mix detail view — separate from the Library's
+   *  albumViewStyle so a user can keep the library as an album grid while
+   *  opening playlists as a track list. */
+  const playlistViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-playlist-view", "tracks"));
   const miniPlayerTapOpensPlayer = ref(loadPref("muorg-web-miniplayer-tap", true));
   const volume = ref(loadPref("muorg-web-volume", 1));
   const accent = ref<AccentColor>(loadPref("muorg-web-accent", "green"));
@@ -108,6 +112,19 @@ export const useSettingsStore = defineStore("settings", () => {
     setAlbumViewStyle(next);
   }
 
+  function setPlaylistViewStyle(s: AlbumViewStyle): void {
+    playlistViewStyle.value = s;
+    savePref("muorg-web-playlist-view", s);
+  }
+
+  /** grid → list → tracks → grid, same cycle as the library but persisted
+   *  under its own pref so the two views can differ. */
+  function cyclePlaylistViewStyle(): void {
+    const next: AlbumViewStyle =
+      playlistViewStyle.value === "grid" ? "list" : playlistViewStyle.value === "list" ? "tracks" : "grid";
+    setPlaylistViewStyle(next);
+  }
+
   function setMiniPlayerTapOpensPlayer(v: boolean): void {
     miniPlayerTapOpensPlayer.value = v;
     savePref("muorg-web-miniplayer-tap", v);
@@ -157,6 +174,7 @@ export const useSettingsStore = defineStore("settings", () => {
     sortMode,
     sortAscending,
     albumViewStyle,
+    playlistViewStyle,
     miniPlayerTapOpensPlayer,
     volume,
     accent,
@@ -171,6 +189,8 @@ export const useSettingsStore = defineStore("settings", () => {
     setSortAscending,
     setAlbumViewStyle,
     cycleAlbumViewStyle,
+    setPlaylistViewStyle,
+    cyclePlaylistViewStyle,
     setMiniPlayerTapOpensPlayer,
     setVolume,
     setAccent,
