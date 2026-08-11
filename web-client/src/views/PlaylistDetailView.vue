@@ -33,57 +33,59 @@
           {{ playlist.icon ?? "🎵" }} {{ playlist.name }}
         </span>
 
-        <button
-          v-if="isSmart"
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
-          aria-label="Edit rules"
-          @click="openSmartEditor"
-        >
-          <MageIcon name="zap" class="h-5 w-5" />
-        </button>
+        <div class="ml-1 flex items-center overflow-hidden rounded-full bg-surface-container/70">
+          <button
+            v-if="isSmart"
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center text-primary transition-colors lg:hover:bg-black/10"
+            aria-label="Edit rules"
+            @click="openSmartEditor"
+          >
+            <MageIcon name="zap" class="h-5 w-5" />
+          </button>
 
-        <button
-          v-if="isMix && tracks.length > 0"
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
-          aria-label="Play mix"
-          @click="playMix"
-        >
-          <MageIcon name="play" class="h-4 w-4" />
-        </button>
+          <button
+            v-if="isMix && tracks.length > 0"
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-on-primary transition-transform hover:scale-105"
+            aria-label="Play mix"
+            @click="playMix"
+          >
+            <MageIcon name="play" class="h-4 w-4" />
+          </button>
 
-        <button
-          v-if="isMix"
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
-          aria-label="Save mix as playlist"
-          @click="saveMixOpen = true"
-        >
-          <MageIcon name="save-floppy" class="h-5 w-5" />
-        </button>
+          <button
+            v-if="isMix"
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-primary transition-colors lg:hover:bg-black/10"
+            aria-label="Save mix as playlist"
+            @click="saveMixOpen = true"
+          >
+            <MageIcon name="save-floppy" class="h-5 w-5" />
+          </button>
 
-        <!-- Save order: icon only, appears while there are unsaved reorder
-             changes. Sits to the LEFT of the layout button so the layout
-             button (always rightmost) never shifts position. -->
-        <button
-          v-if="hasUnsavedOrder"
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
-          aria-label="Save order"
-          @click="commitOrder"
-        >
-          <MageIcon name="save-floppy" class="h-5 w-5" />
-        </button>
+          <!-- Save order: icon only, appears while there are unsaved reorder
+               changes. Sits to the LEFT of the layout button so the layout
+               button (always rightmost) never shifts position. -->
+          <button
+            v-if="hasUnsavedOrder"
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-primary transition-colors lg:hover:bg-black/10"
+            aria-label="Save order"
+            @click="commitOrder"
+          >
+            <MageIcon name="save-floppy" class="h-5 w-5" />
+          </button>
 
-        <button
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
-          aria-label="Change layout"
-          @click="toggleViewStyle"
-        >
-          <MageIcon :name="viewIcon" class="h-5 w-5" />
-        </button>
+          <button
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-on-surface-variant transition-colors lg:hover:bg-black/10"
+            aria-label="Change layout"
+            @click="toggleViewStyle"
+          >
+            <MageIcon :name="viewIcon" class="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
