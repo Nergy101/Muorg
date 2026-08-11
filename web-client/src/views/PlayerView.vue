@@ -53,6 +53,16 @@
           <MageIcon name="moon" class="h-5 w-5" />
         </button>
         <button
+          v-if="hasLyrics"
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-full"
+          :class="showLyrics ? 'text-primary' : 'text-white/55'"
+          :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
+          @click="showLyrics = !showLyrics"
+        >
+          <MageIcon name="note-text" class="h-5 w-5" />
+        </button>
+        <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
           aria-label="Track actions"
@@ -69,7 +79,34 @@
       >
         <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
              short viewport; object-cover absorbs the crop if it ever clamps. -->
+        <!-- Lyrics pane (replaces cover art when toggled on) -->
         <div
+          v-if="showLyrics && hasLyrics"
+          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:w-[44%] lg:flex-none lg:px-0"
+        >
+          <div class="max-h-full w-full overflow-y-auto py-4 text-center">
+            <template v-if="isSynced">
+              <p
+                v-for="(l, i) in lrcLines"
+                :key="i"
+                ref="lyricLineEls"
+                class="py-1.5 transition-all duration-200"
+                :class="
+                  i === activeLyricIndex
+                    ? 'text-lg font-semibold text-white'
+                    : 'text-white/45'
+                "
+              >{{ l.text }}</p>
+            </template>
+            <p
+              v-else
+              class="whitespace-pre-line px-4 text-body-md leading-relaxed text-white/75"
+            >{{ lyrics?.lyrics }}</p>
+          </div>
+        </div>
+
+        <div
+          v-else
           class="flex min-h-0 flex-1 items-center justify-center px-6 lg:w-[44%] lg:flex-none lg:px-0"
         >
           <!-- 50vh cap: on a wide shell 86% would be taller than the centre column,
@@ -261,13 +298,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import BottomSheet from "../components/BottomSheet.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
+import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import {
   getGlowBlobs,
   hasOpposingEdgeColors,
@@ -285,6 +323,63 @@ const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 const router = useRouter();
 const player = usePlayerStore();
 const lib = useLibraryStore();
+
+// --- Lyrics ---------------------------------------------------------------
+// Embedded lyrics are fetched from the server per track; when the track has
+// LRC timing lines the pane scrolls karaoke-style to the active line.
+const lyrics = ref<TrackLyrics | null>(null);
+const showLyrics = ref(false);
+const lyricLineEls = ref<HTMLElement[]>([]);
+const lrcLines = ref<{ time: number; text: string }[]>([]);
+
+function parseLrc(text: string): { time: number; text: string }[] {
+  const out: { time: number; text: string }[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const m = raw.trim().match(/^\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\](.*)$/);
+    if (!m) continue;
+    const mins = parseInt(m[1], 10);
+    const secs = parseInt(m[2], 10);
+    const frac = m[3] ? parseInt(m[3].padEnd(3, "0").slice(0, 3), 10) / 1000 : 0;
+    const text = m[4].trim();
+    if (text) out.push({ time: mins * 60 + secs + frac, text });
+  }
+  return out.sort((a, b) => a.time - b.time);
+}
+
+const hasLyrics = computed(() => lyrics.value != null);
+const isSynced = computed(
+  () => lyrics.value?.sync_format === "lrc" && lrcLines.value.length > 0,
+);
+
+const activeLyricIndex = computed(() => {
+  if (!isSynced.value) return -1;
+  const t = player.positionSecs;
+  let idx = -1;
+  for (let i = 0; i < lrcLines.value.length; i++) {
+    if (lrcLines.value[i].time <= t) idx = i;
+    else break;
+  }
+  return idx;
+});
+
+watch(activeLyricIndex, (i) => {
+  lyricLineEls.value[i]?.scrollIntoView({ block: "center", behavior: "smooth" });
+});
+
+watch(
+  () => player.currentTrack?.id,
+  (id) => {
+    showLyrics.value = false;
+    lrcLines.value = [];
+    lyrics.value = null;
+    if (id == null) return;
+    void getTrackLyrics(id).then((l) => {
+      lyrics.value = l;
+      if (l?.sync_format === "lrc") lrcLines.value = parseLrc(l.lyrics);
+    });
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   if (!player.currentTrack) void router.replace({ name: "library" });

@@ -55,6 +55,21 @@ export async function issueStreamToken(trackId: number): Promise<string> {
   return result.token;
 }
 
+export interface TrackLyrics {
+  track_id: number;
+  lyrics: string;
+  sync_format: string;
+}
+
+/** Embedded lyrics for a track, or null when it has none (404). */
+export async function getTrackLyrics(trackId: number): Promise<TrackLyrics | null> {
+  try {
+    return await apiFetch<TrackLyrics>(`/api/tracks/${trackId}/lyrics`);
+  } catch {
+    return null;
+  }
+}
+
 export async function recordPlay(trackId: number): Promise<void> {
   apiFetch(`/api/tracks/${trackId}/play`, { method: "POST" }).catch(() => {
     /* fire-and-forget */
