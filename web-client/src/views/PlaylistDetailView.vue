@@ -64,8 +64,8 @@
         </button>
 
         <!-- Save order: icon only, appears while reordering with unsaved changes.
-             Sits to the LEFT of the reorder toggle so the layout button (always
-             rightmost) never shifts position. -->
+             Sits to the LEFT of the layout button so neither the layout nor the
+             reorder toggle (both to its right) ever shifts position. -->
         <button
           v-if="reorderMode && hasUnsavedOrder"
           type="button"
@@ -76,7 +76,16 @@
           <MageIcon name="save-floppy" class="h-5 w-5" />
         </button>
 
-        <!-- Reorder toggle: compact icon, sits right next to the layout button -->
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
+          aria-label="Change layout"
+          @click="toggleViewStyle"
+        >
+          <MageIcon :name="viewIcon" class="h-5 w-5" />
+        </button>
+
+        <!-- Reorder toggle: compact icon to the RIGHT of the layout button -->
         <button
           v-if="viewStyle === 'tracks' && !isSmart && !isMix"
           type="button"
@@ -86,15 +95,6 @@
           @click="reorderMode = !reorderMode"
         >
           <MageIcon name="dash-menu" class="h-5 w-5" />
-        </button>
-
-        <button
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
-          aria-label="Change layout"
-          @click="toggleViewStyle"
-        >
-          <MageIcon :name="viewIcon" class="h-5 w-5" />
         </button>
       </div>
 
