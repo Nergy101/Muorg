@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -64,13 +64,46 @@ pub async fn read_track_metadata(
 }
 
 // GET /api/tracks/:id/cover — returns binary image with correct Content-Type
+// Optionally `?size=N` (max edge in px) returns a downscaled JPEG thumbnail to
+// cut mobile bandwidth for grids/list rows.
+#[derive(Deserialize)]
+pub struct CoverQuery {
+    /// Requested max edge length in px; when provided the cover is downscaled.
+    pub size: Option<u32>,
+}
+
+/// Downscales a cover to at most `max_edge` px on its longest side and returns
+/// it as a quality-80 JPEG. Returns `None` when the source isn't decodable or
+/// is already small enough to serve as-is.
+fn downscale_cover(data: &[u8], max_edge: u32) -> Option<Vec<u8>> {
+    use image::GenericImageView;
+    let img = image::load_from_memory(data).ok()?;
+    let (w, h) = img.dimensions();
+    let largest = w.max(h);
+    if largest <= max_edge {
+        return None;
+    }
+    let scale = max_edge as f32 / largest as f32;
+    let nw = ((w as f32 * scale).round().max(1.0)) as u32;
+    let nh = ((h as f32 * scale).round().max(1.0)) as u32;
+    let thumb = img.resize(nw, nh, image::imageops::FilterType::Triangle);
+    let mut out = Vec::new();
+    let mut cursor = std::io::Cursor::new(&mut out);
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 80)
+        .encode_image(&thumb.to_rgb8())
+        .ok()?;
+    Some(out)
+}
+
 pub async fn get_cover(
     Path(id): Path<i64>,
+    Query(params): Query<CoverQuery>,
     State(state): State<Arc<AppState>>,
     req_headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let (track_path, track_mtime_secs) = resolve_track_with_mtime(&state, id)?;
     let is_remote = crate::storage::is_remote_uri(&track_path);
+    let size = params.size.filter(|s| *s >= 16);
 
     // Remote covers key off the catalog's mtime so a cache hit costs no request
     // at all; local ones stay on the file's own mtime, as before.
@@ -80,7 +113,8 @@ pub async fn get_cover(
         crate::routes::util::file_mtime(path::Path::new(&track_path))
     };
     let etag = format!(
-        "\"cover-{id}-{}\"",
+        "\"cover-{id}-{}-{}\"",
+        size.unwrap_or(0),
         mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
     );
     if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
@@ -103,6 +137,13 @@ pub async fn get_cover(
             }
             (data, mime)
         }
+    };
+
+    // Downscale on demand; thumbnails are always JPEG (covers are photo art, and
+    // JPEG shrinks bytes far better than PNG for them).
+    let (data, mime) = match size.and_then(|s| downscale_cover(&data, s)) {
+        Some(thumb) => (thumb, "image/jpeg".to_string()),
+        None => (data, mime),
     };
 
     let mut headers = HeaderMap::new();
