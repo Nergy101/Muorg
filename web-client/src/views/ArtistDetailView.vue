@@ -34,13 +34,12 @@
           <MageIcon name="compact-disk" class="h-4 w-4 text-primary" />
           Albums
         </div>
-        <div class="-mx-4 flex flex-wrap gap-3 px-4">
+        <div class="-mx-4 grid grid-cols-2 gap-3 px-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
           <AlbumCard
             v-for="item in albums"
             :key="item.key"
             :item="item"
             mode="grid"
-            class="w-[calc(50%-6px)] sm:w-[calc(33.333%-8px)]"
             @open="openAlbum(item)"
           />
         </div>
