@@ -1,4 +1,4 @@
-import { computed, ref, type ComputedRef } from "vue";
+import { computed, ref, watch, type ComputedRef } from "vue";
 import { useLibraryStore } from "../stores/library";
 import type { CatalogTrack } from "../types";
 
@@ -88,6 +88,18 @@ const sessionMixes = ref<Mix[] | null>(null);
 
 export function useMixes(): { mixes: ComputedRef<Mix[]>; refresh: () => void } {
   const lib = useLibraryStore();
+
+  // Safety net: whenever the catalog grows (pages still streaming in after a
+  // build), drop the cached lineup so it regenerates from the fuller catalog.
+  // Together with the load gate below, this guarantees a mix is never frozen
+  // at 0 tracks because its genres lived on a later page.
+  watch(
+    () => lib.tracks.length,
+    () => {
+      sessionMixes.value = null;
+    },
+  );
+
   const mixes = computed<Mix[]>(() => {
     // The catalog streams in pages (loadingMore stays true while they fetch).
     // Only build and cache the lineup once it's fully loaded — generating from
