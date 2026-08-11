@@ -38,6 +38,11 @@ pub struct TrackMetadata {
     pub replaygain_track_peak: Option<f32>,
     pub replaygain_album_gain_db: Option<f32>,
     pub replaygain_album_peak: Option<f32>,
+    /// Embedded lyrics text (USLT / UNSYNCEDLYRICS, or synced when available).
+    pub lyrics: Option<String>,
+    /// `"lrc"` when the lyrics text carries `[mm:ss.xx]` timing lines, else
+    /// `"plain"`. Absent when there are no embedded lyrics.
+    pub lyrics_format: Option<String>,
 }
 
 /// Audio container formats muorg can read tags from.
@@ -155,6 +160,18 @@ pub fn read_metadata_from_reader<R: std::io::Read + std::io::Seek>(
         meta.replaygain_album_peak = parse_replaygain_plain(
             tag.get_string(lofty::tag::ItemKey::ReplayGainAlbumPeak),
         );
+        // Embedded lyrics: USLT / UNSYNCEDLYRICS surface under ItemKey::Lyrics
+        // (a synced LRC-style track is flagged by its `[mm:ss]` timestamp lines).
+        let lyrics = tag
+            .get_string(lofty::tag::ItemKey::Lyrics)
+            .or_else(|| tag.get_string(lofty::tag::ItemKey::UnsyncLyrics))
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        meta.lyrics = lyrics;
+        meta.lyrics_format = meta
+            .lyrics
+            .as_ref()
+            .map(|l| detect_lyrics_format(l).to_string());
     }
 
     meta.duration_secs = Some(tagged_file.properties().duration().as_secs());
@@ -170,6 +187,23 @@ fn parse_replaygain_db(v: Option<&str>) -> Option<f32> {
 
 fn parse_replaygain_plain(v: Option<&str>) -> Option<f32> {
     v?.trim().parse::<f32>().ok()
+}
+
+/// A lyrics blob is treated as synchronised ("lrc") when it carries at least
+/// one `[mm:ss]` / `[mm:ss.xx]` timestamp line; otherwise it is plain text.
+fn detect_lyrics_format(text: &str) -> &'static str {
+    let has_timestamp = text.lines().any(|line| {
+        let t = line.trim_start();
+        t.starts_with('[')
+            && t[1..].split_once(']').is_some_and(|(stamp, _)| {
+                let digits = stamp.chars().filter(|c| *c == ':').count() == 1
+                    && stamp
+                        .split(':')
+                        .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit() || c == '.'));
+                digits
+            })
+    });
+    if has_timestamp { "lrc" } else { "plain" }
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -409,4 +443,19 @@ fn write_metadata_flac(path: &Path, update: &MetadataUpdate) -> Result<(), Strin
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::detect_lyrics_format;
+
+    #[test]
+    fn detects_lrc_vs_plain() {
+        assert_eq!(detect_lyrics_format("[00:01.00]line one\n[00:02.00]line two"), "lrc");
+        assert_eq!(detect_lyrics_format("[00:01]line one"), "lrc");
+        assert_eq!(detect_lyrics_format("line one\nline two"), "plain");
+        assert_eq!(detect_lyrics_format(""), "plain");
+        // Bracketed but not a timestamp → not LRC.
+        assert_eq!(detect_lyrics_format("[verse 1] chorus"), "plain");
+    }
 }

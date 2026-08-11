@@ -117,6 +117,24 @@ pub async fn get_cover(
     Ok((StatusCode::OK, headers, Body::from(data)).into_response())
 }
 
+// GET /api/tracks/:id/lyrics — stored embedded lyrics, or 404 when the track
+// has none. Sync format is `"lrc"` when the text carries `[mm:ss]` lines.
+pub async fn get_lyrics(
+    Path(id): Path<i64>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    resolve_track(&state, id)?;
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    match muorg_core::catalog::get_track_lyrics(&conn, id).map_err(ApiError::from)? {
+        Some(l) => Ok(Json(serde_json::json!({
+            "track_id": l.track_id,
+            "lyrics": l.lyrics,
+            "sync_format": l.sync_format,
+        }))),
+        None => Err(ApiError::not_found("No lyrics for this track")),
+    }
+}
+
 // GET /api/tracks/:id/metadata
 pub async fn get_metadata(
     Path(id): Path<i64>,

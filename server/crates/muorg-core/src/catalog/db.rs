@@ -192,10 +192,20 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
         conn.execute_batch(
             "UPDATE playlists SET sort_order = (
                 SELECT COUNT(*) FROM playlists p2 WHERE p2.created_at < playlists.created_at
-             )",
+            )",
         )
         .map_err(|e| e.to_string())?;
     }
+    // Embedded lyrics, written during a scan and served back to clients.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS track_lyrics (
+            track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+            lyrics TEXT NOT NULL,
+            sync_format TEXT NOT NULL DEFAULT 'plain',
+            updated_at INTEGER
+        );",
+    )
+    .map_err(|e| e.to_string())?;
     let fts_needs_setup: bool = conn
         .query_row(
             "SELECT v FROM fts_tracks_config WHERE k = 'content'",
@@ -689,6 +699,7 @@ impl<'c> RootUpsert<'c> {
                 ])
                 .map_err(|e| e.to_string())?;
         }
+        write_track_lyrics(conn, conn.last_insert_rowid(), meta)?;
         Ok(())
     }
 }
@@ -791,6 +802,62 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
     Ok(count)
 }
 
+/// Writes (or clears) a track's stored lyrics from scanned metadata. An
+/// absent lyrics blob removes any stale row so edits/removals stay accurate.
+fn write_track_lyrics(
+    conn: &rusqlite::Connection,
+    track_id: i64,
+    meta: &metadata::TrackMetadata,
+) -> Result<(), String> {
+    match &meta.lyrics {
+        Some(text) => {
+            let fmt = meta.lyrics_format.as_deref().unwrap_or("plain");
+            conn.execute(
+                "INSERT INTO track_lyrics (track_id, lyrics, sync_format, updated_at)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(track_id) DO UPDATE SET
+                     lyrics = excluded.lyrics,
+                     sync_format = excluded.sync_format,
+                     updated_at = excluded.updated_at",
+                rusqlite::params![track_id, text, fmt, now_secs().unwrap_or(0)],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        None => {
+            conn.execute("DELETE FROM track_lyrics WHERE track_id = ?1", [track_id])
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+/// Stored lyrics for a track, if any.
+pub struct TrackLyrics {
+    pub track_id: i64,
+    pub lyrics: String,
+    pub sync_format: String,
+}
+
+pub fn get_track_lyrics(
+    conn: &rusqlite::Connection,
+    track_id: i64,
+) -> Result<Option<TrackLyrics>, String> {
+    use rusqlite::OptionalExtension;
+    conn.query_row(
+        "SELECT track_id, lyrics, sync_format FROM track_lyrics WHERE track_id = ?1",
+        [track_id],
+        |r| {
+            Ok(TrackLyrics {
+                track_id: r.get(0)?,
+                lyrics: r.get(1)?,
+                sync_format: r.get(2)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(|e| e.to_string())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn update_track_row(
     conn: &rusqlite::Connection,
@@ -805,12 +872,28 @@ fn update_track_row(
     featuring_col: bool,
 ) -> Result<(), String> {
     let mut sets: Vec<&str> = vec![
-        "deleted_at = NULL", "root_id = ?", "path = ?", "title = ?", "artist = ?",
-        "album = ?", "album_artist = ?", "year = ?", "genre = ?", "track_number = ?",
-        "disc_number = ?", "duration_secs = ?", "format = ?", "mtime_secs = ?", "has_cover = ?",
+        "deleted_at = NULL",
+        "root_id = ?",
+        "path = ?",
+        "title = ?",
+        "artist = ?",
+        "album = ?",
+        "album_artist = ?",
+        "year = ?",
+        "genre = ?",
+        "track_number = ?",
+        "disc_number = ?",
+        "duration_secs = ?",
+        "format = ?",
+        "mtime_secs = ?",
+        "has_cover = ?",
     ];
-    if featuring_col { sets.push("featuring = ?"); }
-    if content_hash.is_some() { sets.push("content_hash = ?"); }
+    if featuring_col {
+        sets.push("featuring = ?");
+    }
+    if content_hash.is_some() {
+        sets.push("content_hash = ?");
+    }
     let sql = format!("UPDATE tracks SET {} WHERE id = ?", sets.join(", "));
 
     let mut params: Vec<rusqlite::types::Value> = vec![
@@ -840,6 +923,7 @@ fn update_track_row(
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     stmt.execute(rusqlite::params_from_iter(params.iter()))
         .map_err(|e| e.to_string())?;
+    write_track_lyrics(conn, track_id, meta)?;
     Ok(())
 }
 
@@ -897,6 +981,8 @@ fn insert_track_row(
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     stmt.execute(rusqlite::params_from_iter(params.iter()))
         .map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+    write_track_lyrics(conn, id, meta)?;
     Ok(())
 }
 
@@ -1520,4 +1606,43 @@ pub fn reorder_playlist_tracks(conn: &rusqlite::Connection, playlist_id: i64, tr
         ).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metadata::TrackMetadata;
+
+    fn mem_conn() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        init_schema(&conn).unwrap();
+        // Track IDs are synthetic here; drop FK enforcement so we can test
+        // lyrics storage against a track that has no catalog row.
+        conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
+        conn
+    }
+
+    #[test]
+    fn lyrics_roundtrip_and_clear() {
+        let conn = mem_conn();
+        let mut meta = TrackMetadata::default();
+        meta.lyrics = Some("[00:01.00]line one\n[00:02.00]line two".to_string());
+        meta.lyrics_format = Some("lrc".to_string());
+        write_track_lyrics(&conn, 7, &meta).unwrap();
+        let got = get_track_lyrics(&conn, 7).unwrap().unwrap();
+        assert_eq!(got.track_id, 7);
+        assert_eq!(got.lyrics, "[00:01.00]line one\n[00:02.00]line two");
+        assert_eq!(got.sync_format, "lrc");
+
+        // A rescan with no lyrics clears the stale row.
+        let empty = TrackMetadata::default();
+        write_track_lyrics(&conn, 7, &empty).unwrap();
+        assert!(get_track_lyrics(&conn, 7).unwrap().is_none());
+    }
+
+    #[test]
+    fn lyrics_absent_for_unknown_track() {
+        let conn = mem_conn();
+        assert!(get_track_lyrics(&conn, 999).unwrap().is_none());
+    }
 }

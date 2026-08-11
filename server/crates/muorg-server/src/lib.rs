@@ -47,6 +47,7 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/search", get(routes::library::search_tracks))
         .route("/api/stats", get(routes::library::get_stats))
         .route("/api/tracks/{id}/cover", get(routes::tracks::get_cover))
+        .route("/api/tracks/{id}/lyrics", get(routes::tracks::get_lyrics))
         .route("/api/tracks/{id}/metadata",
             get(routes::tracks::get_metadata).patch(routes::tracks::patch_metadata))
         .route("/api/tracks/{id}/rating", post(routes::tracks::set_rating))
