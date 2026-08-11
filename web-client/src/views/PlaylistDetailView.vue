@@ -63,11 +63,11 @@
           <MageIcon name="save-floppy" class="h-5 w-5" />
         </button>
 
-        <!-- Save order: icon only, appears while reordering with unsaved changes.
-             Sits to the LEFT of the layout button so neither the layout nor the
-             reorder toggle (both to its right) ever shifts position. -->
+        <!-- Save order: icon only, appears while there are unsaved reorder
+             changes. Sits to the LEFT of the layout button so the layout
+             button (always rightmost) never shifts position. -->
         <button
-          v-if="reorderMode && hasUnsavedOrder"
+          v-if="hasUnsavedOrder"
           type="button"
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-primary"
           aria-label="Save order"
@@ -83,18 +83,6 @@
           @click="toggleViewStyle"
         >
           <MageIcon :name="viewIcon" class="h-5 w-5" />
-        </button>
-
-        <!-- Reorder toggle: compact icon to the RIGHT of the layout button -->
-        <button
-          v-if="viewStyle === 'tracks' && !isSmart && !isMix"
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          :class="reorderMode ? 'text-primary' : 'text-on-surface-variant'"
-          :aria-label="reorderMode ? 'Done reordering' : 'Reorder'"
-          @click="reorderMode = !reorderMode"
-        >
-          <MageIcon name="dash-menu" class="h-5 w-5" />
         </button>
       </div>
 
@@ -120,7 +108,7 @@
                   v-if="!isSmart && !isMix"
                   class="flex h-14 w-10 shrink-0 items-center justify-center text-on-surface-variant"
                   style="touch-action: none"
-                  @pointerdown="onRowPointerdown(entry.index, $event)"
+                  @pointerdown="drag.start(entry.index, $event)"
                 >
                   <MageIcon name="dash-menu" class="h-5 w-5" />
                 </div>
@@ -330,8 +318,6 @@ const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 const orderedIds = ref<number[]>([]);
 const reorderedIds = ref<number[]>([]);
 const hasUnsavedOrder = ref(false);
-/** Reorder mode: drag handles only reorder while this is on. */
-const reorderMode = ref(false);
 
 watch(
   orderedIds,
@@ -376,13 +362,7 @@ async function commitOrder(): Promise<void> {
   await playlistStore.reorderTracks(playlistId.value, reorderedIds.value);
   orderedIds.value = [...reorderedIds.value];
   hasUnsavedOrder.value = false;
-  reorderMode.value = false;
   showToast("Order saved");
-}
-
-/** Drag only reorders while reorder mode is active; otherwise the handle is inert. */
-function onRowPointerdown(index: number, e: PointerEvent): void {
-  if (reorderMode.value) drag.start(index, e);
 }
 
 const drag = useDragReorder({
