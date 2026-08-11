@@ -1,6 +1,7 @@
 pub mod admin;
 pub mod cast;
 pub mod library;
+pub mod openapi;
 pub mod playlists;
 pub mod stream;
 pub mod tracks;
