@@ -98,6 +98,14 @@
         </button>
         <button
           type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+          aria-label="Track actions"
+          @click="menuOpen = true"
+        >
+          <MageIcon name="dots" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface lg:hidden"
           :aria-label="player.isPlaying ? 'Pause' : 'Play'"
           @click="player.playPause()"
@@ -115,20 +123,48 @@
       </div>
     </div>
   </div>
+
+  <TrackActionsSheet
+    :open="menuOpen"
+    :track="player.currentTrack"
+    @close="menuOpen = false"
+    @view-artist="onViewArtist"
+    @view-album="onViewAlbum"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
+import TrackActionsSheet from "./TrackActionsSheet.vue";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
+import { useLibraryStore } from "../stores/library";
 
 const route = useRoute();
 const router = useRouter();
 const player = usePlayerStore();
 const settings = useSettingsStore();
+const lib = useLibraryStore();
+
+const menuOpen = ref(false);
+
+function onViewArtist(): void {
+  const t = player.currentTrack;
+  if (!t) return;
+  const name = t.artist ?? t.album_artist;
+  menuOpen.value = false;
+  if (name) void router.push({ name: "artist", params: { name } });
+}
+
+function onViewAlbum(): void {
+  const t = player.currentTrack;
+  if (!t) return;
+  menuOpen.value = false;
+  void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
+}
 
 const sleepLabel = computed(() => {
   const total = Math.ceil(player.sleepTimerRemainingMs / 1000);
