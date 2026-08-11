@@ -8,7 +8,7 @@
       <div class="flex items-center overflow-hidden rounded-full bg-surface-container/70">
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center text-primary transition-colors lg:hover:bg-black/10"
+          class="flex h-9 w-9 items-center justify-center text-white transition-colors lg:hover:bg-black/10"
           aria-label="New playlist"
           @click="openCreate"
         >
@@ -16,7 +16,7 @@
         </button>
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center border-l border-black/5 text-primary transition-colors lg:hover:bg-black/10"
+          class="flex h-9 w-9 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
           aria-label="New smart playlist"
           @click="openCreateSmart"
         >
