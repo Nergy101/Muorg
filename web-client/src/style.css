@@ -347,6 +347,32 @@ body {
     inset 0 1px 0 0 color-mix(in srgb, white 18%, transparent);
 }
 
+/* Frosted caption scrim for cards: a translucent, blurred panel along the
+   bottom that keeps the label legible over any artwork — the glass-islands
+   counterpart to the old dark gradient overlay. The top edge fades out (via a
+   mask over the frosted fill + blur) so it dissolves into the artwork like the
+   old shadow gradient did, instead of ending in a hard line. */
+.glass-scrim {
+  background: color-mix(in srgb, var(--surface) 42%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border-top: 1px solid color-mix(in srgb, var(--on-surface) 12%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 40%);
+}
+
+/* Top-edge mirror of .glass-scrim, for panels that carry action buttons over
+   artwork (e.g. the PlaylistCard's pin/edit/download/delete row). Solid at the
+   top edge, fading down; hairline on its bottom edge. */
+.glass-scrim-top {
+  background: color-mix(in srgb, var(--surface) 42%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border-bottom: 1px solid color-mix(in srgb, var(--on-surface) 12%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+}
+
 /* Focus ring */
 *:focus-visible {
   outline: 2px solid var(--primary);
@@ -585,4 +611,36 @@ input[type="range"]::-moz-range-thumb {
 }
 .heart-pop {
   animation: heart-pop 550ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Three-dot "toggling" loader: three dots that pulse in a staggered wave,
+   used in place of a spinning icon for cover loading. */
+@keyframes dot-toggle {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1);
+  }
+}
+.dot-loader {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dot-loader .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: dot-toggle 1s ease-in-out infinite;
+}
+.dot-loader .dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.dot-loader .dot:nth-child(3) {
+  animation-delay: 0.36s;
 }

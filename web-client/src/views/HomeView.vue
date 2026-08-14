@@ -1,59 +1,11 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden">
+  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom,0px))]">
-      <!-- Mixes: 8 session-stable random ~20-track playlists, never written
-           to the server. Opening one shows its tracks; saving goes through
-           the New-playlist flow. -->
-      <section class="px-4 pt-4">
-        <div class="flex items-center justify-between pb-2">
-          <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
-            <MageIcon name="color-swatch" class="h-5 w-5 text-primary" />
-            Mixes
-          </h2>
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
-            aria-label="New mixes"
-            @click="refreshMixes"
-          >
-            <MageIcon
-              name="refresh"
-              class="h-5 w-5"
-              :class="mixesRefreshing ? 'animate-spin' : ''"
-            />
-          </button>
-        </div>
-
-        <div
-          v-if="mixes.length === 0 && (lib.loading || lib.loadingMore)"
-          class="flex justify-center py-6"
-        >
-          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
-        </div>
-
-        <div v-else-if="mixes.length === 0" class="py-4 text-body-sm text-on-surface-variant">
-          Nothing here yet.
-        </div>
-
-        <!-- Matches the Library's album grid: same column count (2/3/auto-fill
-             200px via useGridColumns) and full-width cards, no horizontal
-             scroll. -->
-        <div
-          v-else
-          class="grid gap-3 pb-4"
-          :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
-        >
-          <MixCard
-            v-for="mix in mixes"
-            :key="mix.id"
-            :mix="mix"
-            class="w-full"
-            @open="openMix(mix.id)"
-          />
-        </div>
-      </section>
-
-      <section v-for="shelf in shelfViews" :key="shelf.key" class="border-t border-outline/20 px-4 pt-6">
+      <section
+        v-for="(shelf, i) in shelfViews"
+        :key="shelf.key"
+        :class="i === 0 ? 'px-4 pt-6' : 'border-t border-outline/20 px-4 pt-6'"
+      >
         <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
           <MageIcon :name="shelf.icon" class="h-5 w-5 text-primary" />
           {{ shelf.label }}
@@ -87,6 +39,66 @@
           />
         </div>
       </section>
+
+      <!-- Mixes: 8 session-stable random ~20-track playlists, never written
+           to the server. Opening one shows its tracks; saving goes through
+           the New-playlist flow. -->
+      <section class="border-t border-outline/20 px-4 pt-6">
+        <div class="flex items-center justify-between pb-2">
+          <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
+            <MageIcon name="color-swatch" class="h-5 w-5 text-primary" />
+            Mixes
+          </h2>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
+            aria-label="New mixes"
+            @click="refreshMixes"
+          >
+            <MageIcon
+              name="refresh"
+              class="h-5 w-5"
+              :class="mixesRefreshing ? 'animate-spin' : ''"
+            />
+          </button>
+        </div>
+
+        <div
+          v-if="mixes.length === 0 && (lib.loading || lib.loadingMore)"
+          class="flex justify-center py-6"
+        >
+          <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
+        </div>
+
+        <!-- Preloading the cover collages for all 8 mixes; show nothing until
+             every one is done so the grid appears as a complete set. Note the
+             explicit `.value`: mixCoverReady is a plain object (not a store
+             proxy), so its ComputedRefs do NOT auto-unwrap in templates. -->
+        <div v-else-if="!mixCoverReady.allReady.value" class="flex justify-center py-6">
+          <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
+        </div>
+
+        <div v-else-if="mixes.length === 0" class="py-4 text-body-sm text-on-surface-variant">
+          Nothing here yet.
+        </div>
+
+        <!-- Matches the Library's album grid: same column count (2/3/auto-fill
+             200px via useGridColumns) and full-width cards, no horizontal
+             scroll. -->
+        <div
+          v-else
+          class="grid gap-3 pb-4"
+          :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
+        >
+          <MixCard
+            v-for="mix in mixes"
+            :key="mix.id"
+            :mix="mix"
+            class="w-full"
+            @open="openMix(mix.id)"
+          />
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -102,6 +114,7 @@ import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useGridColumns } from "../composables/useGridColumns";
 import { useMixes } from "../composables/useMixes";
+import { useMixCoverReady } from "../composables/useMixCoverReady";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
@@ -123,7 +136,7 @@ interface Shelf {
 }
 
 /** How many album cards a home shelf shows at most (both layouts). */
-const SHELF_CAP = 8;
+const SHELF_CAP = 4;
 
 const shelves = reactive<Shelf[]>([
   {
@@ -227,6 +240,15 @@ function openAlbum(item: AlbumGridItem): void {
 }
 
 const { mixes, refresh } = useMixes();
+const mixCoverReady = useMixCoverReady(() => mixes.value);
+// DEBUG: expose live state for CDP probing
+(window as any).__muorg = {
+  get allReady() { return mixCoverReady.allReady.value; },
+  get mixCount() { return mixes.value.length; },
+  get cacheSize() { return lib.coverCache.size; },
+  get pendingSize() { return lib.coverPending.size; },
+  get failedSize() { return lib.coverFailed.size; },
+};
 
 const mixesRefreshing = ref(false);
 function refreshMixes(): void {

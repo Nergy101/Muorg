@@ -203,6 +203,8 @@ export const useLibraryStore = defineStore("library", () => {
   // Cover cache: trackId -> object URL
   const coverCache = ref<Map<number, string>>(new Map());
   const coverPending = ref<Set<number>>(new Set());
+  /** Covers whose fetch definitively failed (no artwork / server error). */
+  const coverFailed = ref<Set<number>>(new Set());
   let inFlight = 0;
   const coverQueue: number[] = [];
 
@@ -393,8 +395,13 @@ export const useLibraryStore = defineStore("library", () => {
   }
 
   function requestCover(trackId: number): void {
-    if (coverCache.value.has(trackId) || coverPending.value.has(trackId)) return;
-    coverPending.value.add(trackId);
+    if (
+      coverCache.value.has(trackId) ||
+      coverPending.value.has(trackId) ||
+      coverFailed.value.has(trackId)
+    )
+      return;
+    coverPending.value = new Set(coverPending.value).add(trackId);
     coverQueue.unshift(trackId);
     drainCoverQueue();
   }
@@ -402,7 +409,8 @@ export const useLibraryStore = defineStore("library", () => {
   function drainCoverQueue(): void {
     while (inFlight < MAX_COVER_CONCURRENT && coverQueue.length > 0) {
       const id = coverQueue.shift()!;
-      if (coverCache.value.has(id)) {
+      if (coverCache.value.has(id) || coverFailed.value.has(id)) {
+        coverPending.value = new Set(coverPending.value);
         coverPending.value.delete(id);
         continue;
       }
@@ -412,9 +420,17 @@ export const useLibraryStore = defineStore("library", () => {
           if (blob) {
             coverCache.value.set(id, URL.createObjectURL(blob));
             coverCache.value = new Map(coverCache.value);
+          } else {
+            // No artwork for this track — remember it so callers can fall
+            // through to the next available cover instead of retrying forever.
+            coverFailed.value = new Set(coverFailed.value).add(id);
           }
         })
+        .catch(() => {
+          coverFailed.value = new Set(coverFailed.value).add(id);
+        })
         .finally(() => {
+          coverPending.value = new Set(coverPending.value);
           coverPending.value.delete(id);
           inFlight--;
           drainCoverQueue();
@@ -439,6 +455,7 @@ export const useLibraryStore = defineStore("library", () => {
     for (const url of coverCache.value.values()) URL.revokeObjectURL(url);
     coverCache.value = new Map();
     coverPending.value = new Set();
+    coverFailed.value = new Set();
     coverQueue.length = 0;
   }
 
@@ -454,6 +471,8 @@ export const useLibraryStore = defineStore("library", () => {
     genreFilter,
     genres,
     coverCache,
+    coverPending,
+    coverFailed,
     filteredTracks,
     albumGridItems,
     albumByKey,

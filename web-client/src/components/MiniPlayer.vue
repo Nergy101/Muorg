@@ -28,7 +28,7 @@
       <!-- Tap body -->
       <div class="flex min-w-0 flex-1 items-center self-stretch" @click="onBodyTap">
         <div
-          class="aspect-square h-full shrink-0 overflow-hidden rounded-md bg-surface-variant lg:h-14 lg:rounded-lg"
+          class="aspect-square h-full shrink-0 overflow-hidden rounded-tl-md bg-surface-variant lg:h-14 lg:rounded-tl-lg"
         >
           <img
             v-if="player.currentCoverUrl"

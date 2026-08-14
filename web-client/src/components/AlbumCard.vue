@@ -2,7 +2,6 @@
   <!-- List mode -->
   <div
     v-if="mode === 'list'"
-    ref="cardEl"
     :data-album-key="item.key"
     class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer lg:hover:bg-surface-container/70"
     :class="isActive ? 'bg-secondary/[0.08]' : ''"
@@ -43,8 +42,7 @@
 
   <!-- Grid mode -->
   <button
-    v-else
-    ref="cardEl"
+    v-else-if="ready"
     :data-album-key="item.key"
     type="button"
     class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 text-left transition-transform duration-150 active:scale-95 lg:hover:scale-[1.03] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
@@ -57,28 +55,25 @@
     @contextmenu.prevent="emit('actions')"
   >
     <img
-      v-if="coverUrl"
-      :src="coverUrl"
+      :src="coverUrl!"
       :alt="item.album"
       class="absolute inset-0 h-full w-full object-cover"
       decoding="async"
     />
-    <div v-else class="absolute inset-0 flex items-center justify-center">
-      <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/50" />
-    </div>
 
-    <!-- Scrim so the caption stays legible over any artwork -->
+    <!-- Frosted scrim so the caption stays legible over any artwork -->
     <div
-      class="absolute inset-x-0 bottom-0 h-[100px] bg-gradient-to-t from-[#111111e6] to-transparent"
+      class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[44px]"
       aria-hidden="true"
     />
 
-    <div class="absolute inset-x-0 bottom-0 flex items-end gap-2 px-2.5 pb-2">
+    <!-- Caption, vertically centred within the frosted panel -->
+    <div class="absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
       <div class="min-w-0 flex-1">
         <MarqueeText :text="item.album" class="text-label-lg font-semibold text-white" />
         <div class="truncate text-label-sm text-white/75">{{ item.albumArtist }}</div>
       </div>
-      <div class="flex shrink-0 items-center gap-1 pb-0.5 text-white/75">
+      <div class="flex shrink-0 items-center gap-1 text-white/75">
         <MageIcon name="music" class="h-3 w-3" />
         <span class="text-label-sm tabular-nums">{{ item.trackCount }}</span>
       </div>
@@ -87,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore } from "../stores/library";
@@ -103,7 +98,6 @@ const props = defineProps<{
 const emit = defineEmits<{ open: []; actions: [] }>();
 
 const lib = useLibraryStore();
-const cardEl = ref<HTMLElement | null>(null);
 const lp = useLongPress(() => emit("actions"));
 
 const coverUrl = computed(() => {
@@ -111,27 +105,18 @@ const coverUrl = computed(() => {
   return lib.coverCache.get(props.item.coverTrackId) ?? null;
 });
 
-let observer: IntersectionObserver | null = null;
+/** Grid cards render only once their cover has actually loaded — no placeholder. */
+const ready = computed(() => props.item.hasCover && coverUrl.value !== null);
 
-onMounted(() => {
-  observer = new IntersectionObserver(
-    (entries) => {
-      if (entries[0]?.isIntersecting && props.item.hasCover && props.item.coverTrackId !== null) {
-        lib.requestCover(props.item.coverTrackId);
-        observer?.disconnect();
-      }
-    },
-    { rootMargin: "200px" },
-  );
-  if (cardEl.value) observer.observe(cardEl.value);
-});
-
-onUnmounted(() => observer?.disconnect());
-
+// Fetch the cover as soon as the card mounts (and whenever the cover track
+// changes) so it resolves in the background and the card appears whole. No
+// IntersectionObserver here: a ready-gated card isn't in the DOM until loaded,
+// so an observer could never fire to trigger the fetch.
 watch(
   () => props.item.coverTrackId,
   (id) => {
     if (id !== null && !lib.coverCache.has(id)) lib.requestCover(id);
   },
+  { immediate: true },
 );
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden">
+  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <!-- Brand mark at the top, centred -->
       <div class="flex justify-center px-4 pt-6 pb-3">

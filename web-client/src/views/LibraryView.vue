@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden">
+  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto">
       <!-- Search history -->
       <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2 pt-3">

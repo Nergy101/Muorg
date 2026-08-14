@@ -1,11 +1,7 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden">
-    <div class="content-col flex h-14 shrink-0 items-center justify-between gap-4 px-4">
-      <div class="flex min-w-0 items-center gap-2">
-        <MageIcon name="dashboard-fill" class="h-5 w-5 text-primary" />
-        <span class="truncate text-title-lg text-on-surface">Playlists</span>
-      </div>
-      <div class="glass ml-1 flex items-center overflow-hidden rounded-full">
+  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+    <div class="content-col flex h-14 shrink-0 items-center justify-end gap-4 px-4">
+      <div class="glass flex items-center overflow-hidden rounded-full">
         <button
           type="button"
           class="flex h-9 w-9 items-center justify-center text-white transition-colors lg:hover:bg-black/10"
@@ -27,7 +23,15 @@
 
     <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
       <div v-if="playlistStore.loading" class="flex justify-center py-12">
-        <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
+        <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
+      </div>
+
+      <!-- Preloading every playlist's covers; hold the grid until all are
+           ready so the cards appear as one complete set. Note the `.value`:
+           usePlaylistCoverReady returns a plain object, so its ComputedRefs
+           don't auto-unwrap in templates. -->
+      <div v-else-if="!playlistCoverReady.allReady.value" class="flex justify-center py-12">
+        <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
       </div>
 
       <div v-else-if="playlistStore.playlists.length === 0" class="flex flex-col items-center gap-1 py-12">
@@ -93,6 +97,7 @@ import SmartPlaylistDialog from "../components/SmartPlaylistDialog.vue";
 import PlaylistCard from "../components/PlaylistCard.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { usePlaylistCoverReady } from "../composables/usePlaylistCoverReady";
 import { useLibraryStore } from "../stores/library";
 import { usePlaylistStore, rulesToSmartJson, parseSmartRules } from "../stores/playlists";
 import type { Playlist, SmartRule } from "../types";
@@ -103,6 +108,9 @@ const lib = useLibraryStore();
 
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
+
+// Preload all playlists' covers and hold the grid until every one is ready.
+const playlistCoverReady = usePlaylistCoverReady(() => playlistStore.playlists);
 
 const genres = computed(() =>
   [...new Set(lib.tracks.map((t) => t.genre).filter((g): g is string => g != null))].sort(),

@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden">
+  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-6">
       <div class="flex w-full max-w-sm flex-col items-center gap-6">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" class="h-24 w-24">

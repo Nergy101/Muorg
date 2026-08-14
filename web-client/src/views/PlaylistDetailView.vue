@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden">
+  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <template v-if="!playlist">
       <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
         <button

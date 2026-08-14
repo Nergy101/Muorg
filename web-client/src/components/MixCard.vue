@@ -1,12 +1,16 @@
 <template>
+  <!-- Render the card once its covers have settled (4 loaded, or the whole
+       candidate pool resolved — some may have failed). While still fetching,
+       nothing renders so the Home grid reflows and the card pops in whole. The
+       cover-request watch lives in setup, so it still runs while hidden. -->
   <div
+    v-if="ready"
     class="flex select-none flex-col"
     role="button"
     tabindex="0"
     @click="emit('open')"
     @keydown.enter="emit('open')"
   >
-    <!-- Cover collage: up to 4 distinct covers from the mix's tracks -->
     <div
       class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
     >
@@ -33,14 +37,14 @@
         </template>
       </div>
 
-      <!-- Bottom scrim so the emoji + title stay legible over any artwork -->
+      <!-- Bottom frosted scrim so the emoji + title stay legible over artwork -->
       <div
-        class="pointer-events-none absolute inset-x-0 bottom-0 h-[64px] bg-gradient-to-t from-[#111111e6] to-transparent"
+        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[44px]"
         aria-hidden="true"
       />
 
-      <!-- Emoji + title at the bottom of the card -->
-      <div class="absolute inset-x-0 bottom-0 flex items-center gap-1.5 px-2.5 pb-2">
+      <!-- Emoji + title, vertically centred within the frosted panel -->
+      <div class="absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-1.5 px-2.5">
         <span class="text-lg leading-none drop-shadow">{{ mix.emoji }}</span>
         <div class="min-w-0 flex-1">
           <p class="truncate text-label-lg font-semibold text-white">{{ mix.name }}</p>
@@ -58,6 +62,14 @@ import { computed, watch } from "vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import type { Mix } from "../composables/useMixes";
 
+/**
+ * How many distinct album covers we scan from the mix's track order before
+ * giving up. Scanning beyond the first 4 gives us a pool of fallbacks: if one
+ * of the first four albums has no artwork (or its fetch fails), we substitute
+ * the next distinct cover in the mix instead of leaving an empty tile.
+ */
+const MAX_DISTINCT_COVERS = 16;
+
 const props = defineProps<{ mix: Mix }>();
 const emit = defineEmits<{ open: [] }>();
 
@@ -65,8 +77,8 @@ const lib = useLibraryStore();
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 
-/** First 4 distinct album covers in the mix's track order. */
-const coverTrackIds = computed<number[]>(() => {
+/** Distinct album covers in the mix's track order, capped at MAX_DISTINCT_COVERS. */
+const coverCandidates = computed<number[]>(() => {
   const seen = new Set<string>();
   const out: number[] = [];
   for (const id of props.mix.trackIds) {
@@ -76,22 +88,53 @@ const coverTrackIds = computed<number[]>(() => {
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(t.id);
-    if (out.length === 4) break;
+    if (out.length === MAX_DISTINCT_COVERS) break;
   }
   return out;
 });
 
-const coverUrls = computed<(string | null)[]>(
-  () => coverTrackIds.value.map((id) => lib.coverCache.get(id) ?? null),
-);
-const coverCount = computed(() => coverUrls.value.filter(Boolean).length);
+/**
+ * The covers we render: the first MAX_DISTINCT_COVERS distinct albums' covers
+ * that successfully loaded, in track order. Albums whose cover failed are
+ * skipped, so a failure naturally falls through to the 5th/6th/... distinct
+ * cover instead of leaving an empty tile.
+ */
+const coverUrls = computed<(string | null)[]>(() => {
+  const urls: (string | null)[] = [];
+  for (const id of coverCandidates.value) {
+    const url = lib.coverCache.get(id);
+    if (!url) continue;
+    urls.push(url);
+    if (urls.length === 4) break;
+  }
+  return urls;
+});
+const coverCount = computed(() => coverUrls.value.length);
 
-// Request covers whenever the mix's distinct covers change — both on mount and
-// when the Home refresh swaps in a new mix (same card instance, new trackIds).
+/**
+ * Still fetching while we have fewer than 4 covers AND some candidate is still
+ * pending. Once every candidate has settled (loaded or failed), loading ends
+ * and the card renders — so a mix with genuinely fewer than 4 distinct covers
+ * still appears instead of vanishing.
+ */
+const loading = computed(() => {
+  if (coverCount.value >= 4) return false;
+  return coverCandidates.value.some((id) => lib.coverPending.has(id));
+});
+
+/** Render once loading settles — always shows every mix. */
+const ready = computed(() => !loading.value);
+
+// Request covers for the candidate pool whenever the mix's distinct covers
+// change — both on mount and when the Home refresh swaps in a new mix (same
+// card instance, new trackIds). requestCover dedupes (pending/cached/failed),
+// so re-requesting an already-settled candidate is a no-op. This runs even
+// while the card is hidden, so covers load in the background and the card
+// appears as soon as they settle.
 watch(
-  coverTrackIds,
+  coverCandidates,
   (ids) => {
-    for (const id of ids) if (!lib.coverCache.has(id)) lib.requestCover(id);
+    for (const id of ids) lib.requestCover(id);
   },
   { immediate: true },
 );

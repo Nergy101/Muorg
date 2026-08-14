@@ -73,6 +73,9 @@ export const usePlaylistStore = defineStore("playlists", () => {
   /** Cache of track-ID sets per playlist, populated lazily. */
   const trackIdSets = ref<Map<number, Set<number>>>(new Map());
 
+  /** Cache of ordered track-id arrays per playlist (used for cover collages). */
+  const trackOrders = ref<Map<number, number[]>>(new Map());
+
   /** Pinned playlist ids in pin order (earliest pin first). */
   const pinnedIds = ref<number[]>(loadPinnedIds());
 
@@ -163,6 +166,7 @@ export const usePlaylistStore = defineStore("playlists", () => {
     await apiDelete(id);
     playlists.value = playlists.value.filter((p) => p.id !== id);
     trackIdSets.value.delete(id);
+    trackOrders.value.delete(id);
     if (isPinned(id)) {
       pinnedIds.value = pinnedIds.value.filter((x) => x !== id);
       persistPinned();
@@ -180,11 +184,15 @@ export const usePlaylistStore = defineStore("playlists", () => {
     return s;
   }
 
-  /** Ordered track ids — smart playlists resolve through the smart endpoint. */
+  /** Ordered track ids — smart playlists resolve through the smart endpoint.
+   *  Cached so PlaylistCard and the cover-preload composable don't refetch. */
   async function loadTrackOrderForPlaylist(playlistId: number): Promise<number[]> {
+    const cached = trackOrders.value.get(playlistId);
+    if (cached) return cached;
     const playlist = playlists.value.find((p) => p.id === playlistId);
     if (!playlist) return [];
     const ids = await getTracksForPlaylist(playlist);
+    trackOrders.value = new Map(trackOrders.value).set(playlistId, ids);
     trackIdSets.value = new Map(trackIdSets.value).set(playlistId, new Set(ids));
     return ids;
   }
@@ -244,6 +252,7 @@ export const usePlaylistStore = defineStore("playlists", () => {
     playlists.value = [];
     loading.value = false;
     trackIdSets.value = new Map();
+    trackOrders.value = new Map();
   }
 
   return {

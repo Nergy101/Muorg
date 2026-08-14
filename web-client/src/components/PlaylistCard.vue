@@ -34,9 +34,9 @@
         </template>
       </div>
 
-      <!-- Top scrim so the action buttons stay legible over any artwork -->
+      <!-- Top frosted scrim so the action buttons stay legible over artwork -->
       <div
-        class="pointer-events-none absolute inset-x-0 top-0 h-[72px] bg-gradient-to-b from-[#111111d9] via-[#11111159] to-transparent"
+        class="glass-scrim-top pointer-events-none absolute inset-x-0 top-0 h-[72px]"
         aria-hidden="true"
       />
 
@@ -77,9 +77,9 @@
         </button>
       </div>
 
-      <!-- Bottom scrim so the emoji + title stay legible over any artwork -->
+      <!-- Bottom frosted scrim so the emoji + title stay legible over artwork -->
       <div
-        class="pointer-events-none absolute inset-x-0 bottom-0 h-[76px] bg-gradient-to-t from-[#111111e6] via-[#1111118c] to-transparent"
+        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[76px]"
         aria-hidden="true"
       />
 
@@ -130,8 +130,16 @@ const downloadOpen = ref(false);
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 
-/** First 4 distinct album covers in playlist order (one representative track each). */
-const coverTrackIds = computed<number[]>(() => {
+/**
+ * How many distinct album covers we scan from the playlist's track order
+ * before giving up. Scanning beyond the first 4 gives a pool of fallbacks: if
+ * one of the first four albums has no artwork (or its fetch fails), we
+ * substitute the next distinct cover instead of leaving an empty tile.
+ */
+const MAX_DISTINCT_COVERS = 16;
+
+/** Distinct album covers in playlist order, capped at MAX_DISTINCT_COVERS. */
+const coverCandidates = computed<number[]>(() => {
   const seen = new Set<string>();
   const out: number[] = [];
   for (const id of orderedIds.value) {
@@ -141,15 +149,23 @@ const coverTrackIds = computed<number[]>(() => {
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(t.id);
-    if (out.length === 4) break;
+    if (out.length === MAX_DISTINCT_COVERS) break;
   }
   return out;
 });
 
-const coverUrls = computed<(string | null)[]>(
-  () => coverTrackIds.value.map((id) => lib.coverCache.get(id) ?? null),
-);
-const coverCount = computed(() => coverUrls.value.filter(Boolean).length);
+/** The first 4 candidate covers that actually loaded, in track order. */
+const coverUrls = computed<(string | null)[]>(() => {
+  const urls: (string | null)[] = [];
+  for (const id of coverCandidates.value) {
+    const url = lib.coverCache.get(id);
+    if (!url) continue;
+    urls.push(url);
+    if (urls.length === 4) break;
+  }
+  return urls;
+});
+const coverCount = computed(() => coverUrls.value.length);
 
 const trackCountText = computed(() => {
   const n = props.playlist.track_count;
@@ -178,7 +194,7 @@ onUnmounted(() => observer?.disconnect());
 
 async function init(): Promise<void> {
   orderedIds.value = await playlistStore.loadTrackOrderForPlaylist(props.playlist.id);
-  for (const id of coverTrackIds.value) {
+  for (const id of coverCandidates.value) {
     if (!lib.coverCache.has(id)) lib.requestCover(id);
   }
 }
