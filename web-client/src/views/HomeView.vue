@@ -1,25 +1,36 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom,0px))]">
-      <section
-        v-for="(shelf, i) in shelfViews"
-        :key="shelf.key"
-        :class="i === 0 ? 'px-4 pt-6' : 'border-t border-outline/20 px-4 pt-6'"
-      >
-        <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
-          <MageIcon :name="shelf.icon" class="h-5 w-5 text-primary" />
-          {{ shelf.label }}
-        </h2>
+      <!-- Recommended: 4 random albums from the catalog (refresh re-rolls). -->
+      <section v-if="shelfViews[0]" class="px-4 pt-6">
+        <div class="flex items-center justify-between">
+          <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
+            <MageIcon :name="shelfViews[0].icon" class="h-5 w-5 text-primary" />
+            {{ shelfViews[0].label }}
+          </h2>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
+            aria-label="New recommendations"
+            @click="refreshRecommended"
+          >
+            <MageIcon
+              name="refresh"
+              class="h-5 w-5"
+              :class="recommendedRefreshing ? 'animate-spin' : ''"
+            />
+          </button>
+        </div>
 
-        <div v-if="shelf.loading" class="flex justify-center py-6">
+        <div v-if="shelfViews[0].loading" class="flex justify-center py-6">
           <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
         </div>
 
-        <div v-else-if="shelf.error" class="py-4 text-body-sm text-error">
-          Couldn't load {{ shelf.label.toLowerCase() }}.
+        <div v-else-if="shelfViews[0].error" class="py-4 text-body-sm text-error">
+          Couldn't load {{ shelfViews[0].label.toLowerCase() }}.
         </div>
 
-        <div v-else-if="shelf.items.length === 0" class="py-4 text-body-sm text-on-surface-variant">
+        <div v-else-if="shelfViews[0].items.length === 0" class="py-4 text-body-sm text-on-surface-variant">
           Nothing here yet.
         </div>
 
@@ -30,7 +41,7 @@
           :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
         >
           <AlbumCard
-            v-for="item in shelf.items"
+            v-for="item in shelfViews[0].items"
             :key="item.key"
             :item="item"
             mode="grid"
@@ -99,12 +110,52 @@
           />
         </div>
       </section>
+
+      <!-- Remaining shelves: Most Played, Recently Played -->
+      <section
+        v-for="shelf in shelfViews.slice(1)"
+        :key="shelf.key"
+        class="border-t border-outline/20 px-4 pt-6"
+      >
+        <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
+          <MageIcon :name="shelf.icon" class="h-5 w-5 text-primary" />
+          {{ shelf.label }}
+        </h2>
+
+        <div v-if="shelf.loading" class="flex justify-center py-6">
+          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
+        </div>
+
+        <div v-else-if="shelf.error" class="py-4 text-body-sm text-error">
+          Couldn't load {{ shelf.label.toLowerCase() }}.
+        </div>
+
+        <div v-else-if="shelf.items.length === 0" class="py-4 text-body-sm text-on-surface-variant">
+          Nothing here yet.
+        </div>
+
+        <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
+        <div
+          v-else
+          class="grid gap-3 pb-4"
+          :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
+        >
+          <AlbumCard
+            v-for="item in shelf.items"
+            :key="item.key"
+            :item="item"
+            mode="grid"
+            class="w-full"
+            @open="openAlbum(item)"
+          />
+        </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, reactive, ref } from "vue";
+import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
@@ -138,12 +189,55 @@ interface Shelf {
 /** How many album cards a home shelf shows at most (both layouts). */
 const SHELF_CAP = 4;
 
+// "Recommended" is just 4 randomly chosen albums from the catalog, picked once
+// per session so the row stays stable while you browse (a fresh load re-rolls).
+let recommendedTracksCache: CatalogTrack[] | null = null;
+function randomRecommendedTracks(): CatalogTrack[] {
+  if (recommendedTracksCache) return recommendedTracksCache;
+  // Group the FULL (unfiltered) catalog into albums and pick 4 that have
+  // artwork, so the row renders regardless of the Library's search/genre
+  // filters. Request their covers up front so the cards appear whole.
+  const byKey = new Map<string, { coverId: number | null; trackIds: number[] }>();
+  for (const t of lib.tracks) {
+    const key = lib.keyForTrack(t);
+    let g = byKey.get(key);
+    if (!g) {
+      g = { coverId: null, trackIds: [] };
+      byKey.set(key, g);
+    }
+    g.trackIds.push(t.id);
+    if (t.has_cover && g.coverId === null) g.coverId = t.id;
+  }
+  const withCover = [...byKey.entries()].filter(([, g]) => g.coverId !== null);
+  if (withCover.length === 0) return [];
+  const picked = [...withCover];
+  const n = Math.min(4, picked.length);
+  for (let i = 0; i < n; i++) {
+    const j = i + Math.floor(Math.random() * (picked.length - i));
+    [picked[i], picked[j]] = [picked[j], picked[i]];
+  }
+  const chosen = picked.slice(0, 4);
+  const byId = new Map(lib.tracks.map((t) => [t.id, t]));
+  const tracks: CatalogTrack[] = [];
+  for (const [, g] of chosen) {
+    if (g.coverId !== null && !lib.coverCache.has(g.coverId)) {
+      lib.requestCover(g.coverId);
+    }
+    for (const id of g.trackIds) {
+      const t = byId.get(id);
+      if (t) tracks.push(t);
+    }
+  }
+  recommendedTracksCache = tracks;
+  return tracks;
+}
+
 const shelves = reactive<Shelf[]>([
   {
-    key: "recently-played",
-    label: "Recently Played",
-    icon: "clock",
-    load: () => getRecentPlayHistory(20),
+    key: "recommended",
+    label: "Recommended",
+    icon: "heart",
+    load: () => Promise.resolve(randomRecommendedTracks()),
     tracks: [],
     loading: false,
     error: false,
@@ -153,6 +247,15 @@ const shelves = reactive<Shelf[]>([
     label: "Most Played",
     icon: "chart-up",
     load: () => getTopPlayHistory(20, 30),
+    tracks: [],
+    loading: false,
+    error: false,
+  },
+  {
+    key: "recently-played",
+    label: "Recently Played",
+    icon: "clock",
+    load: () => getRecentPlayHistory(20),
     tracks: [],
     loading: false,
     error: false,
@@ -258,6 +361,31 @@ function refreshMixes(): void {
     mixesRefreshing.value = false;
   }, 700);
 }
+
+const recommendedRefreshing = ref(false);
+function refreshRecommended(): void {
+  recommendedTracksCache = null;
+  const rec = shelves.find((s) => s.key === "recommended");
+  if (!rec) return;
+  recommendedRefreshing.value = true;
+  void loadShelf(rec).finally(() => {
+    recommendedRefreshing.value = false;
+  });
+}
+
+// The Recommended row samples the catalog on first mount, but the catalog
+// streams in page-by-page. Reload it whenever the catalog grows while the row
+// is still empty, so it populates as soon as albums are available.
+watch(
+  () => lib.tracks.length,
+  () => {
+    const rec = shelves.find((s) => s.key === "recommended");
+    if (rec && rec.tracks.length === 0) {
+      recommendedTracksCache = null;
+      void loadShelf(rec);
+    }
+  },
+);
 
 function openMix(id: number): void {
   void router.push({ name: "mix", params: { id: String(id) } });
