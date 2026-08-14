@@ -1,17 +1,5 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center px-2">
-      <button
-        type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface transition-colors lg:h-9 lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
-        aria-label="Back"
-        @click="router.back()"
-      >
-        <MageIcon name="chevron-left" class="h-6 w-6 lg:h-5 lg:w-5" />
-        <span class="hidden lg:inline">Back</span>
-      </button>
-    </div>
-
     <template v-if="!item">
       <div class="content-col flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
         <p class="text-body-md text-on-surface-variant">Album not found</p>
@@ -24,67 +12,81 @@
     </template>
 
     <template v-else>
-      <div class="content-col flex shrink-0 items-start gap-4 px-4 pb-4">
-        <div class="h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[10px] bg-surface-variant">
-          <img
-            v-if="coverUrl"
-            :src="coverUrl"
-            :alt="item.album"
-            class="h-full w-full object-cover"
-          />
-          <div v-else class="flex h-full w-full items-center justify-center">
-            <MageIcon name="music" class="h-8 w-8 text-on-surface-variant/60" />
-          </div>
-        </div>
+      <div class="content-col flex shrink-0 items-center gap-3 px-4 pb-4 pt-4">
+        <button
+          type="button"
+          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors lg:h-9 lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
+          aria-label="Back"
+          @click="router.back()"
+        >
+          <MageIcon name="chevron-left" class="h-6 w-6 lg:h-5 lg:w-5" />
+          <span class="hidden lg:inline">Back</span>
+        </button>
 
-        <div class="flex h-[120px] min-w-0 flex-1 flex-col justify-center gap-3">
-          <div class="min-w-0">
-            <MarqueeText :text="item.album" class="text-title-md text-on-surface" />
-            <p class="truncate text-body-md text-on-surface-variant">{{ item.albumArtist }}</p>
-            <p class="text-body-sm text-on-surface-variant">{{ metaLine }}</p>
+        <!-- Wrapped so the cover's left edge lines up with the track titles
+             below (both start after the w-12 leading gutter). -->
+        <div class="flex min-w-0 flex-1 items-start gap-4">
+          <div class="h-[120px] w-[120px] shrink-0 overflow-hidden rounded-[10px] bg-surface-variant">
+            <img
+              v-if="coverUrl"
+              :src="coverUrl"
+              :alt="item.album"
+              class="h-full w-full object-cover"
+            />
+            <div v-else class="flex h-full w-full items-center justify-center">
+              <MageIcon name="music" class="h-8 w-8 text-on-surface-variant/60" />
+            </div>
           </div>
 
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50"
-              :disabled="tracks.length === 0"
-              aria-label="Play album"
-              @click="playAlbum"
-            >
-              <MageIcon name="play" class="h-6 w-6" />
-            </button>
-            <button
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
-              aria-label="Add album to playlist"
-              @click="openPicker"
-            >
-              <MageIcon name="playlist-add" class="h-5 w-5" />
-            </button>
-            <div class="relative">
+          <div class="flex h-[120px] min-w-0 flex-1 flex-col justify-center gap-3">
+            <div class="min-w-0">
+              <MarqueeText :text="item.album" class="text-title-md text-on-surface" />
+              <p class="truncate text-body-md text-on-surface-variant">{{ item.albumArtist }}</p>
+              <p class="text-body-sm text-on-surface-variant">{{ metaLine }}</p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50"
+                :disabled="tracks.length === 0"
+                aria-label="Play album"
+                @click="playAlbum"
+              >
+                <MageIcon name="play" class="h-6 w-6" />
+              </button>
               <button
                 type="button"
                 class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
-                aria-label="More album options"
-                @click="menuOpen = !menuOpen"
+                aria-label="Add album to playlist"
+                @click="openPicker"
               >
-                <MageIcon name="dots" class="h-5 w-5" />
+                <MageIcon name="playlist-add" class="h-5 w-5" />
               </button>
-              <div v-if="menuOpen" class="fixed inset-0 z-30" @click="menuOpen = false"></div>
-              <div
-                v-if="menuOpen"
-                class="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl bg-surface-container py-1 shadow-xl"
-              >
+              <div class="relative">
                 <button
-                  v-if="item?.albumArtist"
                   type="button"
-                  class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface"
-                  @click="viewArtistFromAlbum"
+                  class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
+                  aria-label="More album options"
+                  @click="menuOpen = !menuOpen"
                 >
-                  <MageIcon name="user" class="h-4 w-4 text-primary" />
-                  <span>View artist</span>
+                  <MageIcon name="dots" class="h-5 w-5" />
                 </button>
+                <div v-if="menuOpen" class="fixed inset-0 z-30" @click="menuOpen = false"></div>
+                <div
+                  v-if="menuOpen"
+                  class="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl bg-surface-container py-1 shadow-xl"
+                >
+                  <button
+                    v-if="item?.albumArtist"
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface"
+                    @click="viewArtistFromAlbum"
+                  >
+                    <MageIcon name="user" class="h-4 w-4 text-primary" />
+                    <span>View artist</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -93,7 +95,7 @@
 
       <div class="content-col shrink-0 border-t border-outline/30" />
 
-      <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-4">
+      <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom,0px))]">
         <TrackListRow
           v-for="track in tracks"
           :key="track.id"
