@@ -13,7 +13,7 @@
         role="status"
       >
         <div
-          class="max-w-full truncate rounded-full bg-surface-container px-4 py-2 text-body-md text-on-surface shadow-xl"
+          class="glass-strong max-w-full truncate rounded-full px-4 py-2 text-body-md text-on-surface shadow-xl"
         >{{ message }}</div>
       </div>
     </Transition>

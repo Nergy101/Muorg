@@ -8,10 +8,13 @@
     {{ player.errorMessage }}
   </div>
 
-  <div v-else-if="player.currentTrack" class="relative shrink-0 bg-surface lg:border-t lg:border-outline/20">
-    <!-- Progress line stays on the bar, not the content column: a 900px line
-         floating mid-bar would read as broken rather than as progress. -->
-    <div class="absolute inset-x-0 top-0 h-0.5 bg-surface-variant">
+  <div
+    v-else-if="player.currentTrack"
+    class="relative shrink-0"
+  >
+    <!-- Progress line at the bottom of the mini player, on the flat edge above
+         the tabs — not the rounded top, where it would clip at the corners. -->
+    <div class="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-surface-variant/60">
       <div class="h-full bg-primary" :style="{ width: `${player.progress * 100}%` }" />
     </div>
 
@@ -25,7 +28,7 @@
       <!-- Tap body -->
       <div class="flex min-w-0 flex-1 items-center self-stretch" @click="onBodyTap">
         <div
-          class="aspect-square h-full shrink-0 bg-surface-variant lg:h-14 lg:rounded-md"
+          class="aspect-square h-full shrink-0 overflow-hidden rounded-md bg-surface-variant lg:h-14 lg:rounded-lg"
         >
           <img
             v-if="player.currentCoverUrl"

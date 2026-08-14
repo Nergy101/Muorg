@@ -7,7 +7,7 @@
        12px leaves the icons sitting under the indicator. `max()` keeps the
        12px on hardware with no inset, and degrades to it if WebKit hands us a
        stale `0px` on a cold start. -->
-  <nav class="shrink-0 bg-surface pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+  <nav class="relative shrink-0">
     <!-- Bar spans the shell, tabs stay grouped: four icons spread over 1200px
          would sit absurdly far apart. -->
     <div class="relative mx-auto flex h-16 w-full max-w-[600px] items-stretch">

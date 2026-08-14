@@ -1,5 +1,5 @@
 <template>
-  <div class="flex gap-1 rounded-full bg-surface p-1">
+  <div class="glass flex gap-1 rounded-full p-1">
     <button
       v-for="opt in options"
       :key="opt.value"

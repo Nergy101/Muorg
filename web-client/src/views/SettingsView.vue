@@ -1,11 +1,11 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center gap-2 px-4">
-      <MageIcon name="settings-fill" class="h-5 w-5 text-primary" />
-      <span class="text-title-lg text-on-surface">Settings</span>
-    </div>
-
+  <div class="absolute inset-0 flex flex-col overflow-hidden">
     <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
+      <!-- Brand mark at the top, centred -->
+      <div class="flex justify-center px-4 pt-6 pb-3">
+        <img :src="logoUrl" alt="Muorg" class="h-16 w-16" />
+      </div>
+
       <!-- ─── Muorg Info ─────────────────────────────────────────────── -->
       <div :class="SECTION">Muorg Info</div>
       <div :class="ROW">
@@ -324,6 +324,7 @@ import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import logoUrl from "../assets/muorg-logo.svg";
 import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types";
 
 const SECTION = "px-4 pt-5 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";

@@ -1,11 +1,11 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+  <div class="absolute inset-0 flex flex-col overflow-hidden">
     <div class="content-col flex h-14 shrink-0 items-center justify-between gap-4 px-4">
       <div class="flex min-w-0 items-center gap-2">
         <MageIcon name="dashboard-fill" class="h-5 w-5 text-primary" />
         <span class="truncate text-title-lg text-on-surface">Playlists</span>
       </div>
-      <div class="flex items-center overflow-hidden rounded-full bg-surface-container/70">
+      <div class="glass ml-1 flex items-center overflow-hidden rounded-full">
         <button
           type="button"
           class="flex h-9 w-9 items-center justify-center text-white transition-colors lg:hover:bg-black/10"

@@ -310,6 +310,43 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Frosted-glass panel material. A translucent surface + backdrop blur + a
+   hairline border and a faint top highlight so each panel reads as a floating
+   island rather than a flat card. `glass` is the base material; `glass-strong`
+   is a denser fill where legibility matters (forms, dialogs); `glass-deep` is
+   the warm, dark treatment for bars and sheets. */
+.glass {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--on-surface) 14%, transparent);
+  box-shadow:
+    0 10px 34px -8px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 0 color-mix(in srgb, white 14%, transparent);
+}
+
+.glass-strong {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--on-surface) 16%, transparent);
+  box-shadow:
+    0 10px 34px -8px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 0 color-mix(in srgb, white 16%, transparent);
+}
+
+/* The dark, album-art-style islands (mini player, sheets) want a warmer,
+   denser frosted glass. */
+.glass-deep {
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  backdrop-filter: blur(36px) saturate(200%);
+  border: 1px solid color-mix(in srgb, var(--on-surface) 16%, transparent);
+  box-shadow:
+    0 14px 40px -10px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 0 color-mix(in srgb, white 18%, transparent);
+}
+
 /* Focus ring */
 *:focus-visible {
   outline: 2px solid var(--primary);
@@ -329,6 +366,31 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(91, 124, 50, 0.5); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(91, 124, 50, 0.75); }
+
+/* Hide the scrollbar so its 8px of reserved gutter doesn't eat into content
+   width (used on dense grid/track scrollers where every px of width counts). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Float the scrollbar OVER the content instead of reserving an 8px gutter, so
+   a full-width sticky panel (the library's frosted toolbar) can span to the
+   right edge and the scrollbar draws on top of it rather than beside it. The
+   `auto` duplicate is the non-`overlay` fallback for engines that dropped it;
+   the intended behaviour is the overlay (no gutter). */
+.scrollbar-overlay {
+  overflow-y: auto;
+  scrollbar-gutter: auto;
+}
+@supports (overflow-y: overlay) {
+  .scrollbar-overlay {
+    overflow-y: overlay;
+  }
+}
 
 /* Range inputs */
 input[type="range"] {

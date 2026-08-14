@@ -2,7 +2,9 @@
   <!-- Desktop navigation rail (lg+). Mobile keeps the bottom nav; this aside is
        hidden below lg. Mirrors BottomNav's active-state vocabulary: the lit tab
        is the filled glyph on a translucent primary pill. -->
-  <aside class="hidden w-60 shrink-0 flex-col border-r border-outline/20 bg-surface lg:flex">
+  <aside
+    class="glass hidden m-4 w-60 shrink-0 flex-col self-start rounded-2xl lg:flex"
+  >
     <!-- Brand -->
     <div class="flex h-14 shrink-0 items-center gap-2.5 px-5">
       <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />

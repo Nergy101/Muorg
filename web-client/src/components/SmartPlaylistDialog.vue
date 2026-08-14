@@ -12,7 +12,7 @@
         @click.self="emit('cancel')"
       >
         <div
-          class="flex max-h-[90vh] w-full max-w-lg flex-col rounded-[28px] bg-surface p-6 shadow-2xl"
+          class="glass-strong flex max-h-[90vh] w-full max-w-lg flex-col rounded-[28px] p-6 shadow-2xl"
           role="dialog"
           aria-modal="true"
         >

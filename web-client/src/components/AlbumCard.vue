@@ -47,7 +47,7 @@
     ref="cardEl"
     :data-album-key="item.key"
     type="button"
-    class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant text-left transition-transform duration-150 active:scale-95 lg:hover:scale-[1.03]"
+    class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 text-left transition-transform duration-150 active:scale-95 lg:hover:scale-[1.03] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
     :class="isActive ? 'ring-2 ring-secondary' : ''"
     :style="isActive ? { boxShadow: '0 0 20px rgba(122,170,66,0.45)' } : undefined"
     @click="emit('open')"

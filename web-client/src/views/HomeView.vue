@@ -1,20 +1,13 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="flex h-14 shrink-0 items-center justify-between px-4">
-      <div class="flex min-w-0 items-center gap-2">
-        <MageIcon name="home-fill" class="h-5 w-5 text-primary" />
-        <span class="truncate text-title-lg text-on-surface">Home</span>
-      </div>
-    </div>
-
-    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
+  <div class="absolute inset-0 flex flex-col overflow-hidden">
+    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom,0px))]">
       <!-- Mixes: 8 session-stable random ~20-track playlists, never written
            to the server. Opening one shows its tracks; saving goes through
            the New-playlist flow. -->
       <section class="px-4 pt-4">
         <div class="flex items-center justify-between pb-2">
-          <h2 class="flex items-center gap-1.5 text-label-lg font-semibold text-on-surface">
-            <MageIcon name="color-swatch" class="h-4 w-4 text-primary" />
+          <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
+            <MageIcon name="color-swatch" class="h-5 w-5 text-primary" />
             Mixes
           </h2>
           <button
@@ -42,25 +35,27 @@
           Nothing here yet.
         </div>
 
-        <!-- -mx-4 cancels the section padding so the row can scroll edge to
-             edge; on desktop it fills the window width as a wrapping grid. -->
+        <!-- Matches the Library's album grid: same column count (2/3/auto-fill
+             200px via useGridColumns) and full-width cards, no horizontal
+             scroll. -->
         <div
           v-else
-          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(176px,1fr))] lg:overflow-visible lg:px-0 lg:pb-3"
+          class="grid gap-3 pb-4"
+          :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
         >
           <MixCard
             v-for="mix in mixes"
             :key="mix.id"
             :mix="mix"
-            class="w-36 shrink-0 lg:w-full"
+            class="w-full"
             @open="openMix(mix.id)"
           />
         </div>
       </section>
 
-      <section v-for="shelf in shelfViews" :key="shelf.key" class="px-4 pt-4">
-        <h2 class="flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
-          <MageIcon :name="shelf.icon" class="h-4 w-4 text-primary" />
+      <section v-for="shelf in shelfViews" :key="shelf.key" class="border-t border-outline/20 px-4 pt-6">
+        <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
+          <MageIcon :name="shelf.icon" class="h-5 w-5 text-primary" />
           {{ shelf.label }}
         </h2>
 
@@ -76,19 +71,20 @@
           Nothing here yet.
         </div>
 
-        <!-- -mx-4 cancels the section padding so the row can scroll edge to
-             edge; on desktop it fills the window width as a wrapping grid. -->
+        <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
         <div
           v-else
-          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(176px,1fr))] lg:overflow-visible lg:px-0 lg:pb-3"
+          class="grid gap-3 pb-4"
+          :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
         >
-          <div
+          <AlbumCard
             v-for="item in shelf.items"
             :key="item.key"
-            class="w-36 shrink-0 lg:w-full"
-          >
-            <AlbumCard :item="item" mode="grid" @open="openAlbum(item)" />
-          </div>
+            :item="item"
+            mode="grid"
+            class="w-full"
+            @open="openAlbum(item)"
+          />
         </div>
       </section>
     </div>
@@ -104,6 +100,7 @@ import MixCard from "../components/MixCard.vue";
 import { useLibraryStore } from "../stores/library";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { useGridColumns } from "../composables/useGridColumns";
 import { useMixes } from "../composables/useMixes";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
@@ -112,6 +109,8 @@ const lib = useLibraryStore();
 
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
+// Same column count as the Library album grid (2/3/auto-fill minmax(200px)).
+const gridCols = useGridColumns(scroller);
 
 interface Shelf {
   key: string;

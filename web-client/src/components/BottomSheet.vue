@@ -18,13 +18,13 @@
       <div
         v-if="open"
         ref="panel"
-        class="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] max-w-[600px] overflow-y-auto rounded-t-[28px] bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl lg:bottom-4 lg:max-w-md lg:rounded-2xl lg:border lg:border-outline/20 lg:pb-2"
+        class="glass-deep fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] max-w-[600px] overflow-y-auto rounded-t-[28px] pb-[env(safe-area-inset-bottom)] shadow-2xl lg:bottom-4 lg:max-w-md lg:rounded-2xl lg:pb-2"
         :style="dragStyle"
         role="dialog"
         aria-modal="true"
         @pointerdown="onPointerdown"
       >
-        <div class="sticky top-0 flex justify-center bg-surface py-3">
+        <div class="sticky top-0 flex justify-center bg-transparent py-3">
           <div class="h-1 w-8 rounded-full bg-on-surface-variant/40" />
         </div>
         <slot />

@@ -2,7 +2,7 @@
   <!-- pt keeps the header/top bar clear of the notch and status bar. On desktop
        the layout widens into a sidebar + content pane (lg). -->
   <div
-    class="mx-auto flex h-full w-full max-w-[600px] flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-[1600px] lg:flex-row lg:pt-0"
+    class="flex h-full w-full max-w-[600px] flex-col overflow-hidden pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-none lg:flex-row lg:pt-0"
   >
     <!-- Desktop navigation rail; mobile keeps the bottom nav. -->
     <SidebarNav v-if="showSidebar" />
@@ -14,41 +14,70 @@
 
       <!-- Swipe pages between tabs, or pops the stack from the left edge. Bound
            here, not on the shell, so a drag on the bottom nav or mini player
-           doesn't navigate. -->
-      <div
-        class="relative min-h-0 flex-1 [touch-action:pan-y_pinch-zoom]"
-        @pointerdown="onPointerdown"
-      >
-        <RouterView v-slot="{ Component }">
-          <Transition :name="navTransition">
-            <!-- KeepAlive keeps each view's component state (filters, loaded
-                 data) while it is covered. Scroll position is NOT covered by it:
-                 a deactivated subtree is detached, which resets scrollTop, so
-                 views restore their own offset via useScrollMemory. -->
-            <KeepAlive>
-              <component :is="Component" />
-            </KeepAlive>
-          </Transition>
-        </RouterView>
-
-        <!-- Edge affordance: tracks an in-progress back gesture so the swipe is
-             legible before it commits. -->
+           doesn't navigate. The mini player + bottom nav overlay this area so
+           content scrolls behind them and shows through the frosted glass. -->
+      <div class="relative min-h-0 flex-1">
         <div
-          v-if="backProgress > 0"
-          class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-black/30 to-transparent"
-          :style="{ opacity: backProgress }"
-        />
-      </div>
+          ref="scrollerHost"
+          class="absolute inset-0 [touch-action:pan-y_pinch-zoom]"
+          @pointerdown="onPointerdown"
+        >
+          <RouterView v-slot="{ Component }">
+            <Transition :name="navTransition">
+              <!-- KeepAlive keeps each view's component state (filters, loaded
+                   data) while it is covered. Scroll position is NOT covered by it:
+                   a deactivated subtree is detached, which resets scrollTop, so
+                   views restore their own offset via useScrollMemory. -->
+              <KeepAlive>
+                <component :is="Component" />
+              </KeepAlive>
+            </Transition>
+          </RouterView>
 
-      <MiniPlayer v-if="showMiniPlayer" />
-      <BottomNav v-if="showBottomNav" class="lg:hidden" />
+          <!-- Edge affordance: tracks an in-progress back gesture so the swipe is
+               legible before it commits. -->
+          <div
+            v-if="backProgress > 0"
+            class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-black/30 to-transparent"
+            :style="{ opacity: backProgress }"
+          />
+        </div>
+
+        <!-- Mobile: one frosted island holding the mini player above the tabs.
+             Desktop (lg): the bottom nav is hidden and the mini player floats as
+             its own bar at the bottom. -->
+        <div
+          v-if="showMiniPlayer || showBottomNav"
+          class="glass-deep absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[600px] overflow-hidden rounded-t-3xl md:max-w-[900px] lg:hidden"
+        >
+          <MiniPlayer v-if="showMiniPlayer" />
+          <!-- The tab row collapses away on scroll-down and returns on
+               scroll-up, leaving the mini player pinned. -->
+          <div
+            class="overflow-hidden transition-[max-height] duration-300 ease-out"
+            :class="navHidden && showBottomNav ? 'max-h-0' : 'max-h-20'"
+          >
+            <BottomNav v-if="showBottomNav" />
+          </div>
+          <div class="h-[max(env(safe-area-inset-bottom),0.75rem)] shrink-0" />
+        </div>
+
+        <!-- Desktop-only floating frosted mini player bar (bottom nav hidden at
+             lg). Wrapped so it gets its own glass + positioning. -->
+        <div
+          v-if="showMiniPlayer"
+          class="glass-deep absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-none overflow-hidden rounded-2xl lg:block"
+        >
+          <MiniPlayer />
+        </div>
+      </div>
     </div>
   </div>
   <Toast />
 </template>
 
 <script setup lang="ts">
-import { computed, watch, watchEffect } from "vue";
+import { computed, ref, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import OfflineBanner from "./components/OfflineBanner.vue";
 import UpdateBanner from "./components/UpdateBanner.vue";
@@ -61,6 +90,7 @@ import { useSettingsStore } from "./stores/settings";
 import { useSwipeNavigate } from "./composables/useSwipeNavigate";
 import { useSwipeBack } from "./composables/useSwipeBack";
 import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
+import { useScrollNavHide } from "./composables/useScrollNavHide";
 import { navTransition } from "./composables/useNavTransition";
 import { NAV_TABS } from "./nav-tabs";
 import { loadPref, savePref } from "./stores/prefs";
@@ -72,6 +102,11 @@ const player = usePlayerStore();
 const settings = useSettingsStore();
 // Desktop transport keys (Space/K, ←/→, J/L, Ctrl+←/→, M).
 useKeyboardShortcuts();
+
+// The scroller host is the container that every view's inner scroller lives
+// inside; scroll events bubble to it, which drives the bottom-nav auto-hide.
+const scrollerHost = ref<HTMLElement | null>(null);
+const navHidden = useScrollNavHide(scrollerHost);
 
 const BARELESS = ["connect", "player", "player-queue"];
 

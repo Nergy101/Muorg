@@ -9,7 +9,7 @@
     <!-- Cover collage card: up to 4 distinct covers squared together -->
     <div
       ref="cardEl"
-      class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02]"
+      class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02]"
     >
       <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center">
         <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/50" />

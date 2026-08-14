@@ -1,40 +1,8 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center justify-between px-4">
-      <div class="flex min-w-0 items-center gap-2">
-        <MageIcon name="compact-disk-fill" class="h-5 w-5 text-primary" />
-        <span class="truncate text-title-lg text-on-surface">Library</span>
-      </div>
-    </div>
-
-    <!-- Search field: pinned, not part of the scrolling body -->
-    <div class="content-col shrink-0 px-4 pb-2 pt-3">
-      <div
-        class="flex h-11 items-center gap-2 rounded-full bg-surface px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
-      >
-        <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
-        <input
-          v-model="query"
-          type="text"
-          placeholder="Search albums, artists…"
-          class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
-          @keyup.enter="onSearchEnter"
-        />
-        <button
-          v-if="query"
-          type="button"
-          class="shrink-0 text-on-surface-variant"
-          aria-label="Clear search"
-          @click="clearSearch"
-        >
-          <MageIcon name="multiply" class="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-
-    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
+  <div class="absolute inset-0 flex flex-col overflow-hidden">
+    <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto">
       <!-- Search history -->
-      <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2">
+      <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2 pt-3">
         <div class="flex items-center justify-between py-1">
           <div class="flex items-center gap-1.5 text-label-lg text-on-surface-variant">
             <MageIcon name="clock" class="h-4 w-4" />
@@ -61,9 +29,35 @@
         </div>
       </div>
 
-      <!-- Filters / toolbar: pinned (sticky) on desktop so sort, genre, layout
-           and shuffle stay visible while the grid scrolls beneath. -->
-      <div class="sticky top-0 z-10 bg-background">
+      <!-- Filters / toolbar: pinned (sticky) so search, sort, genre, layout and
+           shuffle stay visible while the grid scrolls beneath. The search field
+           lives on the same frosted layer as the controls below. -->
+      <div class="glass sticky top-0 z-10 rounded-none rounded-b-2xl border-t-0 border-x-0 border-b border-outline/10">
+        <!-- Search field: frosted, same layer as the sort/genre controls -->
+        <div class="content-col px-4 pb-2 pt-3">
+          <div
+            class="flex h-11 items-center gap-2 rounded-full bg-surface/60 px-4 backdrop-blur-2xl focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
+          >
+            <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+            <input
+              v-model="query"
+              type="text"
+              placeholder="Search albums, artists…"
+              class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
+              @keyup.enter="onSearchEnter"
+            />
+            <button
+              v-if="query"
+              type="button"
+              class="shrink-0 text-on-surface-variant"
+              aria-label="Clear search"
+              @click="clearSearch"
+            >
+              <MageIcon name="multiply" class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
         <!-- Artist filter chip -->
         <div v-if="artistLabel" class="content-col px-4 pb-2 pt-2">
         <div class="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-1.5">
@@ -92,7 +86,7 @@
         <div ref="sortMenuRef" class="relative">
           <button
             type="button"
-            class="text-label-lg text-primary"
+            class="text-label-lg text-on-surface"
             @click="sortMenuOpen = !sortMenuOpen"
           >
             Sort: {{ sortLabel }}
@@ -126,7 +120,7 @@
         <div ref="genreMenuRef" class="relative">
           <button
             type="button"
-            class="flex max-w-28 items-center gap-1 text-label-lg text-primary"
+            class="flex max-w-28 items-center gap-1 text-label-lg text-on-surface"
             @click="genreMenuOpen = !genreMenuOpen"
           >
             <span class="truncate">Genre: {{ genreLabel }}</span>
@@ -245,7 +239,7 @@
       <div
         v-else
         ref="albumsAnchor"
-        class="px-4 pb-4"
+        class="px-4 pb-4 pt-3"
         :style="{ height: `${albumGrid.totalHeight.value + 16}px` }"
       >
         <div

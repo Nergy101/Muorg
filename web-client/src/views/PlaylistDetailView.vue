@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+  <div class="absolute inset-0 flex flex-col overflow-hidden">
     <template v-if="!playlist">
       <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
         <button
@@ -33,7 +33,7 @@
           {{ playlist.icon ?? "🎵" }} {{ playlist.name }}
         </span>
 
-        <div class="ml-1 flex items-center overflow-hidden rounded-full bg-surface-container/70">
+        <div class="glass ml-1 flex items-center overflow-hidden rounded-full">
           <button
             v-if="isSmart"
             type="button"
