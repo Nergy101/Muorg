@@ -290,14 +290,13 @@ const viewStyleIcon = computed(() => {
   return "layout-grid";
 });
 
-/** Fixed position for the sort menu: it opens upward above the trigger button,
- *  since the search bar now sits at the bottom of the shell. */
+/** Position the sort menu just above its trigger (bottom edge pinned), since
+ *  the search bar sits at the bottom of the shell. */
 const sortMenuPos = computed(() => {
   const b = sortBtnRef.value?.getBoundingClientRect();
   if (!b) return {};
-  const menuH = 3 * 40 + 8; // 3 options × row height + padding
-  const top = Math.max(8, b.top - menuH - 4);
-  return { top: `${top}px`, left: `${b.left}px` };
+  const bottom = window.innerHeight - b.top + 4;
+  return { bottom: `${bottom}px`, left: `${b.left}px` };
 });
 
 function toggleSort(): void {
@@ -319,13 +318,16 @@ const genreLabel = computed(
   () => lib.genres.find((g) => g.value === lib.genreFilter)?.label ?? "All",
 );
 
-/** Fixed position for the genre menu, opening upward above its trigger. */
+/** Position the genre menu just above its trigger. Pinning the BOTTOM edge
+ *  (not computing `top` from a phantom full list height) keeps it anchored to
+ *  the control even when the list is long and the menu's own max-height clips
+ *  it — otherwise it flies to the top of the screen. */
 const genreMenuPos = computed(() => {
   const b = genreBtnRef.value?.getBoundingClientRect();
   if (!b) return {};
-  const menuH = (lib.genres.length + 1) * 40 + 8;
-  const top = Math.max(8, b.top - menuH - 4);
-  return { top: `${top}px`, left: `${b.left}px` };
+  // Bottom edge sits 4px above the button's top edge.
+  const bottom = window.innerHeight - b.top + 4;
+  return { bottom: `${bottom}px`, left: `${b.left}px` };
 });
 
 function toggleGenre(): void {
