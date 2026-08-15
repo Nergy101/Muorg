@@ -5,10 +5,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio_stream::wrappers::ReceiverStream;
+use crate::config::TranscodingConfig;
 use crate::routes::ApiError;
 use crate::state::AppState;
 use crate::transcode;
@@ -121,25 +120,37 @@ pub async fn stream_audio(
     }
 
     if is_flac {
-        type StreamChunk = Result<Bytes, Box<dyn std::error::Error + Send + Sync>>;
-        let (tx, rx) = tokio::sync::mpsc::channel::<StreamChunk>(128);
-        let path = track_path.clone();
-        tracing::info!(track_id = id, path = %track_path, start_secs, "stream flac→mp3");
-        let cfg = state.transcoding_config.clone();
-        tokio::task::spawn_blocking(move || {
-            transcode::transcode_to_mp3(transcode::TranscodeSource::LocalPath(path), start_secs, &cfg, tx);
-        });
-        let stream = ReceiverStream::new(rx);
-        let body = Body::from_stream(stream);
-        let mut headers = HeaderMap::new();
-        headers.insert("Content-Type", "audio/mpeg".parse().unwrap());
-        headers.insert("Cache-Control", "no-cache".parse().unwrap());
-        headers.insert("Vary", "Accept-Encoding".parse().unwrap());
-        headers.insert("ETag", etag.parse().unwrap());
-        if let Some(m) = mtime {
-            headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+        // Serve the FLAC track as a seekable MP3: transcode once (cache by
+        // track id + mtime), then reply with Content-Length + ranges exactly
+        // like the MP3 branch. A length-less live chunked stream would make the
+        // browser treat the track as a live stream and desync on buffer stalls.
+        let mtime = crate::routes::util::file_mtime(std::path::Path::new(&track_path));
+        let mtime_secs = mtime
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let etag = format!("\"stream-{id}-{mtime_secs}\"");
+        if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
+            return resp;
         }
-        (StatusCode::OK, headers, body).into_response()
+
+        let cfg = state.transcoding_config.clone();
+        let cached = state.transcode_cache.get(id, mtime_secs);
+        let bytes = match cached {
+            Some(b) => b,
+            None => match transcode_local(&cfg, &track_path).await {
+                Ok(b) => {
+                    state.transcode_cache.insert(id, mtime_secs, b.clone());
+                    b
+                }
+                Err(e) => {
+                    tracing::error!(track_id = id, "transcode failed: {e}");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+            },
+        };
+
+        serve_transcoded_audio(&bytes, start_secs, &etag, mtime, &cfg, &req_headers)
     } else {
         let range_header = req_headers.get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
         tracing::info!(track_id = id, path = %track_path, range = ?range_header, "stream mp3");
@@ -172,6 +183,73 @@ pub async fn stream_audio(
             }
             Err(_) => StatusCode::NOT_FOUND.into_response(),
         }
+    }
+}
+
+/// Transcodes a local FLAC file to MP3 bytes on a blocking thread.
+async fn transcode_local(
+    cfg: &TranscodingConfig,
+    path: &str,
+) -> Result<Arc<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+    let cfg = cfg.clone();
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        transcode::transcode_to_mp3_bytes(transcode::TranscodeSource::LocalPath(path), &cfg)
+    })
+    .await
+    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?
+    .map(Arc::new)
+}
+
+/// Serves a cached FLAC transcode as a seekable MP3 file: full bytes with a
+/// `Content-Length` (200) or a byte range (206), honouring `?start=` by slicing
+/// the buffer to the requested second offset. The browser can then buffer and
+/// seek natively, exactly like an MP3 file.
+fn serve_transcoded_audio(
+    bytes: &[u8],
+    start_secs: f32,
+    etag: &str,
+    mtime: Option<std::time::SystemTime>,
+    cfg: &TranscodingConfig,
+    req_headers: &HeaderMap,
+) -> Response {
+    // CBR MP3: frame length (bytes) = 144 * bitrate_bps / sample_rate.
+    let bitrate_bps = cfg.bitrate as u64 * 1000;
+    let frame_bytes = (144u64 * bitrate_bps / cfg.sample_rate as u64).max(1);
+    let bytes_per_sec = bitrate_bps / 8;
+    let mut start_byte = if start_secs > 0.0 {
+        (start_secs as u64 * bytes_per_sec).min(bytes.len().saturating_sub(1) as u64)
+    } else {
+        0
+    };
+    // Align to a frame boundary so the decoder syncs cleanly.
+    if start_byte > 0 {
+        start_byte = (start_byte / frame_bytes) * frame_bytes;
+    }
+    let data = &bytes[start_byte as usize..];
+    let total = data.len() as u64;
+
+    let range_header = req_headers.get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
+    let range = range_header.as_deref().and_then(|r| parse_range(r, total));
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", "audio/mpeg".parse().unwrap());
+    headers.insert("Accept-Ranges", "bytes".parse().unwrap());
+    headers.insert("Cache-Control", "no-cache".parse().unwrap());
+    headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+    headers.insert("ETag", format!("{etag}-{}", start_byte).parse().unwrap());
+    if let Some(m) = mtime {
+        headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+    }
+
+    if let Some(r) = range {
+        let body = data[r.start as usize..=r.end as usize].to_vec();
+        headers.insert("Content-Range", format!("bytes {}-{}/{}", r.start, r.end, total).parse().unwrap());
+        headers.insert("Content-Length", body.len().to_string().parse().unwrap());
+        (StatusCode::PARTIAL_CONTENT, headers, body).into_response()
+    } else {
+        headers.insert("Content-Length", total.to_string().parse().unwrap());
+        (StatusCode::OK, headers, data.to_vec()).into_response()
     }
 }
 
@@ -213,24 +291,44 @@ async fn stream_remote(
     }
 
     if is_flac {
-        type StreamChunk = Result<Bytes, Box<dyn std::error::Error + Send + Sync>>;
-        let (tx, rx) = tokio::sync::mpsc::channel::<StreamChunk>(128);
-        tracing::info!(track_id = id, key = %key, start_secs, "stream remote flac→mp3");
+        // Same seekable-file treatment as the local FLAC branch: transcode once
+        // and serve the cached MP3 bytes with Content-Length + ranges.
         let cfg = state.transcoding_config.clone();
-        let handle = tokio::runtime::Handle::current();
-        let store = remote.store.clone();
-        let size = head.size;
-        tokio::task::spawn_blocking(move || {
-            let src = crate::storage::reader::RemoteReader::new(store, key, size, handle);
-            transcode::transcode_to_mp3(
-                transcode::TranscodeSource::Remote(Box::new(src)),
-                start_secs,
-                &cfg,
-                tx,
-            );
-        });
-        let body = Body::from_stream(ReceiverStream::new(rx));
-        return (StatusCode::OK, headers, body).into_response();
+        let cached = state.transcode_cache.get(id, secs);
+        let bytes = match cached {
+            Some(b) => b,
+            None => {
+                let handle = tokio::runtime::Handle::current();
+                let store = remote.store.clone();
+                let size = head.size;
+                let key = key.clone();
+                let cfg_for_task = cfg.clone();
+                match tokio::task::spawn_blocking(move || {
+                    let src = crate::storage::reader::RemoteReader::new(store, key, size, handle);
+                    transcode::transcode_to_mp3_bytes(
+                        transcode::TranscodeSource::Remote(Box::new(src)),
+                        &cfg_for_task,
+                    )
+                })
+                .await
+                {
+                    Ok(Ok(b)) => {
+                        let arc = Arc::new(b);
+                        state.transcode_cache.insert(id, secs, arc.clone());
+                        arc
+                    }
+                    Ok(Err(e)) => {
+                        tracing::error!(track_id = id, "remote transcode failed: {e}");
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    }
+                    Err(e) => {
+                        tracing::error!(track_id = id, "remote transcode task failed: {e}");
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    }
+                }
+            }
+        };
+        return serve_transcoded_audio(&bytes, start_secs, &etag, mtime, &cfg, req_headers);
     }
 
     let total = head.size;

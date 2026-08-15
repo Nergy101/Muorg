@@ -1,15 +1,11 @@
-use bytes::Bytes;
 use mp3lame_encoder::{Bitrate, Builder, DualPcm, FlushNoGap};
 use symphonia::core::codecs::audio::{AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
 use symphonia::core::errors::Error as SymphoniaError;
-use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
+use symphonia::core::formats::{FormatOptions, SeekMode};
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::units::Time;
 use crate::config::TranscodingConfig;
-
-type StreamTx = tokio::sync::mpsc::Sender<Result<Bytes, Box<dyn std::error::Error + Send + Sync>>>;
 
 /// Where a transcode reads its input. Object-storage tracks arrive as a
 /// `MediaSource` so `symphonia` pulls only the bytes it decodes instead of the
@@ -19,26 +15,15 @@ pub enum TranscodeSource {
     Remote(Box<dyn symphonia::core::io::MediaSource>),
 }
 
-pub fn transcode_to_mp3(
+/// Decodes the whole source from the start and re-encodes it to a single MP3
+/// byte buffer. LAME is ~10–20× realtime, so a cold pass is cheap; callers cache
+/// the result (see `stream.rs`) and serve it with `Content-Length` + ranges so
+/// the browser treats a FLAC track as a seekable file rather than a live stream.
+pub fn transcode_to_mp3_bytes(
     source: TranscodeSource,
-    start_secs: f32,
     config: &TranscodingConfig,
-    tx: StreamTx,
-) {
-    if let Err(e) = do_transcode(source, start_secs, config, &tx) {
-        let _ = tx.blocking_send(Err(e));
-    }
-}
-
-fn do_transcode(
-    source: TranscodeSource,
-    start_secs: f32,
-    config: &TranscodingConfig,
-    tx: &StreamTx,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // The label keeps the seek logs useful for both backends; the remote key
-    // itself is logged by the stream route.
-    let (ms, source_label): (Box<dyn symphonia::core::io::MediaSource>, String) = match source {
+) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let (ms, _source_label): (Box<dyn symphonia::core::io::MediaSource>, String) = match source {
         TranscodeSource::LocalPath(p) => (Box::new(std::fs::File::open(&p)?), p),
         TranscodeSource::Remote(m) => (m, "<remote object>".to_string()),
     };
@@ -81,52 +66,6 @@ fn do_transcode(
     let mut decoder = symphonia::default::get_codecs()
         .make_audio_decoder(audio_params, &AudioDecoderOptions::default())?;
 
-    // Seek to start_secs and return the first packet that covers the target timestamp.
-    let first_seek_packet = if start_secs > 0.0 {
-        let target_secs = start_secs as f64;
-
-        tracing::info!(source = %source_label, start_secs, "seek requested");
-
-        let _ = format.seek(
-            SeekMode::Coarse,
-            SeekTo::Time {
-                time: Time::try_from_secs_f64(target_secs).unwrap_or(Time::ZERO),
-                track_id: Some(track_id),
-            },
-        );
-
-        // Use a timestamp-based target for packet scanning
-        let sample_rate_f = sample_rate as f64;
-        let target_ts_val = (target_secs * sample_rate_f) as i64;
-        let target_ts = symphonia::core::units::Timestamp::from(target_ts_val);
-
-        let mut skipped = 0u64;
-        let mut found = None;
-        loop {
-            let packet = match format.next_packet() {
-                Ok(Some(p)) => p,
-                Ok(None) => break,
-                Err(SymphoniaError::ResetRequired) => {
-                    decoder.reset();
-                    continue;
-                }
-                Err(_) => break,
-            };
-            if packet.track_id != track_id {
-                continue;
-            }
-            if packet.pts.saturating_add(packet.dur) >= target_ts {
-                found = Some(packet);
-                break;
-            }
-            skipped += 1;
-        }
-        tracing::info!(source = %source_label, skipped_packets = skipped, "fine-skip done");
-        found
-    } else {
-        None
-    };
-
     let mut builder = Builder::new().ok_or("Failed to create LAME builder")?;
     builder
         .set_num_channels(channels)
@@ -149,25 +88,17 @@ fn do_transcode(
         .map_err(|e| format!("{e:?}"))?;
     let mut encoder = builder.build().map_err(|e| format!("{e:?}"))?;
 
-    let mut pending = first_seek_packet;
+    let mut out: Vec<u8> = Vec::new();
     loop {
-        if tx.is_closed() {
-            break;
-        }
-
-        let packet = if let Some(p) = pending.take() {
-            p
-        } else {
-            match format.next_packet() {
-                Ok(Some(p)) => p,
-                Ok(None) => break,
-                Err(SymphoniaError::ResetRequired) => {
-                    decoder.reset();
-                    continue;
-                }
-                Err(SymphoniaError::IoError(_)) => break,
-                Err(_) => break,
+        let packet = match format.next_packet() {
+            Ok(Some(p)) => p,
+            Ok(None) => break,
+            Err(SymphoniaError::ResetRequired) => {
+                decoder.reset();
+                continue;
             }
+            Err(SymphoniaError::IoError(_)) => break,
+            Err(_) => break,
         };
 
         if packet.track_id != track_id {
@@ -205,7 +136,7 @@ fn do_transcode(
         };
 
         if n > 0 {
-            let _ = tx.blocking_send(Ok(Bytes::copy_from_slice(&mp3_buf)));
+            out.extend_from_slice(&mp3_buf);
         }
     }
 
@@ -214,8 +145,8 @@ fn do_transcode(
         .flush_to_vec::<FlushNoGap>(&mut flush_buf)
         .map_err(|e| format!("{e:?}"))?;
     if n > 0 {
-        let _ = tx.blocking_send(Ok(Bytes::copy_from_slice(&flush_buf)));
+        out.extend_from_slice(&flush_buf);
     }
 
-    Ok(())
+    Ok(out)
 }
