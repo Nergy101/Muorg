@@ -46,12 +46,17 @@
         <div class="glass-sheer flex items-center overflow-hidden rounded-full">
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
+            class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
             :class="player.sleepTimerActive ? 'text-primary' : ''"
             aria-label="Sleep timer"
             @click="onSleepButton"
           >
             <MageIcon name="moon" class="h-5 w-5" />
+            <span
+              v-if="player.sleepTimerActive"
+              class="pr-1.5 text-label-md tabular-nums"
+              :class="player.sleepTimerActive ? 'text-primary' : ''"
+            >{{ sleepLabel }}</span>
           </button>
           <button
             v-if="hasLyrics"
@@ -487,6 +492,11 @@ const showSleepConfirm = ref(false);
 const sleepConfirmMessage = computed(
   () => `Playback will stop in ${formatDuration(Math.ceil(player.sleepTimerRemainingMs / 1000))}.`,
 );
+
+const sleepLabel = computed(() => {
+  const total = Math.ceil(player.sleepTimerRemainingMs / 1000);
+  return `${Math.floor(total / 60)}m ${total % 60}s`;
+});
 
 function onSleepButton(): void {
   if (player.sleepTimerActive) showSleepConfirm.value = true;

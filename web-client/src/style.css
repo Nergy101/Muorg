@@ -708,3 +708,16 @@ input[type="range"]::-moz-range-thumb {
 .dot-loader .dot:nth-child(3) {
   animation-delay: 0.36s;
 }
+
+/* Native-app feel: nothing in the UI is selectable. Text fields must stay
+   editable/selectable (connect URL, playlist rename, search, metadata edit). */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
