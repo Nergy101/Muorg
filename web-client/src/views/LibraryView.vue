@@ -1,6 +1,6 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Content -->
       <div v-if="lib.loading" class="flex items-center justify-center py-12">
         <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />

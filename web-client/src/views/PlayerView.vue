@@ -43,10 +43,10 @@
           <MageIcon name="chevron-down" class="h-6 w-6" />
         </button>
         <div class="flex-1" />
-        <div class="flex items-center overflow-hidden rounded-full bg-black/25">
+        <div class="glass-sheer flex items-center overflow-hidden rounded-full">
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors"
+            class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
             :class="player.sleepTimerActive ? 'text-primary' : ''"
             aria-label="Sleep timer"
             @click="onSleepButton"
@@ -56,7 +56,7 @@
           <button
             v-if="hasLyrics"
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-full border-l border-white/10 text-white transition-colors"
+            class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
             :class="showLyrics ? 'text-primary' : ''"
             :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
             @click="showLyrics = !showLyrics"
@@ -65,7 +65,7 @@
           </button>
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-full border-l border-white/10 text-white transition-colors"
+            class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
             aria-label="Track actions"
             @click="openTrackActions"
           >

@@ -1,22 +1,25 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom,0px))]">
+    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Recommended: 4 random albums from the catalog (refresh re-rolls). -->
       <section v-if="shelfViews[0]" class="px-4 pt-6">
-        <div class="flex items-center justify-between">
-          <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
-            <MageIcon :name="shelfViews[0].icon" class="h-5 w-5 text-primary" />
+        <!-- Bottom spacing belongs to the row, not the heading: with `pb-2` on
+             the <h2> the flex row centres the button against the padded box and
+             it lands a few px below the heading's own centre line. -->
+        <div class="flex items-center justify-between gap-3 pb-3">
+          <h2 class="flex min-w-0 items-center gap-1.5 text-title-md font-semibold text-on-surface">
+            <MageIcon :name="shelfViews[0].icon" class="h-5 w-5 shrink-0 text-primary" />
             {{ shelfViews[0].label }}
           </h2>
           <button
             type="button"
-            class="glass flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
+            class="glass flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
             aria-label="New recommendations"
             @click="refreshRecommended"
           >
             <MageIcon
               name="refresh"
-              class="h-5 w-5"
+              class="h-4 w-4"
               :class="recommendedRefreshing ? 'animate-spin' : ''"
             />
           </button>
@@ -55,20 +58,20 @@
            to the server. Opening one shows its tracks; saving goes through
            the New-playlist flow. -->
       <section class="border-t border-outline/20 px-4 pt-6">
-        <div class="flex items-center justify-between pb-2">
-          <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
-            <MageIcon name="color-swatch" class="h-5 w-5 text-primary" />
+        <div class="flex items-center justify-between gap-3 pb-3">
+          <h2 class="flex min-w-0 items-center gap-1.5 text-title-md font-semibold text-on-surface">
+            <MageIcon name="color-swatch" class="h-5 w-5 shrink-0 text-primary" />
             Mixes
           </h2>
           <button
             type="button"
-            class="glass flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
+            class="glass flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
             aria-label="New mixes"
             @click="refreshMixes"
           >
             <MageIcon
               name="refresh"
-              class="h-5 w-5"
+              class="h-4 w-4"
               :class="mixesRefreshing ? 'animate-spin' : ''"
             />
           </button>
@@ -117,7 +120,7 @@
         :key="shelf.key"
         class="border-t border-outline/20 px-4 pt-6"
       >
-        <h2 class="flex items-center gap-1.5 pb-2 text-title-md font-semibold text-on-surface">
+        <h2 class="flex items-center gap-1.5 pb-3 text-title-md font-semibold text-on-surface">
           <MageIcon :name="shelf.icon" class="h-5 w-5 text-primary" />
           {{ shelf.label }}
         </h2>

@@ -20,7 +20,7 @@
           v-for="h in settings.searchHistory"
           :key="h"
           type="button"
-          class="rounded-full bg-surface px-3 py-1.5 text-label-lg text-on-surface"
+          class="glass-field rounded-full px-3 py-1.5 text-label-lg text-on-surface"
           @click="selectHistoryChip(h)"
         >
           {{ h }}
@@ -31,7 +31,7 @@
     <!-- Search field: frosted, same layer as the sort/genre controls -->
     <div class="content-col px-4 pb-2 pt-3">
       <div
-        class="flex h-11 items-center gap-2 rounded-full bg-surface/60 px-4 backdrop-blur-2xl focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
+        class="glass-field flex h-11 items-center gap-2 rounded-full px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
       >
         <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         <input
@@ -55,7 +55,7 @@
 
     <!-- Artist filter chip -->
     <div v-if="artistLabel" class="content-col px-4 pb-2 pt-2">
-      <div class="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-1.5">
+      <div class="glass-field inline-flex items-center gap-1 rounded-full px-2 py-1.5">
         <button
           type="button"
           class="flex items-center gap-2 rounded-full px-1 text-on-surface lg:hover:opacity-80"
@@ -91,7 +91,7 @@
         <Teleport to="body">
           <div
             v-if="sortMenuOpen"
-            class="fixed z-50 w-32 rounded-xl bg-surface-container py-1 shadow-xl"
+            class="glass-strong fixed z-50 w-32 rounded-xl py-1"
             :style="sortMenuPos"
           >
             <button
@@ -130,7 +130,7 @@
         <Teleport to="body">
           <div
             v-if="genreMenuOpen"
-            class="fixed z-50 max-h-72 w-48 overflow-y-auto rounded-xl bg-surface-container py-1 shadow-xl"
+            class="glass-strong fixed z-50 max-h-72 w-48 overflow-y-auto rounded-xl py-1"
             :style="genreMenuPos"
           >
             <button

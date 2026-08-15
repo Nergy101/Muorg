@@ -34,18 +34,12 @@
         </template>
       </div>
 
-      <!-- Top frosted scrim so the action buttons stay legible over artwork -->
-      <div
-        class="glass-scrim-top pointer-events-none absolute inset-x-0 top-0 h-[72px]"
-        aria-hidden="true"
-      />
-
       <!-- Actions: pin / edit / download / delete (download sits between edit and delete) -->
-      <div class="absolute right-0 top-0 flex items-center gap-0.5 p-1" @click.stop>
+      <div class="absolute right-0 top-0 flex items-center gap-1 p-1.5" @click.stop>
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-black/25"
-          :class="playlistStore.isPinned(playlist.id) ? 'fill-current text-primary' : 'text-white/90'"
+          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
+          :class="playlistStore.isPinned(playlist.id) ? 'fill-current text-primary' : ''"
           :aria-label="playlistStore.isPinned(playlist.id) ? 'Unpin playlist' : 'Pin playlist'"
           @click="playlistStore.togglePin(playlist.id)"
         >
@@ -53,7 +47,7 @@
         </button>
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-black/25 text-white/90"
+          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
           aria-label="Edit playlist"
           @click="emit('edit')"
         >
@@ -61,7 +55,7 @@
         </button>
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-black/25 text-white/90"
+          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
           aria-label="Export playlist as M3U"
           @click="downloadOpen = true"
         >
@@ -69,7 +63,7 @@
         </button>
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-black/25 text-white/90"
+          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
           aria-label="Delete playlist"
           @click="emit('delete')"
         >
@@ -85,8 +79,8 @@
 
       <!-- Title at the bottom of the glass; music icon + count on the right -->
       <div class="absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
-        <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-white">{{ playlist.name }}</p>
-        <span class="flex shrink-0 items-center gap-1 text-label-sm text-white/70">
+        <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
+        <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
           <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
           <MageIcon name="music" class="h-3.5 w-3.5" />
           <span class="tabular-nums">{{ playlist.track_count }}</span>

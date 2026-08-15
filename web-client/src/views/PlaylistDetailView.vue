@@ -33,11 +33,15 @@
           {{ playlist.icon ?? "🎵" }} {{ playlist.name }}
         </span>
 
+        <!-- Every button carries the divider and `first:border-l-0` drops it on
+             whichever one actually renders first — the leading buttons are all
+             conditional, so a fixed "no border on the first" markup would leave
+             a stray rule down the pill's left edge. -->
         <div class="glass ml-1 flex items-center overflow-hidden rounded-full">
           <button
             v-if="isSmart"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center text-white transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
             aria-label="Edit rules"
             @click="openSmartEditor"
           >
@@ -47,7 +51,7 @@
           <button
             v-if="isMix"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
             aria-label="Save mix as playlist"
             @click="saveMixOpen = true"
           >
@@ -60,7 +64,7 @@
           <button
             v-if="hasUnsavedOrder"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
             aria-label="Save order"
             @click="commitOrder"
           >
@@ -69,7 +73,7 @@
 
           <button
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
             aria-label="Change layout"
             @click="toggleViewStyle"
           >
@@ -88,7 +92,7 @@
         </button>
       </div>
 
-      <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
+      <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
         <div v-if="tracks.length === 0" class="content-col flex justify-center py-12">
           <p class="text-body-md text-on-surface-variant">No tracks in this playlist</p>
         </div>

@@ -22,7 +22,7 @@
     <div
       ref="scroller"
       class="content-col-children min-h-0 flex-1 overflow-y-auto"
-      :class="safeBottom ? 'pb-[max(env(safe-area-inset-bottom),1.5rem)]' : 'pb-6'"
+      :class="safeBottom ? 'pb-[max(env(safe-area-inset-bottom),1.5rem)]' : 'pb-[var(--bottom-inset)]'"
     >
       <template v-if="player.currentTrack">
         <div class="px-4 pb-1 pt-2 text-label-sm uppercase tracking-[0.8px] text-primary">

@@ -70,10 +70,10 @@
     <!-- Caption, vertically centred within the frosted panel -->
     <div class="absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
       <div class="min-w-0 flex-1">
-        <MarqueeText :text="item.album" class="text-label-lg font-semibold text-white" />
-        <div class="truncate text-label-sm text-white/75">{{ item.albumArtist }}</div>
+        <MarqueeText :text="item.album" class="text-label-lg font-semibold text-on-surface" />
+        <div class="truncate text-label-sm text-on-surface-variant">{{ item.albumArtist }}</div>
       </div>
-      <div class="flex shrink-0 items-center gap-1 text-white/75">
+      <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
         <MageIcon name="music" class="h-3 w-3" />
         <span class="text-label-sm tabular-nums">{{ item.trackCount }}</span>
       </div>

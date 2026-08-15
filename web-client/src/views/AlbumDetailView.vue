@@ -95,7 +95,7 @@
 
       <div class="content-col shrink-0 border-t border-outline/30" />
 
-      <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom,0px))]">
+      <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
         <TrackListRow
           v-for="track in tracks"
           :key="track.id"

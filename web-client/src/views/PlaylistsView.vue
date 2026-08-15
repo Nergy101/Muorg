@@ -4,7 +4,7 @@
       <div class="glass flex items-center overflow-hidden rounded-full">
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center text-white transition-colors lg:hover:bg-black/10"
+          class="flex h-9 w-9 items-center justify-center text-on-surface transition-colors lg:hover:bg-on-surface/10"
           aria-label="New playlist"
           @click="openCreate"
         >
@@ -12,7 +12,7 @@
         </button>
         <button
           type="button"
-          class="flex h-9 w-9 items-center justify-center border-l border-black/5 text-white transition-colors lg:hover:bg-black/10"
+          class="flex h-9 w-9 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors lg:hover:bg-on-surface/10"
           aria-label="New smart playlist"
           @click="openCreateSmart"
         >
@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <div v-if="playlistStore.loading" class="flex justify-center py-12">
         <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
       </div>

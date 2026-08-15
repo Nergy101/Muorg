@@ -92,6 +92,13 @@ html {
   --nav-parallax: 30%;
   /* Scrim laid over the outgoing view at full travel. */
   --nav-scrim: 0.28;
+  /* Height of the floating bottom island (mini player + library search + tab
+     row + safe area), measured at runtime by App.vue and mirrored here so every
+     scrolling view can pad past it. The island overlays the views — without
+     this the last row of content is unreachable behind the glass. The literal
+     below is only the first-paint estimate; App.vue overwrites it on mount and
+     on every resize. */
+  --bottom-inset: calc(5rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Honour the OS setting: keep the state change, drop the travel. */
@@ -347,30 +354,66 @@ body {
     inset 0 1px 0 0 color-mix(in srgb, white 18%, transparent);
 }
 
+/* Frosted input field. It sits INSIDE a glass panel (the bottom island), so it
+   cannot reuse `.glass`: surface-over-surface reads as a dark hole punched in
+   the bar rather than a raised pill. Tinting with `--on-surface` instead lifts
+   the field above its host in the dark themes and sinks it slightly in light —
+   a frosted pill either way. */
+.glass-field {
+  background: color-mix(in srgb, var(--on-surface) 10%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--on-surface) 18%, transparent);
+  box-shadow: inset 0 1px 0 0 color-mix(in srgb, white 12%, transparent);
+}
+
+/* Two frosted materials for controls that float over album artwork. Theme
+   tokens are the wrong basis for both — the backdrop is a photograph, not a
+   surface — so each fixes its own tint and its own content colour.
+
+   `.glass-frost` is the thick pane used where the artwork is unpredictable
+   (playlist card actions). Laying enough white over the cover guarantees the
+   pane is lighter than whatever is behind it, which is what lets it carry a
+   fixed dark glyph and stay readable over a black sleeve and a white one
+   alike — a thin white tint would only work over dark covers. */
+.glass-frost {
+  background: rgba(255, 255, 255, 0.58);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.45);
+  color: #1c1917;
+}
+
+/* `.glass-sheer` is the thin pane for controls sitting on the player's own
+   art-derived backdrop, which is always dimmed: white content is legible
+   there, so the glass only has to lift the control off the background. */
+.glass-sheer {
+  background: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 4px 14px -4px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
+}
+
 /* Frosted caption scrim for cards: a translucent, blurred panel along the
    bottom that keeps the label legible over any artwork — the glass-islands
    counterpart to the old dark gradient overlay. The top edge fades out (via a
    mask over the frosted fill + blur) so it dissolves into the artwork like the
-   old shadow gradient did, instead of ending in a hard line. */
+   old shadow gradient did, instead of ending in a hard line.
+
+   The surface has to dominate the mix: at a light tint the panel just inherits
+   the sleeve's brightness, and a white cover then leaves the theme's own
+   `on-surface` caption washed out on it in either theme. */
 .glass-scrim {
-  background: color-mix(in srgb, var(--surface) 42%, transparent);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
   backdrop-filter: blur(22px) saturate(180%);
   border-top: 1px solid color-mix(in srgb, var(--on-surface) 12%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 40%);
-}
-
-/* Top-edge mirror of .glass-scrim, for panels that carry action buttons over
-   artwork (e.g. the PlaylistCard's pin/edit/download/delete row). Solid at the
-   top edge, fading down; hairline on its bottom edge. */
-.glass-scrim-top {
-  background: color-mix(in srgb, var(--surface) 42%, transparent);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  backdrop-filter: blur(22px) saturate(180%);
-  border-bottom: 1px solid color-mix(in srgb, var(--on-surface) 12%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
 }
 
 /* Focus ring */

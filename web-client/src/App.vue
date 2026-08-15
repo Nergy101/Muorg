@@ -48,6 +48,7 @@
              its own bar at the bottom. -->
         <div
           v-if="showMiniPlayer || showBottomNav"
+          ref="mobileBarEl"
           class="glass-deep absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[600px] overflow-hidden rounded-t-3xl md:max-w-[900px] lg:hidden"
         >
           <MiniPlayer v-if="showMiniPlayer" />
@@ -55,6 +56,7 @@
                collapses on scroll-down like the tab row, leaving the mini
                player pinned. Only shown on the library route. -->
           <div
+            data-collapsible
             class="overflow-hidden transition-[max-height] duration-300 ease-out"
             :class="navHidden && route.name === 'library' ? 'max-h-0' : 'max-h-52'"
           >
@@ -63,6 +65,7 @@
           <!-- The tab row collapses away on scroll-down and returns on
                scroll-up, leaving the mini player pinned. -->
           <div
+            data-collapsible
             class="overflow-hidden transition-[max-height] duration-300 ease-out"
             :class="navHidden && showBottomNav ? 'max-h-0' : 'max-h-20'"
           >
@@ -76,6 +79,7 @@
              gets its own glass + positioning. -->
         <div
           v-if="showMiniPlayer || showLibrarySearch"
+          ref="desktopBarEl"
           class="glass-deep absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-none overflow-hidden rounded-2xl lg:block"
         >
           <LibrarySearchBar v-if="showLibrarySearch" />
@@ -103,6 +107,7 @@ import { useSwipeNavigate } from "./composables/useSwipeNavigate";
 import { useSwipeBack } from "./composables/useSwipeBack";
 import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
 import { useScrollNavHide } from "./composables/useScrollNavHide";
+import { useBottomInset } from "./composables/useBottomInset";
 import { navTransition } from "./composables/useNavTransition";
 import { NAV_TABS } from "./nav-tabs";
 import { loadPref, savePref } from "./stores/prefs";
@@ -142,6 +147,17 @@ const showBottomNav = computed(() => !BARELESS.includes(String(route.name)));
 // The library search/filter bar is part of the bottom shell — only on the
 // library route, where it replaces the old sticky top toolbar.
 const showLibrarySearch = computed(() => String(route.name) === "library");
+
+// The island overlays the routed views, so its measured height is published as
+// `--bottom-inset` and every scroller pads by it. Re-measured whenever the rows
+// it holds change.
+const mobileBarEl = ref<HTMLElement | null>(null);
+const desktopBarEl = ref<HTMLElement | null>(null);
+useBottomInset(mobileBarEl, desktopBarEl, () => [
+  showMiniPlayer.value,
+  showBottomNav.value,
+  showLibrarySearch.value,
+]);
 // Transition name comes from the router hook, which compares stack depth so a
 // forward move animates and a pop does not.
 

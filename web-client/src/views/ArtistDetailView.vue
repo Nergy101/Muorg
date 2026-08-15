@@ -29,7 +29,7 @@
     </template>
 
     <template v-else>
-      <div ref="scroller" class="content-col min-h-0 flex-1 overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom,0px))]">
+      <div ref="scroller" class="content-col min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
         <div v-if="albums.length > 0" class="flex items-center gap-1.5 pb-2 pt-2 text-label-lg font-semibold text-on-surface">
           <MageIcon name="compact-disk" class="h-4 w-4 text-primary" />
           Albums
