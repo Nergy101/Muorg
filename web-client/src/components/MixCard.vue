@@ -14,8 +14,8 @@
     <div
       class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
     >
-      <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center text-4xl">
-        {{ mix.emoji }}
+      <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center">
+        <MageIcon name="music" class="h-10 w-10 text-white/40" />
       </div>
       <img
         v-else-if="coverCount === 1"
@@ -37,21 +37,19 @@
         </template>
       </div>
 
-      <!-- Bottom frosted scrim so the emoji + title stay legible over artwork -->
+      <!-- Bottom frosted scrim so the title stays legible over artwork -->
       <div
-        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[44px]"
+        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[52px]"
         aria-hidden="true"
       />
 
-      <!-- Emoji + title, vertically centred within the frosted panel -->
-      <div class="absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-1.5 px-2.5">
-        <span class="text-lg leading-none drop-shadow">{{ mix.emoji }}</span>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-label-lg font-semibold text-white">{{ mix.name }}</p>
-          <p class="text-label-sm text-white/70">
-            {{ mix.trackIds.length }} {{ mix.trackIds.length === 1 ? "track" : "tracks" }}
-          </p>
-        </div>
+      <!-- Title at the bottom of the glass; music icon + count on the right -->
+      <div class="absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
+        <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-white">{{ mix.name }}</p>
+        <span class="flex shrink-0 items-center gap-1 text-label-sm text-white/70">
+          <MageIcon name="music" class="h-3.5 w-3.5" />
+          <span class="tabular-nums">{{ mix.trackIds.length }}</span>
+        </span>
       </div>
     </div>
   </div>
@@ -59,6 +57,7 @@
 
 <script setup lang="ts">
 import { computed, watch } from "vue";
+import MageIcon from "./MageIcon.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import type { Mix } from "../composables/useMixes";
 

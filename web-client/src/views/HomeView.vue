@@ -10,7 +10,7 @@
           </h2>
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
+            class="glass flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
             aria-label="New recommendations"
             @click="refreshRecommended"
           >
@@ -62,7 +62,7 @@
           </h2>
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
+            class="glass flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors lg:hover:bg-surface-container lg:hover:text-on-surface"
             aria-label="New mixes"
             @click="refreshMixes"
           >

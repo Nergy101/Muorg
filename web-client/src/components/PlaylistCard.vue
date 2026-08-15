@@ -77,22 +77,20 @@
         </button>
       </div>
 
-      <!-- Bottom frosted scrim so the emoji + title stay legible over artwork -->
+      <!-- Bottom frosted scrim so the title stays legible over artwork -->
       <div
-        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[76px]"
+        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[52px]"
         aria-hidden="true"
       />
 
-      <!-- Emoji + title + count at the bottom of the card -->
-      <div class="absolute inset-x-0 bottom-0 flex items-center gap-1.5 px-2.5 pb-2">
-        <span class="text-xl leading-none drop-shadow">{{ playlist.icon ?? "🎵" }}</span>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-label-lg font-semibold text-white">{{ playlist.name }}</p>
-          <p class="flex items-center gap-1 text-label-sm text-white/70">
-            <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
-            {{ trackCountText }}
-          </p>
-        </div>
+      <!-- Title at the bottom of the glass; music icon + count on the right -->
+      <div class="absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
+        <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-white">{{ playlist.name }}</p>
+        <span class="flex shrink-0 items-center gap-1 text-label-sm text-white/70">
+          <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
+          <MageIcon name="music" class="h-3.5 w-3.5" />
+          <span class="tabular-nums">{{ playlist.track_count }}</span>
+        </span>
       </div>
     </div>
 
@@ -166,15 +164,6 @@ const coverUrls = computed<(string | null)[]>(() => {
   return urls;
 });
 const coverCount = computed(() => coverUrls.value.length);
-
-const trackCountText = computed(() => {
-  const n = props.playlist.track_count;
-  return props.playlist.smart_rules
-    ? `Dynamic · ${n} ${n === 1 ? "track" : "tracks"}`
-    : n === 1
-      ? "1 track"
-      : `${n} tracks`;
-});
 
 // Lazy-load the playlist's track order + request covers only when visible.
 let observer: IntersectionObserver | null = null;
