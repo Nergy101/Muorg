@@ -61,7 +61,7 @@ pub fn spec() -> Value {
         "get": path("Server health check", &[], &[("2", "Healthy")], false, None)
     }));
     put("/stream/{id}", json!({
-        "get": path("Stream a track by id (public stream URL)", &[id.clone()], &[("2", "Audio bytes")], false, None)
+        "get": path("Stream a track by id (public stream URL)", std::slice::from_ref(&id), &[("2", "Audio bytes")], false, None)
     }));
 
     // Catalog
@@ -72,7 +72,7 @@ pub fn spec() -> Value {
         "get": path("Total track count", &[], &[("2", "Count")], true, None)
     }));
     put("/api/tracks/recently-added", json!({
-        "get": path("Recently added tracks", &[limit.clone()], &[("2", "Array of tracks")], true, None)
+        "get": path("Recently added tracks", std::slice::from_ref(&limit), &[("2", "Array of tracks")], true, None)
     }));
     put("/api/search", json!({
         "get": path("Search tracks", &[q.clone(), limit.clone()], &[("2", "Array of matching tracks")], true, None)
@@ -81,10 +81,10 @@ pub fn spec() -> Value {
         "get": path("Library statistics", &[], &[("2", "Stats object")], true, None)
     }));
     put("/api/play-history/recent", json!({
-        "get": path("Recently played tracks", &[limit.clone()], &[("2", "Array of tracks")], true, None)
+        "get": path("Recently played tracks", std::slice::from_ref(&limit), &[("2", "Array of tracks")], true, None)
     }));
     put("/api/play-history/top", json!({
-        "get": path("Most played tracks", &[limit.clone()], &[("2", "Array of tracks")], true, None)
+        "get": path("Most played tracks", std::slice::from_ref(&limit), &[("2", "Array of tracks")], true, None)
     }));
 
     // Per-track resources
@@ -92,20 +92,20 @@ pub fn spec() -> Value {
         "get": path("Album cover art", &[id.clone(), size.clone()], &[("2", "Image bytes")], true, None)
     }));
     put("/api/tracks/{id}/lyrics", json!({
-        "get": path("Embedded lyrics (sync_format: lrc|plain)", &[id.clone()], &[("2", "Lyrics object"), ("4", "No lyrics for this track")], true, None)
+        "get": path("Embedded lyrics (sync_format: lrc|plain)", std::slice::from_ref(&id), &[("2", "Lyrics object"), ("4", "No lyrics for this track")], true, None)
     }));
     put("/api/tracks/{id}/metadata", json!({
-        "get": path("Track metadata", &[id.clone()], &[("2", "Metadata object")], true, None),
-        "patch": path("Update track metadata", &[id.clone()], &[("2", "Updated metadata")], true, Some(json!({"type": "object"})))
+        "get": path("Track metadata", std::slice::from_ref(&id), &[("2", "Metadata object")], true, None),
+        "patch": path("Update track metadata", std::slice::from_ref(&id), &[("2", "Updated metadata")], true, Some(json!({"type": "object"})))
     }));
     put("/api/tracks/{id}/rating", json!({
-        "post": path("Set track rating", &[id.clone()], &[("2", "OK")], true, Some(json!({"type": "object"})))
+        "post": path("Set track rating", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "object"})))
     }));
     put("/api/tracks/{id}/play", json!({
-        "post": path("Record a play", &[id.clone()], &[("2", "OK")], true, None)
+        "post": path("Record a play", std::slice::from_ref(&id), &[("2", "OK")], true, None)
     }));
     put("/api/tracks/{id}/stream-token", json!({
-        "get": path("Issue a short-lived stream token", &[id.clone()], &[("2", "Token")], true, None)
+        "get": path("Issue a short-lived stream token", std::slice::from_ref(&id), &[("2", "Token")], true, None)
     }));
 
     // Playlists
@@ -114,19 +114,19 @@ pub fn spec() -> Value {
         "post": path("Create a playlist", &[], &[("2", "Created playlist")], true, Some(json!({"type": "object"})))
     }));
     put("/api/playlists/{id}", json!({
-        "patch": path("Rename a playlist", &[id.clone()], &[("2", "OK")], true, Some(json!({"type": "object"}))),
-        "delete": path("Delete a playlist", &[id.clone()], &[("2", "OK")], true, None)
+        "patch": path("Rename a playlist", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "object"}))),
+        "delete": path("Delete a playlist", std::slice::from_ref(&id), &[("2", "OK")], true, None)
     }));
     put("/api/playlists/{id}/tracks", json!({
-        "get": path("List playlist tracks", &[id.clone()], &[("2", "Array of tracks")], true, None),
-        "post": path("Add tracks to playlist", &[id.clone()], &[("2", "OK")], true, Some(json!({"type": "array", "items": {"type": "integer"}}))),
-        "delete": path("Remove tracks from playlist", &[id.clone()], &[("2", "OK")], true, Some(json!({"type": "array", "items": {"type": "integer"}})))
+        "get": path("List playlist tracks", std::slice::from_ref(&id), &[("2", "Array of tracks")], true, None),
+        "post": path("Add tracks to playlist", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "array", "items": {"type": "integer"}}))),
+        "delete": path("Remove tracks from playlist", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "array", "items": {"type": "integer"}})))
     }));
     put("/api/playlists/smart", json!({
         "post": path("Create a smart playlist", &[], &[("2", "Created playlist")], true, Some(json!({"type": "object"})))
     }));
     put("/api/playlists/smart/{id}/tracks", json!({
-        "get": path("Resolve smart playlist tracks", &[id.clone()], &[("2", "Array of tracks")], true, None)
+        "get": path("Resolve smart playlist tracks", std::slice::from_ref(&id), &[("2", "Array of tracks")], true, None)
     }));
 
     json!({
