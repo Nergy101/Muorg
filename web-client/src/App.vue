@@ -51,6 +51,15 @@
           class="glass-deep absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[600px] overflow-hidden rounded-t-3xl md:max-w-[900px] lg:hidden"
         >
           <MiniPlayer v-if="showMiniPlayer" />
+          <!-- The library search/filter bar lives below the mini player and
+               collapses on scroll-down like the tab row, leaving the mini
+               player pinned. Only shown on the library route. -->
+          <div
+            class="overflow-hidden transition-[max-height] duration-300 ease-out"
+            :class="navHidden && route.name === 'library' ? 'max-h-0' : 'max-h-52'"
+          >
+            <LibrarySearchBar v-if="showLibrarySearch" />
+          </div>
           <!-- The tab row collapses away on scroll-down and returns on
                scroll-up, leaving the mini player pinned. -->
           <div
@@ -62,13 +71,15 @@
           <div class="h-[max(env(safe-area-inset-bottom),0.75rem)] shrink-0" />
         </div>
 
-        <!-- Desktop-only floating frosted mini player bar (bottom nav hidden at
-             lg). Wrapped so it gets its own glass + positioning. -->
+        <!-- Desktop-only floating frosted bar (bottom nav hidden at lg): the
+             library search/filter sits above the mini player. Wrapped so it
+             gets its own glass + positioning. -->
         <div
-          v-if="showMiniPlayer"
+          v-if="showMiniPlayer || showLibrarySearch"
           class="glass-deep absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-none overflow-hidden rounded-2xl lg:block"
         >
-          <MiniPlayer />
+          <LibrarySearchBar v-if="showLibrarySearch" />
+          <MiniPlayer v-if="showMiniPlayer" />
         </div>
       </div>
     </div>
@@ -84,6 +95,7 @@ import UpdateBanner from "./components/UpdateBanner.vue";
 import BottomNav from "./components/BottomNav.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import MiniPlayer from "./components/MiniPlayer.vue";
+import LibrarySearchBar from "./components/LibrarySearchBar.vue";
 import Toast from "./components/Toast.vue";
 import { usePlayerStore } from "./stores/player";
 import { useSettingsStore } from "./stores/settings";
@@ -127,6 +139,9 @@ const showMiniPlayer = computed(
 // it is pushed from the maximized player, which has no bars either, so it stays
 // full-bleed.
 const showBottomNav = computed(() => !BARELESS.includes(String(route.name)));
+// The library search/filter bar is part of the bottom shell — only on the
+// library route, where it replaces the old sticky top toolbar.
+const showLibrarySearch = computed(() => String(route.name) === "library");
 // Transition name comes from the router hook, which compares stack depth so a
 // forward move animates and a pop does not.
 
