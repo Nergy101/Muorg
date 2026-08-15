@@ -34,6 +34,16 @@
           </span>
         </button>
 
+        <button
+          v-if="canMoveToUserQueue"
+          type="button"
+          :class="ROW"
+          @click="onMoveToUserQueue"
+        >
+          <MageIcon name="stack" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <span>Add to queue</span>
+        </button>
+
         <button type="button" :class="ROW" @click="openPlaylists">
           <MageIcon name="playlist-add" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Add to playlist</span>
@@ -245,6 +255,9 @@ const props = defineProps<{
   open: boolean;
   track: CatalogTrack | null;
   canRemoveFromQueue?: boolean;
+  /** Show the "Add to queue" (move to user queue) action below Favorite. Used
+   *  on the queue screen for system "Up next" tracks. */
+  canMoveToUserQueue?: boolean;
   /** Which level to open on. Lets a caller jump straight to the playlist picker. */
   initialLevel?: "main" | "playlists";
 }>();
@@ -306,6 +319,14 @@ function onAddToQueue(): void {
   const t = props.track;
   if (!t) return;
   player.addToQueue(t);
+  emit("close");
+}
+
+/** Moves a system "Up next" track into "Your queue" (removes it from Up next). */
+function onMoveToUserQueue(): void {
+  const t = props.track;
+  if (!t) return;
+  player.moveToUserQueue(t);
   emit("close");
 }
 

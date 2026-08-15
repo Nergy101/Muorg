@@ -591,6 +591,36 @@ export const usePlayerStore = defineStore("player", () => {
     addTracksToQueue([track]);
   }
 
+  /** Moves a track from the system "Up next" remainder into the user queue
+   *  ("Your queue"), removing it from the system queue so it isn't played twice.
+   *  Used by the queue screen's "Add to queue" action and the Up next → Your
+   *  queue drag. No-op if the track is already in the user queue. */
+  function moveToUserQueue(track: CatalogTrack): void {
+    if (userQueue.value.some((t) => t.id === track.id)) return;
+    const i = queue.value.findIndex((t) => t.id === track.id);
+    if (i >= 0) {
+      const wasCurrent = i === currentIndex.value;
+      const orderPos = playOrder.value.indexOf(i);
+      const nextQueue = [...queue.value];
+      nextQueue.splice(i, 1);
+      const nextOrder = playOrder.value.filter((x) => x !== i).map((x) => (x > i ? x - 1 : x));
+      let nextPos = playOrderPos.value;
+      if (orderPos >= 0 && orderPos < playOrderPos.value) nextPos--;
+      queue.value = nextQueue;
+      playOrder.value = nextOrder;
+      playOrderPos.value = Math.min(nextPos, nextOrder.length - 1);
+      if (wasCurrent && userQueuePos.value < 0) {
+        if (currentTrack.value) void playCurrent(0);
+      }
+    }
+    userQueue.value = [...userQueue.value, track];
+    if (currentTrack.value == null) {
+      userQueuePos.value = 0;
+      void playCurrent(0);
+    }
+    showToast("Moved to your queue");
+  }
+
   /** Inserts a track at the top of the user queue — it plays immediately after
    *  the current one, ahead of anything else queued. */
   function playNext(track: CatalogTrack): void {
@@ -1023,6 +1053,7 @@ export const usePlayerStore = defineStore("player", () => {
     addTracksToQueue,
     playNext,
     removeFromQueue,
+    moveToUserQueue,
     clearQueue,
     reorderQueue,
     reorderUserQueue,

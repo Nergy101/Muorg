@@ -10,7 +10,9 @@ export interface DragReorderOptions {
   itemCount: () => number;
   /** Uniform row height in px. */
   rowHeight: number;
-  onCommit: (from: number, to: number) => void;
+  /** `from`/`to` are positions within the list; `offsetY` is the final pointer
+   *  delta (px) at release, so callers can detect cross-list drop zones. */
+  onCommit: (from: number, to: number, offsetY?: number) => void;
   /** true = press and drag straight away; false = long-press to arm first. */
   immediate?: boolean;
 }
@@ -59,8 +61,13 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
     if (e.pointerId !== pointerId) return;
     const from = draggingIndex.value;
     const to = dropIndex.value;
+    const finalOffset = offsetY.value;
     cleanup();
-    if (from !== null && to !== null && from !== to) opts.onCommit(from, to);
+    // Always report the drop (even when from === to) so callers can detect
+    // cross-list drops like Up next → Your queue, where the dragged row is
+    // already at the edge of its own list and dropIndex clamps to it. Within-list
+    // reorder handlers no-op on from === to themselves.
+    if (from !== null && to !== null) opts.onCommit(from, to, finalOffset);
   }
 
   function cleanup(): void {

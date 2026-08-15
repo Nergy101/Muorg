@@ -53,13 +53,18 @@
         </div>
       </template>
 
-      <template v-if="userUpNext.length > 0">
+      <div
+        ref="yourQueueSection"
+        data-your-queue
+        class="rounded-xl"
+        :class="overYourQueue ? 'bg-primary/[0.12] ring-1 ring-primary/40' : ''"
+      >
         <div class="flex items-center justify-between px-4 pb-1 pt-4">
           <span class="text-label-sm uppercase tracking-[0.8px] text-primary">
             Your queue · {{ userUpNext.length }}
           </span>
         </div>
-        <div>
+        <div v-if="userUpNext.length > 0">
           <QueueRow
             v-for="(entry, i) in userUpNext"
             :key="`user-${entry.track.id}`"
@@ -73,7 +78,7 @@
             @drag-start="userDrag.start(i, $event)"
           />
         </div>
-      </template>
+      </div>
 
       <template v-if="systemUpNext.length > 0 || player.upNext.length === 0">
         <div class="flex items-center justify-between px-4 pb-1 pt-4">
@@ -109,7 +114,7 @@
             @play="player.skipTo(entry.track)"
             @remove="player.removeFromQueue(entry.track)"
             @actions="sheetTrack = entry.track"
-            @drag-start="drag.start(i, $event)"
+            @drag-start="onSystemDragStart(i, $event)"
           />
         </div>
       </template>
@@ -119,6 +124,7 @@
       :open="sheetTrack !== null"
       :track="sheetTrack"
       :can-remove-from-queue="true"
+      :can-move-to-user-queue="sheetIsSystemUpNext"
       @close="sheetTrack = null"
       @view-artist="onViewArtist"
       @view-album="onViewAlbum"
@@ -191,15 +197,43 @@ const drag = useDragReorder({
   itemCount: () => systemUpNext.value.length,
   rowHeight: REORDER_ROW_HEIGHT,
   immediate: true,
-  onCommit: (fromRow, toRow) => {
+  onCommit: (fromRow, toRow, offsetY) => {
     // useDragReorder reports positions within the rendered up-next list;
     // reorderQueue expects positions within playOrder.
     const rows = systemUpNext.value;
     const from = rows[fromRow]?.orderPos;
     const to = rows[toRow]?.orderPos;
     if (from == null || to == null) return;
+    // Cross-list drop: the dragged Up-next row ended up above the "Your queue"
+    // section's bottom edge → move the track into the user queue instead of
+    // reordering within Up next.
+    if (offsetY !== undefined && sysDragRowStartTop + offsetY < sysSectionBottom) {
+      const track = rows[fromRow]?.track;
+      if (track) player.moveToUserQueue(track);
+      return;
+    }
     player.reorderQueue(from, to);
   },
+});
+
+const yourQueueSection = ref<HTMLElement | null>(null);
+/** Dragged Up-next row's top edge and the "Your queue" section's bottom edge,
+ *  captured at drag start (both are stable during a single-list drag). */
+let sysDragRowStartTop = 0;
+let sysSectionBottom = 0;
+
+function onSystemDragStart(i: number, e: PointerEvent): void {
+  const row = (e.target as HTMLElement).closest("[data-queue-row]");
+  sysDragRowStartTop = row ? row.getBoundingClientRect().top : 0;
+  sysSectionBottom = yourQueueSection.value?.getBoundingClientRect().bottom ?? 0;
+  drag.start(i, e);
+}
+
+/** True while an Up-next drag hovers over the "Your queue" section — used to
+ *  highlight it as a valid cross-list drop target. */
+const overYourQueue = computed(() => {
+  if (drag.draggingIndex.value === null) return false;
+  return sysDragRowStartTop + drag.offsetY.value < sysSectionBottom;
 });
 
 function rowClassFor(d: ReturnType<typeof useDragReorder>, i: number): string {
@@ -223,6 +257,12 @@ function rowStyleFor(d: ReturnType<typeof useDragReorder>, i: number): Record<st
 // --- Track actions sheet ---------------------------------------------------
 
 const sheetTrack = ref<CatalogTrack | null>(null);
+
+/** Whether the sheet's track is a system "Up next" entry — only those get the
+ *  "Add to queue" action, since user-queue tracks are already in "Your queue". */
+const sheetIsSystemUpNext = computed(
+  () => !!sheetTrack.value && systemUpNext.value.some((e) => e.track.id === sheetTrack.value!.id),
+);
 
 function onRemoveFromQueue(): void {
   const t = sheetTrack.value;

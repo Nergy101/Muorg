@@ -385,6 +385,7 @@ const drag = useDragReorder({
   rowHeight: REORDER_ROW_HEIGHT,
   immediate: false,
   onCommit: (from, to) => {
+    if (from === to) return;
     const ids = [...reorderedIds.value];
     const [moved] = ids.splice(from, 1);
     ids.splice(to, 0, moved);

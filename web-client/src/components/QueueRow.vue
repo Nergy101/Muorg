@@ -1,5 +1,5 @@
 <template>
-  <div class="relative h-14 overflow-hidden">
+  <div class="relative h-14 overflow-hidden" data-queue-row>
     <!-- Swipe-to-remove backdrop -->
     <div
       v-if="swipe.offsetX.value < 0"
