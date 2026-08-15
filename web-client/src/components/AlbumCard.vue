@@ -68,7 +68,7 @@
     />
 
     <!-- Caption, vertically centred within the frosted panel -->
-    <div class="absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
+    <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
       <div class="min-w-0 flex-1">
         <MarqueeText :text="item.album" class="text-label-lg font-semibold text-on-surface" />
         <div class="truncate text-label-sm text-on-surface-variant">{{ item.albumArtist }}</div>

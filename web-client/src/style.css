@@ -404,16 +404,37 @@ body {
    mask over the frosted fill + blur) so it dissolves into the artwork like the
    old shadow gradient did, instead of ending in a hard line.
 
-   The surface has to dominate the mix: at a light tint the panel just inherits
-   the sleeve's brightness, and a white cover then leaves the theme's own
-   `on-surface` caption washed out on it in either theme. */
+   Legibility is deliberately NOT bought with flat opacity. A uniform tint
+   strong enough to beat a white sleeve turns the bottom of every card into a
+   near-solid bar. Instead the fill RAMPS: near-clear where it meets the
+   artwork, densest in the last few px where the caption actually sits. The
+   band therefore reads as sheer — you can see the cover through most of it —
+   while the text still has a surface behind it. The mask fades the blur in
+   over the same span so the panel dissolves into the sleeve, and
+   `.scrim-label` adds a halo for the busiest covers. */
 .glass-scrim {
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  backdrop-filter: blur(22px) saturate(180%);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--surface) 8%, transparent) 0%,
+    color-mix(in srgb, var(--surface) 55%, transparent) 50%,
+    color-mix(in srgb, var(--surface) 78%, transparent) 100%
+  );
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  backdrop-filter: blur(26px) saturate(160%);
   border-top: 1px solid color-mix(in srgb, var(--on-surface) 12%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 40%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
+}
+
+/* Captions sitting on `.glass-scrim`. The halo is drawn in `--surface`, which
+   is by definition the backdrop colour for `--on-surface` text, so it darkens
+   behind light text in the dark themes and lightens behind dark text in the
+   light one — one rule, correct in all three. Two stacked shadows: a tight one
+   for edge definition and a wide soft one to knock back busy artwork. */
+.scrim-label {
+  text-shadow:
+    0 1px 2px color-mix(in srgb, var(--surface) 90%, transparent),
+    0 0 12px color-mix(in srgb, var(--surface) 75%, transparent);
 }
 
 /* Focus ring */

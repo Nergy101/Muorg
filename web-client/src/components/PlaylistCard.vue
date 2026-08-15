@@ -78,7 +78,7 @@
       />
 
       <!-- Title at the bottom of the glass; music icon + count on the right -->
-      <div class="absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
+      <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
         <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
         <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
           <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
