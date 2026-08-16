@@ -75,6 +75,8 @@ import coil.request.ImageRequest
 import coil.request.SuccessResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlurEffect
@@ -94,6 +96,14 @@ import coil.compose.AsyncImage
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.rememberDominantColor
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.shadow
+import nl.muorg.android.ui.glass.glassSheer
+import nl.muorg.android.ui.theme.MuorgShapes
 import nl.muorg.android.ui.player.PlayerViewModel
 
 
@@ -196,350 +206,385 @@ fun PlayerScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Color.Black,
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+    ) {
+        // ── Backdrop ──────────────────────────────────────────────────────
+        if (displayedCoverUrl != null) {
+            Crossfade(targetState = dominantColor.isBland, label = "bgMode") { isBland ->
+                if (isBland) {
+                    // Bland / white / black cover: a blown-up blur of the sleeve
+                    // is the only thing left to pull colour from.
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        AsyncImage(
+                            model = displayedCoverUrl,
+                            contentDescription = null,
+                            imageLoader = imageLoader,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .aspectRatio(1f)
+                                .graphicsLayer {
+                                    renderEffect = BlurEffect(72f, 72f, TileMode.Clamp)
+                                    scaleX = 1.9f
+                                    scaleY = 1.9f
+                                    alpha = 0.55f
+                                },
+                        )
+                    }
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.70f)))
+                } else {
+                    // The web paints soft radial blobs of the cover's dominant
+                    // colour over near-black, rather than a flat wash — it keeps
+                    // the backdrop from reading as a solid colour card.
+                    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0B0A0A)))
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(
+                            Brush.radialGradient(
+                                colors = listOf(accentColor.copy(alpha = 0.55f), Color.Transparent),
+                                center = Offset(280f, 700f),
+                                radius = 1400f,
+                            )
+                        )
+                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(
+                            Brush.radialGradient(
+                                colors = listOf(accentColor.copy(alpha = 0.38f), Color.Transparent),
+                                center = Offset(900f, 1900f),
+                                radius = 1200f,
+                            )
+                        )
+                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                0.0f to Color.Black.copy(alpha = 0.35f),
+                                0.5f to Color.Transparent,
+                                1.0f to Color.Black.copy(alpha = 0.55f),
+                            )
+                        )
+                    )
+                }
+            }
+        }
+
+        // ── Content ───────────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        ) {
+            // Top row: a bare dismiss chevron on the left, and every secondary
+            // control gathered into ONE sheer glass pill on the right — the web
+            // groups them, it does not scatter round buttons across the bar.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(start = 6.dp, end = 16.dp, top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.Filled.KeyboardArrowDown,
+                        painter = painterResource(mageIconRes("chevron-down")),
                         contentDescription = "Minimize",
                         tint = Color.White,
                         modifier = Modifier.size(26.dp),
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = {
-                    if (sleepTimerActive) showSleepTimerDialog = true
-                    else showSleepTimerPicker = true
-                }) {
-                    Icon(
-                        Icons.Filled.Snooze,
-                        contentDescription = if (sleepTimerActive) "Sleep timer active" else "Set sleep timer",
-                        tint = if (sleepTimerActive) Color.White else Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                IconButton(onClick = {
-                    val themedContext = ContextThemeWrapper(context, AppCompatR.style.Theme_AppCompat_DayNight_Dialog)
-                    if (isCasting) {
-                        MediaRouteControllerDialog(themedContext).show()
-                    } else if (ContextCompat.checkSelfPermission(context, castPermission) == PackageManager.PERMISSION_GRANTED) {
-                        MediaRouteChooserDialog(themedContext).apply { routeSelector = castSelector }.show()
-                    } else {
-                        castPermissionLauncher.launch(castPermission)
+                Row(
+                    modifier = Modifier.glassSheer(MuorgShapes.pill).height(40.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (sleepTimerActive) showSleepTimerDialog = true
+                            else showSleepTimerPicker = true
+                        },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(mageIconRes("clock")),
+                            contentDescription = if (sleepTimerActive) "Sleep timer active" else "Set sleep timer",
+                            tint = if (sleepTimerActive) Color.White else Color.White.copy(alpha = 0.55f),
+                            modifier = Modifier.size(19.dp),
+                        )
                     }
-                }) {
-                    Icon(
-                        if (isCasting) Icons.Filled.CastConnected else Icons.Filled.Cast,
-                        contentDescription = if (isCasting) "Casting" else "Cast",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                IconButton(onClick = onOpenQueue) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.QueueMusic,
-                        contentDescription = "Open queue",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                IconButton(onClick = { sheetOpen = true }) {
-                    Icon(
-                        Icons.Filled.MoreVert,
-                        contentDescription = "More",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-        }
-    ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            // ── Background ────────────────────────────────────────────────────
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black))
-
-            if (displayedCoverUrl != null) {
-                Crossfade(targetState = dominantColor.isBland, label = "bgMode") { isBland ->
-                    if (isBland) {
-                        // Bland / white / black cover: fall back to blurred scaled image
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            AsyncImage(
-                                model = displayedCoverUrl,
-                                contentDescription = null,
-                                imageLoader = imageLoader,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .aspectRatio(1f)
-                                    .graphicsLayer {
-                                        renderEffect = BlurEffect(72f, 72f, TileMode.Clamp)
-                                        scaleX = 1.7f
-                                        scaleY = 1.7f
-                                        alpha = 0.65f
-                                    },
-                            )
-                        }
-                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)))
-                    } else {
-                        // Vibrant cover: solid dominant color + dark gradient toward bottom
-                        Box(modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.90f)))
-                        Box(
-                            modifier = Modifier.fillMaxSize().background(
-                                Brush.verticalGradient(
-                                    0.0f to Color.Transparent,
-                                    0.7f to Color.Black.copy(alpha = 0.15f),
-                                    1.0f to Color.Black.copy(alpha = 0.50f),
-                                )
-                            )
+                    VerticalHairline()
+                    IconButton(
+                        onClick = {
+                            val themedContext = ContextThemeWrapper(context, AppCompatR.style.Theme_AppCompat_DayNight_Dialog)
+                            if (isCasting) {
+                                MediaRouteControllerDialog(themedContext).show()
+                            } else if (ContextCompat.checkSelfPermission(context, castPermission) == PackageManager.PERMISSION_GRANTED) {
+                                MediaRouteChooserDialog(themedContext).apply { routeSelector = castSelector }.show()
+                            } else {
+                                castPermissionLauncher.launch(castPermission)
+                            }
+                        },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(mageIconRes("server")),
+                            contentDescription = if (isCasting) "Casting" else "Cast",
+                            tint = if (isCasting) MaterialTheme.colorScheme.primary else Color.White,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                    VerticalHairline()
+                    IconButton(onClick = { sheetOpen = true }, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            painter = painterResource(mageIconRes("dots")),
+                            contentDescription = "More",
+                            tint = Color.White,
+                            modifier = Modifier.size(19.dp),
                         )
                     }
                 }
             }
 
-            // ── Content ───────────────────────────────────────────────────────
-            val controlColor = if (dominantColor.isBland) Color.White else accentColor
+            Spacer(modifier = Modifier.weight(1.0f))
 
-            Column(
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .align(Alignment.CenterHorizontally)
+                    .fillMaxWidth(0.76f)
+                    .aspectRatio(1f)
+                    .shadow(
+                        elevation = 30.dp,
+                        shape = MuorgShapes.art,
+                        clip = false,
+                        ambientColor = Color.Black,
+                        spotColor = Color.Black,
+                    )
+                    .clip(MuorgShapes.art)
+                    .background(Color.Black.copy(alpha = 0.35f)),
+                contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.72f)
-                            .aspectRatio(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        controlColor.copy(alpha = 0.45f),
-                                        Color.Transparent,
-                                    ),
-                                    center = Offset(size.width / 2f, size.height / 2f),
-                                    radius = size.width * 0.72f,
-                                ),
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(16.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Album,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.3f),
-                                modifier = Modifier.fillMaxSize().padding(48.dp),
-                            )
-                            if (displayedCoverUrl != null) {
-                                AsyncImage(
-                                    model = displayedCoverUrl,
-                                    contentDescription = "Album cover",
-                                    imageLoader = imageLoader,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                        }
-                    }
+                Icon(
+                    painter = painterResource(mageIconRes("compact-disk")),
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxSize().padding(64.dp),
+                )
+                if (displayedCoverUrl != null) {
+                    AsyncImage(
+                        model = displayedCoverUrl,
+                        contentDescription = "Album cover",
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.weight(1.3f))
 
+            // Metadata is LEFT aligned with the secondary actions on the same
+            // row — the web never centres the title under the artwork.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     MarqueeText(
                         text = currentTrack?.displayTitle ?: "Nothing playing",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = Color.White,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
                     )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
                     MarqueeText(
                         text = currentTrack?.displayArtist ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.75f),
-                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.80f),
                     )
-
                     MarqueeText(
                         text = currentTrack?.displayAlbum ?: "",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.55f),
-                        textAlign = TextAlign.Center,
                     )
                 }
-
-                Column(
-                    modifier = Modifier.padding(bottom = 20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Slider(
-                        value = displayProgress,
-                        onValueChange = { value ->
-                            isSeeking = true
-                            seekPosition = value
-                        },
-                        onValueChangeFinished = {
-                            playerViewModel.seekTo(seekPosition)
-                            isSeeking = false
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = controlColor,
-                            activeTrackColor = controlColor,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.25f),
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(onClick = onOpenQueue, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        painter = painterResource(mageIconRes("stack")),
+                        contentDescription = "Open queue",
+                        tint = Color.White,
+                        modifier = Modifier.size(21.dp),
                     )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = formatMs(playerState.positionMs),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.6f),
-                        )
-                        val displayDurationMs = if (playerState.durationMs > 0) playerState.durationMs
-                            else ((currentTrack?.durationSecs ?: 0.0) * 1000).toLong()
-                        Text(
-                            text = if (displayDurationMs > 0) formatMs(displayDurationMs) else "–:--",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.6f),
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(onClick = playerViewModel::toggleShuffle) {
-                            Icon(
-                                imageVector = Icons.Filled.Shuffle,
-                                contentDescription = "Shuffle",
-                                tint = if (playerState.shuffleEnabled) controlColor
-                                       else Color.White.copy(alpha = 0.5f),
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
-
-                        IconButton(
-                            onClick = playerViewModel::skipPrevious,
-                            modifier = Modifier.size(56.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.SkipPrevious,
-                                contentDescription = "Previous",
-                                tint = Color.White,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-
-                        IconButton(
-                            onClick = playerViewModel::playPause,
-                            modifier = Modifier.size(72.dp),
-                        ) {
-                            Icon(
-                                imageVector = if (playerState.isPlaying) Icons.Filled.Pause
-                                             else Icons.Filled.PlayArrow,
-                                contentDescription = if (playerState.isPlaying) "Pause" else "Play",
-                                tint = controlColor,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-
-                        IconButton(
-                            onClick = playerViewModel::skipNext,
-                            modifier = Modifier.size(56.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.SkipNext,
-                                contentDescription = "Next",
-                                tint = Color.White,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-
-                        IconButton(onClick = playerViewModel::cycleRepeatMode) {
-                            Icon(
-                                imageVector = if (playerState.repeatMode == Player.REPEAT_MODE_ONE)
-                                    Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                                contentDescription = "Repeat",
-                                tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF)
-                                    controlColor
-                                else Color.White.copy(alpha = 0.5f),
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Filled.VolumeDown,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp),
-                        )
-                        val displayVolume = if (isCasting) (castVolume ?: 0f) else localVolume
-                        Slider(
-                            value = displayVolume,
-                            onValueChange = { newVol ->
-                                if (isCasting) {
-                                    playerViewModel.setCastVolume(newVol)
-                                } else {
-                                    localVolume = newVol
-                                    audioManager.setStreamVolume(
-                                        AudioManager.STREAM_MUSIC,
-                                        (newVol * maxVolume).toInt(),
-                                        0,
-                                    )
-                                }
-                            },
-                            valueRange = 0f..1f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = controlColor.copy(alpha = 0.7f),
-                                activeTrackColor = controlColor.copy(alpha = 0.7f),
-                                inactiveTrackColor = Color.White.copy(alpha = 0.2f),
-                            ),
-                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                        )
-                        Icon(
-                            Icons.Filled.VolumeUp,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                }
+                IconButton(onClick = { sheetOpen = true }, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        painter = painterResource(mageIconRes("playlist-add")),
+                        contentDescription = "Add to playlist",
+                        tint = Color.White,
+                        modifier = Modifier.size(21.dp),
+                    )
+                }
+                IconButton(
+                    onClick = { currentTrack?.let(playerViewModel::toggleFavorite) },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
+                    Icon(
+                        painter = painterResource(mageIconRes("heart")),
+                        contentDescription = "Favourite",
+                        tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White,
+                        modifier = Modifier.size(21.dp),
+                    )
                 }
             }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Material's default slider is a fat pill with a gap either side of
+            // the thumb; the web's is a 3px hairline with a small round knob, and
+            // that difference is the loudest thing on the screen. Both slots are
+            // replaced rather than recoloured.
+            val primary = MaterialTheme.colorScheme.primary
+            Slider(
+                value = displayProgress,
+                onValueChange = { value ->
+                    isSeeking = true
+                    seekPosition = value
+                },
+                onValueChangeFinished = {
+                    playerViewModel.seekTo(seekPosition)
+                    isSeeking = false
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(16.dp),
+                thumb = {
+                    Box(
+                        modifier = Modifier
+                            .size(13.dp)
+                            .clip(CircleShape)
+                            .background(primary),
+                    )
+                },
+                track = { state ->
+                    val fraction = state.value.coerceIn(0f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.22f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction)
+                                .fillMaxHeight()
+                                .clip(CircleShape)
+                                .background(primary),
+                        )
+                    }
+                },
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                val displayDurationMs = if (playerState.durationMs > 0) playerState.durationMs
+                    else ((currentTrack?.durationSecs ?: 0.0) * 1000).toLong()
+                Text(
+                    text = formatMs(playerState.positionMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.70f),
+                )
+                // The web counts DOWN on the right, it does not repeat the length.
+                Text(
+                    text = if (displayDurationMs > 0)
+                        "-" + formatMs((displayDurationMs - playerState.positionMs).coerceAtLeast(0))
+                    else "–:--",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.70f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = playerViewModel::toggleShuffle, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        painter = painterResource(mageIconRes("exchange")),
+                        contentDescription = "Shuffle",
+                        tint = if (playerState.shuffleEnabled) MaterialTheme.colorScheme.primary
+                               else Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                IconButton(onClick = playerViewModel::skipPrevious, modifier = Modifier.size(56.dp)) {
+                    Icon(
+                        painter = painterResource(mageIconRes("previous")),
+                        contentDescription = "Previous",
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(onClick = playerViewModel::playPause),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(mageIconRes(if (playerState.isPlaying) "pause" else "play")),
+                        contentDescription = if (playerState.isPlaying) "Pause" else "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+                IconButton(onClick = playerViewModel::skipNext, modifier = Modifier.size(56.dp)) {
+                    Icon(
+                        painter = painterResource(mageIconRes("next")),
+                        contentDescription = "Next",
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+                IconButton(onClick = playerViewModel::cycleRepeatMode, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        painter = painterResource(mageIconRes("reload")),
+                        contentDescription = "Repeat",
+                        tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF)
+                            MaterialTheme.colorScheme.primary else Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+
+            // Only while casting: the phone's own volume keys cover local
+            // playback, and the web player has no volume row at all.
+            if (isCasting) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Slider(
+                        value = castVolume ?: 0f,
+                        onValueChange = { playerViewModel.setCastVolume(it) },
+                        valueRange = 0f..1f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.White.copy(alpha = 0.8f),
+                            activeTrackColor = Color.White.copy(alpha = 0.6f),
+                            inactiveTrackColor = Color.White.copy(alpha = 0.2f),
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
         }
     }
 
@@ -642,4 +687,15 @@ private fun formatMs(ms: Long): String {
     val minutes = totalSecs / 60
     val seconds = totalSecs % 60
     return "%d:%02d".format(minutes, seconds)
+}
+
+/** The 1px divider between the buttons inside the player's glass pill. */
+@Composable
+private fun VerticalHairline() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(20.dp)
+            .background(Color.White.copy(alpha = 0.22f)),
+    )
 }

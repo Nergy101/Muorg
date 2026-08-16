@@ -2,9 +2,6 @@ package nl.muorg.android.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -15,14 +12,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -41,13 +36,8 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,7 +50,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -78,7 +67,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import nl.muorg.android.data.preferences.AppPreferences
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Color
+import nl.muorg.android.ui.component.BottomIsland
+import nl.muorg.android.ui.component.rememberDominantColor
+import nl.muorg.android.ui.component.IslandTab
+import nl.muorg.android.ui.component.LibraryChromeHost
+import nl.muorg.android.ui.component.LocalBottomInset
+import nl.muorg.android.ui.component.LocalLibraryChromeHost
+import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
+import nl.muorg.android.ui.screen.home.HomeScreen
 import nl.muorg.android.ui.theme.MuorgTheme
 import nl.muorg.android.ui.screen.album.AlbumDetailScreen
 import nl.muorg.android.ui.screen.connect.ConnectScreen
@@ -92,6 +93,7 @@ import javax.inject.Inject
 
 sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
+    object Home : Screen("home")
     object Connect : Screen("connect")
     object Library : Screen("library?artistFilter={artistFilter}") {
         fun createRoute(artistFilter: String? = null) =
@@ -112,12 +114,28 @@ sealed class Screen(val route: String) {
     }
 }
 
-private val bottomNavItems = listOf(
-    Triple(Screen.Library, Icons.Filled.Home, "Library"),
-    Triple(Screen.Playlists, Icons.AutoMirrored.Filled.PlaylistPlay, "Playlists"),
-    Triple(Screen.Queue, Icons.AutoMirrored.Filled.QueueMusic, "Queue"),
-    Triple(Screen.Settings, Icons.Filled.Settings, "Settings"),
+/**
+ * The web's `nav-tabs.ts`, verbatim — home, library, playlists, settings, with
+ * the filled Mage variant standing in for the active state. Queue is
+ * deliberately absent: it is reached from the mini player, not as a tab.
+ */
+private val islandTabs = listOf(
+    Screen.Home to IslandTab("home-2", "home-2-fill", "Home"),
+    Screen.Library to IslandTab("compact-disk", "compact-disk-fill", "Library"),
+    Screen.Playlists to IslandTab("dashboard", "dashboard-fill", "Playlists"),
+    Screen.Settings to IslandTab("settings", "settings-fill", "Settings"),
 )
+
+/** Which tab owns a route; detail screens keep their parent tab lit. */
+private fun tabIndexForRoute(route: String?): Int = when {
+    route == null -> 0
+    route.startsWith("album") -> 1
+    route.startsWith("library") -> 1
+    route.startsWith("playlist") -> 2
+    route == Screen.Settings.route -> 3
+    route == Screen.Home.route -> 0
+    else -> -1
+}
 
 @HiltViewModel
 class NavViewModel @Inject constructor(
@@ -196,37 +214,39 @@ fun NavGraph() {
         if (playerBarTapOpensPlayer) ({ navController.navigate(Screen.Player.route) })
         else ({ playerViewModel.playPause() })
 
+    val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
+    val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
+    var miniPlayerSheet by remember { mutableStateOf(false) }
+
+    // The island's colour wash comes from the playing artwork — the same thing
+    // the web's saturated backdrop blur ends up showing.
+    val bloomTrack = playerState.currentTrack
+    val bloomModel: Any? = when {
+        bloomTrack?.localCoverPath != null -> java.io.File(bloomTrack.localCoverPath!!)
+        bloomTrack?.hasCover == true -> "$baseUrl/api/tracks/${bloomTrack.id}/cover"
+        else -> null
+    }
+    val islandBloom = rememberDominantColor(
+        url = bloomModel,
+        imageLoader = imageLoader,
+        fallback = Color.Transparent,
+    ).color
+
     MuorgTheme(themeMode = themeMode, useTrueBlack = useTrueBlack, useMaterialYou = materialYou) {
-    Scaffold(
-        bottomBar = {
-            AnimatedVisibility(
-                visible = showBottomBar,
-                enter = EnterTransition.None,
-                exit = fadeOut(tween(200)),
-            ) {
-                AnimatedBottomNav(
-                    items = bottomNavItems,
-                    currentDestination = currentDestination,
-                    onNavigate = { screen ->
-                        val isOnLibrary = currentDestination?.hierarchy
-                            ?.any { it.route == Screen.Library.route } == true
-                        if (screen is Screen.Library && isOnLibrary) {
-                            navViewModel.requestScrollToActive()
-                        }
-                        val route = if (screen is Screen.Library) Screen.Library.createRoute() else screen.route
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                )
-            }
-        }
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+    val chromeHost = remember { LibraryChromeHost() }
+    val density = LocalDensity.current
+    var islandHeight by remember { mutableStateOf(0.dp) }
+
+    CompositionLocalProvider(
+        LocalLibraryChromeHost provides chromeHost,
+        LocalBottomInset provides islandHeight,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            Box(Modifier.fillMaxSize()) {
             NavHost(
                 navController = navController,
                 startDestination = Screen.Welcome.route,
@@ -234,7 +254,7 @@ fun NavGraph() {
                 composable(Screen.Welcome.route) {
                     WelcomeScreen(
                         onNavigateToLibrary = {
-                            navController.navigate(Screen.Library.createRoute()) {
+                            navController.navigate(Screen.Home.route) {
                                 popUpTo(Screen.Welcome.route) { inclusive = true }
                             }
                         },
@@ -244,10 +264,21 @@ fun NavGraph() {
                     )
                 }
 
+                composable(Screen.Home.route) {
+                    HomeScreen(
+                        playerViewModel = playerViewModel,
+                        imageLoader = imageLoader,
+                        baseUrl = baseUrl,
+                        onOpenAlbum = { albumName ->
+                            navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                        },
+                    )
+                }
+
                 composable(Screen.Connect.route) {
                     ConnectScreen(
                         onConnected = {
-                            navController.navigate(Screen.Library.createRoute()) {
+                            navController.navigate(Screen.Home.route) {
                                 popUpTo(0) { inclusive = true }
                             }
                         }
@@ -271,12 +302,10 @@ fun NavGraph() {
                         onAlbumClick = { albumName ->
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName))
                         },
-                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
                         },
-                        showPlayerBar = showBottomBar,
                         scrollToActiveSignal = navViewModel.scrollToActiveSignal,
                     )
                 }
@@ -298,7 +327,6 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
-                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
@@ -372,8 +400,6 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
-                        onPlayerBarClick = onPlayerBarClick,
-                        showPlayerBar = showBottomBar,
                     )
                 }
 
@@ -385,9 +411,7 @@ fun NavGraph() {
                         onPlaylistClick = { playlistId ->
                             navController.navigate(Screen.PlaylistAlbums.createRoute(playlistId))
                         },
-                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
-                        showPlayerBar = showBottomBar,
                     )
                 }
 
@@ -404,12 +428,10 @@ fun NavGraph() {
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName, currentPlaylistId.takeIf { it != -1 }))
                         },
                         onBack = { navController.popBackStack() },
-                        onPlayerBarClick = onPlayerBarClick,
                         onOpenQueue = { navController.navigate(Screen.Queue.route) },
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
                         },
-                        showPlayerBar = showBottomBar,
                     )
                 }
 
@@ -444,6 +466,73 @@ fun NavGraph() {
                     )
                 }
             }
+            }
+
+            if (showBottomBar) {
+                val selectedTab = tabIndexForRoute(currentDestination?.route)
+                BottomIsland(
+                    bloom = islandBloom,
+                    tabs = islandTabs.map { it.second },
+                    selectedIndex = selectedTab.coerceAtLeast(0),
+                    onSelectTab = { index ->
+                        val screen = islandTabs[index].first
+                        val alreadyThere = selectedTab == index
+                        if (screen is Screen.Library && alreadyThere) {
+                            navViewModel.requestScrollToActive()
+                        }
+                        val route = if (screen is Screen.Library) Screen.Library.createRoute() else screen.route
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    playerState = playerState,
+                    baseUrl = baseUrl,
+                    imageLoader = imageLoader,
+                    onMiniPlayerClick = onPlayerBarClick,
+                    onPlayPause = { playerViewModel.playPause() },
+                    onNext = { playerViewModel.skipNext() },
+                    onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                    onTrackMenu = { miniPlayerSheet = true },
+                    showTabs = selectedTab >= 0,
+                    chrome = chromeHost.content,
+                    chromeExpanded = true,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .onGloballyPositioned {
+                            islandHeight = with(density) { it.size.height.toDp() }
+                        },
+                )
+            }
+
+            playerState.currentTrack?.let { track ->
+                if (miniPlayerSheet) {
+                    TrackActionsSheet(
+                        track = track,
+                        playerViewModel = playerViewModel,
+                        playlists = playlists,
+                        isFavorite = track.id.toString() in playerState.favorites,
+                        baseUrl = baseUrl,
+                        imageLoader = imageLoader,
+                        onDismiss = { miniPlayerSheet = false },
+                        onAddToPlaylist = { id -> playerViewModel.addTrackToPlaylist(track, id); miniPlayerSheet = false },
+                        onRemoveFromPlaylist = { id -> playerViewModel.removeTrackFromPlaylist(track, id); miniPlayerSheet = false },
+                        onViewArtist = {
+                            miniPlayerSheet = false
+                            navController.navigate(Screen.Library.createRoute(artistFilter = track.displayArtist))
+                        },
+                        onViewAlbum = {
+                            miniPlayerSheet = false
+                            navController.navigate(Screen.AlbumDetail.createRoute(track.displayAlbum))
+                        },
+                        onSaveMetadata = { title, artist, album, albumArtist, genre, year ->
+                            miniPlayerSheet = false
+                            playerViewModel.saveMetadata(track, title, artist, album, albumArtist, genre, year)
+                        },
+                    )
+                }
+            }
 
             CastVolumeHud(
                 volume = castVolume,
@@ -454,8 +543,7 @@ fun NavGraph() {
                 visible = toastMessage != null,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 72.dp),
+                    .padding(bottom = islandHeight + 12.dp),
                 enter = fadeIn(tween(150)) + slideInVertically { it / 2 },
                 exit = fadeOut(tween(200)) + slideOutVertically { it / 2 },
             ) {
@@ -477,84 +565,6 @@ fun NavGraph() {
     } // MuorgTheme
 }
 
-@Composable
-private fun AnimatedBottomNav(
-    items: List<Triple<Screen, androidx.compose.ui.graphics.vector.ImageVector, String>>,
-    currentDestination: NavDestination?,
-    onNavigate: (Screen) -> Unit,
-) {
-    val selectedIndex = items.indexOfFirst { (screen, _, _) ->
-        currentDestination?.hierarchy?.any { it.route == screen.route } == true
-    }.coerceAtLeast(0)
-
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 3.dp,
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .height(64.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            val itemWidth = maxWidth / items.size
-            val pillOffsetX by animateDpAsState(
-                targetValue = itemWidth * selectedIndex + (itemWidth - 56.dp) / 2,
-                animationSpec = spring(dampingRatio = 0.75f, stiffness = 500f),
-                label = "pillX",
-            )
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .offset(x = pillOffsetX)
-                    .size(56.dp, 40.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                        RoundedCornerShape(20.dp),
-                    )
-            )
-
-            Row(modifier = Modifier.fillMaxSize()) {
-                items.forEachIndexed { index, (screen, icon, label) ->
-                    val selected = index == selectedIndex
-                    val iconScale by animateFloatAsState(
-                        targetValue = if (selected) 1.22f else 1f,
-                        animationSpec = spring(dampingRatio = 0.4f, stiffness = 600f),
-                        label = "iconScale$index",
-                    )
-                    val iconColor by animateColorAsState(
-                        targetValue = if (selected) MaterialTheme.colorScheme.primary
-                                      else MaterialTheme.colorScheme.onSurfaceVariant,
-                        animationSpec = tween(200),
-                        label = "iconColor$index",
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { onNavigate(screen) },
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            tint = iconColor,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun CastVolumeHud(

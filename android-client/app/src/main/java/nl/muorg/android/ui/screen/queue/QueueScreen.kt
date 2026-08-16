@@ -45,6 +45,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -59,9 +61,9 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import kotlin.math.roundToInt
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
-import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
@@ -73,8 +75,6 @@ fun QueueScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onBack: () -> Unit,
-    onPlayerBarClick: () -> Unit = {},
-    showPlayerBar: Boolean = false,
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
@@ -131,7 +131,8 @@ fun QueueScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close")
+                Icon(
+                        painter = painterResource(mageIconRes("chevron-down")), contentDescription = "Close")
             }
             Text(
                 "Queue",
@@ -143,7 +144,11 @@ fun QueueScreen(
             }
         }
 
-        LazyColumn(state = lazyListState, modifier = Modifier.weight(1f)) {
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalBottomInset.current),
+        ) {
             if (currentTrack != null) {
                 item {
                     Text(
@@ -206,7 +211,7 @@ fun QueueScreen(
                     )
                     TextButton(onClick = playerViewModel::toggleShuffle) {
                         Icon(
-                            Icons.Filled.Shuffle,
+                        painter = painterResource(mageIconRes("exchange")),
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.primary,
@@ -256,7 +261,7 @@ fun QueueScreen(
                                 contentAlignment = Alignment.CenterEnd,
                             ) {
                                 Icon(
-                                    Icons.Filled.Delete,
+                        painter = painterResource(mageIconRes("trash")),
                                     contentDescription = "Remove",
                                     tint = MaterialTheme.colorScheme.onErrorContainer,
                                     modifier = Modifier.padding(end = 20.dp).size(20.dp),
@@ -297,22 +302,6 @@ fun QueueScreen(
             }
         }
 
-        if (showPlayerBar && currentTrack != null) {
-            PlayerBar(
-                playerState = playerState,
-                baseUrl = baseUrl,
-                imageLoader = imageLoader,
-                onClick = onPlayerBarClick,
-                onPlayPause = playerViewModel::playPause,
-                onNext = playerViewModel::skipNext,
-                sleepTimerText = if (sleepTimerRemainingMs > 0L) {
-                    val totalSecs = (sleepTimerRemainingMs / 1000).coerceAtLeast(0)
-                    val mins = totalSecs / 60
-                    val secs = totalSecs % 60
-                    if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
-                } else null,
-            )
-        }
     }
 
     sheetTrack?.let { track ->
@@ -368,7 +357,7 @@ private fun CoverArt(
             )
         } else {
             Icon(
-                Icons.Filled.MusicNote,
+                        painter = painterResource(mageIconRes("music")),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size((size * 0.5f).dp),
@@ -466,7 +455,7 @@ private fun QueueTrackRow(
             }
             IconButton(onClick = onRemove) {
                 Icon(
-                    Icons.Filled.Close,
+                        painter = painterResource(mageIconRes("multiply")),
                     contentDescription = "Remove",
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,

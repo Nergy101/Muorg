@@ -36,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -113,7 +115,7 @@ fun TrackRow(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Filled.MusicNote,
+                        painter = painterResource(mageIconRes("music")),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(28.dp),
@@ -170,7 +172,8 @@ fun TrackRow(
         ) {
             DropdownMenuItem(
                 text = { Text("Play now") },
-                leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("play")), contentDescription = null) },
                 onClick = {
                     menuLevel = TrackMenuLevel.HIDDEN
                     onTrackClick()
@@ -178,7 +181,8 @@ fun TrackRow(
             )
             DropdownMenuItem(
                 text = { Text("Add to queue") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("stack")), contentDescription = null) },
                 onClick = {
                     menuLevel = TrackMenuLevel.HIDDEN
                     onAddToQueue?.invoke()
@@ -200,12 +204,14 @@ fun TrackRow(
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
                 onClick = { menuLevel = TrackMenuLevel.HIDDEN; showPlaylistSheet = true },
             )
             DropdownMenuItem(
                 text = { Text("Track info") },
-                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("information-circle")), contentDescription = null) },
                 onClick = {
                     menuLevel = TrackMenuLevel.HIDDEN
                     showTrackInfo = true
@@ -214,7 +220,8 @@ fun TrackRow(
             if (onViewAlbum != null) {
                 DropdownMenuItem(
                     text = { Text("View album") },
-                    leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
+                    leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("compact-disk")), contentDescription = null) },
                     onClick = {
                         menuLevel = TrackMenuLevel.HIDDEN
                         onViewAlbum()
@@ -224,7 +231,8 @@ fun TrackRow(
             if (onViewArtist != null) {
                 DropdownMenuItem(
                     text = { Text("View artist") },
-                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                    leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("user")), contentDescription = null) },
                     onClick = {
                         menuLevel = TrackMenuLevel.HIDDEN
                         onViewArtist()

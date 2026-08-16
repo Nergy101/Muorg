@@ -45,6 +45,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -56,9 +58,9 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
+import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
-import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.component.PlaylistPickerSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 
@@ -73,7 +75,6 @@ fun AlbumDetailScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onBack: () -> Unit,
-    onPlayerBarClick: () -> Unit,
     onOpenQueue: () -> Unit = {},
     onViewArtist: (String) -> Unit = {},
     viewModel: AlbumDetailViewModel = hiltViewModel(),
@@ -94,19 +95,7 @@ fun AlbumDetailScreen(
 
     Scaffold(
         topBar = {},
-        bottomBar = {
-            if (playerState.currentTrack != null) {
-                PlayerBar(
-                    playerState = playerState,
-                    baseUrl = baseUrl,
-                    imageLoader = imageLoader,
-                    onClick = onPlayerBarClick,
-                    onPlayPause = playerViewModel::playPause,
-                    onNext = playerViewModel::skipNext,
-                    onOpenQueue = onOpenQueue,
-                )
-            }
-        }
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         when {
             uiState.isLoading -> {
@@ -122,7 +111,7 @@ fun AlbumDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding),
-                    contentPadding = PaddingValues(bottom = 8.dp),
+                    contentPadding = PaddingValues(bottom = LocalBottomInset.current + 8.dp),
                 ) {
                     item {
                         Row(
@@ -186,7 +175,8 @@ fun AlbumDetailScreen(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                 ),
                             ) {
-                                Icon(Icons.Filled.PlayArrow, contentDescription = "Play all")
+                                Icon(
+                        painter = painterResource(mageIconRes("play")), contentDescription = "Play all")
                             }
 
                             var showAlbumPlaylistSheet by remember { mutableStateOf(false) }
@@ -203,7 +193,8 @@ fun AlbumDetailScreen(
                                     .map { it.id }.toSet()
                             }
                             androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
-                                Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add album to playlist")
+                                Icon(
+                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = "Add album to playlist")
                             }
                             if (showAlbumPlaylistSheet) {
                                 PlaylistPickerSheet(
@@ -361,7 +352,8 @@ private fun AlbumTrackRow(
         ) {
             DropdownMenuItem(
                 text = { Text("Play now") },
-                leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("play")), contentDescription = null) },
                 onClick = {
                     menuLevel = TrackMenuLevel.HIDDEN
                     onClick()
@@ -369,7 +361,8 @@ private fun AlbumTrackRow(
             )
             DropdownMenuItem(
                 text = { Text("Add to queue") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("stack")), contentDescription = null) },
                 onClick = {
                     menuLevel = TrackMenuLevel.HIDDEN
                     onAddToQueue?.invoke()
@@ -390,12 +383,14 @@ private fun AlbumTrackRow(
             )
             DropdownMenuItem(
                 text = { Text("Add to playlist") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
                 onClick = { menuLevel = TrackMenuLevel.HIDDEN; showPlaylistSheet = true },
             )
             DropdownMenuItem(
                 text = { Text("Track info") },
-                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("information-circle")), contentDescription = null) },
                 onClick = {
                     menuLevel = TrackMenuLevel.HIDDEN
                     showTrackInfo = true
@@ -404,7 +399,8 @@ private fun AlbumTrackRow(
             if (onViewArtist != null) {
                 DropdownMenuItem(
                     text = { Text("View artist") },
-                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                    leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("user")), contentDescription = null) },
                     onClick = {
                         menuLevel = TrackMenuLevel.HIDDEN
                         onViewArtist()

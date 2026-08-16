@@ -34,6 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.data.api.Playlist
 
@@ -138,7 +140,7 @@ fun PlaylistPickerSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Add,
+                        painter = painterResource(mageIconRes("plus")),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),

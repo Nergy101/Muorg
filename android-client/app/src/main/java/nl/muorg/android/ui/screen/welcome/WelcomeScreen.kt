@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -252,7 +253,8 @@ fun WelcomeScreen(
                                 },
                                 trailingContent = {
                                     IconButton(onClick = { viewModel.removeFolder(uriString) }) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "Remove folder",
+                                        Icon(
+                        painter = painterResource(mageIconRes("trash")), contentDescription = "Remove folder",
                                             tint = MaterialTheme.colorScheme.error)
                                     }
                                 },
@@ -268,7 +270,8 @@ fun WelcomeScreen(
                         onClick = { folderPickerLauncher.launch(null) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Icon(
+                        painter = painterResource(mageIconRes("plus")), contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("Add music folder")
                     }

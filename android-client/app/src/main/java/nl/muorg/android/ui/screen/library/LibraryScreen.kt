@@ -59,7 +59,13 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.glass.glassField
+import nl.muorg.android.ui.theme.MuorgShapes
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -69,9 +75,10 @@ import androidx.lifecycle.repeatOnLifecycle
 import coil.ImageLoader
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import nl.muorg.android.ui.component.LocalBottomInset
+import nl.muorg.android.ui.component.ProvideLibraryChrome
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.AlbumDisplayMode
-import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.data.preferences.SearchHistoryEntry
@@ -83,8 +90,6 @@ fun LibraryScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onAlbumClick: (String) -> Unit,
-    onPlayerBarClick: () -> Unit,
-    showPlayerBar: Boolean,
     artistFilter: String? = null,
     onOpenQueue: () -> Unit = {},
     onViewArtist: (String) -> Unit = {},
@@ -131,232 +136,253 @@ fun LibraryScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        OutlinedTextField(
-            value = searchText,
-            onValueChange = {
-                searchText = it
-                viewModel.onSearchQueryChange(it)
-                if (it.isNotEmpty()) {
-                    // Refresh recent searches to include the new one
-                    recentSearches = viewModel.getRecentSearches()
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            placeholder = { Text("Search albums, artists…") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-            trailingIcon = {
-                if (searchText.isNotEmpty()) {
-                    IconButton(onClick = {
-                        searchText = ""
-                        viewModel.onSearchQueryChange("")
+    // The web keeps search and the sort/filter row INSIDE the bottom island,
+    // directly under the mini player, not at the top of the view. This
+    // publishes them there; nothing is rendered in place.
+    ProvideLibraryChrome {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = {
+                    searchText = it
+                    viewModel.onSearchQueryChange(it)
+                    if (it.isNotEmpty()) {
+                        // Refresh recent searches to include the new one
                         recentSearches = viewModel.getRecentSearches()
-                    }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .glassField(MuorgShapes.pill),
+                placeholder = {
+                    Text(
+                        "Search albums, artists…",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("search")), contentDescription = null) },
+                trailingIcon = {
+                    if (searchText.isNotEmpty()) {
+                        IconButton(onClick = {
+                            searchText = ""
+                            viewModel.onSearchQueryChange("")
+                            recentSearches = viewModel.getRecentSearches()
+                        }) {
+                            Icon(
+                        painter = painterResource(mageIconRes("multiply")), contentDescription = "Clear search")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = MuorgShapes.pill,
+                // The pill itself is the `glassField` material; the text field
+                // must not draw a second outline on top of it.
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                ),
+            )
+
+            // Search history chips — show when search field is empty and there's history
+            if (searchText.isEmpty() && recentSearches.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 8.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        painter = painterResource(mageIconRes("clock")),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    Text(
+                        "Recent",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = {
+                            viewModel.clearSearchHistory()
+                            recentSearches = emptyList()
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Text("Clear all", style = MaterialTheme.typography.labelSmall)
                     }
                 }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(50),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            ),
-        )
-
-        // Search history chips — show when search field is empty and there's history
-        if (searchText.isEmpty() && recentSearches.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 8.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.History,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                )
-                Spacer(Modifier.size(4.dp))
-                Text(
-                    "Recent",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    onClick = {
-                        viewModel.clearSearchHistory()
-                        recentSearches = emptyList()
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 12.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text("Clear all", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                recentSearches.take(10).forEach { entry ->
-                    AssistChip(
-                        onClick = {
-                            searchText = entry.query
-                            viewModel.onSearchQueryChange(entry.query)
-                            recentSearches = viewModel.getRecentSearches()
-                        },
-                        label = { Text(entry.query, style = MaterialTheme.typography.bodySmall) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Filled.History,
-                                contentDescription = null,
-                                Modifier.size(14.dp),
-                            )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        ),
-                        border = AssistChipDefaults.assistChipBorder(
-                            enabled = true,
-                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        ),
-                        shape = RoundedCornerShape(20),
-                    )
-                }
-            }
-        }
-
-        AnimatedVisibility(visible = uiState.artistFilter != null) {
-            Row(modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)) {
-                AssistChip(
-                    onClick = viewModel::clearArtistFilter,
-                    label = { Text(uiState.artistFilter ?: "") },
-                    leadingIcon = { Icon(Icons.Filled.Person, null, Modifier.size(16.dp)) },
-                    trailingIcon = { Icon(Icons.Filled.Close, "Clear", Modifier.size(16.dp)) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                        labelColor = MaterialTheme.colorScheme.primary,
-                        leadingIconContentColor = MaterialTheme.colorScheme.primary,
-                        trailingIconContentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                    border = AssistChipDefaults.assistChipBorder(
-                        enabled = true,
-                        borderColor = MaterialTheme.colorScheme.primary,
-                    ),
-                )
-            }
-        }
-
-        // Sort dropdown + shuffle button row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box {
-                TextButton(
-                    onClick = { showSortMenu = true },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
-                ) {
-                    Text("Sort: ${uiState.sortMode.label}")
-                    Icon(
-                        Icons.Filled.ArrowDropDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-                DropdownMenu(
-                    expanded = showSortMenu,
-                    onDismissRequest = { showSortMenu = false },
-                ) {
-                    SortMode.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            text = { Text(mode.label) },
+                    recentSearches.take(10).forEach { entry ->
+                        AssistChip(
                             onClick = {
-                                coroutineScope.launch {
-                                    lazyGridState.scrollToItem(0)
-                                    lazyListState.scrollToItem(0)
-                                }
-                                viewModel.setSortMode(mode)
-                                showSortMenu = false
+                                searchText = entry.query
+                                viewModel.onSearchQueryChange(entry.query)
+                                recentSearches = viewModel.getRecentSearches()
                             },
-                            trailingIcon = {
-                                if (uiState.sortMode == mode) {
-                                    Text("✓", color = MaterialTheme.colorScheme.primary)
-                                }
+                            label = { Text(entry.query, style = MaterialTheme.typography.bodySmall) },
+                            leadingIcon = {
+                                Icon(
+                        painter = painterResource(mageIconRes("clock")),
+                                    contentDescription = null,
+                                    Modifier.size(14.dp),
+                                )
                             },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                leadingIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            ),
+                            border = AssistChipDefaults.assistChipBorder(
+                                enabled = true,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            ),
+                            shape = RoundedCornerShape(20),
                         )
                     }
                 }
             }
 
-            IconButton(onClick = {
-                coroutineScope.launch {
-                    lazyGridState.scrollToItem(0)
-                    lazyListState.scrollToItem(0)
+            AnimatedVisibility(visible = uiState.artistFilter != null) {
+                Row(modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)) {
+                    AssistChip(
+                        onClick = viewModel::clearArtistFilter,
+                        label = { Text(uiState.artistFilter ?: "") },
+                        leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("user")), null, Modifier.size(16.dp)) },
+                        trailingIcon = { Icon(
+                        painter = painterResource(mageIconRes("multiply")), "Clear", Modifier.size(16.dp)) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            labelColor = MaterialTheme.colorScheme.primary,
+                            leadingIconContentColor = MaterialTheme.colorScheme.primary,
+                            trailingIconContentColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        border = AssistChipDefaults.assistChipBorder(
+                            enabled = true,
+                            borderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
                 }
-                viewModel.toggleSortDirection()
-            }) {
-                Icon(
-                    imageVector = if (uiState.sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                    contentDescription = if (uiState.sortAscending) "Sort ascending" else "Sort descending",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            IconButton(onClick = {
-                val next = when (uiState.albumViewStyle) {
-                    "grid" -> "list"
-                    "list" -> "tracks"
-                    else -> "grid"
-                }
-                viewModel.setAlbumViewStyle(next)
-            }) {
-                Icon(
-                    imageVector = when (uiState.albumViewStyle) {
-                        "grid" -> Icons.Filled.GridView
-                        "list" -> Icons.AutoMirrored.Filled.ViewList
-                        else -> Icons.Filled.MusicNote
-                    },
-                    contentDescription = "Switch layout",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-
-            IconButton(
-                onClick = {
-                    val tracks = uiState.filteredTracks.ifEmpty {
-                        uiState.filteredAlbums.flatMap { viewModel.getTracksForAlbum(it.albumName) }
-                    }
-                    playerViewModel.startShuffleAll(tracks)
-                },
-                modifier = Modifier.padding(end = 8.dp),
+            // Sort dropdown + shuffle button row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    Icons.Filled.Shuffle,
-                    contentDescription = "Shuffle play",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                Box {
+                    TextButton(
+                        onClick = { showSortMenu = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    ) {
+                        Text("Sort: ${uiState.sortMode.label}")
+                        Icon(
+                        painter = painterResource(mageIconRes("chevron-down")),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false },
+                    ) {
+                        SortMode.entries.forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(mode.label) },
+                                onClick = {
+                                    coroutineScope.launch {
+                                        lazyGridState.scrollToItem(0)
+                                        lazyListState.scrollToItem(0)
+                                    }
+                                    viewModel.setSortMode(mode)
+                                    showSortMenu = false
+                                },
+                                trailingIcon = {
+                                    if (uiState.sortMode == mode) {
+                                        Text("✓", color = MaterialTheme.colorScheme.primary)
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+
+                IconButton(onClick = {
+                    coroutineScope.launch {
+                        lazyGridState.scrollToItem(0)
+                        lazyListState.scrollToItem(0)
+                    }
+                    viewModel.toggleSortDirection()
+                }) {
+                    Icon(
+                        imageVector = if (uiState.sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                        contentDescription = if (uiState.sortAscending) "Sort ascending" else "Sort descending",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                IconButton(onClick = {
+                    val next = when (uiState.albumViewStyle) {
+                        "grid" -> "list"
+                        "list" -> "tracks"
+                        else -> "grid"
+                    }
+                    viewModel.setAlbumViewStyle(next)
+                }) {
+                    Icon(
+                        imageVector = when (uiState.albumViewStyle) {
+                            "grid" -> Icons.Filled.GridView
+                            "list" -> Icons.AutoMirrored.Filled.ViewList
+                            else -> Icons.Filled.MusicNote
+                        },
+                        contentDescription = "Switch layout",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        val tracks = uiState.filteredTracks.ifEmpty {
+                            uiState.filteredAlbums.flatMap { viewModel.getTracksForAlbum(it.albumName) }
+                        }
+                        playerViewModel.startShuffleAll(tracks)
+                    },
+                    modifier = Modifier.padding(end = 8.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(mageIconRes("exchange")),
+                        contentDescription = "Shuffle play",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
+
         }
+    }
 
-
-        Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             when {
                 uiState.isLoading -> {
                     CircularProgressIndicator(
@@ -403,7 +429,7 @@ fun LibraryScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Icon(
-                            Icons.Filled.MusicNote,
+                        painter = painterResource(mageIconRes("music")),
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
@@ -420,7 +446,7 @@ fun LibraryScreen(
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 4.dp),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = LocalBottomInset.current + 4.dp),
                     ) {
                         items(
                             items = uiState.filteredTracks,
@@ -458,7 +484,7 @@ fun LibraryScreen(
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 4.dp),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = LocalBottomInset.current + 4.dp),
                     ) {
                         items(
                             items = uiState.filteredAlbums,
@@ -516,7 +542,14 @@ fun LibraryScreen(
                         state = lazyGridState,
                         columns = GridCells.Fixed(2),
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = LocalBottomInset.current + 16.dp,
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(
                             items = uiState.filteredAlbums,
@@ -569,21 +602,6 @@ fun LibraryScreen(
                     }
                 }
             }
-        }
-
-        if (showPlayerBar && playerState.currentTrack != null) {
-            PlayerBar(
-                playerState = playerState,
-                baseUrl = baseUrl,
-                imageLoader = imageLoader,
-                onClick = onPlayerBarClick,
-                onPlayPause = playerViewModel::playPause,
-                onNext = playerViewModel::skipNext,
-                onOpenQueue = onOpenQueue,
-                sleepTimerText = if (sleepTimerRemainingMs > 0L)
-                    formatSleepTimer(sleepTimerRemainingMs) else null,
-            )
-        }
     }
 
     uiState.addConflict?.let { conflict ->

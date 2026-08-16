@@ -43,6 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,7 +60,14 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.Playlist
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.RectangleShape
+import nl.muorg.android.ui.glass.GlassMaterial
+import nl.muorg.android.ui.glass.GlassSurface
+import nl.muorg.android.ui.glass.scrimLabelStyle
+import nl.muorg.android.ui.icon.MageIcon
 import nl.muorg.android.ui.theme.MuorgGreenLight
+import nl.muorg.android.ui.theme.MuorgShapes
 
 enum class AlbumDisplayMode { GRID, LIST }
 
@@ -111,7 +120,7 @@ fun AlbumCard(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Album,
+                        painter = painterResource(mageIconRes("compact-disk")),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                         modifier = Modifier.size(28.dp),
@@ -144,7 +153,7 @@ fun AlbumCard(
                 Spacer(Modifier.width(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Filled.MusicNote,
+                        painter = painterResource(mageIconRes("music")),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(12.dp),
@@ -195,105 +204,76 @@ fun AlbumCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .then(
-                if (isActive) Modifier
-                    .drawBehind {
-                        drawIntoCanvas { canvas ->
-                            val paint = Paint()
-                            paint.asFrameworkPaint().apply {
-                                isAntiAlias = true
-                                color = MuorgGreenLight.copy(alpha = 0.45f).toArgb()
-                                maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
-                            }
-                            canvas.drawRoundRect(0f, 0f, size.width, size.height, 12.dp.toPx(), 12.dp.toPx(), paint)
-                        }
-                    }
-                    .border(2.dp, MuorgGreenLight, RoundedCornerShape(12.dp))
-                else Modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .shadow(
+                elevation = if (isPressed) 2.dp else 8.dp,
+                shape = MuorgShapes.card,
+                clip = false,
+                ambientColor = Color.Black.copy(alpha = 0.30f),
+                spotColor = Color.Black.copy(alpha = 0.30f),
+            )
+            .clip(MuorgShapes.card)
+            .background(MaterialTheme.colorScheme.surface)
+            .then(if (isActive) Modifier.border(2.dp, MuorgGreenLight, MuorgShapes.card) else Modifier)
+            .aspectRatio(1f)
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+                onLongClick = { menuLevel = AlbumMenuLevel.MAIN },
             ),
     ) {
-        Card(
+        Box(Modifier.fillMaxSize()) {
+            MageIcon(
+                name = "compact-disk",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                modifier = Modifier.fillMaxSize().padding(32.dp),
+            )
+            AsyncImage(
+                model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover",
+                contentDescription = "Cover for ${album.albumName}",
+                imageLoader = imageLoader,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        GlassSurface(
+            material = GlassMaterial.Scrim,
+            shape = RectangleShape,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+        ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer { scaleX = scale; scaleY = scale },
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = if (isPressed) 0.dp else 4.dp,
-            ),
+                .padding(start = 10.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .combinedClickable(
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onClick = onClick,
-                        onLongClick = { menuLevel = AlbumMenuLevel.MAIN },
-                    ),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Album,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MarqueeText(
+                    text = album.albumName,
+                    style = scrimLabelStyle(MaterialTheme.typography.titleSmall),
+                    color = if (isActive) MuorgGreenLight else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
                 )
-                AsyncImage(
-                    model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover",
-                    contentDescription = "Cover for ${album.albumName}",
-                    imageLoader = imageLoader,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                Spacer(Modifier.width(6.dp))
+                MageIcon(
+                    name = "music",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(12.dp),
                 )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color.Transparent, Color(0xE6111111))
-                            )
-                        )
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    text = "${album.trackCount}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    MarqueeText(
-                        text = album.albumName,
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color.White,
-                    )
-                    MarqueeText(
-                        text = album.artist,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.75f),
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Filled.MusicNote,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(10.dp),
-                    )
-                    Text(
-                        text = "${album.trackCount}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.85f),
-                    )
-                }
             }
+            MarqueeText(
+                text = album.artist,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         }
 
         DropdownMenu(
@@ -333,7 +313,8 @@ private fun AlbumMenuItems(
 ) {
     DropdownMenuItem(
         text = { Text("Play now") },
-        leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+        leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("play")), contentDescription = null) },
         onClick = {
             onSetLevel(AlbumMenuLevel.HIDDEN)
             onPlayNow?.invoke()
@@ -341,7 +322,8 @@ private fun AlbumMenuItems(
     )
     DropdownMenuItem(
         text = { Text("Add to queue") },
-        leadingIcon = { Icon(Icons.Filled.Queue, contentDescription = null) },
+        leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
         onClick = {
             onSetLevel(AlbumMenuLevel.HIDDEN)
             onAddToQueue?.invoke()
@@ -350,7 +332,8 @@ private fun AlbumMenuItems(
     if (onViewArtist != null) {
         DropdownMenuItem(
             text = { Text("View artist") },
-            leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+            leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("user")), contentDescription = null) },
             onClick = {
                 onSetLevel(AlbumMenuLevel.HIDDEN)
                 onViewArtist()
@@ -359,7 +342,8 @@ private fun AlbumMenuItems(
     }
     DropdownMenuItem(
         text = { Text("Add to playlist") },
-        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+        leadingIcon = { Icon(
+                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
         onClick = onOpenPlaylistSheet,
     )
 }

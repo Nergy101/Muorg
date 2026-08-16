@@ -48,6 +48,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -57,9 +59,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import kotlin.math.roundToInt
+import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.AlbumDisplayMode
-import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
@@ -72,8 +74,6 @@ fun PlaylistAlbumsScreen(
     baseUrl: String,
     onAlbumClick: (String) -> Unit,
     onBack: () -> Unit,
-    onPlayerBarClick: () -> Unit,
-    showPlayerBar: Boolean,
     onOpenQueue: () -> Unit = {},
     onViewArtist: (String) -> Unit = {},
     viewModel: PlaylistAlbumsViewModel = hiltViewModel(),
@@ -151,7 +151,8 @@ fun PlaylistAlbumsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                        painter = painterResource(mageIconRes("chevron-left")), contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -235,17 +236,6 @@ fun PlaylistAlbumsScreen(
             )
         },
         bottomBar = {
-            if (showPlayerBar && playerState.currentTrack != null) {
-                PlayerBar(
-                    playerState = playerState,
-                    baseUrl = baseUrl,
-                    imageLoader = imageLoader,
-                    onClick = onPlayerBarClick,
-                    onPlayPause = playerViewModel::playPause,
-                    onNext = playerViewModel::skipNext,
-                    onOpenQueue = onOpenQueue,
-                )
-            }
         },
     ) { innerPadding ->
         when {
@@ -265,7 +255,7 @@ fun PlaylistAlbumsScreen(
             albumViewStyle == "tracks" -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentPadding = PaddingValues(vertical = 4.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = LocalBottomInset.current + 4.dp),
                 ) {
                     items(displayList, key = { it.path }) { track ->
                         val isDragged = track.path == draggedPath
@@ -340,7 +330,7 @@ fun PlaylistAlbumsScreen(
             albumViewStyle == "list" -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentPadding = PaddingValues(vertical = 4.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = LocalBottomInset.current + 4.dp),
                 ) {
                     items(uiState.albums, key = { it.albumName }) { album ->
                         val albumPaths = remember(album.albumName, uiState.allTracks) {
@@ -389,7 +379,7 @@ fun PlaylistAlbumsScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentPadding = PaddingValues(8.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = LocalBottomInset.current + 8.dp),
                 ) {
                     items(uiState.albums, key = { it.albumName }) { album ->
                         val albumPaths = remember(album.albumName, uiState.allTracks) {

@@ -57,12 +57,15 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import nl.muorg.android.ui.component.LocalBottomInset
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -99,7 +102,8 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = LocalBottomInset.current),
     ) {
         SectionHeader("Muorg Info")
 
@@ -107,7 +111,8 @@ fun SettingsScreen(
             headlineContent = { Text("Version") },
             supportingContent = { Text(BuildConfig.VERSION_NAME) },
             leadingContent = {
-                Icon(Icons.Filled.Info, contentDescription = null,
+                Icon(
+                        painter = painterResource(mageIconRes("information-circle")), contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
@@ -151,7 +156,8 @@ fun SettingsScreen(
             headlineContent = { Text("Continuous playback") },
             supportingContent = { Text("Automatically play next track when queue ends") },
             leadingContent = {
-                Icon(Icons.Filled.Repeat, contentDescription = null,
+                Icon(
+                        painter = painterResource(mageIconRes("reload")), contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             trailingContent = {
@@ -302,7 +308,8 @@ fun SettingsScreen(
             headlineContent = { Text("Material You") },
             supportingContent = { Text("Use your device's dynamic color theme") },
             leadingContent = {
-                Icon(Icons.Filled.Palette, contentDescription = null,
+                Icon(
+                        painter = painterResource(mageIconRes("color-swatch")), contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             trailingContent = {
@@ -456,7 +463,8 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                     } else {
-                        Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(
+                        painter = painterResource(mageIconRes("refresh")), contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.width(6.dp))
                     Text("Refresh")
@@ -494,7 +502,8 @@ fun SettingsScreen(
                     headlineContent = { Text("Tracks") },
                     supportingContent = { Text("${stats.trackCount} tracks in library") },
                     leadingContent = {
-                        Icon(Icons.Filled.MusicNote, contentDescription = null,
+                        Icon(
+                        painter = painterResource(mageIconRes("music")), contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     },
                     trailingContent = { Text("${stats.trackCount}", style = MaterialTheme.typography.titleMedium) },
@@ -504,7 +513,8 @@ fun SettingsScreen(
                     headlineContent = { Text("Albums") },
                     supportingContent = { Text("Unique albums") },
                     leadingContent = {
-                        Icon(Icons.Filled.Album, contentDescription = null,
+                        Icon(
+                        painter = painterResource(mageIconRes("compact-disk")), contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     },
                     trailingContent = { Text("${stats.albumCount}", style = MaterialTheme.typography.titleMedium) },
@@ -524,7 +534,8 @@ fun SettingsScreen(
                     headlineContent = { Text("Total duration") },
                     supportingContent = { Text("Combined playtime") },
                     leadingContent = {
-                        Icon(Icons.Filled.MusicNote, contentDescription = null,
+                        Icon(
+                        painter = painterResource(mageIconRes("music")), contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     },
                     trailingContent = {
@@ -562,7 +573,8 @@ fun SettingsScreen(
                         },
                         trailingContent = {
                             IconButton(onClick = { viewModel.removeFolder(uriString) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Remove folder",
+                                Icon(
+                        painter = painterResource(mageIconRes("trash")), contentDescription = "Remove folder",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         },
@@ -590,7 +602,8 @@ fun SettingsScreen(
                     onClick = viewModel::scanLibrary,
                     enabled = uiState.scanStatus != ScanStatus.SCANNING && uiState.localFolderUris.isNotEmpty(),
                 ) {
-                    Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        painter = painterResource(mageIconRes("music")), contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Scan library")
                 }

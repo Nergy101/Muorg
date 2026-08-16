@@ -42,6 +42,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -51,8 +53,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import nl.muorg.android.data.api.Playlist
+import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
-import nl.muorg.android.ui.component.PlayerBar
 import nl.muorg.android.ui.player.PlayerViewModel
 
 private val PLAYLIST_EMOJIS = listOf(
@@ -72,8 +74,6 @@ fun PlaylistsScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onPlaylistClick: (Int) -> Unit,
-    onPlayerBarClick: () -> Unit,
-    showPlayerBar: Boolean,
     onOpenQueue: () -> Unit = {},
     viewModel: PlaylistsViewModel = hiltViewModel(),
 ) {
@@ -97,7 +97,7 @@ fun PlaylistsScreen(
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = viewModel::showCreateDialog) {
                 Icon(
-                    Icons.Filled.Add,
+                        painter = painterResource(mageIconRes("plus")),
                     contentDescription = "New playlist",
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -122,8 +122,10 @@ fun PlaylistsScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            horizontal = 16.dp,
-                            vertical = 4.dp,
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 4.dp,
+                            bottom = LocalBottomInset.current + 4.dp,
                         ),
                     ) {
                         items(uiState.playlists, key = { it.id }) { playlist ->
@@ -140,17 +142,6 @@ fun PlaylistsScreen(
             }
         }
 
-        if (showPlayerBar && playerState.currentTrack != null) {
-            PlayerBar(
-                playerState = playerState,
-                baseUrl = baseUrl,
-                imageLoader = imageLoader,
-                onClick = onPlayerBarClick,
-                onPlayPause = playerViewModel::playPause,
-                onNext = playerViewModel::skipNext,
-                onOpenQueue = onOpenQueue,
-            )
-        }
     }
 
     if (uiState.showCreateDialog) {
@@ -329,7 +320,7 @@ private fun PlaylistCard(
 
             IconButton(onClick = onEdit) {
                 Icon(
-                    Icons.Filled.Edit,
+                        painter = painterResource(mageIconRes("edit")),
                     contentDescription = "Edit",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
@@ -337,7 +328,7 @@ private fun PlaylistCard(
             }
             IconButton(onClick = onDelete) {
                 Icon(
-                    Icons.Filled.Delete,
+                        painter = painterResource(mageIconRes("trash")),
                     contentDescription = "Delete",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),

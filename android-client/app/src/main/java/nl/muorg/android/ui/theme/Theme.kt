@@ -119,6 +119,7 @@ fun MuorgTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = MuorgTypography,
+        shapes = MuorgMaterialShapes,
         content = content,
     )
 }

@@ -45,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -175,7 +177,7 @@ private fun MainLevel(
             )
         } else {
             Icon(
-                Icons.Filled.MusicNote,
+                        painter = painterResource(mageIconRes("music")),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(44.dp).padding(8.dp),
@@ -217,19 +219,22 @@ private fun MainLevel(
     )
     ListItem(
         headlineContent = { Text("Add to playlist", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingContent = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("playlist-add")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToPlaylists() },
     )
     if (onRemoveFromQueue != null) {
         ListItem(
             headlineContent = { Text("Remove from queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.error) },
-            leadingContent = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
+            leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("stack")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
             modifier = Modifier.clickable { onRemoveFromQueue(); onDismiss() },
         )
     } else {
         ListItem(
             headlineContent = { Text("Add to queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-            leadingContent = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("stack")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             modifier = Modifier.clickable { playerViewModel.addToQueue(track); onDismiss() },
         )
     }
@@ -239,13 +244,15 @@ private fun MainLevel(
     ListItem(
         headlineContent = { Text("View artist", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         supportingContent = { Text(track.displayArtist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-        leadingContent = { Icon(Icons.Filled.Person, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("user")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onViewArtist() },
     )
     ListItem(
         headlineContent = { Text("View album", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         supportingContent = { Text(track.displayAlbum, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-        leadingContent = { Icon(Icons.Filled.Album, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("compact-disk")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onViewAlbum() },
     )
 
@@ -253,12 +260,14 @@ private fun MainLevel(
 
     ListItem(
         headlineContent = { Text("Track info", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingContent = { Icon(Icons.Filled.Info, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("information-circle")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToTrackInfo() },
     )
     ListItem(
         headlineContent = { Text("Edit metadata", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        leadingContent = { Icon(Icons.Filled.Edit, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("edit")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToEditMetadata() },
     )
     Spacer(Modifier.height(16.dp))
@@ -275,7 +284,8 @@ private fun PlaylistsLevel(
 ) {
     ListItem(
         headlineContent = { Text("Back") },
-        leadingContent = { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(18.dp)) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("chevron-left")), null, modifier = Modifier.size(18.dp)) },
         modifier = Modifier.clickable { onBack() },
     )
     Text(
@@ -306,7 +316,7 @@ private fun PlaylistsLevel(
             trailingContent = if (isInPlaylist) {
                 {
                     Icon(
-                        Icons.Filled.Check,
+                        painter = painterResource(mageIconRes("check")),
                         contentDescription = "Already in playlist",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
@@ -329,7 +339,7 @@ private fun PlaylistsLevel(
         },
         leadingContent = {
             Icon(
-                Icons.Filled.Add,
+                        painter = painterResource(mageIconRes("plus")),
                 null,
                 modifier = Modifier.size(22.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -347,7 +357,8 @@ private fun TrackInfoLevel(
 ) {
     ListItem(
         headlineContent = { Text("Back") },
-        leadingContent = { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(18.dp)) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("chevron-left")), null, modifier = Modifier.size(18.dp)) },
         modifier = Modifier.clickable { onBack() },
     )
     Text(
@@ -420,7 +431,8 @@ private fun MetadataEditLevel(
 
     ListItem(
         headlineContent = { Text("Back") },
-        leadingContent = { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(18.dp)) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("chevron-left")), null, modifier = Modifier.size(18.dp)) },
         modifier = Modifier.clickable { onBack() },
     )
     Text(
