@@ -75,6 +75,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import coil.ImageLoader
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import nl.muorg.android.ui.component.LocalIslandAccent
+import androidx.compose.ui.graphics.takeOrElse
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.ProvideLibraryChrome
 import nl.muorg.android.ui.component.AlbumCard
@@ -139,6 +141,10 @@ fun LibraryScreen(
     // The web keeps search and the sort/filter row INSIDE the bottom island,
     // directly under the mini player, not at the top of the view. This
     // publishes them there; nothing is rendered in place.
+    // Same artwork accent the island paints itself with; the chrome is
+    // hosted inside that glass, so theme green here would clash with it.
+    val chromeAccent = LocalIslandAccent.current.takeOrElse { MaterialTheme.colorScheme.primary }
+
     ProvideLibraryChrome {
         Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
@@ -266,14 +272,14 @@ fun LibraryScreen(
                         trailingIcon = { Icon(
                         painter = painterResource(mageIconRes("multiply")), "Clear", Modifier.size(16.dp)) },
                         colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                            labelColor = MaterialTheme.colorScheme.primary,
-                            leadingIconContentColor = MaterialTheme.colorScheme.primary,
-                            trailingIconContentColor = MaterialTheme.colorScheme.primary,
+                            containerColor = chromeAccent.copy(alpha = 0.18f),
+                            labelColor = chromeAccent,
+                            leadingIconContentColor = chromeAccent,
+                            trailingIconContentColor = chromeAccent,
                         ),
                         border = AssistChipDefaults.assistChipBorder(
                             enabled = true,
-                            borderColor = MaterialTheme.colorScheme.primary,
+                            borderColor = chromeAccent,
                         ),
                     )
                 }
@@ -317,7 +323,7 @@ fun LibraryScreen(
                                 },
                                 trailingIcon = {
                                     if (uiState.sortMode == mode) {
-                                        Text("✓", color = MaterialTheme.colorScheme.primary)
+                                        Text("✓", color = chromeAccent)
                                     }
                                 },
                             )
@@ -374,7 +380,7 @@ fun LibraryScreen(
                     Icon(
                         painter = painterResource(mageIconRes("exchange")),
                         contentDescription = "Shuffle play",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = chromeAccent,
                     )
                 }
             }

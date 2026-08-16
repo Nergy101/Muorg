@@ -80,11 +80,13 @@ import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.component.IslandTab
 import nl.muorg.android.ui.component.LibraryChromeHost
 import nl.muorg.android.ui.component.LocalBottomInset
+import nl.muorg.android.ui.component.LocalIslandAccent
 import nl.muorg.android.ui.component.LocalLibraryChromeHost
 import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.screen.home.HomeScreen
 import nl.muorg.android.ui.theme.MuorgTheme
+import nl.muorg.android.ui.theme.artworkAccent
 import nl.muorg.android.ui.screen.album.AlbumDetailScreen
 import nl.muorg.android.ui.screen.connect.ConnectScreen
 import nl.muorg.android.ui.screen.library.LibraryScreen
@@ -252,8 +254,13 @@ fun NavGraph() {
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
-                if (consumed.y < -4f) barsCollapsed = true
-                else if (consumed.y > 4f) barsCollapsed = false
+                // USER INPUT ONLY. A tab restoring its saved scroll offset
+                // dispatches a programmatic scroll the moment it mounts, which
+                // collapsed the bar the instant you arrived — the search row
+                // appeared and then folded away on its own.
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                if (consumed.y < -6f) barsCollapsed = true
+                else if (consumed.y > 6f) barsCollapsed = false
                 return Offset.Zero
             }
         }
@@ -276,12 +283,17 @@ fun NavGraph() {
     ).color
 
     MuorgTheme(themeMode = themeMode, useTrueBlack = useTrueBlack, useMaterialYou = materialYou) {
+    // INSIDE the theme: artworkAccent falls back to `colorScheme.primary` and
+    // reads `surface` to decide which way to push lightness. Called outside,
+    // both resolve against Material's default purple scheme.
+    val islandAccent = artworkAccent(islandBloom)
     val chromeHost = remember { LibraryChromeHost() }
     val density = LocalDensity.current
     var islandHeight by remember { mutableStateOf(0.dp) }
 
     CompositionLocalProvider(
         LocalLibraryChromeHost provides chromeHost,
+        LocalIslandAccent provides islandAccent,
         LocalBottomInset provides islandHeight,
     ) {
         Box(

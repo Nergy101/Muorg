@@ -67,6 +67,7 @@ private val MAGE_ICONS: Map<String, Int> = mapOf(
     "refresh" to R.drawable.ic_refresh,
     "reload" to R.drawable.ic_reload,
     "save-floppy" to R.drawable.ic_save_floppy,
+    "screencast" to R.drawable.ic_screencast,
     "search" to R.drawable.ic_search,
     "server" to R.drawable.ic_server,
     "settings" to R.drawable.ic_settings,

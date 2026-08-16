@@ -43,10 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.lerp
-import androidx.core.graphics.ColorUtils
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,6 +77,13 @@ import nl.muorg.android.ui.theme.MuorgShapes
  */
 val LocalBottomInset = compositionLocalOf { 0.dp }
 
+/**
+ * The artwork-derived accent the island paints itself with, published so the
+ * surfaces sharing its glass — the library chrome hosted inside it — tint to
+ * the same colour instead of sitting there theme-green next to it.
+ */
+val LocalIslandAccent = compositionLocalOf { Color.Unspecified }
+
 /** Slot the library screen fills; the island renders it as its second row. */
 @Stable
 class LibraryChromeHost {
@@ -109,27 +113,6 @@ data class IslandTab(
     val label: String,
 )
 
-/**
- * The island's controls pick up the artwork colour so the bar reads as one
- * tinted piece of glass rather than a themed bar with a coloured wash behind
- * it. The raw dominant colour is NOT usable directly — it is regularly darker
- * or greyer than the fill it sits on — so it is pushed to a saturation and
- * lightness that clears the fill, in whichever direction the theme needs.
- * Near-grey artwork keeps the theme accent instead of tinting everything mud.
- */
-@Composable
-private fun islandAccent(bloom: Color): Color {
-    val fallback = MaterialTheme.colorScheme.primary
-    if (bloom == Color.Unspecified || bloom.alpha < 0.05f) return fallback
-    val onDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val hsl = FloatArray(3)
-    ColorUtils.colorToHSL(bloom.toArgb(), hsl)
-    if (hsl[1] < 0.18f) return fallback
-    hsl[1] = hsl[1].coerceIn(0.45f, 0.85f)
-    hsl[2] = if (onDark) hsl[2].coerceIn(0.58f, 0.74f) else hsl[2].coerceIn(0.28f, 0.42f)
-    return Color(ColorUtils.HSLToColor(hsl))
-}
-
 @Composable
 fun BottomIsland(
     bloom: Color,
@@ -152,7 +135,7 @@ fun BottomIsland(
     modifier: Modifier = Modifier,
 ) {
     val outline = MaterialTheme.colorScheme.outline
-    val accent = islandAccent(bloom)
+    val accent = LocalIslandAccent.current
     GlassSurface(
         material = GlassMaterial.Deep,
         shape = MuorgShapes.island,

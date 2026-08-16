@@ -104,6 +104,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.shadow
 import nl.muorg.android.ui.glass.glassSheer
 import nl.muorg.android.ui.theme.MuorgShapes
+import nl.muorg.android.ui.theme.artworkAccent
 import nl.muorg.android.ui.player.PlayerViewModel
 
 
@@ -150,6 +151,15 @@ fun PlayerScreen(
         targetValue = dominantColor.color,
         animationSpec = tween(durationMillis = 800),
         label = "accentColor",
+    )
+
+    // Every primary on this screen comes from the artwork, matching the island
+    // and the queue's now-playing card. The backdrop here is always near-black
+    // whatever the theme is, so the accent is resolved for a dark surface.
+    val accent by animateColorAsState(
+        targetValue = artworkAccent(dominantColor.color, onDark = true),
+        animationSpec = tween(durationMillis = 600),
+        label = "playerAccent",
     )
 
     val isCasting by playerViewModel.isCasting.collectAsStateWithLifecycle()
@@ -329,9 +339,9 @@ fun PlayerScreen(
                         modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
-                            painter = painterResource(mageIconRes("server")),
+                            painter = painterResource(mageIconRes("screencast")),
                             contentDescription = if (isCasting) "Casting" else "Cast",
-                            tint = if (isCasting) MaterialTheme.colorScheme.primary else Color.White,
+                            tint = if (isCasting) accent else Color.White,
                             modifier = Modifier.size(19.dp),
                         )
                     }
@@ -432,7 +442,7 @@ fun PlayerScreen(
                     Icon(
                         painter = painterResource(mageIconRes("heart")),
                         contentDescription = "Favourite",
-                        tint = if (isFavorite) MaterialTheme.colorScheme.primary else Color.White,
+                        tint = if (isFavorite) accent else Color.White,
                         modifier = Modifier.size(21.dp),
                     )
                 }
@@ -444,7 +454,7 @@ fun PlayerScreen(
             // the thumb; the web's is a 3px hairline with a small round knob, and
             // that difference is the loudest thing on the screen. Both slots are
             // replaced rather than recoloured.
-            val primary = MaterialTheme.colorScheme.primary
+            val primary = accent
             Slider(
                 value = displayProgress,
                 onValueChange = { value ->
@@ -516,7 +526,7 @@ fun PlayerScreen(
                     Icon(
                         painter = painterResource(mageIconRes("exchange")),
                         contentDescription = "Shuffle",
-                        tint = if (playerState.shuffleEnabled) MaterialTheme.colorScheme.primary
+                        tint = if (playerState.shuffleEnabled) accent
                                else Color.White,
                         modifier = Modifier.size(24.dp),
                     )
@@ -533,7 +543,7 @@ fun PlayerScreen(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(accent)
                         .clickable(onClick = playerViewModel::playPause),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -557,7 +567,7 @@ fun PlayerScreen(
                         painter = painterResource(mageIconRes("reload")),
                         contentDescription = "Repeat",
                         tint = if (playerState.repeatMode != Player.REPEAT_MODE_OFF)
-                            MaterialTheme.colorScheme.primary else Color.White,
+                            accent else Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }

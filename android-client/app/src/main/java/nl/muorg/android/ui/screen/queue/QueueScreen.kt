@@ -62,6 +62,9 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import kotlin.math.roundToInt
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.ui.component.rememberDominantColor
+import nl.muorg.android.ui.theme.artworkAccent
+import androidx.compose.ui.graphics.Color
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
@@ -126,6 +129,22 @@ fun QueueScreen(
         dragAccumY - itemDisplacement
     } else 0f
 
+    // The now-playing card tints to the artwork, same accent as the island
+    // and the player, so the three do not disagree about "the current track".
+    val accent = artworkAccent(
+        rememberDominantColor(
+            url = currentTrack?.let { t ->
+                when {
+                    t.localCoverPath != null -> java.io.File(t.localCoverPath!!)
+                    t.hasCover -> "$baseUrl/api/tracks/${t.id}/cover"
+                    else -> null
+                }
+            },
+            imageLoader = imageLoader,
+            fallback = Color.Unspecified,
+        ).color
+    )
+
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         // No back chevron and no title: the mini player's queue glyph is the
         // way in and back out, and it lights up while this screen is open, so
@@ -136,7 +155,7 @@ fun QueueScreen(
         ) {
             Spacer(modifier = Modifier.weight(1f))
             TextButton(onClick = playerViewModel::clearQueue) {
-                Text("Clear all", color = MaterialTheme.colorScheme.primary)
+                Text("Clear all", color = accent)
             }
         }
 
@@ -153,17 +172,17 @@ fun QueueScreen(
                             letterSpacing = 0.8.sp,
                             fontWeight = FontWeight.SemiBold,
                         ),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = accent,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 6.dp),
                     )
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 12.dp, vertical = 4.dp)
                             .background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                accent.copy(alpha = 0.18f),
                                 RoundedCornerShape(12.dp),
                             )
-                            .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                            .border(1.dp, accent, RoundedCornerShape(12.dp))
                             .padding(10.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -173,17 +192,17 @@ fun QueueScreen(
                                 MarqueeText(
                                     currentTrack.displayTitle,
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = accent,
                                 )
                                 MarqueeText(
                                     "${currentTrack.displayArtist} · ${currentTrack.displayAlbum}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                                    color = accent.copy(alpha = 0.85f),
                                 )
                             }
                             Spacer(Modifier.width(4.dp))
                             EqualizerBars(
-                                color = MaterialTheme.colorScheme.primary,
+                                color = accent,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -210,10 +229,10 @@ fun QueueScreen(
                         painter = painterResource(mageIconRes("exchange")),
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = accent,
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("Shuffle", color = MaterialTheme.colorScheme.primary)
+                        Text("Shuffle", color = accent)
                     }
                 }
             }

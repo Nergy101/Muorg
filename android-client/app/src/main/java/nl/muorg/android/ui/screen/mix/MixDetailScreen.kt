@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -245,7 +246,10 @@ private fun MixMosaic(
                         contentDescription = null,
                         imageLoader = imageLoader,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().weight(1f),
+                        // weight FIRST: fillMaxSize resolves against the incoming
+                        // max width, so each cell claimed the whole row and its
+                        // siblings measured to nothing — a black tile.
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
             }
