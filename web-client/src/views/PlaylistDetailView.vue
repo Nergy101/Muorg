@@ -210,7 +210,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onActivated, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import TrackListRow from "../components/TrackListRow.vue";
@@ -334,13 +334,19 @@ watch(
   { immediate: true },
 );
 
-async function loadOrder(): Promise<void> {
+async function loadOrder(force = false): Promise<void> {
   if (mix.value) {
     orderedIds.value = [...mix.value.trackIds];
     return;
   }
-  orderedIds.value = await playlistStore.loadTrackOrderForPlaylist(playlistId.value);
+  orderedIds.value = await playlistStore.loadTrackOrderForPlaylist(playlistId.value, force);
 }
+
+onMounted(() => loadOrder(true));
+watch(playlistId, () => loadOrder(true));
+// KeepAlive reuses this instance across navigation (even for the same playlist),
+// so re-fetch on every activation to pick up tracks added since the last view.
+onActivated(() => loadOrder(true));
 
 /** Save the current mix as a real playlist: New-playlist modal, then the mix's
  *  tracks are added to the freshly created playlist. */
@@ -354,11 +360,9 @@ async function onSaveMix(name: string, icon: string): Promise<void> {
   showToast("Mix saved as playlist");
 }
 
-onMounted(loadOrder);
-watch(playlistId, loadOrder);
-// KeepAlive reuses this instance across navigation, and a refreshed mix can
-// keep the same id but change contents — so also reload when the resolved mix
-// object itself changes (its trackIds are replaced by the Home refresh).
+// A refreshed mix can keep the same id but change contents — so also reload when
+// the resolved mix object itself changes (its trackIds are replaced by the Home
+// refresh). Real playlists are covered by the playlistId watcher above.
 watch(mix, (m) => {
   if (m) {
     orderedIds.value = [...m.trackIds];

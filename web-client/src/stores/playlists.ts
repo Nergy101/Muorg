@@ -186,9 +186,11 @@ export const usePlaylistStore = defineStore("playlists", () => {
 
   /** Ordered track ids — smart playlists resolve through the smart endpoint.
    *  Cached so PlaylistCard and the cover-preload composable don't refetch. */
-  async function loadTrackOrderForPlaylist(playlistId: number): Promise<number[]> {
-    const cached = trackOrders.value.get(playlistId);
-    if (cached) return cached;
+  async function loadTrackOrderForPlaylist(playlistId: number, force = false): Promise<number[]> {
+    if (!force) {
+      const cached = trackOrders.value.get(playlistId);
+      if (cached) return cached;
+    }
     const playlist = playlists.value.find((p) => p.id === playlistId);
     if (!playlist) return [];
     const ids = await getTracksForPlaylist(playlist);
