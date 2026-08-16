@@ -38,6 +38,16 @@
           v-if="canMoveToUserQueue"
           type="button"
           :class="ROW"
+          @click="onMoveToPlayNext"
+        >
+          <MageIcon name="arrow-up" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <span>Play next</span>
+        </button>
+
+        <button
+          v-if="canMoveToUserQueue"
+          type="button"
+          :class="ROW"
           @click="onMoveToUserQueue"
         >
           <MageIcon name="stack" class="h-5 w-5 shrink-0 text-on-surface-variant" />
@@ -327,6 +337,14 @@ function onMoveToUserQueue(): void {
   const t = props.track;
   if (!t) return;
   player.moveToUserQueue(t);
+  emit("close");
+}
+
+/** Moves a system "Up next" track so it plays right after the current one. */
+function onMoveToPlayNext(): void {
+  const t = props.track;
+  if (!t) return;
+  player.moveToUserQueue(t, true);
   emit("close");
 }
 

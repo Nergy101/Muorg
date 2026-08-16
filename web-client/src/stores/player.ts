@@ -593,9 +593,11 @@ export const usePlayerStore = defineStore("player", () => {
 
   /** Moves a track from the system "Up next" remainder into the user queue
    *  ("Your queue"), removing it from the system queue so it isn't played twice.
-   *  Used by the queue screen's "Add to queue" action and the Up next → Your
-   *  queue drag. No-op if the track is already in the user queue. */
-  function moveToUserQueue(track: CatalogTrack): void {
+   *  Used by the queue screen's "Add to queue" action, the "Play next" action
+   *  and the Up next → Your queue drag. No-op if the track is already in the
+   *  user queue. With `asNext`, it's inserted right after the current track
+   *  instead of appended to the bottom. */
+  function moveToUserQueue(track: CatalogTrack, asNext = false): void {
     if (userQueue.value.some((t) => t.id === track.id)) return;
     const i = queue.value.findIndex((t) => t.id === track.id);
     if (i >= 0) {
@@ -613,12 +615,17 @@ export const usePlayerStore = defineStore("player", () => {
         if (currentTrack.value) void playCurrent(0);
       }
     }
-    userQueue.value = [...userQueue.value, track];
+    if (asNext) {
+      const at = userQueuePos.value >= 0 ? userQueuePos.value + 1 : 0;
+      userQueue.value = [...userQueue.value.slice(0, at), track, ...userQueue.value.slice(at)];
+    } else {
+      userQueue.value = [...userQueue.value, track];
+    }
     if (currentTrack.value == null) {
       userQueuePos.value = 0;
       void playCurrent(0);
     }
-    showToast("Moved to your queue");
+    showToast(asNext ? "Will play next" : "Moved to your queue");
   }
 
   /** Inserts a track at the top of the user queue — it plays immediately after
