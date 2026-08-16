@@ -46,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import nl.muorg.android.data.repository.Mix
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
@@ -68,6 +69,7 @@ fun HomeScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onOpenAlbum: (String) -> Unit,
+    onOpenMix: (Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -137,10 +139,51 @@ fun HomeScreen(
                 mix = mix,
                 baseUrl = baseUrl,
                 imageLoader = imageLoader,
-                onClick = {
-                    val tracks = viewModel.tracksForMix(mix)
-                    tracks.firstOrNull()?.let { playerViewModel.playTrack(it, tracks) }
-                },
+                onClick = { onOpenMix(mix.id) },
+            )
+        }
+
+        item(span = { GridItemSpan(2) }) {
+            Column {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ShelfHeader(
+                    icon = "chart-up",
+                    title = "Most Played",
+                    busy = state.loading,
+                    onRefresh = viewModel::refreshMostPlayed,
+                )
+            }
+        }
+
+        items(state.mostPlayed, key = { "top-" + it.albumName + it.artist }) { album ->
+            AlbumCard(
+                album = album,
+                baseUrl = baseUrl,
+                imageLoader = imageLoader,
+                onClick = { onOpenAlbum(album.albumName) },
+            )
+        }
+
+        item(span = { GridItemSpan(2) }) {
+            Column {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ShelfHeader(
+                    icon = "clock",
+                    title = "Recently Played",
+                    busy = state.loading,
+                    onRefresh = viewModel::refreshRecentlyPlayed,
+                )
+            }
+        }
+
+        items(state.recentlyPlayed, key = { "recent-" + it.albumName + it.artist }) { album ->
+            AlbumCard(
+                album = album,
+                baseUrl = baseUrl,
+                imageLoader = imageLoader,
+                onClick = { onOpenAlbum(album.albumName) },
             )
         }
     }

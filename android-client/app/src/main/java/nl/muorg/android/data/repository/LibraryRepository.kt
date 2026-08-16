@@ -20,6 +20,14 @@ class LibraryRepository @Inject constructor(
         api.search(query)
     }
 
+    suspend fun getRecentPlayHistory(limit: Int = 20): Result<List<CatalogTrack>> = runCatching {
+        api.getRecentPlayHistory(limit)
+    }
+
+    suspend fun getTopPlayHistory(limit: Int = 20, days: Int = 30): Result<List<CatalogTrack>> = runCatching {
+        api.getTopPlayHistory(limit, days)
+    }
+
     suspend fun getStats(): Result<Stats> = runCatching {
         api.getStats()
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -125,20 +126,15 @@ fun QueueScreen(
         dragAccumY - itemDisplacement
     } else 0f
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        // No back chevron and no title: the mini player's queue glyph is the
+        // way in and back out, and it lights up while this screen is open, so
+        // a second affordance and a label are both redundant.
         Row(
-            modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                        painter = painterResource(mageIconRes("chevron-down")), contentDescription = "Close")
-            }
-            Text(
-                "Queue",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f).padding(start = 8.dp),
-            )
+            Spacer(modifier = Modifier.weight(1f))
             TextButton(onClick = playerViewModel::clearQueue) {
                 Text("Clear all", color = MaterialTheme.colorScheme.primary)
             }

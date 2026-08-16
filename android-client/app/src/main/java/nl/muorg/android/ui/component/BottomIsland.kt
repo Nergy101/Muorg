@@ -43,6 +43,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.lerp
+import androidx.core.graphics.ColorUtils
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,6 +109,27 @@ data class IslandTab(
     val label: String,
 )
 
+/**
+ * The island's controls pick up the artwork colour so the bar reads as one
+ * tinted piece of glass rather than a themed bar with a coloured wash behind
+ * it. The raw dominant colour is NOT usable directly — it is regularly darker
+ * or greyer than the fill it sits on — so it is pushed to a saturation and
+ * lightness that clears the fill, in whichever direction the theme needs.
+ * Near-grey artwork keeps the theme accent instead of tinting everything mud.
+ */
+@Composable
+private fun islandAccent(bloom: Color): Color {
+    val fallback = MaterialTheme.colorScheme.primary
+    if (bloom == Color.Unspecified || bloom.alpha < 0.05f) return fallback
+    val onDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val hsl = FloatArray(3)
+    ColorUtils.colorToHSL(bloom.toArgb(), hsl)
+    if (hsl[1] < 0.18f) return fallback
+    hsl[1] = hsl[1].coerceIn(0.45f, 0.85f)
+    hsl[2] = if (onDark) hsl[2].coerceIn(0.58f, 0.74f) else hsl[2].coerceIn(0.28f, 0.42f)
+    return Color(ColorUtils.HSLToColor(hsl))
+}
+
 @Composable
 fun BottomIsland(
     bloom: Color,
@@ -119,19 +144,28 @@ fun BottomIsland(
     onNext: () -> Unit,
     onOpenQueue: () -> Unit,
     onTrackMenu: () -> Unit,
+    /** Lights the queue glyph while the queue screen is the one on screen. */
+    queueActive: Boolean,
     showTabs: Boolean,
     chrome: (@Composable () -> Unit)?,
     chromeExpanded: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val outline = MaterialTheme.colorScheme.outline
+    val accent = islandAccent(bloom)
     GlassSurface(
         material = GlassMaterial.Deep,
         shape = MuorgShapes.island,
         modifier = modifier.fillMaxWidth(),
         bloom = bloom,
     ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    // The whole stack animates its height, so collapsing the chrome and the
+    // tabs slides the island down to just the mini player rather than popping.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(tween(MuorgMotion.COLLAPSE_MS, easing = MuorgMotion.easing)),
+    ) {
         if (playerState.currentTrack != null) {
             MiniPlayerRow(
                 playerState = playerState,
@@ -142,24 +176,23 @@ fun BottomIsland(
                 onNext = onNext,
                 onOpenQueue = onOpenQueue,
                 onMenu = onTrackMenu,
+                queueActive = queueActive,
+                accent = accent,
             )
         }
 
-        if (chrome != null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(tween(MuorgMotion.COLLAPSE_MS, easing = MuorgMotion.easing)),
-            ) {
-                if (chromeExpanded) {
-                    HorizontalDivider(thickness = 1.dp, color = outline.copy(alpha = 0.10f))
-                    chrome()
-                }
-            }
+        if (chrome != null && chromeExpanded) {
+            HorizontalDivider(thickness = 1.dp, color = outline.copy(alpha = 0.10f))
+            chrome()
         }
 
         if (showTabs) {
-            IslandTabs(tabs = tabs, selectedIndex = selectedIndex, onSelect = onSelectTab)
+            IslandTabs(
+                tabs = tabs,
+                selectedIndex = selectedIndex,
+                onSelect = onSelectTab,
+                accent = accent,
+            )
         }
 
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -182,10 +215,14 @@ private fun MiniPlayerRow(
     onNext: () -> Unit,
     onOpenQueue: () -> Unit,
     onMenu: () -> Unit,
+    queueActive: Boolean,
+    accent: Color,
 ) {
     val track = playerState.currentTrack ?: return
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val primary = MaterialTheme.colorScheme.primary
+    // Glyphs are pulled a little toward the artwork colour rather than set to
+    // it: full accent on every control turns the row into a colour swatch and
+    // costs contrast against the fill.
+    val onSurface = lerp(MaterialTheme.colorScheme.onSurface, accent, 0.30f)
 
     Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
         Row(
@@ -241,7 +278,12 @@ private fun MiniPlayerRow(
             }
 
             IconButton(onClick = onOpenQueue, modifier = Modifier.size(40.dp)) {
-                MageIcon("stack", tint = onSurface, contentDescription = "Queue", modifier = Modifier.size(20.dp))
+                MageIcon(
+                    name = "stack",
+                    tint = if (queueActive) accent else onSurface,
+                    contentDescription = if (queueActive) "Close queue" else "Queue",
+                    modifier = Modifier.size(20.dp),
+                )
             }
             IconButton(onClick = onMenu, modifier = Modifier.size(32.dp)) {
                 MageIcon("dots", tint = onSurface, contentDescription = "Track actions", modifier = Modifier.size(20.dp))
@@ -265,7 +307,7 @@ private fun MiniPlayerRow(
                 .align(Alignment.BottomStart)
                 .fillMaxWidth(playerState.progress.coerceIn(0f, 1f))
                 .height(2.5.dp)
-                .background(primary),
+                .background(accent),
         )
     }
 }
@@ -280,9 +322,9 @@ private fun IslandTabs(
     tabs: List<IslandTab>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    accent: Color,
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val inactive = MaterialTheme.colorScheme.onSurfaceVariant
+    val inactive = lerp(MaterialTheme.colorScheme.onSurfaceVariant, accent, 0.25f)
 
     BoxWithConstraints(
         modifier = Modifier
@@ -303,7 +345,7 @@ private fun IslandTabs(
                 .align(Alignment.CenterStart)
                 .offset(x = pillOffset)
                 .size(pillWidth, 36.dp)
-                .background(primary.copy(alpha = 0.18f), MuorgShapes.pill),
+                .background(accent.copy(alpha = 0.20f), MuorgShapes.pill),
         )
 
         Row(Modifier.fillMaxSize()) {
@@ -327,7 +369,7 @@ private fun IslandTabs(
                 ) {
                     MageIcon(
                         name = if (selected) tab.iconActive else tab.icon,
-                        tint = if (selected) primary else inactive,
+                        tint = if (selected) accent else inactive,
                         contentDescription = tab.label,
                         modifier = Modifier
                             .size(24.dp)

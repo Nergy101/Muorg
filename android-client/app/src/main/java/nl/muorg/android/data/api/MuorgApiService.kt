@@ -22,6 +22,17 @@ interface MuorgApiService {
     @GET("api/search")
     suspend fun search(@Query("q") query: String): List<CatalogTrack>
 
+    /** Most recently played tracks, newest first. */
+    @GET("api/play-history/recent")
+    suspend fun getRecentPlayHistory(@Query("limit") limit: Int = 20): List<CatalogTrack>
+
+    /** Most played tracks within the last [days] days, highest count first. */
+    @GET("api/play-history/top")
+    suspend fun getTopPlayHistory(
+        @Query("limit") limit: Int = 20,
+        @Query("days") days: Int = 30,
+    ): List<CatalogTrack>
+
     @GET("api/stats")
     suspend fun getStats(): Stats
 

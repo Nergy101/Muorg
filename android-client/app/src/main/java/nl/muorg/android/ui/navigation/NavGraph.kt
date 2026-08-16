@@ -70,7 +70,11 @@ import nl.muorg.android.data.preferences.AppPreferences
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import nl.muorg.android.ui.component.BottomIsland
 import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.component.IslandTab
@@ -94,6 +98,9 @@ import javax.inject.Inject
 sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object Home : Screen("home")
+    object MixDetail : Screen("mix/{mixId}") {
+        fun createRoute(mixId: Int) = "mix/$mixId"
+    }
     object Connect : Screen("connect")
     object Library : Screen("library?artistFilter={artistFilter}") {
         fun createRoute(artistFilter: String? = null) =
@@ -134,6 +141,7 @@ private fun tabIndexForRoute(route: String?): Int = when {
     route.startsWith("playlist") -> 2
     route == Screen.Settings.route -> 3
     route == Screen.Home.route -> 0
+    route.startsWith("mix/") -> 0
     else -> -1
 }
 
@@ -228,6 +236,31 @@ fun NavGraph() {
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     var miniPlayerSheet by remember { mutableStateOf(false) }
 
+    // Scrolling into a page collapses the island down to just the mini player
+    // and hands the freed height back to the content; scrolling back up
+    // restores it. LocalBottomInset is measured from the island, so every
+    // scroller follows without knowing anything about this.
+    //
+    // Keyed off what the child actually CONSUMED, not off the raw gesture: a
+    // page whose content fits on screen consumes nothing, so it never hides
+    // its own navigation out from under the user.
+    var barsCollapsed by remember { mutableStateOf(false) }
+    val collapseOnScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (consumed.y < -4f) barsCollapsed = true
+                else if (consumed.y > 4f) barsCollapsed = false
+                return Offset.Zero
+            }
+        }
+    }
+    // Arriving somewhere new always shows the full island.
+    LaunchedEffect(currentDestination?.route) { barsCollapsed = false }
+
     // The island's colour wash comes from the playing artwork — the same thing
     // the web's saturated backdrop blur ends up showing.
     val bloomTrack = playerState.currentTrack
@@ -256,7 +289,7 @@ fun NavGraph() {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
         ) {
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().nestedScroll(collapseOnScroll)) {
             NavHost(
                 navController = navController,
                 startDestination = Screen.Welcome.route,
@@ -282,6 +315,22 @@ fun NavGraph() {
                         onOpenAlbum = { albumName ->
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName))
                         },
+                        onOpenMix = { mixId ->
+                            navController.navigate(Screen.MixDetail.createRoute(mixId))
+                        },
+                    )
+                }
+
+                composable(
+                    route = Screen.MixDetail.route,
+                    arguments = listOf(navArgument("mixId") { type = NavType.IntType }),
+                ) { backStackEntry ->
+                    nl.muorg.android.ui.screen.mix.MixDetailScreen(
+                        mixId = backStackEntry.arguments?.getInt("mixId") ?: -1,
+                        playerViewModel = playerViewModel,
+                        imageLoader = imageLoader,
+                        baseUrl = baseUrl,
+                        onBack = { navController.popBackStack() },
                     )
                 }
 
@@ -505,7 +554,8 @@ fun NavGraph() {
                     onNext = { playerViewModel.skipNext() },
                     onOpenQueue = onOpenQueue,
                     onTrackMenu = { miniPlayerSheet = true },
-                    showTabs = selectedTab >= 0,
+                    queueActive = currentDestination?.route == Screen.Queue.route,
+                    showTabs = selectedTab >= 0 && !barsCollapsed,
                     // Driven by the destination, not by LibraryScreen's disposal:
                     // the outgoing route stays composed for the whole 320ms exit
                     // transition, so keying off disposal leaves the search bar
@@ -515,7 +565,7 @@ fun NavGraph() {
                     } else {
                         null
                     },
-                    chromeExpanded = true,
+                    chromeExpanded = !barsCollapsed,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .onGloballyPositioned {
