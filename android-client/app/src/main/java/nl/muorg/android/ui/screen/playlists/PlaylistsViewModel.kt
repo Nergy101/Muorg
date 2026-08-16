@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
@@ -25,6 +27,8 @@ data class PlaylistsUiState(
     val editingPlaylist: Playlist? = null,
     val editName: String = "",
     val editIcon: String = "🎵",
+    /** First four track ids per playlist, for the 2x2 cover mosaic. */
+    val covers: Map<Int, List<Int>> = emptyMap(),
 )
 
 @HiltViewModel
@@ -48,6 +52,30 @@ class PlaylistsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * The web's playlist tile is a 2x2 mosaic of the playlist's own covers, so
+     * each one needs a few of its track ids. Fetched after the list lands and
+     * in parallel — serially this is one round trip per playlist before the
+     * grid can paint.
+     */
+    private fun loadCovers(playlists: List<Playlist>) {
+        viewModelScope.launch {
+            val covers = playlists.map { playlist ->
+                async {
+                    val ids = if (currentMode == "local") {
+                        runCatching {
+                            localRepository.getPlaylistContents(playlist.id).mapNotNull { it.track?.id }
+                        }.getOrDefault(emptyList())
+                    } else {
+                        repository.getPlaylistTracks(playlist.id).getOrDefault(emptyList())
+                    }
+                    playlist.id to ids.take(4)
+                }
+            }.awaitAll().toMap()
+            _uiState.update { it.copy(covers = covers) }
+        }
+    }
+
     fun loadPlaylists() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -55,6 +83,7 @@ class PlaylistsViewModel @Inject constructor(
                 runCatching { localRepository.getPlaylists() }.fold(
                     onSuccess = { playlists ->
                         _uiState.update { it.copy(isLoading = false, playlists = playlists) }
+                        loadCovers(playlists)
                     },
                     onFailure = { error ->
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
@@ -64,6 +93,7 @@ class PlaylistsViewModel @Inject constructor(
                 repository.getPlaylists().fold(
                     onSuccess = { playlists ->
                         _uiState.update { it.copy(isLoading = false, playlists = playlists) }
+                        loadCovers(playlists)
                     },
                     onFailure = { error ->
                         _uiState.update { it.copy(isLoading = false, error = error.message) }

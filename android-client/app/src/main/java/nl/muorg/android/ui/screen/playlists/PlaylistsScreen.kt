@@ -53,6 +53,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import nl.muorg.android.data.api.Playlist
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import nl.muorg.android.ui.glass.GlassFrostContent
+import nl.muorg.android.ui.glass.GlassMaterial
+import nl.muorg.android.ui.glass.GlassSurface
+import nl.muorg.android.ui.glass.glassFrost
+import nl.muorg.android.ui.glass.scrimLabelStyle
+import nl.muorg.android.ui.theme.MuorgShapes
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -87,19 +100,26 @@ fun PlaylistsScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        // The web floats its create control as a glass pill in the top-right
+        // corner; there is no title bar above the grid.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = viewModel::showCreateDialog) {
+            GlassSurface(
+                material = GlassMaterial.Glass,
+                shape = MuorgShapes.pill,
+                modifier = Modifier.size(44.dp).clickable(onClick = viewModel::showCreateDialog),
+            ) {
                 Icon(
-                        painter = painterResource(mageIconRes("plus")),
+                    painter = painterResource(mageIconRes("plus")),
                     contentDescription = "New playlist",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.align(Alignment.Center).size(20.dp),
                 )
             }
         }
@@ -119,23 +139,28 @@ fun PlaylistsScreen(
                     )
                 }
                 else -> {
-                    LazyColumn(
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
                             start = 16.dp,
                             end = 16.dp,
                             top = 4.dp,
-                            bottom = LocalBottomInset.current + 4.dp,
+                            bottom = LocalBottomInset.current + 16.dp,
                         ),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(uiState.playlists, key = { it.id }) { playlist ->
-                            PlaylistCard(
+                            PlaylistTile(
                                 playlist = playlist,
+                                coverTrackIds = uiState.covers[playlist.id].orEmpty(),
+                                baseUrl = baseUrl,
+                                imageLoader = imageLoader,
                                 onClick = { onPlaylistClick(playlist.id) },
                                 onEdit = { viewModel.showEditDialog(playlist) },
                                 onDelete = { viewModel.deletePlaylist(playlist.id) },
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
                 }
@@ -333,6 +358,155 @@ private fun PlaylistCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
                 )
+            }
+        }
+    }
+}
+
+/**
+ * A playlist tile, matching `PlaylistCard.vue`: a 2x2 mosaic of the playlist's
+ * own covers, frosted action discs floating over the artwork, and the same
+ * caption scrim the album cards use.
+ */
+@Composable
+private fun PlaylistTile(
+    playlist: Playlist,
+    coverTrackIds: List<Int>,
+    baseUrl: String,
+    imageLoader: ImageLoader,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 8.dp,
+                shape = MuorgShapes.card,
+                clip = false,
+                ambientColor = Color.Black.copy(alpha = 0.30f),
+                spotColor = Color.Black.copy(alpha = 0.30f),
+            )
+            .clip(MuorgShapes.card)
+            .background(MaterialTheme.colorScheme.surface)
+            .aspectRatio(1f)
+            .clickable(onClick = onClick),
+    ) {
+        PlaylistMosaic(coverTrackIds, playlist.icon, baseUrl, imageLoader)
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FrostDisc("edit", "Rename playlist", onEdit)
+            FrostDisc("trash", "Delete playlist", onDelete)
+        }
+
+        GlassSurface(
+            material = GlassMaterial.Scrim,
+            shape = RectangleShape,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 10.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MarqueeText(
+                    text = playlist.name,
+                    style = scrimLabelStyle(MaterialTheme.typography.titleSmall),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(6.dp))
+                if (playlist.smartRules != null) {
+                    Icon(
+                        painter = painterResource(mageIconRes("zap-fill")),
+                        contentDescription = "Smart playlist",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
+                Icon(
+                    painter = painterResource(mageIconRes("music")),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    text = "${playlist.trackCount}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** A 32dp frosted disc with a fixed dark glyph — legible over any sleeve. */
+@Composable
+private fun FrostDisc(icon: String, description: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .glassFrost(MuorgShapes.pill)
+            .clip(MuorgShapes.pill)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(mageIconRes(icon)),
+            contentDescription = description,
+            tint = GlassFrostContent,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
+
+@Composable
+private fun PlaylistMosaic(
+    coverTrackIds: List<Int>,
+    icon: String?,
+    baseUrl: String,
+    imageLoader: ImageLoader,
+) {
+    if (coverTrackIds.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = icon ?: "🎵", fontSize = 44.sp, fontFamily = FontFamily.Default)
+        }
+        return
+    }
+    if (coverTrackIds.size < 4) {
+        AsyncImage(
+            model = "$baseUrl/api/tracks/${coverTrackIds.first()}/cover",
+            contentDescription = null,
+            imageLoader = imageLoader,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
+    Column(Modifier.fillMaxSize()) {
+        for (row in 0 until 2) {
+            Row(Modifier.fillMaxWidth().weight(1f)) {
+                for (col in 0 until 2) {
+                    AsyncImage(
+                        model = "$baseUrl/api/tracks/${coverTrackIds[row * 2 + col]}/cover",
+                        contentDescription = null,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().weight(1f),
+                    )
+                }
             }
         }
     }

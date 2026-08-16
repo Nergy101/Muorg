@@ -33,6 +33,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -58,6 +59,8 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
+import androidx.compose.foundation.layout.statusBarsPadding
+import nl.muorg.android.ui.theme.MuorgShapes
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
@@ -110,6 +113,7 @@ fun AlbumDetailScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
+                        .statusBarsPadding()
                         .padding(innerPadding),
                     contentPadding = PaddingValues(bottom = LocalBottomInset.current + 8.dp),
                 ) {
@@ -117,9 +121,20 @@ fun AlbumDetailScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            // The web puts the back affordance in the header row
+                            // itself, left of the cover — there is no app bar.
+                            IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                                Icon(
+                                    painter = painterResource(mageIconRes("chevron-left")),
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(2.dp))
                             val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
                             coverModel?.let {
                                 AsyncImage(
@@ -128,8 +143,8 @@ fun AlbumDetailScreen(
                                     imageLoader = imageLoader,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .size(120.dp)
-                                        .clip(RoundedCornerShape(10.dp)),
+                                        .size(112.dp)
+                                        .clip(MuorgShapes.art),
                                 )
                             }
 
@@ -138,7 +153,7 @@ fun AlbumDetailScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 MarqueeText(
                                     text = uiState.albumName,
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 MarqueeText(
@@ -294,7 +309,7 @@ private fun AlbumTrackRow(
                     onClick = onClick,
                     onLongClick = { menuLevel = TrackMenuLevel.MAIN },
                 )
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
@@ -306,18 +321,27 @@ private fun AlbumTrackRow(
                 } else {
                     Text(
                         text = track.trackNumber?.toString() ?: "·",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // Title over artist, as on the web — a bare title line reads as a
+            // file list, not a track list.
             Column(modifier = Modifier.weight(1f)) {
                 MarqueeText(
                     text = track.displayTitle,
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (isPlaying) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface,
+                )
+                MarqueeText(
+                    text = track.displayArtist,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -331,18 +355,30 @@ private fun AlbumTrackRow(
                         color = if (track.format == "flac")
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
-                        shape = RoundedCornerShape(3.dp),
+                        shape = MuorgShapes.chip,
                     )
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
             )
 
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
             Text(
                 text = track.formattedDuration(),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            IconButton(
+                onClick = { menuLevel = TrackMenuLevel.MAIN },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    painter = painterResource(mageIconRes("dots")),
+                    contentDescription = "Track actions",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
 
         // Level 1: main actions
