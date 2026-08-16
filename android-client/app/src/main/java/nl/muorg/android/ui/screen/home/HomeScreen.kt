@@ -49,6 +49,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.repository.Mix
 import nl.muorg.android.ui.component.AlbumCard
+import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
 import androidx.compose.ui.graphics.RectangleShape
@@ -279,8 +280,17 @@ private fun MixCard(
                 onClick = onClick,
             ),
     ) {
-        Box(Modifier.fillMaxSize()) {
-            CoverMosaic(mix.coverTrackIds, baseUrl, imageLoader)
+        CoverMosaic(
+            coverTrackIds = mix.coverTrackIds,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            MageIcon(
+                name = "color-swatch",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.align(Alignment.Center).size(40.dp),
+            )
         }
 
         GlassSurface(
@@ -318,54 +328,3 @@ private fun MixCard(
 }
 
 /** One cover fills the square; four tile it. Matches `MixCard.vue`. */
-@Composable
-private fun CoverMosaic(
-    coverTrackIds: List<Int>,
-    baseUrl: String,
-    imageLoader: ImageLoader,
-) {
-    val ids = coverTrackIds.take(4)
-    if (ids.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            MageIcon(
-                name = "color-swatch",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                modifier = Modifier.size(40.dp),
-            )
-        }
-        return
-    }
-    if (ids.size < 4) {
-        AsyncImage(
-            model = "$baseUrl/api/tracks/${ids.first()}/cover",
-            contentDescription = null,
-            imageLoader = imageLoader,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
-    Column(Modifier.fillMaxSize()) {
-        for (row in 0 until 2) {
-            Row(Modifier.fillMaxWidth().weight(1f)) {
-                for (col in 0 until 2) {
-                    AsyncImage(
-                        model = "$baseUrl/api/tracks/${ids[row * 2 + col]}/cover",
-                        contentDescription = null,
-                        imageLoader = imageLoader,
-                        contentScale = ContentScale.Crop,
-                        // weight FIRST: fillMaxSize resolves against the incoming
-                        // max width, so each cell claimed the whole row and its
-                        // siblings measured to nothing — a black tile.
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                }
-            }
-        }
-    }
-}

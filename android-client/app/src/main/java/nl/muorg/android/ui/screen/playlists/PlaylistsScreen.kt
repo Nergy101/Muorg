@@ -73,6 +73,7 @@ import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.glass.glassFrost
 import nl.muorg.android.ui.glass.scrimLabelStyle
 import nl.muorg.android.ui.theme.MuorgShapes
+import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -454,7 +455,19 @@ private fun PlaylistTile(
             .aspectRatio(1f)
             .clickable(onClick = onClick),
     ) {
-        PlaylistMosaic(coverTrackIds, playlist.icon, baseUrl, imageLoader)
+        CoverMosaic(
+            coverTrackIds = coverTrackIds,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Text(
+                text = playlist.icon ?: "🎵",
+                fontSize = 44.sp,
+                fontFamily = FontFamily.Default,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
 
         // Four discs across the top, as on the web: pin, rename, download, delete.
         Row(
@@ -537,52 +550,6 @@ private fun FrostDisc(
             tint = if (on) primary else GlassFrostContent,
             modifier = Modifier.size(16.dp),
         )
-    }
-}
-
-@Composable
-private fun PlaylistMosaic(
-    coverTrackIds: List<Int>,
-    icon: String?,
-    baseUrl: String,
-    imageLoader: ImageLoader,
-) {
-    if (coverTrackIds.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = icon ?: "🎵", fontSize = 44.sp, fontFamily = FontFamily.Default)
-        }
-        return
-    }
-    if (coverTrackIds.size < 4) {
-        AsyncImage(
-            model = "$baseUrl/api/tracks/${coverTrackIds.first()}/cover",
-            contentDescription = null,
-            imageLoader = imageLoader,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
-    Column(Modifier.fillMaxSize()) {
-        for (row in 0 until 2) {
-            Row(Modifier.fillMaxWidth().weight(1f)) {
-                for (col in 0 until 2) {
-                    AsyncImage(
-                        model = "$baseUrl/api/tracks/${coverTrackIds[row * 2 + col]}/cover",
-                        contentDescription = null,
-                        imageLoader = imageLoader,
-                        contentScale = ContentScale.Crop,
-                        // weight FIRST: fillMaxSize resolves against the incoming
-                        // max width, so each cell claimed the whole row and its
-                        // siblings measured to nothing — a black tile.
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                }
-            }
-        }
     }
 }
 

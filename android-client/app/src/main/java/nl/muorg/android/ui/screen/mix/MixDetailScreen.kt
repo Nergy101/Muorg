@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
@@ -99,10 +100,17 @@ fun MixDetailScreen(
                     )
                 }
                 Spacer(Modifier.width(2.dp))
-                Box(
+                CoverMosaic(
+                    coverTrackIds = mix.coverTrackIds,
+                    baseUrl = baseUrl,
+                    imageLoader = imageLoader,
                     modifier = Modifier.size(112.dp).clip(MuorgShapes.art),
                 ) {
-                    MixMosaic(mix.coverTrackIds, mix.emoji, baseUrl, imageLoader)
+                    Text(
+                        text = mix.emoji,
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -211,48 +219,3 @@ fun MixDetailScreen(
     }
 }
 
-@Composable
-private fun MixMosaic(
-    coverTrackIds: List<Int>,
-    emoji: String,
-    baseUrl: String,
-    imageLoader: ImageLoader,
-) {
-    if (coverTrackIds.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = emoji, style = MaterialTheme.typography.headlineSmall)
-        }
-        return
-    }
-    if (coverTrackIds.size < 4) {
-        AsyncImage(
-            model = "$baseUrl/api/tracks/${coverTrackIds.first()}/cover",
-            contentDescription = null,
-            imageLoader = imageLoader,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        for (row in 0 until 2) {
-            Row(Modifier.fillMaxWidth().weight(1f)) {
-                for (col in 0 until 2) {
-                    AsyncImage(
-                        model = "$baseUrl/api/tracks/${coverTrackIds[row * 2 + col]}/cover",
-                        contentDescription = null,
-                        imageLoader = imageLoader,
-                        contentScale = ContentScale.Crop,
-                        // weight FIRST: fillMaxSize resolves against the incoming
-                        // max width, so each cell claimed the whole row and its
-                        // siblings measured to nothing — a black tile.
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                }
-            }
-        }
-    }
-}
