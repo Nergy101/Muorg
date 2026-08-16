@@ -96,7 +96,7 @@ fun glassSpec(material: GlassMaterial): GlassSpec {
         // thing separating the island from sharp album art, so it has to carry
         // that separation itself.
         GlassMaterial.Deep -> GlassSpec(
-            fill = surface.copy(alpha = 0.90f),
+            fill = surface.copy(alpha = 0.97f),
             border = onSurface.copy(alpha = 0.16f),
             highlight = Color.White.copy(alpha = 0.18f),
             blur = 36.dp,
