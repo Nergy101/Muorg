@@ -49,6 +49,17 @@ interface MuorgApiService {
     @GET("api/playlists/{id}/tracks")
     suspend fun getPlaylistTracks(@Path("id") playlistId: Int): List<Int>
 
+    /**
+     * Smart playlists must go through this endpoint: the plain
+     * `/tracks` route reads the join table and does not evaluate rules,
+     * so it comes back empty for every smart playlist.
+     */
+    @POST("api/playlists/smart")
+    suspend fun createSmartPlaylist(@Body request: CreateSmartPlaylistRequest): Playlist
+
+    @GET("api/playlists/smart/{id}/tracks")
+    suspend fun getSmartPlaylistTracks(@Path("id") playlistId: Int): List<Int>
+
     @POST("api/playlists/{id}/tracks")
     suspend fun addTracksToPlaylist(
         @Path("id") playlistId: Int,

@@ -72,6 +72,20 @@ data class UpdatePlaylistRequest(
     val icon: String? = null,
 )
 
+/** `rules_json` is a flat array of these, matching the web client exactly. */
+@Serializable
+data class SmartRule(
+    val field: String,
+    val op: String,
+    val value: String,
+)
+
+@Serializable
+data class CreateSmartPlaylistRequest(
+    val name: String,
+    @SerialName("rules_json") val rulesJson: String,
+)
+
 @Serializable
 data class PlaylistTracksRequest(
     @SerialName("track_ids") val trackIds: List<Int>,

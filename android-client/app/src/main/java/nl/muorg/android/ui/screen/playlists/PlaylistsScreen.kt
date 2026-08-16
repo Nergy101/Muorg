@@ -29,6 +29,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +39,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import nl.muorg.android.data.api.SmartRule
+import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -113,14 +119,42 @@ fun PlaylistsScreen(
             GlassSurface(
                 material = GlassMaterial.Glass,
                 shape = MuorgShapes.pill,
-                modifier = Modifier.size(44.dp).clickable(onClick = viewModel::showCreateDialog),
+                modifier = Modifier.height(44.dp),
             ) {
-                Icon(
-                    painter = painterResource(mageIconRes("plus")),
-                    contentDescription = "New playlist",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.align(Alignment.Center).size(20.dp),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable(onClick = viewModel::showCreateDialog),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(mageIconRes("plus")),
+                            contentDescription = "New playlist",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(20.dp)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable(onClick = viewModel::showSmartCreateDialog),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(mageIconRes("zap")),
+                            contentDescription = "New smart playlist",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             }
         }
 
@@ -139,6 +173,12 @@ fun PlaylistsScreen(
                     )
                 }
                 else -> {
+                    // Pinned playlists sort to the front, as on the web. Hoisted
+                    // out of the lazy scope: that block is not a composable, so
+                    // `remember` cannot live inside it.
+                    val ordered = remember(uiState.playlists, uiState.pinnedIds) {
+                        uiState.playlists.sortedByDescending { it.id in uiState.pinnedIds }
+                    }
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         modifier = Modifier.fillMaxSize(),
@@ -151,14 +191,17 @@ fun PlaylistsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        items(uiState.playlists, key = { it.id }) { playlist ->
+                        items(ordered, key = { it.id }) { playlist ->
                             PlaylistTile(
                                 playlist = playlist,
                                 coverTrackIds = uiState.covers[playlist.id].orEmpty(),
+                                pinned = playlist.id in uiState.pinnedIds,
                                 baseUrl = baseUrl,
                                 imageLoader = imageLoader,
                                 onClick = { onPlaylistClick(playlist.id) },
+                                onTogglePin = { viewModel.togglePin(playlist.id) },
                                 onEdit = { viewModel.showEditDialog(playlist) },
+                                onDownload = { viewModel.downloadPlaylist(playlist) },
                                 onDelete = { viewModel.deletePlaylist(playlist.id) },
                             )
                         }
@@ -167,6 +210,20 @@ fun PlaylistsScreen(
             }
         }
 
+    }
+
+    if (uiState.showSmartDialog) {
+        SmartPlaylistDialog(
+            name = uiState.smartName,
+            rules = uiState.smartRules,
+            saving = uiState.smartSaving,
+            onNameChange = viewModel::onSmartNameChange,
+            onRuleChange = viewModel::updateSmartRule,
+            onAddRule = viewModel::addSmartRule,
+            onRemoveRule = viewModel::removeSmartRule,
+            onConfirm = viewModel::createSmartPlaylist,
+            onDismiss = viewModel::dismissSmartDialog,
+        )
     }
 
     if (uiState.showCreateDialog) {
@@ -372,10 +429,13 @@ private fun PlaylistCard(
 private fun PlaylistTile(
     playlist: Playlist,
     coverTrackIds: List<Int>,
+    pinned: Boolean,
     baseUrl: String,
     imageLoader: ImageLoader,
     onClick: () -> Unit,
+    onTogglePin: () -> Unit,
     onEdit: () -> Unit,
+    onDownload: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Box(
@@ -395,13 +455,17 @@ private fun PlaylistTile(
     ) {
         PlaylistMosaic(coverTrackIds, playlist.icon, baseUrl, imageLoader)
 
+        // Four discs across the top, as on the web: pin, rename, download, delete.
         Row(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            FrostDisc("pin", if (pinned) "Unpin playlist" else "Pin playlist", onTogglePin, on = pinned)
             FrostDisc("edit", "Rename playlist", onEdit)
+            FrostDisc("download", "Download playlist", onDownload)
             FrostDisc("trash", "Delete playlist", onDelete)
         }
 
@@ -451,11 +515,17 @@ private fun PlaylistTile(
 
 /** A 32dp frosted disc with a fixed dark glyph — legible over any sleeve. */
 @Composable
-private fun FrostDisc(icon: String, description: String, onClick: () -> Unit) {
+private fun FrostDisc(
+    icon: String,
+    description: String,
+    onClick: () -> Unit,
+    on: Boolean = false,
+) {
+    val primary = MaterialTheme.colorScheme.primary
     Box(
         modifier = Modifier
-            .size(32.dp)
-            .glassFrost(MuorgShapes.pill)
+            .size(30.dp)
+            .glassFrost(MuorgShapes.pill, on = on)
             .clip(MuorgShapes.pill)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -463,7 +533,7 @@ private fun FrostDisc(icon: String, description: String, onClick: () -> Unit) {
         Icon(
             painter = painterResource(mageIconRes(icon)),
             contentDescription = description,
-            tint = GlassFrostContent,
+            tint = if (on) primary else GlassFrostContent,
             modifier = Modifier.size(16.dp),
         )
     }
@@ -507,6 +577,155 @@ private fun PlaylistMosaic(
                         modifier = Modifier.fillMaxSize().weight(1f),
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Rule editor for a smart playlist, mirroring `SmartPlaylistDialog.vue`: a
+ * name plus a list of `field / operator / value` rows serialised straight into
+ * the server's `rules_json`.
+ */
+@Composable
+private fun SmartPlaylistDialog(
+    name: String,
+    rules: List<SmartRule>,
+    saving: Boolean,
+    onNameChange: (String) -> Unit,
+    onRuleChange: (Int, SmartRule) -> Unit,
+    onAddRule: () -> Unit,
+    onRemoveRule: (Int) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(mageIconRes("zap")),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Smart Playlist")
+            }
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "Tracks matching every rule are included, and the playlist re-evaluates itself as the library changes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                rules.forEachIndexed { index, rule ->
+                    SmartRuleRow(
+                        rule = rule,
+                        canRemove = rules.size > 1,
+                        onChange = { onRuleChange(index, it) },
+                        onRemove = { onRemoveRule(index) },
+                    )
+                }
+                TextButton(onClick = onAddRule) {
+                    Icon(
+                        painter = painterResource(mageIconRes("plus")),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add rule")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = saving.not() && name.isNotBlank() && rules.any { it.value.isNotBlank() },
+            ) {
+                Text(if (saving) "Creating…" else "Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun SmartRuleRow(
+    rule: SmartRule,
+    canRemove: Boolean,
+    onChange: (SmartRule) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var fieldOpen by remember { mutableStateOf(false) }
+    var opOpen by remember { mutableStateOf(false) }
+    val ops = opsForField(rule.field)
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box {
+            TextButton(onClick = { fieldOpen = true }) {
+                Text(SMART_FIELDS.first { it.first == rule.field }.second)
+                Icon(
+                    painter = painterResource(mageIconRes("chevron-down")),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            DropdownMenu(expanded = fieldOpen, onDismissRequest = { fieldOpen = false }) {
+                SMART_FIELDS.forEach { (value, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            fieldOpen = false
+                            // Operators differ per field type, so reset to a valid one.
+                            onChange(rule.copy(field = value, op = opsForField(value).first().first))
+                        },
+                    )
+                }
+            }
+        }
+        Box {
+            TextButton(onClick = { opOpen = true }) {
+                Text(ops.first { it.first == rule.op }.second)
+            }
+            DropdownMenu(expanded = opOpen, onDismissRequest = { opOpen = false }) {
+                ops.forEach { (value, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = { opOpen = false; onChange(rule.copy(op = value)) },
+                    )
+                }
+            }
+        }
+        OutlinedTextField(
+            value = rule.value,
+            onValueChange = { onChange(rule.copy(value = it)) },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+        if (canRemove) {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    painter = painterResource(mageIconRes("multiply")),
+                    contentDescription = "Remove rule",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
     }

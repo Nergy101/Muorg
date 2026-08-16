@@ -210,6 +210,16 @@ fun NavGraph() {
     val imageLoader = navViewModel.imageLoader
     val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
 
+    // The queue glyph is a TOGGLE, not a push: tapping it while the queue is
+    // already open goes back, and it can never stack two queue screens.
+    val onOpenQueue: () -> Unit = {
+        if (currentDestination?.route == Screen.Queue.route) {
+            navController.popBackStack()
+        } else {
+            navController.navigate(Screen.Queue.route) { launchSingleTop = true }
+        }
+    }
+
     val onPlayerBarClick: () -> Unit =
         if (playerBarTapOpensPlayer) ({ navController.navigate(Screen.Player.route) })
         else ({ playerViewModel.playPause() })
@@ -302,7 +312,7 @@ fun NavGraph() {
                         onAlbumClick = { albumName ->
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName))
                         },
-                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onOpenQueue = onOpenQueue,
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
                         },
@@ -327,7 +337,7 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
-                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onOpenQueue = onOpenQueue,
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
                         },
@@ -361,7 +371,7 @@ fun NavGraph() {
                         imageLoader = imageLoader,
                         baseUrl = baseUrl,
                         onBack = { navController.popBackStack() },
-                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onOpenQueue = onOpenQueue,
                         onViewArtist = { artistName ->
                             navController.popBackStack()
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
@@ -411,7 +421,7 @@ fun NavGraph() {
                         onPlaylistClick = { playlistId ->
                             navController.navigate(Screen.PlaylistAlbums.createRoute(playlistId))
                         },
-                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onOpenQueue = onOpenQueue,
                     )
                 }
 
@@ -428,7 +438,7 @@ fun NavGraph() {
                             navController.navigate(Screen.AlbumDetail.createRoute(albumName, currentPlaylistId.takeIf { it != -1 }))
                         },
                         onBack = { navController.popBackStack() },
-                        onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                        onOpenQueue = onOpenQueue,
                         onViewArtist = { artistName ->
                             navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
                         },
@@ -493,10 +503,18 @@ fun NavGraph() {
                     onMiniPlayerClick = onPlayerBarClick,
                     onPlayPause = { playerViewModel.playPause() },
                     onNext = { playerViewModel.skipNext() },
-                    onOpenQueue = { navController.navigate(Screen.Queue.route) },
+                    onOpenQueue = onOpenQueue,
                     onTrackMenu = { miniPlayerSheet = true },
                     showTabs = selectedTab >= 0,
-                    chrome = chromeHost.content,
+                    // Driven by the destination, not by LibraryScreen's disposal:
+                    // the outgoing route stays composed for the whole 320ms exit
+                    // transition, so keying off disposal leaves the search bar
+                    // sitting in the island long after the view has gone.
+                    chrome = if (selectedTab == 1 && currentDestination?.route?.startsWith("library") == true) {
+                        chromeHost.content
+                    } else {
+                        null
+                    },
                     chromeExpanded = true,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

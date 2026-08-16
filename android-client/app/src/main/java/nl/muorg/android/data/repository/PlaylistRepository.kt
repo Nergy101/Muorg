@@ -2,6 +2,7 @@ package nl.muorg.android.data.repository
 
 import nl.muorg.android.data.api.CreatePlaylistRequest
 import nl.muorg.android.data.api.MuorgApiService
+import nl.muorg.android.data.api.CreateSmartPlaylistRequest
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.PlaylistTracksRequest
 import nl.muorg.android.data.api.ReorderPlaylistTracksRequest
@@ -33,6 +34,18 @@ class PlaylistRepository @Inject constructor(
     suspend fun deletePlaylist(id: Int): Result<Unit> = runCatching {
         api.deletePlaylist(id)
         Unit
+    }
+
+    /** Resolves a playlist's tracks, taking the smart route when it has rules. */
+    suspend fun getTracksFor(playlist: Playlist): Result<List<Int>> =
+        if (playlist.smartRules != null) getSmartTracks(playlist.id) else getPlaylistTracks(playlist.id)
+
+    suspend fun createSmartPlaylist(name: String, rulesJson: String): Result<Playlist> = runCatching {
+        api.createSmartPlaylist(CreateSmartPlaylistRequest(name = name, rulesJson = rulesJson))
+    }
+
+    suspend fun getSmartTracks(id: Int): Result<List<Int>> = runCatching {
+        api.getSmartPlaylistTracks(id)
     }
 
     suspend fun getPlaylistTracks(id: Int): Result<List<Int>> = runCatching {

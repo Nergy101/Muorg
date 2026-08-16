@@ -242,8 +242,11 @@ fun Modifier.glassField(shape: Shape): Modifier {
 @Composable
 fun Modifier.glassFrost(shape: Shape, on: Boolean = false): Modifier {
     val primary = MaterialTheme.colorScheme.primary
-    val fill = if (on) primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.58f)
-    val base = if (on) Color.White.copy(alpha = 0.92f) else Color.Transparent
+    // The web's 58% white sits on a blur of the sleeve, which is usually
+    // brighter than the raw pixels underneath. Without that blur the pane has
+    // to be denser or the fixed dark glyph loses contrast over a black cover.
+    val fill = if (on) primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.80f)
+    val base = if (on) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.35f)
     val border = if (on) primary.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.60f)
     return this
         .shadow(4.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = 0.45f), spotColor = Color.Black.copy(alpha = 0.45f))

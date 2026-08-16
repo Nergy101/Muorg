@@ -39,6 +39,7 @@ class AppPreferences @Inject constructor(
         private val KEY_USE_TRUE_BLACK = booleanPreferencesKey("use_true_black")
         private val KEY_PLAYERBAR_TAP_OPENS_PLAYER = booleanPreferencesKey("playerbar_tap_opens_player")
         private val KEY_NOTIFICATION_ACTIONS = stringSetPreferencesKey("notification_actions")
+        private val KEY_PINNED_PLAYLISTS = stringSetPreferencesKey("pinned_playlists")
         private val KEY_ALBUM_VIEW_STYLE = stringPreferencesKey("album_view_style")
         private val KEY_PLAYLIST_VIEW_STYLE = stringPreferencesKey("playlist_view_style")
         private val KEY_SORT_ASCENDING = booleanPreferencesKey("sort_ascending")
@@ -88,6 +89,16 @@ class AppPreferences @Inject constructor(
 
     val localFolderUris: Flow<Set<String>> = context.dataStore.data
         .map { it[KEY_LOCAL_FOLDER_URIS] ?: emptySet() }
+
+    /** Playlist ids the user pinned; pinned playlists sort to the front. */
+    val pinnedPlaylists: Flow<Set<Int>> = context.dataStore.data
+        .map { prefs -> (prefs[KEY_PINNED_PLAYLISTS] ?: emptySet()).mapNotNull(String::toIntOrNull).toSet() }
+
+    suspend fun togglePinnedPlaylist(id: Int) = context.dataStore.edit { prefs ->
+        val current = prefs[KEY_PINNED_PLAYLISTS] ?: emptySet()
+        val key = id.toString()
+        prefs[KEY_PINNED_PLAYLISTS] = if (key in current) current - key else current + key
+    }
 
     val favorites: Flow<Set<String>> = context.dataStore.data
         .map { it[KEY_FAVORITES] ?: emptySet() }
