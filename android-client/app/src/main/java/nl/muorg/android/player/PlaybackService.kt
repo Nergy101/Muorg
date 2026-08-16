@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import nl.muorg.android.R
 import nl.muorg.android.cast.CastManager
 import nl.muorg.android.data.preferences.AppPreferences
 import javax.inject.Inject
@@ -67,21 +68,25 @@ class PlaybackService : MediaSessionService() {
     private fun buildCommandButtons(actions: Set<String>): List<CommandButton> = buildList {
         if ("skip_previous" in actions) add(
             CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setDisplayName(getString(R.string.action_previous))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
                 .build()
         )
         if ("shuffle" in actions) add(
             CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
+                .setDisplayName(getString(R.string.action_shuffle))
                 .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE)
                 .build()
         )
         if ("skip_next" in actions) add(
             CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setDisplayName(getString(R.string.action_next))
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 .build()
         )
         if ("repeat" in actions) add(
             CommandButton.Builder(CommandButton.ICON_REPEAT_ALL)
+                .setDisplayName(getString(R.string.action_repeat))
                 .setPlayerCommand(Player.COMMAND_SET_REPEAT_MODE)
                 .build()
         )

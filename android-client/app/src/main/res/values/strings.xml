@@ -21,4 +21,8 @@
     <string name="notification_channel_name">Playback</string>
     <string name="widget_no_track">Not playing</string>
     <string name="now_playing_widget_desc">Shows the currently playing track with playback controls</string>
+    <string name="action_previous">Previous</string>
+    <string name="action_next">Next</string>
+    <string name="action_shuffle">Shuffle</string>
+    <string name="action_repeat">Repeat</string>
 </resources>

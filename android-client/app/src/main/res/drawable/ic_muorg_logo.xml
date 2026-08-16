@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Port of web-client/src/assets/muorg-logo.svg (viewBox 0 0 1024 1024).
+  Circles are expressed as two half-arc paths; colours and stroke widths are
+  copied verbatim from the SVG so both clients render the identical mark.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+
+    <!-- Speaker / leaf silhouette -->
+    <path
+        android:pathData="M150,200 L450,450 L512,512 L574,450 L874,200 L750,700 L512,880 L274,700 Z"
+        android:fillColor="#5b7c32"
+        android:strokeColor="#ffffff"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round" />
+
+    <!-- Record body -->
+    <path
+        android:pathData="M212,512 a300,300 0 1,0 600,0 a300,300 0 1,0 -600,0"
+        android:fillColor="#759346"
+        android:strokeColor="#ffffff"
+        android:strokeWidth="15" />
+
+    <!-- Grooves -->
+    <path
+        android:pathData="M292,512 a220,220 0 1,0 440,0 a220,220 0 1,0 -440,0"
+        android:strokeColor="#5b7c32"
+        android:strokeWidth="8"
+        android:strokeAlpha="0.4" />
+    <path
+        android:pathData="M362,512 a150,150 0 1,0 300,0 a150,150 0 1,0 -300,0"
+        android:strokeColor="#5b7c32"
+        android:strokeWidth="8"
+        android:strokeAlpha="0.4" />
+
+    <!-- Label -->
+    <path
+        android:pathData="M437,512 a75,75 0 1,0 150,0 a75,75 0 1,0 -150,0"
+        android:fillColor="#5b7c32" />
+
+    <!-- Spindle -->
+    <path android:pathData="M494,512 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="512"
+                android:centerY="512"
+                android:gradientRadius="18">
+                <item android:offset="0" android:color="#ffffffff" />
+                <item android:offset="1" android:color="#ff999999" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
