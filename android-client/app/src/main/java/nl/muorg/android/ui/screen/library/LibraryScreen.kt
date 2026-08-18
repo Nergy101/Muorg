@@ -390,7 +390,10 @@ fun LibraryScreen(
 
     Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             when {
-                uiState.isLoading -> {
+                // Only block on the very first page: the remote catalog streams
+                // in page by page, so later pages must grow the list in place
+                // instead of replacing it with a spinner.
+                uiState.isLoading && uiState.allTracks.isEmpty() -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
                         color = MaterialTheme.colorScheme.primary,
