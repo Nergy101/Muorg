@@ -140,24 +140,31 @@ class LibraryViewModel @Inject constructor(
                     }
                 )
             } else {
-                repository.getAllTracks().fold(
-                    onSuccess = { tracks ->
-                        val albums = repository.buildAlbumGroups(tracks)
-                        _uiState.update { state ->
-                            state.copy(
-                                isLoading = false,
-                                allTracks = tracks,
-                                filteredTracks = applyFilters(tracks, state),
-                                albums = albums,
-                                filteredAlbums = applyAlbumFilters(albums, state),
-                            )
-                        }
-                    },
+                repository.getAllTracks(onPage = { partial -> publishTracks(partial, false) }).fold(
+                    onSuccess = { tracks -> publishTracks(tracks, true) },
                     onFailure = { error ->
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
                     }
                 )
             }
+        }
+    }
+
+    /**
+     * Pushes a catalog snapshot into the UI. Called once per page while the
+     * remote catalog streams in, so a large library renders its first rows
+     * straight away; [complete] clears the spinner on the last page only.
+     */
+    private fun publishTracks(tracks: List<CatalogTrack>, complete: Boolean) {
+        val albums = repository.buildAlbumGroups(tracks)
+        _uiState.update { state ->
+            state.copy(
+                isLoading = !complete,
+                allTracks = tracks,
+                filteredTracks = applyFilters(tracks, state),
+                albums = albums,
+                filteredAlbums = applyAlbumFilters(albums, state),
+            )
         }
     }
 

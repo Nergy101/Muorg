@@ -16,8 +16,17 @@ interface MuorgApiService {
     @GET("api/health")
     suspend fun health(): Response<Unit>
 
+    /**
+     * One page of the catalog. The server CAPS this route at 500 rows by
+     * default (and 5000 hard), and reports the true size in `X-Total-Count`,
+     * so callers must page — a bare call silently returns a truncated
+     * library while `/api/stats` keeps reporting the full counts.
+     */
     @GET("api/tracks")
-    suspend fun getTracks(): List<CatalogTrack>
+    suspend fun getTracks(
+        @Query("offset") offset: Int,
+        @Query("limit") limit: Int,
+    ): Response<List<CatalogTrack>>
 
     @GET("api/search")
     suspend fun search(@Query("q") query: String): List<CatalogTrack>
