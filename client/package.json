@@ -51,8 +51,8 @@
     "tailwindcss": "^4.3.3",
     "@tailwindcss/postcss": "^4.3.3",
     "esbuild": "^0.28.2",
-    "typescript": "~5.8.0",
+    "typescript": "~7.0.2",
     "vite": "^8.2.1",
-    "vue-tsc": "^3.3.9"
+    "vue-tsc": "^3.3.10"
   }
 }
