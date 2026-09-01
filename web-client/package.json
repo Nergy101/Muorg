@@ -1,7 +1,7 @@
 {
   "name": "muorg-web",
   "private": true,
-  "version": "2.39.3",
+  "version": "2.41.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
