@@ -228,6 +228,19 @@ export const usePlayerStore = defineStore("player", () => {
     el.addEventListener("pause", () => {
       if (el === audioEl.value) isPlaying.value = false;
     });
+    // Mid-stream failures (dropped connection, server error) previously went
+    // unnoticed: playback silently halted with no toast and no advance.
+    el.addEventListener("error", () => {
+      if (el !== audioEl.value) return; // preload elements just go stale
+      // src="" during a FLAC seek reload fires a benign error — the attribute
+      // is empty then; a real failure always has the stream URL set.
+      if (!el.getAttribute("src") || el.error === null) return;
+      setError("Playback failed — connection lost. Skipping to next track…");
+      isPlaying.value = false;
+      // Auto-advance so the queue keeps moving; advance() handles the
+      // user-queue-first logic and the end-of-queue case.
+      setTimeout(() => advance(false), 300);
+    });
     el.volume = volume.value;
     // Must be in the DOM for the iOS Now Playing widget to register.
     el.style.display = "none";

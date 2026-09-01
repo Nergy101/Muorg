@@ -113,6 +113,22 @@ class PlayerController @Inject constructor(
         override fun onRepeatModeChanged(repeatMode: Int) = syncState()
         // Fires when duration becomes available (e.g. FLAC headers parsed after buffering starts)
         override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) = syncState()
+        // A mid-stream failure (dropped connection, server error) used to be
+        // invisible: the player stopped with no UI feedback. Surface it.
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            _state.update {
+                it.copy(
+                    isPlaying = false,
+                    errorMessage = "Playback failed: ${error.errorCodeName}",
+                )
+            }
+            // Auto-advance so the queue keeps moving; clear the message after a beat.
+            controller?.seekToNextMediaItem()
+            scope.launch {
+                delay(4000)
+                _state.update { if (it.errorMessage?.startsWith("Playback failed") == true) it.copy(errorMessage = null) else it }
+            }
+        }
     }
 
     private fun syncState() {

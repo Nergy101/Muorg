@@ -49,6 +49,14 @@ pub fn transcode_to_mp3_bytes(
         .ok_or("No audio track found")?
         .clone();
 
+    // Record the source's declared duration so we can reject a transcode that
+    // came out suspiciously short (a mid-stream read failure used to be treated
+    // as clean EOF and cached as a truncated MP3 — songs "ending" early).
+    let source_duration_secs = track
+        .time_base
+        .zip(track.num_frames)
+        .map(|(tb, n)| tb.numer.get() as f64 * n as f64 / tb.denom.get() as f64);
+
     let track_id = track.id;
     let audio_params = track
         .codec_params
@@ -98,6 +106,7 @@ pub fn transcode_to_mp3_bytes(
     let mut encoder = builder.build().map_err(|e| format!("{e:?}"))?;
 
     let mut out: Vec<u8> = Vec::new();
+    let mut hit_midstream_error: Option<String> = None;
     loop {
         let packet = match format.next_packet() {
             Ok(Some(p)) => p,
@@ -106,8 +115,20 @@ pub fn transcode_to_mp3_bytes(
                 decoder.reset();
                 continue;
             }
-            Err(SymphoniaError::IoError(_)) => break,
-            Err(_) => break,
+            // A mid-stream I/O failure (dropped remote read, truncated transfer)
+            // is NOT clean EOF: returning the partial MP3 as Ok made the caller
+            // cache a truncated file that then "ended" early on every request.
+            Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                break
+            }
+            Err(SymphoniaError::IoError(e)) => {
+                hit_midstream_error = Some(format!("read error: {e}"));
+                break;
+            }
+            Err(e) => {
+                hit_midstream_error = Some(format!("format error: {e}"));
+                break;
+            }
         };
 
         if packet.track_id != track_id {
@@ -121,7 +142,10 @@ pub fn transcode_to_mp3_bytes(
                 decoder.reset();
                 continue;
             }
-            Err(_) => break,
+            Err(e) => {
+                hit_midstream_error = Some(format!("decode error: {e}"));
+                break;
+            }
         };
 
         let mut samples: Vec<f32> = Vec::new();
@@ -157,7 +181,68 @@ pub fn transcode_to_mp3_bytes(
         out.extend_from_slice(&flush_buf);
     }
 
+    // Guard 1: an explicit mid-stream failure must not come back as a
+    // (truncated) success.
+    if let Some(err) = hit_midstream_error {
+        return Err(format!(
+            "transcode aborted mid-stream ({err}); refusing to return a truncated file"
+        )
+        .into());
+    }
+
+    // Guard 2: belt-and-braces — if the source declares a duration and the
+    // output decodes far short of it, treat the transcode as failed rather than
+    // cache a track that "ends" a minute early. Symphonia's n_frames estimate
+    // can be absent or slightly off, so allow a generous 20% slack.
+    if let Some(expected) = source_duration_secs {
+        if expected > 10.0 {
+            let actual = decoded_mp3_duration(&out).unwrap_or(0.0);
+            if actual > 0.0 && actual < expected * 0.8 {
+                return Err(format!(
+                    "transcoded duration {actual:.1}s is far short of the source's {expected:.1}s — source likely truncated"
+                )
+                .into());
+            }
+        }
+    }
+
     Ok(out)
+}
+
+/// Decoded duration of an MP3 buffer in seconds (None if it can't be probed).
+fn decoded_mp3_duration(mp3: &[u8]) -> Option<f64> {
+    let mss = MediaSourceStream::new(
+        Box::new(std::io::Cursor::new(mp3.to_vec())),
+        Default::default(),
+    );
+    let mut format = symphonia::default::get_probe()
+        .probe(
+            &Hint::new(),
+            mss,
+            FormatOptions::default(),
+            MetadataOptions::default(),
+        )
+        .ok()?;
+    let track = format.tracks().first()?.clone();
+    let params = track.codec_params.as_ref()?.audio()?;
+    let rate = params.sample_rate? as f64;
+    let mut decoder = symphonia::default::get_codecs()
+        .make_audio_decoder(params, &AudioDecoderOptions::default())
+        .ok()?;
+    let mut total_frames = 0u64;
+    loop {
+        let packet = match format.next_packet() {
+            Ok(Some(p)) => p,
+            _ => break,
+        };
+        if packet.track_id != track.id {
+            continue;
+        }
+        if let Ok(decoded) = decoder.decode(&packet) {
+            total_frames += decoded.frames() as u64;
+        }
+    }
+    Some(total_frames as f64 / rate.max(1.0))
 }
 
 #[cfg(test)]
