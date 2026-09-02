@@ -797,16 +797,16 @@ export const useCatalogStore = defineStore("catalog", {
       }
     },
     getCover(path: string): CoverInfo | null | undefined {
-      // Touch on access to keep LRU order accurate
-      if (path in this.coverCache) {
-        this._touchCover(path);
-      }
+      // Plain read — NO _touchCover here. Touching (mutating _coverCacheOrder)
+      // during a read invalidates computeds that depend on the cover cache,
+      // re-running them, which reads again and touches again: an infinite
+      // reactive loop that pegs the main thread on any click. LRU order is
+      // maintained on writes only (_setCover); eviction accuracy loss is fine.
       return this.coverCache[path];
     },
     getCoverDataUrl(path: string): string | null {
       const c = this.coverCache[path];
       if (!c) return null;
-      this._touchCover(path);
       return `data:${c.mime};base64,${c.base64}`;
     },
     /** Touch a path in the LRU order (moves it to most-recently-used). */

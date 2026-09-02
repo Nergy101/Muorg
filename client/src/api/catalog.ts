@@ -20,8 +20,24 @@ export async function getRoots(): Promise<string[]> {
   return apiFetch<string[]>("/api/roots");
 }
 
+// GET /api/tracks — fetch ALL pages. The server paginates (default 500/page,
+// total in X-Total-Count), so a bare /api/tracks silently returned only the
+// first 500 tracks. Follow offset until fewer than the page size comes back.
 export async function getTracks(): Promise<CatalogTrack[]> {
-  return apiFetch<CatalogTrack[]>("/api/tracks");
+  const PAGE = 500;
+  const first = await apiFetch<CatalogTrack[]>("/api/tracks?limit=" + PAGE);
+  const out = [...first];
+  let offset = first.length;
+  while (offset > 0) {
+    const page = await apiFetch<CatalogTrack[]>(
+      `/api/tracks?offset=${offset}&limit=${PAGE}`,
+    );
+    if (!page.length) break;
+    out.push(...page);
+    if (page.length < PAGE) break;
+    offset += page.length;
+  }
+  return out;
 }
 
 export async function searchTracks(query: string): Promise<CatalogTrack[]> {

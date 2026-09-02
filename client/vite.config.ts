@@ -8,6 +8,12 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    watch: {
+      // Rust builds inside src-tauri/target create symlink loops (e.g.
+      // mp3lame-sys's configure dirs) that crash Vite's chokidar watcher with
+      // ELOOP when running `tauri dev`. Ignore the whole build tree.
+      ignored: ["**/src-tauri/target/**"],
+    },
   },
   envPrefix: ["VITE_", "TAURI_"],
   resolve: {
