@@ -213,13 +213,20 @@
             :key="opt.value"
             type="button"
             class="flex h-9 w-9 items-center justify-center rounded-full transition-transform hover:scale-110"
-            :class="settings.accent === opt.value ? 'ring-2 ring-on-surface ring-offset-2 ring-offset-background' : ''"
-            :style="{ backgroundColor: opt.color }"
+            :class="[
+              settings.accent === opt.value ? 'ring-2 ring-on-surface ring-offset-2 ring-offset-background' : '',
+              opt.color ? '' : 'glass-field',
+            ]"
+            :style="opt.color ? { backgroundColor: opt.color } : undefined"
             :aria-label="opt.label"
             :aria-pressed="settings.accent === opt.value"
             @click="settings.setAccent(opt.value)"
           >
-            <MageIcon v-if="settings.accent === opt.value" name="check" class="h-4 w-4 text-white" />
+            <MageIcon
+              v-if="settings.accent === opt.value"
+              :name="opt.color ? 'check' : 'color-swatch'"
+              class="h-4 w-4 text-on-surface"
+            />
           </button>
         </div>
       </div>
@@ -346,13 +353,14 @@ const THEME_OPTIONS = [
   { value: "system", label: "Auto" },
 ];
 /** Swatch colors mirror the accent palettes in style.css. */
-const ACCENT_OPTIONS: { value: AccentColor; label: string; color: string }[] = [
+const ACCENT_OPTIONS: { value: AccentColor; label: string; color?: string }[] = [
   { value: "green", label: "Green", color: "#5b7c32" },
   { value: "blue", label: "Blue", color: "#4a7fc1" },
   { value: "purple", label: "Purple", color: "#7d63b8" },
   { value: "orange", label: "Orange", color: "#b97a2a" },
   { value: "red", label: "Red", color: "#b84a4a" },
   { value: "teal", label: "Teal", color: "#3d8f85" },
+  { value: "dynamic", label: "Dynamic — follows album art" },
 ];
 
 const router = useRouter();

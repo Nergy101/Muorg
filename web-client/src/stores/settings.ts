@@ -60,10 +60,12 @@ export const useSettingsStore = defineStore("settings", () => {
   });
 
   // Accent palettes are keyed on data-accent in style.css; green is the default
-  // (the values in the theme blocks), so no attribute means green.
+  // (the values in the theme blocks), so no attribute means green. "dynamic"
+  // is resolved by the player store from the current album art, so this effect
+  // deliberately leaves the attribute alone for it.
   watchEffect(() => {
     const el = document.documentElement;
-    if (accent.value === "green") delete el.dataset.accent;
+    if (accent.value === "green" || accent.value === "dynamic") delete el.dataset.accent;
     else el.dataset.accent = accent.value;
   });
 

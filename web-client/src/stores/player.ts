@@ -1,9 +1,11 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, watchEffect } from "vue";
 import { issueStreamToken, recordPlay, patchMetadata } from "../api/catalog";
 import type { MetadataUpdate } from "../api/catalog";
 import { streamUrl } from "../api/client";
 import { showToast } from "../composables/useToast";
+import { closestAccent } from "../composables/dynamicAccent";
+import { useDominantColor } from "../composables/useDominantColor";
 import { useLibraryStore } from "./library";
 import { usePlaylistStore } from "./playlists";
 import { useSettingsStore } from "./settings";
@@ -881,6 +883,19 @@ export const usePlayerStore = defineStore("player", () => {
     const t = currentTrack.value;
     if (!t || !t.has_cover) return null;
     return useLibraryStore().coverCache.get(t.id) ?? null;
+  });
+
+  // Dynamic accent: when the user picked "dynamic" in Settings, re-theme the
+  // app to the predefined palette closest to the current track's album-art
+  // main color (the same saturation-weighted average that drives the player
+  // glow). No cover → no attribute → the green default.
+  const accentGlowRgb = useDominantColor(currentCoverUrl);
+  watchEffect(() => {
+    const el = document.documentElement;
+    if (settings.accent !== "dynamic") return;
+    const resolved = closestAccent(accentGlowRgb.value);
+    if (resolved === "green") delete el.dataset.accent;
+    else el.dataset.accent = resolved;
   });
 
   watch([currentTrack, currentCoverUrl], () => {
