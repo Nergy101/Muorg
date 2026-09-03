@@ -4,7 +4,7 @@ import { issueStreamToken, recordPlay, patchMetadata } from "../api/catalog";
 import type { MetadataUpdate } from "../api/catalog";
 import { streamUrl } from "../api/client";
 import { showToast } from "../composables/useToast";
-import { closestAccent } from "../composables/dynamicAccent";
+import { visibleAccentFromRgb } from "../composables/dynamicAccent";
 import { useDominantColor } from "../composables/useDominantColor";
 import { useLibraryStore } from "./library";
 import { usePlaylistStore } from "./playlists";
@@ -885,17 +885,40 @@ export const usePlayerStore = defineStore("player", () => {
     return useLibraryStore().coverCache.get(t.id) ?? null;
   });
 
-  // Dynamic accent: when the user picked "dynamic" in Settings, re-theme the
-  // app to the predefined palette closest to the current track's album-art
-  // main color (the same saturation-weighted average that drives the player
-  // glow). No cover → no attribute → the green default.
+  // Dynamic accent: when the user picked "dynamic" in Settings, tint the app's
+  // accent from the current track's album-art main color (the same
+  // saturation-weighted average that drives the player glow). The color is
+  // adjusted to stay legible for controls (see visibleAccentFromRgb); when no
+  // usable color exists (no cover, gray art, or an edge-blur background) the
+  // inline vars are dropped and the theme default shows.
   const accentGlowRgb = useDominantColor(currentCoverUrl);
   watchEffect(() => {
     const el = document.documentElement;
-    if (settings.accent !== "dynamic") return;
-    const resolved = closestAccent(accentGlowRgb.value);
-    if (resolved === "green") delete el.dataset.accent;
-    else el.dataset.accent = resolved;
+    if (settings.accent !== "dynamic") {
+      el.style.removeProperty("--primary");
+      el.style.removeProperty("--primary-container");
+      el.style.removeProperty("--on-primary-container");
+      el.style.removeProperty("--secondary");
+      return;
+    }
+    const accent = visibleAccentFromRgb(accentGlowRgb.value);
+    if (!accent) {
+      el.style.removeProperty("--primary");
+      el.style.removeProperty("--primary-container");
+      el.style.removeProperty("--on-primary-container");
+      el.style.removeProperty("--secondary");
+      return;
+    }
+    // Container = the accent pulled ~40% toward the dark surface so fills made
+    // of it stay subtle; on-container = the accent lifted for text on those fills.
+    const [r, g, b] = accent.replace(/[^\d,]/g, "").split(",").map(Number);
+    const mix = (c: number, t: number, f: number): number => Math.round(c + (t - c) * f);
+    const container = `rgb(${mix(r, 30, 0.45)},${mix(g, 26, 0.45)},${mix(b, 22, 0.45)})`;
+    const onContainer = `rgb(${mix(r, 255, 0.35)},${mix(g, 255, 0.35)},${mix(b, 255, 0.35)})`;
+    el.style.setProperty("--primary", accent);
+    el.style.setProperty("--primary-container", container);
+    el.style.setProperty("--on-primary-container", onContainer);
+    el.style.setProperty("--secondary", onContainer);
   });
 
   watch([currentTrack, currentCoverUrl], () => {
