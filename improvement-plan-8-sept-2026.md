@@ -178,20 +178,24 @@ silent divergence will happen.
 
 ## Cross-cutting
 
-### 13. Wire the smoke test into CI
+### 13. ~~Wire the smoke test into CI~~ — done
 
-`scripts/smoke-api.ts` runs the shared client against a live server and covers
-what type-checking cannot — it is what caught the relative base URL, the silent
-401 and the plain-text health probe. It is run by hand today
-(`pnpm smoke:api`) because it needs a server.
+`./scripts/smoke-api.sh` builds `muorg-server`, starts it on a temporary
+database, runs `scripts/smoke-api.ts` against it and tears it down. CI runs it
+in the `api-contract` job.
 
-Wiring it into CI means starting `muorg-server` against a fixture library in the
-`api-contract` job and running it there. The integration harness for building
-that fixture already exists in `server/crates/muorg-server/tests/helpers/`.
-Extending it to assert every response validates against its schema in
-`server/openapi.json` would close the loop completely.
+It no longer just checks that calls succeed: every JSON response is validated
+against the schema the spec declares for that operation, using Ajv over
+`server/openapi.json`. So the loop is closed — TypeScript proves the client
+matches the spec, the call-surface tests prove each wrapper hits the route it
+claims, and this proves the server matches the spec at runtime. (Verified by
+deliberately mistyping `LibraryStats.track_count` in the spec and confirming
+`getStats` failed.)
 
-**Size:** small to wire up, medium to make exhaustive. **Value:** high.
+Still shallow in one respect: the fixture library is empty, so list responses
+validate as empty arrays. Seeding a few real files — the audio fixtures in
+`server/crates/muorg-core/tests/fixtures/` would do — would exercise
+`CatalogTrack` and the cover and stream routes for real.
 
 ### 14. Component tests for the apps' own views
 

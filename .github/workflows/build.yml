@@ -65,6 +65,8 @@ jobs:
               - 'scripts/generate-kotlin-api.mjs'
               - 'package.json'
               - 'vitest.config.mts'
+              - 'scripts/smoke-api.ts'
+              - 'scripts/smoke-api.sh'
               - 'web-client/src/stores/**'
               - 'android-client/app/src/main/java/nl/muorg/android/data/api/schema/**'
             server:
@@ -119,6 +121,12 @@ jobs:
       # breaks two apps at once, which is the trade for not keeping two copies.
       - name: Shared logic tests
         run: pnpm test:coverage
+
+      # Type-checking proves the client matches the spec. This starts a real
+      # muorg-server and proves the *server* matches it — every response is
+      # validated against the schema the document declares for it.
+      - name: Smoke test against a live server
+        run: ./scripts/smoke-api.sh
 
   client:
     name: Client (TypeScript + Tauri)
