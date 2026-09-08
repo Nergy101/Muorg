@@ -616,3 +616,97 @@ pub async fn fetch_image_url(url: String) -> Result<FetchedImage, String> {
         mime: content_type,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── normalize_to_folder ───────────────────────────────────────────────
+    //
+    // Drag-and-drop hands over whatever the user dropped — a folder, or a file
+    // inside one. Everything downstream (`save_roots`, `scan_and_insert`)
+    // expects a directory, so this is where a dropped file becomes its parent.
+
+    #[test]
+    fn a_directory_is_returned_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        assert_eq!(normalize_to_folder(path).unwrap(), path);
+    }
+
+    #[test]
+    fn a_file_resolves_to_its_parent_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("track.mp3");
+        std::fs::write(&file, b"x").unwrap();
+
+        assert_eq!(
+            normalize_to_folder(file.to_str().unwrap()).unwrap(),
+            dir.path().to_str().unwrap(),
+        );
+    }
+
+    #[test]
+    fn a_path_that_does_not_exist_is_rejected() {
+        // Adding a root that isn't there would otherwise write a phantom row
+        // that every later scan silently skips.
+        let err = normalize_to_folder("/no/such/place/at/all").unwrap_err();
+        assert_eq!(err, "Path does not exist");
+    }
+
+    // ── backup_file_name ──────────────────────────────────────────────────
+    //
+    // Backups from every track share one flat directory, so the name is what
+    // keeps one track's backup from overwriting another's — and what lets
+    // `latest_backup_path` find a given track's backups again.
+
+    #[test]
+    fn the_name_keeps_the_original_extension() {
+        assert!(backup_file_name("/music/a.flac").unwrap().ends_with(".flac"));
+        assert!(backup_file_name("/music/a.mp3").unwrap().ends_with(".mp3"));
+    }
+
+    #[test]
+    fn an_extensionless_path_falls_back_to_bin() {
+        assert!(backup_file_name("/music/nameless").unwrap().ends_with(".bin"));
+    }
+
+    #[test]
+    fn the_same_path_always_hashes_to_the_same_marker() {
+        // `latest_backup_path` finds a track's backups by searching for this
+        // 12-character hash inside the file name; if it were not stable, a
+        // restore would never find anything.
+        let a = backup_file_name("/music/a.mp3").unwrap();
+        let b = backup_file_name("/music/a.mp3").unwrap();
+        assert_eq!(marker(&a), marker(&b));
+    }
+
+    #[test]
+    fn different_paths_get_different_markers() {
+        let a = backup_file_name("/music/a.mp3").unwrap();
+        let b = backup_file_name("/music/b.mp3").unwrap();
+        assert_ne!(marker(&a), marker(&b));
+    }
+
+    #[test]
+    fn the_name_is_timestamp_then_marker_then_extension() {
+        // `latest_backup_path` sorts by file name and takes the last match, so
+        // the timestamp has to lead for "latest" to mean anything.
+        let name = backup_file_name("/music/a.mp3").unwrap();
+        let (stamp, rest) = name.split_once('-').expect("timestamp prefix");
+        assert!(stamp.parse::<u64>().is_ok(), "leading field is a unix time");
+        assert_eq!(rest.len(), "abcdef123456.mp3".len());
+    }
+
+    /// The 12-character path hash between the timestamp and the extension.
+    fn marker(file_name: &str) -> String {
+        file_name
+            .split_once('-')
+            .expect("timestamp prefix")
+            .1
+            .split_once('.')
+            .expect("extension")
+            .0
+            .to_string()
+    }
+}

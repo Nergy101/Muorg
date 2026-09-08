@@ -338,3 +338,90 @@ impl CastState {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The serialized shape of [`CastSessionStatus`] is a contract with the
+    /// frontend: `stores/cast.ts` switches on `status` and reads
+    /// `position_secs` / `finished` / `message` off the same object. The
+    /// internally-tagged representation is what makes that work, and it is
+    /// invisible in the type — a stray `#[serde(untagged)]` or a renamed
+    /// variant would compile fine and silently strand the UI in "connecting".
+    fn json(status: CastSessionStatus) -> serde_json::Value {
+        serde_json::to_value(status).expect("serializable")
+    }
+
+    #[test]
+    fn unit_variants_carry_only_a_camel_case_tag() {
+        assert_eq!(json(CastSessionStatus::Idle), serde_json::json!({"status": "idle"}));
+        assert_eq!(
+            json(CastSessionStatus::Connecting),
+            serde_json::json!({"status": "connecting"}),
+        );
+        assert_eq!(
+            json(CastSessionStatus::Transcoding),
+            serde_json::json!({"status": "transcoding"}),
+        );
+    }
+
+    #[test]
+    fn playing_and_paused_carry_the_position_alongside_the_tag() {
+        assert_eq!(
+            json(CastSessionStatus::Playing { position_secs: Some(12.5) }),
+            serde_json::json!({"status": "playing", "position_secs": 12.5}),
+        );
+        assert_eq!(
+            json(CastSessionStatus::Paused { position_secs: Some(0.0) }),
+            serde_json::json!({"status": "paused", "position_secs": 0.0}),
+        );
+    }
+
+    #[test]
+    fn an_unknown_position_is_omitted_rather_than_sent_as_null() {
+        // The frontend treats a missing position as "don't move the scrubber";
+        // a null would be read as a seek to zero.
+        assert_eq!(
+            json(CastSessionStatus::Playing { position_secs: None }),
+            serde_json::json!({"status": "playing"}),
+        );
+    }
+
+    #[test]
+    fn stopped_says_whether_the_track_finished() {
+        // This is what decides between advancing to the next track and just
+        // clearing the player.
+        assert_eq!(
+            json(CastSessionStatus::Stopped { finished: true }),
+            serde_json::json!({"status": "stopped", "finished": true}),
+        );
+        assert_eq!(
+            json(CastSessionStatus::Stopped { finished: false }),
+            serde_json::json!({"status": "stopped", "finished": false}),
+        );
+    }
+
+    #[test]
+    fn errors_carry_a_message() {
+        assert_eq!(
+            json(CastSessionStatus::Error { message: "no route to host".into() }),
+            serde_json::json!({"status": "error", "message": "no route to host"}),
+        );
+    }
+
+    #[test]
+    fn a_new_state_starts_idle() {
+        let state = CastState::new();
+        assert!(matches!(*state.status.lock().unwrap(), CastSessionStatus::Idle));
+    }
+
+    #[test]
+    fn commands_are_refused_when_no_session_is_running() {
+        // Every cast_* Tauri command funnels through here; without a session
+        // the caller must get an error rather than a silent no-op.
+        let state = CastState::new();
+        let err = state.send_command(CastCommand::Pause).unwrap_err();
+        assert_eq!(err, "No active cast session");
+    }
+}

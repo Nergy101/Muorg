@@ -24,7 +24,8 @@
     "icon": "tauri icon public/favicon.svg -o src-tauri/icons",
     "check:frontend": "pnpm build",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
-    "check": "pnpm run check:frontend && pnpm run check:rust"
+    "check": "pnpm run check:frontend && pnpm run check:rust && pnpm run test:rust",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",

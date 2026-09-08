@@ -69,20 +69,28 @@ script wired into the `client` and `web-client` CI jobs. `stores/player.ts`
 
 ## Android App (`android-client/`)
 
-### 5. Extend the Android unit tests
+### 5. The Android code that needs Robolectric or a device
 
-34 JVM tests now cover `PathPatternMatcher`, `WireMapping` and the
-`LibraryRepository` paging loop, and CI runs `./gradlew testDebugUnitTest`.
+53 JVM tests now cover `PathPatternMatcher`, `WireMapping`, the
+`LibraryRepository` paging loop, `LocalTrack.toCatalogTrack` and
+`ConnectViewModel` (with a `MainDispatcherRule` that other ViewModel tests can
+reuse). CI runs `./gradlew testDebugUnitTest`.
 
-Still untested and worth doing next:
+What is left needs more than a JVM:
 
-- `data/local/LocalLibraryScanner.kt` — tag extraction and SAF path handling.
-- `data/repository/OfflineDownloadManager.kt` — download, resume and eviction.
-- `PathPatternMatcher.decodeLocalPath` — needs `android.net.Uri`, so it wants
-  Robolectric or an instrumented test rather than a plain JVM one.
-- The ViewModels, which would need a `MainDispatcherRule`.
+- `data/local/LocalLibraryScanner.kt` — built on `DocumentsContract`,
+  `ContentResolver` and `MediaMetadataRetriever`. Testing it means Robolectric,
+  an instrumented test, or extracting the pure parts behind an interface.
+- `PathPatternMatcher.decodeLocalPath` — `android.net.Uri.parse` returns null
+  under the stub `android.jar`, so a JVM test would only exercise the fallback.
+- `OfflineDownloadManager` — needs a `Context`, a Room DAO and real file I/O;
+  the parts worth testing (resume, eviction) are the ones that touch disk.
 
-**Size:** small per area. **Value:** medium — the highest-risk logic is covered.
+Robolectric was deliberately not added: it fetches an `android-all` jar at test
+time, which makes CI slower and network-dependent, and only one small function
+needs it today.
+
+**Size:** medium. **Value:** medium.
 
 ### 6. Widen the domain model from `Int` to `Long` ids
 
@@ -132,12 +140,22 @@ along the tab boundaries already present in the markup.
 
 **Size:** medium. **Value:** medium — mostly maintainability.
 
-### 11. No Rust tests in `src-tauri`
+### 11. `src-tauri`: the transcode path and mDNS discovery
 
-`server/` has three `#[cfg(test)]` modules and CI runs `cargo test` for it. The
-Tauri crate has none. Now that the catalog and metadata code has moved to
-`muorg-core`, the surface left in `src-tauri` is the Tauri commands and the cast
-module — the cast transcode path in particular is worth covering.
+26 tests now cover the local cast HTTP server (range parsing and the allowlist),
+the cast session's serialized status, and the `commands.rs` helpers. `pnpm run
+check` runs them, so the existing client CI job picks them up.
+
+Two areas remain:
+
+- `cast/transcode.rs` — the FLAC-to-MP3 path. The server has an equivalent test
+  that generates a fixture with ffmpeg and skips when it is unavailable
+  (`transcode_high_res_flac_preserves_duration`); the same approach would work
+  here, and this is where the half-speed bug lived.
+- `cast/discovery.rs` — mDNS, so it needs either a fake responder or an
+  integration test on a real network.
+
+**Size:** small for transcode, medium for discovery. **Value:** medium.
 
 ### 12. Cast code is still forked between the desktop app and the server
 
@@ -176,18 +194,24 @@ Extending it to assert every response validates against its schema in
 
 **Size:** small to wire up, medium to make exhaustive. **Value:** high.
 
-### 14. No component tests
+### 14. Component tests for the apps' own views
 
-Vitest now covers the shared logic — 144 tests over `lyrics.ts`, `api/`,
-`useMixes` and the web client's library store, at 90% lines / 76% branches, run
-in CI.
+Every shared component is now tested with `@vue/test-utils` under happy-dom —
+`FeatherIcon`, `MarqueeCell`, `EqualizerBars` and the three stats charts — and
+the shared suite sits at 92% lines / 75% branches over 181 tests.
 
-What is still untested is anything with a component tree: the shared
-`FeatherIcon`, `MarqueeCell`, `EqualizerBars` and the stats charts, and every
-`.vue` file in both apps. That needs `@vue/test-utils` and a jsdom/happy-dom
-environment per app, which is a separate setup from the logic suite.
+What is still untested is each app's own `.vue` files: the desktop's
+`LibrarySettingsModal` and `MetadataEditor`, the web client's views and sheets.
+Those need a Pinia store per test and a good deal of mocking, so they are worth
+adding view by view as each is next touched rather than in one pass.
 
-**Size:** medium. **Value:** medium — the logic underneath them is covered.
+One setup note for whoever does: `vue` must NOT be aliased in
+`vitest.config.mts`. `@vitejs/plugin-vue` compiles SFCs against the root's own
+`@vue/compiler-sfc`, and pointing the runtime at another copy makes template
+refs land on hoisted vnodes and prop updates stop re-rendering — with no error,
+just a component that never updates.
+
+**Size:** medium per view. **Value:** medium.
 
 ### 15. Repo has no root README pointer to the API contract
 
@@ -228,11 +252,15 @@ For the record, so this list is not re-derived later:
   three runtime bugs type-checking could not: a base URL that only resolves
   inside a browser, a bare 401 read as an empty library, and a plain-text health
   probe parsed as JSON.
-- **178 automated tests where there were 16.** Vitest over the shared code and
-  the web client's library store (144 tests, 90% lines / 76% branches on the
-  targeted modules) and JVM unit tests on Android (34 tests over the path
-  matcher, the wire mapping and the paging loop). Both run in CI, alongside the
-  16 Rust tests that already existed.
+- **260 automated tests where there were 16**, all wired into CI:
+  - 181 vitest tests over the shared code, the shared components and the web
+    client's library store — 92% lines, 90% statements, 84% functions, 75%
+    branches, thresholded at 60%.
+  - 53 Android JVM tests over the path matcher, the wire mapping, the paging
+    loop, the local-track conversion and the connect flow.
+  - 26 `src-tauri` tests over the cast server's allowlist and range handling,
+    the cast status contract, and the backup naming.
+  - the 16 server Rust tests that already existed.
 - **Desktop: catalog streams in.** `loadTracks()` renders the first page
   immediately instead of awaiting all seven round-trips, with a progress badge
   for the rest.
