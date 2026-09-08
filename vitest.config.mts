@@ -49,6 +49,7 @@ export default defineConfig({
         "src/**/*.ts",
         "src/components/**/*.vue",
         "web-client/src/stores/library.ts",
+        "web-client/src/stores/cast.ts",
       ],
       exclude: [
         "**/*.test.ts",

@@ -7,23 +7,22 @@ already acted on are listed at the bottom; everything above them is still open.
 
 ## Web App (`web-client/`)
 
-### 1. No Cast support at all
+### 1. ~~No Cast support~~ — done
 
-The server exposes ten `/api/cast/*` routes. The desktop app and the Android app
-both drive them; the web client uses none. This is the single largest feature gap
-between the three clients.
+The web client now drives the same `/api/cast/*` routes the desktop and Android
+apps use: `stores/cast.ts` (session state, transport, volume), a
+`CastDevicePicker` sheet, a cast button in `PlayerView`, and a "casting to X"
+badge in `MiniPlayer`.
 
-The plumbing already exists — `api.castDevices()`, `castPlay()`, `castPause()`,
-`castSeek()`, `castSetVolume()` and the rest are in the shared client
-(`src/api/endpoints.ts`), typed and ready. What is missing is the UI: a device
-picker and a "casting to X" state in `PlayerView.vue` / `MiniPlayer.vue`, plus a
-store slice that polls `/api/cast/status` while a session is live.
+One difference from the desktop app worth knowing: it has Tauri events pushing
+status, a browser does not, so this polls `/api/cast/status` every second while
+a session is live and stops the moment it is not — on finish, on error, on the
+user stopping it, and on the server going away mid-session.
 
-Worth copying the desktop's shape rather than inventing one:
-`client/src/components/playback/CastDevicePicker.vue` and `stores/cast.ts`.
-
-**Size:** medium. **Value:** high — it is the reason people reach for the desktop
-app on a machine where the web app would otherwise do.
+Not carried over: cast volume has no UI control yet (the store exposes
+`setVolume`), and the local `<audio>` element is detached rather than kept
+running muted, so the desktop's trick of tracking position locally between
+polls is not available. Position comes from the device.
 
 ### 2. No MusicBrainz auto-tagging
 

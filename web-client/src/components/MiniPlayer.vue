@@ -50,6 +50,13 @@
             {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
           </div>
           <div
+            v-if="cast.isCasting"
+            class="flex items-center gap-1 text-label-sm text-primary"
+          >
+            <MageIcon name="screencast" class="h-3 w-3" />
+            <span class="truncate">{{ cast.deviceName ?? "Casting" }}</span>
+          </div>
+          <div
             v-if="player.sleepTimerActive"
             class="flex items-center gap-1 text-label-sm text-primary"
           >
@@ -74,10 +81,10 @@
         <button
           type="button"
           class="mx-1 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
-          :aria-label="player.isPlaying ? 'Pause' : 'Play'"
-          @click="player.playPause()"
+          :aria-label="transportPlaying ? 'Pause' : 'Play'"
+          @click="togglePlay"
         >
-          <MageIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-5 w-5" />
+          <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-5 w-5" />
         </button>
         <button
           type="button"
@@ -110,10 +117,10 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface lg:hidden"
-          :aria-label="player.isPlaying ? 'Pause' : 'Play'"
-          @click="player.playPause()"
+          :aria-label="transportPlaying ? 'Pause' : 'Play'"
+          @click="togglePlay"
         >
-          <MageIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-6 w-6" />
+          <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-6 w-6" />
         </button>
         <button
           type="button"
@@ -145,10 +152,25 @@ import TrackActionsSheet from "./TrackActionsSheet.vue";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
+import { useCastStore } from "../stores/cast";
 
 const route = useRoute();
 const router = useRouter();
 const player = usePlayerStore();
+const cast = useCastStore();
+
+/** While casting, the device is the thing that is playing, not this tab. */
+const transportPlaying = computed(() =>
+  cast.isCasting ? cast.isPlaying : player.isPlaying,
+);
+
+function togglePlay(): void {
+  if (!cast.isCasting) {
+    player.playPause();
+    return;
+  }
+  void (cast.isPlaying ? cast.pause() : cast.resume());
+}
 const settings = useSettingsStore();
 const lib = useLibraryStore();
 

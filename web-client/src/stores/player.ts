@@ -428,6 +428,21 @@ export const usePlayerStore = defineStore("player", () => {
     await playCurrent(0);
   }
 
+  /**
+   * Silence and detach the local element so a cast session can take over.
+   *
+   * The server streams the audio to the device itself; leaving the browser
+   * playing would play the same track twice, out of sync.
+   */
+  function pauseForCast(): void {
+    const el = audioEl.value;
+    if (el) {
+      el.pause();
+      el.src = "";
+    }
+    isPlaying.value = false;
+  }
+
   function playPause(): void {
     const el = audioEl.value;
     if (!el) {
@@ -1074,6 +1089,7 @@ export const usePlayerStore = defineStore("player", () => {
     sleepTimerActive,
     upNext,
     initAudio,
+    pauseForCast,
     playTrack,
     playPause,
     setVolume,
