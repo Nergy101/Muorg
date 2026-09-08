@@ -1197,7 +1197,7 @@
     },
     "/api/admin/metrics": {
       "get": {
-        "operationId": "metrics",
+        "operationId": "admin_metrics",
         "responses": {
           "200": {
             "content": {
@@ -1327,7 +1327,7 @@
     },
     "/api/cast/devices": {
       "get": {
-        "operationId": "get_devices",
+        "operationId": "cast_devices",
         "responses": {
           "200": {
             "content": {
@@ -1366,7 +1366,7 @@
     },
     "/api/cast/discovery/start": {
       "post": {
-        "operationId": "start_discovery",
+        "operationId": "cast_start_discovery",
         "responses": {
           "204": {
             "description": "Discovery started"
@@ -1395,7 +1395,7 @@
     },
     "/api/cast/discovery/stop": {
       "post": {
-        "operationId": "stop_discovery",
+        "operationId": "cast_stop_discovery",
         "responses": {
           "204": {
             "description": "Discovery stopped"
@@ -1424,7 +1424,7 @@
     },
     "/api/cast/pause": {
       "post": {
-        "operationId": "pause",
+        "operationId": "cast_pause",
         "responses": {
           "204": {
             "description": "Command accepted"
@@ -1453,7 +1453,7 @@
     },
     "/api/cast/play": {
       "post": {
-        "operationId": "play",
+        "operationId": "cast_play",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1492,7 +1492,7 @@
     },
     "/api/cast/resume": {
       "post": {
-        "operationId": "resume",
+        "operationId": "cast_resume",
         "responses": {
           "204": {
             "description": "Command accepted"
@@ -1521,7 +1521,7 @@
     },
     "/api/cast/seek": {
       "post": {
-        "operationId": "seek",
+        "operationId": "cast_seek",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1560,7 +1560,7 @@
     },
     "/api/cast/status": {
       "get": {
-        "operationId": "get_status",
+        "operationId": "cast_status",
         "responses": {
           "200": {
             "content": {
@@ -1596,7 +1596,7 @@
     },
     "/api/cast/stop": {
       "post": {
-        "operationId": "stop",
+        "operationId": "cast_stop",
         "responses": {
           "204": {
             "description": "Command accepted"
@@ -1625,7 +1625,7 @@
     },
     "/api/cast/volume": {
       "post": {
-        "operationId": "set_volume",
+        "operationId": "cast_set_volume",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1869,7 +1869,7 @@
     },
     "/api/playlists": {
       "get": {
-        "operationId": "list",
+        "operationId": "list_playlists",
         "responses": {
           "200": {
             "content": {
@@ -1906,7 +1906,7 @@
         ]
       },
       "post": {
-        "operationId": "create",
+        "operationId": "create_playlist",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1952,7 +1952,7 @@
     },
     "/api/playlists/order": {
       "put": {
-        "operationId": "reorder",
+        "operationId": "reorder_playlists",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1998,7 +1998,7 @@
     },
     "/api/playlists/smart": {
       "post": {
-        "operationId": "create_smart",
+        "operationId": "create_smart_playlist",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2044,7 +2044,7 @@
     },
     "/api/playlists/smart/{id}/rules": {
       "patch": {
-        "operationId": "update_smart_rules",
+        "operationId": "update_smart_playlist_rules",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2112,7 +2112,7 @@
     },
     "/api/playlists/smart/{id}/tracks": {
       "get": {
-        "operationId": "get_smart_tracks",
+        "operationId": "get_smart_playlist_tracks",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2174,7 +2174,7 @@
     },
     "/api/playlists/{id}": {
       "delete": {
-        "operationId": "delete",
+        "operationId": "delete_playlist",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2230,7 +2230,7 @@
         ]
       },
       "patch": {
-        "operationId": "update",
+        "operationId": "update_playlist",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2298,7 +2298,7 @@
     },
     "/api/playlists/{id}/entries": {
       "get": {
-        "operationId": "get_entries",
+        "operationId": "get_playlist_entries",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2359,7 +2359,7 @@
     },
     "/api/playlists/{id}/entries/{entry_id}": {
       "delete": {
-        "operationId": "remove_entry",
+        "operationId": "remove_playlist_entry",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2427,7 +2427,7 @@
     },
     "/api/playlists/{id}/tracks": {
       "delete": {
-        "operationId": "remove_tracks",
+        "operationId": "remove_playlist_tracks",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2553,7 +2553,7 @@
         ]
       },
       "post": {
-        "operationId": "add_tracks",
+        "operationId": "add_playlist_tracks",
         "parameters": [
           {
             "description": "Playlist id",
@@ -2621,7 +2621,7 @@
     },
     "/api/playlists/{id}/tracks/order": {
       "put": {
-        "operationId": "reorder_tracks",
+        "operationId": "reorder_playlist_tracks",
         "parameters": [
           {
             "description": "Playlist id",

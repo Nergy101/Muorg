@@ -22,6 +22,21 @@ type Schemas = components["schemas"];
  */
 type AlwaysPresent<T> = Required<T>;
 
+/**
+ * The same normalisation applied to whatever an endpoint returns — an object,
+ * an array of them, or nothing. Shallow on purpose: it drops the `?` the
+ * generator puts on `Option<T>` fields, without touching a genuinely optional
+ * nested field (`CastSessionStatus.position_secs` really can be absent, since
+ * that one *does* carry `skip_serializing_if`).
+ */
+export type Present<T> = T extends readonly (infer E)[]
+  ? E extends object
+    ? Required<E>[]
+    : T
+  : T extends object
+    ? Required<T>
+    : T;
+
 // ---------------------------------------------------------------- catalog ---
 
 export type CatalogTrack = AlwaysPresent<Schemas["CatalogTrack"]>;

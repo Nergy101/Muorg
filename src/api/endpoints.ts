@@ -1,40 +1,37 @@
 /**
- * Typed calls against the Muorg server API.
+ * Named calls against the Muorg server API.
  *
- * Every signature is pinned to the generated `schema.d.ts`, so a route or field
- * that changes in Rust surfaces here as a TypeScript error rather than as a
- * runtime surprise in one client and not the others.
+ * Every one of these is a one-liner over the spec-typed `openapi-fetch` client
+ * in `transport.ts`. The URL literal must be a real path in `server/openapi.json`,
+ * the method must be one that path serves, and the body and response types come
+ * from the operation — all three are compile errors otherwise, so this file
+ * cannot describe an endpoint the server does not have.
  *
- * Pagination in particular lives here and nowhere else — see
- * {@link streamTracks}.
+ * The wrappers exist so the ~40 call sites across the two apps keep their
+ * current shape (`api.getStats()` rather than an inline
+ * `client.GET("/api/stats")`); they add names, not behaviour. The one place
+ * with real logic is pagination — see {@link streamTracks}.
  */
 
 import type { Transport } from "./transport";
-import { jsonBody } from "./transport";
 import type {
   BatchMetadataItem,
-  CastDevice,
-  CastStatusResponse,
   CatalogTrack,
-  FetchedImage,
-  LibraryStats,
   MatchCandidate,
   MetadataUpdate,
-  Playlist,
-  PlaylistTrackEntry,
-  RescanResult,
-  TrackBackupRecord,
-  TrackLyrics,
-  TrackMetadata,
   TracksPage,
 } from "./types";
 import { TRACKS_PAGE_SIZE } from "./types";
 
 export function createApi(t: Transport) {
+  const { client, unwrap } = t;
+
   const api = {
     // ------------------------------------------------------------ catalog ---
 
-    getRoots: () => t.fetchJson<string[]>("/api/roots"),
+    async getRoots() {
+      return unwrap(await client.GET("/api/roots"), "/api/roots");
+    },
 
     /**
      * One page of the catalog. `total` comes from `X-Total-Count`, so the caller
@@ -44,13 +41,16 @@ export function createApi(t: Transport) {
       offset = 0,
       limit = TRACKS_PAGE_SIZE,
     ): Promise<TracksPage> {
-      const { data, headers } = await t.fetchJsonWithHeaders<CatalogTrack[]>(
-        `/api/tracks?offset=${offset}&limit=${limit}`,
-      );
-      const tracks = data ?? [];
-      const header = headers.get("X-Total-Count");
+      const result = await client.GET("/api/tracks", {
+        params: { query: { offset, limit } },
+      });
+      const tracks = unwrap(result, "/api/tracks") ?? [];
+      const header = result.response.headers.get("X-Total-Count");
       const total = header != null ? Number(header) : tracks.length;
-      return { tracks, total: Number.isFinite(total) ? total : tracks.length };
+      return {
+        tracks: tracks as CatalogTrack[],
+        total: Number.isFinite(total) ? total : tracks.length,
+      };
     },
 
     /**
@@ -96,84 +96,143 @@ export function createApi(t: Transport) {
       return out;
     },
 
-    searchTracks: (query: string) =>
-      t.fetchJson<CatalogTrack[]>(`/api/search?q=${encodeURIComponent(query)}`),
+    async searchTracks(query: string) {
+      return unwrap(
+        await client.GET("/api/search", { params: { query: { q: query } } }),
+        "/api/search",
+      );
+    },
 
-    getStats: () => t.fetchJson<LibraryStats>("/api/stats"),
+    async getStats() {
+      return unwrap(await client.GET("/api/stats"), "/api/stats");
+    },
 
-    getRecentlyAdded: (limit = 50) =>
-      t.fetchJson<CatalogTrack[]>(`/api/tracks/recently-added?limit=${limit}`),
+    async getRecentlyAdded(limit = 50) {
+      return unwrap(
+        await client.GET("/api/tracks/recently-added", {
+          params: { query: { limit } },
+        }),
+        "/api/tracks/recently-added",
+      );
+    },
 
-    getRecentlyPlayed: (limit = 50) =>
-      t.fetchJson<CatalogTrack[]>(`/api/play-history/recent?limit=${limit}`),
+    async getRecentlyPlayed(limit = 50) {
+      return unwrap(
+        await client.GET("/api/play-history/recent", {
+          params: { query: { limit } },
+        }),
+        "/api/play-history/recent",
+      );
+    },
 
-    getMostPlayed: (limit = 50, days = 30) =>
-      t.fetchJson<CatalogTrack[]>(
-        `/api/play-history/top?limit=${limit}&days=${days}`,
-      ),
+    async getMostPlayed(limit = 50, days = 30) {
+      return unwrap(
+        await client.GET("/api/play-history/top", {
+          params: { query: { limit, days } },
+        }),
+        "/api/play-history/top",
+      );
+    },
 
     // ------------------------------------------------------------- tracks ---
 
-    getCoverBlob: (trackId: number, size?: number) =>
-      t.fetchBlob(
+    /** Bytes, not JSON — goes straight through the transport. */
+    getCoverBlob(trackId: number, size?: number) {
+      return t.fetchBlob(
         `/api/tracks/${trackId}/cover${size != null ? `?size=${size}` : ""}`,
-      ),
+      );
+    },
 
-    getMetadata: (trackId: number) =>
-      t.fetchJson<TrackMetadata>(`/api/tracks/${trackId}/metadata`),
+    async getMetadata(trackId: number) {
+      return unwrap(
+        await client.GET("/api/tracks/{id}/metadata", {
+          params: { path: { id: trackId } },
+        }),
+        "/api/tracks/{id}/metadata",
+      );
+    },
 
     /** Resolves to `null` when the track has no embedded lyrics (404). */
-    getLyrics: (trackId: number) =>
-      t
-        .fetchJson<TrackLyrics>(`/api/tracks/${trackId}/lyrics`)
-        .catch(() => null),
+    async getLyrics(trackId: number) {
+      const result = await client.GET("/api/tracks/{id}/lyrics", {
+        params: { path: { id: trackId } },
+      });
+      return result.error !== undefined ? null : (result.data ?? null);
+    },
 
-    patchMetadata: (
+    async patchMetadata(
       trackId: number,
       update: MetadataUpdate,
       backupBeforeWrite = false,
-    ) =>
-      t.fetchJson<{ ok: boolean }>(`/api/tracks/${trackId}/metadata`, {
-        method: "PATCH",
-        ...jsonBody({ ...update, backup_before_write: backupBeforeWrite }),
-      }),
+    ) {
+      return unwrap(
+        await client.PATCH("/api/tracks/{id}/metadata", {
+          params: { path: { id: trackId } },
+          body: { ...update, backup_before_write: backupBeforeWrite },
+        }),
+        "/api/tracks/{id}/metadata",
+      );
+    },
 
-    patchMetadataBatch: (items: BatchMetadataItem[]) =>
-      t.fetchJson<{ ok: boolean; updated: number }>("/api/tracks/metadata/batch", {
-        method: "POST",
-        ...jsonBody(items),
-      }),
+    async patchMetadataBatch(items: BatchMetadataItem[]) {
+      return unwrap(
+        await client.POST("/api/tracks/metadata/batch", { body: items }),
+        "/api/tracks/metadata/batch",
+      );
+    },
 
-    setRating: (trackId: number, rating: number | null) =>
-      t.fetchJson<{ ok: boolean }>(`/api/tracks/${trackId}/rating`, {
-        method: "POST",
-        ...jsonBody({ rating }),
-      }),
+    async setRating(trackId: number, rating: number | null) {
+      return unwrap(
+        await client.POST("/api/tracks/{id}/rating", {
+          params: { path: { id: trackId } },
+          body: { rating },
+        }),
+        "/api/tracks/{id}/rating",
+      );
+    },
 
-    recordPlay: (trackId: number) =>
-      t.fetchJson<{ ok: boolean }>(`/api/tracks/${trackId}/play`, {
-        method: "POST",
-      }),
+    async recordPlay(trackId: number) {
+      return unwrap(
+        await client.POST("/api/tracks/{id}/play", {
+          params: { path: { id: trackId } },
+        }),
+        "/api/tracks/{id}/play",
+      );
+    },
 
-    getLatestBackup: (trackId: number) =>
-      t.fetchJson<TrackBackupRecord | null>(`/api/tracks/${trackId}/backup`),
+    async getLatestBackup(trackId: number) {
+      return unwrap(
+        await client.GET("/api/tracks/{id}/backup", {
+          params: { path: { id: trackId } },
+        }),
+        "/api/tracks/{id}/backup",
+      );
+    },
 
-    restoreFromBackup: (trackId: number) =>
-      t.fetchJson<{ ok: boolean }>(`/api/tracks/${trackId}/restore`, {
-        method: "POST",
-      }),
+    async restoreFromBackup(trackId: number) {
+      return unwrap(
+        await client.POST("/api/tracks/{id}/restore", {
+          params: { path: { id: trackId } },
+        }),
+        "/api/tracks/{id}/restore",
+      );
+    },
 
-    renameTrackFile: (trackId: number, newPath: string) =>
-      t.fetchJson<{ ok: boolean }>(`/api/tracks/${trackId}/rename`, {
-        method: "POST",
-        ...jsonBody({ new_path: newPath }),
-      }),
+    async renameTrackFile(trackId: number, newPath: string) {
+      return unwrap(
+        await client.POST("/api/tracks/{id}/rename", {
+          params: { path: { id: trackId } },
+          body: { new_path: newPath },
+        }),
+        "/api/tracks/{id}/rename",
+      );
+    },
 
     /**
      * MusicBrainz candidates. With no `query`, the server builds one from the
      * file's own tags.
      */
-    autoTagSuggestions: (
+    async autoTagSuggestions(
       trackId: number,
       query?: {
         artist?: string | null;
@@ -181,154 +240,259 @@ export function createApi(t: Transport) {
         album?: string | null;
         duration_secs?: number | null;
       },
-    ) =>
-      t
-        .fetchJson<{ candidates: MatchCandidate[] }>(
-          `/api/tracks/${trackId}/auto-tag-suggestions`,
-          { method: "POST", ...(query ? jsonBody(query) : {}) },
-        )
-        .then((r) => r.candidates),
+    ): Promise<MatchCandidate[]> {
+      const result = await client.POST("/api/tracks/{id}/auto-tag-suggestions", {
+        params: { path: { id: trackId } },
+        body: query ?? {},
+      });
+      // `unwrap`'s normalisation is shallow, so it reaches the response object
+      // but not the candidates inside it. Same reasoning applies to them: serde
+      // always emits the keys, `null` when empty.
+      return unwrap(result, "/api/tracks/{id}/auto-tag-suggestions")
+        .candidates as MatchCandidate[];
+    },
 
-    getStreamToken: (trackId: number) =>
-      t
-        .fetchJson<{ token: string }>(`/api/tracks/${trackId}/stream-token`)
-        .then((r) => r.token),
+    async getStreamToken(trackId: number) {
+      const result = await client.GET("/api/tracks/{id}/stream-token", {
+        params: { path: { id: trackId } },
+      });
+      return unwrap(result, "/api/tracks/{id}/stream-token").token;
+    },
 
     streamUrl: t.streamUrl,
 
     // ---------------------------------------------------------- playlists ---
 
-    getPlaylists: () => t.fetchJson<Playlist[]>("/api/playlists"),
+    async getPlaylists() {
+      return unwrap(await client.GET("/api/playlists"), "/api/playlists");
+    },
 
-    createPlaylist: (name: string) =>
-      t.fetchJson<Playlist>("/api/playlists", {
-        method: "POST",
-        ...jsonBody({ name }),
-      }),
+    async createPlaylist(name: string) {
+      return unwrap(
+        await client.POST("/api/playlists", { body: { name } }),
+        "/api/playlists",
+      );
+    },
 
-    updatePlaylist: (id: number, patch: { name?: string; icon?: string | null }) =>
-      t.fetchJson<{ ok: boolean }>(`/api/playlists/${id}`, {
-        method: "PATCH",
-        ...jsonBody(patch),
-      }),
+    async updatePlaylist(
+      id: number,
+      patch: { name?: string; icon?: string | null },
+    ) {
+      return unwrap(
+        await client.PATCH("/api/playlists/{id}", {
+          params: { path: { id } },
+          body: patch,
+        }),
+        "/api/playlists/{id}",
+      );
+    },
 
-    deletePlaylist: (id: number) =>
-      t.fetchJson<{ ok: boolean }>(`/api/playlists/${id}`, { method: "DELETE" }),
+    async deletePlaylist(id: number) {
+      return unwrap(
+        await client.DELETE("/api/playlists/{id}", { params: { path: { id } } }),
+        "/api/playlists/{id}",
+      );
+    },
 
-    getPlaylistTracks: (id: number) =>
-      t.fetchJson<number[]>(`/api/playlists/${id}/tracks`),
+    async getPlaylistTracks(id: number) {
+      return unwrap(
+        await client.GET("/api/playlists/{id}/tracks", {
+          params: { path: { id } },
+        }),
+        "/api/playlists/{id}/tracks",
+      );
+    },
 
-    getPlaylistEntries: (id: number) =>
-      t.fetchJson<PlaylistTrackEntry[]>(`/api/playlists/${id}/entries`),
+    async getPlaylistEntries(id: number) {
+      return unwrap(
+        await client.GET("/api/playlists/{id}/entries", {
+          params: { path: { id } },
+        }),
+        "/api/playlists/{id}/entries",
+      );
+    },
 
-    addTracksToPlaylist: (id: number, trackIds: number[]) =>
-      t.fetchJson<{ ok: boolean }>(`/api/playlists/${id}/tracks`, {
-        method: "POST",
-        ...jsonBody({ track_ids: trackIds }),
-      }),
+    async addTracksToPlaylist(id: number, trackIds: number[]) {
+      return unwrap(
+        await client.POST("/api/playlists/{id}/tracks", {
+          params: { path: { id } },
+          body: { track_ids: trackIds },
+        }),
+        "/api/playlists/{id}/tracks",
+      );
+    },
 
-    removeTracksFromPlaylist: (id: number, trackIds: number[]) =>
-      t.fetchJson<{ ok: boolean }>(`/api/playlists/${id}/tracks`, {
-        method: "DELETE",
-        ...jsonBody({ track_ids: trackIds }),
-      }),
+    async removeTracksFromPlaylist(id: number, trackIds: number[]) {
+      return unwrap(
+        await client.DELETE("/api/playlists/{id}/tracks", {
+          params: { path: { id } },
+          body: { track_ids: trackIds },
+        }),
+        "/api/playlists/{id}/tracks",
+      );
+    },
 
-    removePlaylistEntry: (playlistId: number, entryId: number) =>
-      t.fetchJson<{ ok: boolean }>(
-        `/api/playlists/${playlistId}/entries/${entryId}`,
-        { method: "DELETE" },
-      ),
+    async removePlaylistEntry(playlistId: number, entryId: number) {
+      return unwrap(
+        await client.DELETE("/api/playlists/{id}/entries/{entry_id}", {
+          params: { path: { id: playlistId, entry_id: entryId } },
+        }),
+        "/api/playlists/{id}/entries/{entry_id}",
+      );
+    },
 
-    reorderPlaylists: (ids: number[]) =>
-      t.fetchJson<{ ok: boolean }>("/api/playlists/order", {
-        method: "PUT",
-        ...jsonBody({ ids }),
-      }),
+    async reorderPlaylists(ids: number[]) {
+      return unwrap(
+        await client.PUT("/api/playlists/order", { body: { ids } }),
+        "/api/playlists/order",
+      );
+    },
 
-    reorderPlaylistTracks: (id: number, ids: number[]) =>
-      t.fetchJson<{ ok: boolean }>(`/api/playlists/${id}/tracks/order`, {
-        method: "PUT",
-        ...jsonBody({ ids }),
-      }),
+    async reorderPlaylistTracks(id: number, ids: number[]) {
+      return unwrap(
+        await client.PUT("/api/playlists/{id}/tracks/order", {
+          params: { path: { id } },
+          body: { ids },
+        }),
+        "/api/playlists/{id}/tracks/order",
+      );
+    },
 
-    createSmartPlaylist: (name: string, rulesJson: string) =>
-      t.fetchJson<Playlist>("/api/playlists/smart", {
-        method: "POST",
-        ...jsonBody({ name, rules_json: rulesJson }),
-      }),
+    async createSmartPlaylist(name: string, rulesJson: string) {
+      return unwrap(
+        await client.POST("/api/playlists/smart", {
+          body: { name, rules_json: rulesJson },
+        }),
+        "/api/playlists/smart",
+      );
+    },
 
-    updateSmartPlaylistRules: (id: number, rulesJson: string) =>
-      t.fetchJson<{ ok: boolean }>(`/api/playlists/smart/${id}/rules`, {
-        method: "PATCH",
-        ...jsonBody({ rules_json: rulesJson }),
-      }),
+    async updateSmartPlaylistRules(id: number, rulesJson: string) {
+      return unwrap(
+        await client.PATCH("/api/playlists/smart/{id}/rules", {
+          params: { path: { id } },
+          body: { rules_json: rulesJson },
+        }),
+        "/api/playlists/smart/{id}/rules",
+      );
+    },
 
-    getSmartPlaylistTracks: (id: number) =>
-      t.fetchJson<number[]>(`/api/playlists/smart/${id}/tracks`),
+    async getSmartPlaylistTracks(id: number) {
+      return unwrap(
+        await client.GET("/api/playlists/smart/{id}/tracks", {
+          params: { path: { id } },
+        }),
+        "/api/playlists/smart/{id}/tracks",
+      );
+    },
 
     // --------------------------------------------------------------- cast ---
 
-    castDevices: () => t.fetchJson<CastDevice[]>("/api/cast/devices"),
-    castStartDiscovery: () =>
-      t.fetchJson<void>("/api/cast/discovery/start", { method: "POST" }),
-    castStopDiscovery: () =>
-      t.fetchJson<void>("/api/cast/discovery/stop", { method: "POST" }),
-    castStatus: () => t.fetchJson<CastStatusResponse>("/api/cast/status"),
-    castPlay: (deviceAddress: string, devicePort: number, trackId: number) =>
-      t.fetchJson<void>("/api/cast/play", {
-        method: "POST",
-        ...jsonBody({
-          device_address: deviceAddress,
-          device_port: devicePort,
-          track_id: trackId,
+    async castDevices() {
+      return unwrap(await client.GET("/api/cast/devices"), "/api/cast/devices");
+    },
+
+    async castStartDiscovery() {
+      unwrap(
+        await client.POST("/api/cast/discovery/start"),
+        "/api/cast/discovery/start",
+      );
+    },
+
+    async castStopDiscovery() {
+      unwrap(
+        await client.POST("/api/cast/discovery/stop"),
+        "/api/cast/discovery/stop",
+      );
+    },
+
+    async castStatus() {
+      return unwrap(await client.GET("/api/cast/status"), "/api/cast/status");
+    },
+
+    async castPlay(deviceAddress: string, devicePort: number, trackId: number) {
+      unwrap(
+        await client.POST("/api/cast/play", {
+          body: {
+            device_address: deviceAddress,
+            device_port: devicePort,
+            track_id: trackId,
+          },
         }),
-      }),
-    castPause: () => t.fetchJson<void>("/api/cast/pause", { method: "POST" }),
-    castResume: () => t.fetchJson<void>("/api/cast/resume", { method: "POST" }),
-    castStop: () => t.fetchJson<void>("/api/cast/stop", { method: "POST" }),
-    castSeek: (positionSecs: number, wasPlaying: boolean) =>
-      t.fetchJson<void>("/api/cast/seek", {
-        method: "POST",
-        ...jsonBody({ position_secs: positionSecs, was_playing: wasPlaying }),
-      }),
-    castSetVolume: (level: number) =>
-      t.fetchJson<void>("/api/cast/volume", {
-        method: "POST",
-        ...jsonBody({ level }),
-      }),
+        "/api/cast/play",
+      );
+    },
+
+    async castPause() {
+      unwrap(await client.POST("/api/cast/pause"), "/api/cast/pause");
+    },
+
+    async castResume() {
+      unwrap(await client.POST("/api/cast/resume"), "/api/cast/resume");
+    },
+
+    async castStop() {
+      unwrap(await client.POST("/api/cast/stop"), "/api/cast/stop");
+    },
+
+    async castSeek(positionSecs: number, wasPlaying: boolean) {
+      unwrap(
+        await client.POST("/api/cast/seek", {
+          body: { position_secs: positionSecs, was_playing: wasPlaying },
+        }),
+        "/api/cast/seek",
+      );
+    },
+
+    async castSetVolume(level: number) {
+      unwrap(
+        await client.POST("/api/cast/volume", { body: { level } }),
+        "/api/cast/volume",
+      );
+    },
 
     // -------------------------------------------------------------- admin ---
 
-    rescan: (rootPath?: string) =>
-      t
-        .fetchJson<RescanResult>("/api/admin/rescan", {
-          method: "POST",
-          ...jsonBody(rootPath ? { root_path: rootPath } : {}),
-        })
-        .then((r) => r.tracks_added),
+    async rescan(rootPath?: string) {
+      const result = await client.POST("/api/admin/rescan", {
+        body: rootPath ? { root_path: rootPath } : {},
+      });
+      return unwrap(result, "/api/admin/rescan").tracks_added;
+    },
 
-    removeFolder: (rootPath: string) =>
-      t.fetchJson<{ ok: boolean }>("/api/admin/remove-folder", {
-        method: "POST",
-        ...jsonBody({ root_path: rootPath }),
-      }),
+    async removeFolder(rootPath: string) {
+      return unwrap(
+        await client.POST("/api/admin/remove-folder", {
+          body: { root_path: rootPath },
+        }),
+        "/api/admin/remove-folder",
+      );
+    },
 
-    clearCache: () =>
-      t.fetchJson<{ ok: boolean }>("/api/admin/clear-cache", { method: "POST" }),
+    async clearCache() {
+      return unwrap(
+        await client.POST("/api/admin/clear-cache"),
+        "/api/admin/clear-cache",
+      );
+    },
 
-    getBackupDirectory: () =>
-      t
-        .fetchJson<{ path: string }>("/api/admin/backup-directory")
-        .then((r) => r.path),
+    async getBackupDirectory() {
+      const result = await client.GET("/api/admin/backup-directory");
+      return unwrap(result, "/api/admin/backup-directory").path;
+    },
 
-    fetchImage: (url: string) =>
-      t.fetchJson<FetchedImage>("/api/fetch-image", {
-        method: "POST",
-        ...jsonBody({ url }),
-      }),
+    async fetchImage(url: string) {
+      return unwrap(
+        await client.POST("/api/fetch-image", { body: { url } }),
+        "/api/fetch-image",
+      );
+    },
 
     /** Unauthenticated liveness probe; throws when the server is unreachable. */
-    health: () => t.fetchJson<void>("/api/health"),
+    async health() {
+      // Answers with the plain string "Healthy", not JSON.
+      unwrap(await client.GET("/api/health", { parseAs: "text" }), "/api/health");
+    },
   };
 
   return api;

@@ -13,6 +13,7 @@ use muorg_core::catalog::{Playlist, PlaylistTrackEntry};
 #[utoipa::path(
     get,
     path = "/api/playlists",
+    operation_id = "list_playlists",
     tag = "Playlists",
     responses(
         (status = 200, description = "Playlists", body = Vec<Playlist>),
@@ -36,6 +37,7 @@ pub struct CreateBody {
 #[utoipa::path(
     post,
     path = "/api/playlists",
+    operation_id = "create_playlist",
     tag = "Playlists",
     request_body = CreateBody,
     responses(
@@ -62,6 +64,7 @@ pub struct UpdateBody {
 #[utoipa::path(
     patch,
     path = "/api/playlists/{id}",
+    operation_id = "update_playlist",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     request_body = UpdateBody,
@@ -91,6 +94,7 @@ pub async fn update(
 #[utoipa::path(
     delete,
     path = "/api/playlists/{id}",
+    operation_id = "delete_playlist",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     responses(
@@ -138,6 +142,7 @@ pub async fn get_tracks(
 #[utoipa::path(
     get,
     path = "/api/playlists/{id}/entries",
+    operation_id = "get_playlist_entries",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     responses(
@@ -164,6 +169,7 @@ pub struct TrackIdsBody {
 #[utoipa::path(
     post,
     path = "/api/playlists/{id}/tracks",
+    operation_id = "add_playlist_tracks",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     request_body = TrackIdsBody,
@@ -188,6 +194,7 @@ pub async fn add_tracks(
 #[utoipa::path(
     delete,
     path = "/api/playlists/{id}/tracks",
+    operation_id = "remove_playlist_tracks",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     request_body = TrackIdsBody,
@@ -212,6 +219,7 @@ pub async fn remove_tracks(
 #[utoipa::path(
     delete,
     path = "/api/playlists/{id}/entries/{entry_id}",
+    operation_id = "remove_playlist_entry",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id"), ("entry_id" = i64, Path, description = "Playlist entry id")),
     responses(
@@ -239,6 +247,7 @@ pub struct ReorderBody {
 #[utoipa::path(
     put,
     path = "/api/playlists/{id}/tracks/order",
+    operation_id = "reorder_playlist_tracks",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     request_body = ReorderBody,
@@ -263,6 +272,7 @@ pub async fn reorder_tracks(
 #[utoipa::path(
     put,
     path = "/api/playlists/order",
+    operation_id = "reorder_playlists",
     tag = "Playlists",
     request_body = ReorderBody,
     responses(
@@ -290,6 +300,7 @@ pub struct SmartCreateBody {
 #[utoipa::path(
     post,
     path = "/api/playlists/smart",
+    operation_id = "create_smart_playlist",
     tag = "Playlists",
     request_body = SmartCreateBody,
     responses(
@@ -315,6 +326,7 @@ pub struct SmartRulesBody {
 #[utoipa::path(
     patch,
     path = "/api/playlists/smart/{id}/rules",
+    operation_id = "update_smart_playlist_rules",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     request_body = SmartRulesBody,
@@ -339,6 +351,7 @@ pub async fn update_smart_rules(
 #[utoipa::path(
     get,
     path = "/api/playlists/smart/{id}/tracks",
+    operation_id = "get_smart_playlist_tracks",
     tag = "Playlists",
     params(("id" = i64, Path, description = "Playlist id")),
     responses(

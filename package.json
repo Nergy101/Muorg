@@ -4,7 +4,8 @@
   "description": "Repo-level tooling. The apps themselves live in client/, web-client/, android-client/ and server/ and keep their own manifests.",
   "scripts": {
     "generate:api": "./scripts/generate-api-clients.sh",
-    "check:api": "./scripts/generate-api-clients.sh --check"
+    "check:api": "./scripts/generate-api-clients.sh --check",
+    "smoke:api": "cd web-client && ./node_modules/.bin/esbuild ../scripts/smoke-api.ts --bundle --platform=node --format=esm --alias:openapi-fetch=./node_modules/openapi-fetch --outfile=../node_modules/.smoke-api.mjs && node ../node_modules/.smoke-api.mjs"
   },
   "devDependencies": {
     "openapi-typescript": "^7.13.0"

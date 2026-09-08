@@ -10,6 +10,7 @@ use crate::state::AppState;
 #[utoipa::path(
     get,
     path = "/api/cast/devices",
+    operation_id = "cast_devices",
     tag = "Cast",
     responses(
         (status = 200, description = "Discovered devices", body = Vec<CastDevice>),
@@ -25,6 +26,7 @@ pub async fn get_devices(State(state): State<Arc<AppState>>) -> Json<Vec<CastDev
 #[utoipa::path(
     post,
     path = "/api/cast/discovery/start",
+    operation_id = "cast_start_discovery",
     tag = "Cast",
     responses(
         (status = 204, description = "Discovery started"),
@@ -41,6 +43,7 @@ pub async fn start_discovery(State(state): State<Arc<AppState>>) -> StatusCode {
 #[utoipa::path(
     post,
     path = "/api/cast/discovery/stop",
+    operation_id = "cast_stop_discovery",
     tag = "Cast",
     responses(
         (status = 204, description = "Discovery stopped"),
@@ -63,6 +66,7 @@ pub struct CastStatusResponse {
 #[utoipa::path(
     get,
     path = "/api/cast/status",
+    operation_id = "cast_status",
     tag = "Cast",
     responses(
         (status = 200, description = "Session status", body = CastStatusResponse),
@@ -88,6 +92,7 @@ pub struct PlayBody {
 #[utoipa::path(
     post,
     path = "/api/cast/play",
+    operation_id = "cast_play",
     tag = "Cast",
     request_body = PlayBody,
     responses(
@@ -123,6 +128,7 @@ pub async fn play(
 #[utoipa::path(
     post,
     path = "/api/cast/pause",
+    operation_id = "cast_pause",
     tag = "Cast",
     responses(
         (status = 204, description = "Command accepted"),
@@ -139,6 +145,7 @@ pub async fn pause(State(state): State<Arc<AppState>>) -> Result<StatusCode, Api
 #[utoipa::path(
     post,
     path = "/api/cast/resume",
+    operation_id = "cast_resume",
     tag = "Cast",
     responses(
         (status = 204, description = "Command accepted"),
@@ -155,6 +162,7 @@ pub async fn resume(State(state): State<Arc<AppState>>) -> Result<StatusCode, Ap
 #[utoipa::path(
     post,
     path = "/api/cast/stop",
+    operation_id = "cast_stop",
     tag = "Cast",
     responses(
         (status = 204, description = "Command accepted"),
@@ -177,6 +185,7 @@ pub struct SeekBody {
 #[utoipa::path(
     post,
     path = "/api/cast/seek",
+    operation_id = "cast_seek",
     tag = "Cast",
     request_body = SeekBody,
     responses(
@@ -205,6 +214,7 @@ pub struct VolumeBody {
 #[utoipa::path(
     post,
     path = "/api/cast/volume",
+    operation_id = "cast_set_volume",
     tag = "Cast",
     request_body = VolumeBody,
     responses(

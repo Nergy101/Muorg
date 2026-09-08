@@ -6,8 +6,13 @@ import kotlinx.coroutines.sync.withLock
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.MetadataUpdateRequest
-import nl.muorg.android.data.api.MuorgApiService
 import nl.muorg.android.data.api.Stats
+import nl.muorg.android.data.api.bodyOrThrow
+import nl.muorg.android.data.api.orThrow
+import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.PatchMetadataBody
+import nl.muorg.android.data.api.toDomain
+import nl.muorg.android.data.api.toWire
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +31,7 @@ private const val CACHE_TTL_MS = 10 * 60_000L
 
 @Singleton
 class LibraryRepository @Inject constructor(
-    private val api: MuorgApiService,
+    private val api: MuorgApi,
 ) {
 
     private val cacheLock = Mutex()
@@ -70,11 +75,8 @@ class LibraryRepository @Inject constructor(
         var offset = 0
         var total = Int.MAX_VALUE
         while (offset < total) {
-            val response = api.getTracks(offset, PAGE_SIZE)
-            val page = response.body()
-            if (!response.isSuccessful || page == null) {
-                error("GET /api/tracks?offset=$offset failed: HTTP ${response.code()}")
-            }
+            val response = api.getTracks(offset.toLong(), PAGE_SIZE.toLong())
+            val page = response.bodyOrThrow("GET /api/tracks?offset=$offset").toDomain()
             response.headers()["X-Total-Count"]?.toIntOrNull()?.let { total = it }
             for (track in page) if (seen.add(track.id)) all.add(track)
             offset += PAGE_SIZE
@@ -87,32 +89,35 @@ class LibraryRepository @Inject constructor(
     }
 
     suspend fun search(query: String): Result<List<CatalogTrack>> = runCatching {
-        api.search(query)
+        api.searchTracks(query).bodyOrThrow("GET /api/search").toDomain()
     }
 
     suspend fun getRecentPlayHistory(limit: Int = 20): Result<List<CatalogTrack>> = runCatching {
-        api.getRecentPlayHistory(limit)
+        api.getRecentPlayHistory(limit.toLong())
+            .bodyOrThrow("GET /api/play-history/recent").toDomain()
     }
 
     suspend fun getTopPlayHistory(limit: Int = 20, days: Int = 30): Result<List<CatalogTrack>> = runCatching {
-        api.getTopPlayHistory(limit, days)
+        api.getTopPlayHistory(limit.toLong(), days.toLong())
+            .bodyOrThrow("GET /api/play-history/top").toDomain()
     }
 
     suspend fun getStats(): Result<Stats> = runCatching {
-        api.getStats()
+        api.getStats().bodyOrThrow("GET /api/stats").toDomain()
     }
 
     suspend fun recordPlay(trackId: Int): Result<Unit> = runCatching {
-        api.recordPlay(trackId)
-        Unit
+        api.recordPlay(trackId.toLong()).orThrow("POST /api/tracks/$trackId/play")
     }
 
     suspend fun getStreamToken(trackId: Int): Result<String> = runCatching {
-        api.getStreamToken(trackId).token
+        api.issueToken(trackId.toLong())
+            .bodyOrThrow("GET /api/tracks/$trackId/stream-token").token
     }
 
     suspend fun patchTrackMetadata(trackId: Int, update: MetadataUpdateRequest): Result<Unit> = runCatching {
-        api.patchTrackMetadata(trackId, update)
+        api.patchMetadata(trackId.toLong(), update.toWire())
+            .orThrow("PATCH /api/tracks/$trackId/metadata")
         // The edited row is now stale in the cached catalog.
         cacheLock.withLock { cachedTracks = null }
     }

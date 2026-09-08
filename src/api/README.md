@@ -19,12 +19,24 @@ server/crates/muorg-core/src/**                 #[derive(ToSchema)] on each wire
                     v
 server/openapi.json                             checked in; 53 operations, 39 schemas
                     |
-        +-----------+------------------------------+
-        |                                          |
-        v                                          v
-src/api/schema.d.ts                  android-client/.../api/schema/ApiSchema.kt
-  (openapi-typescript)                  (scripts/generate-kotlin-models.mjs)
+        +-----------+---------------------------------+
+        |                                             |
+        v                                             v
+src/api/schema.d.ts                    android-client/.../api/schema/
+  (openapi-typescript)                    ApiSchema.kt  (models)
+        |                                  MuorgApi.kt   (Retrofit interface)
+        v
+openapi-fetch, wired to `paths`
+        |
+        +--> client/      (desktop)
+        +--> web-client/  (web)
 ```
+
+All three clients call generated code. The TypeScript apps go through
+`openapi-fetch` typed on `paths`, so a URL that is not in the spec, a method
+that path does not serve, or a body of the wrong shape are compile errors.
+Android calls `MuorgApi`, a Retrofit interface with one method per operation,
+and maps the wire types onto its own models in `WireMapping.kt`.
 
 Regenerate everything with:
 
@@ -43,13 +55,23 @@ built from the handlers themselves.
 |---|---|---|
 | `schema.d.ts` | **yes** | Raw `paths` / `components` from the spec. Don't import directly. |
 | `types.ts` | no | Readable aliases (`CatalogTrack`, `Playlist`, …) over `schema.d.ts`. |
-| `transport.ts` | no | `fetch` plumbing: auth header, error unwrapping, `streamUrl`. |
-| `endpoints.ts` | no | One typed function per endpoint, plus the pagination helpers. |
+| `transport.ts` | no | The `openapi-fetch` client: base URL, auth, error unwrapping, `streamUrl`. |
+| `endpoints.ts` | no | A named one-liner per endpoint over that client, plus the pagination helpers. |
 
 `transport.ts` takes the base URL and API key as callbacks, because the desktop
 app switches between a bundled local server and a remote one at runtime while
 the web app only ever has the one. That is the only thing the two apps actually
-needed to do differently.
+needed to do differently. openapi-fetch is handed a placeholder origin and the
+real server is substituted per request in a custom `fetch` — the Android client
+solves the same problem the same way, with a dynamic OkHttp `Call.Factory`.
+
+Two things the compiler cannot check, both learned the hard way and both now
+covered by `scripts/smoke-api.ts`:
+
+- a non-2xx with an empty body leaves openapi-fetch's `error` unset, so `unwrap`
+  tests `response.ok` rather than `error` — otherwise a bad API key reads as an
+  empty library;
+- `/api/health` answers in plain text, so it needs `parseAs: "text"`.
 
 ## Pagination
 
@@ -70,5 +92,16 @@ needed to do differently.
    the whole server — duplicate ids silently collapse two endpoints into one in
    every generated client.
 4. Run `./scripts/generate-api-clients.sh`.
-5. Add the typed wrapper to `endpoints.ts`.
+5. Add the named wrapper to `endpoints.ts` (TypeScript). Android picks the new
+   method up automatically; add a mapper in `WireMapping.kt` if it returns a
+   type the app models itself.
 6. Commit the generated files along with the change.
+
+## Checking it against a live server
+
+```sh
+MUORG_URL=http://127.0.0.1:7700 MUORG_KEY=dev-key pnpm smoke:api
+```
+
+Type-checking proves the client matches the spec; this proves the spec matches
+the running server.

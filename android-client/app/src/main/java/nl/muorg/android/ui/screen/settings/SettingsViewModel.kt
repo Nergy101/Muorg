@@ -14,7 +14,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import nl.muorg.android.BuildConfig
 import nl.muorg.android.data.api.GithubRelease
-import nl.muorg.android.data.api.MuorgApiService
+import nl.muorg.android.data.api.bodyOrThrow
+import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.toDomain
 import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LocalLibraryRepository
@@ -60,7 +62,7 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferences: AppPreferences,
-    private val api: MuorgApiService,
+    private val api: MuorgApi,
     private val localLibraryRepository: LocalLibraryRepository,
 ) : ViewModel() {
 
@@ -132,7 +134,7 @@ class SettingsViewModel @Inject constructor(
 
     fun loadStats() {
         viewModelScope.launch {
-            runCatching { api.getStats() }.fold(
+            runCatching { api.getStats().bodyOrThrow("GET /api/stats").toDomain() }.fold(
                 onSuccess = { stats -> _uiState.update { it.copy(stats = stats, statsError = false) } },
                 onFailure = { _uiState.update { it.copy(statsError = true) } },
             )
@@ -160,7 +162,7 @@ class SettingsViewModel @Inject constructor(
     fun refreshData() {
         viewModelScope.launch {
             _uiState.update { it.copy(refreshStatus = RefreshStatus.LOADING, refreshError = null) }
-            runCatching { api.getStats() }.fold(
+            runCatching { api.getStats().bodyOrThrow("GET /api/stats").toDomain() }.fold(
                 onSuccess = { stats ->
                     _uiState.update {
                         it.copy(stats = stats, statsError = false, refreshStatus = RefreshStatus.SUCCESS)

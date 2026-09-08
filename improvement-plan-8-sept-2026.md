@@ -86,35 +86,27 @@ step in the Android CI job.
 **Size:** small to start. **Value:** high — it is the only client with no
 automated verification of any kind.
 
-### 6. Migrate the hand-written models onto the generated schema
+### 6. Widen the domain model from `Int` to `Long` ids
 
-`ApiSchema.kt` (generated, CI-verified) now sits next to `ApiModels.kt`
-(hand-written) and the two disagree in ways the generation made visible:
+Android now calls the generated `MuorgApi` and maps the wire types onto its own
+models in `WireMapping.kt`, so the contract is load-bearing. One narrowing
+remains, deliberately confined to that one file: the server's ids are `i64` and
+the app's domain model, Room entities and Compose state are all `Int`, so
+`toDomain()` calls `.toInt()`.
 
-| Field | Server | `ApiModels.kt` |
-|---|---|---|
-| `CatalogTrack.id` | `i64` | `Int` |
-| `CatalogTrack.duration_secs` | `i64` | `Double?` |
-| `CatalogTrack.play_count` | `i64` | `Int` |
-| `Playlist.id` | `i64` | `Int` |
+Truncation needs a library past 2.1 billion tracks, so this is not urgent. But
+if it is ever worth removing, the change is `Int` → `Long` across roughly 50
+call sites plus the Room entities, their DAOs and the hand-written migration in
+`AppDatabase.kt` — and it wants the tests in §5 landed first.
 
-None of these break today — track ids will not pass 2³¹, and kotlinx happily
-reads an integer into a `Double`. But they are the drift, written down.
-
-Collapsing `ApiModels.kt` onto the generated types is an `Int` → `Long` change
-across roughly 50 call sites plus the Room entities and their DAOs, so it wants
-its own PR with a migration. `CatalogTrack` also carries two app-local fields
-(`localFilePath`, `localCoverPath`) and display helpers that need to move to a
-wrapper or extensions first.
-
-**Size:** medium, mechanical, wants tests (see §5) before it starts.
-**Value:** high — it is what makes the contract load-bearing on Android.
+**Size:** medium, mechanical. **Value:** low — correctness theatre at current
+library sizes, but it is the one place the two models still disagree.
 
 ### 7. No metadata editing beyond the scan sheet
 
-`MuorgApiService.kt` declares `PATCH api/tracks/{id}/metadata` and nothing else
-from the tracks API. Missing: auto-tag suggestions, backup/restore, rename. All
-are in the spec and typed in `ApiSchema.kt`.
+The generated `MuorgApi` now exposes every route, but the app only calls
+`patchMetadata`. Auto-tag suggestions, backup/restore and rename are all sitting
+there typed and unused — the UI is what is missing, not the plumbing.
 
 **Size:** medium. **Value:** medium.
 
@@ -171,19 +163,20 @@ silent divergence will happen.
 
 ## Cross-cutting
 
-### 13. Contract coverage is enforced; behaviour is not
+### 13. Wire the smoke test into CI
 
-`scripts/generate-api-clients.sh --check` now fails CI when a route changes and
-the generated clients do not. It cannot catch a client that calls a documented
-endpoint *wrongly* — the paging bug would still slip through if someone bypassed
-`api.streamTracks()`.
+`scripts/smoke-api.ts` runs the shared client against a live server and covers
+what type-checking cannot — it is what caught the relative base URL, the silent
+401 and the plain-text health probe. It is run by hand today
+(`pnpm smoke:api`) because it needs a server.
 
-A small contract test would close that: spin up `muorg-server` against a fixture
-library and assert each endpoint's response validates against its schema in
-`server/openapi.json`. The integration harness for this already exists in
-`server/crates/muorg-server/tests/helpers/`.
+Wiring it into CI means starting `muorg-server` against a fixture library in the
+`api-contract` job and running it there. The integration harness for building
+that fixture already exists in `server/crates/muorg-server/tests/helpers/`.
+Extending it to assert every response validates against its schema in
+`server/openapi.json` would close the loop completely.
 
-**Size:** medium. **Value:** medium–high.
+**Size:** small to wire up, medium to make exhaustive. **Value:** high.
 
 ### 14. No shared UI tests anywhere
 
@@ -219,9 +212,22 @@ For the record, so this list is not re-derived later:
   fails if any of the three is stale. Two duplicate `operationId`s were found and
   fixed in the process — `get_tracks` and `health` each described two endpoints,
   which would have collapsed them in every generated client.
-- **Shared TypeScript client.** `src/api/` — transport, typed endpoints and one
-  implementation of the `/api/tracks` pagination. Both TS apps now use it, and
-  their nine hand-copied wire interfaces are re-exports of the generated types.
+- **Generated clients in all three apps.** The TypeScript apps call
+  `openapi-fetch` typed on the generated `paths`, so a URL, method or body that
+  the spec does not describe is a compile error; Android calls `MuorgApi`, a
+  generated Retrofit interface with one method per operation, and maps to its
+  own models in `WireMapping.kt`. The hand-written `MuorgApiService.kt` and the
+  nine hand-copied wire interfaces across the two TS apps are gone.
+- **`/api/tracks` pagination has one implementation** in `src/api/endpoints.ts`,
+  and Android's loop is the only other copy.
+- **Every operation has a meaningful `operationId`.** `list`, `create`, `play`,
+  `stop` and friends became `list_playlists`, `create_playlist`, `cast_play`,
+  `cast_stop` — they are the generated method names, and one namespace holds all
+  53 of them.
+- **A live smoke test** (`scripts/smoke-api.ts`, `pnpm smoke:api`) that caught
+  three runtime bugs type-checking could not: a base URL that only resolves
+  inside a browser, a bare 401 read as an empty library, and a plain-text health
+  probe parsed as JSON.
 - **Desktop: catalog streams in.** `loadTracks()` renders the first page
   immediately instead of awaiting all seven round-trips, with a progress badge
   for the rest.

@@ -70,7 +70,7 @@ export interface paths {
             cookie?: never;
         };
         /** Prometheus exposition format. */
-        get: operations["metrics"];
+        get: operations["admin_metrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -121,7 +121,7 @@ export interface paths {
             cookie?: never;
         };
         /** Chromecast devices seen by the current mDNS sweep. */
-        get: operations["get_devices"];
+        get: operations["cast_devices"];
         put?: never;
         post?: never;
         delete?: never;
@@ -140,7 +140,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Begin mDNS discovery. */
-        post: operations["start_discovery"];
+        post: operations["cast_start_discovery"];
         delete?: never;
         options?: never;
         head?: never;
@@ -157,7 +157,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Stop mDNS discovery. */
-        post: operations["stop_discovery"];
+        post: operations["cast_stop_discovery"];
         delete?: never;
         options?: never;
         head?: never;
@@ -174,7 +174,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Pause the cast session. */
-        post: operations["pause"];
+        post: operations["cast_pause"];
         delete?: never;
         options?: never;
         head?: never;
@@ -191,7 +191,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Start casting a track to a device. */
-        post: operations["play"];
+        post: operations["cast_play"];
         delete?: never;
         options?: never;
         head?: never;
@@ -208,7 +208,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Resume the cast session. */
-        post: operations["resume"];
+        post: operations["cast_resume"];
         delete?: never;
         options?: never;
         head?: never;
@@ -225,7 +225,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Seek within the casting track. */
-        post: operations["seek"];
+        post: operations["cast_seek"];
         delete?: never;
         options?: never;
         head?: never;
@@ -240,7 +240,7 @@ export interface paths {
             cookie?: never;
         };
         /** Current cast session state and device volume. */
-        get: operations["get_status"];
+        get: operations["cast_status"];
         put?: never;
         post?: never;
         delete?: never;
@@ -259,7 +259,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Tear down the cast session. */
-        post: operations["stop"];
+        post: operations["cast_stop"];
         delete?: never;
         options?: never;
         head?: never;
@@ -276,7 +276,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Set device volume, 0.0–1.0. */
-        post: operations["set_volume"];
+        post: operations["cast_set_volume"];
         delete?: never;
         options?: never;
         head?: never;
@@ -360,10 +360,10 @@ export interface paths {
             cookie?: never;
         };
         /** All playlists, in user-defined order. */
-        get: operations["list"];
+        get: operations["list_playlists"];
         put?: never;
         /** Create an empty playlist. */
-        post: operations["create"];
+        post: operations["create_playlist"];
         delete?: never;
         options?: never;
         head?: never;
@@ -381,11 +381,11 @@ export interface paths {
         put?: never;
         post?: never;
         /** Delete a playlist and its entries. */
-        delete: operations["delete"];
+        delete: operations["delete_playlist"];
         options?: never;
         head?: never;
         /** Rename a playlist and/or set its icon. */
-        patch: operations["update"];
+        patch: operations["update_playlist"];
         trace?: never;
     };
     "/api/playlists/{id}/entries": {
@@ -396,7 +396,7 @@ export interface paths {
             cookie?: never;
         };
         /** Playlist entries, which carry their own id so the same track can appear twice. */
-        get: operations["get_entries"];
+        get: operations["get_playlist_entries"];
         put?: never;
         post?: never;
         delete?: never;
@@ -416,7 +416,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Remove one entry, leaving other copies of the same track in place. */
-        delete: operations["remove_entry"];
+        delete: operations["remove_playlist_entry"];
         options?: never;
         head?: never;
         patch?: never;
@@ -433,9 +433,9 @@ export interface paths {
         get: operations["get_playlist_tracks"];
         put?: never;
         /** Append tracks to a playlist. */
-        post: operations["add_tracks"];
+        post: operations["add_playlist_tracks"];
         /** Remove every entry for the given tracks. */
-        delete: operations["remove_tracks"];
+        delete: operations["remove_playlist_tracks"];
         options?: never;
         head?: never;
         patch?: never;
@@ -450,7 +450,7 @@ export interface paths {
         };
         get?: never;
         /** Reorder entries within a playlist. */
-        put: operations["reorder_tracks"];
+        put: operations["reorder_playlist_tracks"];
         post?: never;
         delete?: never;
         options?: never;
@@ -467,7 +467,7 @@ export interface paths {
         };
         get?: never;
         /** Reorder the playlists themselves. */
-        put: operations["reorder"];
+        put: operations["reorder_playlists"];
         post?: never;
         delete?: never;
         options?: never;
@@ -485,7 +485,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Create a rule-driven smart playlist. */
-        post: operations["create_smart"];
+        post: operations["create_smart_playlist"];
         delete?: never;
         options?: never;
         head?: never;
@@ -506,7 +506,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Replace a smart playlist's rule set. */
-        patch: operations["update_smart_rules"];
+        patch: operations["update_smart_playlist_rules"];
         trace?: never;
     };
     "/api/playlists/smart/{id}/tracks": {
@@ -517,7 +517,7 @@ export interface paths {
             cookie?: never;
         };
         /** Evaluate the rules and return the matching track ids. */
-        get: operations["get_smart_tracks"];
+        get: operations["get_smart_playlist_tracks"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1272,7 +1272,7 @@ export interface operations {
             };
         };
     };
-    metrics: {
+    admin_metrics: {
         parameters: {
             query?: never;
             header?: never;
@@ -1367,7 +1367,7 @@ export interface operations {
             };
         };
     };
-    get_devices: {
+    cast_devices: {
         parameters: {
             query?: never;
             header?: never;
@@ -1396,7 +1396,7 @@ export interface operations {
             };
         };
     };
-    start_discovery: {
+    cast_start_discovery: {
         parameters: {
             query?: never;
             header?: never;
@@ -1423,7 +1423,7 @@ export interface operations {
             };
         };
     };
-    stop_discovery: {
+    cast_stop_discovery: {
         parameters: {
             query?: never;
             header?: never;
@@ -1450,7 +1450,7 @@ export interface operations {
             };
         };
     };
-    pause: {
+    cast_pause: {
         parameters: {
             query?: never;
             header?: never;
@@ -1477,7 +1477,7 @@ export interface operations {
             };
         };
     };
-    play: {
+    cast_play: {
         parameters: {
             query?: never;
             header?: never;
@@ -1508,7 +1508,7 @@ export interface operations {
             };
         };
     };
-    resume: {
+    cast_resume: {
         parameters: {
             query?: never;
             header?: never;
@@ -1535,7 +1535,7 @@ export interface operations {
             };
         };
     };
-    seek: {
+    cast_seek: {
         parameters: {
             query?: never;
             header?: never;
@@ -1566,7 +1566,7 @@ export interface operations {
             };
         };
     };
-    get_status: {
+    cast_status: {
         parameters: {
             query?: never;
             header?: never;
@@ -1595,7 +1595,7 @@ export interface operations {
             };
         };
     };
-    stop: {
+    cast_stop: {
         parameters: {
             query?: never;
             header?: never;
@@ -1622,7 +1622,7 @@ export interface operations {
             };
         };
     };
-    set_volume: {
+    cast_set_volume: {
         parameters: {
             query?: never;
             header?: never;
@@ -1783,7 +1783,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_playlists: {
         parameters: {
             query?: never;
             header?: never;
@@ -1812,7 +1812,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_playlist: {
         parameters: {
             query?: never;
             header?: never;
@@ -1845,7 +1845,7 @@ export interface operations {
             };
         };
     };
-    delete: {
+    delete_playlist: {
         parameters: {
             query?: never;
             header?: never;
@@ -1886,7 +1886,7 @@ export interface operations {
             };
         };
     };
-    update: {
+    update_playlist: {
         parameters: {
             query?: never;
             header?: never;
@@ -1931,7 +1931,7 @@ export interface operations {
             };
         };
     };
-    get_entries: {
+    get_playlist_entries: {
         parameters: {
             query?: never;
             header?: never;
@@ -1972,7 +1972,7 @@ export interface operations {
             };
         };
     };
-    remove_entry: {
+    remove_playlist_entry: {
         parameters: {
             query?: never;
             header?: never;
@@ -2056,7 +2056,7 @@ export interface operations {
             };
         };
     };
-    add_tracks: {
+    add_playlist_tracks: {
         parameters: {
             query?: never;
             header?: never;
@@ -2101,7 +2101,7 @@ export interface operations {
             };
         };
     };
-    remove_tracks: {
+    remove_playlist_tracks: {
         parameters: {
             query?: never;
             header?: never;
@@ -2146,7 +2146,7 @@ export interface operations {
             };
         };
     };
-    reorder_tracks: {
+    reorder_playlist_tracks: {
         parameters: {
             query?: never;
             header?: never;
@@ -2191,7 +2191,7 @@ export interface operations {
             };
         };
     };
-    reorder: {
+    reorder_playlists: {
         parameters: {
             query?: never;
             header?: never;
@@ -2224,7 +2224,7 @@ export interface operations {
             };
         };
     };
-    create_smart: {
+    create_smart_playlist: {
         parameters: {
             query?: never;
             header?: never;
@@ -2257,7 +2257,7 @@ export interface operations {
             };
         };
     };
-    update_smart_rules: {
+    update_smart_playlist_rules: {
         parameters: {
             query?: never;
             header?: never;
@@ -2302,7 +2302,7 @@ export interface operations {
             };
         };
     };
-    get_smart_tracks: {
+    get_smart_playlist_tracks: {
         parameters: {
             query?: never;
             header?: never;

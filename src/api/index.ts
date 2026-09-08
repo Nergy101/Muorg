@@ -16,6 +16,6 @@
 
 export { createApi } from "./endpoints";
 export type { MuorgApi } from "./endpoints";
-export { createTransport, jsonBody, ApiError } from "./transport";
-export type { Credentials, Transport } from "./transport";
+export { createTransport, ApiError } from "./transport";
+export type { Credentials, Transport, MuorgClient } from "./transport";
 export * from "./types";

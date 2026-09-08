@@ -29,6 +29,7 @@ CHECK=0
 SPEC="server/openapi.json"
 TS_OUT="src/api/schema.d.ts"
 KT_OUT="android-client/app/src/main/java/nl/muorg/android/data/api/schema/ApiSchema.kt"
+KT_API_OUT="android-client/app/src/main/java/nl/muorg/android/data/api/schema/MuorgApi.kt"
 
 if [[ $CHECK -eq 1 ]]; then
   STAGE="$(mktemp -d)"
@@ -37,6 +38,7 @@ if [[ $CHECK -eq 1 ]]; then
   cp "$SPEC" "$STAGE/openapi.json"
   cp "$TS_OUT" "$STAGE/schema.d.ts"
   cp "$KT_OUT" "$STAGE/ApiSchema.kt"
+  cp "$KT_API_OUT" "$STAGE/MuorgApi.kt"
 fi
 
 echo "==> Regenerating $SPEC from the muorg-server handlers"
@@ -66,9 +68,12 @@ mv "$TMP_TS" "$TS_OUT"
 echo "==> Generating $KT_OUT"
 node scripts/generate-kotlin-models.mjs "$SPEC" "$KT_OUT"
 
+echo "==> Generating $KT_API_OUT"
+node scripts/generate-kotlin-api.mjs "$SPEC" "$KT_API_OUT"
+
 if [[ $CHECK -eq 1 ]]; then
   status=0
-  for pair in "$SPEC:$STAGE/openapi.json" "$TS_OUT:$STAGE/schema.d.ts" "$KT_OUT:$STAGE/ApiSchema.kt"; do
+  for pair in "$SPEC:$STAGE/openapi.json" "$TS_OUT:$STAGE/schema.d.ts" "$KT_OUT:$STAGE/ApiSchema.kt" "$KT_API_OUT:$STAGE/MuorgApi.kt"; do
     live="${pair%%:*}"; saved="${pair##*:}"
     if ! diff -q "$saved" "$live" >/dev/null; then
       echo "::error::$live is out of date. Run ./scripts/generate-api-clients.sh and commit the result."
@@ -85,3 +90,4 @@ echo "==> Done. Review and commit:"
 echo "      $SPEC"
 echo "      $TS_OUT"
 echo "      $KT_OUT"
+echo "      $KT_API_OUT"

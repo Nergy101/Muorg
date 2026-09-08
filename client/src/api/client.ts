@@ -75,9 +75,9 @@ export const transport = createTransport({
 
 export const api = createApi(transport);
 
-// Kept as named exports so existing call sites need no change.
-export const apiFetch = transport.fetchJson;
-export const apiFetchBlob = transport.fetchBlob;
+// There is no untyped `apiFetch` any more: every request goes through the
+// spec-typed client above, so a call to a path the server does not serve is a
+// compile error. `streamUrl` stays because an <audio src> is a URL, not a fetch.
 export const streamUrl = transport.streamUrl;
 
 export { ApiError } from "@shared/api";

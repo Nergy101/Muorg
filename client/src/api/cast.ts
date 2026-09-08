@@ -1,5 +1,15 @@
+/**
+ * Chromecast control for the desktop app.
+ *
+ * Split brain by necessity: discovery runs in the Tauri process (in-process
+ * mDNS is what carries the macOS entitlements), while the session itself —
+ * connect, stream, transport — is driven by the server sidecar over HTTP. The
+ * HTTP half goes through the shared spec-typed client; the discovery half
+ * through `invoke`.
+ */
+
 import { invoke } from "@tauri-apps/api/core";
-import { apiFetch } from "./client";
+import { api } from "./client";
 import type { CastSessionStatus, CastDevice } from "../stores/cast";
 
 export interface CastStatusResponse {
@@ -7,8 +17,9 @@ export interface CastStatusResponse {
   volume: number;
 }
 
-// Discovery runs in the Tauri process (in-process mDNS has proper macOS entitlements).
-export async function getDevices(): Promise<CastDevice[]> {
+// ── Discovery: Tauri commands ────────────────────────────────────────────────
+
+export function getDevices(): Promise<CastDevice[]> {
   return invoke<CastDevice[]>("cast_get_devices");
 }
 
@@ -20,51 +31,39 @@ export async function stopDiscovery(): Promise<void> {
   await invoke<void>("cast_stop_discovery");
 }
 
-// Cast session (connect + stream) is handled by the server sidecar.
-export async function getStatus(): Promise<CastStatusResponse> {
-  return apiFetch<CastStatusResponse>("/api/cast/status");
+// ── Session: the sidecar's /api/cast/* routes ────────────────────────────────
+
+export function getStatus(): Promise<CastStatusResponse> {
+  return api.castStatus() as Promise<CastStatusResponse>;
 }
 
-export async function castPlay(
+export function castPlay(
   trackId: number,
   deviceAddress: string,
   devicePort: number,
 ): Promise<void> {
-  await apiFetch("/api/cast/play", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      track_id: trackId,
-      device_address: deviceAddress,
-      device_port: devicePort,
-    }),
-  });
+  return api.castPlay(deviceAddress, devicePort, trackId);
 }
 
-export async function castPause(): Promise<void> {
-  await apiFetch("/api/cast/pause", { method: "POST" });
+export function castPause(): Promise<void> {
+  return api.castPause();
 }
 
-export async function castResume(): Promise<void> {
-  await apiFetch("/api/cast/resume", { method: "POST" });
+export function castResume(): Promise<void> {
+  return api.castResume();
 }
 
-export async function castStop(): Promise<void> {
-  await apiFetch("/api/cast/stop", { method: "POST" });
+export function castStop(): Promise<void> {
+  return api.castStop();
 }
 
-export async function castSeek(positionSecs: number, wasPlaying: boolean): Promise<void> {
-  await apiFetch("/api/cast/seek", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ position_secs: positionSecs, was_playing: wasPlaying }),
-  });
+export function castSeek(
+  positionSecs: number,
+  wasPlaying: boolean,
+): Promise<void> {
+  return api.castSeek(positionSecs, wasPlaying);
 }
 
-export async function setCastVolume(level: number): Promise<void> {
-  await apiFetch("/api/cast/volume", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ level }),
-  });
+export function setCastVolume(level: number): Promise<void> {
+  return api.castSetVolume(level);
 }

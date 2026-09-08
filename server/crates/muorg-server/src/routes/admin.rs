@@ -164,6 +164,7 @@ pub async fn health(
 #[utoipa::path(
     get,
     path = "/api/admin/metrics",
+    operation_id = "admin_metrics",
     tag = "Admin",
     responses(
         (status = 200, description = "Prometheus metrics", content_type = "text/plain"),
