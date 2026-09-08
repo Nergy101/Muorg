@@ -59,9 +59,13 @@ jobs:
             api-contract:
               - '.github/workflows/build.yml'
               - 'server/crates/**'
-              - 'src/api/**'
+              - 'src/**'
               - 'scripts/generate-api-clients.sh'
               - 'scripts/generate-kotlin-models.mjs'
+              - 'scripts/generate-kotlin-api.mjs'
+              - 'package.json'
+              - 'vitest.config.mts'
+              - 'web-client/src/stores/**'
               - 'android-client/app/src/main/java/nl/muorg/android/data/api/schema/**'
             server:
               - '.github/workflows/build.yml'
@@ -75,7 +79,7 @@ jobs:
   # three here and fail if anything differs from what was committed — that is
   # what stops the three clients drifting apart again.
   api-contract:
-    name: API contract (OpenAPI + generated clients)
+    name: API contract + shared tests
     needs: changes
     if: needs.changes.outputs.api-contract == 'true'
     runs-on: ubuntu-latest
@@ -110,6 +114,11 @@ jobs:
 
       - name: Check generated clients are current
         run: ./scripts/generate-api-clients.sh --check
+
+      # The shared client and the pure logic in both TS apps. A break here
+      # breaks two apps at once, which is the trade for not keeping two copies.
+      - name: Shared logic tests
+        run: pnpm test:coverage
 
   client:
     name: Client (TypeScript + Tauri)
@@ -216,6 +225,10 @@ jobs:
       - name: Lint
         working-directory: android-client
         run: ./gradlew lintDebug
+
+      - name: Unit tests
+        working-directory: android-client
+        run: ./gradlew testDebugUnitTest
 
       - name: Build
         working-directory: android-client

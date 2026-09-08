@@ -5,10 +5,16 @@
   "scripts": {
     "generate:api": "./scripts/generate-api-clients.sh",
     "check:api": "./scripts/generate-api-clients.sh --check",
-    "smoke:api": "cd web-client && ./node_modules/.bin/esbuild ../scripts/smoke-api.ts --bundle --platform=node --format=esm --alias:openapi-fetch=./node_modules/openapi-fetch --outfile=../node_modules/.smoke-api.mjs && node ../node_modules/.smoke-api.mjs"
+    "smoke:api": "cd web-client && ./node_modules/.bin/esbuild ../scripts/smoke-api.ts --bundle --platform=node --format=esm --alias:openapi-fetch=./node_modules/openapi-fetch --outfile=../node_modules/.smoke-api.mjs && node ../node_modules/.smoke-api.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "openapi-typescript": "^7.13.0"
+    "@vitest/coverage-v8": "^5.0.0",
+    "happy-dom": "^20.14.0",
+    "openapi-typescript": "^7.13.0",
+    "vitest": "^5.0.0"
   },
   "packageManager": "pnpm@10.18.3"
 }

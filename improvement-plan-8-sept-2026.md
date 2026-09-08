@@ -69,22 +69,20 @@ script wired into the `client` and `web-client` CI jobs. `stores/player.ts`
 
 ## Android App (`android-client/`)
 
-### 5. Zero tests, and CI never runs any
+### 5. Extend the Android unit tests
 
-There is not one `*Test.kt` in the tree, and `build.yml` runs only `lintDebug`
-and `assembleDebug` — never `./gradlew test`. Three pieces of pure logic would
-pay for themselves immediately:
+34 JVM tests now cover `PathPatternMatcher`, `WireMapping` and the
+`LibraryRepository` paging loop, and CI runs `./gradlew testDebugUnitTest`.
 
-- `util/PathPatternMatcher.kt` — template parsing, entirely deterministic.
-- `data/local/LocalLibraryScanner.kt` — tag extraction and path handling.
-- `data/repository/LibraryRepository.kt` — the pagination loop, which is exactly
-  the code that shipped the "first 500 tracks only" bug (`b531618`).
+Still untested and worth doing next:
 
-Add `testImplementation(kotlin("test"))` plus a `./gradlew testDebugUnitTest`
-step in the Android CI job.
+- `data/local/LocalLibraryScanner.kt` — tag extraction and SAF path handling.
+- `data/repository/OfflineDownloadManager.kt` — download, resume and eviction.
+- `PathPatternMatcher.decodeLocalPath` — needs `android.net.Uri`, so it wants
+  Robolectric or an instrumented test rather than a plain JVM one.
+- The ViewModels, which would need a `MainDispatcherRule`.
 
-**Size:** small to start. **Value:** high — it is the only client with no
-automated verification of any kind.
+**Size:** small per area. **Value:** medium — the highest-risk logic is covered.
 
 ### 6. Widen the domain model from `Int` to `Long` ids
 
@@ -178,16 +176,18 @@ Extending it to assert every response validates against its schema in
 
 **Size:** small to wire up, medium to make exhaustive. **Value:** high.
 
-### 14. No shared UI tests anywhere
+### 14. No component tests
 
-`src/` now holds shared components (`FeatherIcon`, `MarqueeCell`,
-`EqualizerBars`, the stats charts), a shared composable (`useMixes`) and shared
-logic (`lyrics.ts`, `api/`). A break in any of these now breaks two apps at once,
-which is the trade for not having two copies. Vitest over `src/` would be the
-highest-leverage test suite in the repo: `parseLrc`, `activeLrcIndex` and the
-mix-sampling genre matching are all pure functions.
+Vitest now covers the shared logic — 144 tests over `lyrics.ts`, `api/`,
+`useMixes` and the web client's library store, at 90% lines / 76% branches, run
+in CI.
 
-**Size:** small. **Value:** high.
+What is still untested is anything with a component tree: the shared
+`FeatherIcon`, `MarqueeCell`, `EqualizerBars` and the stats charts, and every
+`.vue` file in both apps. That needs `@vue/test-utils` and a jsdom/happy-dom
+environment per app, which is a separate setup from the logic suite.
+
+**Size:** medium. **Value:** medium — the logic underneath them is covered.
 
 ### 15. Repo has no root README pointer to the API contract
 
@@ -228,6 +228,11 @@ For the record, so this list is not re-derived later:
   three runtime bugs type-checking could not: a base URL that only resolves
   inside a browser, a bare 401 read as an empty library, and a plain-text health
   probe parsed as JSON.
+- **178 automated tests where there were 16.** Vitest over the shared code and
+  the web client's library store (144 tests, 90% lines / 76% branches on the
+  targeted modules) and JVM unit tests on Android (34 tests over the path
+  matcher, the wire mapping and the paging loop). Both run in CI, alongside the
+  16 Rust tests that already existed.
 - **Desktop: catalog streams in.** `loadTracks()` renders the first page
   immediately instead of awaiting all seven round-trips, with a progress badge
   for the rest.

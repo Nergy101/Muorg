@@ -52,8 +52,8 @@ const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
 ];
 
 /** Lowercase + strip punctuation/whitespace so "Lo-Fi", "Lofi" and "Lo Fi"
- *  all normalise to "lofi". */
-function normalizeGenre(g: string): string {
+ *  all normalise to "lofi". Exported for tests. */
+export function normalizeGenre(g: string): string {
   return g.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
@@ -63,7 +63,7 @@ function normalizeGenre(g: string): string {
  *  is lenient: a cohort genre matches when either side contains the other
  *  (so "Lo-Fi" catches "Lofi" / "Lo-Fi, Electronic", and "Metal" catches
  *  "Progressive Metal"). */
-function sampleTrackIds(tracks: CatalogTrack[], genres: string[]): number[] {
+export function sampleTrackIds(tracks: CatalogTrack[], genres: string[]): number[] {
   const wanted = genres.map(normalizeGenre).filter(Boolean);
   const pool = tracks.filter((t) => {
     if (t.genre == null) return false;
