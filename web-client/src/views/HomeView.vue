@@ -350,14 +350,18 @@ const { mixes, refresh } = useMixes({
   ready: () => !lib.loading && !lib.loadingMore,
 });
 const mixCoverReady = useMixCoverReady(() => mixes.value);
-// DEBUG: expose live state for CDP probing
-(window as any).__muorg = {
-  get allReady() { return mixCoverReady.allReady.value; },
-  get mixCount() { return mixes.value.length; },
-  get cacheSize() { return lib.coverCache.size; },
-  get pendingSize() { return lib.coverPending.size; },
-  get failedSize() { return lib.coverFailed.size; },
-};
+// Live cover-loading state, for probing from devtools while working on the
+// mix grid. Dev-only: this is a handle on store internals and there is no
+// reason to hand one to every visitor.
+if (import.meta.env.DEV) {
+  (window as unknown as { __muorg: Record<string, unknown> }).__muorg = {
+    get allReady() { return mixCoverReady.allReady.value; },
+    get mixCount() { return mixes.value.length; },
+    get cacheSize() { return lib.coverCache.size; },
+    get pendingSize() { return lib.coverPending.size; },
+    get failedSize() { return lib.coverFailed.size; },
+  };
+}
 
 const mixesRefreshing = ref(false);
 function refreshMixes(): void {

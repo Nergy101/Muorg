@@ -199,7 +199,7 @@ for (const name of Object.keys(schemas).sort()) {
       blocks.push(emitSealed(name, node));
     } else blocks.push(emitDataClass(name, flattenAllOf(node)));
   } catch (e) {
-    throw new Error(`while generating ${name}: ${e.message}`);
+    throw new Error(`while generating ${name}: ${e.message}`, { cause: e });
   }
 }
 

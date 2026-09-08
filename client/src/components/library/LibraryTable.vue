@@ -307,7 +307,8 @@ async function autoTagAll() {
   const total = tracks.length;
   store.setBulkProgress({ current: 0, total });
   const updates: { path: string; update: import("../../types").MetadataUpdate }[] = [];
-  let skipped = 0;
+  // Counted but not surfaced yet; the bulk write reports its own totals.
+    let _skipped = 0;
   try {
     for (let i = 0; i < tracks.length; i++) {
       const track = tracks[i];
@@ -332,10 +333,10 @@ async function autoTagAll() {
             updates.push({ path: track.path, update });
           }
         } else {
-          skipped++;
+          _skipped++;
         }
       } catch {
-        skipped++;
+        _skipped++;
       }
     }
     if (updates.length > 0) {
@@ -398,21 +399,21 @@ function goBackToAlbums() {
 <template>
   <div class="flex flex-1 flex-col overflow-hidden">
     <LibraryHeader
-      :activeTab="props.activeTab"
-      :sidebarCollapsed="props.sidebarCollapsed"
-      :showBack="libraryLayoutMode === 'album_grid' && !!selectedAlbum"
-      @update:activeTab="emit('update:activeTab', $event)"
-      @expandSidebar="emit('expandSidebar')"
+      :active-tab="props.activeTab"
+      :sidebar-collapsed="props.sidebarCollapsed"
+      :show-back="libraryLayoutMode === 'album_grid' && !!selectedAlbum"
+      @update:active-tab="emit('update:activeTab', $event)"
+      @expand-sidebar="emit('expandSidebar')"
       @back="goBackToAlbums"
-      @openSettings="showSettingsModal = true"
-      @openKeyMap="showKeyMapModal = true"
-      @expandPlayer="emit('expandPlayer')"
+      @open-settings="showSettingsModal = true"
+      @open-key-map="showKeyMapModal = true"
+      @expand-player="emit('expandPlayer')"
     />
 
     <div v-if="tableBodyMounted" v-show="libraryLayoutMode === 'table'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
       <LibraryTableBody
         ref="tableBodyRef"
-        @openMetadata="emit('update:activeTab', 'metadata')"
+        @open-metadata="emit('update:activeTab', 'metadata')"
       />
     </div>
     <template v-if="libraryLayoutMode === 'album_grid'">
@@ -420,8 +421,8 @@ function goBackToAlbums() {
         ref="albumGridRef"
         v-show="!selectedAlbum"
         :albums="albums"
-        @openAlbum="openAlbum"
-        @albumContextMenu="onAlbumGridContextMenu"
+        @open-album="openAlbum"
+        @album-context-menu="onAlbumGridContextMenu"
       />
       <AlbumDetailView
         v-if="selectedAlbum"
@@ -430,7 +431,7 @@ function goBackToAlbums() {
         :album-year="selectedAlbum.year"
         :cover-path="selectedAlbum.coverPath"
         :tracks="selectedAlbumTracks"
-        @openMetadata="emit('update:activeTab', 'metadata')"
+        @open-metadata="emit('update:activeTab', 'metadata')"
       />
     </template>
 
@@ -441,16 +442,16 @@ function goBackToAlbums() {
       :open="showReportModal"
       :title="activeReportTitle"
       :tracks="activeReportTracks"
-      :duplicateCount="duplicateCountInReport"
-      :canSavePlaylist="canSavePlaylist"
-      :canApplyFromPath="canApplyFromPath"
-      :applyFromPathTooltip="applyFromPathTooltip"
-      :canAutoTag="canAutoTag"
+      :duplicate-count="duplicateCountInReport"
+      :can-save-playlist="canSavePlaylist"
+      :can-apply-from-path="canApplyFromPath"
+      :apply-from-path-tooltip="applyFromPathTooltip"
+      :can-auto-tag="canAutoTag"
       @close="store.setReportFilter(null)"
-      @selectTrack="selectTrackFromReport"
-      @saveAsPlaylist="saveReportAsPlaylist"
-      @applyAllFromPath="applyAllFromPath"
-      @autoTagAll="autoTagAll"
+      @select-track="selectTrackFromReport"
+      @save-as-playlist="saveReportAsPlaylist"
+      @apply-all-from-path="applyAllFromPath"
+      @auto-tag-all="autoTagAll"
     />
   </div>
 </template>

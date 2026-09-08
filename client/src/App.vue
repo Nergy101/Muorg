@@ -471,10 +471,10 @@ onUnmounted(() => {
       class="row-start-1 row-end-2 col-start-3 col-end-4 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface border border-stone-700/50"
     >
       <LibraryTable
-        v-model:activeTab="activeTab"
+        v-model:active-tab="activeTab"
         :sidebar-collapsed="sidebarCollapsed"
-        @expandSidebar="sidebarCollapsed = false"
-        @expandPlayer="expandPlayer"
+        @expand-sidebar="sidebarCollapsed = false"
+        @expand-player="expandPlayer"
       />
     </main>
 

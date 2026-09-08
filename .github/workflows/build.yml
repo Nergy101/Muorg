@@ -67,6 +67,10 @@ jobs:
               - 'vitest.config.mts'
               - 'scripts/smoke-api.ts'
               - 'scripts/smoke-api.sh'
+              - 'eslint.config.mjs'
+              # Lint covers both apps, so their sources gate the job too.
+              - 'client/src/**'
+              - 'web-client/src/**'
               - 'web-client/src/stores/**'
               - 'android-client/app/src/main/java/nl/muorg/android/data/api/schema/**'
             server:
@@ -116,6 +120,11 @@ jobs:
 
       - name: Check generated clients are current
         run: ./scripts/generate-api-clients.sh --check
+
+      # One config covers the shared src/ and both apps, so it lives with the
+      # other repo-wide checks rather than being duplicated per app.
+      - name: Lint
+        run: pnpm lint
 
       # The shared client and the pure logic in both TS apps. A break here
       # breaks two apps at once, which is the trade for not keeping two copies.

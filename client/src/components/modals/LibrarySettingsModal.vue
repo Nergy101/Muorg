@@ -573,7 +573,9 @@ onMounted(async () => {
 async function copyPathToClipboard(path: string) {
   try {
     await navigator.clipboard.writeText(path);
-  } catch {}
+  } catch {
+    // Clipboard access can be denied; copying a path is not worth an error.
+  }
 }
 
 function setDefaultGroupBy(value: DefaultGroupBy) {

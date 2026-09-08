@@ -52,17 +52,30 @@ worth writing down as a deliberate choice rather than leaving it implicit.
 
 **Size:** small. **Value:** medium.
 
-### 4. No lint step
+### 4. ~~No lint step~~ — done
 
-CI runs `pnpm build` and nothing else. There is no ESLint, Prettier or Biome
-config anywhere in the repo, for either TypeScript app.
+One flat ESLint config at the repo root (`eslint.config.mjs`) covering the
+shared `src/`, both apps and the codegen scripts, run as `pnpm lint` in CI at
+`--max-warnings 0`.
 
-Suggested: one shared flat ESLint config at the repo root with
-`typescript-eslint` + `eslint-plugin-vue`, extended by both apps, and a `lint`
-script wired into the `client` and `web-client` CI jobs. `stores/player.ts`
-(1,102 lines) is the file that would benefit most.
+Deliberately not type-aware: those rules need a program per app and roughly
+triple the run time, and both apps already run `vue-tsc` in CI. `no-undef` is
+off for the same reason — TypeScript resolves identifiers already, and leaving
+it on means maintaining a globals list that duplicates tsconfig's `lib`.
 
-**Size:** small to set up, ongoing to clean up. **Value:** medium.
+It found three things worth having found:
+
+- `PlaylistExportDialog.vue` imported Tauri's `open` alongside an `open` prop.
+  In `<script setup>` the import shadows the prop in the template, so
+  `v-if="open"` read an always-truthy function. Latent — the only caller passes
+  `:open="true"` and guards with its own `v-if` — but a trap.
+- `HomeView.vue` shipped a debug hook (`window.__muorg`) exposing store
+  internals to every visitor. Now gated on `import.meta.env.DEV`.
+- Dead assignments and `let` that should be `const` in both copies of
+  `useDominantColor.ts`.
+
+**Size:** done. **Value:** ongoing — the bar is zero warnings, so new noise
+fails the build rather than accumulating.
 
 ---
 
