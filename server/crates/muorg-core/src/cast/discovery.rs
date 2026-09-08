@@ -1,9 +1,14 @@
+//! Chromecast discovery over mDNS, shared by the desktop app and the server.
+//!
+//! Identical on both hosts apart from how the refreshed list is surfaced — see
+//! [`DiscoveryObserver`].
+
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
-use tauri::Emitter;
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CastDevice {
     pub id: String,
     pub name: String,
@@ -11,9 +16,29 @@ pub struct CastDevice {
     pub port: u16,
 }
 
+
+/// How a host learns that the device list changed.
+///
+/// The list itself lives in [`DiscoveryState::devices`], so a host that polls
+/// (the server, via `GET /api/cast/devices`) needs only [`NoDiscoveryObserver`].
+pub trait DiscoveryObserver: Send + 'static {
+    fn on_devices(&self, _devices: Vec<CastDevice>) {}
+}
+
+/// For hosts that read the device list directly instead of being told.
+pub struct NoDiscoveryObserver;
+
+impl DiscoveryObserver for NoDiscoveryObserver {}
+
 pub struct DiscoveryState {
     pub devices: Arc<Mutex<Vec<CastDevice>>>,
     stop_tx: Arc<Mutex<Option<std::sync::mpsc::Sender<()>>>>,
+}
+
+impl Default for DiscoveryState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DiscoveryState {
@@ -25,7 +50,12 @@ impl DiscoveryState {
     }
 
     /// Start mDNS browsing for Chromecast devices. Idempotent.
-    pub fn start(&self, app: tauri::AppHandle) {
+    /// Begin an mDNS sweep for `_googlecast._tcp`.
+    ///
+    /// The device list is updated in place; `observer` is only for hosts that
+    /// need to be told rather than polling it (see
+    /// [`crate::cast::CastObserver`]).
+    pub fn start(&self, observer: impl DiscoveryObserver) {
         let mut guard = self.stop_tx.lock().unwrap();
         if guard.is_some() {
             return;
@@ -93,7 +123,7 @@ impl DiscoveryState {
                         }
                         let snapshot = devs.clone();
                         drop(devs);
-                        let _ = app.emit("cast://device-list-changed", snapshot);
+                        observer.on_devices(snapshot);
                     }
                     Ok(ServiceEvent::ServiceRemoved(_, fullname)) => {
                         let mut devs = devices.lock().unwrap();
@@ -102,7 +132,7 @@ impl DiscoveryState {
                         if devs.len() != before {
                             let snapshot = devs.clone();
                             drop(devs);
-                            let _ = app.emit("cast://device-list-changed", snapshot);
+                            observer.on_devices(snapshot);
                         }
                     }
                     Ok(_) => {}

@@ -1,7 +1,7 @@
 use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::cast::{CastCommand, CastDevice, CastSessionStatus};
+use crate::cast::{CastCommand, CastDevice, CastSessionStatus, NoDiscoveryObserver, NoObserver};
 use crate::routes::dto::ErrorResponse;
 use crate::routes::ApiError;
 use crate::state::AppState;
@@ -35,7 +35,7 @@ pub async fn get_devices(State(state): State<Arc<AppState>>) -> Json<Vec<CastDev
     security(("BearerAuth" = [])),
 )]
 pub async fn start_discovery(State(state): State<Arc<AppState>>) -> StatusCode {
-    state.cast_discovery.start();
+    state.cast_discovery.start(NoDiscoveryObserver);
     StatusCode::NO_CONTENT
 }
 
@@ -120,7 +120,15 @@ pub async fn play(
     );
     let is_flac = track_path.to_lowercase().ends_with(".flac");
 
-    state.cast_session.start_session(body.device_address, body.device_port, stream_url, is_flac);
+    // The server reads its own state for GET /api/cast/status, so it has
+    // nothing to be pushed.
+    state.cast_session.start_session(
+        body.device_address,
+        body.device_port,
+        stream_url,
+        is_flac,
+        NoObserver,
+    );
     Ok(StatusCode::NO_CONTENT)
 }
 

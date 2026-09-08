@@ -1,3 +1,13 @@
+//! Chromecast session handling, shared by the desktop app and the server.
+//!
+//! Both hosts speak the same protocol to the same devices — connect, launch the
+//! default media receiver, load the stream, then pump a message loop while
+//! taking transport commands off a channel. The only thing they do differently
+//! is what happens on a state change: the desktop app pushes it to its webview
+//! as a Tauri event, while the server just stores it for `GET /api/cast/status`
+//! to read. That difference is [`CastObserver`]; everything else lives here
+//! once.
+
 use rust_cast::channels::heartbeat::HeartbeatResponse;
 use rust_cast::channels::media::{IdleReason, Media, MediaResponse, PlayerState, ResumeState, StreamType};
 use rust_cast::channels::receiver::{CastDeviceApp, ReceiverResponse};
@@ -7,9 +17,9 @@ use rust_cast::ChannelMessage;
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::Emitter;
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum CastSessionStatus {
     Idle,
@@ -39,15 +49,40 @@ pub enum CastCommand {
     SetVolume(f32),
 }
 
+
+/// How a host learns about session transitions.
+///
+/// [`CastState`] always updates its own `status` and `volume`, so a host that
+/// polls needs nothing more than [`NoObserver`]. A host that pushes — the
+/// desktop app, forwarding to its webview — implements this.
+pub trait CastObserver: Send + 'static {
+    fn on_status(&self, _status: CastSessionStatus) {}
+    fn on_volume(&self, _level: f32) {}
+}
+
+/// For hosts that read the state directly instead of being told.
+pub struct NoObserver;
+
+impl CastObserver for NoObserver {}
+
 pub struct CastState {
     pub status: Arc<Mutex<CastSessionStatus>>,
+    /// Device volume, 0.0–1.0, as last reported by the receiver.
+    pub volume: Arc<Mutex<f32>>,
     cmd_tx: Arc<Mutex<Option<std::sync::mpsc::Sender<CastCommand>>>>,
+}
+
+impl Default for CastState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CastState {
     pub fn new() -> Self {
         Self {
             status: Arc::new(Mutex::new(CastSessionStatus::Idle)),
+            volume: Arc::new(Mutex::new(1.0)),
             cmd_tx: Arc::new(Mutex::new(None)),
         }
     }
@@ -60,13 +95,18 @@ impl CastState {
     }
 
     /// Spawn a Cast session thread. Stops any existing session first.
+    /// Spawn a Cast session thread. Stops any existing session first.
+    ///
+    /// `observer` is how each host learns about transitions: the desktop app
+    /// forwards them to its webview as Tauri events, the server only needs the
+    /// state this struct already holds and passes [`NoObserver`].
     pub fn start_session(
         &self,
         address: String,
         port: u16,
         stream_url: String,
         is_flac: bool,
-        app: tauri::AppHandle,
+        observer: impl CastObserver,
     ) {
         // Terminate any existing session
         if let Some(tx) = self.cmd_tx.lock().unwrap().take() {
@@ -77,11 +117,16 @@ impl CastState {
         *self.cmd_tx.lock().unwrap() = Some(tx);
 
         let status_arc = Arc::clone(&self.status);
+        let volume_arc = Arc::clone(&self.volume);
 
         std::thread::spawn(move || {
             let emit = |s: CastSessionStatus| {
                 *status_arc.lock().unwrap() = s.clone();
-                let _ = app.emit("cast://status-changed", s);
+                observer.on_status(s);
+            };
+            let emit_volume = |level: f32| {
+                *volume_arc.lock().unwrap() = level;
+                observer.on_volume(level);
             };
 
             emit(CastSessionStatus::Connecting);
@@ -128,7 +173,7 @@ impl CastState {
             // Report the device's current volume so the UI can sync the volume bar.
             if let Ok(status) = device.receiver.get_status() {
                 if let Some(level) = status.volume.level {
-                    let _ = app.emit("cast://volume-changed", level);
+                    emit_volume(level);
                 }
             }
 
@@ -226,7 +271,7 @@ impl CastState {
                     }
                     Ok(ChannelMessage::Receiver(ReceiverResponse::Status(status))) => {
                         if let Some(level) = status.volume.level {
-                            let _ = app.emit("cast://volume-changed", level);
+                            emit_volume(level);
                         }
                     }
                     Ok(_) => {}

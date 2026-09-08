@@ -169,23 +169,28 @@ Two areas remain:
 
 **Size:** small for transcode, medium for discovery. **Value:** medium.
 
-### 12. Cast code is still forked between the desktop app and the server
+### 12. ~~Cast code forked between the desktop app and the server~~ — done
 
-`client/src-tauri/src/cast/` and `server/crates/muorg-server/src/cast/` are
-parallel implementations: `session.rs` is 340 lines against 298, with 208 lines
-of diff. They are not straight copies — the desktop casts local files through its
-own axum server, while the server casts from its own HTTP surface — but the
-Chromecast protocol handling and the mDNS discovery in the middle are the same
-code twice.
+Discovery and the session protocol now live in `muorg-core::cast`, behind a
+`cast` feature so a consumer that only wants the catalog does not pull in
+`rust_cast` and `mdns-sd`.
 
-The move is to lift the protocol and discovery layers into `muorg-core` behind a
-feature flag (they would pull in `rust_cast`, `mdns-sd` and `tokio`, which the
-desktop app already links) and leave only the per-host media-source logic in each
-crate. This was left out of the catalog/metadata deduplication because it is a
-genuine refactor rather than a mechanical swap.
+The two copies differed in exactly one thing: what happens on a state change.
+The desktop app pushes it to its webview as a Tauri event, the server stores it
+for `GET /api/cast/status` to read. That is now a `CastObserver` /
+`DiscoveryObserver` pair — the server passes `NoObserver`, the desktop app
+passes a `TauriObserver`, and the ~600-line protocol loop exists once.
 
-**Size:** medium. **Value:** medium — ~600 lines, and it is where the next
-silent divergence will happen.
+The bigger find was underneath: `rust_cast` itself was **vendored twice**, at
+`client/src-tauri/vendor/` and `server/vendor/`, 4,675 lines each and differing
+by a single `#![allow(deprecated)]`. The client now patches to the server's copy.
+
+What stays in `client/src-tauri/src/cast/`: the local HTTP server that hands a
+device a file off this machine, and the FLAC transcoder feeding it. Those are
+genuinely per-host — the server streams from its own surface instead.
+
+Also aligned by the move: the client was on `mdns-sd` 0.11 and the server on
+0.21, which is the kind of drift that produces a bug on one platform only.
 
 ---
 

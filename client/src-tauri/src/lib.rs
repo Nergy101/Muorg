@@ -77,7 +77,7 @@ pub fn run() {
             }
             app.manage(Arc::new(catalog));
             let discovery = cast::DiscoveryState::new();
-            discovery.start(app.app_handle().clone());
+            discovery.start(cast::TauriObserver::new(app.app_handle().clone()));
             app.manage(discovery);
             app.manage(cast::AudioServerState::new());
             app.manage(cast::CastState::new());

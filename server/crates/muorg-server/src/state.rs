@@ -1,4 +1,4 @@
-use crate::cast::{CastState, DiscoveryState};
+use crate::cast::{CastState, DiscoveryState, NoDiscoveryObserver};
 use crate::config::TranscodingConfig;
 use crate::musicbrainz::AutoTagService;
 use crate::ratelimit::RateLimiter;
@@ -139,7 +139,7 @@ impl AppState {
         remote_scan_concurrency: usize,
     ) -> Self {
         let cast_discovery = DiscoveryState::new();
-        cast_discovery.start();
+        cast_discovery.start(NoDiscoveryObserver);
         Self {
             catalog,
             backup_dir,

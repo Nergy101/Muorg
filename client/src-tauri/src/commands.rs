@@ -471,7 +471,7 @@ pub async fn cast_start_discovery(
     app: tauri::AppHandle,
     discovery: State<'_, crate::cast::DiscoveryState>,
 ) -> Result<(), String> {
-    discovery.start(app);
+    discovery.start(crate::cast::TauriObserver::new(app));
     Ok(())
 }
 
@@ -486,7 +486,7 @@ pub async fn cast_stop_discovery(
 #[tauri::command]
 pub async fn cast_get_devices(
     discovery: State<'_, crate::cast::DiscoveryState>,
-) -> Result<Vec<crate::cast::discovery::CastDevice>, String> {
+) -> Result<Vec<crate::cast::CastDevice>, String> {
     Ok(discovery.devices.lock().unwrap().clone())
 }
 
@@ -515,7 +515,13 @@ pub async fn cast_play(
     let stream_url = format!("http://{lan_ip}:{port}/track?path={encoded}");
     let is_flac = track_path.to_lowercase().ends_with(".flac");
 
-    cast_state.start_session(device.address, device.port, stream_url, is_flac, app);
+    cast_state.start_session(
+        device.address,
+        device.port,
+        stream_url,
+        is_flac,
+        crate::cast::TauriObserver::new(app),
+    );
     Ok(())
 }
 

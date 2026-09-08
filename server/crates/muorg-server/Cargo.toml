@@ -12,7 +12,7 @@ name = "muorg_server"
 path = "src/lib.rs"
 
 [dependencies]
-muorg-core = { path = "../muorg-core", features = ["openapi"] }
+muorg-core = { path = "../muorg-core", features = ["openapi", "cast"] }
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
@@ -31,8 +31,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 uuid = { version = "1", features = ["v4"] }
-mdns-sd = "0.21"
-rust_cast = "0.14"
 local-ip-address = "0.6"
 httpdate = "1"
 object_store = { version = "0.14", default-features = false, features = ["aws"] }
