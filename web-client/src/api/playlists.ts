@@ -1,102 +1,86 @@
-import { apiFetch } from "./client";
+/**
+ * Playlist calls, delegated to the shared typed client in `src/api/`.
+ */
+
+import { api } from "./client";
 import type { Playlist } from "../types";
 
-export async function getPlaylists(): Promise<Playlist[]> {
-  return apiFetch<Playlist[]>("/api/playlists");
+export function getPlaylists(): Promise<Playlist[]> {
+  return api.getPlaylists();
 }
 
-export async function createPlaylist(name: string, icon?: string | null): Promise<Playlist> {
-  const p = await apiFetch<Playlist>("/api/playlists", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
+export async function createPlaylist(
+  name: string,
+  icon?: string | null,
+): Promise<Playlist> {
+  const p = await api.createPlaylist(name);
+  // The create endpoint takes a name only; the icon is a follow-up patch.
   if (icon !== undefined && icon !== null) {
-    await apiFetch(`/api/playlists/${p.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ icon }),
-    });
+    await api.updatePlaylist(p.id, { icon });
     p.icon = icon;
   }
   return p;
 }
 
-export async function getSmartTracks(playlistId: number): Promise<number[]> {
-  return apiFetch<number[]>(`/api/playlists/smart/${playlistId}/tracks`);
+export function getSmartTracks(playlistId: number): Promise<number[]> {
+  return api.getSmartPlaylistTracks(playlistId);
 }
 
-export async function createSmartPlaylist(name: string, rulesJson: string): Promise<Playlist> {
-  return apiFetch<Playlist>("/api/playlists/smart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, rules_json: rulesJson }),
-  });
+export function createSmartPlaylist(
+  name: string,
+  rulesJson: string,
+): Promise<Playlist> {
+  return api.createSmartPlaylist(name, rulesJson);
 }
 
-export async function updateSmartPlaylistRules(id: number, rulesJson: string): Promise<void> {
-  await apiFetch(`/api/playlists/smart/${id}/rules`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rules_json: rulesJson }),
-  });
+export async function updateSmartPlaylistRules(
+  id: number,
+  rulesJson: string,
+): Promise<void> {
+  await api.updateSmartPlaylistRules(id, rulesJson);
 }
 
-export async function renamePlaylist(id: number, name: string, icon?: string | null): Promise<void> {
-  const body: Record<string, unknown> = { name };
-  if (icon !== undefined) body.icon = icon;
-  await apiFetch(`/api/playlists/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+export async function renamePlaylist(
+  id: number,
+  name: string,
+  icon?: string | null,
+): Promise<void> {
+  await api.updatePlaylist(id, icon !== undefined ? { name, icon } : { name });
 }
 
 export async function deletePlaylist(id: number): Promise<void> {
-  await apiFetch(`/api/playlists/${id}`, { method: "DELETE" });
+  await api.deletePlaylist(id);
 }
 
-export async function getPlaylistTracks(playlistId: number): Promise<number[]> {
-  return apiFetch<number[]>(`/api/playlists/${playlistId}/tracks`);
+export function getPlaylistTracks(playlistId: number): Promise<number[]> {
+  return api.getPlaylistTracks(playlistId);
 }
 
 export async function addTracksToPlaylist(
   playlistId: number,
   trackIds: number[],
 ): Promise<void> {
-  await apiFetch(`/api/playlists/${playlistId}/tracks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ track_ids: trackIds }),
-  });
+  await api.addTracksToPlaylist(playlistId, trackIds);
 }
 
 export async function removeTracksFromPlaylist(
   playlistId: number,
   trackIds: number[],
 ): Promise<void> {
-  await apiFetch(`/api/playlists/${playlistId}/tracks`, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ track_ids: trackIds }),
-  });
+  await api.removeTracksFromPlaylist(playlistId, trackIds);
 }
 
 export async function reorderPlaylistTracks(
   playlistId: number,
   trackIds: number[],
 ): Promise<void> {
-  await apiFetch(`/api/playlists/${playlistId}/tracks/order`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids: trackIds }),
-  });
+  await api.reorderPlaylistTracks(playlistId, trackIds);
 }
 
 /**
  * Reads a playlist's track ids. Smart playlists must go through the
  * smart endpoint — GET /api/playlists/{id}/tracks does not resolve rules.
  */
-export async function getTracksForPlaylist(p: Playlist): Promise<number[]> {
+export function getTracksForPlaylist(p: Playlist): Promise<number[]> {
   return p.smart_rules != null ? getSmartTracks(p.id) : getPlaylistTracks(p.id);
 }

@@ -1,39 +1,14 @@
-export interface CatalogTrack {
-  id: number;
-  path: string;
-  root_id: number;
-  title: string | null;
-  artist: string | null;
-  album: string | null;
-  album_artist: string | null;
-  featuring: string | null;
-  year: number | null;
-  genre: string | null;
-  track_number: number | null;
-  disc_number: number | null;
-  duration_secs: number | null;
-  format: string;
-  mtime_secs: number;
-  has_cover: boolean;
-  rating: number | null;
-  play_count: number;
-  last_played_at: number | null;
-}
-
-export interface LibraryStats {
-  track_count: number;
-  artist_count: number;
-  album_count: number;
-  total_duration_secs: number;
-}
-
-export interface Playlist {
-  id: number;
-  name: string;
-  track_count: number;
-  icon: string | null;
-  smart_rules: string | null;
-}
+/**
+ * Wire types come from the shared, generated API contract — see
+ * `src/api/README.md`. Re-exported here so the existing `../types` imports keep
+ * working; a field renamed on the server now breaks this app's build instead of
+ * failing silently at runtime.
+ */
+export type {
+  CatalogTrack,
+  LibraryStats,
+  Playlist,
+} from "@shared/api";
 
 /** One row of a smart playlist's rules editor. Serialized as
  *  { field, op, value } per the server's rules_json format. */

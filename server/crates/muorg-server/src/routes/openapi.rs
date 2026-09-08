@@ -1,148 +1,136 @@
-//! Hand-written OpenAPI 3.0 document describing the Muorg HTTP API.
+//! The OpenAPI document, derived from the handlers themselves.
 //!
-//! Rather than annotating every handler with `#[utoipa::path]` (heavy, and the
-//! route layer's dynamic auth middleware complicates schema generation), the
-//! spec is authored here as a `serde_json` value covering the public surface:
-//! the core catalog, cover/lyrics/stream, and playlist endpoints. It is served
-//! as JSON at `/api/openapi.json` and browsed through Swagger UI at
-//! `/api/docs`. Keep it in sync when routes change.
+//! This used to be a hand-authored `serde_json::json!` blob that had to be kept
+//! in sync with the router by hand, and carried no schemas at all — every
+//! response was `"schema": {}`. So each client re-guessed the wire shapes, and
+//! the same bugs (most memorably "a bare `/api/tracks` is only the first 500
+//! rows") had to be found and fixed separately in the desktop, web and Android
+//! apps.
+//!
+//! Now `utoipa` builds the document from the `#[utoipa::path]` attributes on the
+//! handlers and the `ToSchema` derives on the structs those handlers actually
+//! serialize, so the spec cannot drift from the code that serves it. The
+//! checked-in `server/openapi.json` is a snapshot of this document (see the
+//! `spec_snapshot_is_current` test) and is what the TypeScript and Kotlin client
+//! models are generated from.
 
-use serde_json::{json, Value};
+use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
+use utoipa::{Modify, OpenApi};
 
-fn path(
-    summary: &str,
-    params: &[Value],
-    responses: &[(&str, &str)], // (status, description)
-    security: bool,
-    request_body: Option<Value>,
-) -> Value {
-    let mut op = json!({
-        "summary": summary,
-        "parameters": params,
-        "responses": {
-            "200": {
-                "description": "OK",
-                "content": {"application/json": {"schema": {}}}
-            },
-            "400": {"description": "Bad request"},
-            "401": {"description": "Unauthorized"},
-            "404": {"description": "Not found"}
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "BearerAuth",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .description(Some("The server's configured `api_key`."))
+                        .build(),
+                ),
+            );
         }
-    });
-    if security {
-        op["security"] = json!([{"BearerAuth": []}]);
     }
-    if let Some(rb) = request_body {
-        op["requestBody"] = json!({
-            "required": true,
-            "content": {"application/json": {"schema": rb}}
-        });
-    }
-    for (status, desc) in responses {
-        let key = format!("{}00", status);
-        op["responses"][key] = json!({"description": desc});
-    }
-    json!(op)
 }
 
-/// Returns the OpenAPI document.
-pub fn spec() -> Value {
-    let id = json!({"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}});
-    let limit = json!({"name": "limit", "in": "query", "required": false, "schema": {"type": "integer"}});
-    let offset = json!({"name": "offset", "in": "query", "required": false, "schema": {"type": "integer"}});
-    let q = json!({"name": "q", "in": "query", "required": false, "schema": {"type": "string"}});
-    let size = json!({"name": "size", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 16, "description": "Max cover edge length in px (downscaled JPEG)"}});
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        title = "Muorg Server API",
+        description = "\
+The Muorg music server HTTP API, shared by the desktop (Tauri), web and Android \
+clients. Everything except `GET /api/health` and `GET /stream/{id}` requires an \
+`Authorization: Bearer <api_key>` header.
 
-    let mut paths = serde_json::Map::new();
-    let mut put = |p: &str, v: Value| { paths.insert(p.to_string(), v); };
+`GET /api/tracks` is paginated and defaults to 500 rows — a bare call returns \
+the first page, not the catalog. Follow `X-Total-Count`.",
+    ),
+    servers((url = "/")),
+    modifiers(&SecurityAddon),
+    tags(
+        (name = "Catalog", description = "Tracks, roots, search, stats and play history"),
+        (name = "Tracks", description = "Per-track resources: art, lyrics, tags, ratings, backups"),
+        (name = "Playlists", description = "Regular and rule-driven smart playlists"),
+        (name = "Stream", description = "Token issuing and audio delivery"),
+        (name = "Cast", description = "Chromecast discovery and transport control"),
+        (name = "Admin", description = "Scanning, cache, health and metrics"),
+        (name = "System", description = "Liveness and helpers"),
+    ),
+    paths(
+        // Catalog
+        crate::routes::library::get_roots,
+        crate::routes::library::get_tracks,
+        crate::routes::library::get_tracks_count,
+        crate::routes::library::get_recently_added,
+        crate::routes::library::get_recent_play_history,
+        crate::routes::library::get_top_play_history,
+        crate::routes::library::search_tracks,
+        crate::routes::library::get_stats,
+        // Tracks
+        crate::routes::tracks::get_cover,
+        crate::routes::tracks::get_lyrics,
+        crate::routes::tracks::get_metadata,
+        crate::routes::tracks::patch_metadata,
+        crate::routes::tracks::batch_patch_metadata,
+        crate::routes::tracks::set_rating,
+        crate::routes::tracks::record_play,
+        crate::routes::tracks::get_backup,
+        crate::routes::tracks::restore_backup,
+        crate::routes::tracks::rename_file,
+        crate::routes::tracks::auto_tag_suggestions,
+        // Playlists
+        crate::routes::playlists::list,
+        crate::routes::playlists::create,
+        crate::routes::playlists::update,
+        crate::routes::playlists::delete,
+        crate::routes::playlists::get_tracks,
+        crate::routes::playlists::get_entries,
+        crate::routes::playlists::add_tracks,
+        crate::routes::playlists::remove_tracks,
+        crate::routes::playlists::remove_entry,
+        crate::routes::playlists::reorder_tracks,
+        crate::routes::playlists::reorder,
+        crate::routes::playlists::create_smart,
+        crate::routes::playlists::update_smart_rules,
+        crate::routes::playlists::get_smart_tracks,
+        // Stream
+        crate::routes::stream::issue_token,
+        crate::routes::stream::stream_audio,
+        // Cast
+        crate::routes::cast::get_devices,
+        crate::routes::cast::start_discovery,
+        crate::routes::cast::stop_discovery,
+        crate::routes::cast::get_status,
+        crate::routes::cast::play,
+        crate::routes::cast::pause,
+        crate::routes::cast::resume,
+        crate::routes::cast::stop,
+        crate::routes::cast::seek,
+        crate::routes::cast::set_volume,
+        // Admin
+        crate::routes::admin::rescan,
+        crate::routes::admin::remove_folder,
+        crate::routes::admin::clear_cache,
+        crate::routes::admin::get_backup_directory,
+        crate::routes::admin::health,
+        crate::routes::admin::metrics,
+        // System
+        crate::routes::util::health,
+        crate::routes::util::fetch_image,
+    ),
+)]
+pub struct ApiDoc;
 
-    // Public (no auth)
-    put("/api/health", json!({
-        "get": path("Server health check", &[], &[("2", "Healthy")], false, None)
-    }));
-    put("/stream/{id}", json!({
-        "get": path("Stream a track by id (public stream URL)", std::slice::from_ref(&id), &[("2", "Audio bytes")], false, None)
-    }));
+/// The OpenAPI document, served at `/api/openapi.json`.
+pub fn spec() -> serde_json::Value {
+    serde_json::to_value(ApiDoc::openapi()).expect("OpenAPI document is serializable")
+}
 
-    // Catalog
-    put("/api/tracks", json!({
-        "get": path("List tracks (paginated)", &[offset.clone(), limit.clone()], &[("2", "Array of tracks")], true, None)
-    }));
-    put("/api/tracks/count", json!({
-        "get": path("Total track count", &[], &[("2", "Count")], true, None)
-    }));
-    put("/api/tracks/recently-added", json!({
-        "get": path("Recently added tracks", std::slice::from_ref(&limit), &[("2", "Array of tracks")], true, None)
-    }));
-    put("/api/search", json!({
-        "get": path("Search tracks", &[q.clone(), limit.clone()], &[("2", "Array of matching tracks")], true, None)
-    }));
-    put("/api/stats", json!({
-        "get": path("Library statistics", &[], &[("2", "Stats object")], true, None)
-    }));
-    put("/api/play-history/recent", json!({
-        "get": path("Recently played tracks", std::slice::from_ref(&limit), &[("2", "Array of tracks")], true, None)
-    }));
-    put("/api/play-history/top", json!({
-        "get": path("Most played tracks", std::slice::from_ref(&limit), &[("2", "Array of tracks")], true, None)
-    }));
-
-    // Per-track resources
-    put("/api/tracks/{id}/cover", json!({
-        "get": path("Album cover art", &[id.clone(), size.clone()], &[("2", "Image bytes")], true, None)
-    }));
-    put("/api/tracks/{id}/lyrics", json!({
-        "get": path("Embedded lyrics (sync_format: lrc|plain)", std::slice::from_ref(&id), &[("2", "Lyrics object"), ("4", "No lyrics for this track")], true, None)
-    }));
-    put("/api/tracks/{id}/metadata", json!({
-        "get": path("Track metadata", std::slice::from_ref(&id), &[("2", "Metadata object")], true, None),
-        "patch": path("Update track metadata", std::slice::from_ref(&id), &[("2", "Updated metadata")], true, Some(json!({"type": "object"})))
-    }));
-    put("/api/tracks/{id}/rating", json!({
-        "post": path("Set track rating", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "object"})))
-    }));
-    put("/api/tracks/{id}/play", json!({
-        "post": path("Record a play", std::slice::from_ref(&id), &[("2", "OK")], true, None)
-    }));
-    put("/api/tracks/{id}/stream-token", json!({
-        "get": path("Issue a short-lived stream token", std::slice::from_ref(&id), &[("2", "Token")], true, None)
-    }));
-
-    // Playlists
-    put("/api/playlists", json!({
-        "get": path("List playlists", &[], &[("2", "Array of playlists")], true, None),
-        "post": path("Create a playlist", &[], &[("2", "Created playlist")], true, Some(json!({"type": "object"})))
-    }));
-    put("/api/playlists/{id}", json!({
-        "patch": path("Rename a playlist", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "object"}))),
-        "delete": path("Delete a playlist", std::slice::from_ref(&id), &[("2", "OK")], true, None)
-    }));
-    put("/api/playlists/{id}/tracks", json!({
-        "get": path("List playlist tracks", std::slice::from_ref(&id), &[("2", "Array of tracks")], true, None),
-        "post": path("Add tracks to playlist", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "array", "items": {"type": "integer"}}))),
-        "delete": path("Remove tracks from playlist", std::slice::from_ref(&id), &[("2", "OK")], true, Some(json!({"type": "array", "items": {"type": "integer"}})))
-    }));
-    put("/api/playlists/smart", json!({
-        "post": path("Create a smart playlist", &[], &[("2", "Created playlist")], true, Some(json!({"type": "object"})))
-    }));
-    put("/api/playlists/smart/{id}/tracks", json!({
-        "get": path("Resolve smart playlist tracks", std::slice::from_ref(&id), &[("2", "Array of tracks")], true, None)
-    }));
-
-    json!({
-        "openapi": "3.0.3",
-        "info": {
-            "title": "Muorg Server API",
-            "version": env!("CARGO_PKG_VERSION"),
-            "description": "The Muorg music server HTTP API. All endpoints except /api/health and /stream/{id} require an `Authorization: Bearer <api_key>` header."
-        },
-        "servers": [{"url": "/"}],
-        "security": [{"BearerAuth": []}],
-        "components": {
-            "securitySchemes": {
-                "BearerAuth": {"type": "http", "scheme": "bearer"}
-            }
-        },
-        "paths": Value::Object(paths)
-    })
+/// Pretty-printed, newline-terminated — byte-identical to `server/openapi.json`.
+pub fn spec_json() -> String {
+    let mut s = serde_json::to_string_pretty(&spec()).expect("OpenAPI document is serializable");
+    s.push('\n');
+    s
 }

@@ -323,6 +323,7 @@ import {
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
 import { formatDuration, useLibraryStore } from "../stores/library";
+import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
@@ -337,37 +338,16 @@ const lib = useLibraryStore();
 const lyrics = ref<TrackLyrics | null>(null);
 const showLyrics = ref(false);
 const lyricLineEls = ref<HTMLElement[]>([]);
-const lrcLines = ref<{ time: number; text: string }[]>([]);
-
-function parseLrc(text: string): { time: number; text: string }[] {
-  const out: { time: number; text: string }[] = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const m = raw.trim().match(/^\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\](.*)$/);
-    if (!m) continue;
-    const mins = parseInt(m[1], 10);
-    const secs = parseInt(m[2], 10);
-    const frac = m[3] ? parseInt(m[3].padEnd(3, "0").slice(0, 3), 10) / 1000 : 0;
-    const text = m[4].trim();
-    if (text) out.push({ time: mins * 60 + secs + frac, text });
-  }
-  return out.sort((a, b) => a.time - b.time);
-}
+const lrcLines = ref<LrcLine[]>([]);
 
 const hasLyrics = computed(() => lyrics.value != null);
 const isSynced = computed(
   () => lyrics.value?.sync_format === "lrc" && lrcLines.value.length > 0,
 );
 
-const activeLyricIndex = computed(() => {
-  if (!isSynced.value) return -1;
-  const t = player.positionSecs;
-  let idx = -1;
-  for (let i = 0; i < lrcLines.value.length; i++) {
-    if (lrcLines.value[i].time <= t) idx = i;
-    else break;
-  }
-  return idx;
-});
+const activeLyricIndex = computed(() =>
+  isSynced.value ? activeLrcIndex(lrcLines.value, player.positionSecs) : -1,
+);
 
 watch(activeLyricIndex, (i) => {
   lyricLineEls.value[i]?.scrollIntoView({ block: "center", behavior: "smooth" });

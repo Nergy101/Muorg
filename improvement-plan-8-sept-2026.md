@@ -1,0 +1,240 @@
+# Muorg improvement plan — 8 September 2026
+
+Findings from a review of the repo at `ba87239` (v2.42.1). The items that were
+already acted on are listed at the bottom; everything above them is still open.
+
+---
+
+## Web App (`web-client/`)
+
+### 1. No Cast support at all
+
+The server exposes ten `/api/cast/*` routes. The desktop app and the Android app
+both drive them; the web client uses none. This is the single largest feature gap
+between the three clients.
+
+The plumbing already exists — `api.castDevices()`, `castPlay()`, `castPause()`,
+`castSeek()`, `castSetVolume()` and the rest are in the shared client
+(`src/api/endpoints.ts`), typed and ready. What is missing is the UI: a device
+picker and a "casting to X" state in `PlayerView.vue` / `MiniPlayer.vue`, plus a
+store slice that polls `/api/cast/status` while a session is live.
+
+Worth copying the desktop's shape rather than inventing one:
+`client/src/components/playback/CastDevicePicker.vue` and `stores/cast.ts`.
+
+**Size:** medium. **Value:** high — it is the reason people reach for the desktop
+app on a machine where the web app would otherwise do.
+
+### 2. No MusicBrainz auto-tagging
+
+`POST /api/tracks/{id}/auto-tag-suggestions` is desktop-only. The web app can
+edit metadata but cannot look candidates up. `api.autoTagSuggestions()` is in the
+shared client already.
+
+**Size:** small–medium. **Value:** medium.
+
+### 3. Stream tokens travel in the query string
+
+`streamUrl()` builds `/stream/{id}?token=…`. Query strings land in nginx and
+reverse-proxy access logs, in browser history, and in `Referer` headers on any
+outbound request from the page. The tokens are short-lived (8 h) but that is
+still long enough to matter on a shared host.
+
+Options, cheapest first:
+
+- Shorten the TTL sharply for browser playback (minutes, re-issued on demand).
+- Move the token into the path — `/stream/{token}/{id}` — so it at least stays
+  out of `Referer`.
+- Sign a URL with an expiry instead of handing out a bearer-equivalent.
+
+Related: the API key itself sits in `localStorage`, readable by any XSS on the
+origin. For a self-hosted single-user app that is a defensible trade, but it is
+worth writing down as a deliberate choice rather than leaving it implicit.
+
+**Size:** small. **Value:** medium.
+
+### 4. No lint step
+
+CI runs `pnpm build` and nothing else. There is no ESLint, Prettier or Biome
+config anywhere in the repo, for either TypeScript app.
+
+Suggested: one shared flat ESLint config at the repo root with
+`typescript-eslint` + `eslint-plugin-vue`, extended by both apps, and a `lint`
+script wired into the `client` and `web-client` CI jobs. `stores/player.ts`
+(1,102 lines) is the file that would benefit most.
+
+**Size:** small to set up, ongoing to clean up. **Value:** medium.
+
+---
+
+## Android App (`android-client/`)
+
+### 5. Zero tests, and CI never runs any
+
+There is not one `*Test.kt` in the tree, and `build.yml` runs only `lintDebug`
+and `assembleDebug` — never `./gradlew test`. Three pieces of pure logic would
+pay for themselves immediately:
+
+- `util/PathPatternMatcher.kt` — template parsing, entirely deterministic.
+- `data/local/LocalLibraryScanner.kt` — tag extraction and path handling.
+- `data/repository/LibraryRepository.kt` — the pagination loop, which is exactly
+  the code that shipped the "first 500 tracks only" bug (`b531618`).
+
+Add `testImplementation(kotlin("test"))` plus a `./gradlew testDebugUnitTest`
+step in the Android CI job.
+
+**Size:** small to start. **Value:** high — it is the only client with no
+automated verification of any kind.
+
+### 6. Migrate the hand-written models onto the generated schema
+
+`ApiSchema.kt` (generated, CI-verified) now sits next to `ApiModels.kt`
+(hand-written) and the two disagree in ways the generation made visible:
+
+| Field | Server | `ApiModels.kt` |
+|---|---|---|
+| `CatalogTrack.id` | `i64` | `Int` |
+| `CatalogTrack.duration_secs` | `i64` | `Double?` |
+| `CatalogTrack.play_count` | `i64` | `Int` |
+| `Playlist.id` | `i64` | `Int` |
+
+None of these break today — track ids will not pass 2³¹, and kotlinx happily
+reads an integer into a `Double`. But they are the drift, written down.
+
+Collapsing `ApiModels.kt` onto the generated types is an `Int` → `Long` change
+across roughly 50 call sites plus the Room entities and their DAOs, so it wants
+its own PR with a migration. `CatalogTrack` also carries two app-local fields
+(`localFilePath`, `localCoverPath`) and display helpers that need to move to a
+wrapper or extensions first.
+
+**Size:** medium, mechanical, wants tests (see §5) before it starts.
+**Value:** high — it is what makes the contract load-bearing on Android.
+
+### 7. No metadata editing beyond the scan sheet
+
+`MuorgApiService.kt` declares `PATCH api/tracks/{id}/metadata` and nothing else
+from the tracks API. Missing: auto-tag suggestions, backup/restore, rename. All
+are in the spec and typed in `ApiSchema.kt`.
+
+**Size:** medium. **Value:** medium.
+
+### 8. Large screen files
+
+`SettingsScreen.kt` 737, `PlayerScreen.kt` 711, `NavGraph.kt` 711,
+`PlaylistsScreen.kt` 703, `LibraryScreen.kt` 646. Worth splitting as each is next
+touched, rather than as a dedicated refactor.
+
+### 9. Offline downloads are Android-only
+
+`OfflineDownloadManager` has no counterpart in the web app, which already has a
+Workbox service worker and could cache audio the same way. Worth deciding
+whether that is a deliberate platform difference or a gap.
+
+---
+
+## Desktop App (`client/`)
+
+### 10. `LibrarySettingsModal.vue` is 2,949 lines
+
+By a wide margin the largest file in the repo; `MetadataEditor.vue` (1,783) is
+second. Both are doing settings-panel and form work that would split cleanly
+along the tab boundaries already present in the markup.
+
+**Size:** medium. **Value:** medium — mostly maintainability.
+
+### 11. No Rust tests in `src-tauri`
+
+`server/` has three `#[cfg(test)]` modules and CI runs `cargo test` for it. The
+Tauri crate has none. Now that the catalog and metadata code has moved to
+`muorg-core`, the surface left in `src-tauri` is the Tauri commands and the cast
+module — the cast transcode path in particular is worth covering.
+
+### 12. Cast code is still forked between the desktop app and the server
+
+`client/src-tauri/src/cast/` and `server/crates/muorg-server/src/cast/` are
+parallel implementations: `session.rs` is 340 lines against 298, with 208 lines
+of diff. They are not straight copies — the desktop casts local files through its
+own axum server, while the server casts from its own HTTP surface — but the
+Chromecast protocol handling and the mDNS discovery in the middle are the same
+code twice.
+
+The move is to lift the protocol and discovery layers into `muorg-core` behind a
+feature flag (they would pull in `rust_cast`, `mdns-sd` and `tokio`, which the
+desktop app already links) and leave only the per-host media-source logic in each
+crate. This was left out of the catalog/metadata deduplication because it is a
+genuine refactor rather than a mechanical swap.
+
+**Size:** medium. **Value:** medium — ~600 lines, and it is where the next
+silent divergence will happen.
+
+---
+
+## Cross-cutting
+
+### 13. Contract coverage is enforced; behaviour is not
+
+`scripts/generate-api-clients.sh --check` now fails CI when a route changes and
+the generated clients do not. It cannot catch a client that calls a documented
+endpoint *wrongly* — the paging bug would still slip through if someone bypassed
+`api.streamTracks()`.
+
+A small contract test would close that: spin up `muorg-server` against a fixture
+library and assert each endpoint's response validates against its schema in
+`server/openapi.json`. The integration harness for this already exists in
+`server/crates/muorg-server/tests/helpers/`.
+
+**Size:** medium. **Value:** medium–high.
+
+### 14. No shared UI tests anywhere
+
+`src/` now holds shared components (`FeatherIcon`, `MarqueeCell`,
+`EqualizerBars`, the stats charts), a shared composable (`useMixes`) and shared
+logic (`lyrics.ts`, `api/`). A break in any of these now breaks two apps at once,
+which is the trade for not having two copies. Vitest over `src/` would be the
+highest-leverage test suite in the repo: `parseLrc`, `activeLrcIndex` and the
+mix-sampling genre matching are all pure functions.
+
+**Size:** small. **Value:** high.
+
+### 15. Repo has no root README pointer to the API contract
+
+`src/api/README.md` documents the generation pipeline, but the top-level README's
+repository-layout section still lists only `client/`, `server/`, `web-client/`
+and `scripts/`. It should mention `src/` (shared frontend code, including the
+generated API client) and `android-client/`.
+
+**Size:** trivial.
+
+---
+
+## Done in this pass
+
+For the record, so this list is not re-derived later:
+
+- **Shared API contract.** The OpenAPI document is generated from the
+  `muorg-server` handlers via `utoipa` (53 operations, 39 component schemas,
+  replacing a hand-written spec with 24 paths and no schemas at all). Snapshotted
+  to `server/openapi.json` by a `cargo test`, and the TypeScript and Kotlin
+  client models are generated from it by `scripts/generate-api-clients.sh`. CI
+  fails if any of the three is stale. Two duplicate `operationId`s were found and
+  fixed in the process — `get_tracks` and `health` each described two endpoints,
+  which would have collapsed them in every generated client.
+- **Shared TypeScript client.** `src/api/` — transport, typed endpoints and one
+  implementation of the `/api/tracks` pagination. Both TS apps now use it, and
+  their nine hand-copied wire interfaces are re-exports of the generated types.
+- **Desktop: catalog streams in.** `loadTracks()` renders the first page
+  immediately instead of awaiting all seven round-trips, with a progress badge
+  for the rest.
+- **Desktop: 2,032 lines of forked Rust deleted.** `src-tauri` now depends on
+  `muorg-core` instead of carrying its own copy of `catalog/db.rs` and
+  `metadata/read_write.rs`. As a side effect the desktop app picks up the WAL
+  journal mode and the `play_history` table the server had and it did not —
+  which matters, because both processes open the same SQLite file.
+- **Desktop: Mixes, lyrics, now-playing bars.** All three shared with the web
+  client rather than reimplemented (`@shared/composables/useMixes`,
+  `@shared/lyrics`, `@shared/components/EqualizerBars.vue`).
+- **Dependabot no longer proposes TypeScript 7** for either TS app, which had
+  broken and been hand-reverted three times.
+- **A pre-existing `clippy::while_let_loop` failure** in
+  `server/.../transcode.rs` was fixed; it would have failed the server CI job on
+  the next change to touch `server/`.

@@ -1405,12 +1405,13 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "utoipa",
  "walkdir",
 ]
 
 [[package]]
 name = "muorg-server"
-version = "2.39.3"
+version = "2.42.1"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -1437,6 +1438,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "urlencoding",
+ "utoipa",
  "utoipa-swagger-ui",
  "uuid",
 ]
@@ -3126,6 +3128,7 @@ checksum = "6ba0b99ee52df3028635d93840c797102da61f8a7bb3cf751032455895b52ef8"
 dependencies = [
  "proc-macro2",
  "quote",
+ "regex",
  "syn 2.0.118",
 ]
 

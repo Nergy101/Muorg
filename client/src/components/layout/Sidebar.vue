@@ -8,6 +8,7 @@ import SidebarFolders from "./SidebarFolders.vue";
 import SidebarReports from "./SidebarReports.vue";
 import SidebarPlaylists from "./SidebarPlaylists.vue";
 import SidebarStats from "./SidebarStats.vue";
+import SidebarMixes from "./SidebarMixes.vue";
 
 const emit = defineEmits<{ toggle: [] }>();
 
@@ -17,7 +18,7 @@ const settingsStore = useSettingsStore();
 const { error } = storeToRefs(store);
 const { hideReportsSection, backendMode, localServerReady } = storeToRefs(settingsStore);
 
-type SidebarTabId = "folders" | "reports" | "playlists" | "stats";
+type SidebarTabId = "folders" | "reports" | "playlists" | "mixes" | "stats";
 const activeSidebarTab = ref<SidebarTabId>(
   (settingsStore.sidebarDefaultTab as SidebarTabId) ?? "folders",
 );
@@ -86,6 +87,16 @@ onMounted(async () => {
           >
             Playlists
           </button>
+          <button
+            type="button"
+            class="rounded px-2 py-1 text-xs font-medium"
+            :class="activeSidebarTab === 'mixes'
+              ? 'bg-stone-700 text-stone-100'
+              : 'text-stone-300 hover:bg-stone-700/60 hover:text-stone-100'"
+            @click="activeSidebarTab = 'mixes'"
+          >
+            Mixes
+          </button>
         </div>
         <button
           type="button"
@@ -105,6 +116,7 @@ onMounted(async () => {
         <SidebarFolders v-if="activeSidebarTab === 'folders'" />
         <SidebarReports v-else-if="activeSidebarTab === 'reports'" />
         <SidebarPlaylists v-else-if="activeSidebarTab === 'playlists'" />
+        <SidebarMixes v-else-if="activeSidebarTab === 'mixes'" />
         <SidebarStats v-else />
       </div>
 

@@ -10,9 +10,12 @@ use std::path;
 use std::sync::Arc;
 use crate::backup;
 use crate::musicbrainz::SearchQuery;
+use crate::routes::dto::{
+    AutoTagSuggestionsResponse, BatchUpdateResponse, ErrorResponse, OkResponse,
+};
 use crate::routes::ApiError;
 use crate::state::AppState;
-use muorg_core::catalog::TrackBackupRecord;
+use muorg_core::catalog::{TrackBackupRecord, TrackLyrics};
 use muorg_core::metadata::{MetadataUpdate, TrackMetadata};
 
 fn resolve_track(state: &AppState, id: i64) -> Result<String, ApiError> {
@@ -66,7 +69,7 @@ pub async fn read_track_metadata(
 // GET /api/tracks/:id/cover — returns binary image with correct Content-Type
 // Optionally `?size=N` (max edge in px) returns a downscaled JPEG thumbnail to
 // cut mobile bandwidth for grids/list rows.
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::IntoParams)]
 pub struct CoverQuery {
     /// Requested max edge length in px; when provided the cover is downscaled.
     pub size: Option<u32>,
@@ -95,6 +98,19 @@ fn downscale_cover(data: &[u8], max_edge: u32) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// Embedded album art, optionally downscaled.
+#[utoipa::path(
+    get,
+    path = "/api/tracks/{id}/cover",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id"), CoverQuery),
+    responses(
+        (status = 200, description = "Image bytes (JPEG or PNG)", content_type = "image/jpeg"),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "Track has no embedded cover", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn get_cover(
     Path(id): Path<i64>,
     Query(params): Query<CoverQuery>,
@@ -160,23 +176,43 @@ pub async fn get_cover(
 
 // GET /api/tracks/:id/lyrics — stored embedded lyrics, or 404 when the track
 // has none. Sync format is `"lrc"` when the text carries `[mm:ss]` lines.
+#[utoipa::path(
+    get,
+    path = "/api/tracks/{id}/lyrics",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    responses(
+        (status = 200, description = "Stored lyrics; `sync_format` is `lrc` for timestamped text, else `plain`", body = TrackLyrics),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "Track has no embedded lyrics", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn get_lyrics(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<TrackLyrics>, ApiError> {
     resolve_track(&state, id)?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    match muorg_core::catalog::get_track_lyrics(&conn, id).map_err(ApiError::from)? {
-        Some(l) => Ok(Json(serde_json::json!({
-            "track_id": l.track_id,
-            "lyrics": l.lyrics,
-            "sync_format": l.sync_format,
-        }))),
-        None => Err(ApiError::not_found("No lyrics for this track")),
-    }
+    muorg_core::catalog::get_track_lyrics(&conn, id)
+        .map_err(ApiError::from)?
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("No lyrics for this track"))
 }
 
-// GET /api/tracks/:id/metadata
+/// Tags read straight off the file, including album art and ReplayGain.
+#[utoipa::path(
+    get,
+    path = "/api/tracks/{id}/metadata",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    responses(
+        (status = 200, description = "Track tags", body = TrackMetadata),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn get_metadata(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
@@ -186,7 +222,7 @@ pub async fn get_metadata(
     Ok(Json(meta))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct PatchMetadataBody {
     #[serde(flatten)]
     pub update: MetadataUpdate,
@@ -263,11 +299,25 @@ async fn write_track_metadata(
 }
 
 // PATCH /api/tracks/:id/metadata
+/// Write tags back to the file. Absent fields are left alone, `null` clears the tag.
+#[utoipa::path(
+    patch,
+    path = "/api/tracks/{id}/metadata",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    request_body = PatchMetadataBody,
+    responses(
+        (status = 200, description = "Updated", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn patch_metadata(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
     Json(body): Json<PatchMetadataBody>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<OkResponse>, ApiError> {
     let track_path = resolve_track(&state, id)?;
     let remote_write = write_track_metadata(
         &state,
@@ -299,38 +349,78 @@ pub async fn patch_metadata(
         state.cover_cache.invalidate(id);
     }
 
-    Ok(Json(serde_json::json!({"ok": true})))
+    Ok(Json(OkResponse::new()))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct RatingBody {
     pub rating: Option<i64>,
 }
 
 // POST /api/tracks/:id/rating
+/// Set or clear the 1–5 star rating.
+#[utoipa::path(
+    post,
+    path = "/api/tracks/{id}/rating",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    request_body = RatingBody,
+    responses(
+        (status = 200, description = "Updated", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn set_rating(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
     Json(body): Json<RatingBody>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<OkResponse>, ApiError> {
     let track_path = resolve_track(&state, id)?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::set_track_rating(&conn, &track_path, body.rating)?;
-    Ok(Json(serde_json::json!({"ok": true})))
+    Ok(Json(OkResponse::new()))
 }
 
 // POST /api/tracks/:id/play
+/// Record a play. Bumps `play_count`/`last_played_at` and appends to play history.
+#[utoipa::path(
+    post,
+    path = "/api/tracks/{id}/play",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    responses(
+        (status = 200, description = "Updated", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn record_play(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<OkResponse>, ApiError> {
     let track_path = resolve_track(&state, id)?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::record_play(&conn, &track_path)?;
-    Ok(Json(serde_json::json!({"ok": true})))
+    Ok(Json(OkResponse::new()))
 }
 
 // GET /api/tracks/:id/backup
+/// The most recent pre-write backup of this file, if one exists.
+#[utoipa::path(
+    get,
+    path = "/api/tracks/{id}/backup",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    responses(
+        (status = 200, description = "Backup record, or null when none exists", body = Option<TrackBackupRecord>),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn get_backup(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
@@ -342,10 +432,24 @@ pub async fn get_backup(
 }
 
 // POST /api/tracks/:id/restore
+/// Restore the file from its most recent backup.
+#[utoipa::path(
+    post,
+    path = "/api/tracks/{id}/restore",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    responses(
+        (status = 200, description = "Restored", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+        (status = 400, description = "No backup to restore", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn restore_backup(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<OkResponse>, ApiError> {
     let track_path = resolve_track(&state, id)?;
     let backup_record = {
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
@@ -400,20 +504,35 @@ pub async fn restore_backup(
     if restored_mtime.is_some() {
         state.cover_cache.invalidate(id);
     }
-    Ok(Json(serde_json::json!({"ok": true})))
+    Ok(Json(OkResponse::new()))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct RenameBody {
     pub new_path: String,
 }
 
 // POST /api/tracks/:id/rename
+/// Move the file on disk and repoint the catalog row.
+#[utoipa::path(
+    post,
+    path = "/api/tracks/{id}/rename",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    request_body = RenameBody,
+    responses(
+        (status = 200, description = "Renamed", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+        (status = 400, description = "Destination invalid or already taken", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn rename_file(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
     Json(body): Json<RenameBody>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<OkResponse>, ApiError> {
     let old_path = resolve_track(&state, id)?;
 
     if let Some((remote, old_key)) = state.remotes.resolve(&old_path) {
@@ -435,7 +554,7 @@ pub async fn rename_file(
             .map_err(|e| format!("Rename failed: {e}"))?;
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
         muorg_core::catalog::update_track_path(&conn, &old_path, &body.new_path)?;
-        return Ok(Json(serde_json::json!({"ok": true})));
+        return Ok(Json(OkResponse::new()));
     }
 
     if crate::storage::is_remote_uri(&body.new_path) {
@@ -451,15 +570,29 @@ pub async fn rename_file(
     std::fs::rename(&old_path, &body.new_path).map_err(|e| e.to_string())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::update_track_path(&conn, &old_path, &body.new_path)?;
-    Ok(Json(serde_json::json!({"ok": true})))
+    Ok(Json(OkResponse::new()))
 }
 
 // POST /api/tracks/:id/auto-tag-suggestions
+/// MusicBrainz candidates for this track. With no body, the query is built from the file\u2019s own tags.
+#[utoipa::path(
+    post,
+    path = "/api/tracks/{id}/auto-tag-suggestions",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    request_body = SearchQuery,
+    responses(
+        (status = 200, description = "Ranked candidates, best first", body = AutoTagSuggestionsResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn auto_tag_suggestions(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
     body: Option<Json<SearchQuery>>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<AutoTagSuggestionsResponse>, ApiError> {
     let track_path = resolve_track(&state, id)?;
     let meta = read_track_metadata(&state, &track_path).await?;
 
@@ -475,10 +608,10 @@ pub async fn auto_tag_suggestions(
     };
 
     let candidates = state.auto_tag.search(&query).await.map_err(|e| ApiError(StatusCode::INTERNAL_SERVER_ERROR, e))?;
-    Ok(Json(serde_json::json!({"candidates": candidates})))
+    Ok(Json(AutoTagSuggestionsResponse { candidates }))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct BatchMetadataItem {
     pub id: i64,
     #[serde(flatten)]
@@ -486,12 +619,25 @@ pub struct BatchMetadataItem {
 }
 
 // POST /api/tracks/metadata/batch
+/// Apply a metadata patch to many tracks in one call.
+#[utoipa::path(
+    post,
+    path = "/api/tracks/metadata/batch",
+    tag = "Tracks",
+    request_body = Vec<BatchMetadataItem>,
+    responses(
+        (status = 200, description = "Number of tracks written", body = BatchUpdateResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn batch_patch_metadata(
     State(state): State<Arc<AppState>>,
     Json(items): Json<Vec<BatchMetadataItem>>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<BatchUpdateResponse>, ApiError> {
     if items.is_empty() {
-        return Ok(Json(serde_json::json!({"ok": true, "updated": 0})));
+        return Ok(Json(BatchUpdateResponse { ok: true, updated: 0 }));
     }
 
     // Resolve all paths first
@@ -529,5 +675,5 @@ pub async fn batch_patch_metadata(
         state.cover_cache.invalidate(updates[*i].0);
     }
 
-    Ok(Json(serde_json::json!({"ok": true, "updated": updates.len()})))
+    Ok(Json(BatchUpdateResponse { ok: true, updated: updates.len() }))
 }

@@ -1,6 +1,6 @@
 import { computed, watch } from "vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
-import type { Mix } from "./useMixes";
+import type { Mix } from "@shared/composables/useMixes";
 
 /**
  * Drives background preloading of every mix's cover collage and reports when

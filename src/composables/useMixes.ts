@@ -1,9 +1,8 @@
 import { computed, ref, watch, type ComputedRef } from "vue";
-import { useLibraryStore } from "../stores/library";
-import type { CatalogTrack } from "../types";
+import type { CatalogTrack } from "../api";
 
 /**
- * Ephemeral "Mixes" for the Home tab: a rotating set of randomly assembled
+ * Ephemeral "Mixes", shared by the web and desktop clients: a rotating set of randomly assembled
  * ~20-track playlists, each sampled from genres that fit its name (Gym Fuel is
  * metalcore, Deep Focus is metal + electronic, …). Sixteen cohorts exist but
  * only eight are shown per session, picked at random — so the lineup moves
@@ -83,32 +82,45 @@ function sampleTrackIds(tracks: CatalogTrack[], genres: string[]): number[] {
   return out;
 }
 
-// Reactive so the Home refresh button can re-roll the lineup mid-session.
+/**
+ * Where the mixes read their tracks from.
+ *
+ * Injected rather than imported so the same composable serves both apps: the
+ * web client backs it with its Pinia library store, the desktop client with its
+ * catalog store. Both are functions, not values, so the composable stays
+ * reactive without knowing which store it is looking at.
+ */
+export interface MixSource {
+  tracks: () => CatalogTrack[];
+  /**
+   * False while the catalog is still streaming in. Mixes are only built from a
+   * complete catalog — a cohort whose genres happen to live on a later page
+   * would otherwise freeze at zero tracks.
+   */
+  ready: () => boolean;
+}
+
+// Reactive so the refresh button can re-roll the lineup mid-session.
 const sessionMixes = ref<Mix[] | null>(null);
 
-export function useMixes(): { mixes: ComputedRef<Mix[]>; refresh: () => void } {
-  const lib = useLibraryStore();
-
+export function useMixes(
+  source: MixSource,
+): { mixes: ComputedRef<Mix[]>; refresh: () => void } {
   // Safety net: whenever the catalog grows (pages still streaming in after a
   // build), drop the cached lineup so it regenerates from the fuller catalog.
   // Together with the load gate below, this guarantees a mix is never frozen
   // at 0 tracks because its genres lived on a later page.
   watch(
-    () => lib.tracks.length,
+    () => source.tracks().length,
     () => {
       sessionMixes.value = null;
     },
   );
 
   const mixes = computed<Mix[]>(() => {
-    // The catalog streams in pages (loadingMore stays true while they fetch).
-    // Only build and cache the lineup once it's fully loaded — generating from
-    // a partial catalog could freeze a mix at 0 tracks if its genres live on a
-    // later page.
-    const fullyLoaded = !lib.loading && !lib.loadingMore;
-    if (!fullyLoaded) return sessionMixes.value ?? [];
+    if (!source.ready()) return sessionMixes.value ?? [];
     if (sessionMixes.value) return sessionMixes.value;
-    const tracks = lib.tracks;
+    const tracks = source.tracks();
     if (tracks.length === 0) return [];
     // Rotate the lineup: partial shuffle of the cohorts, keep the first
     // MIX_COUNT. Same shuffle pattern as the track sampling.

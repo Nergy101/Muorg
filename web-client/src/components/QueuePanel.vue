@@ -138,7 +138,7 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
-import EqualizerBars from "./EqualizerBars.vue";
+import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import QueueRow from "./QueueRow.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import { REORDER_ROW_HEIGHT, useDragReorder } from "../composables/useDragReorder";

@@ -66,7 +66,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import MageIcon from "./MageIcon.vue";
-import EqualizerBars from "./EqualizerBars.vue";
+import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";

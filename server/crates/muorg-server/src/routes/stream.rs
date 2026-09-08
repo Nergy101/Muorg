@@ -8,16 +8,30 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::config::TranscodingConfig;
+use crate::routes::dto::ErrorResponse;
 use crate::routes::ApiError;
 use crate::state::AppState;
 use crate::transcode;
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct TokenResponse {
     pub token: String,
 }
 
-// GET /api/tracks/:id/stream-token  (requires Bearer auth via middleware)
+/// Mint a short-lived (8h) token for the public `/stream/{id}` URL, so an
+/// `<audio src>` can play without carrying the API key.
+#[utoipa::path(
+    get,
+    path = "/api/tracks/{id}/stream-token",
+    tag = "Stream",
+    params(("id" = i64, Path, description = "Track id")),
+    responses(
+        (status = 200, description = "Stream token", body = TokenResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn issue_token(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
@@ -32,9 +46,11 @@ pub async fn issue_token(
     Ok(Json(TokenResponse { token }))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::IntoParams)]
 pub struct StreamQuery {
+    /// Short-lived token from `/api/tracks/{id}/stream-token`.
     pub token: Option<String>,
+    /// Seek offset in seconds; the server transcodes from this point.
     pub start: Option<f32>,
 }
 
@@ -71,6 +87,21 @@ fn remote_err(id: i64, e: object_store::Error) -> Response {
 }
 
 // GET /stream/:id?token=<tok>  (no Bearer auth — uses short-lived token instead)
+/// Audio bytes, range-capable. Public: authorised by the `token` query
+/// parameter rather than the Bearer header, so browsers and cast receivers can
+/// fetch it directly.
+#[utoipa::path(
+    get,
+    path = "/stream/{id}",
+    tag = "Stream",
+    params(("id" = i64, Path, description = "Track id"), StreamQuery),
+    responses(
+        (status = 200, description = "Audio bytes", content_type = "audio/mpeg"),
+        (status = 206, description = "Partial content for a ranged request"),
+        (status = 401, description = "Missing, expired or wrong token"),
+        (status = 404, description = "No such track"),
+    ),
+)]
 pub async fn stream_audio(
     Path(id): Path<i64>,
     Query(params): Query<StreamQuery>,

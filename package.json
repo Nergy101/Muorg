@@ -1,0 +1,13 @@
+{
+  "name": "muorg-monorepo",
+  "private": true,
+  "description": "Repo-level tooling. The apps themselves live in client/, web-client/, android-client/ and server/ and keep their own manifests.",
+  "scripts": {
+    "generate:api": "./scripts/generate-api-clients.sh",
+    "check:api": "./scripts/generate-api-clients.sh --check"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
+  },
+  "packageManager": "pnpm@10.18.3"
+}

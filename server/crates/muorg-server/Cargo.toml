@@ -12,7 +12,7 @@ name = "muorg_server"
 path = "src/lib.rs"
 
 [dependencies]
-muorg-core = { path = "../muorg-core" }
+muorg-core = { path = "../muorg-core", features = ["openapi"] }
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
@@ -38,6 +38,7 @@ httpdate = "1"
 object_store = { version = "0.14", default-features = false, features = ["aws"] }
 tempfile = "3"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+utoipa = { version = "5", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 
 [dev-dependencies]

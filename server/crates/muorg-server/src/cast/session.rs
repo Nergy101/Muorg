@@ -8,7 +8,7 @@ use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum CastSessionStatus {
     Idle,

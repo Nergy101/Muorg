@@ -305,7 +305,7 @@ watch(genreDropdownOpen, (open) => {
         class="flex shrink-0 items-center gap-1 rounded-full border border-stone-600 bg-stone-700 pl-2 pr-1 py-0.5 text-xs text-stone-200"
       >
         <FeatherIcon name="list" class="h-3 w-3 shrink-0 text-stone-400" />
-        <span class="max-w-[140px] truncate">{{ activePlaylist?.name ?? "Playlist" }}</span>
+        <span class="max-w-[140px] truncate">{{ activePlaylist?.name ?? store.activePlaylistName ?? "Playlist" }}</span>
         <button
           type="button"
           class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"

@@ -20,3 +20,15 @@ const DELAYS = [0, 160, 80];
     paused track still reads as the current one. */
 const props = defineProps<{ class?: string; paused?: boolean }>();
 </script>
+
+<style>
+/* Deliberately not `scoped`: the animation is applied through an inline
+   `:style` binding, which the SFC compiler cannot rewrite, so a scoped
+   `@keyframes eq` would be renamed out from under it. Living with the
+   component rather than in each app's global stylesheet keeps the two in
+   step. */
+@keyframes eq {
+  from { height: 25%; }
+  to { height: 100%; }
+}
+</style>

@@ -59,7 +59,7 @@
 import { computed, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
-import type { Mix } from "../composables/useMixes";
+import type { Mix } from "@shared/composables/useMixes";
 
 /**
  * How many distinct album covers we scan from the mix's track order before

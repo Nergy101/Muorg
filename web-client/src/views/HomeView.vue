@@ -167,7 +167,7 @@ import { useLibraryStore } from "../stores/library";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useGridColumns } from "../composables/useGridColumns";
-import { useMixes } from "../composables/useMixes";
+import { useMixes } from "@shared/composables/useMixes";
 import { useMixCoverReady } from "../composables/useMixCoverReady";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
@@ -345,7 +345,10 @@ function openAlbum(item: AlbumGridItem): void {
   void router.push({ name: "album", params: { albumKey: item.key } });
 }
 
-const { mixes, refresh } = useMixes();
+const { mixes, refresh } = useMixes({
+  tracks: () => lib.tracks,
+  ready: () => !lib.loading && !lib.loadingMore,
+});
 const mixCoverReady = useMixCoverReady(() => mixes.value);
 // DEBUG: expose live state for CDP probing
 (window as any).__muorg = {

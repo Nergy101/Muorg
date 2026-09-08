@@ -2,7 +2,7 @@ use mdns_sd::{ServiceDaemon, ServiceEvent};
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct CastDevice {
     pub id: String,
     pub name: String,

@@ -1,12 +1,10 @@
-use catalog::Catalog;
+use muorg_core::catalog::{self, Catalog};
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
 mod cast;
-mod catalog;
 mod commands;
-mod metadata;
 
 struct ServerChild(std::sync::Mutex<Option<tauri_plugin_shell::process::CommandChild>>);
 

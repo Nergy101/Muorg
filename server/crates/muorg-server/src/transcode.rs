@@ -230,11 +230,9 @@ fn decoded_mp3_duration(mp3: &[u8]) -> Option<f64> {
         .make_audio_decoder(params, &AudioDecoderOptions::default())
         .ok()?;
     let mut total_frames = 0u64;
-    loop {
-        let packet = match format.next_packet() {
-            Ok(Some(p)) => p,
-            _ => break,
-        };
+    // `next_packet` yields Ok(None) at clean EOF and Err on a truncated file;
+    // either way there is nothing more to count.
+    while let Ok(Some(packet)) = format.next_packet() {
         if packet.track_id != track.id {
             continue;
         }

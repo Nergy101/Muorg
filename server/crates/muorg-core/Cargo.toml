@@ -12,3 +12,10 @@ id3 = "1.16"
 walkdir = "2"
 base64 = "0.23"
 sha2 = "0.11"
+utoipa = { version = "5", optional = true }
+
+[features]
+# Derives `ToSchema` on the wire types so muorg-server can generate the OpenAPI
+# document straight from the structs its handlers actually serialize. Off by
+# default: the desktop app links muorg-core too and has no use for it.
+openapi = ["dep:utoipa"]

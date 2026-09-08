@@ -508,12 +508,6 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* Equalizer bars (EqualizerBars.vue) */
-@keyframes eq {
-  from { height: 25%; }
-  to { height: 100%; }
-}
-
 /* Player background: album art scaled + blurred across the backdrop */
 .edge-blur-art {
   width: min(108vmin, 630px);
