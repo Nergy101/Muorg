@@ -209,8 +209,6 @@ const groupCovers = computed(() => {
   if (!showForAlbum && !showForArtist) return {} as Record<string, import("../../stores/catalog").CoverInfo | null | undefined>;
   const groups = groupedRows.value;
   if (!groups) return {};
-  // React to path-based cover cache so headers update when covers load.
-  void store.coverCache;
   const result: Record<string, import("../../stores/catalog").CoverInfo | null | undefined> = {};
   for (const group of groups) {
     const firstTrack = group.tracks[0];
@@ -508,22 +506,29 @@ const bottomSpacerHeight = computed(() => {
   return Math.max(0, total - topSpacerHeight.value - visibleSum);
 });
 
-// When grouping with cover art headers enabled, proactively fetch covers for all tracks in groups
+// Fetch the covers the group headers currently on screen need.
+//
+// Two things used to go wrong here. It fetched every track of every album
+// group, when `groupCovers` reads only `group.tracks[0]`; and it did so for the
+// whole library at once. On a large library that queued far more covers than
+// the store's cache holds, so each arrival evicted an earlier one — including
+// art still on screen, which was then refetched, evicting more. Scoping this to
+// the rendered window (which already carries overscan) keeps the number of
+// covers in flight proportional to what is actually visible.
 watch(
   () => {
     const by = effectiveGroupBy.value;
-    if (by === "album" && groupHeaderAlbumArt.value) return groupedRows.value;
-    if (by === "artist" && groupHeaderAlbumArtForArtist.value) return groupedRows.value;
-    return null;
+    const wanted =
+      (by === "album" && groupHeaderAlbumArt.value) ||
+      (by === "artist" && groupHeaderAlbumArtForArtist.value);
+    return wanted ? renderedRows.value : null;
   },
-  (groups) => {
-    if (!groups) return;
-    for (const g of groups) {
-      // For artist groups we only need the first track's cover; for album groups fetch all
-      const tracks = effectiveGroupBy.value === "artist" ? g.tracks.slice(0, 1) : g.tracks;
-      for (const t of tracks) {
-        store.fetchCover(t.path);
-      }
+  (rows) => {
+    if (!rows) return;
+    for (const { row } of rows) {
+      if (row.type !== "group") continue;
+      const first = row.group.tracks[0];
+      if (first) store.fetchCover(first.path);
     }
   },
   { immediate: true },

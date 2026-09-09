@@ -16,6 +16,33 @@ const _coverInFlight = new Set<string>();
 const _coverQueue: string[] = [];
 let _coverActive = 0;
 const COVER_CONCURRENCY = 8;
+/**
+ * Bumped whenever the cache is cleared. A fetch that started before the bump
+ * belongs to the old library — dropping its result stops covers from a previous
+ * server reappearing in a freshly cleared cache.
+ */
+let _coverGeneration = 0;
+/**
+ * Most-recently-used order of `coverCache` keys, oldest first.
+ *
+ * Deliberately NOT part of the store state. Reads have to touch this to make
+ * the cache an LRU rather than a FIFO, and a read happens inside computeds and
+ * render functions — mutating reactive state there re-invalidates the computed
+ * that is currently evaluating, which reads and touches again: the infinite
+ * loop that pegged the main thread in 5318938. A plain Set triggers nothing,
+ * so `getCover` can touch it safely.
+ *
+ * A Set gives O(1) delete/insert and iterates in insertion order, so a touch is
+ * delete-then-add and eviction takes from the front. The old array needed an
+ * indexOf + splice per touch, which is too slow to do on every read.
+ */
+const _coverOrder = new Set<string>();
+/**
+ * How many covers to keep. Sized for the on-screen working set plus a healthy
+ * scrollback, not for the whole library: covers are base64 payloads, and a
+ * 3000-track library holds far more of them than is worth keeping resident.
+ */
+export const MAX_COVERS = 500;
 
 // ── FTS search debounce (module-level, not reactive) ─────────────────────────
 let _searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -94,7 +121,6 @@ export const useCatalogStore = defineStore("catalog", {
     filterGenre: initialFilter.filterGenre,
     groupBy: loadStoredDefaultGroupBy(),
     coverCache: {} as Record<string, CoverInfo | null>,
-    _coverCacheOrder: [] as string[],
     albumCoverCache: {} as Record<string, CoverInfo | null>,
     openWikipediaModal: false,
     multiSelectMode: false,
@@ -556,11 +582,7 @@ export const useCatalogStore = defineStore("catalog", {
           if (backup) hadBackupTrack = true;
         }
         if ("picture_base64" in snap.metadata && snap.metadata.picture_base64 !== undefined) {
-          const next = { ...this.coverCache };
-          if (snap.path in next) {
-            delete next[snap.path];
-          }
-          this.coverCache = next;
+          this.invalidateCover(snap.path);
         }
       }
       if (hadBackupTrack) this.sessionBackupCount += 1;
@@ -575,11 +597,7 @@ export const useCatalogStore = defineStore("catalog", {
       const id = this._trackIdByPath(path);
       if (id == null) throw new Error(`Track not found: ${path}`);
       await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
-      const nextCoverCache = { ...this.coverCache };
-      if (path in nextCoverCache) {
-        delete nextCoverCache[path];
-      }
-      this.coverCache = nextCoverCache;
+      this.invalidateCover(path);
       await this.loadTracks();
     },
     async writeMetadataBulk(paths: string[], update: import("../types").MetadataUpdate) {
@@ -601,14 +619,10 @@ export const useCatalogStore = defineStore("catalog", {
         if (items.length > 0) {
           await api.patchMetadataBatch(items);
         }
-        const nextCoverCache = { ...this.coverCache };
         for (const path of paths) {
           if (this.bulkCancelled) break;
-          if (path in nextCoverCache) {
-            delete nextCoverCache[path];
-          }
+          this.invalidateCover(path);
         }
-        this.coverCache = nextCoverCache;
         this.bulkProgress = { current: paths.length, total: paths.length };
         await this.loadTracks();
       } catch (e) {
@@ -666,9 +680,7 @@ export const useCatalogStore = defineStore("catalog", {
           const id = this._trackIdByPath(path);
           if (id == null) continue;
           await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
-          const next = { ...this.coverCache };
-          if (path in next) delete next[path];
-          this.coverCache = next;
+          this.invalidateCover(path);
           this.bulkProgress = { current: i + 1, total: updates.length };
         }
         await this.loadTracks();
@@ -845,46 +857,68 @@ export const useCatalogStore = defineStore("catalog", {
       }
     },
     getCover(path: string): CoverInfo | null | undefined {
-      // Plain read — NO _touchCover here. Touching (mutating _coverCacheOrder)
-      // during a read invalidates computeds that depend on the cover cache,
-      // re-running them, which reads again and touches again: an infinite
-      // reactive loop that pegs the main thread on any click. LRU order is
-      // maintained on writes only (_setCover); eviction accuracy loss is fine.
-      return this.coverCache[path];
+      // Reading is what marks a cover as still in use: whatever is on screen is
+      // re-read every render, so touching here keeps the visible set at the
+      // young end and eviction claims only covers nothing is looking at.
+      // Without this the cache evicts by insertion order, throws away art that
+      // is currently displayed, and TrackAlbumArt immediately refetches it —
+      // covers popping in and out with the view completely still.
+      //
+      // A cached miss is stored as null, never undefined, so undefined means
+      // "not cached" and there is nothing to touch.
+      const cover = this.coverCache[path];
+      if (cover !== undefined) this._touchCover(path);
+      return cover;
     },
     getCoverDataUrl(path: string): string | null {
-      const c = this.coverCache[path];
+      const c = this.getCover(path);
       if (!c) return null;
       return `data:${c.mime};base64,${c.base64}`;
     },
-    /** Touch a path in the LRU order (moves it to most-recently-used). */
+    /** Move a cached path to the most-recently-used end. */
     _touchCover(path: string) {
-      const idx = this._coverCacheOrder.indexOf(path);
-      if (idx > 0) {
-        this._coverCacheOrder.splice(idx, 1);
-        this._coverCacheOrder.push(path);
-      } else if (idx < 0) {
-        this._coverCacheOrder.push(path);
-      }
+      _coverOrder.delete(path);
+      _coverOrder.add(path);
     },
-    /** Evict oldest entries if cache exceeds MAX_COVERS (500). */
+    /** Evict least-recently-used entries once the cache exceeds MAX_COVERS. */
     _pruneCoverCache() {
-      const MAX_COVERS = 500;
-      if (this._coverCacheOrder.length <= MAX_COVERS) return;
-      const evict = this._coverCacheOrder.length - MAX_COVERS;
-      const evicted = new Set(this._coverCacheOrder.slice(0, evict));
-      this._coverCacheOrder = this._coverCacheOrder.slice(evict);
-      const next = { ...this.coverCache };
-      for (const path of evicted) {
-        delete next[path];
+      if (_coverOrder.size <= MAX_COVERS) return;
+      for (const path of _coverOrder) {
+        if (_coverOrder.size <= MAX_COVERS) break;
+        _coverOrder.delete(path);
+        delete this.coverCache[path];
       }
-      this.coverCache = next;
     },
     /** Set a cover entry in the cache and update LRU order. */
     _setCover(path: string, cover: CoverInfo | null | undefined) {
       this._touchCover(path);
-      this.coverCache = { ...this.coverCache, [path]: cover ?? null };
+      // Mutated in place, never `{ ...this.coverCache, [path]: … }`. Replacing
+      // the object invalidates every reader of every key, so one arriving cover
+      // re-ran the watchEffect of every mounted TrackAlbumArt — thousands of
+      // them while a library prefetches. An in-place write only wakes the
+      // components looking at this one path.
+      this.coverCache[path] = cover ?? null;
       this._pruneCoverCache();
+    },
+    /**
+     * Forget one path's cover, e.g. after its artwork was rewritten.
+     *
+     * Goes through here rather than replacing `coverCache` wholesale: the LRU
+     * order is separate bookkeeping that has to drop the path too, or it keeps
+     * a phantom entry that later evicts a live cover in its place.
+     */
+    invalidateCover(path: string) {
+      _coverOrder.delete(path);
+      delete this.coverCache[path];
+    },
+    /** Drop every cached cover, e.g. when the server connection changes. */
+    clearCoverCache() {
+      _coverGeneration++;
+      _coverOrder.clear();
+      _coverInFlight.clear();
+      _coverQueue.length = 0;
+      this.coverCache = {};
+      this.albumCoverCache = {};
     },
     _drainCoverQueue() {
       while (_coverActive < COVER_CONCURRENCY && _coverQueue.length > 0) {
@@ -894,6 +928,7 @@ export const useCatalogStore = defineStore("catalog", {
           continue;
         }
         _coverActive++;
+        const generation = _coverGeneration;
         const run = async () => {
           try {
             let cover: CoverInfo | null;
@@ -903,16 +938,17 @@ export const useCatalogStore = defineStore("catalog", {
               const id = this._trackIdByPath(path);
               cover = id != null ? await api.getCover(id) : null;
             }
+            if (generation !== _coverGeneration) return;
             this._setCover(path, cover);
             const track = this.tracks.find((t) => t.path === path);
             if (track) {
               const albumKey = track.album ?? "—";
               if (!this.albumCoverCache[albumKey]) {
-                this.albumCoverCache = { ...this.albumCoverCache, [albumKey]: cover };
+                this.albumCoverCache[albumKey] = cover;
               }
             }
           } catch {
-            this._setCover(path, null);
+            if (generation === _coverGeneration) this._setCover(path, null);
           } finally {
             _coverInFlight.delete(path);
             _coverActive--;
@@ -937,9 +973,17 @@ export const useCatalogStore = defineStore("catalog", {
         _coverQueue.unshift(path);
       }
     },
+    /**
+     * Warm the cache with one cover per album, up to what the cache holds.
+     *
+     * Unbounded, this queued a fetch for every album in the library; past
+     * MAX_COVERS each completion evicted an earlier one, so a large library
+     * spent the whole prefetch evicting itself — including covers on screen.
+     */
     _prefetchAllCovers() {
       const seen = new Set<string>();
       for (const track of this.tracks) {
+        if (seen.size >= MAX_COVERS) break;
         if (!track.has_cover) continue;
         const albumKey = track.album ?? "—";
         if (seen.has(albumKey)) continue;

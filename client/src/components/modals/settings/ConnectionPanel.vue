@@ -59,7 +59,7 @@ const refreshError = ref("");
 async function refreshFromServer() {
   refreshStatus.value = "loading";
   refreshError.value = "";
-  store.$patch({ coverCache: {}, albumCoverCache: {} });
+  store.clearCoverCache();
   await store.loadRoots();
   if (store.error) { refreshStatus.value = "error"; refreshError.value = store.error; return; }
   await store.loadTracks();

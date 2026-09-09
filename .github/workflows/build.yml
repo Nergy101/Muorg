@@ -189,6 +189,12 @@ jobs:
         working-directory: client
         run: pnpm run check
 
+      # This app's own tests (its Pinia stores). The shared src/ tree is tested
+      # in the api-contract job, which installs only the root.
+      - name: Tests
+        working-directory: client
+        run: pnpm test:coverage
+
   web-client:
     name: Web Client (Vue 3)
     needs: changes
