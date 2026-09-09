@@ -129,6 +129,100 @@ class PlaylistRepositoryTest {
     }
 
     @Test
+    fun `a smart playlist refuses tracks instead of silently dropping them`() = runTest {
+        // The server accepts this write and puts the row in the join table,
+        // which is never read for a smart playlist — so the track vanishes with
+        // no error anywhere. Refusing is the only way the user finds out.
+        val api = mockk<MuorgApi>()
+        val repository = PlaylistRepository(api)
+
+        val result = repository.addTracks(domain(2, RULES), listOf(10, 11))
+
+        assertTrue(result.exceptionOrNull() is SmartPlaylistNotEditable)
+        coVerify(exactly = 0) { api.addPlaylistTracks(any(), any()) }
+    }
+
+    @Test
+    fun `an empty rule set is still a smart playlist and still refuses`() = runTest {
+        val api = mockk<MuorgApi>()
+        val repository = PlaylistRepository(api)
+
+        assertTrue(repository.addTracks(domain(3, "[]"), listOf(10)).isFailure)
+        coVerify(exactly = 0) { api.addPlaylistTracks(any(), any()) }
+    }
+
+    @Test
+    fun `a manual playlist still takes tracks`() = runTest {
+        val api = mockk<MuorgApi>()
+        coEvery { api.addPlaylistTracks(1L, any()) } returns
+            Response.success(nl.muorg.android.data.api.schema.OkResponse(ok = true))
+        val repository = PlaylistRepository(api)
+
+        assertTrue(repository.addTracks(domain(1), listOf(10, 11)).isSuccess)
+        coVerify { api.addPlaylistTracks(1L, any()) }
+    }
+
+    @Test
+    fun `handed a playlist, no lookup request is made`() = runTest {
+        // The overload exists to skip the round trip; if it fell through to the
+        // id-based path it would work but cost a request per add.
+        val api = mockk<MuorgApi>()
+        coEvery { api.addPlaylistTracks(1L, any()) } returns
+            Response.success(nl.muorg.android.data.api.schema.OkResponse(ok = true))
+        val repository = PlaylistRepository(api)
+
+        repository.addTracks(domain(1), listOf(10)).getOrThrow()
+        coVerify(exactly = 0) { api.listPlaylists() }
+    }
+
+    @Test
+    fun `by id, a smart playlist is looked up and refused`() = runTest {
+        // Every caller that only has an id goes through here, so the guard has
+        // to hold without the caller knowing the playlist is smart.
+        val api = mockk<MuorgApi>()
+        coEvery { api.listPlaylists() } returns
+            Response.success(listOf(wirePlaylist(1), wirePlaylist(2, RULES)))
+        val repository = PlaylistRepository(api)
+
+        val result = repository.addTracks(2, listOf(10))
+
+        assertTrue(result.exceptionOrNull() is SmartPlaylistNotEditable)
+        coVerify(exactly = 0) { api.addPlaylistTracks(any(), any()) }
+    }
+
+    @Test
+    fun `by id, a manual playlist still takes tracks`() = runTest {
+        val api = mockk<MuorgApi>()
+        coEvery { api.listPlaylists() } returns
+            Response.success(listOf(wirePlaylist(1), wirePlaylist(2, RULES)))
+        coEvery { api.addPlaylistTracks(1L, any()) } returns
+            Response.success(nl.muorg.android.data.api.schema.OkResponse(ok = true))
+        val repository = PlaylistRepository(api)
+
+        assertTrue(repository.addTracks(1, listOf(10)).isSuccess)
+        coVerify { api.addPlaylistTracks(1L, any()) }
+    }
+
+    @Test
+    fun `by id, an unknown playlist fails rather than writing blind`() = runTest {
+        val api = mockk<MuorgApi>()
+        coEvery { api.listPlaylists() } returns Response.success(listOf(wirePlaylist(1)))
+        val repository = PlaylistRepository(api)
+
+        assertTrue(repository.addTracks(99, listOf(10)).isFailure)
+        coVerify(exactly = 0) { api.addPlaylistTracks(any(), any()) }
+    }
+
+    @Test
+    fun `the refusal names the playlist so the message is useful`() = runTest {
+        val api = mockk<MuorgApi>()
+        val repository = PlaylistRepository(api)
+
+        val message = repository.addTracks(domain(2, RULES), listOf(10)).exceptionOrNull()?.message
+        assertTrue(message.orEmpty().contains("P2"))
+    }
+
+    @Test
     fun `creating a playlist with an icon patches it afterwards`() = runTest {
         // The create endpoint takes a name only.
         val api = mockk<MuorgApi>()

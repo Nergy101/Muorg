@@ -50,6 +50,11 @@ fun PlaylistPickerSheet(
     onCreatePlaylist: ((String) -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
+    // Smart playlists take their tracks from their rules, so there is nothing an
+    // add could do to one — the row would go into the join table and never be
+    // read back. Leaving them out is the honest option: offering a target that
+    // silently discards the track is worse than not offering it.
+    val addable = playlists.filter { it.smartRules == null }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var localMembershipIds by remember(membershipIds) { mutableStateOf(membershipIds) }
     var localPartialIds by remember(partialMembershipIds) { mutableStateOf(partialMembershipIds) }
@@ -66,7 +71,7 @@ fun PlaylistPickerSheet(
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
         )
 
-        if (playlists.isEmpty() && onCreatePlaylist == null) {
+        if (addable.isEmpty() && onCreatePlaylist == null) {
             Text(
                 text = "No playlists yet",
                 style = MaterialTheme.typography.bodyMedium,
@@ -75,7 +80,7 @@ fun PlaylistPickerSheet(
             )
         } else {
             LazyColumn {
-                items(playlists, key = { it.id }) { playlist ->
+                items(addable, key = { it.id }) { playlist ->
                     val isFull = playlist.id in localMembershipIds
                     val isPartial = !isFull && playlist.id in localPartialIds
                     Row(

@@ -13,6 +13,17 @@ import nl.muorg.android.data.api.toDomain
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Thrown when something tries to put a track into a rule-driven playlist.
+ *
+ * A smart playlist's membership is computed from its rules; the join table an
+ * add writes to is never read for it. The server accepts the write, so without
+ * this the row lands in the database, the playlist does not change, and nothing
+ * anywhere reports a problem.
+ */
+class SmartPlaylistNotEditable(playlistName: String) :
+    IllegalArgumentException("\"$playlistName\" is a smart playlist — its tracks come from its rules")
+
 @Singleton
 class PlaylistRepository @Inject constructor(
     private val api: MuorgApi,
@@ -90,7 +101,32 @@ class PlaylistRepository @Inject constructor(
             .bodyOrThrow("GET /api/playlists/$id/tracks").map { it.toInt() }
     }
 
+    /**
+     * Add tracks to a playlist, refusing one whose membership comes from rules.
+     *
+     * This is the one to call. See [SmartPlaylistNotEditable] for why adding to
+     * a smart playlist is worse than an error: it silently does nothing.
+     */
+    suspend fun addTracks(playlist: Playlist, trackIds: List<Int>): Result<Unit> =
+        if (playlist.smartRules != null) Result.failure(SmartPlaylistNotEditable(playlist.name))
+        else addTracksUnchecked(playlist.id, trackIds)
+
+    /**
+     * Same, for a caller that has only the id.
+     *
+     * Costs one extra request to learn whether the playlist is smart; if you
+     * already hold the [Playlist], use the overload above. Mirrors
+     * [getTracksFor] / [getTracksForId].
+     */
     suspend fun addTracks(playlistId: Int, trackIds: List<Int>): Result<Unit> = runCatching {
+        val playlist = getPlaylists().getOrThrow().find { it.id == playlistId }
+            ?: error("No playlist with id $playlistId")
+        if (playlist.smartRules != null) throw SmartPlaylistNotEditable(playlist.name)
+        addTracksUnchecked(playlistId, trackIds).getOrThrow()
+    }
+
+    /** The raw join-table endpoint. Callers want [addTracks]. */
+    private suspend fun addTracksUnchecked(playlistId: Int, trackIds: List<Int>): Result<Unit> = runCatching {
         api.addPlaylistTracks(playlistId.toLong(), TrackIdsBody(trackIds.map { it.toLong() }))
             .orThrow("POST /api/playlists/$playlistId/tracks")
     }

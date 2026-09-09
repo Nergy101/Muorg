@@ -302,7 +302,9 @@ private fun PlaylistsLevel(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp).padding(bottom = 6.dp),
     )
-    playlists.forEach { playlist ->
+    // Smart playlists are rule-driven: a manual add writes a join-table row that
+    // is never read for them, so the track would silently fail to appear.
+    playlists.filter { it.smartRules == null }.forEach { playlist ->
         val isInPlaylist = playlist.id in trackInPlaylistIds
         ListItem(
             headlineContent = {

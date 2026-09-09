@@ -175,7 +175,15 @@ class PlayerViewModel @Inject constructor(
                 refreshPlaylists()
                 loadCurrentTrackMembership(track)
             } else {
-                playlistRepository.addTracks(playlistId, listOf(track.id))
+                // The picker's playlists are already loaded, so pass the
+                // playlist itself and save the repository a lookup.
+                val playlist = _playlists.value.find { it.id == playlistId }
+                val result = if (playlist != null) {
+                    playlistRepository.addTracks(playlist, listOf(track.id))
+                } else {
+                    playlistRepository.addTracks(playlistId, listOf(track.id))
+                }
+                result.onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to playlist") }
             }
         }
     }
@@ -368,9 +376,14 @@ class PlayerViewModel @Inject constructor(
                 if (mode == "local") localRepository.removeTrackFromPlaylist(playlistId, track.path)
                 else playlistRepository.removeTracks(playlistId, listOf(track.id))
             } else {
-                if (mode == "local") localRepository.addTracksToPlaylist(playlistId, listOf(track))
-                else playlistRepository.addTracks(playlistId, listOf(track.id))
-                _toastEvent.tryEmit("Added to favorites")
+                if (mode == "local") {
+                    localRepository.addTracksToPlaylist(playlistId, listOf(track))
+                    _toastEvent.tryEmit("Added to favorites")
+                } else {
+                    playlistRepository.addTracks(playlistId, listOf(track.id))
+                        .onSuccess { _toastEvent.tryEmit("Added to favorites") }
+                        .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to favorites") }
+                }
             }
             refreshPlaylists()
         }

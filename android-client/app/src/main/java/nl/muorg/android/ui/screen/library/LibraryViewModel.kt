@@ -229,6 +229,9 @@ class LibraryViewModel @Inject constructor(
                 }
             } else {
                 playlistRepository.addTracks(playlistId, tracks.map { it.id })
+                    .onFailure { e ->
+                        _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                    }
             }
         }
     }

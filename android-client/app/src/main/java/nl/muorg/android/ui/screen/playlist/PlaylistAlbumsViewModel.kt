@@ -179,10 +179,10 @@ class PlaylistAlbumsViewModel @Inject constructor(
                     }
                 }
             } else {
-                val trackIdSet = _uiState.value.allTracks
-                    .filter { it.id in tracks.map { t -> t.id } }
-                    .map { it.id }.toSet()
                 playlistRepository.addTracks(targetPlaylistId, tracks.map { it.id })
+                    .onFailure { e ->
+                        _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                    }
             }
         }
     }
