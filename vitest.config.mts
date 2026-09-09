@@ -21,36 +21,32 @@ export default defineConfig({
     alias: {
       "@shared": resolve(root, "src"),
       // The shared stats charts import their track type via the desktop app's
-      // own "@" alias, so it has to resolve here too.
+      // own "@" alias, so it has to resolve here too. Types only — nothing is
+      // executed from client/src by these tests.
       "@": resolve(root, "client/src"),
-      // The shared client imports openapi-fetch and feather-icons, which are
-      // installed in the apps rather than at the root — the same aliasing both
-      // vite configs do. `vue` is NOT aliased: @vitejs/plugin-vue compiles the
-      // SFCs against the root's own @vue/compiler-sfc, and pointing the runtime
-      // at a different copy makes template refs land on hoisted vnodes and
-      // prop updates stop re-rendering.
-      "openapi-fetch": resolve(root, "web-client/node_modules/openapi-fetch"),
-      "feather-icons": resolve(root, "web-client/node_modules/feather-icons"),
+      // openapi-fetch, feather-icons and vue are NOT aliased into an app's
+      // node_modules: `src/` is its own project and declares them at the root.
+      // Reaching across worked locally, where every app is installed, and broke
+      // in CI, where this job installs only the root. `vue` in particular must
+      // stay unaliased — @vitejs/plugin-vue compiles the SFCs against the
+      // root's own @vue/compiler-sfc, and pointing the runtime at a different
+      // copy makes template refs land on hoisted vnodes and prop updates stop
+      // re-rendering.
     },
   },
   test: {
-    include: [
-      "src/**/*.test.ts",
-      "web-client/src/**/*.test.ts",
-      "client/src/**/*.test.ts",
-    ],
+    // Only the shared tree. Each app runs its own tests with its own
+    // dependencies (web-client/vitest.config.ts) — pulling theirs in here
+    // meant this project needed pinia, vue-router and everything else they
+    // depend on, which is backwards.
+    include: ["src/**/*.test.ts"],
     environment: "happy-dom",
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "text"],
       // Only the modules these tests are actually aimed at. Listing every file
       // in the repo would report a coverage number that means nothing.
-      include: [
-        "src/**/*.ts",
-        "src/components/**/*.vue",
-        "web-client/src/stores/library.ts",
-        "web-client/src/stores/cast.ts",
-      ],
+      include: ["src/**/*.ts", "src/components/**/*.vue"],
       exclude: [
         "**/*.test.ts",
         // Generated, or pure type/re-export modules with nothing to execute.

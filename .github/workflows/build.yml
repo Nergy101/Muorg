@@ -216,6 +216,12 @@ jobs:
         working-directory: web-client
         run: pnpm build
 
+      # This app's own tests (its Pinia stores). The shared src/ tree is tested
+      # in the api-contract job, which installs only the root.
+      - name: Tests
+        working-directory: web-client
+        run: pnpm test:coverage
+
   android:
     name: Android (lint + build)
     needs: changes
