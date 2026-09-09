@@ -43,20 +43,48 @@ class PlaylistRepository @Inject constructor(
         api.deletePlaylist(id.toLong()).orThrow("DELETE /api/playlists/$id")
     }
 
-    /** Resolves a playlist's tracks, taking the smart route when it has rules. */
+    /**
+     * A playlist's track ids, taking the smart route when it has rules.
+     *
+     * This is the one to call. A smart playlist stores rules, not rows, so the
+     * plain `/tracks` endpoint reads an empty join table and returns nothing —
+     * the playlist opens and no songs appear. Prefer this over
+     * [getPlaylistTracks] unless you have already established the playlist is
+     * not smart.
+     */
     suspend fun getTracksFor(playlist: Playlist): Result<List<Int>> =
         if (playlist.smartRules != null) getSmartTracks(playlist.id) else getPlaylistTracks(playlist.id)
+
+    /**
+     * Same, for a caller that has only the id.
+     *
+     * Costs one extra request to learn whether the playlist is smart; if you
+     * already hold the [Playlist], use [getTracksFor].
+     */
+    suspend fun getTracksForId(playlistId: Int): Result<List<Int>> = runCatching {
+        val playlist = getPlaylists().getOrThrow().find { it.id == playlistId }
+            ?: error("No playlist with id $playlistId")
+        getTracksFor(playlist).getOrThrow()
+    }
 
     suspend fun createSmartPlaylist(name: String, rulesJson: String): Result<Playlist> = runCatching {
         api.createSmartPlaylist(SmartCreateBody(name = name, rulesJson = rulesJson))
             .bodyOrThrow("POST /api/playlists/smart").toDomain()
     }
 
+    /** The raw smart endpoint. Callers usually want [getTracksFor] instead. */
     suspend fun getSmartTracks(id: Int): Result<List<Int>> = runCatching {
         api.getSmartPlaylistTracks(id.toLong())
             .bodyOrThrow("GET /api/playlists/smart/$id/tracks").map { it.toInt() }
     }
 
+    /**
+     * The raw join-table endpoint — rows explicitly added to the playlist.
+     *
+     * Returns an empty list for a smart playlist, whose membership is computed
+     * from rules and lives nowhere in that table. Callers usually want
+     * [getTracksFor] or [getTracksForId] instead.
+     */
     suspend fun getPlaylistTracks(id: Int): Result<List<Int>> = runCatching {
         api.getPlaylistTracks(id.toLong())
             .bodyOrThrow("GET /api/playlists/$id/tracks").map { it.toInt() }

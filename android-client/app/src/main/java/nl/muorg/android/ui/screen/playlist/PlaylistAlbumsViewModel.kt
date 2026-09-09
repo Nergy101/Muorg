@@ -113,12 +113,22 @@ class PlaylistAlbumsViewModel @Inject constructor(
     }
 
     private suspend fun loadRemote() {
+        // The catalog is the slow one, so it starts alongside the playlist list.
+        // The track ids cannot start with them: which endpoint to ask depends on
+        // whether this playlist is smart, and that is what the list tells us.
         val playlistsDeferred = viewModelScope.async { playlistRepository.getPlaylists() }
-        val trackIdsDeferred = viewModelScope.async { playlistRepository.getPlaylistTracks(playlistId) }
         val allTracksDeferred = viewModelScope.async { libraryRepository.getAllTracks() }
 
         val playlistsResult = playlistsDeferred.await()
-        val trackIdsResult = trackIdsDeferred.await()
+        val playlist = playlistsResult.getOrNull()?.find { it.id == playlistId }
+
+        // A smart playlist stores rules, not rows: asking the plain /tracks
+        // endpoint returns an empty join table, which is why these opened with
+        // no songs in them.
+        val trackIdsResult = when (playlist) {
+            null -> playlistRepository.getPlaylistTracks(playlistId)
+            else -> playlistRepository.getTracksFor(playlist)
+        }
         val allTracksResult = allTracksDeferred.await()
 
         if (playlistsResult.isFailure || trackIdsResult.isFailure || allTracksResult.isFailure) {
@@ -127,7 +137,6 @@ class PlaylistAlbumsViewModel @Inject constructor(
         }
 
         val playlists = playlistsResult.getOrThrow()
-        val playlist = playlists.find { it.id == playlistId }
         val trackIdList = trackIdsResult.getOrThrow()
         val allTracks = allTracksResult.getOrThrow()
 
