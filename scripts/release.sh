@@ -85,11 +85,31 @@ node -e "
   fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
 "
 
+# The OpenAPI document carries the server crate's version, so a bump changes
+# the spec and every generated client with it. Regenerating here is what keeps
+# them together: the 3.0.0 bump did not, and because a version-only commit
+# touches no path the API-contract job watches, CI skipped the check and main
+# shipped a 3.0.0 server announcing itself as 2.43.0.
+echo "Regenerating the OpenAPI spec and its generated clients..."
+"$REPO_ROOT/scripts/generate-api-clients.sh"
+
+# The desktop crate's own lockfile records its version too, and nothing above
+# touches it. `cargo metadata` refreshes it without a build, so the bump does
+# not leave the tree dirty for whoever works next.
+cargo metadata --manifest-path "$REPO_ROOT/client/src-tauri/Cargo.toml" \
+  --format-version 1 >/dev/null
+
 git -C "$REPO_ROOT" add \
   client/package.json \
   client/src-tauri/tauri.conf.json \
   client/src-tauri/Cargo.toml \
+  client/src-tauri/Cargo.lock \
   server/crates/muorg-server/Cargo.toml \
+  server/Cargo.lock \
+  server/openapi.json \
+  src/api/schema.d.ts \
+  android-client/app/src/main/java/nl/muorg/android/data/api/schema/ApiSchema.kt \
+  android-client/app/src/main/java/nl/muorg/android/data/api/schema/MuorgApi.kt \
   android-client/app/build.gradle.kts \
   web-client/package.json
 
