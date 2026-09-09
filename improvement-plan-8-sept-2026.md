@@ -157,13 +157,24 @@ whether that is a deliberate platform difference or a gap.
 
 ## Desktop App (`client/`)
 
-### 10. `LibrarySettingsModal.vue` is 2,949 lines
+### 10. ~~`LibrarySettingsModal.vue` is 2,949 lines~~ — done
 
-By a wide margin the largest file in the repo; `MetadataEditor.vue` (1,783) is
-second. Both are doing settings-panel and form work that would split cleanly
-along the tab boundaries already present in the markup.
+Split along the tab boundaries already in the markup: eleven panels under
+`components/modals/settings/`, and a 233-line shell that owns the tab rail, the
+scroll container and open/close.
 
-**Size:** medium. **Value:** medium — mostly maintainability.
+The panels reach for the stores themselves rather than taking props. That is
+what made the original file so large — three dozen refs destructured at the top
+and threaded through every tab — and the state is global anyway, so there is
+nothing to thread.
+
+Largest remaining: `TablePanel` 571, `ThemePanel` 538, `GeneralPanel` 556.
+Those are mostly markup for option grids and live previews; splitting them
+further would separate a control from the thing it controls.
+
+`MetadataEditor.vue` (1,783) is untouched and is now the largest file in the
+desktop app. It has no comparable seam — it is one form — so it wants a
+different treatment.
 
 ### 11. ~~`src-tauri`: the transcode path and mDNS discovery~~ — done
 
