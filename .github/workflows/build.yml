@@ -97,10 +97,11 @@ jobs:
         with:
           node-version: '20'
 
+      # No `version:` — pnpm/action-setup reads the root package.json's
+      # `packageManager` field, which also governs local installs. Setting both
+      # is an error ("Multiple versions of pnpm specified").
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -150,10 +151,11 @@ jobs:
         with:
           node-version: '20'
 
+      # No `version:` — pnpm/action-setup reads the root package.json's
+      # `packageManager` field, which also governs local installs. Setting both
+      # is an error ("Multiple versions of pnpm specified").
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -200,10 +202,11 @@ jobs:
         with:
           node-version: '20'
 
+      # No `version:` — pnpm/action-setup reads the root package.json's
+      # `packageManager` field, which also governs local installs. Setting both
+      # is an error ("Multiple versions of pnpm specified").
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       - name: Install dependencies
         working-directory: web-client
