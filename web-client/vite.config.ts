@@ -71,6 +71,9 @@ export default defineConfig({
       "@": resolve(__dirname, "src"),
       "@shared": resolve(__dirname, "../src"),
       "feather-icons": resolve(__dirname, "node_modules/feather-icons"),
+      // ../src (the @shared tree) sits outside this app's node_modules, so the
+      // shared API client needs openapi-fetch resolved explicitly.
+      "openapi-fetch": resolve(__dirname, "node_modules/openapi-fetch"),
     },
   },
   server: {

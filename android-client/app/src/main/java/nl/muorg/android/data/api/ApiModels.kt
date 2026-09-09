@@ -3,6 +3,16 @@ package nl.muorg.android.data.api
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/**
+ * The app's own models.
+ *
+ * The wire types live in `schema/ApiSchema.kt`, generated from the server's
+ * OpenAPI document, and `WireMapping.kt` converts between the two. What is left
+ * here is what the server does not describe: tracks that also carry on-device
+ * file paths, display helpers, and the shapes of things Muorg's own API never
+ * returns (GitHub releases, album groupings).
+ */
+
 @Serializable
 data class CatalogTrack(
     val id: Int,
@@ -56,44 +66,12 @@ data class Stats(
     @SerialName("total_duration_secs") val totalDurationSecs: Long,
 )
 
-@Serializable
-data class StreamTokenResponse(
-    val token: String,
-)
-
-@Serializable
-data class CreatePlaylistRequest(
-    val name: String,
-)
-
-@Serializable
-data class UpdatePlaylistRequest(
-    val name: String? = null,
-    val icon: String? = null,
-)
-
 /** `rules_json` is a flat array of these, matching the web client exactly. */
 @Serializable
 data class SmartRule(
     val field: String,
     val op: String,
     val value: String,
-)
-
-@Serializable
-data class CreateSmartPlaylistRequest(
-    val name: String,
-    @SerialName("rules_json") val rulesJson: String,
-)
-
-@Serializable
-data class PlaylistTracksRequest(
-    @SerialName("track_ids") val trackIds: List<Int>,
-)
-
-@Serializable
-data class ReorderPlaylistTracksRequest(
-    @SerialName("ids") val ids: List<Int>,
 )
 
 @Serializable

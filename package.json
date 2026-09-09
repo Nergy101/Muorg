@@ -1,0 +1,36 @@
+{
+  "name": "muorg-monorepo",
+  "private": true,
+  "description": "Repo-level tooling. The apps themselves live in client/, web-client/, android-client/ and server/ and keep their own manifests.",
+  "scripts": {
+    "generate:api": "./scripts/generate-api-clients.sh",
+    "check:api": "./scripts/generate-api-clients.sh --check",
+    "smoke:api": "esbuild scripts/smoke-api.ts --bundle --platform=node --format=esm --outfile=node_modules/.smoke-api.mjs && node node_modules/.smoke-api.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "smoke:api:ci": "./scripts/smoke-api.sh",
+    "lint": "eslint src client/src web-client/src scripts *.mjs *.mts --max-warnings 0",
+    "lint:fix": "eslint src client/src web-client/src scripts *.mjs *.mts --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/feather-icons": "^4.29.4",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitest/coverage-v8": "^5.0.0",
+    "@vue/eslint-config-typescript": "^14.9.0",
+    "@vue/test-utils": "^2.5.0",
+    "ajv": "^8.20.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.10.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "feather-icons": "^4.29.2",
+    "happy-dom": "^20.14.0",
+    "openapi-fetch": "^0.17.0",
+    "openapi-typescript": "^7.13.0",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.0",
+    "vue": "^3.5.42"
+  },
+  "packageManager": "pnpm@10.18.3"
+}

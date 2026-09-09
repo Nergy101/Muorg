@@ -6,6 +6,7 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Playlist {
     pub id: i64,
     pub name: String,
@@ -15,6 +16,7 @@ pub struct Playlist {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CatalogTrack {
     pub id: i64,
     pub path: String,
@@ -38,6 +40,7 @@ pub struct CatalogTrack {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct TrackBackupRecord {
     pub id: i64,
     pub track_path: String,
@@ -832,6 +835,8 @@ fn write_track_lyrics(
 }
 
 /// Stored lyrics for a track, if any.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct TrackLyrics {
     pub track_id: i64,
     pub lyrics: String,
@@ -1049,6 +1054,7 @@ pub fn remove_root(conn: &rusqlite::Connection, root_path: &str) -> Result<(), S
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PlaylistTrackEntry {
     pub entry_id: i64,
     pub track_id: i64,
@@ -1440,6 +1446,7 @@ pub fn search_tracks(conn: &rusqlite::Connection, query: &str) -> Result<Vec<Cat
 }
 
 #[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct LibraryStats {
     pub track_count: i64,
     pub artist_count: i64,

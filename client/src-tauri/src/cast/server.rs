@@ -163,3 +163,176 @@ impl AudioServerState {
         self.allowlist.lock().unwrap().clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::to_bytes;
+
+    // ── Range parsing ─────────────────────────────────────────────────────
+    //
+    // The Chromecast resumes a paused stream with a Range request. Getting the
+    // offset wrong restarts the track from the beginning, or panics on a slice
+    // out of bounds.
+
+    #[test]
+    fn reads_the_start_offset_from_a_range_header() {
+        assert_eq!(parse_range_start("bytes=100-", 1000), Some(100));
+        assert_eq!(parse_range_start("bytes=100-500", 1000), Some(100));
+        assert_eq!(parse_range_start("bytes=0-", 1000), Some(0));
+    }
+
+    #[test]
+    fn rejects_an_offset_at_or_past_the_end() {
+        // The handler slices `data[start..]`, so an out-of-range start would
+        // panic rather than 416.
+        assert_eq!(parse_range_start("bytes=1000-", 1000), None);
+        assert_eq!(parse_range_start("bytes=1001-", 1000), None);
+        assert_eq!(parse_range_start("bytes=0-", 0), None);
+    }
+
+    #[test]
+    fn rejects_a_header_it_does_not_understand() {
+        assert_eq!(parse_range_start("100-200", 1000), None); // no unit
+        assert_eq!(parse_range_start("items=1-2", 1000), None); // wrong unit
+        assert_eq!(parse_range_start("bytes=abc-", 1000), None); // not a number
+        assert_eq!(parse_range_start("bytes=-500", 1000), None); // suffix range
+        assert_eq!(parse_range_start("", 1000), None);
+    }
+
+    // ── Allowlist ─────────────────────────────────────────────────────────
+
+    fn state_allowing(paths: &[&str]) -> ServerState {
+        let allowlist: HashSet<String> = paths.iter().map(|p| p.to_string()).collect();
+        ServerState {
+            allowlist: Arc::new(Mutex::new(allowlist)),
+        }
+    }
+
+    async fn get(state: ServerState, path: &str, range: Option<&str>) -> axum::response::Response {
+        let mut headers = HeaderMap::new();
+        if let Some(r) = range {
+            headers.insert("range", r.parse().unwrap());
+        }
+        serve_track(
+            headers,
+            Query(TrackQuery {
+                path: path.to_string(),
+                start: None,
+            }),
+            State(state),
+        )
+        .await
+        .into_response()
+    }
+
+    /// This server binds 0.0.0.0 so a Chromecast on the LAN can reach it, which
+    /// means anything on the network can ask it for a file. The allowlist is
+    /// the only thing stopping `?path=/etc/passwd` from being served.
+    #[tokio::test]
+    async fn refuses_a_path_that_was_never_allowlisted() {
+        let response = get(state_allowing(&[]), "/etc/passwd", None).await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn refuses_a_path_outside_the_allowlist_even_when_it_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let secret = dir.path().join("secret.mp3");
+        std::fs::write(&secret, b"not yours").unwrap();
+
+        let response = get(
+            state_allowing(&["/some/other/track.mp3"]),
+            secret.to_str().unwrap(),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn matches_the_allowlist_exactly_rather_than_by_prefix() {
+        // "/music/a.mp3" must not authorise "/music/a.mp3.evil" or the parent.
+        let state = state_allowing(&["/music/a.mp3"]);
+        assert_eq!(
+            get(state.clone(), "/music/a.mp3.evil", None).await.status(),
+            StatusCode::FORBIDDEN,
+        );
+        assert_eq!(
+            get(state, "/music", None).await.status(),
+            StatusCode::FORBIDDEN,
+        );
+    }
+
+    #[tokio::test]
+    async fn serves_an_allowlisted_file_whole() {
+        let dir = tempfile::tempdir().unwrap();
+        let track = dir.path().join("a.mp3");
+        std::fs::write(&track, b"0123456789").unwrap();
+        let path = track.to_str().unwrap();
+
+        let response = get(state_allowing(&[path]), path, None).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["Content-Length"], "10");
+        assert_eq!(response.headers()["Accept-Ranges"], "bytes");
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(&body[..], b"0123456789");
+    }
+
+    #[tokio::test]
+    async fn serves_a_range_request_as_partial_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let track = dir.path().join("a.mp3");
+        std::fs::write(&track, b"0123456789").unwrap();
+        let path = track.to_str().unwrap();
+
+        let response = get(state_allowing(&[path]), path, Some("bytes=4-")).await;
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(response.headers()["Content-Range"], "bytes 4-9/10");
+        assert_eq!(response.headers()["Content-Length"], "6");
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(&body[..], b"456789");
+    }
+
+    #[tokio::test]
+    async fn falls_back_to_the_whole_file_when_the_range_is_unusable() {
+        let dir = tempfile::tempdir().unwrap();
+        let track = dir.path().join("a.mp3");
+        std::fs::write(&track, b"0123456789").unwrap();
+        let path = track.to_str().unwrap();
+
+        // Past the end: serve the whole file rather than panicking on the slice.
+        let response = get(state_allowing(&[path]), path, Some("bytes=99-")).await;
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn reports_an_allowlisted_but_missing_file_as_not_found() {
+        let response = get(
+            state_allowing(&["/definitely/not/here.mp3"]),
+            "/definitely/not/here.mp3",
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn stopping_clears_the_allowlist_and_port() {
+        let server = AudioServerState::new();
+        let port = server.start_if_needed().await.expect("bind");
+        assert!(port > 0);
+        // A second call reuses the running server rather than binding again.
+        assert_eq!(server.start_if_needed().await.expect("reuse"), port);
+
+        server.add_to_allowlist("/music/a.mp3");
+        server.stop();
+
+        assert!(server.port.lock().unwrap().is_none());
+        assert!(server.allowlist.lock().unwrap().is_empty());
+    }
+}

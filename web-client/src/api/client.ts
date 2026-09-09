@@ -1,3 +1,5 @@
+import { createApi, createTransport } from "@shared/api";
+
 const SERVER_URL_KEY = "muorg-web-url";
 const API_KEY_KEY = "muorg-web-key";
 
@@ -26,55 +28,33 @@ export function disconnect(): void {
   localStorage.removeItem(API_KEY_KEY);
 }
 
-function authHeaders(): Record<string, string> {
-  const key = getApiKey();
-  return key ? { Authorization: `Bearer ${key}` } : {};
-}
+/**
+ * The typed client. Request plumbing and every endpoint signature live in
+ * `src/api/` at the repo root, shared with the desktop app — see
+ * `src/api/README.md`.
+ */
+export const transport = createTransport({
+  baseUrl: getServerUrl,
+  apiKey: getApiKey,
+});
 
-export async function apiFetch<T = unknown>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const url = `${getServerUrl()}${path}`;
-  const headers = new Headers({
-    ...authHeaders(),
-    ...(options.headers as Record<string, string> | undefined),
-  });
-  const res = await fetch(url, { ...options, headers });
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { error?: string };
-      if (body.error) msg = body.error;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(msg);
-  }
-  if (res.status === 204 || res.headers.get("content-length") === "0") {
-    return undefined as T;
-  }
-  return res.json() as Promise<T>;
-}
+export const api = createApi(transport);
 
-export async function apiFetchBlob(path: string): Promise<Blob> {
-  const url = `${getServerUrl()}${path}`;
-  const headers = new Headers(authHeaders());
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.blob();
-}
+// There is no untyped `apiFetch` any more: every request goes through the
+// spec-typed client above, so a call to a path the server does not serve is a
+// compile error. `streamUrl` stays because an <audio src> is a URL, not a fetch.
+export const streamUrl = transport.streamUrl;
 
-export function streamUrl(trackId: number, token: string, startSecs?: number): string {
-  const base = `${getServerUrl()}/stream/${trackId}?token=${encodeURIComponent(token)}`;
-  return startSecs != null && startSecs > 0
-    ? `${base}&start=${startSecs.toFixed(2)}`
-    : base;
-}
+export { ApiError } from "@shared/api";
 
+/**
+ * Probe a server the user just typed in, before we commit it to localStorage —
+ * so it needs its own transport rather than the ambient one.
+ */
 export async function testConnection(url: string, key: string): Promise<void> {
-  const cleanUrl = url.replace(/\/$/, "");
-  const headers = new Headers(key ? { Authorization: `Bearer ${key}` } : {});
-  const res = await fetch(`${cleanUrl}/api/health`, { headers });
-  if (!res.ok) throw new Error(`Server responded with HTTP ${res.status}`);
+  const probe = createTransport({
+    baseUrl: () => url.replace(/\/$/, ""),
+    apiKey: () => key,
+  });
+  await createApi(probe).health();
 }

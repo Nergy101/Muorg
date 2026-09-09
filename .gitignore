@@ -1,4 +1,5 @@
 # Dependencies
+node_modules/
 client/node_modules/
 web-client/node_modules/
 
@@ -16,6 +17,7 @@ server/binaries/
 
 # Tauri build artifacts
 client/*.tsbuildinfo
+web-client/*.tsbuildinfo
 
 # Runtime / local config
 server/muorg-server.toml

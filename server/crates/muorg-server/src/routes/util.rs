@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use crate::routes::dto::ErrorResponse;
 use crate::routes::ApiError;
 use crate::state::AppState;
 
@@ -52,16 +53,23 @@ pub async fn home() -> Html<String> {
     Html(include_str!("home.html").replace("{{VERSION}}", env!("CARGO_PKG_VERSION")))
 }
 
+/// Unauthenticated liveness probe.
+#[utoipa::path(
+    get,
+    path = "/api/health",
+    tag = "System",
+    responses((status = 200, description = "Server is up", content_type = "text/plain")),
+)]
 pub async fn health() -> impl IntoResponse {
     (StatusCode::OK, "Healthy")
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct FetchImageBody {
     pub url: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct FetchedImage {
     pub base64: String,
     pub mime: String,
@@ -69,6 +77,20 @@ pub struct FetchedImage {
 
 static USER_AGENT: &str = "Muorg/1.0 (music organizer; album art from Wikipedia)";
 
+/// Proxy-fetch a remote image and return it base64-encoded, so the clients can
+/// pull cover art from the web without tripping CORS.
+#[utoipa::path(
+    post,
+    path = "/api/fetch-image",
+    tag = "System",
+    request_body = FetchImageBody,
+    responses(
+        (status = 200, description = "Base64 image plus its MIME type", body = FetchedImage),
+        (status = 400, description = "URL unreachable or not an image", body = ErrorResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn fetch_image(
     State(_state): State<Arc<AppState>>,
     Json(body): Json<FetchImageBody>,

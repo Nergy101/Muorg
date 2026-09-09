@@ -54,7 +54,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import androidx.compose.runtime.LaunchedEffect
+import androidx.hilt.navigation.compose.hiltViewModel
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.data.api.schema.MatchCandidate
+import nl.muorg.android.ui.screen.metadata.MetadataToolsViewModel
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.player.PlayerViewModel
 import java.text.SimpleDateFormat
@@ -137,6 +141,7 @@ fun TrackActionsSheet(
                     onSaveMetadata?.invoke(title, artist, album, albumArtist, genre, year)
                     onDismiss()
                 },
+                onToast = playerViewModel::showToast,
             )
         }
     }
@@ -421,6 +426,8 @@ private fun MetadataEditLevel(
     track: CatalogTrack,
     onBack: () -> Unit,
     onSave: (title: String?, artist: String?, album: String?, albumArtist: String?, genre: String?, year: Int?) -> Unit,
+    onToast: (String) -> Unit,
+    toolsViewModel: MetadataToolsViewModel = hiltViewModel(),
 ) {
     var editTitle by remember { mutableStateOf(track.title ?: "") }
     var editArtist by remember { mutableStateOf(track.artist ?: "") }
@@ -428,6 +435,14 @@ private fun MetadataEditLevel(
     var editAlbumArtist by remember { mutableStateOf(track.albumArtist ?: "") }
     var editGenre by remember { mutableStateOf(track.genre ?: "") }
     var editYear by remember { mutableStateOf(track.year?.toString() ?: "") }
+
+    val tools by toolsViewModel.state.collectAsStateWithLifecycle()
+    // A local track has no server row, so none of these tools apply to it.
+    val isRemoteTrack = track.id > 0
+    LaunchedEffect(track.id) {
+        toolsViewModel.reset()
+        if (isRemoteTrack) toolsViewModel.checkBackup(track.id)
+    }
 
     ListItem(
         headlineContent = { Text("Back") },
@@ -457,6 +472,67 @@ private fun MetadataEditLevel(
         MetadataField("Genre", editGenre) { editGenre = it }
         MetadataField("Year", editYear) { editYear = it }
 
+        if (isRemoteTrack) {
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = { toolsViewModel.findMatches(track.id) },
+                    enabled = !tools.loadingSuggestions,
+                ) {
+                    Text(if (tools.loadingSuggestions) "Searching…" else "Find matches")
+                }
+                Spacer(Modifier.weight(1f))
+                if (tools.backupAvailable) {
+                    TextButton(
+                        onClick = {
+                            toolsViewModel.restore(track.id) { message ->
+                                onToast(message)
+                            }
+                        },
+                        enabled = !tools.restoring,
+                    ) {
+                        Text(if (tools.restoring) "Restoring…" else "Undo last write")
+                    }
+                }
+            }
+
+            tools.error?.let { message ->
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+
+            if (tools.searched && tools.candidates.isEmpty() && tools.error == null) {
+                Text(
+                    "No matches found.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+
+            // Tapping a candidate fills the form rather than writing straight
+            // through: the user still sees what is about to be saved.
+            for (candidate in tools.candidates) {
+                MatchCandidateRow(candidate) {
+                    editTitle = candidate.title
+                    editArtist = candidate.artist
+                    candidate.album?.let { editAlbum = it }
+                    candidate.albumArtist?.let { editAlbumArtist = it }
+                    candidate.year?.let { editYear = it.toString() }
+                }
+            }
+        }
+
         Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -482,6 +558,43 @@ private fun MetadataEditLevel(
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** One MusicBrainz match, with its confidence, tappable to fill the form. */
+@Composable
+private fun MatchCandidateRow(
+    candidate: MatchCandidate,
+    onApply: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onApply() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                candidate.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                listOfNotNull(
+                    candidate.artist,
+                    candidate.album,
+                    candidate.year?.toString(),
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            "${(candidate.confidence * 100).toInt()}%",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 

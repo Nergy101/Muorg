@@ -5,6 +5,13 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # vue-tsc 3.x shells out to `typescript/lib/tsc`, a subpath TypeScript 7
+      # (the native port) removed from its `exports` map. Every TS 7 bump has
+      # broken the build with ERR_PACKAGE_PATH_NOT_EXPORTED and been reverted by
+      # hand — three times so far. Lift this once vue-tsc supports TS 7.
+      - dependency-name: "typescript"
+        versions: [">=7"]
     groups:
       client:
         patterns: ["*"]
@@ -14,8 +21,26 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # vue-tsc 3.x shells out to `typescript/lib/tsc`, a subpath TypeScript 7
+      # (the native port) removed from its `exports` map. Every TS 7 bump has
+      # broken the build with ERR_PACKAGE_PATH_NOT_EXPORTED and been reverted by
+      # hand — three times so far. Lift this once vue-tsc supports TS 7.
+      - dependency-name: "typescript"
+        versions: [">=7"]
     groups:
       web-client:
+        patterns: ["*"]
+
+  # Repo-level tooling only (openapi-typescript, used by
+  # scripts/generate-api-clients.sh).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      tooling:
         patterns: ["*"]
 
   - package-ecosystem: "cargo"

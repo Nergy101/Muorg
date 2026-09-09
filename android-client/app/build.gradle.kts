@@ -35,6 +35,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    testOptions {
+        unitTests {
+            // JVM unit tests link against a stub android.jar whose methods throw
+            // by default. LibraryRepository's cache TTL calls
+            // SystemClock.elapsedRealtime(); returning 0 is the right behaviour
+            // for a test — every read lands inside the TTL window, which is
+            // what the cache test asserts.
+            isReturnDefaultValues = true
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -113,4 +124,9 @@ dependencies {
 
     // Error Prone (required by Hilt/Dagger generated code with AGP 9.x)
     compileOnly(libs.errorprone.annotations)
+
+    // Unit tests (JVM — no device or emulator needed)
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

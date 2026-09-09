@@ -75,9 +75,9 @@ export function useDominantColor(imageUrl: Ref<string | null>) {
             }
           }
           if (wTotal === 0) return;
-          let r = Math.round((wr / wTotal) * DARKEN);
-          let g = Math.round((wg / wTotal) * DARKEN);
-          let b = Math.round((wb / wTotal) * DARKEN);
+          const r = Math.round((wr / wTotal) * DARKEN);
+          const g = Math.round((wg / wTotal) * DARKEN);
+          const b = Math.round((wb / wTotal) * DARKEN);
           glowRgb.value = `${r},${g},${b}`;
         } catch {
           glowRgb.value = FALLBACK_RGB;
@@ -118,7 +118,7 @@ function rgbToHue(r: number, g: number, b: number): number {
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   if (max === min) return 0;
   const d = max - min;
-  let h = 0;
+  let h: number;
   if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
   else if (max === g) h = ((b - r) / d + 2) / 6;
   else h = ((r - g) / d + 4) / 6;
@@ -151,7 +151,7 @@ export function hasOpposingEdgeColors(bySide: EdgeColorsBySide | null): boolean 
   const hueDiff = (a: string, b: string): number => {
     const [ar, ag, ab] = a.split(",").map(Number);
     const [br, bg, bb] = b.split(",").map(Number);
-    let d = Math.abs(rgbToHue(ar, ag, ab) - rgbToHue(br, bg, bb));
+    const d = Math.abs(rgbToHue(ar, ag, ab) - rgbToHue(br, bg, bb));
     return d > 180 ? 360 - d : d;
   };
 

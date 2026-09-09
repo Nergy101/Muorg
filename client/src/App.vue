@@ -471,10 +471,10 @@ onUnmounted(() => {
       class="row-start-1 row-end-2 col-start-3 col-end-4 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface border border-stone-700/50"
     >
       <LibraryTable
-        v-model:activeTab="activeTab"
+        v-model:active-tab="activeTab"
         :sidebar-collapsed="sidebarCollapsed"
-        @expandSidebar="sidebarCollapsed = false"
-        @expandPlayer="expandPlayer"
+        @expand-sidebar="sidebarCollapsed = false"
+        @expand-player="expandPlayer"
       />
     </main>
 
@@ -635,6 +635,23 @@ onUnmounted(() => {
         role="status"
         aria-label="Loading"
       />
+    </div>
+
+    <!--
+      The first page of the catalog is already on screen at this point; the rest
+      is still streaming in. A corner badge rather than a blocking overlay, so
+      the library stays usable while it fills.
+    -->
+    <div
+      v-if="store.loadingMore"
+      class="pointer-events-none absolute bottom-24 right-4 z-40 flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/90 px-3 py-1.5 text-xs text-stone-300 shadow-lg"
+      aria-live="polite"
+    >
+      <div
+        class="h-3 w-3 rounded-full border-2 border-stone-600 border-t-stone-300 animate-spin"
+        role="status"
+      />
+      Loading library — {{ store.tracks.length }} of {{ store.totalTracks }}
     </div>
 
     <Teleport to="body">

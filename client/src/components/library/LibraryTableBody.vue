@@ -11,6 +11,8 @@ import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import MarqueeCell from "@shared/components/MarqueeCell.vue";
+import EqualizerBars from "@shared/components/EqualizerBars.vue";
+import { isPlayingNow } from "../../state/playback";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 import StarRating from "../shared/StarRating.vue";
 
@@ -1137,7 +1139,14 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                 </div>
               </td>
               <td class="p-2 text-stone-200">
-                <MarqueeCell :text="row.track.title ?? '—'" />
+                <div class="flex min-w-0 items-center gap-2">
+                  <EqualizerBars
+                    v-if="row.track.id === currentPlayingTrackId"
+                    class="shrink-0 text-amber-400"
+                    :paused="!isPlayingNow"
+                  />
+                  <MarqueeCell class="min-w-0 flex-1" :text="row.track.title ?? '—'" />
+                </div>
               </td>
               <td v-if="tableColRating" class="px-4 py-2" @click.stop>
                 <StarRating

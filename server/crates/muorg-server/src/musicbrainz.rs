@@ -5,7 +5,7 @@ use std::time::Instant;
 use sha2::Digest;
 
 /// Query parameters for searching MusicBrainz.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SearchQuery {
     pub artist: Option<String>,
     pub title: Option<String>,
@@ -15,7 +15,7 @@ pub struct SearchQuery {
 }
 
 /// A single candidate match from MusicBrainz.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct MatchCandidate {
     /// Confidence score 0.0–1.0 computed by comparing query against results.
     pub confidence: f64,

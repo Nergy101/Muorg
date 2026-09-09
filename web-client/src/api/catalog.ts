@@ -1,91 +1,70 @@
-import { apiFetch, apiFetchBlob, getApiKey, getServerUrl } from "./client";
+/**
+ * Catalog calls, delegated to the shared typed client in `src/api/`.
+ *
+ * The signatures here are the ones this app already used; the request building
+ * and the wire types now come from the generated contract, so a server change
+ * shows up as a compile error rather than a runtime shrug.
+ */
+
+import { api } from "./client";
 import type { CatalogTrack, LibraryStats } from "../types";
+import type { MetadataUpdate, TracksPage, TrackLyrics } from "@shared/api";
 
-export interface TracksPage {
-  tracks: CatalogTrack[];
-  total: number;
+export type { TracksPage, TrackLyrics, MetadataUpdate };
+
+/** One page of tracks plus the total count (from `X-Total-Count`). */
+export function getTracks(offset = 0, limit?: number): Promise<TracksPage> {
+  return api.getTracksPage(offset, limit);
 }
 
-/** Fetch a page of tracks plus the total count (via X-Total-Count header). */
-export async function getTracks(offset = 0, limit = 500): Promise<TracksPage> {
-  const url = `${getServerUrl()}/api/tracks?offset=${offset}&limit=${limit}`;
-  const headers = new Headers();
-  const key = getApiKey();
-  if (key) headers.set("Authorization", `Bearer ${key}`);
-  const res = await fetch(url, { headers });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  const total = Number(res.headers.get("X-Total-Count") ?? 0);
-  const tracks = (await res.json()) as CatalogTrack[];
-  return { tracks, total };
+/**
+ * The catalog, one page at a time. Render each page as it arrives instead of
+ * blocking on the whole library — `/api/tracks` is paginated at 500 rows.
+ */
+export function streamTracks(): AsyncGenerator<TracksPage, void, void> {
+  return api.streamTracks();
 }
 
-export async function getStats(): Promise<LibraryStats> {
-  return apiFetch<LibraryStats>("/api/stats");
+export function getStats(): Promise<LibraryStats> {
+  return api.getStats();
 }
 
 /** Most recently scanned tracks (newest first). */
-export async function getRecentlyAdded(limit = 20): Promise<CatalogTrack[]> {
-  return apiFetch<CatalogTrack[]>(`/api/tracks/recently-added?limit=${limit}`);
+export function getRecentlyAdded(limit = 20): Promise<CatalogTrack[]> {
+  return api.getRecentlyAdded(limit);
 }
 
 /** Most recently played tracks (newest first). */
-export async function getRecentPlayHistory(limit = 20): Promise<CatalogTrack[]> {
-  return apiFetch<CatalogTrack[]>(`/api/play-history/recent?limit=${limit}`);
+export function getRecentPlayHistory(limit = 20): Promise<CatalogTrack[]> {
+  return api.getRecentlyPlayed(limit);
 }
 
 /** Most played tracks within the last `days` days (highest count first). */
-export async function getTopPlayHistory(limit = 20, days = 30): Promise<CatalogTrack[]> {
-  return apiFetch<CatalogTrack[]>(`/api/play-history/top?limit=${limit}&days=${days}`);
+export function getTopPlayHistory(limit = 20, days = 30): Promise<CatalogTrack[]> {
+  return api.getMostPlayed(limit, days);
 }
 
 export async function getCoverBlob(trackId: number): Promise<Blob | null> {
   try {
-    return await apiFetchBlob(`/api/tracks/${trackId}/cover`);
+    return await api.getCoverBlob(trackId);
   } catch {
     return null;
   }
 }
 
-export async function issueStreamToken(trackId: number): Promise<string> {
-  const result = await apiFetch<{ token: string }>(
-    `/api/tracks/${trackId}/stream-token`,
-  );
-  return result.token;
-}
-
-export interface TrackLyrics {
-  track_id: number;
-  lyrics: string;
-  sync_format: string;
+export function issueStreamToken(trackId: number): Promise<string> {
+  return api.getStreamToken(trackId);
 }
 
 /** Embedded lyrics for a track, or null when it has none (404). */
-export async function getTrackLyrics(trackId: number): Promise<TrackLyrics | null> {
-  try {
-    return await apiFetch<TrackLyrics>(`/api/tracks/${trackId}/lyrics`);
-  } catch {
-    return null;
-  }
+export function getTrackLyrics(trackId: number): Promise<TrackLyrics | null> {
+  return api.getLyrics(trackId);
 }
 
 export async function recordPlay(trackId: number): Promise<void> {
-  apiFetch(`/api/tracks/${trackId}/play`, { method: "POST" }).catch(() => {
+  await api.recordPlay(trackId).catch(() => {
     /* fire-and-forget */
   });
-}
-
-export interface MetadataUpdate {
-  title?: string | null;
-  artist?: string | null;
-  album?: string | null;
-  album_artist?: string | null;
-  featuring?: string | null;
-  year?: number | null;
-  genre?: string | null;
-  track_number?: number | null;
-  disc_number?: number | null;
 }
 
 export async function patchMetadata(
@@ -93,9 +72,5 @@ export async function patchMetadata(
   update: MetadataUpdate,
   backupBeforeWrite: boolean,
 ): Promise<void> {
-  await apiFetch(`/api/tracks/${trackId}/metadata`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...update, backup_before_write: backupBeforeWrite }),
-  });
+  await api.patchMetadata(trackId, update, backupBeforeWrite);
 }

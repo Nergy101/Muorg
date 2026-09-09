@@ -1,0 +1,3869 @@
+{
+  "components": {
+    "schemas": {
+      "AdminHealthResponse": {
+        "description": "`GET /api/admin/health`",
+        "properties": {
+          "server": {
+            "type": "string"
+          },
+          "status": {
+            "description": "`\"ok\"` when the catalog is readable, `\"degraded\"` otherwise.",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "server",
+          "version"
+        ],
+        "type": "object"
+      },
+      "AutoTagSuggestionsResponse": {
+        "description": "`POST /api/tracks/{id}/auto-tag-suggestions`",
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/MatchCandidate"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "type": "object"
+      },
+      "BackupDirectoryResponse": {
+        "description": "`GET /api/admin/backup-directory`",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "BatchMetadataItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MetadataUpdate"
+          },
+          {
+            "properties": {
+              "id": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "BatchUpdateResponse": {
+        "description": "`POST /api/tracks/metadata/batch`",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "updated": {
+            "description": "Number of tracks whose tags were actually written.",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "updated"
+        ],
+        "type": "object"
+      },
+      "CastDevice": {
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "port": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "address",
+          "port"
+        ],
+        "type": "object"
+      },
+      "CastSessionStatus": {
+        "oneOf": [
+          {
+            "properties": {
+              "status": {
+                "enum": [
+                  "idle"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "status": {
+                "enum": [
+                  "connecting"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "status": {
+                "enum": [
+                  "transcoding"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "position_secs": {
+                "format": "float",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "playing"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "position_secs": {
+                "format": "float",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "paused"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "finished": {
+                "type": "boolean"
+              },
+              "status": {
+                "enum": [
+                  "stopped"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "finished",
+              "status"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "error"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "message",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "CastStatusResponse": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/CastSessionStatus"
+          },
+          "volume": {
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "session",
+          "volume"
+        ],
+        "type": "object"
+      },
+      "CatalogTrack": {
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "album_artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disc_number": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_secs": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "featuring": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "format": {
+            "type": "string"
+          },
+          "genre": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_cover": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_played_at": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "mtime_secs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "play_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rating": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "root_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "track_number": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "root_id",
+          "format",
+          "mtime_secs",
+          "has_cover",
+          "play_count"
+        ],
+        "type": "object"
+      },
+      "CountResponse": {
+        "description": "`GET /api/tracks/count`",
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "type": "object"
+      },
+      "CreateBody": {
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Body of every non-2xx response.",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "FetchImageBody": {
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "FetchedImage": {
+        "properties": {
+          "base64": {
+            "type": "string"
+          },
+          "mime": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "base64",
+          "mime"
+        ],
+        "type": "object"
+      },
+      "LibraryStats": {
+        "properties": {
+          "album_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "artist_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total_duration_secs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "track_count": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "track_count",
+          "artist_count",
+          "album_count",
+          "total_duration_secs"
+        ],
+        "type": "object"
+      },
+      "MatchCandidate": {
+        "description": "A single candidate match from MusicBrainz.",
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "album_artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": "string"
+          },
+          "confidence": {
+            "description": "Confidence score 0.0–1.0 computed by comparing query against results.",
+            "format": "double",
+            "type": "number"
+          },
+          "mbid": {
+            "description": "MusicBrainz recording MBID.",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "track_number": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "confidence",
+          "mbid",
+          "title",
+          "artist"
+        ],
+        "type": "object"
+      },
+      "MetadataUpdate": {
+        "description": "Patch document for `PATCH /api/tracks/{id}/metadata`.\n\nEvery field is `Option<Option<T>>`: absent means \"leave this tag alone\",\n`null` means \"clear it\". `ToSchema` flattens that to a plain nullable\noptional, which is the right shape for a JSON patch body.",
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "album_artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disc_number": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "featuring": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "genre": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "picture_base64": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "track_number": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "OkResponse": {
+        "description": "The uniform acknowledgement for mutations that return no data.",
+        "properties": {
+          "ok": {
+            "description": "Always `true`; failures come back as an [`ErrorResponse`] with a 4xx/5xx.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "PatchMetadataBody": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MetadataUpdate"
+          },
+          {
+            "properties": {
+              "backup_before_write": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "PlayBody": {
+        "properties": {
+          "device_address": {
+            "type": "string"
+          },
+          "device_port": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "track_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device_address",
+          "device_port",
+          "track_id"
+        ],
+        "type": "object"
+      },
+      "Playlist": {
+        "properties": {
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "smart_rules": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "track_count": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "track_count"
+        ],
+        "type": "object"
+      },
+      "PlaylistTrackEntry": {
+        "properties": {
+          "entry_id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "track_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entry_id",
+          "track_id"
+        ],
+        "type": "object"
+      },
+      "RatingBody": {
+        "properties": {
+          "rating": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "RemoveFolderBody": {
+        "properties": {
+          "root_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "root_path"
+        ],
+        "type": "object"
+      },
+      "RenameBody": {
+        "properties": {
+          "new_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_path"
+        ],
+        "type": "object"
+      },
+      "ReorderBody": {
+        "properties": {
+          "ids": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "RescanBody": {
+        "properties": {
+          "root_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "RescanResult": {
+        "properties": {
+          "tracks_added": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tracks_added"
+        ],
+        "type": "object"
+      },
+      "SearchQuery": {
+        "description": "Query parameters for searching MusicBrainz.",
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "duration_secs": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "SeekBody": {
+        "properties": {
+          "position_secs": {
+            "format": "float",
+            "type": "number"
+          },
+          "was_playing": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "position_secs",
+          "was_playing"
+        ],
+        "type": "object"
+      },
+      "SmartCreateBody": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "rules_json": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "rules_json"
+        ],
+        "type": "object"
+      },
+      "SmartRulesBody": {
+        "properties": {
+          "rules_json": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rules_json"
+        ],
+        "type": "object"
+      },
+      "TokenResponse": {
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "TrackBackupRecord": {
+        "properties": {
+          "backup_path": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "track_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "track_path",
+          "backup_path",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "TrackIdsBody": {
+        "properties": {
+          "track_ids": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "track_ids"
+        ],
+        "type": "object"
+      },
+      "TrackLyrics": {
+        "description": "Stored lyrics for a track, if any.",
+        "properties": {
+          "lyrics": {
+            "type": "string"
+          },
+          "sync_format": {
+            "type": "string"
+          },
+          "track_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "track_id",
+          "lyrics",
+          "sync_format"
+        ],
+        "type": "object"
+      },
+      "TrackMetadata": {
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "album_artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disc_number": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_secs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "featuring": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "genre": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lyrics": {
+            "description": "Embedded lyrics text (USLT / UNSYNCEDLYRICS, or synced when available).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lyrics_format": {
+            "description": "`\"lrc\"` when the lyrics text carries `[mm:ss.xx]` timing lines, else\n`\"plain\"`. Absent when there are no embedded lyrics.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "picture_base64": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "picture_mime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "picture_size_bytes": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "replaygain_album_gain_db": {
+            "format": "float",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "replaygain_album_peak": {
+            "format": "float",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "replaygain_track_gain_db": {
+            "format": "float",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "replaygain_track_peak": {
+            "format": "float",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "track_number": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "UpdateBody": {
+        "properties": {
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "VolumeBody": {
+        "properties": {
+          "level": {
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "level"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "description": "The server's configured `api_key`.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "The Muorg music server HTTP API, shared by the desktop (Tauri), web and Android clients. Everything except `GET /api/health` and `GET /stream/{id}` requires an `Authorization: Bearer <api_key>` header.\n\n`GET /api/tracks` is paginated and defaults to 500 rows — a bare call returns the first page, not the catalog. Follow `X-Total-Count`.",
+    "license": {
+      "name": ""
+    },
+    "title": "Muorg Server API",
+    "version": "2.43.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/admin/backup-directory": {
+      "get": {
+        "operationId": "get_backup_directory",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupDirectoryResponse"
+                }
+              }
+            },
+            "description": "Absolute backup directory path"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Where pre-write backups are kept on the server.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/clear-cache": {
+      "post": {
+        "operationId": "clear_cache",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Cache cleared"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Purge soft-deleted rows immediately.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/health": {
+      "get": {
+        "operationId": "admin_health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHealthResponse"
+                }
+              }
+            },
+            "description": "Server and catalog status"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Deeper health check than `/api/health`: also proves the catalog is readable.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/metrics": {
+      "get": {
+        "operationId": "admin_metrics",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {}
+            },
+            "description": "Prometheus metrics"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Prometheus exposition format.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/remove-folder": {
+      "post": {
+        "operationId": "remove_folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveFolderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Root removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Drop a root and soft-delete the tracks under it.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/rescan": {
+      "post": {
+        "operationId": "rescan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RescanBody"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanResult"
+                }
+              }
+            },
+            "description": "Scan finished"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Rescan one root, or every root when no body is sent.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/cast/devices": {
+      "get": {
+        "operationId": "cast_devices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CastDevice"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Discovered devices"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Chromecast devices seen by the current mDNS sweep.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/discovery/start": {
+      "post": {
+        "operationId": "cast_start_discovery",
+        "responses": {
+          "204": {
+            "description": "Discovery started"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Begin mDNS discovery.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/discovery/stop": {
+      "post": {
+        "operationId": "cast_stop_discovery",
+        "responses": {
+          "204": {
+            "description": "Discovery stopped"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Stop mDNS discovery.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/pause": {
+      "post": {
+        "operationId": "cast_pause",
+        "responses": {
+          "204": {
+            "description": "Command accepted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Pause the cast session.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/play": {
+      "post": {
+        "operationId": "cast_play",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Command accepted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Start casting a track to a device.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/resume": {
+      "post": {
+        "operationId": "cast_resume",
+        "responses": {
+          "204": {
+            "description": "Command accepted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Resume the cast session.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/seek": {
+      "post": {
+        "operationId": "cast_seek",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeekBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Command accepted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Seek within the casting track.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/status": {
+      "get": {
+        "operationId": "cast_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastStatusResponse"
+                }
+              }
+            },
+            "description": "Session status"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Current cast session state and device volume.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/stop": {
+      "post": {
+        "operationId": "cast_stop",
+        "responses": {
+          "204": {
+            "description": "Command accepted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Tear down the cast session.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/cast/volume": {
+      "post": {
+        "operationId": "cast_set_volume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VolumeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Command accepted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Set device volume, 0.0–1.0.",
+        "tags": [
+          "Cast"
+        ]
+      }
+    },
+    "/api/fetch-image": {
+      "post": {
+        "operationId": "fetch_image",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FetchImageBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FetchedImage"
+                }
+              }
+            },
+            "description": "Base64 image plus its MIME type"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "URL unreachable or not an image"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Proxy-fetch a remote image and return it base64-encoded, so the clients can\npull cover art from the web without tripping CORS.",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {}
+            },
+            "description": "Server is up"
+          }
+        },
+        "summary": "Unauthenticated liveness probe.",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/play-history/recent": {
+      "get": {
+        "operationId": "get_recent_play_history",
+        "parameters": [
+          {
+            "description": "Rows to return. Default 50.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Look-back window in days. Default 30. Only used by `/api/play-history/top`.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogTrack"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Most recently played tracks, newest first"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/play-history/top": {
+      "get": {
+        "operationId": "get_top_play_history",
+        "parameters": [
+          {
+            "description": "Rows to return. Default 50.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Look-back window in days. Default 30. Only used by `/api/play-history/top`.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogTrack"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Most played tracks within the window"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/playlists": {
+      "get": {
+        "operationId": "list_playlists",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Playlist"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Playlists"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "All playlists, in user-defined order.",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "post": {
+        "operationId": "create_playlist",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Playlist"
+                }
+              }
+            },
+            "description": "The created playlist"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Create an empty playlist.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/order": {
+      "put": {
+        "operationId": "reorder_playlists",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Reordered"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Reorder the playlists themselves.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/smart": {
+      "post": {
+        "operationId": "create_smart_playlist",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartCreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Playlist"
+                }
+              }
+            },
+            "description": "The created playlist"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Create a rule-driven smart playlist.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/smart/{id}/rules": {
+      "patch": {
+        "operationId": "update_smart_playlist_rules",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartRulesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Updated"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Replace a smart playlist's rule set.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/smart/{id}/tracks": {
+      "get": {
+        "operationId": "get_smart_playlist_tracks",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Matching track ids"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Evaluate the rules and return the matching track ids.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/{id}": {
+      "delete": {
+        "operationId": "delete_playlist",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Delete a playlist and its entries.",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "patch": {
+        "operationId": "update_playlist",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Updated"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Rename a playlist and/or set its icon.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/{id}/entries": {
+      "get": {
+        "operationId": "get_playlist_entries",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlaylistTrackEntry"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Entries, in playlist order"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Playlist entries, which carry their own id so the same track can appear twice.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/{id}/entries/{entry_id}": {
+      "delete": {
+        "operationId": "remove_playlist_entry",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Playlist entry id",
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Remove one entry, leaving other copies of the same track in place.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/{id}/tracks": {
+      "delete": {
+        "operationId": "remove_playlist_tracks",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackIdsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Remove every entry for the given tracks.",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "get": {
+        "operationId": "get_playlist_tracks",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Track ids, in playlist order"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Track ids in playlist order.",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "post": {
+        "operationId": "add_playlist_tracks",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackIdsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Added"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Append tracks to a playlist.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/playlists/{id}/tracks/order": {
+      "put": {
+        "operationId": "reorder_playlist_tracks",
+        "parameters": [
+          {
+            "description": "Playlist id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Reordered"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such playlist"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Reorder entries within a playlist.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
+    "/api/roots": {
+      "get": {
+        "operationId": "get_roots",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Configured library root folders"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "search_tracks",
+        "parameters": [
+          {
+            "description": "Free-text query matched against title, artist and album.",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogTrack"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Matching tracks"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing `q`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "operationId": "get_stats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryStats"
+                }
+              }
+            },
+            "description": "Catalog totals"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/tracks": {
+      "get": {
+        "operationId": "get_tracks",
+        "parameters": [
+          {
+            "description": "Row to start at. Default 0.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows to return. Default 500 — this is the page size every client must\nloop against; a bare `/api/tracks` is page one, not the whole catalog.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogTrack"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "One page of the catalog. `X-Total-Count` carries the full catalog size, so a client knows how many more pages to fetch.",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total tracks in the catalog",
+                "schema": {
+                  "format": "int64",
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/tracks/count": {
+      "get": {
+        "operationId": "get_tracks_count",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            },
+            "description": "Total tracks in the catalog"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Total track count without loading rows.",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/tracks/metadata/batch": {
+      "post": {
+        "operationId": "batch_patch_metadata",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/BatchMetadataItem"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchUpdateResponse"
+                }
+              }
+            },
+            "description": "Number of tracks written"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Apply a metadata patch to many tracks in one call.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/recently-added": {
+      "get": {
+        "operationId": "get_recently_added",
+        "parameters": [
+          {
+            "description": "Rows to return. Default 50.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Look-back window in days. Default 30. Only used by `/api/play-history/top`.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogTrack"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Most recently scanned tracks, newest first"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/tracks/{id}/auto-tag-suggestions": {
+      "post": {
+        "operationId": "auto_tag_suggestions",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoTagSuggestionsResponse"
+                }
+              }
+            },
+            "description": "Ranked candidates, best first"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "MusicBrainz candidates for this track. With no body, the query is built from the file\\u2019s own tags.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/backup": {
+      "get": {
+        "operationId": "get_backup",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TrackBackupRecord"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Backup record, or null when none exists"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "The most recent pre-write backup of this file, if one exists.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/cover": {
+      "get": {
+        "operationId": "get_cover",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Requested max edge length in px; when provided the cover is downscaled.",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {}
+            },
+            "description": "Image bytes (JPEG or PNG)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Track has no embedded cover"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Embedded album art, optionally downscaled.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/lyrics": {
+      "get": {
+        "operationId": "get_lyrics",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackLyrics"
+                }
+              }
+            },
+            "description": "Stored lyrics; `sync_format` is `lrc` for timestamped text, else `plain`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Track has no embedded lyrics"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/metadata": {
+      "get": {
+        "operationId": "get_metadata",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackMetadata"
+                }
+              }
+            },
+            "description": "Track tags"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Tags read straight off the file, including album art and ReplayGain.",
+        "tags": [
+          "Tracks"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_metadata",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMetadataBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Updated"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Write tags back to the file. Absent fields are left alone, `null` clears the tag.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/play": {
+      "post": {
+        "operationId": "record_play",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Updated"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Record a play. Bumps `play_count`/`last_played_at` and appends to play history.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/rating": {
+      "post": {
+        "operationId": "set_rating",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatingBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Updated"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Set or clear the 1–5 star rating.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/rename": {
+      "post": {
+        "operationId": "rename_file",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Renamed"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Destination invalid or already taken"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Move the file on disk and repoint the catalog row.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/restore": {
+      "post": {
+        "operationId": "restore_backup",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Restored"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No backup to restore"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Restore the file from its most recent backup.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/api/tracks/{id}/stream-token": {
+      "get": {
+        "operationId": "issue_token",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Stream token"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Mint a short-lived (8h) token for the public `/stream/{id}` URL, so an\n`<audio src>` can play without carrying the API key.",
+        "tags": [
+          "Stream"
+        ]
+      }
+    },
+    "/stream/{id}": {
+      "get": {
+        "operationId": "stream_audio",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Short-lived token from `/api/tracks/{id}/stream-token`.",
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Seek offset in seconds; the server transcodes from this point.",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "format": "float",
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mpeg": {}
+            },
+            "description": "Audio bytes"
+          },
+          "206": {
+            "description": "Partial content for a ranged request"
+          },
+          "401": {
+            "description": "Missing, expired or wrong token"
+          },
+          "404": {
+            "description": "No such track"
+          }
+        },
+        "summary": "Audio bytes, range-capable. Public: authorised by the `token` query\nparameter rather than the Bearer header, so browsers and cast receivers can\nfetch it directly.",
+        "tags": [
+          "Stream"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "description": "Tracks, roots, search, stats and play history",
+      "name": "Catalog"
+    },
+    {
+      "description": "Per-track resources: art, lyrics, tags, ratings, backups",
+      "name": "Tracks"
+    },
+    {
+      "description": "Regular and rule-driven smart playlists",
+      "name": "Playlists"
+    },
+    {
+      "description": "Token issuing and audio delivery",
+      "name": "Stream"
+    },
+    {
+      "description": "Chromecast discovery and transport control",
+      "name": "Cast"
+    },
+    {
+      "description": "Scanning, cache, health and metrics",
+      "name": "Admin"
+    },
+    {
+      "description": "Liveness and helpers",
+      "name": "System"
+    }
+  ]
+}

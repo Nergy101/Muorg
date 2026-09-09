@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import nl.muorg.android.data.api.MuorgApiService
+import nl.muorg.android.data.api.schema.MuorgApi
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import javax.inject.Inject
@@ -30,7 +30,7 @@ data class WelcomeUiState(
 @HiltViewModel
 class WelcomeViewModel @Inject constructor(
     private val preferences: AppPreferences,
-    private val api: MuorgApiService,
+    private val api: MuorgApi,
     private val localLibraryRepository: LocalLibraryRepository,
 ) : ViewModel() {
 

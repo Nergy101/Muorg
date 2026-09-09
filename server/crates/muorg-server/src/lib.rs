@@ -19,6 +19,7 @@ use state::AppState;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
+use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub fn build_cors(allowed_origins: &[String]) -> CorsLayer {
@@ -104,10 +105,12 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
     Router::new()
         .merge(public)
         .merge(protected)
-        // Swagger UI (public; the spec is served at /api/openapi.json).
+        // Swagger UI (public; the spec is served at /api/openapi.json). The
+        // document is derived from the handlers, so it is whatever this binary
+        // actually serves — see routes::openapi.
         .merge(
             SwaggerUi::new("/api/docs")
-                .external_url_unchecked("/api/openapi.json", routes::openapi::spec()),
+                .url("/api/openapi.json", routes::openapi::ApiDoc::openapi()),
         )
         .with_state(state)
         .layer(

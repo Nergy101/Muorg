@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod cast;
+pub mod dto;
 pub mod library;
 pub mod openapi;
 pub mod playlists;

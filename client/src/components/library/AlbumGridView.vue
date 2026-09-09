@@ -187,8 +187,8 @@ defineExpose({ scrollToAlbum });
             :album="album"
             :is-playing="album.key === playingAlbumKey"
             :data-album-key="album.key"
-            @openAlbum="emit('openAlbum', $event)"
-            @albumContextMenu="(e, key) => emit('albumContextMenu', e, key)"
+            @open-album="emit('openAlbum', $event)"
+            @album-context-menu="(e, key) => emit('albumContextMenu', e, key)"
           />
         </div>
       </div>

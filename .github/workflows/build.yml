@@ -34,6 +34,7 @@ jobs:
       android: ${{ steps.filter.outputs.android == 'true' || github.event_name == 'workflow_dispatch' }}
       server: ${{ steps.filter.outputs.server == 'true' || github.event_name == 'workflow_dispatch' }}
       docs-site: ${{ steps.filter.outputs.docs-site == 'true' || github.event_name == 'workflow_dispatch' }}
+      api-contract: ${{ steps.filter.outputs.api-contract == 'true' || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -53,12 +54,89 @@ jobs:
             android:
               - '.github/workflows/build.yml'
               - 'android-client/**'
+              # The generated Kotlin wire models live in the Android tree.
+              - 'server/crates/muorg-server/src/routes/**'
+            api-contract:
+              - '.github/workflows/build.yml'
+              - 'server/crates/**'
+              - 'src/**'
+              - 'scripts/generate-api-clients.sh'
+              - 'scripts/generate-kotlin-models.mjs'
+              - 'scripts/generate-kotlin-api.mjs'
+              - 'package.json'
+              - 'vitest.config.mts'
+              - 'scripts/smoke-api.ts'
+              - 'scripts/smoke-api.sh'
+              - 'eslint.config.mjs'
+              # Lint covers both apps, so their sources gate the job too.
+              - 'client/src/**'
+              - 'web-client/src/**'
+              - 'web-client/src/stores/**'
+              - 'android-client/app/src/main/java/nl/muorg/android/data/api/schema/**'
             server:
               - '.github/workflows/build.yml'
               - 'server/**'
             docs-site:
               - '.github/workflows/build.yml'
               - 'docs-site/**'
+
+  # The OpenAPI document is generated from the muorg-server handlers, and the
+  # TypeScript and Kotlin client models are generated from it. Regenerate all
+  # three here and fail if anything differs from what was committed — that is
+  # what stops the three clients drifting apart again.
+  api-contract:
+    name: API contract + shared tests
+    needs: changes
+    if: needs.changes.outputs.api-contract == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      # No `version:` — pnpm/action-setup reads the root package.json's
+      # `packageManager` field, which also governs local installs. Setting both
+      # is an error ("Multiple versions of pnpm specified").
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server -> target
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev libmp3lame-dev
+
+      - name: Install codegen tooling
+        run: pnpm install --frozen-lockfile
+
+      - name: Check generated clients are current
+        run: ./scripts/generate-api-clients.sh --check
+
+      # One config covers the shared src/ and both apps, so it lives with the
+      # other repo-wide checks rather than being duplicated per app.
+      - name: Lint
+        run: pnpm lint
+
+      # The shared client and the pure logic in both TS apps. A break here
+      # breaks two apps at once, which is the trade for not keeping two copies.
+      - name: Shared logic tests
+        run: pnpm test:coverage
+
+      # Type-checking proves the client matches the spec. This starts a real
+      # muorg-server and proves the *server* matches it — every response is
+      # validated against the schema the document declares for it.
+      - name: Smoke test against a live server
+        run: ./scripts/smoke-api.sh
 
   client:
     name: Client (TypeScript + Tauri)
@@ -73,10 +151,11 @@ jobs:
         with:
           node-version: '20'
 
+      # No `version:` — pnpm/action-setup reads the root package.json's
+      # `packageManager` field, which also governs local installs. Setting both
+      # is an error ("Multiple versions of pnpm specified").
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -123,10 +202,11 @@ jobs:
         with:
           node-version: '20'
 
+      # No `version:` — pnpm/action-setup reads the root package.json's
+      # `packageManager` field, which also governs local installs. Setting both
+      # is an error ("Multiple versions of pnpm specified").
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       - name: Install dependencies
         working-directory: web-client
@@ -135,6 +215,12 @@ jobs:
       - name: Type check & build
         working-directory: web-client
         run: pnpm build
+
+      # This app's own tests (its Pinia stores). The shared src/ tree is tested
+      # in the api-contract job, which installs only the root.
+      - name: Tests
+        working-directory: web-client
+        run: pnpm test:coverage
 
   android:
     name: Android (lint + build)
@@ -165,6 +251,10 @@ jobs:
       - name: Lint
         working-directory: android-client
         run: ./gradlew lintDebug
+
+      - name: Unit tests
+        working-directory: android-client
+        run: ./gradlew testDebugUnitTest
 
       - name: Build
         working-directory: android-client
@@ -231,7 +321,7 @@ jobs:
   # individual gated jobs above.
   build:
     name: Build
-    needs: [changes, client, web-client, android, server, docs-site]
+    needs: [changes, api-contract, client, web-client, android, server, docs-site]
     if: always()
     runs-on: ubuntu-latest
     steps:

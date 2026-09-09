@@ -790,6 +790,57 @@ textarea:focus {
   border-radius: 0.5rem;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 25px 50px -12px rgb(0 0 0 / 0.25);
 }
+/* Lyrics pane — occupies the same slot as the album art, toggled by the button
+   under the title. Sized off the art so switching between the two does not
+   resize the layout around it. */
+#maximized-player-overlay .mpx-lyrics {
+  min-height: 0;
+  max-height: 100%;
+  width: min(42rem, 100%);
+  overflow-y: auto;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  scrollbar-width: thin;
+}
+#maximized-player-overlay .mpx-lyrics-line {
+  padding: 0.35rem 0;
+  font-size: 0.95rem;
+  color: rgb(214 211 209 / 0.45);
+  transition: color 0.2s, font-size 0.2s, font-weight 0.2s;
+}
+#maximized-player-overlay .mpx-lyrics-line--active {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: rgb(250 250 249);
+}
+#maximized-player-overlay .mpx-lyrics-plain {
+  white-space: pre-line;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: rgb(214 211 209 / 0.8);
+}
+#maximized-player-overlay .mpx-lyrics-toggle {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.15);
+  padding: 0.2rem 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgb(214 211 209 / 0.8);
+  transition: background-color 0.15s, color 0.15s;
+}
+#maximized-player-overlay .mpx-lyrics-toggle:hover {
+  background-color: rgb(255 255 255 / 0.08);
+  color: rgb(250 250 249);
+}
+#maximized-player-overlay .mpx-lyrics-toggle--active {
+  border-color: var(--player-accent, rgb(255 255 255 / 0.4));
+  color: rgb(250 250 249);
+}
+
 #maximized-player-overlay .mpx-title {
   margin-top: 1rem;
   max-width: 42rem;

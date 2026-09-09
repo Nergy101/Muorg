@@ -1,0 +1,472 @@
+//! Chromecast session handling, shared by the desktop app and the server.
+//!
+//! Both hosts speak the same protocol to the same devices — connect, launch the
+//! default media receiver, load the stream, then pump a message loop while
+//! taking transport commands off a channel. The only thing they do differently
+//! is what happens on a state change: the desktop app pushes it to its webview
+//! as a Tauri event, while the server just stores it for `GET /api/cast/status`
+//! to read. That difference is [`CastObserver`]; everything else lives here
+//! once.
+
+use rust_cast::channels::heartbeat::HeartbeatResponse;
+use rust_cast::channels::media::{IdleReason, Media, MediaResponse, PlayerState, ResumeState, StreamType};
+use rust_cast::channels::receiver::{CastDeviceApp, ReceiverResponse};
+use rust_cast::errors::Error as CastError;
+use rust_cast::CastDevice as RustCastDevice;
+use rust_cast::ChannelMessage;
+use serde::Serialize;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum CastSessionStatus {
+    Idle,
+    Connecting,
+    Transcoding,
+    Playing {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        position_secs: Option<f32>,
+    },
+    Paused {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        position_secs: Option<f32>,
+    },
+    Stopped {
+        finished: bool,
+    },
+    Error {
+        message: String,
+    },
+}
+
+pub enum CastCommand {
+    Pause,
+    Resume,
+    Stop,
+    Seek { secs: f32, was_playing: bool },
+    SetVolume(f32),
+}
+
+
+/// How a host learns about session transitions.
+///
+/// [`CastState`] always updates its own `status` and `volume`, so a host that
+/// polls needs nothing more than [`NoObserver`]. A host that pushes — the
+/// desktop app, forwarding to its webview — implements this.
+pub trait CastObserver: Send + 'static {
+    fn on_status(&self, _status: CastSessionStatus) {}
+    fn on_volume(&self, _level: f32) {}
+}
+
+/// For hosts that read the state directly instead of being told.
+pub struct NoObserver;
+
+impl CastObserver for NoObserver {}
+
+pub struct CastState {
+    pub status: Arc<Mutex<CastSessionStatus>>,
+    /// Device volume, 0.0–1.0, as last reported by the receiver.
+    pub volume: Arc<Mutex<f32>>,
+    cmd_tx: Arc<Mutex<Option<std::sync::mpsc::Sender<CastCommand>>>>,
+}
+
+impl Default for CastState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CastState {
+    pub fn new() -> Self {
+        Self {
+            status: Arc::new(Mutex::new(CastSessionStatus::Idle)),
+            volume: Arc::new(Mutex::new(1.0)),
+            cmd_tx: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn send_command(&self, cmd: CastCommand) -> Result<(), String> {
+        match &*self.cmd_tx.lock().unwrap() {
+            Some(tx) => tx.send(cmd).map_err(|e| e.to_string()),
+            None => Err("No active cast session".to_string()),
+        }
+    }
+
+    /// Spawn a Cast session thread. Stops any existing session first.
+    /// Spawn a Cast session thread. Stops any existing session first.
+    ///
+    /// `observer` is how each host learns about transitions: the desktop app
+    /// forwards them to its webview as Tauri events, the server only needs the
+    /// state this struct already holds and passes [`NoObserver`].
+    pub fn start_session(
+        &self,
+        address: String,
+        port: u16,
+        stream_url: String,
+        is_flac: bool,
+        observer: impl CastObserver,
+    ) {
+        // Terminate any existing session
+        if let Some(tx) = self.cmd_tx.lock().unwrap().take() {
+            let _ = tx.send(CastCommand::Stop);
+        }
+
+        let (tx, rx) = std::sync::mpsc::channel::<CastCommand>();
+        *self.cmd_tx.lock().unwrap() = Some(tx);
+
+        let status_arc = Arc::clone(&self.status);
+        let volume_arc = Arc::clone(&self.volume);
+
+        std::thread::spawn(move || {
+            let emit = |s: CastSessionStatus| {
+                *status_arc.lock().unwrap() = s.clone();
+                observer.on_status(s);
+            };
+            let emit_volume = |level: f32| {
+                *volume_arc.lock().unwrap() = level;
+                observer.on_volume(level);
+            };
+
+            emit(CastSessionStatus::Connecting);
+
+            // Connect to the Cast device
+            let device = match RustCastDevice::connect_without_host_verification(&address, port) {
+                Ok(d) => d,
+                Err(e) => {
+                    emit(CastSessionStatus::Error { message: e.to_string() });
+                    return;
+                }
+            };
+
+            // Connect the receiver (control) channel
+            if let Err(e) = device.connection.connect("receiver-0") {
+                emit(CastSessionStatus::Error { message: e.to_string() });
+                return;
+            }
+
+            // Ping to confirm the connection is live
+            if let Err(e) = device.heartbeat.ping() {
+                emit(CastSessionStatus::Error { message: e.to_string() });
+                return;
+            }
+
+            // Launch Default Media Receiver app
+            let app_info = match device.receiver.launch_app(&CastDeviceApp::DefaultMediaReceiver) {
+                Ok(info) => info,
+                Err(e) => {
+                    emit(CastSessionStatus::Error { message: e.to_string() });
+                    return;
+                }
+            };
+
+            let dest_id = app_info.transport_id.clone();
+            let session_id = app_info.session_id.clone();
+
+            // Connect the media channel to the launched app
+            if let Err(e) = device.connection.connect(dest_id.as_str()) {
+                emit(CastSessionStatus::Error { message: e.to_string() });
+                return;
+            }
+
+            // Report the device's current volume so the UI can sync the volume bar.
+            if let Ok(status) = device.receiver.get_status() {
+                if let Some(level) = status.volume.level {
+                    emit_volume(level);
+                }
+            }
+
+            // For FLAC we emit Transcoding before loading since encoding takes time
+            if is_flac {
+                emit(CastSessionStatus::Transcoding);
+            }
+
+            let content_url = stream_url.clone();
+            let media = Media {
+                content_id: content_url,
+                stream_type: StreamType::Buffered,
+                content_type: "audio/mpeg".to_string(),
+                metadata: None,
+                duration: None,
+            };
+
+            let load_status = match device.media.load(dest_id.as_str(), session_id.as_str(), &media) {
+                Ok(s) => s,
+                Err(e) => {
+                    emit(CastSessionStatus::Error { message: e.to_string() });
+                    return;
+                }
+            };
+
+            // Grab the initial media_session_id from the LOAD response
+            let mut media_session_id = load_status
+                .entries
+                .first()
+                .map(|e| e.media_session_id)
+                .unwrap_or(1);
+
+            // Discard any status broadcasts buffered during launch_app / media.load.
+            device.drain_message_buffer();
+
+            // Track current seek offset for FLAC seek-by-reload
+            let mut flac_base_secs: f32 = 0.0;
+
+            // Don't emit Playing here — wait for the device to confirm actual playback
+            // via the message loop. Emitting eagerly (before the device is really playing)
+            // causes the frontend to resume local audio before it has the correct position,
+            // leading to progress-bar desync on track changes.
+
+            // Now that setup is complete, apply a short read timeout so the command queue is
+            // drained promptly between device messages instead of waiting up to ~5 s for the
+            // next heartbeat.  The timeout must NOT be set earlier because launch_app / media.load
+            // can legitimately take several seconds to get a response.
+            // 500 ms is long enough that a complete Cast message always arrives within one
+            // timeout window (avoids mid-read corruption), but short enough that pause/seek
+            // commands feel near-instant (~0–500 ms latency vs ~0–5 s before).
+            let _ = device.set_read_timeout(Some(Duration::from_millis(500)));
+
+            // Returns true if the error is a read-timeout / would-block — not a real failure.
+            fn is_timeout(e: &CastError) -> bool {
+                if let CastError::Io(io_err) = e {
+                    matches!(
+                        io_err.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    )
+                } else {
+                    false
+                }
+            }
+
+            // Message loop: receive() returns after at most 200 ms so commands are processed
+            // promptly instead of waiting for the next heartbeat (~5 s cadence).
+            loop {
+                match device.receive() {
+                    Ok(ChannelMessage::Heartbeat(HeartbeatResponse::Ping)) => {
+                        let _ = device.heartbeat.pong();
+                    }
+                    Ok(ChannelMessage::Media(MediaResponse::Status(status))) => {
+                        for entry in &status.entries {
+                            media_session_id = entry.media_session_id;
+
+                            // Emit position updates
+                            let position = entry.current_time.map(|t| flac_base_secs + t);
+
+                            if let PlayerState::Idle = entry.player_state {
+                                if let Some(IdleReason::Finished) = entry.idle_reason {
+                                    emit(CastSessionStatus::Stopped { finished: true });
+                                    return;
+                                }
+                                // External stop (e.g. "hey Google, stop") — pause so Muorg UI syncs.
+                                // The session loop stays alive; the user can restart from Muorg.
+                                emit(CastSessionStatus::Paused { position_secs: position });
+                            } else if let PlayerState::Buffering = entry.player_state {
+                                emit(CastSessionStatus::Transcoding);
+                            } else if let PlayerState::Playing = entry.player_state {
+                                emit(CastSessionStatus::Playing { position_secs: position });
+                            } else if let PlayerState::Paused = entry.player_state {
+                                emit(CastSessionStatus::Paused { position_secs: position });
+                            }
+                        }
+                    }
+                    Ok(ChannelMessage::Receiver(ReceiverResponse::Status(status))) => {
+                        if let Some(level) = status.volume.level {
+                            emit_volume(level);
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(ref e) if is_timeout(e) => {
+                        // Poll window expired with no data — just fall through to check commands.
+                    }
+                    Err(e) => {
+                        emit(CastSessionStatus::Error {
+                            message: format!("Connection lost: {e}"),
+                        });
+                        return;
+                    }
+                }
+
+                // Process any pending command (runs after every message OR after each 200 ms poll)
+                match rx.try_recv() {
+                    Ok(CastCommand::Pause) => {
+                        match device.media.pause(dest_id.as_str(), media_session_id) {
+                            Ok(entry) => emit(CastSessionStatus::Paused {
+                                position_secs: entry.current_time,
+                            }),
+                            Err(_) => emit(CastSessionStatus::Paused { position_secs: None }),
+                        }
+                        device.drain_message_buffer();
+                    }
+                    Ok(CastCommand::Resume) => {
+                        match device.media.play(dest_id.as_str(), media_session_id) {
+                            Ok(entry) => emit(CastSessionStatus::Playing {
+                                position_secs: entry.current_time,
+                            }),
+                            Err(_) => emit(CastSessionStatus::Playing { position_secs: None }),
+                        }
+                        device.drain_message_buffer();
+                    }
+                    Ok(CastCommand::Seek { secs, was_playing }) => {
+                        if is_flac {
+                            // FLAC: seek-by-reload — rebuild the URL with ?start=<secs>
+                            flac_base_secs = secs;
+                            let seek_url = format!("{}&start={}", stream_url, secs);
+                            let seek_media = Media {
+                                content_id: seek_url,
+                                stream_type: StreamType::Buffered,
+                                content_type: "audio/mpeg".to_string(),
+                                metadata: None,
+                                duration: None,
+                            };
+                            emit(CastSessionStatus::Transcoding);
+                            match device.media.load(dest_id.as_str(), session_id.as_str(), &seek_media) {
+                                Ok(s) => {
+                                    if let Some(e) = s.entries.first() {
+                                        media_session_id = e.media_session_id;
+                                    }
+                                    device.drain_message_buffer();
+                                    if was_playing {
+                                        emit(CastSessionStatus::Playing { position_secs: Some(secs) });
+                                    } else {
+                                        let _ = device.media.pause(dest_id.as_str(), media_session_id);
+                                        device.drain_message_buffer();
+                                        emit(CastSessionStatus::Paused { position_secs: Some(secs) });
+                                    }
+                                }
+                                Err(e) => {
+                                    emit(CastSessionStatus::Error { message: e.to_string() });
+                                    return;
+                                }
+                            }
+                        } else {
+                            // MP3: native Cast seek — pass resume_state so the device handles
+                            // play/pause itself, then read the response for the confirmed state.
+                            let resume_state = if was_playing {
+                                Some(ResumeState::PlaybackStart)
+                            } else {
+                                Some(ResumeState::PlaybackPause)
+                            };
+                            match device.media.seek(dest_id.as_str(), media_session_id, Some(secs), resume_state) {
+                                Ok(entry) => {
+                                    let position = entry.current_time.map(|t| flac_base_secs + t);
+                                    device.drain_message_buffer();
+                                    match entry.player_state {
+                                        PlayerState::Playing => emit(CastSessionStatus::Playing { position_secs: position }),
+                                        PlayerState::Paused => emit(CastSessionStatus::Paused { position_secs: position }),
+                                        PlayerState::Buffering => {
+                                            // Device is still buffering at new position — emit
+                                            // Transcoding so the frontend keeps progress frozen;
+                                            // the message loop will pick up Playing once ready.
+                                            emit(CastSessionStatus::Transcoding);
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Err(e) => {
+                                    emit(CastSessionStatus::Error { message: e.to_string() });
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    Ok(CastCommand::SetVolume(level)) => {
+                        let _ = device.receiver.set_volume(level);
+                    }
+                    Ok(CastCommand::Stop) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                        let _ = device.media.stop(dest_id.as_str(), media_session_id);
+                        emit(CastSessionStatus::Stopped { finished: false });
+                        return;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {}
+                }
+            }
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The serialized shape of [`CastSessionStatus`] is a contract with the
+    /// frontend: `stores/cast.ts` switches on `status` and reads
+    /// `position_secs` / `finished` / `message` off the same object. The
+    /// internally-tagged representation is what makes that work, and it is
+    /// invisible in the type — a stray `#[serde(untagged)]` or a renamed
+    /// variant would compile fine and silently strand the UI in "connecting".
+    fn json(status: CastSessionStatus) -> serde_json::Value {
+        serde_json::to_value(status).expect("serializable")
+    }
+
+    #[test]
+    fn unit_variants_carry_only_a_camel_case_tag() {
+        assert_eq!(json(CastSessionStatus::Idle), serde_json::json!({"status": "idle"}));
+        assert_eq!(
+            json(CastSessionStatus::Connecting),
+            serde_json::json!({"status": "connecting"}),
+        );
+        assert_eq!(
+            json(CastSessionStatus::Transcoding),
+            serde_json::json!({"status": "transcoding"}),
+        );
+    }
+
+    #[test]
+    fn playing_and_paused_carry_the_position_alongside_the_tag() {
+        assert_eq!(
+            json(CastSessionStatus::Playing { position_secs: Some(12.5) }),
+            serde_json::json!({"status": "playing", "position_secs": 12.5}),
+        );
+        assert_eq!(
+            json(CastSessionStatus::Paused { position_secs: Some(0.0) }),
+            serde_json::json!({"status": "paused", "position_secs": 0.0}),
+        );
+    }
+
+    #[test]
+    fn an_unknown_position_is_omitted_rather_than_sent_as_null() {
+        // The frontend treats a missing position as "don't move the scrubber";
+        // a null would be read as a seek to zero.
+        assert_eq!(
+            json(CastSessionStatus::Playing { position_secs: None }),
+            serde_json::json!({"status": "playing"}),
+        );
+    }
+
+    #[test]
+    fn stopped_says_whether_the_track_finished() {
+        // This is what decides between advancing to the next track and just
+        // clearing the player.
+        assert_eq!(
+            json(CastSessionStatus::Stopped { finished: true }),
+            serde_json::json!({"status": "stopped", "finished": true}),
+        );
+        assert_eq!(
+            json(CastSessionStatus::Stopped { finished: false }),
+            serde_json::json!({"status": "stopped", "finished": false}),
+        );
+    }
+
+    #[test]
+    fn errors_carry_a_message() {
+        assert_eq!(
+            json(CastSessionStatus::Error { message: "no route to host".into() }),
+            serde_json::json!({"status": "error", "message": "no route to host"}),
+        );
+    }
+
+    #[test]
+    fn a_new_state_starts_idle() {
+        let state = CastState::new();
+        assert!(matches!(*state.status.lock().unwrap(), CastSessionStatus::Idle));
+    }
+
+    #[test]
+    fn commands_are_refused_when_no_session_is_running() {
+        // Every cast_* Tauri command funnels through here; without a session
+        // the caller must get an error rather than a silent no-op.
+        let state = CastState::new();
+        let err = state.send_command(CastCommand::Pause).unwrap_err();
+        assert_eq!(err, "No active cast session");
+    }
+}

@@ -71,7 +71,7 @@ function onHeaderDragEnd() {
         :hide-artist-column="true"
         :hide-album-column="true"
         :hide-year-column="true"
-        @openMetadata="emit('openMetadata')"
+        @open-metadata="emit('openMetadata')"
       />
     </div>
   </div>

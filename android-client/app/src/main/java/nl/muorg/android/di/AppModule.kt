@@ -10,7 +10,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
-import nl.muorg.android.data.api.MuorgApiService
+import nl.muorg.android.data.api.schema.MuorgApi
 import nl.muorg.android.data.api.buildAuthOkHttpClient
 import nl.muorg.android.data.api.buildCoilImageLoader
 import nl.muorg.android.data.db.AppDatabase
@@ -93,17 +93,18 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMuorgApiService(retrofit: Retrofit): MuorgApiService =
-        retrofit.create(MuorgApiService::class.java)
+    /** The API surface is generated from server/openapi.json — see src/api/README.md. */
+    fun provideMuorgApi(retrofit: Retrofit): MuorgApi =
+        retrofit.create(MuorgApi::class.java)
 
     @Provides
     @Singleton
-    fun provideLibraryRepository(api: MuorgApiService): LibraryRepository =
+    fun provideLibraryRepository(api: MuorgApi): LibraryRepository =
         LibraryRepository(api)
 
     @Provides
     @Singleton
-    fun providePlaylistRepository(api: MuorgApiService): PlaylistRepository =
+    fun providePlaylistRepository(api: MuorgApi): PlaylistRepository =
         PlaylistRepository(api)
 
     @Provides

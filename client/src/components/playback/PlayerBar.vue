@@ -15,7 +15,7 @@ import type { CatalogTrack, TrackMetadataRead } from "../../types";
 import * as catalogApi from "../../api/catalog";
 import * as castApi from "../../api/cast";
 import { streamUrl } from "../../api/client";
-import { flacSeekOffset } from "../../state/playback";
+import { flacSeekOffset, isPlayingNow } from "../../state/playback";
 
 const emit = defineEmits<{
   (e: "expand"): void;
@@ -83,6 +83,10 @@ function getPreviousTrack(): CatalogTrack | null {
 const audioRef = ref<HTMLAudioElement | null>(null);
 const audioElementKey = ref(0);
 const isPlaying = ref(false);
+// Mirror to module state so the library table can animate the playing row.
+watch(isPlaying, (v) => {
+  isPlayingNow.value = v;
+});
 const audioSrc = ref("");
 const currentTime = ref(0);
 const duration = ref(0);

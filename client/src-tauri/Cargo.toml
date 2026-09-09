@@ -14,28 +14,34 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.32", features = ["bundled"] }
-lofty = "0.24"
-id3 = "1.16"
-walkdir = "2"
-base64 = "0.22"
+# The catalog (SQLite schema + queries) and tag read/write live in muorg-core,
+# shared verbatim with the sidecar server. Before this the desktop app carried
+# its own fork of both and the two silently drifted apart (the server grew
+# play_history and WAL mode; the client never did). rusqlite/lofty/id3/walkdir
+# are muorg-core's transitive deps now — the client no longer names them.
+muorg-core = { path = "../../server/crates/muorg-core", features = ["cast"] }
+base64 = "0.23"
 sha2 = "0.11"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tauri-plugin-process = "2"
 tauri-plugin-shell = "2"
-mdns-sd = "0.11"
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
-rust_cast = "0.14"
 local-ip-address = "0.6"
 urlencoding = "2"
 symphonia = { version = "0.6", features = ["flac", "mp3"] }
 mp3lame-encoder = "0.2"
 bytes = "1"
 
+[dev-dependencies]
+tempfile = "3"
+
 [patch.crates-io]
-rust_cast = { path = "vendor/rust_cast" }
+# One vendored copy, shared with the server workspace. It was duplicated here
+# byte-for-byte apart from a single `#![allow(deprecated)]`, which is 4,675
+# lines of crate to keep in step by hand.
+rust_cast = { path = "../../server/vendor/rust_cast" }
 
 [features]
 default = ["custom-protocol"]

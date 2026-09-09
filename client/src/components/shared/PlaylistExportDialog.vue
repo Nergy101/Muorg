@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { open } from "@tauri-apps/plugin-dialog";
+// Aliased: an `open` binding in <script setup> shadows the `open` prop in
+// the template, so `v-if="open"` would read this function — always truthy.
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import * as playlistApi from "../../api/playlists";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
@@ -71,7 +73,7 @@ const pathPreview = computed(() => {
 });
 
 async function browseOutputDir() {
-  const selected = await open({
+  const selected = await openFileDialog({
     directory: true,
     multiple: false,
   });

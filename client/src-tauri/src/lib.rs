@@ -1,12 +1,10 @@
-use catalog::Catalog;
+use muorg_core::catalog::{self, Catalog};
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
 mod cast;
-mod catalog;
 mod commands;
-mod metadata;
 
 struct ServerChild(std::sync::Mutex<Option<tauri_plugin_shell::process::CommandChild>>);
 
@@ -79,7 +77,7 @@ pub fn run() {
             }
             app.manage(Arc::new(catalog));
             let discovery = cast::DiscoveryState::new();
-            discovery.start(app.app_handle().clone());
+            discovery.start(cast::TauriObserver::new(app.app_handle().clone()));
             app.manage(discovery);
             app.manage(cast::AudioServerState::new());
             app.manage(cast::CastState::new());

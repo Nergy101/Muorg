@@ -14,6 +14,7 @@ import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import CastButton from "./CastButton.vue";
 import StarRating from "../shared/StarRating.vue";
+import LyricsPane from "./LyricsPane.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -93,6 +94,18 @@ function getPreviousTrack(): CatalogTrack | null {
 
 const isPlaying = ref(false);
 const currentTime = ref(0);
+
+// ── Lyrics ─────────────────────────────────────────────────────────────────
+// The pane reports whether the current track actually has lyrics, so the
+// toggle only appears when there is something to show. Switching tracks
+// resets to the cover.
+const hasLyrics = ref(false);
+const showLyrics = ref(false);
+
+function onLyricsAvailability(available: boolean) {
+  hasLyrics.value = available;
+  if (!available) showLyrics.value = false;
+}
 const duration = ref(0);
 const isSeeking = ref(false);
 
@@ -417,10 +430,34 @@ onUnmounted(() => {
     :style="accentStyle"
   >
     <div class="mpx-content">
-      <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="xlarge" class="mpx-art" />
+      <LyricsPane
+        v-show="showLyrics && hasLyrics"
+        :track-id="singleTrack?.id ?? null"
+        :position-secs="currentTime"
+        @availability="onLyricsAvailability"
+      />
+      <TrackAlbumArt
+        v-if="singleTrack"
+        v-show="!(showLyrics && hasLyrics)"
+        :path="singleTrack.path"
+        size="xlarge"
+        class="mpx-art"
+      />
       <div class="mpx-title" :title="playbarTitleLine" @contextmenu.prevent="onTitleContextMenu">
         {{ playbarTitleLine }}
       </div>
+      <button
+        v-if="hasLyrics"
+        type="button"
+        class="mpx-lyrics-toggle"
+        :class="{ 'mpx-lyrics-toggle--active': showLyrics }"
+        :aria-pressed="showLyrics"
+        :aria-label="showLyrics ? 'Show album art' : 'Show lyrics'"
+        @click="showLyrics = !showLyrics"
+      >
+        <FeatherIcon name="file-text" class="h-3.5 w-3.5" />
+        {{ showLyrics ? "Album art" : "Lyrics" }}
+      </button>
     </div>
     <div class="mpx-bar">
       <div class="mpx-bar-inner">

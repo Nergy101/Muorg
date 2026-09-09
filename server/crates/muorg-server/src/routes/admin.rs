@@ -5,19 +5,32 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use crate::routes::dto::{AdminHealthResponse, BackupDirectoryResponse, ErrorResponse, OkResponse};
 use crate::routes::ApiError;
 use crate::state::AppState;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct RescanBody {
     pub root_path: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct RescanResult {
     pub tracks_added: u64,
 }
 
+/// Rescan one root, or every root when no body is sent.
+#[utoipa::path(
+    post,
+    path = "/api/admin/rescan",
+    tag = "Admin",
+    request_body = Option<RescanBody>,
+    responses(
+        (status = 200, description = "Scan finished", body = RescanResult),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn rescan(
     State(state): State<Arc<AppState>>,
     body: Option<Json<RescanBody>>,
@@ -55,53 +68,110 @@ pub async fn rescan(
     Ok(Json(RescanResult { tracks_added }))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct RemoveFolderBody {
     pub root_path: String,
 }
 
+/// Drop a root and soft-delete the tracks under it.
+#[utoipa::path(
+    post,
+    path = "/api/admin/remove-folder",
+    tag = "Admin",
+    request_body = RemoveFolderBody,
+    responses(
+        (status = 200, description = "Root removed", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn remove_folder(
     State(state): State<Arc<AppState>>,
     Json(body): Json<RemoveFolderBody>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<OkResponse>, ApiError> {
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::remove_root(&conn, &body.root_path)?;
-    Ok(Json(serde_json::json!({"ok": true})))
+    Ok(Json(OkResponse::new()))
 }
 
+/// Purge soft-deleted rows immediately.
+#[utoipa::path(
+    post,
+    path = "/api/admin/clear-cache",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Cache cleared", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn clear_cache(
     State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<OkResponse>, ApiError> {
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::gc_deleted_tracks(&conn, 0)?;
-    Ok(Json(serde_json::json!({"ok": true})))
+    Ok(Json(OkResponse::new()))
 }
 
+/// Where pre-write backups are kept on the server.
+#[utoipa::path(
+    get,
+    path = "/api/admin/backup-directory",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Absolute backup directory path", body = BackupDirectoryResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn get_backup_directory(
     State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<BackupDirectoryResponse>, ApiError> {
     let path = state.backup_dir.display().to_string();
-    Ok(Json(serde_json::json!({"path": path})))
+    Ok(Json(BackupDirectoryResponse { path }))
 }
 
-// GET /api/admin/health
+/// Deeper health check than `/api/health`: also proves the catalog is readable.
+#[utoipa::path(
+    get,
+    path = "/api/admin/health",
+    // Distinct from `util::health`, which serves the public /api/health probe.
+    operation_id = "admin_health",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Server and catalog status", body = AdminHealthResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn health(
     State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+) -> Json<AdminHealthResponse> {
     let db_ok = (|| -> Result<(), String> {
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
         let _ = muorg_core::catalog::load_roots(&conn)?;
         Ok(())
     })().is_ok();
 
-    Json(serde_json::json!({
-        "status": if db_ok { "ok" } else { "degraded" },
-        "server": "muorg-server",
-        "version": env!("CARGO_PKG_VERSION"),
-    }))
+    Json(AdminHealthResponse {
+        status: if db_ok { "ok" } else { "degraded" }.to_string(),
+        server: "muorg-server".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    })
 }
 
-// GET /api/admin/metrics — Prometheus-formatted metrics text
+/// Prometheus exposition format.
+#[utoipa::path(
+    get,
+    path = "/api/admin/metrics",
+    operation_id = "admin_metrics",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Prometheus metrics", content_type = "text/plain"),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
 pub async fn metrics(
     State(state): State<Arc<AppState>>,
 ) -> Result<axum::response::Response, ApiError> {

@@ -24,7 +24,8 @@
     "icon": "tauri icon public/favicon.svg -o src-tauri/icons",
     "check:frontend": "pnpm build",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
-    "check": "pnpm run check:frontend && pnpm run check:rust"
+    "check": "pnpm run check:frontend && pnpm run check:rust && pnpm run test:rust",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -36,21 +37,22 @@
     "@tauri-apps/plugin-updater": "~2.10.1",
     "emoji-mart": "^5.6.0",
     "feather-icons": "^4.29.2",
+    "openapi-fetch": "^0.17.0",
     "overlayscrollbars": "^2.16.0",
     "pinia": "^4.0.3",
     "vue": "^3.5.41",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@tauri-apps/cli": "^2.11.4",
     "@types/feather-icons": "^4.29.4",
     "@types/node": "^26.3.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "autoprefixer": "^10.5.4",
+    "esbuild": "^0.28.2",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
-    "@tailwindcss/postcss": "^4.3.3",
-    "esbuild": "^0.28.2",
     "typescript": "~5.8.0",
     "vite": "^8.2.2",
     "vue-tsc": "^3.3.11"

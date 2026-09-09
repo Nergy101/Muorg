@@ -1,5 +1,7 @@
-use crate::catalog::{Catalog, CatalogTrack, LibraryStats, Playlist, PlaylistTrackEntry, TrackBackupRecord};
-use crate::metadata::{read_metadata, write_metadata, MetadataUpdate, TrackMetadata};
+use muorg_core::catalog::{
+    Catalog, CatalogTrack, LibraryStats, Playlist, PlaylistTrackEntry, TrackBackupRecord,
+};
+use muorg_core::metadata::{read_metadata, write_metadata, MetadataUpdate, TrackMetadata};
 use base64::Engine;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -38,9 +40,9 @@ pub async fn add_folder(
 ) -> Result<AddFolderResult, String> {
     let folder = normalize_to_folder(&path)?;
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::save_roots(&conn, std::slice::from_ref(&folder))?;
-    let tracks_added = crate::catalog::scan_and_insert(&conn, &folder)?;
-    let roots = crate::catalog::load_roots(&conn)?;
+    muorg_core::catalog::save_roots(&conn, std::slice::from_ref(&folder))?;
+    let tracks_added = muorg_core::catalog::scan_and_insert(&conn, &folder)?;
+    let roots = muorg_core::catalog::load_roots(&conn)?;
     Ok(AddFolderResult {
         roots,
         tracks_added,
@@ -60,19 +62,19 @@ pub async fn write_text_file(path: String, content: String) -> Result<(), String
 #[tauri::command]
 pub async fn get_roots(catalog: State<'_, Arc<Catalog>>) -> Result<Vec<String>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::load_roots(&conn)
+    muorg_core::catalog::load_roots(&conn)
 }
 
 #[tauri::command]
 pub async fn get_tracks(catalog: State<'_, Arc<Catalog>>) -> Result<Vec<CatalogTrack>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::load_tracks(&conn)
+    muorg_core::catalog::load_tracks(&conn)
 }
 
 #[tauri::command]
 pub async fn rescan(catalog: State<'_, Arc<Catalog>>, root_path: String) -> Result<u64, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::rescan_root(&conn, &root_path)
+    muorg_core::catalog::rescan_root(&conn, &root_path)
 }
 
 #[tauri::command]
@@ -81,7 +83,7 @@ pub async fn remove_folder(
     root_path: String,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::remove_root(&conn, &root_path)
+    muorg_core::catalog::remove_root(&conn, &root_path)
 }
 
 /// Hard-delete all soft-deleted tracks and their now-orphaned roots immediately,
@@ -89,7 +91,7 @@ pub async fn remove_folder(
 #[tauri::command]
 pub async fn clear_cache(catalog: State<'_, Arc<Catalog>>) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::gc_deleted_tracks(&conn, 0)
+    muorg_core::catalog::gc_deleted_tracks(&conn, 0)
 }
 
 /// Cover art data returned to the frontend so it can use the correct MIME type in data URLs
@@ -148,17 +150,17 @@ pub async fn write_track_metadata(
         create_backup(&app, &path)?;
         let conn = catalog.db.lock().map_err(|e| e.to_string())?;
         if let Some(backup_path) = latest_backup_path(&app, &path)? {
-            crate::catalog::record_track_backup(&conn, &path, &backup_path)?;
+            muorg_core::catalog::record_track_backup(&conn, &path, &backup_path)?;
         }
     }
     let file_path = std::path::Path::new(&path);
     write_metadata(file_path, &update)?;
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::update_track_metadata(&conn, &path, &update)?;
+    muorg_core::catalog::update_track_metadata(&conn, &path, &update)?;
     // Recompute the content hash after the file has been modified so that a future
     // remove-and-re-add of the folder still matches this track's updated hash.
-    if let Ok(new_hash) = crate::catalog::compute_content_hash(file_path) {
-        let _ = crate::catalog::update_track_hash(&conn, &path, &new_hash);
+    if let Ok(new_hash) = muorg_core::catalog::compute_content_hash(file_path) {
+        let _ = muorg_core::catalog::update_track_hash(&conn, &path, &new_hash);
     }
     Ok(())
 }
@@ -235,7 +237,7 @@ pub async fn get_latest_track_backup(
     path: String,
 ) -> Result<Option<TrackBackupRecord>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::get_latest_track_backup(&conn, &path)
+    muorg_core::catalog::get_latest_track_backup(&conn, &path)
 }
 
 #[tauri::command]
@@ -244,7 +246,7 @@ pub async fn restore_track_from_latest_backup(
     path: String,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    let backup = crate::catalog::get_latest_track_backup(&conn, &path)?
+    let backup = muorg_core::catalog::get_latest_track_backup(&conn, &path)?
         .ok_or_else(|| "No backup found for this track".to_string())?;
     std::fs::copy(&backup.backup_path, &path).map_err(|e| format!("Restore failed: {e}"))?;
     let fresh = read_metadata(Path::new(&path))?;
@@ -260,9 +262,9 @@ pub async fn restore_track_from_latest_backup(
         disc_number: Some(fresh.disc_number.map(Some).unwrap_or(None)),
         picture_base64: Some(fresh.picture_base64.map(Some).unwrap_or(None)),
     };
-    crate::catalog::update_track_metadata(&conn, &path, &update)?;
-    if let Ok(new_hash) = crate::catalog::compute_content_hash(Path::new(&path)) {
-        let _ = crate::catalog::update_track_hash(&conn, &path, &new_hash);
+    muorg_core::catalog::update_track_metadata(&conn, &path, &update)?;
+    if let Ok(new_hash) = muorg_core::catalog::compute_content_hash(Path::new(&path)) {
+        let _ = muorg_core::catalog::update_track_hash(&conn, &path, &new_hash);
     }
     Ok(())
 }
@@ -274,7 +276,7 @@ pub async fn set_track_rating(
     rating: Option<i64>,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::set_track_rating(&conn, &path, rating)
+    muorg_core::catalog::set_track_rating(&conn, &path, rating)
 }
 
 // ── Playlist commands ──────────────────────────────────────────────────────
@@ -282,7 +284,7 @@ pub async fn set_track_rating(
 #[tauri::command]
 pub async fn get_playlists(catalog: State<'_, Arc<Catalog>>) -> Result<Vec<Playlist>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::load_playlists(&conn)
+    muorg_core::catalog::load_playlists(&conn)
 }
 
 #[tauri::command]
@@ -291,7 +293,7 @@ pub async fn create_playlist(
     name: String,
 ) -> Result<Playlist, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::create_playlist(&conn, &name)
+    muorg_core::catalog::create_playlist(&conn, &name)
 }
 
 #[tauri::command]
@@ -301,7 +303,7 @@ pub async fn rename_playlist(
     name: String,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::rename_playlist(&conn, id, &name)
+    muorg_core::catalog::rename_playlist(&conn, id, &name)
 }
 
 #[tauri::command]
@@ -311,7 +313,7 @@ pub async fn set_playlist_icon(
     icon: Option<String>,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::set_playlist_icon(&conn, id, icon.as_deref())
+    muorg_core::catalog::set_playlist_icon(&conn, id, icon.as_deref())
 }
 
 #[tauri::command]
@@ -320,7 +322,7 @@ pub async fn delete_playlist(
     id: i64,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::delete_playlist(&conn, id)
+    muorg_core::catalog::delete_playlist(&conn, id)
 }
 
 #[tauri::command]
@@ -329,7 +331,7 @@ pub async fn get_playlist_tracks(
     playlist_id: i64,
 ) -> Result<Vec<i64>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::get_playlist_tracks(&conn, playlist_id)
+    muorg_core::catalog::get_playlist_tracks(&conn, playlist_id)
 }
 
 #[tauri::command]
@@ -338,7 +340,7 @@ pub async fn get_playlists_for_track(
     track_id: i64,
 ) -> Result<Vec<i64>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::get_playlists_for_track(&conn, track_id)
+    muorg_core::catalog::get_playlists_for_track(&conn, track_id)
 }
 
 #[tauri::command]
@@ -347,7 +349,7 @@ pub async fn get_playlist_entries(
     playlist_id: i64,
 ) -> Result<Vec<PlaylistTrackEntry>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::get_playlist_entries(&conn, playlist_id)
+    muorg_core::catalog::get_playlist_entries(&conn, playlist_id)
 }
 
 #[tauri::command]
@@ -356,7 +358,7 @@ pub async fn remove_playlist_entry(
     entry_id: i64,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::remove_playlist_entry_by_id(&conn, entry_id)
+    muorg_core::catalog::remove_playlist_entry_by_id(&conn, entry_id)
 }
 
 #[tauri::command]
@@ -366,7 +368,7 @@ pub async fn add_tracks_to_playlist(
     track_ids: Vec<i64>,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::add_tracks_to_playlist(&conn, playlist_id, &track_ids)
+    muorg_core::catalog::add_tracks_to_playlist(&conn, playlist_id, &track_ids)
 }
 
 #[tauri::command]
@@ -376,7 +378,7 @@ pub async fn remove_tracks_from_playlist(
     track_ids: Vec<i64>,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::remove_tracks_from_playlist(&conn, playlist_id, &track_ids)
+    muorg_core::catalog::remove_tracks_from_playlist(&conn, playlist_id, &track_ids)
 }
 
 // ── Play count ─────────────────────────────────────────────────────────────
@@ -387,7 +389,7 @@ pub async fn record_play(
     path: String,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::record_play(&conn, &path)
+    muorg_core::catalog::record_play(&conn, &path)
 }
 
 // ── Full-text search ────────────────────────────────────────────────────────
@@ -398,7 +400,7 @@ pub async fn search_tracks(
     query: String,
 ) -> Result<Vec<CatalogTrack>, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::search_tracks(&conn, &query)
+    muorg_core::catalog::search_tracks(&conn, &query)
 }
 
 // ── Library stats ───────────────────────────────────────────────────────────
@@ -408,7 +410,7 @@ pub async fn get_library_stats(
     catalog: State<'_, Arc<Catalog>>,
 ) -> Result<LibraryStats, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::get_library_stats(&conn)
+    muorg_core::catalog::get_library_stats(&conn)
 }
 
 // ── Smart playlists ─────────────────────────────────────────────────────────
@@ -420,7 +422,7 @@ pub async fn create_smart_playlist(
     rules_json: String,
 ) -> Result<Playlist, String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::create_smart_playlist(&conn, &name, &rules_json)
+    muorg_core::catalog::create_smart_playlist(&conn, &name, &rules_json)
 }
 
 #[tauri::command]
@@ -430,7 +432,7 @@ pub async fn update_smart_playlist_rules(
     rules_json: String,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::set_smart_playlist_rules(&conn, id, Some(&rules_json))
+    muorg_core::catalog::set_smart_playlist_rules(&conn, id, Some(&rules_json))
 }
 
 #[tauri::command]
@@ -448,7 +450,7 @@ pub async fn get_smart_playlist_track_ids(
         )
         .map_err(|e| e.to_string())?;
     match rules {
-        Some(r) => crate::catalog::resolve_smart_playlist_track_ids(&conn, &r),
+        Some(r) => muorg_core::catalog::resolve_smart_playlist_track_ids(&conn, &r),
         None => Err("Not a smart playlist".to_string()),
     }
 }
@@ -459,7 +461,7 @@ pub async fn reorder_playlists(
     ids: Vec<i64>,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::reorder_playlists(&conn, &ids)
+    muorg_core::catalog::reorder_playlists(&conn, &ids)
 }
 
 // ── Google Cast ─────────────────────────────────────────────────────────────
@@ -469,7 +471,7 @@ pub async fn cast_start_discovery(
     app: tauri::AppHandle,
     discovery: State<'_, crate::cast::DiscoveryState>,
 ) -> Result<(), String> {
-    discovery.start(app);
+    discovery.start(crate::cast::TauriObserver::new(app));
     Ok(())
 }
 
@@ -484,7 +486,7 @@ pub async fn cast_stop_discovery(
 #[tauri::command]
 pub async fn cast_get_devices(
     discovery: State<'_, crate::cast::DiscoveryState>,
-) -> Result<Vec<crate::cast::discovery::CastDevice>, String> {
+) -> Result<Vec<crate::cast::CastDevice>, String> {
     Ok(discovery.devices.lock().unwrap().clone())
 }
 
@@ -513,7 +515,13 @@ pub async fn cast_play(
     let stream_url = format!("http://{lan_ip}:{port}/track?path={encoded}");
     let is_flac = track_path.to_lowercase().ends_with(".flac");
 
-    cast_state.start_session(device.address, device.port, stream_url, is_flac, app);
+    cast_state.start_session(
+        device.address,
+        device.port,
+        stream_url,
+        is_flac,
+        crate::cast::TauriObserver::new(app),
+    );
     Ok(())
 }
 
@@ -575,7 +583,7 @@ pub async fn rename_track_file(
     }
     std::fs::rename(old, new).map_err(|e| e.to_string())?;
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    crate::catalog::update_track_path(&conn, &old_path, &new_path)
+    muorg_core::catalog::update_track_path(&conn, &old_path, &new_path)
 }
 
 /// Download an image from a URL and return base64-encoded data plus MIME type (e.g. for Wikipedia album art).
@@ -613,4 +621,98 @@ pub async fn fetch_image_url(url: String) -> Result<FetchedImage, String> {
         base64,
         mime: content_type,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── normalize_to_folder ───────────────────────────────────────────────
+    //
+    // Drag-and-drop hands over whatever the user dropped — a folder, or a file
+    // inside one. Everything downstream (`save_roots`, `scan_and_insert`)
+    // expects a directory, so this is where a dropped file becomes its parent.
+
+    #[test]
+    fn a_directory_is_returned_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        assert_eq!(normalize_to_folder(path).unwrap(), path);
+    }
+
+    #[test]
+    fn a_file_resolves_to_its_parent_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("track.mp3");
+        std::fs::write(&file, b"x").unwrap();
+
+        assert_eq!(
+            normalize_to_folder(file.to_str().unwrap()).unwrap(),
+            dir.path().to_str().unwrap(),
+        );
+    }
+
+    #[test]
+    fn a_path_that_does_not_exist_is_rejected() {
+        // Adding a root that isn't there would otherwise write a phantom row
+        // that every later scan silently skips.
+        let err = normalize_to_folder("/no/such/place/at/all").unwrap_err();
+        assert_eq!(err, "Path does not exist");
+    }
+
+    // ── backup_file_name ──────────────────────────────────────────────────
+    //
+    // Backups from every track share one flat directory, so the name is what
+    // keeps one track's backup from overwriting another's — and what lets
+    // `latest_backup_path` find a given track's backups again.
+
+    #[test]
+    fn the_name_keeps_the_original_extension() {
+        assert!(backup_file_name("/music/a.flac").unwrap().ends_with(".flac"));
+        assert!(backup_file_name("/music/a.mp3").unwrap().ends_with(".mp3"));
+    }
+
+    #[test]
+    fn an_extensionless_path_falls_back_to_bin() {
+        assert!(backup_file_name("/music/nameless").unwrap().ends_with(".bin"));
+    }
+
+    #[test]
+    fn the_same_path_always_hashes_to_the_same_marker() {
+        // `latest_backup_path` finds a track's backups by searching for this
+        // 12-character hash inside the file name; if it were not stable, a
+        // restore would never find anything.
+        let a = backup_file_name("/music/a.mp3").unwrap();
+        let b = backup_file_name("/music/a.mp3").unwrap();
+        assert_eq!(marker(&a), marker(&b));
+    }
+
+    #[test]
+    fn different_paths_get_different_markers() {
+        let a = backup_file_name("/music/a.mp3").unwrap();
+        let b = backup_file_name("/music/b.mp3").unwrap();
+        assert_ne!(marker(&a), marker(&b));
+    }
+
+    #[test]
+    fn the_name_is_timestamp_then_marker_then_extension() {
+        // `latest_backup_path` sorts by file name and takes the last match, so
+        // the timestamp has to lead for "latest" to mean anything.
+        let name = backup_file_name("/music/a.mp3").unwrap();
+        let (stamp, rest) = name.split_once('-').expect("timestamp prefix");
+        assert!(stamp.parse::<u64>().is_ok(), "leading field is a unix time");
+        assert_eq!(rest.len(), "abcdef123456.mp3".len());
+    }
+
+    /// The 12-character path hash between the timestamp and the extension.
+    fn marker(file_name: &str) -> String {
+        file_name
+            .split_once('-')
+            .expect("timestamp prefix")
+            .1
+            .split_once('.')
+            .expect("extension")
+            .0
+            .to_string()
+    }
 }

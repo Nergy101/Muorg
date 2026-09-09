@@ -3,6 +3,8 @@
  * switching between local and online credentials based on backendMode.
  */
 
+import { createApi, createTransport } from "@shared/api";
+
 export const BACKEND_MODE_KEY = "muorg-backend-mode";
 export const LOCAL_API_KEY_KEY = "muorg-local-api-key";
 export const ONLINE_SERVER_URL_KEY = "muorg-server-url";
@@ -58,41 +60,24 @@ export function setServerUrl(url: string) { setOnlineServerUrl(url); }
 /** @deprecated use getOnlineApiKey/setOnlineApiKey directly */
 export function setApiKey(key: string) { setOnlineApiKey(key); }
 
-function authHeaders(): Record<string, string> {
-  const key = getApiKey();
-  return key ? { Authorization: `Bearer ${key}` } : {};
-}
+/**
+ * The typed client. Request plumbing and every endpoint signature live in
+ * `src/api/` at the repo root, shared with the web client — see
+ * `src/api/README.md`.
+ *
+ * The credentials are read per request, not captured, because Settings can flip
+ * between the bundled local sidecar and a remote server while the app runs.
+ */
+export const transport = createTransport({
+  baseUrl: getServerUrl,
+  apiKey: getApiKey,
+});
 
-export async function apiFetch<T = unknown>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const url = `${getServerUrl()}${path}`;
-  const headers = new Headers({ ...authHeaders(), ...(options.headers as Record<string, string> | undefined) });
-  const res = await fetch(url, { ...options, headers });
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const body = await res.json() as { error?: string };
-      if (body.error) msg = body.error;
-    } catch { /* ignore */ }
-    throw new Error(msg);
-  }
-  if (res.status === 204 || res.headers.get("content-length") === "0") {
-    return undefined as T;
-  }
-  return res.json() as Promise<T>;
-}
+export const api = createApi(transport);
 
-export async function apiFetchBlob(path: string): Promise<Blob> {
-  const url = `${getServerUrl()}${path}`;
-  const headers = new Headers(authHeaders());
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.blob();
-}
+// There is no untyped `apiFetch` any more: every request goes through the
+// spec-typed client above, so a call to a path the server does not serve is a
+// compile error. `streamUrl` stays because an <audio src> is a URL, not a fetch.
+export const streamUrl = transport.streamUrl;
 
-export function streamUrl(trackId: number, token: string, startSecs?: number): string {
-  const base = `${getServerUrl()}/stream/${trackId}?token=${encodeURIComponent(token)}`;
-  return startSecs != null && startSecs > 0 ? `${base}&start=${startSecs.toFixed(2)}` : base;
-}
+export { ApiError } from "@shared/api";

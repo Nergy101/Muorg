@@ -20,6 +20,7 @@ mod double_option {
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct TrackMetadata {
     pub title: Option<String>,
     pub artist: Option<String>,
@@ -206,7 +207,13 @@ fn detect_lyrics_format(text: &str) -> &'static str {
     if has_timestamp { "lrc" } else { "plain" }
 }
 
+/// Patch document for `PATCH /api/tracks/{id}/metadata`.
+///
+/// Every field is `Option<Option<T>>`: absent means "leave this tag alone",
+/// `null` means "clear it". `ToSchema` flattens that to a plain nullable
+/// optional, which is the right shape for a JSON patch body.
 #[derive(serde::Deserialize, Clone)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MetadataUpdate {
     #[serde(default, deserialize_with = "double_option::deserialize")]
     pub title: Option<Option<String>>,

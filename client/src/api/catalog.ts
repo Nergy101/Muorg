@@ -1,7 +1,17 @@
-import { apiFetch, apiFetchBlob } from "./client";
-import type { CatalogTrack, MetadataUpdate, TrackMetadataRead } from "../types";
+/**
+ * Catalog calls, delegated to the shared typed client in `src/api/`.
+ *
+ * The signatures here are the ones this app already used; the request building,
+ * the wire types and — importantly — the pagination now come from the shared
+ * contract, so a server change shows up as a compile error rather than a
+ * runtime shrug.
+ */
 
-export type { TrackMetadataRead };
+import { api } from "./client";
+import type { CatalogTrack, MetadataUpdate, TrackMetadataRead } from "../types";
+import type { MatchCandidate, TracksPage } from "@shared/api";
+
+export type { TrackMetadataRead, TracksPage };
 
 export interface CoverInfo {
   base64: string;
@@ -16,79 +26,84 @@ export interface LibraryStats {
   total_duration_secs: number;
 }
 
-export async function getRoots(): Promise<string[]> {
-  return apiFetch<string[]>("/api/roots");
+export function getRoots(): Promise<string[]> {
+  return api.getRoots();
 }
 
-// GET /api/tracks — fetch ALL pages. The server paginates (default 500/page,
-// total in X-Total-Count), so a bare /api/tracks silently returned only the
-// first 500 tracks. Follow offset until fewer than the page size comes back.
-export async function getTracks(): Promise<CatalogTrack[]> {
-  const PAGE = 500;
-  const first = await apiFetch<CatalogTrack[]>("/api/tracks?limit=" + PAGE);
-  const out = [...first];
-  let offset = first.length;
-  while (offset > 0) {
-    const page = await apiFetch<CatalogTrack[]>(
-      `/api/tracks?offset=${offset}&limit=${PAGE}`,
-    );
-    if (!page.length) break;
-    out.push(...page);
-    if (page.length < PAGE) break;
-    offset += page.length;
-  }
-  return out;
+/**
+ * The catalog, one page at a time.
+ *
+ * `/api/tracks` is paginated at 500 rows. This used to be a loop here that
+ * collected every page before returning, which meant a spinner until the whole
+ * library had landed — seven round-trips for a 3k-track collection. Yielding
+ * per page lets the table paint the first 500 immediately, which is what the
+ * web and Android clients already do.
+ */
+export function streamTracks(): AsyncGenerator<TracksPage, void, void> {
+  return api.streamTracks();
 }
 
-export async function searchTracks(query: string): Promise<CatalogTrack[]> {
-  return apiFetch<CatalogTrack[]>(`/api/search?q=${encodeURIComponent(query)}`);
+/** The whole catalog in one array, for callers that cannot render as it loads. */
+export function getTracks(): Promise<CatalogTrack[]> {
+  return api.fetchAllTracks();
 }
 
-export async function getStats(): Promise<LibraryStats> {
-  return apiFetch<LibraryStats>("/api/stats");
+export function searchTracks(query: string): Promise<CatalogTrack[]> {
+  return api.searchTracks(query);
 }
 
-export async function rescan(rootPath?: string): Promise<number> {
-  const body = rootPath ? { root_path: rootPath } : undefined;
-  const result = await apiFetch<{ tracks_added: number }>("/api/admin/rescan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return result.tracks_added;
+export function getStats(): Promise<LibraryStats> {
+  return api.getStats();
 }
 
-export async function addFolder(path: string): Promise<{ roots: string[]; tracks_added: number }> {
+export function rescan(rootPath?: string): Promise<number> {
+  return api.rescan(rootPath);
+}
+
+export async function addFolder(
+  path: string,
+): Promise<{ roots: string[]; tracks_added: number }> {
   const tracksAdded = await rescan(path);
   const roots = await getRoots();
   return { roots, tracks_added: tracksAdded };
 }
 
 export async function removeFolder(rootPath: string): Promise<void> {
-  await apiFetch("/api/admin/remove-folder", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ root_path: rootPath }),
-  });
+  await api.removeFolder(rootPath);
 }
 
 export async function clearCache(): Promise<void> {
-  await apiFetch("/api/admin/clear-cache", { method: "POST" });
+  await api.clearCache();
 }
 
 export async function getCover(trackId: number): Promise<CoverInfo | null> {
   try {
-    const blob = await apiFetchBlob(`/api/tracks/${trackId}/cover`);
+    const blob = await api.getCoverBlob(trackId);
     const base64 = await blobToBase64(blob);
-    return { base64: base64.split(",")[1] ?? base64, mime: blob.type, size_bytes: blob.size };
+    return {
+      base64: base64.split(",")[1] ?? base64,
+      mime: blob.type,
+      size_bytes: blob.size,
+    };
   } catch {
     return null;
   }
 }
 
-export async function getMetadata(trackId: number): Promise<TrackMetadataRead | null> {
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function getMetadata(
+  trackId: number,
+): Promise<TrackMetadataRead | null> {
   try {
-    return await apiFetch<TrackMetadataRead>(`/api/tracks/${trackId}/metadata`);
+    return await api.getMetadata(trackId);
   } catch {
     return null;
   }
@@ -99,89 +114,86 @@ export async function patchMetadata(
   update: MetadataUpdate,
   backupBeforeWrite: boolean,
 ): Promise<void> {
-  await apiFetch(`/api/tracks/${trackId}/metadata`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...update, backup_before_write: backupBeforeWrite }),
-  });
+  await api.patchMetadata(trackId, update, backupBeforeWrite);
 }
 
-export async function patchMetadataBatch(
+export function patchMetadataBatch(
   items: { id: number; update: MetadataUpdate }[],
 ): Promise<{ ok: boolean; updated: number }> {
-  return apiFetch("/api/tracks/metadata/batch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(items),
-  });
+  // The server flattens the patch onto the item (`#[serde(flatten)]`), so the
+  // wire shape is `{ id, title?, artist?, ... }`, not `{ id, update }`.
+  return api.patchMetadataBatch(items.map(({ id, update }) => ({ id, ...update })));
 }
 
 export async function recordPlay(trackId: number): Promise<void> {
-  await apiFetch(`/api/tracks/${trackId}/play`, { method: "POST" });
+  await api.recordPlay(trackId);
 }
 
-export async function setRating(trackId: number, rating: number | null): Promise<void> {
-  await apiFetch(`/api/tracks/${trackId}/rating`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rating }),
-  });
+export async function setRating(
+  trackId: number,
+  rating: number | null,
+): Promise<void> {
+  await api.setRating(trackId, rating);
 }
 
-export async function issueStreamToken(trackId: number): Promise<string> {
-  const result = await apiFetch<{ token: string }>(`/api/tracks/${trackId}/stream-token`);
-  return result.token;
+export function issueStreamToken(trackId: number): Promise<string> {
+  return api.getStreamToken(trackId);
 }
 
 export async function fetchImageUrl(url: string): Promise<CoverInfo | null> {
   try {
-    return apiFetch<CoverInfo | null>("/api/fetch-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
+    const image = await api.fetchImage(url);
+    return {
+      base64: image.base64,
+      mime: image.mime,
+      // The endpoint returns base64 only; derive the decoded size so the cover
+      // comparison in MetadataEditor has a real number to work with.
+      size_bytes: base64ByteLength(image.base64),
+    };
   } catch {
     return null;
   }
 }
 
-export async function getLatestBackup(trackId: number): Promise<{ path: string } | null> {
+function base64ByteLength(base64: string): number {
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.max(0, (base64.length * 3) / 4 - padding);
+}
+
+export async function getLatestBackup(
+  trackId: number,
+): Promise<{ path: string } | null> {
   try {
-    return apiFetch<{ path: string } | null>(`/api/tracks/${trackId}/backup`);
+    const record = await api.getLatestBackup(trackId);
+    return record ? { path: record.backup_path } : null;
   } catch {
     return null;
   }
 }
 
 export async function restoreFromLatestBackup(trackId: number): Promise<void> {
-  await apiFetch(`/api/tracks/${trackId}/restore`, { method: "POST" });
+  await api.restoreFromBackup(trackId);
 }
 
-export async function getBackupDir(): Promise<string> {
-  const result = await apiFetch<{ path: string }>("/api/admin/backup-directory");
-  return result.path;
+export function getBackupDir(): Promise<string> {
+  return api.getBackupDirectory();
 }
 
-export async function renameTrackFile(trackId: number, newPath: string): Promise<void> {
-  await apiFetch(`/api/tracks/${trackId}/rename`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ new_path: newPath }),
-  });
+export async function renameTrackFile(
+  trackId: number,
+  newPath: string,
+): Promise<void> {
+  await api.renameTrackFile(trackId, newPath);
+}
+
+/** Embedded lyrics for a track, or null when it has none. */
+export function getTrackLyrics(trackId: number) {
+  return api.getLyrics(trackId);
 }
 
 // ── Auto-tagging (MusicBrainz) ────────────────────────────────────────────────
 
-export interface AutoTagCandidate {
-  confidence: number;
-  mbid: string;
-  title: string;
-  artist: string;
-  album: string | null;
-  year: number | null;
-  track_number: number | null;
-  album_artist: string | null;
-}
+export type AutoTagCandidate = MatchCandidate;
 
 export interface AutoTagResponse {
   candidates: AutoTagCandidate[];
@@ -189,20 +201,7 @@ export interface AutoTagResponse {
 
 export async function getAutoTagSuggestions(
   trackId: number,
-  query?: { artist?: string; title?: string; album?: string },
+  query?: { artist?: string | null; title?: string | null; album?: string | null },
 ): Promise<AutoTagResponse> {
-  return apiFetch<AutoTagResponse>(`/api/tracks/${trackId}/auto-tag-suggestions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: query ? JSON.stringify(query) : undefined,
-  });
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  return { candidates: await api.autoTagSuggestions(trackId, query) };
 }

@@ -84,6 +84,10 @@ export const useCatalogStore = defineStore("catalog", {
     reportSingleField: null as MissingMetadataField | null,
     searchResults: null as CatalogTrack[] | null,
     loading: false,
+    /** True while later pages of the catalog are still streaming in. */
+    loadingMore: false,
+    /** Catalog size reported by the server, so the UI can show progress. */
+    totalTracks: 0,
     error: null as string | null,
     searchQuery: initialFilter.searchQuery,
     filterMinRating: initialFilter.filterMinRating,
@@ -100,6 +104,11 @@ export const useCatalogStore = defineStore("catalog", {
     isInternalQueueDrag: false,
     pendingDragTrackIds: null as number[] | null,
     activePlaylistId: null as number | null,
+    /**
+     * Label for the active filter chip. Server playlists are looked up by id,
+     * but a Mix has no server-side row, so it carries its own name here.
+     */
+    activePlaylistName: null as string | null,
     playingFromPlaylistId: null as number | null,
     activePlaylistTrackIds: null as number[] | null,
     activePlaylistEntryIds: null as number[] | null,
@@ -333,38 +342,75 @@ export const useCatalogStore = defineStore("catalog", {
         this.loading = false;
       }
     },
+    /**
+     * Load the catalog, showing each page as it arrives.
+     *
+     * `/api/tracks` is paginated at 500 rows, so a 3k-track library is seven
+     * round-trips. This used to await all of them before assigning `tracks`,
+     * which meant a spinner for the whole load and no way to interact with the
+     * library that had already come down. Now the first page lands in `tracks`
+     * immediately and `loading` clears; the rest append under `loadingMore`.
+     */
     async loadTracks() {
       if (isMock()) {
         this.tracks = MOCK_TRACKS;
+        this.totalTracks = MOCK_TRACKS.length;
         return;
       }
       this.loading = true;
+      this.loadingMore = false;
       this.error = null;
       try {
-        this.tracks = await api.getTracks();
-        const next: Record<string, CoverInfo | null> = {};
-        for (const t of this.tracks) {
-          const cover = this.coverCache[t.path];
-          if (cover) {
-            const key = t.album ?? "—";
-            if (!(key in next)) next[key] = cover;
+        let first = true;
+        for await (const page of api.streamTracks()) {
+          this.totalTracks = page.total;
+          if (first) {
+            this.tracks = page.tracks;
+            this._onFirstTracksPage();
+            // The table is usable from here on; later pages just extend it.
+            this.loading = false;
+            this.loadingMore = this.tracks.length < page.total;
+            first = false;
+          } else {
+            this.tracks.push(...page.tracks);
           }
         }
-        for (const [albumKey, cover] of Object.entries(this.albumCoverCache)) {
-          if (!(albumKey in next)) {
-            next[albumKey] = cover;
-          }
-        }
-        this.albumCoverCache = next;
-        this._prefetchAllCovers();
-        if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
-          const first = this.tableOrderedTracks[0];
-          if (first) this.selectedTrackIds = [first.id];
+        if (first) {
+          // An empty catalog still needs the post-load bookkeeping to run.
+          this.tracks = [];
+          this._onFirstTracksPage();
         }
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
       } finally {
         this.loading = false;
+        this.loadingMore = false;
+      }
+    },
+
+    /**
+     * Bookkeeping that only needs the first page: reconcile the album cover
+     * cache, kick off cover prefetching, and seed the selection.
+     */
+    _onFirstTracksPage() {
+      const next: Record<string, CoverInfo | null> = {};
+      for (const t of this.tracks) {
+        const cover = this.coverCache[t.path];
+        if (cover) {
+          const key = t.album ?? "—";
+          if (!(key in next)) next[key] = cover;
+        }
+      }
+      for (const [albumKey, cover] of Object.entries(this.albumCoverCache)) {
+        if (!(albumKey in next)) {
+          next[albumKey] = cover;
+        }
+      }
+      this.albumCoverCache = next;
+      this._prefetchAllCovers();
+      if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
+        const first = this.tableOrderedTracks[0];
+        if (first) this.selectedTrackIds = [first.id];
       }
     },
     async addFolder(path: string) {
@@ -391,11 +437,7 @@ export const useCatalogStore = defineStore("catalog", {
           await api.rescan(path);
         }
         this.roots = await api.getRoots();
-        this.tracks = await api.getTracks();
-        if (this.tracks.length > 0 && this.selectedTrackIds.length === 0) {
-          const first = this.tableOrderedTracks[0];
-          if (first) this.selectedTrackIds = [first.id];
-        }
+        await this.loadTracks();
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
         throw e;
@@ -777,8 +819,13 @@ export const useCatalogStore = defineStore("catalog", {
       this.isInternalQueueDrag = value;
       this.pendingDragTrackIds = value ? (trackIds ?? null) : null;
     },
-    setActivePlaylist(id: number, entries: { entryId: number; trackId: number }[]) {
+    setActivePlaylist(
+      id: number,
+      entries: { entryId: number; trackId: number }[],
+      name?: string,
+    ) {
       this.activePlaylistId = id;
+      this.activePlaylistName = name ?? null;
       this.activePlaylistTrackIds = entries.map((e) => e.trackId);
       this.activePlaylistEntryIds = entries.map((e) => e.entryId);
       if (this.currentPlayingTrackId === null) {
@@ -790,6 +837,7 @@ export const useCatalogStore = defineStore("catalog", {
     },
     clearActivePlaylist() {
       this.activePlaylistId = null;
+      this.activePlaylistName = null;
       this.activePlaylistTrackIds = null;
       this.activePlaylistEntryIds = null;
       if (this.currentPlayingTrackId === null) {

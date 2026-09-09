@@ -71,6 +71,15 @@
           <button
             type="button"
             class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
+            :class="cast.isCasting ? 'text-primary' : ''"
+            :aria-label="cast.isCasting ? `Casting to ${cast.deviceName}` : 'Cast to a device'"
+            @click="showCastSheet = true"
+          >
+            <MageIcon name="screencast" class="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
             aria-label="Track actions"
             @click="openTrackActions"
           >
@@ -237,10 +246,10 @@
             <button
               type="button"
               class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
-              :aria-label="player.isPlaying ? 'Pause' : 'Play'"
-              @click="player.playPause()"
+              :aria-label="transportPlaying ? 'Pause' : 'Play'"
+              @click="togglePlay"
             >
-              <MageIcon :name="player.isPlaying ? 'pause' : 'play'" class="h-8 w-8" />
+              <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-8 w-8" />
             </button>
             <button
               type="button"
@@ -293,6 +302,8 @@
       @cancel="showSleepConfirm = false"
     />
 
+    <CastDevicePicker :open="showCastSheet" @close="showCastSheet = false" />
+
     <TrackActionsSheet
       :open="showActionsSheet"
       :initial-level="actionsInitialLevel"
@@ -305,7 +316,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
@@ -323,6 +334,9 @@ import {
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
 import { formatDuration, useLibraryStore } from "../stores/library";
+import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
+import { useCastStore } from "../stores/cast";
+import CastDevicePicker from "../components/CastDevicePicker.vue";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
@@ -330,6 +344,36 @@ const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 const router = useRouter();
 const player = usePlayerStore();
 const lib = useLibraryStore();
+const cast = useCastStore();
+
+// ── Casting ────────────────────────────────────────────────────────────────
+// While a session is live the server drives the audio, so the transport
+// controls have to act on the device rather than the (now silent) local
+// element — and the progress bar reads the device's reported position.
+const showCastSheet = ref(false);
+
+const transportPlaying = computed(() =>
+  cast.isCasting ? cast.isPlaying : player.isPlaying,
+);
+
+function togglePlay(): void {
+  if (!cast.isCasting) {
+    player.playPause();
+    return;
+  }
+  void (cast.isPlaying ? cast.pause() : cast.resume());
+}
+
+// The device reports where it actually is; fall back to the local clock
+// between polls so the bar does not stutter.
+const displayPositionSecs = computed(() =>
+  cast.isCasting ? (cast.positionSecs ?? player.positionSecs) : player.positionSecs,
+);
+
+// A track played to the end on the device should advance the queue the same
+// way a local `ended` event does.
+const stopListeningForTrackEnd = cast.onTrackEnded(() => player.skipNext());
+onUnmounted(stopListeningForTrackEnd);
 
 // --- Lyrics ---------------------------------------------------------------
 // Embedded lyrics are fetched from the server per track; when the track has
@@ -337,37 +381,16 @@ const lib = useLibraryStore();
 const lyrics = ref<TrackLyrics | null>(null);
 const showLyrics = ref(false);
 const lyricLineEls = ref<HTMLElement[]>([]);
-const lrcLines = ref<{ time: number; text: string }[]>([]);
-
-function parseLrc(text: string): { time: number; text: string }[] {
-  const out: { time: number; text: string }[] = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const m = raw.trim().match(/^\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\](.*)$/);
-    if (!m) continue;
-    const mins = parseInt(m[1], 10);
-    const secs = parseInt(m[2], 10);
-    const frac = m[3] ? parseInt(m[3].padEnd(3, "0").slice(0, 3), 10) / 1000 : 0;
-    const text = m[4].trim();
-    if (text) out.push({ time: mins * 60 + secs + frac, text });
-  }
-  return out.sort((a, b) => a.time - b.time);
-}
+const lrcLines = ref<LrcLine[]>([]);
 
 const hasLyrics = computed(() => lyrics.value != null);
 const isSynced = computed(
   () => lyrics.value?.sync_format === "lrc" && lrcLines.value.length > 0,
 );
 
-const activeLyricIndex = computed(() => {
-  if (!isSynced.value) return -1;
-  const t = player.positionSecs;
-  let idx = -1;
-  for (let i = 0; i < lrcLines.value.length; i++) {
-    if (lrcLines.value[i].time <= t) idx = i;
-    else break;
-  }
-  return idx;
-});
+const activeLyricIndex = computed(() =>
+  isSynced.value ? activeLrcIndex(lrcLines.value, player.positionSecs) : -1,
+);
 
 watch(activeLyricIndex, (i) => {
   lyricLineEls.value[i]?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -443,7 +466,14 @@ const seekTrack = ref<HTMLElement | null>(null);
 const seekPreview = ref<number | null>(null);
 let seekPointerId: number | null = null;
 
-const displayedFraction = computed(() => seekPreview.value ?? player.progress);
+/** Progress from whichever side is actually playing. */
+const currentProgress = computed(() =>
+  cast.isCasting && player.durationSecs > 0
+    ? Math.min(1, displayPositionSecs.value / player.durationSecs)
+    : player.progress,
+);
+
+const displayedFraction = computed(() => seekPreview.value ?? currentProgress.value);
 const displayedSecs = computed(() => displayedFraction.value * player.durationSecs);
 
 function fractionFromEvent(e: PointerEvent): number {
@@ -476,11 +506,14 @@ function onSeekPointermove(e: PointerEvent): void {
 
 function onSeekPointerup(e: PointerEvent): void {
   if (e.pointerId !== seekPointerId) return;
-  const fraction = seekPreview.value ?? player.progress;
+  const fraction = seekPreview.value ?? currentProgress.value;
+  const secs = fraction * player.durationSecs;
   cleanupSeek();
-  // Hold the preview until the store has moved, otherwise a FLAC seek (which
-  // awaits a fresh stream token) flashes back to the old position.
-  void player.seekTo(fraction * player.durationSecs).finally(() => {
+  // Hold the preview until the far side has moved, otherwise a FLAC seek
+  // (which awaits a fresh stream token) or a cast seek (which awaits the next
+  // status poll) flashes back to the old position.
+  const seek = cast.isCasting ? cast.seek(secs) : player.seekTo(secs);
+  void seek.finally(() => {
     seekPreview.value = null;
   });
 }

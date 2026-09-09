@@ -227,7 +227,7 @@ import { usePlaylistStore, rulesToSmartJson, parseSmartRules } from "../stores/p
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
-import { findMix } from "../composables/useMixes";
+import { findMix } from "@shared/composables/useMixes";
 import type { AlbumGridItem, AlbumViewStyle, CatalogTrack, Playlist, SmartRule } from "../types";
 
 const props = defineProps<{ id: string }>();

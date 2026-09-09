@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.CatalogTrack
-import nl.muorg.android.data.api.MuorgApiService
+import nl.muorg.android.data.api.bodyOrThrow
+import nl.muorg.android.data.api.schema.MuorgApi
 import nl.muorg.android.data.db.OfflineTrack
 import nl.muorg.android.data.db.OfflineTrackDao
 import nl.muorg.android.data.preferences.AppPreferences
@@ -34,7 +35,7 @@ data class DownloadProgress(
 class OfflineDownloadManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val offlineTrackDao: OfflineTrackDao,
-    private val api: MuorgApiService,
+    private val api: MuorgApi,
     private val preferences: AppPreferences,
     private val okHttpClient: OkHttpClient,
 ) {
@@ -86,7 +87,10 @@ class OfflineDownloadManager @Inject constructor(
 
     private suspend fun downloadTrack(track: CatalogTrack, playlistId: Int): Boolean {
         val baseUrl = preferences.serverUrlState.value.trimEnd('/')
-        val token = runCatching { api.getStreamToken(track.id).token }.getOrElse { return false }
+        val token = runCatching {
+            api.issueToken(track.id.toLong())
+                .bodyOrThrow("GET /api/tracks/${track.id}/stream-token").token
+        }.getOrElse { return false }
         val url = "$baseUrl/stream/${track.id}?token=$token"
 
         val request = Request.Builder().url(url).build()

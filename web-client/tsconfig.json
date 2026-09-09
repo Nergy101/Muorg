@@ -23,7 +23,11 @@
       "@shared/*": ["../src/*"],
       "vue": ["node_modules/vue"],
       "vue/*": ["node_modules/vue/*"],
-      "feather-icons": ["node_modules/@types/feather-icons"]
+      "feather-icons": ["node_modules/@types/feather-icons"],
+      // The shared client in ../src imports openapi-fetch, which lives in this
+      // app's node_modules — same reason vue and feather-icons are mapped here.
+      "openapi-fetch": ["node_modules/openapi-fetch"],
+      "openapi-typescript-helpers": ["node_modules/openapi-typescript-helpers"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "vite.config.ts"]

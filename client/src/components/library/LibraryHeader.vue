@@ -305,7 +305,7 @@ watch(genreDropdownOpen, (open) => {
         class="flex shrink-0 items-center gap-1 rounded-full border border-stone-600 bg-stone-700 pl-2 pr-1 py-0.5 text-xs text-stone-200"
       >
         <FeatherIcon name="list" class="h-3 w-3 shrink-0 text-stone-400" />
-        <span class="max-w-[140px] truncate">{{ activePlaylist?.name ?? "Playlist" }}</span>
+        <span class="max-w-[140px] truncate">{{ activePlaylist?.name ?? store.activePlaylistName ?? "Playlist" }}</span>
         <button
           type="button"
           class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"
@@ -323,7 +323,7 @@ watch(genreDropdownOpen, (open) => {
           aria-label="Expand sidebar"
           @click="emit('expandSidebar')"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18m5-12l3 3l-3 3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M9 3v18m5-12l3 3l-3 3" /></svg>
         </button>
       </Transition>
       <Transition name="fade-inline">
