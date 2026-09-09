@@ -88,7 +88,9 @@ class AlbumDetailViewModel @Inject constructor(
                             .filter { it.displayAlbum == albumName }
                             .sortedWith(compareBy({ it.discNumber ?: 0 }, { it.trackNumber ?: 0 }))
                         if (filterPlaylistId != null) {
-                            val playlistTrackIds = playlistRepository.getPlaylistTracks(filterPlaylistId)
+                            // getTracksForId, not getPlaylistTracks: filtering by
+                            // a smart playlist would otherwise match nothing.
+                            val playlistTrackIds = playlistRepository.getTracksForId(filterPlaylistId)
                                 .getOrElse { emptyList() }.toSet()
                             albumTracks = albumTracks.filter { it.id in playlistTrackIds }
                         }
