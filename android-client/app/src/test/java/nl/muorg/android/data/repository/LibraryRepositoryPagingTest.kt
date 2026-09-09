@@ -1,15 +1,22 @@
 package nl.muorg.android.data.repository
 
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import nl.muorg.android.data.api.schema.CatalogTrack as WireTrack
+import nl.muorg.android.data.api.schema.AutoTagSuggestionsResponse
+import nl.muorg.android.data.api.schema.MatchCandidate
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.OkResponse
+import nl.muorg.android.data.api.schema.RenameBody
+import nl.muorg.android.data.api.schema.TrackBackupRecord
 import nl.muorg.android.data.api.toDomain
 import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import retrofit2.Response
@@ -154,5 +161,139 @@ class LibraryRepositoryPagingTest {
         val campfire = albums.first { it.albumName == "Campfire" }
         assertEquals("Boards", campfire.artist)
         assertEquals(2, campfire.trackCount)
+    }
+}
+
+/**
+ * The metadata tools the sheet exposes: MusicBrainz lookup, and the backup the
+ * server takes before a tag write.
+ */
+class LibraryRepositoryMetadataToolsTest {
+
+    private fun repo(configure: MuorgApi.() -> Unit): LibraryRepository {
+        val api = mockk<MuorgApi>()
+        api.configure()
+        return LibraryRepository(api)
+    }
+
+    private fun candidate(confidence: Double, title: String) = MatchCandidate(
+        confidence = confidence,
+        mbid = "mbid-$title",
+        title = title,
+        artist = "Boards",
+        album = "Campfire",
+        year = 1998,
+        trackNumber = 3,
+        albumArtist = "Boards",
+    )
+
+    @Test
+    fun `returns the candidates the server ranked`() = runTest {
+        val repository = repo {
+            coEvery { autoTagSuggestions(1L, any()) } returns Response.success(
+                AutoTagSuggestionsResponse(
+                    candidates = listOf(candidate(0.9, "Roygbiv"), candidate(0.4, "Roygbiv (live)")),
+                ),
+            )
+        }
+
+        val candidates = repository.autoTagSuggestions(1).getOrThrow()
+        assertEquals(2, candidates.size)
+        assertEquals("Roygbiv", candidates.first().title)
+    }
+
+    @Test
+    fun `an empty candidate list is a success, not a failure`() = runTest {
+        // "No match found" is a normal answer for an obscure track; surfacing it
+        // as an error would put a red message under every one of them.
+        val repository = repo {
+            coEvery { autoTagSuggestions(1L, any()) } returns
+                Response.success(AutoTagSuggestionsResponse(candidates = emptyList()))
+        }
+
+        val result = repository.autoTagSuggestions(1)
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrThrow().isEmpty())
+    }
+
+    @Test
+    fun `a lookup failure is reported`() = runTest {
+        val repository = repo {
+            coEvery { autoTagSuggestions(1L, any()) } returns
+                Response.error(503, "".toResponseBody("application/json".toMediaType()))
+        }
+        assertTrue(repository.autoTagSuggestions(1).isFailure)
+    }
+
+    @Test
+    fun `a track with no backup reports null rather than failing`() = runTest {
+        // The endpoint answers 200 with a null body for a file that has never
+        // been written to; reading that as an error would hide the Undo action
+        // exactly when it is correct to hide it, but by accident.
+        val repository = repo {
+            coEvery { getBackup(1L) } returns Response.success(null)
+        }
+
+        val result = repository.latestBackup(1)
+        assertTrue(result.isSuccess)
+        assertNull(result.getOrThrow())
+    }
+
+    @Test
+    fun `a track with a backup reports it`() = runTest {
+        val repository = repo {
+            coEvery { getBackup(1L) } returns Response.success(
+                TrackBackupRecord(
+                    id = 4,
+                    trackPath = "/music/a.mp3",
+                    backupPath = "/backups/a.mp3",
+                    createdAt = 1_700_000_000,
+                ),
+            )
+        }
+
+        assertEquals("/backups/a.mp3", repository.latestBackup(1).getOrThrow()?.backupPath)
+    }
+
+    @Test
+    fun `restoring invalidates the cached catalog`() = runTest {
+        // The restored file has different tags; serving the old rows would show
+        // the edit still in place.
+        var trackCalls = 0
+        val api = mockk<MuorgApi>()
+        coEvery { api.getTracks(0, 500) } answers {
+            trackCalls++
+            Response.success(emptyList(), Headers.headersOf("X-Total-Count", "0"))
+        }
+        coEvery { api.restoreBackup(1L) } returns Response.success(OkResponse(ok = true))
+        val repository = LibraryRepository(api)
+
+        repository.getAllTracks().getOrThrow()
+        repository.restoreFromBackup(1).getOrThrow()
+        repository.getAllTracks().getOrThrow()
+
+        assertEquals(2, trackCalls)
+    }
+
+    @Test
+    fun `a failed restore is reported`() = runTest {
+        val repository = repo {
+            coEvery { restoreBackup(1L) } returns
+                Response.error(400, "".toResponseBody("application/json".toMediaType()))
+        }
+        assertTrue(repository.restoreFromBackup(1).isFailure)
+    }
+
+    @Test
+    fun `renaming sends the new path and invalidates the cache`() = runTest {
+        val api = mockk<MuorgApi>()
+        coEvery { api.getTracks(0, 500) } returns
+            Response.success(emptyList(), Headers.headersOf("X-Total-Count", "0"))
+        coEvery { api.renameFile(1L, any()) } returns Response.success(OkResponse(ok = true))
+        val repository = LibraryRepository(api)
+
+        repository.renameTrackFile(1, "/music/renamed.mp3").getOrThrow()
+
+        coVerify { api.renameFile(1L, RenameBody(newPath = "/music/renamed.mp3")) }
     }
 }

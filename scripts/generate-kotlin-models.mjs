@@ -62,6 +62,18 @@ function refName(ref) {
   return m[1];
 }
 
+/**
+ * `Option<T>` in Rust becomes `oneOf: [null, T]`. That is a nullable T, not a
+ * union worth its own sealed type — unwrap it, or the generator falls through
+ * to `Unit` and the response body silently disappears.
+ */
+function unwrapNullableOneOf(node) {
+  if (!Array.isArray(node?.oneOf) || node.oneOf.length !== 2) return null;
+  const nullBranch = node.oneOf.find((b) => b.type === "null");
+  const valueBranch = node.oneOf.find((b) => b.type !== "null");
+  return nullBranch && valueBranch ? valueBranch : null;
+}
+
 /** OpenAPI schema node -> Kotlin type, e.g. `List<CatalogTrack>?` */
 function kotlinType(node, required) {
   const suffix = required ? "" : "?";
@@ -70,6 +82,9 @@ function kotlinType(node, required) {
 
   // utoipa emits `allOf: [$ref]` when a field carries its own description.
   if (node.allOf?.length === 1) return kotlinType(node.allOf[0], required);
+
+  const nullableInner = unwrapNullableOneOf(node);
+  if (nullableInner) return kotlinType(nullableInner, false);
 
   // An internally-tagged Rust enum becomes oneOf; model it as the sealed
   // interface we emit separately.

@@ -120,13 +120,26 @@ call sites plus the Room entities, their DAOs and the hand-written migration in
 **Size:** medium, mechanical. **Value:** low — correctness theatre at current
 library sizes, but it is the one place the two models still disagree.
 
-### 7. No metadata editing beyond the scan sheet
+### 7. ~~No metadata editing beyond the scan sheet~~ — done
 
-The generated `MuorgApi` now exposes every route, but the app only calls
-`patchMetadata`. Auto-tag suggestions, backup/restore and rename are all sitting
-there typed and unused — the UI is what is missing, not the plumbing.
+The track sheet's edit level now carries the two tools that were reachable in
+the API and unused:
 
-**Size:** medium. **Value:** medium.
+- **Find matches** — MusicBrainz candidates with their confidence. Tapping one
+  fills the form rather than writing straight through, so the user still sees
+  what is about to be saved.
+- **Undo last write** — restores the backup the server takes before each tag
+  write. Only shown when one exists, which is what makes accepting a suggestion
+  safe.
+
+Both are hidden for on-device tracks (negative id, no server row).
+`renameTrackFile` is on the repository and tested, but has no UI: renaming a
+file is a desktop job, and the sheet has no good place to edit a path.
+
+The work turned up a generator bug worth noting: Rust's `Option<T>` becomes
+`oneOf: [null, T]` in the spec, which the Kotlin generators did not recognise —
+`getBackup` was emitted as `Response<Unit>`, silently discarding the body. Both
+generators now unwrap that pattern.
 
 ### 8. Large screen files
 

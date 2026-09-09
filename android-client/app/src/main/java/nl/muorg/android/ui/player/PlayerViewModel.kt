@@ -84,6 +84,17 @@ class PlayerViewModel @Inject constructor(
     private val _toastEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
+    /**
+     * Surface a message on the existing toast channel.
+     *
+     * Every screen that shows a track sheet already collects `toastEvent`, so
+     * actions inside the sheet report through here rather than each call site
+     * growing its own callback.
+     */
+    fun showToast(message: String) {
+        _toastEvent.tryEmit(message)
+    }
+
     init {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()

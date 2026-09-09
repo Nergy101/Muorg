@@ -43,12 +43,27 @@ function refName(ref) {
   return m[1];
 }
 
+/**
+ * `Option<T>` in Rust becomes `oneOf: [null, T]`. That is a nullable T, not a
+ * union worth its own sealed type — unwrap it, or the generator falls through
+ * to `Unit` and the response body silently disappears.
+ */
+function unwrapNullableOneOf(node) {
+  if (!Array.isArray(node?.oneOf) || node.oneOf.length !== 2) return null;
+  const nullBranch = node.oneOf.find((b) => b.type === "null");
+  const valueBranch = node.oneOf.find((b) => b.type !== "null");
+  return nullBranch && valueBranch ? valueBranch : null;
+}
+
 /** Schema node -> Kotlin type. Mirrors generate-kotlin-models.mjs. */
 function kotlinType(node, required = true) {
   const nul = required ? "" : "?";
   if (!node) return "Unit";
   if (node.$ref) return refName(node.$ref) + nul;
   if (node.allOf?.length === 1) return kotlinType(node.allOf[0], required);
+
+  const nullableInner = unwrapNullableOneOf(node);
+  if (nullableInner) return kotlinType(nullableInner, false);
 
   const raw = Array.isArray(node.type)
     ? node.type.filter((t) => t !== "null")[0]

@@ -10,7 +10,11 @@ import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.api.bodyOrThrow
 import nl.muorg.android.data.api.orThrow
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.MatchCandidate
 import nl.muorg.android.data.api.schema.PatchMetadataBody
+import nl.muorg.android.data.api.schema.RenameBody
+import nl.muorg.android.data.api.schema.SearchQuery
+import nl.muorg.android.data.api.schema.TrackBackupRecord
 import nl.muorg.android.data.api.toDomain
 import nl.muorg.android.data.api.toWire
 import javax.inject.Inject
@@ -119,6 +123,48 @@ class LibraryRepository @Inject constructor(
         api.patchMetadata(trackId.toLong(), update.toWire())
             .orThrow("PATCH /api/tracks/$trackId/metadata")
         // The edited row is now stale in the cached catalog.
+        cacheLock.withLock { cachedTracks = null }
+    }
+
+    /**
+     * MusicBrainz candidates for a track, best match first.
+     *
+     * With no query the server builds one from the file's own tags, which is
+     * what makes this useful on a badly-tagged track: it matches on whatever is
+     * there plus the duration.
+     */
+    suspend fun autoTagSuggestions(trackId: Int): Result<List<MatchCandidate>> = runCatching {
+        api.autoTagSuggestions(trackId.toLong(), SearchQuery())
+            .bodyOrThrow("POST /api/tracks/$trackId/auto-tag-suggestions")
+            .candidates
+    }
+
+    /**
+     * The most recent pre-write backup of this track, or null if there is none.
+     *
+     * The server takes one before each tag write when `backup_before_write` is
+     * set, so this is the undo for a bad auto-tag.
+     */
+    suspend fun latestBackup(trackId: Int): Result<TrackBackupRecord?> = runCatching {
+        val response = api.getBackup(trackId.toLong())
+        // A null body is the answer here, not a failure: the endpoint returns
+        // `null` for a track that has never been written to. `bodyOrThrow`
+        // would read that as an error.
+        response.orThrow("GET /api/tracks/$trackId/backup")
+        response.body()
+    }
+
+    suspend fun restoreFromBackup(trackId: Int): Result<Unit> = runCatching {
+        api.restoreBackup(trackId.toLong())
+            .orThrow("POST /api/tracks/$trackId/restore")
+        // The restored tags make the cached catalog stale.
+        cacheLock.withLock { cachedTracks = null }
+    }
+
+    /** Move the file on disk and repoint the catalog row at its new path. */
+    suspend fun renameTrackFile(trackId: Int, newPath: String): Result<Unit> = runCatching {
+        api.renameFile(trackId.toLong(), RenameBody(newPath = newPath))
+            .orThrow("POST /api/tracks/$trackId/rename")
         cacheLock.withLock { cachedTracks = null }
     }
 

@@ -75,7 +75,7 @@ interface MuorgApi {
      */
     @POST("api/admin/rescan")
     suspend fun rescan(
-        @Body body: Unit,
+        @Body body: RescanBody?,
     ): Response<RescanResult>
 
     /**
@@ -406,7 +406,7 @@ interface MuorgApi {
     @GET("api/tracks/{id}/backup")
     suspend fun getBackup(
         @Path("id") id: Long,
-    ): Response<Unit>
+    ): Response<TrackBackupRecord?>
 
     /**
      * Embedded album art, optionally downscaled.
