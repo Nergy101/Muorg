@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,6 +33,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -238,14 +242,30 @@ fun PlaylistAlbumsScreen(
         bottomBar = {
         },
     ) { innerPadding ->
+        // The Scaffold inset is applied once here; the branches below fill
+        // what is left.
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        // Playing a playlist used to mean finding a track and tapping it, and
+        // shuffling it meant starting it and then finding the shuffle toggle.
+        if (!uiState.isLoading && uiState.error == null && uiState.allTracks.isNotEmpty()) {
+            PlaylistPlaybackActions(
+                trackCount = uiState.allTracks.size,
+                onPlay = {
+                    playerViewModel.disableShuffle()
+                    playerViewModel.playTrack(uiState.allTracks.first(), uiState.allTracks)
+                },
+                onShuffle = { playerViewModel.shuffleTracks(uiState.allTracks) },
+                shuffleActive = playerState.shuffleEnabled,
+            )
+        }
         when {
             uiState.isLoading -> {
-                Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
             uiState.error != null -> {
-                Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = uiState.error!!.takeIf { it.isNotEmpty() } ?: "Failed to load playlist",
                         color = MaterialTheme.colorScheme.error,
@@ -254,7 +274,7 @@ fun PlaylistAlbumsScreen(
             }
             albumViewStyle == "tracks" -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 4.dp, bottom = LocalBottomInset.current + 4.dp),
                 ) {
                     items(displayList, key = { it.path }) { track ->
@@ -323,13 +343,13 @@ fun PlaylistAlbumsScreen(
                 }
             }
             uiState.albums.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(text = "No albums in this playlist", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             albumViewStyle == "list" -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 4.dp, bottom = LocalBottomInset.current + 4.dp),
                 ) {
                     items(uiState.albums, key = { it.albumName }) { album ->
@@ -378,7 +398,7 @@ fun PlaylistAlbumsScreen(
             else -> {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = LocalBottomInset.current + 8.dp),
                 ) {
                     items(uiState.albums, key = { it.albumName }) { album ->
@@ -424,6 +444,7 @@ fun PlaylistAlbumsScreen(
                     }
                 }
             }
+        }
         }
     }
 
@@ -482,6 +503,68 @@ private fun PlaylistDragHandle(
             contentDescription = "Drag",
             tint = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+
+/**
+ * Play and Shuffle for a whole playlist.
+ *
+ * Playing one used to mean scrolling to a track and tapping it, and shuffling
+ * it meant starting it and then hunting for the shuffle toggle in the player.
+ */
+@Composable
+private fun PlaylistPlaybackActions(
+    trackCount: Int,
+    shuffleActive: Boolean,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Button(
+            onClick = onPlay,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(
+                painter = painterResource(mageIconRes("play")),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Play")
+        }
+        Spacer(Modifier.width(12.dp))
+        FilledTonalButton(
+            onClick = onShuffle,
+            modifier = Modifier.weight(1f),
+            colors = if (shuffleActive) {
+                ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                )
+            } else {
+                ButtonDefaults.filledTonalButtonColors()
+            },
+        ) {
+            Icon(
+                painter = painterResource(mageIconRes("exchange")),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Shuffle")
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            "$trackCount",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

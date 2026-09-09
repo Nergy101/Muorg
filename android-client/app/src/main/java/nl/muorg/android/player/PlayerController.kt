@@ -41,8 +41,11 @@ data class PlayerState(
     val favorites: Set<String> = emptySet(),
     val isSeekable: Boolean = true,
     val errorMessage: String? = null,
-    /** IDs of tracks that were explicitly added to the queue by the user (not auto-loaded with an album/playlist). */
-    val userQueueTrackIds: Set<Int> = emptySet(),
+    /**
+     * The play order, each entry tagged with whether the listener queued it or
+     * it came with the album/playlist. See [PlaybackQueue].
+     */
+    val playbackQueue: PlaybackQueue = PlaybackQueue(),
 )
 
 @Singleton
@@ -63,8 +66,19 @@ class PlayerController @Inject constructor(
     // Track list cache for building the play queue
     private var trackCache: List<CatalogTrack> = emptyList()
 
-    // IDs of tracks that were explicitly added by the user; empty = system-managed queue
-    private val _userQueueTrackIds = mutableSetOf<Int>()
+    /**
+     * The play order. Media3's timeline is a straight projection of this and
+     * its own shuffle mode stays off, so the list the queue screen renders is
+     * exactly the one that plays.
+     */
+    private var queue = PlaybackQueue()
+
+    /**
+     * Built media items by track id, so reordering the queue never re-fetches
+     * a stream token — only tracks joining the queue for the first time cost a
+     * request.
+     */
+    private val mediaItems = mutableMapOf<Int, MediaItem>()
 
     // For FLAC server streams: track seconds offset so position display is accurate
     // after a seek (which reloads the stream from a new start position).
@@ -152,23 +166,24 @@ class PlayerController @Inject constructor(
         val positionMs = (ctrl.currentPosition + flacSeekOffsetMs).coerceAtMost(durationMs.coerceAtLeast(1L))
         val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
-        val queue = (0 until ctrl.mediaItemCount).mapNotNull { i ->
-            val item = ctrl.getMediaItemAt(i)
-            trackCache.find { it.id.toString() == item.mediaId }
+        // Media3 walks the timeline itself; its index is where the queue is now.
+        val index = ctrl.currentMediaItemIndex
+        if (ctrl.mediaItemCount > 0 && index in queue.entries.indices && index != queue.position) {
+            queue = queue.copy(position = index)
         }
 
         _state.update { state ->
             state.copy(
-                currentTrack = currentTrack,
+                currentTrack = currentTrack ?: queue.current,
                 isPlaying = ctrl.isPlaying,
                 progress = progress,
                 positionMs = positionMs,
                 durationMs = durationMs,
-                shuffleEnabled = ctrl.shuffleModeEnabled,
+                shuffleEnabled = queue.shuffleEnabled,
                 repeatMode = ctrl.repeatMode,
-                queue = queue,
+                queue = queue.tracks,
                 isSeekable = ctrl.isCurrentMediaItemSeekable,
-                userQueueTrackIds = _userQueueTrackIds.toSet(),
+                playbackQueue = queue,
             )
         }
     }
@@ -199,23 +214,51 @@ class PlayerController @Inject constructor(
      * Build a stream URL for a track.
      * We fetch a stream token first, then construct the URL.
      */
+    /**
+     * Start a context — an album, a playlist, a mix — with [track] first.
+     *
+     * Replaces the queue, the listener's own additions included: those were
+     * queued against the context being left behind.
+     */
     suspend fun playTrack(track: CatalogTrack, queue: List<CatalogTrack>) {
         ensureConnected()
         val ctrl = controller ?: return
-        _userQueueTrackIds.clear()
 
         scope.launch {
             _state.update { it.copy(errorMessage = null) }
-            val baseUrl = preferences.serverUrl.first().trimEnd('/')
-            val mediaItems = queue.map { t ->
+            mediaItems.clear()
+            this@PlayerController.queue = this@PlayerController.queue.playContext(queue, track)
+            val items = buildItems(this@PlayerController.queue.tracks) ?: return@launch
+            // Media3's own shuffle reorders a timeline the queue screen never
+            // reads, so the list and the playback disagreed. Order is ours now.
+            ctrl.shuffleModeEnabled = false
+            ctrl.setMediaItems(items, this@PlayerController.queue.position.coerceAtLeast(0), 0L)
+            ctrl.prepare()
+            ctrl.play()
+            syncState()
+            if (track.localFilePath == null) {
+                libraryRepository.recordPlay(track.id)
+            }
+        }
+    }
+
+    /**
+     * Build (and cache) the media items for [tracks], or null if a stream token
+     * could not be had — in which case the error is already on screen.
+     */
+    private suspend fun buildItems(tracks: List<CatalogTrack>): List<MediaItem>? {
+        val baseUrl = preferences.serverUrl.first().trimEnd('/')
+        return tracks.map { t ->
+            mediaItems[t.id] ?: run {
                 val uri = if (t.localFilePath != null) {
                     resolveLocalUri(t.localFilePath)
                 } else {
-                    val tokenResult = libraryRepository.getStreamToken(t.id)
-                    val token = tokenResult.getOrElse { e ->
-                        _state.update { s -> s.copy(errorMessage = "Playback failed: ${e.message ?: "Could not get stream token"}") }
+                    val token = libraryRepository.getStreamToken(t.id).getOrElse { e ->
+                        _state.update { s ->
+                            s.copy(errorMessage = "Playback failed: ${e.message ?: "Could not get stream token"}")
+                        }
                         scope.launch { delay(4000); _state.update { it.copy(errorMessage = null) } }
-                        return@launch
+                        return null
                     }
                     "$baseUrl/stream/${t.id}?token=$token"
                 }
@@ -230,15 +273,26 @@ class PlayerController @Inject constructor(
                             .build()
                     )
                     .build()
+                    .also { mediaItems[t.id] = it }
             }
+        }
+    }
 
-            val startIndex = queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-            ctrl.setMediaItems(mediaItems, startIndex, 0L)
-            ctrl.prepare()
-            ctrl.play()
-            if (track.localFilePath == null) {
-                libraryRepository.recordPlay(track.id)
-            }
+    /**
+     * Apply a reordered or edited queue to the timeline.
+     *
+     * Only the part after the current track is rewritten, so whatever is
+     * playing keeps playing — a queue edit should never restart the song.
+     */
+    private fun applyQueue(next: PlaybackQueue) {
+        val ctrl = controller ?: return
+        queue = next
+        scope.launch {
+            val tail = next.entries.drop(next.position + 1).map { it.track }
+            val items = buildItems(tail) ?: return@launch
+            val from = (ctrl.currentMediaItemIndex + 1).coerceAtMost(ctrl.mediaItemCount)
+            ctrl.replaceMediaItems(from, ctrl.mediaItemCount, items)
+            syncState()
         }
     }
 
@@ -303,19 +357,23 @@ class PlayerController @Inject constructor(
         }
     }
 
-    fun toggleShuffle() {
-        val ctrl = controller ?: return
-        ctrl.shuffleModeEnabled = !ctrl.shuffleModeEnabled
-    }
+    fun toggleShuffle() = setShuffle(!queue.shuffleEnabled)
 
-    fun enableShuffle() {
-        val ctrl = controller ?: return
-        ctrl.shuffleModeEnabled = true
-    }
+    fun enableShuffle() = setShuffle(true)
 
-    fun disableShuffle() {
-        val ctrl = controller ?: return
-        ctrl.shuffleModeEnabled = false
+    fun disableShuffle() = setShuffle(false)
+
+    /**
+     * Turn shuffle on or off, reordering the tracks that have not played yet.
+     *
+     * This used to set Media3's `shuffleModeEnabled`, which permutes a timeline
+     * the queue screen does not read — so the list kept showing the original
+     * order while playback jumped around it. Reordering the queue itself means
+     * the two cannot disagree.
+     */
+    fun setShuffle(enabled: Boolean) {
+        if (enabled == queue.shuffleEnabled) return
+        applyQueue(queue.withShuffle(enabled))
     }
 
     fun cycleRepeatMode() {
@@ -329,103 +387,84 @@ class PlayerController @Inject constructor(
 
     fun skipTo(track: CatalogTrack) {
         val ctrl = controller ?: return
-        val index = (0 until ctrl.mediaItemCount)
-            .firstOrNull { ctrl.getMediaItemAt(it).mediaId == track.id.toString() } ?: return
+        val index = queue.entries.indexOfFirst { it.track.id == track.id }
+        if (index < 0) return
+        queue = queue.skipTo(track.id)
         ctrl.seekToDefaultPosition(index)
         ctrl.prepare()
         ctrl.play()
+        syncState()
     }
 
     fun removeFromQueue(track: CatalogTrack) {
         val ctrl = controller ?: return
-        val currentIndex = ctrl.currentMediaItemIndex
-        val index = (0 until ctrl.mediaItemCount)
-            .firstOrNull { ctrl.getMediaItemAt(it).mediaId == track.id.toString() } ?: return
-        if (index == currentIndex) return
+        val index = queue.entries.indexOfFirst { it.track.id == track.id }
+        if (index < 0 || index == queue.position) return
+        queue = queue.remove(track.id)
         ctrl.removeMediaItem(index)
-        _userQueueTrackIds.remove(track.id)
         syncState()
     }
 
+    /** Drop everything still queued, from both halves. */
     fun clearQueue() {
         val ctrl = controller ?: return
-        val currentIndex = ctrl.currentMediaItemIndex
-        for (i in (currentIndex + 1 until ctrl.mediaItemCount).reversed()) {
+        queue = queue.clearUpNext()
+        for (i in (ctrl.currentMediaItemIndex + 1 until ctrl.mediaItemCount).reversed()) {
             ctrl.removeMediaItem(i)
         }
-        _userQueueTrackIds.clear()
         syncState()
     }
 
+    /** Drop only what the listener queued, leaving the album or playlist. */
+    fun clearUserQueue() = applyQueue(queue.clearUserQueue())
+
+    /** Reorder by index into the whole queue, history included. */
     fun reorderQueue(fromIndex: Int, toIndex: Int) {
         val ctrl = controller ?: return
-        // Reordering is an implicit takeover of the queue — adopt all upcoming tracks so a
-        // subsequent addToQueue doesn't wipe them out.
-        if (_userQueueTrackIds.isEmpty()) {
-            val currentIndex = ctrl.currentMediaItemIndex
-            for (i in (currentIndex + 1) until ctrl.mediaItemCount) {
-                ctrl.getMediaItemAt(i).mediaId.toIntOrNull()?.let { _userQueueTrackIds.add(it) }
-            }
-        }
+        if (fromIndex !in queue.entries.indices || toIndex !in queue.entries.indices) return
+        queue = queue.move(fromIndex, toIndex)
         ctrl.moveMediaItem(fromIndex, toIndex)
         syncState()
     }
 
-    fun addToQueue(track: CatalogTrack, isUserAction: Boolean = false) {
-        addTracksToQueue(listOf(track), isUserAction)
+    fun addToQueue(track: CatalogTrack) = addTracksToQueue(listOf(track))
+
+    /**
+     * Queue tracks after anything already queued, ahead of the rest of the
+     * context.
+     *
+     * The old behaviour deleted every upcoming context track on the first add,
+     * so queueing one song while an album played threw the rest of the album
+     * away. Now the two coexist: queued tracks play first and the album picks
+     * up after them.
+     */
+    fun addTracksToQueue(tracks: List<CatalogTrack>) {
+        if (tracks.isEmpty()) return
+        cacheTracks(tracks)
+        applyQueue(queue.addToUserQueue(tracks))
     }
 
-    fun addTracksToQueue(tracks: List<CatalogTrack>, isUserAction: Boolean = false) {
+    /** Queue a track to play immediately after the current one. */
+    fun playNext(track: CatalogTrack) {
+        cacheTracks(listOf(track))
+        applyQueue(queue.playNext(track))
+    }
+
+    /**
+     * Extend the *context* rather than the user queue — what shuffle-all uses
+     * to top itself up. These are not the listener's own picks, so they belong
+     * behind anything queued, not in front of it.
+     */
+    fun appendToContext(tracks: List<CatalogTrack>) {
         if (tracks.isEmpty()) return
-        val ctrl = controller ?: return
-        // Merge into trackCache immediately so syncState() can resolve them from the queue
+        cacheTracks(tracks)
+        applyQueue(queue.appendToContext(tracks))
+    }
+
+    /** Keep the id → track lookup able to resolve anything in the queue. */
+    private fun cacheTracks(tracks: List<CatalogTrack>) {
         val toAdd = tracks.filter { t -> trackCache.none { it.id == t.id } }
         if (toAdd.isNotEmpty()) trackCache = trackCache + toAdd
-
-        // Capture before the coroutine: first user add clears the system-loaded tracks
-        val shouldClearSystemQueue = isUserAction && _userQueueTrackIds.isEmpty()
-        if (isUserAction) tracks.forEach { _userQueueTrackIds.add(it.id) }
-
-        scope.launch {
-            if (shouldClearSystemQueue) {
-                val currentIndex = ctrl.currentMediaItemIndex
-                for (i in (currentIndex + 1 until ctrl.mediaItemCount).reversed()) {
-                    ctrl.removeMediaItem(i)
-                }
-            }
-            val baseUrl = preferences.serverUrl.first().trimEnd('/')
-            var failCount = 0
-            for (track in tracks) {
-                val uri: String? = if (track.localFilePath != null) {
-                    resolveLocalUri(track.localFilePath)
-                } else {
-                    libraryRepository.getStreamToken(track.id).getOrNull()
-                        ?.let { token -> "$baseUrl/stream/${track.id}?token=$token" }
-                }
-                if (uri == null) {
-                    failCount++
-                    continue
-                }
-                ctrl.addMediaItem(
-                    MediaItem.Builder()
-                        .setMediaId(track.id.toString())
-                        .setUri(uri)
-                        .setMediaMetadata(
-                            MediaMetadata.Builder()
-                                .setTitle(track.displayTitle)
-                                .setArtist(track.displayArtist)
-                                .setAlbumTitle(track.displayAlbum)
-                                .build()
-                        )
-                        .build()
-                )
-            }
-            if (failCount > 0) {
-                val msg = "Couldn't add $failCount track${if (failCount > 1) "s" else ""} to queue"
-                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-            }
-            syncState()
-        }
     }
 
     fun toggleFavorite(track: CatalogTrack) {

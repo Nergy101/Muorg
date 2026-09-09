@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -69,6 +70,7 @@ import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.TrackActionsSheet
+import nl.muorg.android.player.QueueOrigin
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
 
@@ -90,11 +92,12 @@ fun QueueScreen(
     LaunchedEffect(sheetTrack) {
         if (sheetTrack != null) playerViewModel.loadCurrentTrackMembership(sheetTrack!!)
     }
-    val queue = playerState.queue
-    val upNext = if (currentTrack != null) {
-        val idx = queue.indexOfFirst { it.id == currentTrack.id }
-        if (idx >= 0) queue.drop(idx + 1) else queue
-    } else queue
+    // The queue model *is* the play order, so what is drawn here is what will
+    // play — including which half each track belongs to.
+    val playbackQueue = playerState.playbackQueue
+    val upNextEntries = playbackQueue.upNext
+    val upNext = upNextEntries.map { it.track }
+    val userCount = playbackQueue.userUpNext.size
 
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
@@ -103,20 +106,20 @@ fun QueueScreen(
     var draggedId by remember { mutableStateOf<Int?>(null) }
     var dragAccumY by remember { mutableFloatStateOf(0f) }
 
-    val draggedFromIndex = remember(draggedId, upNext) {
-        draggedId?.let { id -> upNext.indexOfFirst { it.id == id } } ?: -1
+    val draggedFromIndex = remember(draggedId, upNextEntries) {
+        draggedId?.let { id -> upNextEntries.indexOfFirst { it.track.id == id } } ?: -1
     }
 
     val dropTargetIndex = if (draggedFromIndex >= 0) {
         val rowsMoved = (dragAccumY / estimatedItemHeightPx).roundToInt()
-        (draggedFromIndex + rowsMoved).coerceIn(0, (upNext.size - 1).coerceAtLeast(0))
+        (draggedFromIndex + rowsMoved).coerceIn(0, (upNextEntries.size - 1).coerceAtLeast(0))
     } else -1
 
-    val displayList = remember(upNext, draggedFromIndex, dropTargetIndex) {
+    val displayList = remember(upNextEntries, draggedFromIndex, dropTargetIndex) {
         if (draggedFromIndex < 0 || dropTargetIndex < 0 || draggedFromIndex == dropTargetIndex) {
-            upNext
+            upNextEntries
         } else {
-            upNext.toMutableList().apply {
+            upNextEntries.toMutableList().apply {
                 val item = removeAt(draggedFromIndex)
                 add(dropTargetIndex.coerceIn(0, size), item)
             }
@@ -216,7 +219,7 @@ fun QueueScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "UP NEXT · ${upNext.size}",
+                        "${upNext.size} track${if (upNext.size == 1) "" else "s"} queued",
                         style = MaterialTheme.typography.labelSmall.copy(
                             letterSpacing = 0.8.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -226,13 +229,16 @@ fun QueueScreen(
                     )
                     TextButton(onClick = playerViewModel::toggleShuffle) {
                         Icon(
-                        painter = painterResource(mageIconRes("exchange")),
+                            painter = painterResource(mageIconRes("exchange")),
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = accent,
+                            tint = if (playerState.shuffleEnabled) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("Shuffle", color = accent)
+                        Text(
+                            "Shuffle",
+                            color = if (playerState.shuffleEnabled) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -251,8 +257,26 @@ fun QueueScreen(
                     }
                 }
             } else {
-                items(displayList, key = { it.id }) { track ->
+                itemsIndexed(displayList, key = { _, entry -> entry.track.id }) { index, entry ->
+                    val track = entry.track
                     val isDragged = track.id == draggedId
+                    // Section labels come from the list being drawn rather than
+                    // from a separate count, so they stay truthful mid-drag: a
+                    // track dragged below the album is shown under "Up next"
+                    // because that is when it will now play.
+                    val previousOrigin = displayList.getOrNull(index - 1)?.origin
+                    if (entry.origin == QueueOrigin.USER && previousOrigin != QueueOrigin.USER) {
+                        QueueSectionHeader(
+                            label = "YOUR QUEUE · ${displayList.count { it.origin == QueueOrigin.USER }}",
+                            color = accent,
+                            action = "Clear" to playerViewModel::clearUserQueue,
+                        )
+                    } else if (entry.origin == QueueOrigin.SYSTEM && previousOrigin != QueueOrigin.SYSTEM) {
+                        QueueSectionHeader(
+                            label = "UP NEXT · ${displayList.count { it.origin == QueueOrigin.SYSTEM }}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { value ->
                             if (value != SwipeToDismissBoxValue.Settled) {
@@ -302,10 +326,9 @@ fun QueueScreen(
                                 val from = draggedFromIndex
                                 val to = dropTargetIndex
                                 if (from >= 0 && to >= 0 && from != to) {
-                                    val currentIdx = if (currentTrack != null) {
-                                        queue.indexOfFirst { it.id == currentTrack.id }
-                                    } else -1
-                                    val offset = (currentIdx + 1).coerceAtLeast(0)
+                                    // Display indices are offsets into "up next";
+                                    // the queue is indexed from the start.
+                                    val offset = playbackQueue.position + 1
                                     playerViewModel.reorderQueue(offset + from, offset + to)
                                 }
                                 draggedId = null
@@ -475,6 +498,39 @@ private fun QueueTrackRow(
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * A "Your queue" / "Up next" divider.
+ *
+ * The queue is one ordered list — these only say where the tracks the listener
+ * queued by hand end and the album or playlist resumes.
+ */
+@Composable
+private fun QueueSectionHeader(
+    label: String,
+    color: Color,
+    action: Pair<String, () -> Unit>? = null,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                letterSpacing = 0.8.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = color,
+            modifier = Modifier.weight(1f),
+        )
+        if (action != null) {
+            TextButton(onClick = action.second) {
+                Text(action.first, style = MaterialTheme.typography.labelMedium, color = color)
             }
         }
     }

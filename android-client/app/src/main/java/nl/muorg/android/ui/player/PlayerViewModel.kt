@@ -149,7 +149,9 @@ class PlayerViewModel @Inject constructor(
                 val remaining = queue.size - 1 - currentIndex
                 if (remaining <= 1 && queue.size >= shuffleAllMinQueueSize) {
                     shuffleAllMinQueueSize = queue.size + 1
-                    playerController.addTracksToQueue(shuffleAllPool.shuffled().take(20))
+                    // Topping up shuffle-all extends the context, so it lands
+                    // behind anything the listener queued rather than ahead.
+                    playerController.appendToContext(shuffleAllPool.shuffled().take(20))
                 }
             }
         }
@@ -319,15 +321,29 @@ class PlayerViewModel @Inject constructor(
 
     fun removeFromQueue(track: CatalogTrack) = playerController.removeFromQueue(track)
     fun clearQueue() = playerController.clearQueue()
+    fun clearUserQueue() = playerController.clearUserQueue()
     fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
     fun addToQueue(track: CatalogTrack) {
-        playerController.addToQueue(track, isUserAction = true)
+        playerController.addToQueue(track)
         _toastEvent.tryEmit("Added to queue")
     }
     fun addTracksToQueue(tracks: List<CatalogTrack>) {
         if (tracks.isEmpty()) return
-        playerController.addTracksToQueue(tracks, isUserAction = true)
+        playerController.addTracksToQueue(tracks)
         _toastEvent.tryEmit("Added to queue")
+    }
+    fun playNext(track: CatalogTrack) {
+        playerController.playNext(track)
+        _toastEvent.tryEmit("Will play next")
+    }
+
+    /** Start a context and shuffle it — the playlist screen's shuffle button. */
+    fun shuffleTracks(tracks: List<CatalogTrack>) {
+        if (tracks.isEmpty()) return
+        shuffleAllPool = emptyList()
+        shuffleAllMinQueueSize = Int.MAX_VALUE
+        playerController.enableShuffle()
+        playTrack(tracks.random(), tracks)
     }
     fun saveMetadata(
         track: CatalogTrack,
