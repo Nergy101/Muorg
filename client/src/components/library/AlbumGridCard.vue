@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, watchEffect } from "vue";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { useDominantColor, useEdgeColors, PRIMARY_RGB } from "../../composables/useDominantColor";
@@ -31,10 +31,19 @@ function onDragEnd() {
   store.setInternalQueueDrag(false);
 }
 
-// Boost this album's cover to the front of the fetch queue — it's now visible.
-if (props.album.hasCover) {
+// Ask for this album's cover, then push it to the front of the queue since the
+// card is on screen.
+//
+// The card used to only boost, which does nothing unless the cover is already
+// queued — it was living off a bulk fetch in the library table that walked the
+// whole library. Once that was scoped to what the table actually renders, the
+// album grid had nothing filling its covers and came up blank. A view that
+// shows a cover asks for it.
+watchEffect(() => {
+  if (!props.album.hasCover) return;
+  store.fetchCover(props.album.coverPath);
   store.boostCoverPriority(props.album.coverPath);
-}
+});
 
 /** undefined = loading, null = no cover, CoverInfo = has cover */
 const coverEntry = computed(() => props.album.hasCover ? store.getCover(props.album.coverPath) : null);

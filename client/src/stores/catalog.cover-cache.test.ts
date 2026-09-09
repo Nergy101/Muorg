@@ -211,6 +211,21 @@ describe("cover cache", () => {
     expect(store.coverCache["/music/1.mp3"]).toBeUndefined();
   });
 
+  it("boosting alone never loads anything", () => {
+    // The trap the album grid fell into: boosting only reorders a fetch that is
+    // already queued. A card that boosts without fetching shows nothing at all
+    // unless something else happens to have asked for the same cover.
+    const store = useCatalogStore();
+    store.tracks = [{ id: 1, path: "/m/1.mp3", album: "A", has_cover: true }] as never;
+
+    store.boostCoverPriority("/m/1.mp3");
+    expect(api.getCover).not.toHaveBeenCalled();
+    expect(store.getCover("/m/1.mp3")).toBeUndefined();
+
+    store.fetchCover("/m/1.mp3");
+    expect(api.getCover).toHaveBeenCalled();
+  });
+
   it("invalidating a path frees its slot rather than leaving a phantom", () => {
     const store = useCatalogStore();
     fill(store, MAX_COVERS);
