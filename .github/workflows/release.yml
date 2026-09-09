@@ -267,10 +267,11 @@ jobs:
         with:
           node-version: '20'
 
+      # No `version:` — pnpm/action-setup reads the root package.json's
+      # `packageManager` field. Setting both is an error ("Multiple versions of
+      # pnpm specified"), which is what broke the Linux desktop build on v3.0.0.
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 10
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
