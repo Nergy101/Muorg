@@ -17,6 +17,30 @@ pub struct CastDevice {
 }
 
 
+/// Add a device, or refresh the entry already there.
+///
+/// A Chromecast re-announces itself periodically and can change address on a
+/// DHCP renewal, so the same `id` arriving again is an update, not a new
+/// device — matching on anything else would fill the picker with duplicates.
+fn upsert_device(devices: &mut Vec<CastDevice>, device: CastDevice) {
+    match devices.iter_mut().find(|d| d.id == device.id) {
+        Some(existing) => {
+            existing.name = device.name;
+            existing.address = device.address;
+            existing.port = device.port;
+        }
+        None => devices.push(device),
+    }
+}
+
+/// Drop the device an mDNS goodbye names. Returns whether the list changed, so
+/// the caller can skip notifying observers about a no-op.
+fn remove_device(devices: &mut Vec<CastDevice>, fullname: &str) -> bool {
+    let before = devices.len();
+    devices.retain(|d| !fullname.contains(&d.id));
+    devices.len() != before
+}
+
 /// How a host learns that the device list changed.
 ///
 /// The list itself lives in [`DiscoveryState::devices`], so a host that polls
@@ -114,22 +138,15 @@ impl DiscoveryState {
                         let port = info.get_port();
 
                         let mut devs = devices.lock().unwrap();
-                        if let Some(d) = devs.iter_mut().find(|d| d.id == id) {
-                            d.name = name;
-                            d.address = address;
-                            d.port = port;
-                        } else {
-                            devs.push(CastDevice { id, name, address, port });
-                        }
+                        upsert_device(&mut devs, CastDevice { id, name, address, port });
                         let snapshot = devs.clone();
                         drop(devs);
                         observer.on_devices(snapshot);
                     }
                     Ok(ServiceEvent::ServiceRemoved(_, fullname)) => {
                         let mut devs = devices.lock().unwrap();
-                        let before = devs.len();
-                        devs.retain(|d| !fullname.contains(&d.id));
-                        if devs.len() != before {
+                        let removed = remove_device(&mut devs, &fullname);
+                        if removed {
                             let snapshot = devs.clone();
                             drop(devs);
                             observer.on_devices(snapshot);
@@ -143,9 +160,105 @@ impl DiscoveryState {
         });
     }
 
+    /// End the sweep and drop what it found.
+    ///
+    /// Clearing matters: `GET /api/cast/devices` and the desktop picker both
+    /// read this list, and a device that was on the network during the sweep
+    /// may not be by the next one. Keeping the list would offer devices that
+    /// are no longer there.
     pub fn stop(&self) {
         if let Some(tx) = self.stop_tx.lock().unwrap().take() {
             let _ = tx.send(());
         }
+        self.devices.lock().unwrap().clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn device(id: &str, name: &str, address: &str) -> CastDevice {
+        CastDevice {
+            id: id.to_string(),
+            name: name.to_string(),
+            address: address.to_string(),
+            port: 8009,
+        }
+    }
+
+    #[test]
+    fn a_new_device_is_added() {
+        let mut devices = Vec::new();
+        upsert_device(&mut devices, device("a", "Living Room", "10.0.0.5"));
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].name, "Living Room");
+    }
+
+    #[test]
+    fn re_announcing_updates_in_place_instead_of_duplicating() {
+        // Chromecasts re-announce on a timer. Matching on anything but the id
+        // would grow the picker by one entry every sweep.
+        let mut devices = vec![device("a", "Living Room", "10.0.0.5")];
+        upsert_device(&mut devices, device("a", "Living Room", "10.0.0.5"));
+        assert_eq!(devices.len(), 1);
+    }
+
+    #[test]
+    fn a_renamed_or_moved_device_keeps_its_slot() {
+        // A DHCP renewal changes the address; renaming it in the Home app
+        // changes the name. Neither is a new device.
+        let mut devices = vec![device("a", "Living Room", "10.0.0.5")];
+        upsert_device(&mut devices, device("a", "Kitchen", "10.0.0.9"));
+
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].name, "Kitchen");
+        assert_eq!(devices[0].address, "10.0.0.9");
+    }
+
+    #[test]
+    fn different_devices_both_appear() {
+        let mut devices = Vec::new();
+        upsert_device(&mut devices, device("a", "Living Room", "10.0.0.5"));
+        upsert_device(&mut devices, device("b", "Bedroom", "10.0.0.6"));
+        assert_eq!(devices.len(), 2);
+    }
+
+    #[test]
+    fn a_goodbye_removes_the_device_it_names() {
+        let mut devices = vec![device("abc123", "Living Room", "10.0.0.5")];
+        // mDNS reports the full service name, which embeds the id.
+        assert!(remove_device(&mut devices, "abc123._googlecast._tcp.local."));
+        assert!(devices.is_empty());
+    }
+
+    #[test]
+    fn a_goodbye_for_an_unknown_device_changes_nothing() {
+        // Returning false here is what stops the observer being told about a
+        // list that did not move.
+        let mut devices = vec![device("abc123", "Living Room", "10.0.0.5")];
+        assert!(!remove_device(&mut devices, "other._googlecast._tcp.local."));
+        assert_eq!(devices.len(), 1);
+    }
+
+    #[test]
+    fn a_goodbye_leaves_the_other_devices_alone() {
+        let mut devices = vec![
+            device("aaa", "Living Room", "10.0.0.5"),
+            device("bbb", "Bedroom", "10.0.0.6"),
+        ];
+        remove_device(&mut devices, "aaa._googlecast._tcp.local.");
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].id, "bbb");
+    }
+
+    #[test]
+    fn stopping_clears_the_device_list() {
+        // A stale list outlives the sweep otherwise, and the picker offers
+        // devices that are no longer there.
+        let state = DiscoveryState::new();
+        state.devices.lock().unwrap().push(device("a", "Living Room", "10.0.0.5"));
+        state.stop();
+        assert!(state.devices.lock().unwrap().is_empty());
     }
 }

@@ -165,22 +165,29 @@ along the tab boundaries already present in the markup.
 
 **Size:** medium. **Value:** medium — mostly maintainability.
 
-### 11. `src-tauri`: the transcode path and mDNS discovery
+### 11. ~~`src-tauri`: the transcode path and mDNS discovery~~ — done
 
-26 tests now cover the local cast HTTP server (range parsing and the allowlist),
-the cast session's serialized status, and the `commands.rs` helpers. `pnpm run
-check` runs them, so the existing client CI job picks them up.
+The FLAC-to-MP3 transcoder now has six tests, against real audio generated with
+ffmpeg (skipped with a message when ffmpeg is absent, matching the server's
+equivalent test): output decodes as MP3, a 96 kHz source keeps its duration —
+the half-speed regression — a start offset actually skips, a missing or
+non-audio file reports rather than panics, and the loop stops when the receiver
+is dropped.
 
-Two areas remain:
+Discovery moved to `muorg-core` in §12, so its tests went there. The device-list
+handling was lifted out of the mDNS thread into `upsert_device` /
+`remove_device` to make it testable: a re-announcing Chromecast updates in place
+instead of duplicating, a DHCP address change keeps its slot, and a goodbye for
+an unknown device reports "nothing changed" so observers are not woken for a
+no-op.
 
-- `cast/transcode.rs` — the FLAC-to-MP3 path. The server has an equivalent test
-  that generates a fixture with ffmpeg and skips when it is unavailable
-  (`transcode_high_res_flac_preserves_duration`); the same approach would work
-  here, and this is where the half-speed bug lived.
-- `cast/discovery.rs` — mDNS, so it needs either a fake responder or an
-  integration test on a real network.
+That last test caught a regression from §12: the server's `stop()` cleared the
+device list and the desktop app's did not, and the shared module was built from
+the desktop copy — so a stopped sweep left stale devices in
+`GET /api/cast/devices`. Clearing is restored.
 
-**Size:** small for transcode, medium for discovery. **Value:** medium.
+**Size:** done. **Value:** the transcoder is the piece with a history of
+shipping wrong.
 
 ### 12. ~~Cast code forked between the desktop app and the server~~ — done
 
