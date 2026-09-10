@@ -8,12 +8,12 @@
   [![Latest Release](https://img.shields.io/github/v/release/Nergy101/Muorg)](https://github.com/Nergy101/Muorg/releases/latest)
   [![Docker Server](https://img.shields.io/docker/v/nergy101/muorg-server?label=docker%20server&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-server)
   [![Docker Web](https://img.shields.io/docker/v/nergy101/muorg-web?label=docker%20web&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-web)
-  ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
+  ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Android%20%7C%20Web-lightgrey)
 </div>
 
 ---
 
-A cross-platform desktop app that organizes your music library with a dense, library-style UI. Add folders of MP3 and FLAC files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+A music library organizer with a dense, library-style UI — a cross-platform desktop app, plus a web app and an Android app that connect to the same server. Add folders of MP3 and FLAC files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
 
 Muorg works in two modes:
 - **Local** — music files live on your own machine; no remote server needed.
@@ -35,19 +35,23 @@ Muorg works in two modes:
 
 ## ⬇️ Download & install
 
-Grab the latest installer for your OS from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
+Grab the latest build for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
 
 | Platform | File |
 |----------|------|
-| macOS (Apple Silicon) | `Muorg_*_aarch64.dmg` |
-| macOS (Intel) | `Muorg_*_x86_64.dmg` |
-| Windows | `Muorg_*_x64-setup.exe` or `Muorg_*_x64_en-US.msi` |
-| Linux (Debian / Ubuntu) | `muorg_*_amd64.deb` |
-| Linux (universal) | `Muorg_*_amd64.AppImage` |
+| macOS (Apple Silicon) | `muorg-*-macos.dmg` |
+| Windows | `muorg-*-windows.msi` |
+| Linux (universal) | `muorg-*-linux.AppImage` |
+
+The Android app ships on its own tags, so it is not on the release above: take
+`muorg-*.apk` from the newest [`android-v*` release](https://github.com/Nergy101/Muorg/releases?q=android-v).
 
 > **macOS note:** Releases are not signed with an Apple Developer certificate. If macOS says *"Muorg.app is damaged and can't be opened"*, open **System Settings → Privacy & Security**, scroll to the Muorg entry, and click **Open Anyway**.
 
-> **Linux AppImage:** `chmod +x Muorg-*.AppImage && ./Muorg-*.AppImage`
+> **Linux AppImage:** `chmod +x muorg-*.AppImage && ./muorg-*.AppImage`
+
+> **Intel Macs:** not built. The macOS job targets `aarch64-apple-darwin` only —
+> build from source if you need an x86_64 binary.
 
 ---
 
@@ -67,24 +71,43 @@ Grab the latest installer for your OS from the [Releases page](https://github.co
 
 ## 📁 Repository layout
 
-This is a monorepo with two independently deployable components:
+This is a monorepo holding one server and three clients, plus the code they
+share:
 
 ```
 Muorg/
 ├── client/          # Desktop app (Tauri 2 + Vue 3 + Rust)
 │   └── README.md    # Developer setup, build, and release docs
+├── web-client/      # Browser-based UI (Vue 3 + Vite, served via nginx)
+├── android-client/  # Android app (Kotlin + Jetpack Compose + Media3)
 ├── server/          # Standalone REST API (Rust + Axum)
 │   └── README.md    # Docker quick-start and configuration reference
-├── web-client/      # Browser-based UI (Vue 3 + Vite, served via nginx)
+├── src/             # Frontend code shared by the desktop and web apps
+│   └── api/         # Generated API client — see api/README.md
 └── scripts/
-    └── release.sh   # Bump version, tag, and push a new release
+    ├── release.sh              # Bump version, tag, and push a new release
+    ├── release-android.sh      # Android-only release (~8 min, not the full 30)
+    └── generate-api-clients.sh # Regenerate the OpenAPI spec and every client
 ```
 
 | Component | What it does | When you need it |
 |-----------|-------------|-----------------|
 | `client/` | Cross-platform desktop app | Always — this is the main app |
-| `server/` | HTTP backend for remote/NAS use | Only for home-server / multi-device setups |
 | `web-client/` | Browser UI connecting to muorg-server | When you want web access alongside or instead of the desktop app |
+| `android-client/` | Android app connecting to muorg-server | On a phone or tablet |
+| `server/` | HTTP backend for remote/NAS use | Only for home-server / multi-device setups |
+| `src/` | Shared frontend code and the generated API client | When changing anything both the desktop and web apps use |
+
+### The API contract
+
+The server describes itself in OpenAPI, and every client's API layer is
+generated from that description rather than hand-written — the TypeScript types
+the desktop and web apps share, and the Kotlin models and Retrofit interface the
+Android app uses. `scripts/generate-api-clients.sh` regenerates all of it, and
+CI fails if the checked-in output has drifted from the server's routes.
+
+**[src/api/README.md](src/api/README.md)** documents that pipeline: what is
+generated, from where, and what to do when a route changes.
 
 For full developer and configuration details see **[client/README.md](client/README.md)** and **[server/README.md](server/README.md)**.
 
@@ -165,6 +188,7 @@ See the [server README](server/README.md) for the full configuration reference a
 - [Node.js](https://nodejs.org/) (LTS) + [pnpm](https://pnpm.io/)
 - [Rust](https://www.rust-lang.org/) (latest stable)
 - [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/) for your OS
+- For the Android app only: JDK 17 and the Android SDK
 
 ### Desktop app
 
@@ -179,6 +203,25 @@ pnpm run tauri dev
 pnpm run tauri build
 ```
 
+### Web app
+
+```bash
+cd web-client
+pnpm install
+pnpm dev        # or: pnpm build
+```
+
+### Android app
+
+Needs a JDK 17 and the Android SDK; `ANDROID_HOME` must point at it.
+
+```bash
+cd android-client
+echo "sdk.dir=$ANDROID_HOME" > local.properties
+./gradlew assembleDebug
+./gradlew testDebugUnitTest
+```
+
 ### Server (standalone binary)
 
 ```bash
@@ -187,6 +230,18 @@ cp muorg-server.example.toml muorg-server.toml
 # edit muorg-server.toml
 cargo run --release --bin muorg-server
 ```
+
+### After changing a server route
+
+The clients' API layers are generated from the server's OpenAPI description, and
+CI fails if the checked-in output has drifted:
+
+```bash
+./scripts/generate-api-clients.sh          # regenerate, then commit the result
+./scripts/generate-api-clients.sh --check  # what CI runs
+```
+
+See [src/api/README.md](src/api/README.md) for what that covers.
 
 Full developer documentation lives in [client/README.md](client/README.md) and [server/README.md](server/README.md).
 
