@@ -19,7 +19,7 @@ export default mergeConfig(
       coverage: {
         provider: "v8",
         reporter: ["text-summary", "text"],
-        include: ["src/stores/library.ts", "src/stores/cast.ts"],
+        include: ["src/stores/library.ts", "src/stores/cast.ts", "src/composables/useAutoTag.ts"],
         thresholds: { lines: 60, functions: 60, branches: 60, statements: 60 },
       },
     },

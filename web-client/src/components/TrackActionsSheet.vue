@@ -202,7 +202,7 @@
       </template>
 
       <!-- ─── edit ─────────────────────────────────────────────────────── -->
-      <template v-else>
+      <template v-else-if="level === 'edit'">
         <button type="button" :class="ROW" @click="level = 'main'">
           <MageIcon name="arrow-left" class="h-5 w-5 shrink-0" />
           <span>Back</span>
@@ -218,6 +218,11 @@
           />
         </div>
 
+        <button type="button" :class="ROW" @click="level = 'autotag'">
+          <MageIcon name="search" class="h-5 w-5 shrink-0" />
+          <span>Look up on MusicBrainz</span>
+        </button>
+
         <div class="flex justify-end gap-2 px-6 pb-6 pt-3">
           <button
             type="button"
@@ -231,6 +236,15 @@
           >Save</button>
         </div>
       </template>
+
+      <!-- ─── MusicBrainz lookup ───────────────────────────────────────── -->
+      <template v-else>
+        <AutoTagPanel
+          :track="props.track"
+          @back="level = 'edit'"
+          @apply="onApplyCandidate"
+        />
+      </template>
     </template>
   </BottomSheet>
 </template>
@@ -239,12 +253,14 @@
 import { computed, nextTick, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
+import AutoTagPanel from "./AutoTagPanel.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { showToast } from "../composables/useToast";
-import type { CatalogTrack, Playlist } from "../types";
+import { applyCandidate } from "../composables/useAutoTag";
+import type { CatalogTrack, MatchCandidate, Playlist } from "../types";
 
 const ROW = "flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface";
 const LABEL = "px-6 pt-3 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
@@ -283,7 +299,7 @@ const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 
-const level = ref<"main" | "playlists" | "info" | "edit">("main");
+const level = ref<"main" | "playlists" | "info" | "edit" | "autotag">("main");
 
 watch(
   () => props.open,
@@ -480,6 +496,17 @@ function openEdit(): void {
     year: t.year != null ? String(t.year) : "",
   };
   level.value = "edit";
+}
+
+/**
+ * Fill the edit form from a MusicBrainz match and go back to it.
+ *
+ * Deliberately not a save: a wrong match should cost a glance, not a write.
+ */
+function onApplyCandidate(candidate: MatchCandidate): void {
+  form.value = applyCandidate(form.value, candidate);
+  level.value = "edit";
+  showToast("Filled from MusicBrainz — review and save");
 }
 
 function onSave(): void {

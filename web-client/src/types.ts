@@ -7,6 +7,7 @@
 export type {
   CatalogTrack,
   LibraryStats,
+  MatchCandidate,
   Playlist,
 } from "@shared/api";
 
