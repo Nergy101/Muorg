@@ -2,37 +2,29 @@ package nl.muorg.android.ui.screen.playlists
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -40,43 +32,29 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import nl.muorg.android.data.api.SmartRule
 import androidx.compose.runtime.remember
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import coil.ImageLoader
 import nl.muorg.android.data.api.Playlist
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
-import nl.muorg.android.ui.glass.GlassFrostContent
+import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
-import nl.muorg.android.ui.glass.glassFrost
-import nl.muorg.android.ui.glass.scrimLabelStyle
-import nl.muorg.android.ui.theme.MuorgShapes
-import nl.muorg.android.ui.component.CoverMosaic
-import nl.muorg.android.ui.component.LocalBottomInset
-import nl.muorg.android.ui.component.MarqueeText
+import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
+import nl.muorg.android.ui.theme.MuorgShapes
 
 private val PLAYLIST_EMOJIS = listOf(
     "🎵", "🎶", "🎸", "🎹", "🎺", "🎻", "🥁", "🎷",
@@ -352,352 +330,5 @@ fun PlaylistsScreen(
                 TextButton(onClick = viewModel::dismissEditDialog) { Text("Cancel") }
             },
         )
-    }
-}
-
-@Composable
-private fun PlaylistCard(
-    playlist: Playlist,
-    onClick: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier.size(44.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = playlist.icon?.takeIf { it.isNotBlank() } ?: "🎵",
-                    fontSize = 26.sp,
-                    fontFamily = FontFamily.Default,
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                MarqueeText(
-                    text = playlist.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = "${playlist.trackCount} tracks",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            IconButton(onClick = onEdit) {
-                Icon(
-                        painter = painterResource(mageIconRes("edit")),
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                        painter = painterResource(mageIconRes("trash")),
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
-    }
-}
-
-/**
- * A playlist tile, matching `PlaylistCard.vue`: a 2x2 mosaic of the playlist's
- * own covers, frosted action discs floating over the artwork, and the same
- * caption scrim the album cards use.
- */
-@Composable
-private fun PlaylistTile(
-    playlist: Playlist,
-    coverTrackIds: List<Int>,
-    pinned: Boolean,
-    baseUrl: String,
-    imageLoader: ImageLoader,
-    onClick: () -> Unit,
-    onTogglePin: () -> Unit,
-    onEdit: () -> Unit,
-    onDownload: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 8.dp,
-                shape = MuorgShapes.card,
-                clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.30f),
-                spotColor = Color.Black.copy(alpha = 0.30f),
-            )
-            .clip(MuorgShapes.card)
-            .background(MaterialTheme.colorScheme.surface)
-            .aspectRatio(1f)
-            .clickable(onClick = onClick),
-    ) {
-        CoverMosaic(
-            coverTrackIds = coverTrackIds,
-            baseUrl = baseUrl,
-            imageLoader = imageLoader,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            Text(
-                text = playlist.icon ?: "🎵",
-                fontSize = 44.sp,
-                fontFamily = FontFamily.Default,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-
-        // Four discs across the top, as on the web: pin, rename, download, delete.
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            FrostDisc("pin", if (pinned) "Unpin playlist" else "Pin playlist", onTogglePin, on = pinned)
-            FrostDisc("edit", "Rename playlist", onEdit)
-            FrostDisc("download", "Download playlist", onDownload)
-            FrostDisc("trash", "Delete playlist", onDelete)
-        }
-
-        GlassSurface(
-            material = GlassMaterial.Scrim,
-            shape = RectangleShape,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 10.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MarqueeText(
-                    text = playlist.name,
-                    style = scrimLabelStyle(MaterialTheme.typography.titleSmall),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(6.dp))
-                if (playlist.smartRules != null) {
-                    Icon(
-                        painter = painterResource(mageIconRes("zap-fill")),
-                        contentDescription = "Smart playlist",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(12.dp),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                }
-                Icon(
-                    painter = painterResource(mageIconRes("music")),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(12.dp),
-                )
-                Spacer(Modifier.width(3.dp))
-                Text(
-                    text = "${playlist.trackCount}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-/** A 32dp frosted disc with a fixed dark glyph — legible over any sleeve. */
-@Composable
-private fun FrostDisc(
-    icon: String,
-    description: String,
-    onClick: () -> Unit,
-    on: Boolean = false,
-) {
-    val primary = MaterialTheme.colorScheme.primary
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .glassFrost(MuorgShapes.pill, on = on)
-            .clip(MuorgShapes.pill)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(mageIconRes(icon)),
-            contentDescription = description,
-            tint = if (on) primary else GlassFrostContent,
-            modifier = Modifier.size(16.dp),
-        )
-    }
-}
-
-/**
- * Rule editor for a smart playlist, mirroring `SmartPlaylistDialog.vue`: a
- * name plus a list of `field / operator / value` rows serialised straight into
- * the server's `rules_json`.
- */
-@Composable
-private fun SmartPlaylistDialog(
-    name: String,
-    rules: List<SmartRule>,
-    saving: Boolean,
-    onNameChange: (String) -> Unit,
-    onRuleChange: (Int, SmartRule) -> Unit,
-    onAddRule: () -> Unit,
-    onRemoveRule: (Int) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painter = painterResource(mageIconRes("zap")),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text("Smart Playlist")
-            }
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = onNameChange,
-                    label = { Text("Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "Tracks matching every rule are included, and the playlist re-evaluates itself as the library changes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                rules.forEachIndexed { index, rule ->
-                    SmartRuleRow(
-                        rule = rule,
-                        canRemove = rules.size > 1,
-                        onChange = { onRuleChange(index, it) },
-                        onRemove = { onRemoveRule(index) },
-                    )
-                }
-                TextButton(onClick = onAddRule) {
-                    Icon(
-                        painter = painterResource(mageIconRes("plus")),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text("Add rule")
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = saving.not() && name.isNotBlank() && rules.any { it.value.isNotBlank() },
-            ) {
-                Text(if (saving) "Creating…" else "Create")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
-}
-
-@Composable
-private fun SmartRuleRow(
-    rule: SmartRule,
-    canRemove: Boolean,
-    onChange: (SmartRule) -> Unit,
-    onRemove: () -> Unit,
-) {
-    var fieldOpen by remember { mutableStateOf(false) }
-    var opOpen by remember { mutableStateOf(false) }
-    val ops = opsForField(rule.field)
-
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box {
-            TextButton(onClick = { fieldOpen = true }) {
-                Text(SMART_FIELDS.first { it.first == rule.field }.second)
-                Icon(
-                    painter = painterResource(mageIconRes("chevron-down")),
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-            DropdownMenu(expanded = fieldOpen, onDismissRequest = { fieldOpen = false }) {
-                SMART_FIELDS.forEach { (value, label) ->
-                    DropdownMenuItem(
-                        text = { Text(label) },
-                        onClick = {
-                            fieldOpen = false
-                            // Operators differ per field type, so reset to a valid one.
-                            onChange(rule.copy(field = value, op = opsForField(value).first().first))
-                        },
-                    )
-                }
-            }
-        }
-        Box {
-            TextButton(onClick = { opOpen = true }) {
-                Text(ops.first { it.first == rule.op }.second)
-            }
-            DropdownMenu(expanded = opOpen, onDismissRequest = { opOpen = false }) {
-                ops.forEach { (value, label) ->
-                    DropdownMenuItem(
-                        text = { Text(label) },
-                        onClick = { opOpen = false; onChange(rule.copy(op = value)) },
-                    )
-                }
-            }
-        }
-        OutlinedTextField(
-            value = rule.value,
-            onValueChange = { onChange(rule.copy(value = it)) },
-            singleLine = true,
-            modifier = Modifier.weight(1f),
-        )
-        if (canRemove) {
-            IconButton(onClick = onRemove) {
-                Icon(
-                    painter = painterResource(mageIconRes("multiply")),
-                    contentDescription = "Remove rule",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
     }
 }
