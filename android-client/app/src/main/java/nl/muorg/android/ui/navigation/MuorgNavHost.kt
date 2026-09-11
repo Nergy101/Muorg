@@ -22,6 +22,8 @@ import nl.muorg.android.ui.screen.library.LibraryScreen
 import nl.muorg.android.ui.screen.player.PlayerScreen
 import nl.muorg.android.ui.screen.playlist.PlaylistAlbumsScreen
 import nl.muorg.android.ui.screen.playlists.PlaylistsScreen
+import nl.muorg.android.ui.screen.reports.ReportDetailScreen
+import nl.muorg.android.ui.screen.reports.ReportsScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import nl.muorg.android.ui.screen.welcome.WelcomeScreen
 
@@ -272,7 +274,31 @@ fun MuorgNavHost(
                     navController.navigate(Screen.Welcome.route) {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                onOpenReports = { navController.navigate(Screen.Reports.route) },
+            )
+        }
+
+        composable(Screen.Reports.route) {
+            ReportsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenReport = { kind ->
+                    navController.navigate(Screen.ReportDetail.createRoute(kind))
+                },
+            )
+        }
+
+        composable(
+            route = Screen.ReportDetail.route,
+            arguments = listOf(navArgument("kind") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            ReportDetailScreen(
+                kind = nl.muorg.android.util.LibraryReports.Kind
+                    .fromRouteArg(backStackEntry.arguments?.getString("kind")),
+                playerViewModel = playerViewModel,
+                imageLoader = imageLoader,
+                baseUrl = baseUrl,
+                onBack = { navController.popBackStack() },
             )
         }
     }

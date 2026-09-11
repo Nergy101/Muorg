@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LibraryToolsSection(
     onMetadataScan: () -> Unit,
+    onOpenReports: () -> Unit,
 ) {
     HorizontalDivider()
     SectionHeader("Library tools")
@@ -36,6 +38,16 @@ fun LibraryToolsSection(
             Icon(Icons.Filled.DataObject, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text("Metadata scan")
+        }
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = { onOpenReports() }) {
+            Icon(
+                Icons.AutoMirrored.Filled.FactCheck,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("Reports")
         }
     }
 

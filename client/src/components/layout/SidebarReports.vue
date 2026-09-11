@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import TooltipPopover from "../shared/TooltipPopover.vue";
+import { reportCounts } from "@shared/reports";
+import { useTooltipPopover } from "../../composables/useTooltipPopover";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -12,86 +15,27 @@ const { missingMetadataFields } = storeToRefs(settingsStore);
 
 // ── Tooltip ────────────────────────────────────────────────────────────────
 
-const tooltipPopover = ref<{
-  text: string;
-  x: number;
-  y: number;
-  position: "right" | "below";
-} | null>(null);
-let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function showTooltip(text: string, e: MouseEvent) {
-  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
-  tooltipHideTimeout = null;
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.bottom + 6, position: "below" };
-}
-
-function scheduleHideTooltip() {
-  tooltipHideTimeout = setTimeout(() => { tooltipPopover.value = null; tooltipHideTimeout = null; }, 100);
-}
-
-function cancelHideTooltip() {
-  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
-  tooltipHideTimeout = null;
-}
-
-function hideTooltip() {
-  tooltipPopover.value = null;
-  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
-  tooltipHideTimeout = null;
-}
+const {
+  tooltip: tooltipPopover,
+  show: showTooltip,
+  scheduleHide: scheduleHideTooltip,
+  cancelHide: cancelHideTooltip,
+  hide: hideTooltip,
+  styleFor: tooltipStyle,
+} = useTooltipPopover();
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
-function isFieldMissing(
-  track: import("../../types").CatalogTrack,
-  field: import("../../stores/settings").MissingMetadataField,
-): boolean {
-  if (field === "has_cover") return !track.has_cover;
-  if (field === "rating") return track.rating == null;
-  const v = track[field as keyof typeof track];
-  if (field === "year" || field === "track_number" || field === "disc_number") {
-    return v == null;
-  }
-  return v == null || String(v).trim() === "";
-}
+// Counts come from the shared report module, which the web client and the
+// Android app run the same definitions from — a duplicate is the same thing
+// on every platform, or the number a user sees moves when they switch device.
+const counts = computed(() => reportCounts(tracks.value, missingMetadataFields.value));
 
-const missingMetadataCount = computed(() => {
-  const fields = missingMetadataFields.value;
-  if (!fields.length) return 0;
-  return tracks.value.filter((t) => fields.some((f) => isFieldMissing(t, f))).length;
-});
-
-const duplicateCount = computed(() => {
-  const list = tracks.value;
-  if (!list.length) return 0;
-  const keyFor = (t: import("../../types").CatalogTrack) =>
-    `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
-  const map = new Map<string, number>();
-  for (const t of list) {
-    const key = keyFor(t);
-    if (!key.trim()) continue;
-    map.set(key, (map.get(key) ?? 0) + 1);
-  }
-  let total = 0;
-  for (const count of map.values()) {
-    if (count > 1) total += count - 1;
-  }
-  return total;
-});
-
-const missingAlbumCoverCount = computed(() =>
-  tracks.value.filter((t) => !(t.has_cover ?? false)).length,
-);
-
-const recentlyPlayedCount = computed(() =>
-  tracks.value.filter((t) => t.last_played_at != null).length,
-);
-
-const mostPlayedCount = computed(() =>
-  tracks.value.filter((t) => (t.play_count ?? 0) > 0).length,
-);
+const missingMetadataCount = computed(() => counts.value.missing_metadata);
+const duplicateCount = computed(() => counts.value.duplicates);
+const missingAlbumCoverCount = computed(() => counts.value.missing_album_cover);
+const recentlyPlayedCount = computed(() => counts.value.recently_played);
+const mostPlayedCount = computed(() => counts.value.most_played);
 
 // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -216,15 +160,10 @@ async function handleRefreshReports() {
     </div>
   </div>
 
-  <Teleport to="body">
-    <div
-      v-if="tooltipPopover"
-      class="fixed z-[200] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-      :style="{ left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }"
-      @mouseenter="cancelHideTooltip"
-      @mouseleave="hideTooltip"
-    >
-      {{ tooltipPopover.text }}
-    </div>
-  </Teleport>
+  <TooltipPopover
+    :state="tooltipPopover"
+    :style-for="tooltipStyle"
+    @enter="cancelHideTooltip"
+    @leave="hideTooltip"
+  />
 </template>

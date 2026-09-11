@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import type { CatalogTrack } from "../../types";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import TooltipPopover from "../shared/TooltipPopover.vue";
+import { useTooltipPopover } from "../../composables/useTooltipPopover";
 
 const props = defineProps<{
   open: boolean;
@@ -24,25 +26,17 @@ const emit = defineEmits<{
 
 const hasTracks = computed(() => props.tracks.length > 0);
 
-const tooltipPopover = ref<{ text: string; x: number; y: number } | null>(null);
-let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function showTooltip(text: string, e: MouseEvent) {
-  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
-  tooltipHideTimeout = null;
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.bottom + 6 };
-}
-
-function scheduleHideTooltip() {
-  tooltipHideTimeout = setTimeout(() => {
-    tooltipPopover.value = null;
-    tooltipHideTimeout = null;
-  }, 100);
-}
+const {
+  tooltip: tooltipPopover,
+  show: showTooltip,
+  scheduleHide: scheduleHideTooltip,
+  cancelHide: cancelHideTooltip,
+  hide: hideTooltip,
+  styleFor: tooltipStyle,
+} = useTooltipPopover();
 
 function close() {
-  tooltipPopover.value = null;
+  hideTooltip();
   emit("close");
 }
 
@@ -152,14 +146,11 @@ function onKeydown(e: KeyboardEvent) {
     </div>
   </Teleport>
 
-  <Teleport to="body">
-    <div
-      v-if="tooltipPopover"
-      class="fixed z-[300] whitespace-pre-line rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-      :style="{ left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }"
-    >
-      {{ tooltipPopover.text }}
-    </div>
-  </Teleport>
+  <TooltipPopover
+    :state="tooltipPopover"
+    :style-for="tooltipStyle"
+    :z-index="300"
+    @enter="cancelHideTooltip"
+    @leave="hideTooltip"
+  />
 </template>
-

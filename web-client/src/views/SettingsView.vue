@@ -81,6 +81,17 @@
         <MageIcon name="music" class="h-3.5 w-3.5" />
         <span>Library</span>
       </div>
+      <button type="button" :class="[ROW, 'w-full text-left']" @click="router.push({ name: 'reports' })">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Reports</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ reportIssues > 0
+              ? `${reportIssues} thing${reportIssues === 1 ? "" : "s"} to look at`
+              : "Missing tags, duplicates and artwork" }}
+          </p>
+        </div>
+        <MageIcon name="chevron-right" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+      </button>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Default sort order</p>
@@ -331,6 +342,7 @@ import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { reportCounts } from "@shared/reports";
 import logoUrl from "../assets/muorg-logo.svg";
 import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types";
 
@@ -365,6 +377,13 @@ const ACCENT_OPTIONS: { value: AccentColor; label: string; color?: string }[] = 
 
 const router = useRouter();
 const lib = useLibraryStore();
+
+/** Only the reports that mean something is wrong; see SidebarNav for the same
+ *  reasoning — a play-history count next to "Reports" is not a to-do. */
+const reportIssues = computed(() => {
+  const counts = reportCounts(lib.tracks);
+  return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
+});
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();

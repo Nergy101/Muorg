@@ -30,6 +30,7 @@ private val MAGE_ICONS: Map<String, Int> = mapOf(
     "check-circle" to R.drawable.ic_check_circle,
     "chevron-down" to R.drawable.ic_chevron_down,
     "chevron-left" to R.drawable.ic_chevron_left,
+    "chevron-right" to R.drawable.ic_chevron_right,
     "chevron-up" to R.drawable.ic_chevron_up,
     "clock" to R.drawable.ic_clock,
     "color-swatch" to R.drawable.ic_color_swatch,

@@ -7,6 +7,11 @@ import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack, MetadataUpdate } from "../../types";
 import type { MissingMetadataField } from "../../stores/settings";
 import { extractBestFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
+import {
+  duplicateCount as countDuplicates,
+  runReport,
+  REPORT_LABELS,
+} from "@shared/reports";
 import * as catalogApi from "../../api/catalog";
 import LibraryHeader from "./LibraryHeader.vue";
 import LibraryTableBody from "./LibraryTableBody.vue";
@@ -158,94 +163,41 @@ watch(albums, () => {
   if (!albums.value.some((a) => a.key === selectedAlbumKey.value)) selectedAlbumKey.value = null;
 });
 
-function isFieldMissing(track: CatalogTrack, field: MissingMetadataField): boolean {
-  if (field === "has_cover") return !track.has_cover;
-  if (field === "rating") return track.rating == null;
-  const v = track[field as keyof CatalogTrack];
-  if (field === "year" || field === "track_number" || field === "disc_number") return v == null;
-  return v == null || String(v).trim() === "";
-}
-
 const FIELD_LABELS: Record<MissingMetadataField, string> = {
   title: "Title", artist: "Artist", album: "Album", album_artist: "Album artist",
   year: "Year", genre: "Genre", track_number: "Track #", disc_number: "Disc #",
   rating: "Rating", has_cover: "Cover art",
 };
 
+/** How many rows a play-history report shows before it stops being a list. */
+const PLAY_REPORT_LIMIT = 200;
+
 const activeReportTracks = computed(() => {
   const kind = reportFilter.value;
   if (!kind) return [];
-  // Reports should be based on the full catalog, not the current table view
+  // Reports are computed over the full catalog, not the current table view
   // (search query / playlist filter / hidden roots).
-  const base = tracks.value;
-
-  if (kind === "missing_metadata") {
-    const single = reportSingleField.value;
-    const fields = single ? [single] : missingMetadataFields.value;
-    if (!fields.length) return [];
-    return base.filter((t) => fields.some((f) => isFieldMissing(t, f)));
-  }
-  if (kind === "missing_album_cover") return base.filter((t) => !t.has_cover);
-
-  if (kind === "recently_played") {
-    return [...base]
-      .filter((t) => t.last_played_at != null)
-      .sort((a, b) => (b.last_played_at ?? 0) - (a.last_played_at ?? 0))
-      .slice(0, 200);
-  }
-  if (kind === "most_played") {
-    return [...base]
-      .filter((t) => (t.play_count ?? 0) > 0)
-      .sort((a, b) => (b.play_count ?? 0) - (a.play_count ?? 0))
-      .slice(0, 200);
-  }
-
-  // duplicates: same normalized artist + album + title
-  const keyFor = (t: CatalogTrack) =>
-    `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
-  const map = new Map<string, CatalogTrack[]>();
-  for (const t of base) {
-    const key = keyFor(t);
-    if (!key.trim()) continue;
-    const list = map.get(key);
-    if (list) list.push(t);
-    else map.set(key, [t]);
-  }
-  const dupIds = new Set<number>();
-  for (const list of map.values()) {
-    if (list.length > 1) for (const t of list) dupIds.add(t.id);
-  }
-  return dupIds.size ? base.filter((t) => dupIds.has(t.id)) : [];
+  const single = reportSingleField.value;
+  const fields = single ? [single] : missingMetadataFields.value;
+  const found = runReport(kind, tracks.value, fields);
+  return kind === "recently_played" || kind === "most_played"
+    ? found.slice(0, PLAY_REPORT_LIMIT)
+    : found;
 });
 
 const activeReportTitle = computed(() => {
-  if (reportFilter.value === "missing_metadata") {
-    const f = reportSingleField.value;
-    return f ? `Missing ${FIELD_LABELS[f] ?? f}` : "Missing metadata";
+  const kind = reportFilter.value;
+  if (!kind) return "";
+  if (kind === "missing_metadata") {
+    const field = reportSingleField.value;
+    return field ? `Missing ${FIELD_LABELS[field] ?? field}` : REPORT_LABELS.missing_metadata;
   }
-  if (reportFilter.value === "duplicates") return "Duplicates";
-  if (reportFilter.value === "missing_album_cover") return "Missing album cover";
-  if (reportFilter.value === "recently_played") return "Recently played";
-  if (reportFilter.value === "most_played") return "Most played";
-  return "";
+  return REPORT_LABELS[kind];
 });
 
-const duplicateCountInReport = computed(() => {
-  if (reportFilter.value !== "duplicates") return null;
-  const list = activeReportTracks.value;
-  if (!list.length) return 0;
-  const keyFor = (t: CatalogTrack) =>
-    `${(t.artist ?? "").toLowerCase()}|${(t.album ?? "").toLowerCase()}|${(t.title ?? "").toLowerCase()}`;
-  const map = new Map<string, number>();
-  for (const t of list) {
-    const key = keyFor(t);
-    if (!key.trim()) continue;
-    map.set(key, (map.get(key) ?? 0) + 1);
-  }
-  let total = 0;
-  for (const count of map.values()) if (count > 1) total += count - 1;
-  return total;
-});
+const duplicateCountInReport = computed(() =>
+  reportFilter.value === "duplicates" ? countDuplicates(tracks.value) : null,
+);
 
 const showReportModal = computed(() => !!reportFilter.value && !!activeReportTitle.value);
 const isMissingMetadataReport = computed(() => reportFilter.value === "missing_metadata");

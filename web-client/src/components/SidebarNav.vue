@@ -37,6 +37,20 @@
         <MageIcon name="stack" class="h-5 w-5 shrink-0" />
         <span class="font-medium">Queue</span>
       </RouterLink>
+
+      <RouterLink
+        :to="{ name: 'reports' }"
+        class="flex h-11 items-center gap-3 rounded-lg px-3 text-label-lg transition-colors"
+        :class="isReports ? 'bg-primary/[0.15] text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
+        :aria-current="isReports ? 'page' : undefined"
+      >
+        <MageIcon name="note-text" class="h-5 w-5 shrink-0" />
+        <span class="font-medium">Reports</span>
+        <span
+          v-if="reportIssues > 0"
+          class="ml-auto rounded-full bg-primary/[0.15] px-1.5 py-0.5 text-label-sm tabular-nums text-primary"
+        >{{ reportIssues }}</span>
+      </RouterLink>
     </nav>
 
     <div class="flex-1" />
@@ -51,15 +65,30 @@ import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
+import { useLibraryStore } from "../stores/library";
+import { reportCounts } from "@shared/reports";
 import logoUrl from "../assets/muorg-logo.svg";
 
 const route = useRoute();
 const router = useRouter();
+const lib = useLibraryStore();
 
 /** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
 const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
 
 const isQueue = computed(() => route.name === "queue" || route.name === "player-queue");
+
+const isReports = computed(() => route.name === "reports" || route.name === "report");
+
+/**
+ * The badge counts the two reports that mean something is wrong with the
+ * files. Recently/most played are not problems, and including them would sit a
+ * permanent number next to the link.
+ */
+const reportIssues = computed(() => {
+  const counts = reportCounts(lib.tracks);
+  return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
+});
 
 function onTabClick(name: string): void {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;

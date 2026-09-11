@@ -100,6 +100,10 @@ sealed class Screen(val route: String) {
     object PlaylistAlbums : Screen("playlist/{playlistId}/albums") {
         fun createRoute(playlistId: Int) = "playlist/$playlistId/albums"
     }
+    object Reports : Screen("reports")
+    object ReportDetail : Screen("reports/{kind}") {
+        fun createRoute(kind: nl.muorg.android.util.LibraryReports.Kind) = "reports/${kind.name}"
+    }
 }
 
 /**

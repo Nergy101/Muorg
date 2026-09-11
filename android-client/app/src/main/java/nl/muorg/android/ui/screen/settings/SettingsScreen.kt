@@ -30,6 +30,7 @@ import nl.muorg.android.ui.component.LocalBottomInset
 @Composable
 fun SettingsScreen(
     onLoggedOut: () -> Unit,
+    onOpenReports: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -80,7 +81,10 @@ fun SettingsScreen(
             )
         }
 
-        LibraryToolsSection(onMetadataScan = { showMetadataScanSheet = true })
+        LibraryToolsSection(
+            onMetadataScan = { showMetadataScanSheet = true },
+            onOpenReports = onOpenReports,
+        )
 
     }
 

@@ -15,6 +15,8 @@ import QueueView from "./views/QueueView.vue";
 import PlayerView from "./views/PlayerView.vue";
 import PlayerQueueView from "./views/PlayerQueueView.vue";
 import SettingsView from "./views/SettingsView.vue";
+import ReportsView from "./views/ReportsView.vue";
+import ReportDetailView from "./views/ReportDetailView.vue";
 
 /**
  * Loads the catalog + playlists exactly once per connected session.
@@ -83,6 +85,16 @@ export const router = createRouter({
       meta: { depth: 1 },
     },
     { path: "/settings", name: "settings", component: SettingsView, meta: { depth: 0 } },
+    // Reached from Settings and the desktop rail rather than the bottom nav:
+    // five tabs on a phone is a crowd, and reports are an occasional errand.
+    { path: "/reports", name: "reports", component: ReportsView, meta: { depth: 1 } },
+    {
+      path: "/reports/:kind",
+      name: "report",
+      component: ReportDetailView,
+      props: true,
+      meta: { depth: 2 },
+    },
     { path: "/:pathMatch(.*)*", redirect: "/library" },
   ],
 });
