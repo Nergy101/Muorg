@@ -1083,7 +1083,7 @@
       "name": ""
     },
     "title": "Muorg Server API",
-    "version": "3.0.2"
+    "version": "3.1.0"
   },
   "openapi": "3.1.0",
   "paths": {
