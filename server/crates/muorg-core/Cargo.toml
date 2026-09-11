@@ -16,6 +16,9 @@ utoipa = { version = "5", optional = true }
 rust_cast = { version = "0.14", optional = true }
 mdns-sd = { version = "0.21", optional = true }
 
+[dev-dependencies]
+tempfile = "3"
+
 [features]
 # Derives `ToSchema` on the wire types so muorg-server can generate the OpenAPI
 # document straight from the structs its handlers actually serialize. Off by

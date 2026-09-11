@@ -107,6 +107,37 @@ impl TestServer {
             .unwrap()
     }
 
+    /// Perform a GET with an explicit `Authorization` header value.
+    pub async fn get_with_key(&self, path: &str, key: &str) -> reqwest::Response {
+        self.client
+            .get(&self.url(path))
+            .header("Authorization", key)
+            .send()
+            .await
+            .unwrap()
+    }
+
+    /// Perform an authenticated POST with a JSON body.
+    pub async fn post_auth(&self, path: &str, body: serde_json::Value) -> reqwest::Response {
+        self.client
+            .post(&self.url(path))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+    }
+
+    /// Perform an unauthenticated POST with a JSON body.
+    pub async fn post(&self, path: &str, body: serde_json::Value) -> reqwest::Response {
+        self.client
+            .post(&self.url(path))
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+    }
+
     /// Perform an OPTIONS request with the given `Origin` header.
     pub async fn options(&self, path: &str, origin: &str) -> reqwest::Response {
         self.client

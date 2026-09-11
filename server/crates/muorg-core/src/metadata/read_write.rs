@@ -212,7 +212,7 @@ fn detect_lyrics_format(text: &str) -> &'static str {
 /// Every field is `Option<Option<T>>`: absent means "leave this tag alone",
 /// `null` means "clear it". `ToSchema` flattens that to a plain nullable
 /// optional, which is the right shape for a JSON patch body.
-#[derive(serde::Deserialize, Clone)]
+#[derive(serde::Deserialize, Clone, Default)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MetadataUpdate {
     #[serde(default, deserialize_with = "double_option::deserialize")]
