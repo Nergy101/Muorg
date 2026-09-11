@@ -4,7 +4,14 @@
 #
 # Type-checking proves the client matches the spec; this proves the spec matches
 # the server that actually runs. It builds the server, starts it on a temporary
-# database, runs scripts/smoke-api.ts against it, and tears it down.
+# database, seeds that database by scanning a copy of the audio fixtures, runs
+# scripts/smoke-api.ts against it, and tears it down.
+#
+# The library is seeded rather than left empty because an empty one validates
+# every list response as `[]` — which matches any item schema, so the shapes
+# that actually travel (CatalogTrack, TrackMetadata, cover bytes, a stream)
+# were never checked. The fixtures are the same three files the muorg-core
+# tests use.
 #
 # Usage:
 #   ./scripts/smoke-api.sh
@@ -17,6 +24,7 @@ cd "$ROOT"
 PORT="${MUORG_SMOKE_PORT:-7719}"
 KEY="smoke-key"
 WORKDIR="$(mktemp -d)"
+LIBRARY="$WORKDIR/library"
 SERVER_PID=""
 
 cleanup() {
@@ -28,6 +36,16 @@ trap cleanup EXIT
 echo "==> Building muorg-server"
 cargo build --manifest-path server/Cargo.toml --bin muorg-server
 
+# Seed a library from the fixtures. Copied, not referenced, because the smoke
+# test writes tags and creates backups — it must not touch the checked-in files.
+# The subdirectory exercises the recursive walk as well as the flat case.
+FIXTURES="server/crates/muorg-core/tests/fixtures"
+mkdir -p "$LIBRARY/Album"
+cp "$FIXTURES/cover_front.mp3" "$LIBRARY/with-cover.mp3"
+cp "$FIXTURES/cover_other.flac" "$LIBRARY/Album/other-cover.flac"
+cp "$FIXTURES/no_cover.flac" "$LIBRARY/Album/no-cover.flac"
+echo "==> Seeded $LIBRARY with 3 tracks"
+
 cat > "$WORKDIR/muorg-server.toml" <<EOF
 [server]
 host = "127.0.0.1"
@@ -35,8 +53,8 @@ port = $PORT
 api_key = "$KEY"
 
 [library]
-content_paths = []
-scan_on_startup = false
+content_paths = ["$LIBRARY"]
+scan_on_startup = true
 
 [storage]
 db_path = "$WORKDIR/muorg.db"
