@@ -12,8 +12,20 @@ import * as catalogApi from "../../api/catalog";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import StarRating from "../shared/StarRating.vue";
 import AutoTagSuggestions from "./AutoTagSuggestions.vue";
+import GenreCombobox from "./GenreCombobox.vue";
+import WikipediaCoverModal from "./WikipediaCoverModal.vue";
+import TooltipPopover from "../shared/TooltipPopover.vue";
 import type { AutoTagCandidate } from "../../api/catalog";
-import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
+import { useTooltipPopover } from "../../composables/useTooltipPopover";
+import { findAlbumCoverUrl } from "../../utils/wikipediaCover";
+import {
+  bytesToBase64,
+  formatImageSize,
+  guessImageMimeFromPath,
+  normalizeMime,
+  pngDataUrlToJpegBase64,
+  stripDataUrlPrefix,
+} from "../../utils/imageData";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
@@ -39,56 +51,6 @@ const coverPopupRef = ref<HTMLDivElement | null>(null);
 const coverDimensions = ref<{ width: number; height: number } | null>(null);
 const coverSizeBytes = ref<number | null>(null);
 const largeImageWarning = ref(false);
-
-// Genre combobox
-const showGenreDropdown = ref(false);
-const activeGenreIndex = ref(-1);
-const genreScrollRef = ref<HTMLElement | null>(null);
-useOverlayScrollbars(genreScrollRef);
-
-const COMMON_GENRES = [
-  "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk", "Grunge",
-  "Hip-Hop", "Jazz", "Metal", "New Age", "Oldies", "Other", "Pop", "R&B",
-  "Rap", "Reggae", "Rock", "Techno", "Industrial", "Alternative", "Ska",
-  "Death Metal", "Soundtrack", "Euro-Techno", "Ambient", "Trip-Hop", "Vocal",
-  "Trance", "Classical", "Instrumental", "House", "Gospel", "Soul", "Punk",
-  "Electronic", "New Wave", "Psychedelic", "Folk", "Folk-Rock", "Swing",
-  "Latin", "Celtic", "Bluegrass", "Progressive Rock", "Gothic Rock",
-  "Symphonic Rock", "Big Band", "Easy Listening", "Acoustic", "Opera",
-  "Chanson", "Ballad", "Samba", "Tango", "Drum & Bass", "Jungle",
-  "Garage", "Hardstep", "Hardcore", "Drum Solo", "A cappella",
-  "Euro-House", "Dance Hall",
-];
-
-const filteredGenres = computed(() => {
-  const q = genre.value.toLowerCase().trim();
-  if (!q) return COMMON_GENRES;
-  return COMMON_GENRES.filter((g) => g.toLowerCase().includes(q));
-});
-
-function selectGenre(g: string) {
-  genre.value = g;
-  markEdited("genre");
-  showGenreDropdown.value = false;
-  activeGenreIndex.value = -1;
-}
-
-function handleGenreKeydown(e: KeyboardEvent) {
-  if (!showGenreDropdown.value || !filteredGenres.value.length) return;
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    activeGenreIndex.value = Math.min(activeGenreIndex.value + 1, filteredGenres.value.length - 1);
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    activeGenreIndex.value = Math.max(activeGenreIndex.value - 1, 0);
-  } else if (e.key === "Enter" && activeGenreIndex.value >= 0) {
-    e.preventDefault();
-    selectGenre(filteredGenres.value[activeGenreIndex.value]);
-  } else if (e.key === "Escape") {
-    showGenreDropdown.value = false;
-    activeGenreIndex.value = -1;
-  }
-}
 
 const showWikipediaModal = ref(false);
 const wikipediaImageUrl = ref<string | null>(null);
@@ -126,8 +88,14 @@ const coverDragDepth = ref(0);
 // Rating (saved immediately, not via the Save button)
 const rating = ref<number | null>(null);
 
-const tooltipPopover = ref<{ text: string; x: number; y: number; position?: "left" | "below" | "above" } | null>(null);
-let tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
+const {
+  tooltip: tooltipPopover,
+  show: showTooltip,
+  scheduleHide: scheduleHideTooltip,
+  cancelHide: cancelHideTooltip,
+  hide: hideTooltip,
+  styleFor: tooltipStyle,
+} = useTooltipPopover();
 
 const baseline = ref<{
   title: string;
@@ -148,6 +116,7 @@ const editedFields = ref<Set<keyof NonNullable<typeof baseline.value>>>(new Set(
 // where an empty field would otherwise be treated as "don't change").
 const clearedFields = ref<Set<keyof NonNullable<typeof baseline.value>>>(new Set());
 
+/** Above this, the editor warns that the artwork will bloat every tagged file. */
 const ONE_MB = 1024 * 1024;
 
 const hasFormChanges = computed(() => {
@@ -168,37 +137,6 @@ const hasFormChanges = computed(() => {
   );
 });
 
-function showTooltip(text: string, e: MouseEvent, position: "left" | "below" | "above" = "below") {
-  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
-  tooltipHideTimeout = null;
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  if (position === "left") {
-    tooltipPopover.value = { text, x: rect.left - 8, y: rect.top + rect.height / 2, position: "left" };
-  } else if (position === "above") {
-    tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.top - 6, position: "above" };
-  } else {
-    tooltipPopover.value = { text, x: rect.left + rect.width / 2, y: rect.bottom + 6, position: "below" };
-  }
-}
-
-function scheduleHideTooltip() {
-  tooltipHideTimeout = setTimeout(() => {
-    tooltipPopover.value = null;
-    tooltipHideTimeout = null;
-  }, 100);
-}
-
-function cancelHideTooltip() {
-  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
-  tooltipHideTimeout = null;
-}
-
-function hideTooltip() {
-  tooltipPopover.value = null;
-  if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
-  tooltipHideTimeout = null;
-}
-
 function onCoverPopupKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") showCoverPopup.value = false;
 }
@@ -207,120 +145,19 @@ function onWikipediaModalKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") closeWikipediaModal();
 }
 
-const WIKI_API = "https://en.wikipedia.org/w/api.php";
-
-function normalizeFileTitle(title: string): { name: string; ext: string } {
-  const withoutPrefix = title.replace(/^File:/i, "").trim();
-  const lastDot = withoutPrefix.lastIndexOf(".");
-  const name = (lastDot >= 0 ? withoutPrefix.slice(0, lastDot) : withoutPrefix)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
-  const ext = (lastDot >= 0 ? withoutPrefix.slice(lastDot + 1) : "").toLowerCase();
-  return { name, ext };
-}
-
-function scoreImageAsAlbumArt(fileTitle: string, albumName: string): number {
-  const { name, ext } = normalizeFileTitle(fileTitle);
-  const albumNorm = albumName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
-  let score = 0;
-  if (albumNorm && name.includes(albumNorm)) score += 2;
-  if (/cover|albumcover|albumart|albumartwork/i.test(fileTitle)) score += 1;
-  if (/album/i.test(fileTitle)) score += 0.5;
-  if (/icon|edit|button|star|arrow|progressive|\.svg$/i.test(fileTitle) || ext === "svg") score -= 2;
-  if (ext === "svg") score -= 1;
-  if (["jpg", "jpeg", "png", "webp"].includes(ext)) score += 0.5;
-  return score;
-}
-
-function pickBestAlbumImage(imageTitles: { title: string }[], albumName: string): string | null {
-  if (!imageTitles?.length) return null;
-  const scored = imageTitles
-    .filter((img) => img.title.startsWith("File:"))
-    .map((img) => ({ title: img.title, score: scoreImageAsAlbumArt(img.title, albumName) }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0]?.title ?? null;
-}
-
+/**
+ * Search Wikipedia for this album's cover. The lookup and the heuristic that
+ * picks the cover out of a page's image list live in `utils/wikipediaCover.ts`.
+ */
 async function openFromWikipedia() {
-  const albumName = album.value.trim();
-  const artistName = artist.value.trim();
-  const query = [albumName, artistName].filter(Boolean).join(" ") || albumName;
-  if (!query) {
-    wikipediaError.value = "Enter an album (or artist) name first.";
-    showWikipediaModal.value = true;
-    wikipediaImageUrl.value = null;
-    return;
-  }
   wikipediaError.value = null;
   wikipediaImageUrl.value = null;
   showWikipediaModal.value = true;
   wikipediaSearchLoading.value = true;
   try {
-    const searchQuery = albumName ? `${albumName} (album)` : query;
-    const searchParams = new URLSearchParams({
-      action: "query",
-      generator: "search",
-      gsrsearch: searchQuery,
-      gsrlimit: "5",
-      format: "json",
-      origin: "*",
-    });
-    const searchRes = await fetch(`${WIKI_API}?${searchParams}`);
-    const searchData = (await searchRes.json()) as {
-      query?: { pages?: Record<string, { pageid: number; title: string; index?: number }> };
-    };
-    const searchPages = searchData?.query?.pages;
-    const sortedPages = searchPages
-      ? Object.values(searchPages).sort((a, b) => (a.index ?? 99) - (b.index ?? 99))
-      : [];
-    const firstPage = sortedPages[0];
-    if (!firstPage?.pageid) {
-      wikipediaError.value = "No Wikipedia page found for this album.";
-      return;
-    }
-
-    const imagesParams = new URLSearchParams({
-      action: "query",
-      pageids: String(firstPage.pageid),
-      prop: "images",
-      format: "json",
-      origin: "*",
-    });
-    const imagesRes = await fetch(`${WIKI_API}?${imagesParams}`);
-    const imagesData = (await imagesRes.json()) as {
-      query?: { pages?: Record<string, { images?: { title: string }[] }> };
-    };
-    const pageData = imagesData?.query?.pages?.[String(firstPage.pageid)];
-    const images = pageData?.images ?? [];
-    const firstImageTitle = pickBestAlbumImage(images, albumName || query);
-    if (!firstImageTitle) {
-      wikipediaError.value = "No image found on this Wikipedia page.";
-      return;
-    }
-
-    const imageInfoParams = new URLSearchParams({
-      action: "query",
-      titles: firstImageTitle,
-      prop: "imageinfo",
-      iiprop: "url",
-      iiurlwidth: "800",
-      format: "json",
-      origin: "*",
-    });
-    const imageInfoRes = await fetch(`${WIKI_API}?${imageInfoParams}`);
-    const imageInfoData = (await imageInfoRes.json()) as {
-      query?: { pages?: Record<string, { imageinfo?: { url: string }[] }> };
-    };
-    const filePage = imageInfoData?.query?.pages && Object.values(imageInfoData.query.pages)[0];
-    const imageUrl = filePage?.imageinfo?.[0]?.url;
-    if (imageUrl) {
-      wikipediaImageUrl.value = imageUrl;
-      wikipediaError.value = null;
-    } else {
-      wikipediaError.value = "Could not get image URL.";
-    }
+    const found = await findAlbumCoverUrl(album.value, artist.value);
+    if (found.ok) wikipediaImageUrl.value = found.url;
+    else wikipediaError.value = found.reason;
   } catch (e) {
     wikipediaImageUrl.value = null;
     wikipediaError.value = e instanceof Error ? e.message : "Search failed.";
@@ -335,90 +172,21 @@ function closeWikipediaModal() {
   wikipediaError.value = null;
 }
 
-function dataUrlToJpegBase64(dataUrl: string): string {
-  const i = dataUrl.indexOf(",");
-  return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
-}
-
-function guessImageMimeFromPath(path: string): string {
-  const ext = path.split(".").pop()?.toLowerCase() ?? "";
-  if (ext === "png") return "image/png";
-  if (ext === "webp") return "image/webp";
-  if (ext === "gif") return "image/gif";
-  if (ext === "bmp") return "image/bmp";
-  return "image/jpeg";
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
-
-async function pngDataUrlToJpegBase64(dataUrl: string): Promise<string> {
-  return await new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Canvas not supported"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-      try {
-        resolve(dataUrlToJpegBase64(canvas.toDataURL("image/jpeg", 0.92)));
-      } catch (e) {
-        reject(e);
-      }
-    };
-    img.onerror = () => reject(new Error("Failed to decode image"));
-    img.src = dataUrl;
-  });
-}
-
 async function applyWikipediaImage() {
   const url = wikipediaImageUrl.value;
   if (!url) return;
   wikipediaApplying.value = true;
   try {
+    // Proxied through the server, which is what gets around Wikimedia's CORS
+    // policy — and now also what confines the fetch to allowlisted hosts.
     const result = await catalogApi.fetchImageUrl(url);
     if (!result) throw new Error("No image returned");
     const { base64, mime } = result;
-    const normMime = mime.toLowerCase().split(";")[0].trim();
     clearCoverRequested.value = false;
-    if (normMime === "image/png") {
-      const dataUrl = `data:image/png;base64,${base64}`;
-      const jpegBase64 = await new Promise<string>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            reject(new Error("Canvas not supported"));
-            return;
-          }
-          ctx.drawImage(img, 0, 0);
-          try {
-            resolve(dataUrlToJpegBase64(canvas.toDataURL("image/jpeg", 0.92)));
-          } catch (e) {
-            reject(e);
-          }
-        };
-        img.onerror = () => reject(new Error("Failed to decode image"));
-        img.src = dataUrl;
-      });
-      pictureBase64.value = jpegBase64;
-    } else {
-      pictureBase64.value = base64;
-    }
+    // Covers are stored as JPEG; a PNG from Wikipedia is routinely megabytes.
+    pictureBase64.value = normalizeMime(mime) === "image/png"
+      ? await pngDataUrlToJpegBase64(`data:image/png;base64,${base64}`)
+      : base64;
     loadCoverMeta(
       pictureBase64.value ? `data:image/jpeg;base64,${pictureBase64.value}` : "",
       undefined,
@@ -433,14 +201,9 @@ async function applyWikipediaImage() {
   }
 }
 
-function formatSize(bytes: number): string {
-  if (bytes >= ONE_MB) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${(bytes / 1024).toFixed(0)} KB`;
-}
-
 function loadCoverMeta(dataUrl: string, sizeBytes?: number) {
   coverDimensions.value = null;
-  const base64Part = dataUrl.includes(",") ? dataUrl.split(",")[1] : "";
+  const base64Part = dataUrl.includes(",") ? stripDataUrlPrefix(dataUrl) : "";
   coverSizeBytes.value =
     sizeBytes ?? (base64Part ? Math.round((base64Part.length * 3) / 4) : null);
   const img = new Image();
@@ -1277,37 +1040,11 @@ async function applyFromOtherTracks() {
               <button v-if="featuring" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear featuring" @click="clearField('featuring')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
-          <div class="relative">
-            <label class="block text-stone-500">Genre</label>
-            <div class="relative mt-0.5">
-              <input
-                v-model="genre"
-                type="text"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
-                :class="genre ? 'pr-6' : ''"
-                @input="markEdited('genre'); showGenreDropdown = true; activeGenreIndex = -1"
-                @focus="showGenreDropdown = true"
-                @blur="showGenreDropdown = false"
-                @keydown="handleGenreKeydown"
-              />
-              <button v-if="genre" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear genre" @click="clearField('genre')"><FeatherIcon name="x" class="h-3 w-3" /></button>
-            </div>
-            <div
-              v-if="showGenreDropdown && filteredGenres.length"
-              class="absolute left-0 top-full z-50 mt-0.5 min-w-[240px] rounded border border-stone-600 bg-stone-900 shadow-lg"
-            >
-              <div ref="genreScrollRef" class="max-h-48">
-                <button
-                  v-for="(g, i) in filteredGenres"
-                  :key="g"
-                  type="button"
-                  class="flex w-full items-center pl-3 pr-8 py-1 text-left text-sm text-stone-200 hover:bg-stone-700"
-                  :class="{ 'bg-stone-700': i === activeGenreIndex }"
-                  @mousedown.prevent="selectGenre(g)"
-                >{{ g }}</button>
-              </div>
-            </div>
-          </div>
+          <GenreCombobox
+            v-model="genre"
+            @edited="markEdited('genre')"
+            @clear="clearField('genre')"
+          />
           <div>
             <label class="block text-stone-500">Rating</label>
             <div class="mt-1 flex items-center gap-1.5">
@@ -1555,7 +1292,7 @@ async function applyFromOtherTracks() {
             >
               <span v-if="coverDimensions">{{ coverDimensions.width }}×{{ coverDimensions.height }} px</span>
               <span v-if="coverDimensions && coverSizeBytes != null"> · </span>
-              <span v-if="coverSizeBytes != null">{{ formatSize(coverSizeBytes) }}</span>
+              <span v-if="coverSizeBytes != null">{{ formatImageSize(coverSizeBytes) }}</span>
             </p>
             <div
               class="group relative inline-block cursor-pointer"
@@ -1698,81 +1435,21 @@ async function applyFromOtherTracks() {
         />
       </div>
     </Teleport>
-    <!-- Wikipedia image modal -->
-    <Teleport to="body">
-      <div
-        v-if="showWikipediaModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 p-4"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Image from Wikipedia"
-        @click.self="closeWikipediaModal"
-      >
-        <div
-          class="flex max-h-[90vh] max-w-lg flex-col gap-4 rounded-lg border border-stone-600 bg-stone-800 p-4 shadow-xl"
-          @click.stop
-        >
-          <p v-if="wikipediaImageUrl" class="text-sm font-medium text-stone-300">Use this image?</p>
-          <p v-if="wikipediaSearchLoading" class="text-xs text-stone-500">Searching Wikipedia…</p>
-          <p v-else-if="wikipediaError" class="text-xs text-amber-400">{{ wikipediaError }}</p>
-          <template v-else-if="wikipediaImageUrl">
-            <img
-              :src="wikipediaImageUrl"
-              alt="Wikipedia result"
-              class="max-h-[60vh] w-full rounded object-contain border border-stone-600"
-            />
-            <div class="flex justify-end gap-2">
-              <button
-                type="button"
-                class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-                @click="closeWikipediaModal"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                class="accent-btn rounded px-3 py-1.5 text-xs text-white disabled:opacity-50"
-                style="background-color: #5b7c32"
-                :disabled="wikipediaApplying"
-                @click="applyWikipediaImage"
-              >
-                {{ wikipediaApplying ? "Applying…" : "Yes, use this image" }}
-              </button>
-            </div>
-          </template>
-          <template v-else>
-            <p class="text-sm text-stone-400">No image was found on Wikipedia.</p>
-            <div class="flex justify-end">
-              <button
-                type="button"
-                class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-                @click="closeWikipediaModal"
-              >
-                Close
-              </button>
-            </div>
-          </template>
-        </div>
-      </div>
-    </Teleport>
-    <!-- Tooltip popover -->
-    <Teleport to="body">
-      <div
-        v-if="tooltipPopover"
-        class="fixed z-[200] whitespace-pre-line rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-        :style="
-          tooltipPopover.position === 'left'
-            ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-100%, -50%)' }
-            : tooltipPopover.position === 'above'
-              ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-50%, -100%)' }
-              : { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateX(-50%)' }
-        "
-        @mouseenter="cancelHideTooltip"
-        @mouseleave="hideTooltip"
-      >
-        {{ tooltipPopover.text }}
-      </div>
-    </Teleport>
+    <WikipediaCoverModal
+      :open="showWikipediaModal"
+      :image-url="wikipediaImageUrl"
+      :loading="wikipediaSearchLoading"
+      :error="wikipediaError"
+      :applying="wikipediaApplying"
+      @close="closeWikipediaModal"
+      @apply="applyWikipediaImage"
+    />
+    <TooltipPopover
+      :state="tooltipPopover"
+      :style-for="tooltipStyle"
+      @enter="cancelHideTooltip"
+      @leave="hideTooltip"
+    />
     <AutoTagSuggestions
       v-if="showAutoTag"
       @close="showAutoTag = false"
