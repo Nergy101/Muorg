@@ -168,6 +168,12 @@ interface MuorgApi {
      * Proxy-fetch a remote image and return it base64-encoded, so the clients can
      * pull cover art from the web without tripping CORS.
      *
+     * The URL comes from the caller, which makes this the server's one
+     * caller-directed outbound request — see [`crate::urlguard`] for the guards
+     * and why they are there. In short: the host must be on the allowlist, it
+     * must not resolve anywhere internal, every redirect hop is re-checked, the
+     * response must actually be an image, and the body is capped as it streams.
+     *
      * `POST /api/fetch-image`
      */
     @POST("api/fetch-image")

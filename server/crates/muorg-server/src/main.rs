@@ -192,7 +192,7 @@ async fn main() {
             config.storage.cover_cache_max_bytes,
         )),
         config.library.remote_scan_concurrency,
-    ));
+    ).with_image_fetch(config.images.clone()));
 
     let app = build_router(state.clone(), &config.cors.allowed_origins);
 

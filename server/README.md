@@ -182,6 +182,18 @@ cover_cache_max_bytes = 536870912 # 512 MiB
 
 [cors]
 allowed_origins = ["*"]    # restrict to your domain for public deployments
+
+[images]
+# Hosts POST /api/fetch-image may pull album art from. An entry also matches
+# its subdomains, so archive.org covers ia800207.us.archive.org — which is
+# where the Cover Art Archive redirects. Replacing this list replaces the
+# default rather than adding to it, and anything not on it is refused.
+allowed_hosts = [
+  "wikipedia.org", "wikimedia.org",
+  "coverartarchive.org", "archive.org", "musicbrainz.org",
+]
+max_bytes = 10485760       # 10 MiB, enforced while streaming
+timeout_secs = 15          # whole-request budget
 ```
 
 ---
@@ -252,3 +264,13 @@ Authorization: Bearer <api_key>
 - Run behind a reverse proxy (nginx, Caddy) with HTTPS for remote access.
 - Set `cors.allowed_origins` to your actual domain instead of `["*"]` for public deployments.
 - The `/data` volume contains your full library database — back it up regularly.
+- `POST /api/fetch-image` is the one route that makes an outbound request to a
+  URL the caller chooses, so it is confined to `images.allowed_hosts` and
+  refuses anything resolving to a private, loopback or link-local address —
+  including the cloud metadata endpoint. Widen the allowlist only to hosts you
+  want the server reachable *through*: anything on it can be fetched by anyone
+  holding the API key, and the bytes come back to them.
+- Stream URLs carry a short-lived token in the query string
+  (`/stream/{id}?token=…`), which means the token lands in reverse-proxy access
+  logs. The tokens expire (8 h for playback, 4 h for a cast session) and are
+  scoped to a single track id, but treat those logs as sensitive.

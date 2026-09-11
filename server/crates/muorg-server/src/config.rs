@@ -13,6 +13,8 @@ pub struct Config {
     pub cors: CorsConfig,
     #[serde(default)]
     pub transcoding: TranscodingConfig,
+    #[serde(default)]
+    pub images: ImageFetchConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,6 +154,44 @@ impl Default for TranscodingConfig {
             bitrate: 128,
             format: "mp3".to_string(),
             sample_rate: 44100,
+        }
+    }
+}
+
+/// Limits on `POST /api/fetch-image`, the one route that fetches a URL the
+/// caller supplies. See `urlguard` for why each of these exists.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ImageFetchConfig {
+    /// Hosts the route may fetch from. An entry also matches its subdomains,
+    /// so `archive.org` covers `ia800207.us.archive.org`. Replacing this list
+    /// replaces the default — it is not merged with it.
+    #[serde(default = "default_image_allowed_hosts")]
+    pub allowed_hosts: Vec<String>,
+    /// Hard cap on the response body. Enforced while streaming, because a
+    /// `Content-Length` is a claim and not a promise.
+    #[serde(default = "default_image_max_bytes")]
+    pub max_bytes: u64,
+    /// Whole-request budget, so a host that accepts the connection and then
+    /// stalls cannot hold a worker indefinitely.
+    #[serde(default = "default_image_timeout_secs")]
+    pub timeout_secs: u64,
+}
+
+fn default_image_allowed_hosts() -> Vec<String> {
+    crate::urlguard::DEFAULT_ALLOWED_HOSTS
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+fn default_image_max_bytes() -> u64 { 10 * 1024 * 1024 }
+fn default_image_timeout_secs() -> u64 { 15 }
+
+impl Default for ImageFetchConfig {
+    fn default() -> Self {
+        Self {
+            allowed_hosts: default_image_allowed_hosts(),
+            max_bytes: default_image_max_bytes(),
+            timeout_secs: default_image_timeout_secs(),
         }
     }
 }

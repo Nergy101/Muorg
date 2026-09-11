@@ -1664,6 +1664,7 @@
     },
     "/api/fetch-image": {
       "post": {
+        "description": "The URL comes from the caller, which makes this the server's one\ncaller-directed outbound request — see [`crate::urlguard`] for the guards\nand why they are there. In short: the host must be on the allowlist, it\nmust not resolve anywhere internal, every redirect hop is re-checked, the\nresponse must actually be an image, and the body is capped as it streams.",
         "operationId": "fetch_image",
         "requestBody": {
           "content": {
@@ -1694,7 +1695,7 @@
                 }
               }
             },
-            "description": "URL unreachable or not an image"
+            "description": "URL rejected, unreachable, not an image, or too large"
           },
           "401": {
             "content": {

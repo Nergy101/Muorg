@@ -1,5 +1,5 @@
 use crate::cast::{CastState, DiscoveryState, NoDiscoveryObserver};
-use crate::config::TranscodingConfig;
+use crate::config::{ImageFetchConfig, TranscodingConfig};
 use crate::musicbrainz::AutoTagService;
 use crate::ratelimit::RateLimiter;
 use muorg_core::catalog::Catalog;
@@ -123,6 +123,10 @@ pub struct AppState {
     /// From `library.remote_scan_concurrency`, clamped to `>= 1`. Lets the
     /// rescan route drive a remote scan without carrying the whole `Config`.
     pub remote_scan_concurrency: usize,
+    /// Guards on `POST /api/fetch-image`. Set with
+    /// [`AppState::with_image_fetch`] rather than through `new`, which has
+    /// enough positional arguments already.
+    pub image_fetch: ImageFetchConfig,
 }
 
 impl AppState {
@@ -156,6 +160,14 @@ impl AppState {
             remotes,
             cover_cache,
             remote_scan_concurrency: remote_scan_concurrency.max(1),
+            image_fetch: ImageFetchConfig::default(),
         }
+    }
+
+    /// Override the image-fetch guards. Defaults are the safe ones, so a caller
+    /// that skips this gets the built-in allowlist rather than no allowlist.
+    pub fn with_image_fetch(mut self, image_fetch: ImageFetchConfig) -> Self {
+        self.image_fetch = image_fetch;
+        self
     }
 }

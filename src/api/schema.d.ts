@@ -295,6 +295,11 @@ export interface paths {
         /**
          * Proxy-fetch a remote image and return it base64-encoded, so the clients can
          *     pull cover art from the web without tripping CORS.
+         * @description The URL comes from the caller, which makes this the server's one
+         *     caller-directed outbound request — see [`crate::urlguard`] for the guards
+         *     and why they are there. In short: the host must be on the allowlist, it
+         *     must not resolve anywhere internal, every redirect hop is re-checked, the
+         *     response must actually be an image, and the body is capped as it streams.
          */
         post: operations["fetch_image"];
         delete?: never;
@@ -1675,7 +1680,7 @@ export interface operations {
                     "application/json": components["schemas"]["FetchedImage"];
                 };
             };
-            /** @description URL unreachable or not an image */
+            /** @description URL rejected, unreachable, not an image, or too large */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -1,6 +1,6 @@
 use axum::{
     extract::State,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Json,
 };
 use serde::{Deserialize, Serialize};

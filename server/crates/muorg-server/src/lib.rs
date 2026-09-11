@@ -8,13 +8,13 @@ pub mod routes;
 pub mod state;
 pub mod storage;
 pub mod transcode;
+pub mod urlguard;
 
 use axum::{
     middleware,
     routing::{delete, get, patch, post, put},
     Router,
 };
-use config::Config;
 use state::AppState;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
