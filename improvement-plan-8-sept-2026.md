@@ -3,6 +3,11 @@
 Findings from a review of the repo at `ba87239` (v2.42.1). The items that were
 already acted on are listed at the bottom; everything above them is still open.
 
+> **Updated 11 September 2026.** §2, §7, §8 and §15 closed in the intervening
+> commits. This pass closed §3's neighbour (a worse hole the original review
+> missed — see §16), §4's server-side equivalent (§17), §13's empty-fixture
+> caveat, §9's sibling (reports parity, §18) and §10's remainder (§19).
+
 ---
 
 ## Web App (`web-client/`)
@@ -24,13 +29,10 @@ Not carried over: cast volume has no UI control yet (the store exposes
 running muted, so the desktop's trick of tracking position locally between
 polls is not available. Position comes from the device.
 
-### 2. No MusicBrainz auto-tagging
+### 2. ~~No MusicBrainz auto-tagging~~ — done
 
-`POST /api/tracks/{id}/auto-tag-suggestions` is desktop-only. The web app can
-edit metadata but cannot look candidates up. `api.autoTagSuggestions()` is in the
-shared client already.
-
-**Size:** small–medium. **Value:** medium.
+The web client looks candidates up through `api.autoTagSuggestions()`
+(`69a587b`), via `useAutoTag` and `AutoTagPanel.vue`.
 
 ### 3. Stream tokens travel in the query string
 
@@ -141,11 +143,11 @@ The work turned up a generator bug worth noting: Rust's `Option<T>` becomes
 `getBackup` was emitted as `Response<Unit>`, silently discarding the body. Both
 generators now unwrap that pattern.
 
-### 8. Large screen files
+### 8. ~~Large screen files~~ — done
 
-`SettingsScreen.kt` 737, `PlayerScreen.kt` 711, `NavGraph.kt` 711,
-`PlaylistsScreen.kt` 703, `LibraryScreen.kt` 646. Worth splitting as each is next
-touched, rather than as a dedicated refactor.
+All five were split (`5aa3e17`, `115b37e`, `44f2694`, `9003324`): the settings
+sections, the library and playlists screens, the player's backdrop and controls,
+and the route table out of `NavGraph`.
 
 ### 9. Offline downloads are Android-only
 
@@ -172,9 +174,10 @@ Largest remaining: `TablePanel` 571, `ThemePanel` 538, `GeneralPanel` 556.
 Those are mostly markup for option grids and live previews; splitting them
 further would separate a control from the thing it controls.
 
-`MetadataEditor.vue` (1,783) is untouched and is now the largest file in the
+~~`MetadataEditor.vue` (1,783) is untouched and is now the largest file in the
 desktop app. It has no comparable seam — it is one form — so it wants a
-different treatment.
+different treatment.~~ Done, and the different treatment was to stop looking for
+tab boundaries and pull out the things that were not the form — see §19.
 
 ### 11. ~~`src-tauri`: the transcode path and mDNS discovery~~ — done
 
@@ -241,10 +244,20 @@ claims, and this proves the server matches the spec at runtime. (Verified by
 deliberately mistyping `LibraryStats.track_count` in the spec and confirming
 `getStats` failed.)
 
-Still shallow in one respect: the fixture library is empty, so list responses
-validate as empty arrays. Seeding a few real files — the audio fixtures in
-`server/crates/muorg-core/tests/fixtures/` would do — would exercise
-`CatalogTrack` and the cover and stream routes for real.
+~~Still shallow in one respect: the fixture library is empty, so list responses
+validate as empty arrays.~~ Fixed: `scripts/smoke-api.sh` now copies the three
+audio fixtures from `server/crates/muorg-core/tests/fixtures/` into a temporary
+library (one at the root, two in a subdirectory, so the recursive walk is
+covered too) and starts the server with `scan_on_startup`. The suite grew from
+22 calls to 48, and the new ones are the ones that could not exist before:
+`CatalogTrack` validated per row against its component schema rather than as an
+empty array, real cover bytes with their MIME type, a 404 for a track with no
+art, a stream that serves audio, a `Range` request answered with 206 and the
+right length, a token refused for a different track's id, a tag write that then
+turns up in search (which is also the only check that the FTS index is
+maintained on update and not only on scan), a play that appears in both history
+reports, a backup taken and restored, playlist membership and reordering with
+real ids, and a smart playlist resolving against the library.
 
 ### 14. Component tests for the apps' own views
 
@@ -265,18 +278,190 @@ just a component that never updates.
 
 **Size:** medium per view. **Value:** medium.
 
-### 15. Repo has no root README pointer to the API contract
+### 15. ~~Repo has no root README pointer to the API contract~~ — done
 
-`src/api/README.md` documents the generation pipeline, but the top-level README's
-repository-layout section still lists only `client/`, `server/`, `web-client/`
-and `scripts/`. It should mention `src/` (shared frontend code, including the
-generated API client) and `android-client/`.
+`f89b355`: the layout section now lists all four components plus `src/`, and
+points at `src/api/README.md`.
 
-**Size:** trivial.
 
 ---
 
-## Done in this pass
+## Added 11 September 2026
+
+### 16. ~~`POST /api/fetch-image` was an open SSRF proxy~~ — done
+
+Worse than §3 and missed by the original review. The route existed so the
+clients could pull album art without tripping CORS: it took a URL from the
+request body, fetched it server-side, and returned the body base64-encoded to
+the caller. Nothing checked the host, the scheme, the redirect target or the
+size. On a NAS that made `http://192.168.1.1/…`, `http://localhost:8080/…` and
+a cloud metadata endpoint readable by anyone holding the API key — and because
+the bytes came back in full, it was a read-SSRF rather than a blind one. Three
+more on the same 25 lines: no timeout, so a host that accepted the connection
+and stalled pinned a worker; `response.bytes()` buffered the whole body before
+encoding it, which is a memory-exhaustion lever; and the declared "not an image"
+error never happened, because an absent `Content-Type` defaulted to
+`image/jpeg` and whatever came back was returned as an image.
+
+Now in `urlguard.rs`, two layers because either alone has a hole:
+
+- **A host allowlist**, the actual control. The route only ever needs the art
+  sources the clients search, so the default list is Wikipedia/Wikimedia, the
+  Cover Art Archive, `archive.org` and MusicBrainz, overridable via
+  `[images] allowed_hosts`. An entry matches subdomains, because the Cover Art
+  Archive redirects into `ia800207.us.archive.org` and there is no list of
+  those to enumerate. Matching is on label boundaries: `evil-archive.org` and
+  `archive.org.evil.com` are both refused, which a naive `ends_with` would not
+  do.
+- **An address check** on what the host resolves to, for an allowlisted name
+  that points somewhere internal. Every resolved address is checked, not the
+  first — a name resolving to one public and one loopback address is still a
+  way in. `IpAddr::is_global` is unstable, so the ranges are spelled out,
+  including the ones easy to forget: `169.254/16`, CGNAT `100.64/10`,
+  `0.0.0.0/8`, and `::ffff:169.254.169.254`, which reaches the same metadata
+  service as the bare v4 address.
+
+Plus: every redirect hop is re-checked against the allowlist (the policy
+closure is sync, so it cannot re-resolve DNS — the allowlist is the control
+there), a 5s connect and 15s total timeout, a 10 MB cap enforced *while
+streaming* because a `Content-Length` is a claim and not a promise, and a
+response that must actually declare `image/*`.
+
+17 unit tests over the guards and 4 integration tests through the live router,
+and the smoke test now asserts a running server refuses both an internal
+address and an unlisted host.
+
+**Size:** done. **Value:** this was the one live vulnerability in the repo.
+
+### 17. ~~The server's core was ~16 tests over ~4,000 lines~~ — done
+
+§4 fixed the front end's floor; the server had none. `catalog/db.rs` was 1,655
+lines with 2 tests, and `storage/scan.rs`, `musicbrainz.rs`, `backup.rs`,
+`auth.rs` and `ratelimit.rs` had zero — in a repo advertising 260 tests. It is
+also the component where one regression breaks the desktop app, the web app and
+Android at once, since all three read the catalog through it.
+
+Now 174 server-side tests (from 16):
+
+- **63 in `muorg-core/tests/catalog.rs`** over roots, pagination, soft deletes,
+  move detection, GC, FTS search, stats, play history, playlists, smart-playlist
+  rules, metadata writes, backups and a real directory scan. Leaning towards
+  what has actually broken: that a page walk covers the library exactly once
+  (the `5318938` bug), that a soft-deleted track disappears from every read
+  path including the FTS index, that a moved file keeps its rating, play count
+  and playlist membership, and that the smart-rule compiler escapes `%` and `_`
+  in `contains` and refuses a field outside its allowlist.
+- **40 in the server lib** — the rate limiter's window and per-IP isolation,
+  backup naming and retention, and the MusicBrainz parser.
+- **24 integration tests** through the live router — every credential shape a
+  wrong key can take, that every mutating route is behind the API key while
+  health and `/stream` are not, stream-token refusal, and the fetch-image
+  guards.
+
+Three bugs fell out of writing them:
+
+- **MusicBrainz responses never deserialized three of their fields.** The wire
+  keys are `artist-credit`, `track-count` and `track-offset`; the structs had
+  `artist_credit`, `track_count`, `track_offset` and no `rename_all`. Because
+  every one is `Option` with `#[serde(default)]`, nothing failed — every
+  auto-tag candidate simply came back with an empty artist, no album artist and
+  no track number, on all three clients, and the artist half of the confidence
+  score never contributed. The dead-code warnings on `joinphrase` and
+  `track_count` had been the visible symptom the whole time.
+- **`track-offset` is 0-based** and a track number in a tag is 1-based, so
+  fixing the rename alone would have turned "always absent" into "always off by
+  one".
+- **Backup GC never ran on Linux.** It grouped files by `metadata().created()`
+  and skipped any entry where that failed — which is `Unsupported` on several
+  Linux filesystems, i.e. in the Docker image. Falls back to `modified()`.
+
+Also: an empty MusicBrainz query now returns no candidates instead of spending
+a rate-limit slot on a request MusicBrainz answers with a 400.
+
+**Size:** done. **Value:** high — the shared backend now has a floor.
+
+### 18. ~~Reports were desktop-only~~ — done
+
+The sibling of §9, and a bigger gap: `LibraryReportsModal.vue` and
+`SidebarReports.vue` existed nowhere else, and there is no `/api/reports` — the
+desktop computed them client-side. So the web and Android apps could show a
+library but not tell you what was wrong with it.
+
+The logic is pure (tracks in, filtered tracks out), so it moved to
+`src/reports.ts` and both TypeScript apps now share it. The desktop app had
+*three* copies of it — the sidebar counts, the table's filter and the modal's
+duplicate count — which had already drifted: the sidebar counted a duplicate
+pair as 1 and the modal's badge recomputed it from the filtered list.
+
+Android cannot import TypeScript, so `util/LibraryReports.kt` is a port, and
+the two test suites assert the same cases deliberately: a change made to one
+and not the other shows up as a case that passes on one side and fails on the
+other. 24 tests in `src/reports.test.ts`, 23 in `LibraryReportsTest.kt`.
+
+Two definitions worth recording, because they are the ones that could sensibly
+go either way:
+
+- A whitespace-only tag counts as **missing**. A file tagged `"   "` is not
+  tagged, and treating it as present is exactly how those files stay invisible
+  to the report that exists to find them.
+- A numeric `0` counts as **present**. Track 0 is a real (if odd) tag, so
+  sweeping it up as missing would flag files that are fine.
+- The duplicate count is **copies beyond the first**, not tracks involved. Two
+  copies of one song is one thing to fix; "2" beside a two-row list reads as
+  two problems.
+- Tracks with no artist, album *and* title are excluded from duplicates. They
+  all collapse to one key, so including them reports every untagged file as a
+  duplicate of every other and buries the real ones — that is the
+  missing-metadata report's job.
+
+Reached from Settings and the desktop rail on web, and from Settings on Android,
+rather than the bottom nav: five tabs is a crowd on a phone, and reports are an
+occasional errand. Duplicates render grouped on both new clients, because seeing
+the copies of one recording together is the point of that report.
+
+One thing deliberately not done: no `/api/reports` endpoint. The duplicate and
+missing-art queries would be better in SQL, but all three clients already hold
+the full catalog for search and the album grid, so the round trip would buy
+nothing today. Worth revisiting if a client ever stops loading the whole
+library.
+
+### 19. ~~`MetadataEditor.vue` was 1,783 lines~~ — done
+
+The remainder of §10, and the note there — "it is one form, so it wants a
+different treatment" — was the right diagnosis and the wrong conclusion. The
+treatment is not to split the form; it is to notice that most of the file was
+not the form:
+
+- `utils/imageData.ts` — the conversions between the shapes cover art arrives
+  in (a `data:` URL from a file input, bytes from the Tauri FS plugin, base64
+  from the server's proxy) and the bare base64 the tag writer takes. One of
+  them had been copy-pasted into a second function rather than called: the PNG
+  re-encode existed both as `pngDataUrlToJpegBase64` and inline inside
+  `applyWikipediaImage`.
+- `utils/wikipediaCover.ts` — the three MediaWiki calls and, more to the point,
+  the heuristic that picks the cover out of a page's image list. An article's
+  images are mostly furniture — rating stars, edit pencils, navigation arrows —
+  so taking the first one puts a star icon in someone's album tag.
+- `composables/useTooltipPopover.ts` + `components/shared/TooltipPopover.vue` —
+  the body-teleported tooltip, which three components each had their own copy
+  of, timeout dance and all.
+- `GenreCombobox.vue` and `WikipediaCoverModal.vue` — a self-contained field
+  and a self-contained dialog.
+
+1,783 → 1,460 lines, and 44 desktop tests where there was 1: the image
+conversions and the cover-art scoring are pure, so they are now tested
+directly — including that `bytesToBase64` chunks (the reason it exists:
+`String.fromCharCode(...bytes)` on a real cover exceeds the argument limit and
+throws), that page furniture scores below zero, and that the search reads
+`index` rather than the first key of MediaWiki's result object.
+
+`LibraryTableBody.vue` (1,333) and `PlayerBar.vue` (1,195) are now the largest
+in the desktop app, and `catalog.ts` (995) is the untested one that matters
+most — see §14.
+
+---
+
+## Done in the 8 September pass
 
 For the record, so this list is not re-derived later:
 
