@@ -16,7 +16,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/feather-icons": "^4.29.4",
-    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitejs/plugin-vue": "^6.0.9",
     "@vitest/coverage-v8": "^5.0.0",
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.5.0",
@@ -25,7 +25,7 @@
     "eslint": "^10.10.0",
     "eslint-plugin-vue": "^10.11.0",
     "feather-icons": "^4.29.2",
-    "happy-dom": "^20.14.0",
+    "happy-dom": "^20.14.5",
     "openapi-fetch": "^0.17.0",
     "openapi-typescript": "^7.13.0",
     "typescript-eslint": "^8.70.0",
