@@ -1282,10 +1282,10 @@
               "schema": {
                 "oneOf": [
                   {
-                    "type": "null"
+                    "$ref": "#/components/schemas/RescanBody"
                   },
                   {
-                    "$ref": "#/components/schemas/RescanBody"
+                    "type": "null"
                   }
                 ]
               }
@@ -3146,10 +3146,10 @@
                 "schema": {
                   "oneOf": [
                     {
-                      "type": "null"
+                      "$ref": "#/components/schemas/TrackBackupRecord"
                     },
                     {
-                      "$ref": "#/components/schemas/TrackBackupRecord"
+                      "type": "null"
                     }
                   ]
                 }

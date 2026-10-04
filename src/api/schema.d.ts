@@ -1348,7 +1348,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": null | components["schemas"]["RescanBody"];
+                "application/json": components["schemas"]["RescanBody"] | null;
             };
         };
         responses: {
@@ -2549,7 +2549,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": null | components["schemas"]["TrackBackupRecord"];
+                    "application/json": components["schemas"]["TrackBackupRecord"] | null;
                 };
             };
             /** @description Missing or invalid API key */
