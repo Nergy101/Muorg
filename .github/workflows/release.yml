@@ -406,9 +406,7 @@ jobs:
     # Runs even when the desktop matrix was filtered out, so every v* tag still
     # gets a GitHub Release page. The installer and updater steps below no-op on
     # a Docker-only release.
-    if: >-
-      always() && needs.version.result == 'success'
-      && needs.desktop.result != 'failure' && needs.desktop.result != 'cancelled'
+    if: ${{ always() && needs.version.result == 'success' }}
     permissions:
       contents: write
     steps:
