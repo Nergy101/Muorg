@@ -3,8 +3,8 @@ import { computed, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import AlbumGridCard from "./AlbumGridCard.vue";
+import { albumIdentityKey } from "../../utils/albumIdentity";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
-
 export type AlbumGridItem = {
   key: string;
   album: string;
@@ -34,8 +34,7 @@ const playingAlbumKey = computed(() => {
   if (id == null) return null;
   const track = tracks.value.find((t) => t.id === id);
   if (!track) return null;
-  const album = (track.album ?? "Unknown Album").trim() || "Unknown Album";
-  return album.toLocaleLowerCase();
+  return albumIdentityKey(track.album, track.album_artist);
 });
 
 // ── Virtual scroll constants ──────────────────────────────────────────────────

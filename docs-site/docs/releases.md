@@ -4,7 +4,14 @@ sidebar_position: 8
 
 # Release Notes
 
-Muorg ships as tagged GitHub releases (`v2.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
+Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
+
+## v3.1.1
+
+- **Server**: deterministic track ordering when pagination sort keys are tied.
+- **Desktop**: distinguish same-titled albums by album artist.
+- **Web App**: improve connection-form labels, API-key visibility accessibility, and connection-error announcements.
+- **Android**: retain previously loaded report results and show a refresh warning if reports cannot be refreshed. APK is published separately as `android-v3.1.1`.
 
 ## v2.33.1
 

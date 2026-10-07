@@ -116,7 +116,7 @@ jobs:
           fi
 
           # Files scripts/release.sh rewrites purely to carry the new number.
-          BUMP_ONLY='^(client/package\.json|client/src-tauri/tauri\.conf\.json|client/src-tauri/Cargo\.toml|server/crates/muorg-server/Cargo\.toml|android-client/app/build\.gradle\.kts|web-client/package\.json)$'
+          BUMP_ONLY='^(client/package\.json|client/src-tauri/tauri\.conf\.json|client/src-tauri/Cargo\.toml|client/src-tauri/Cargo\.lock|server/crates/muorg-server/Cargo\.toml|server/Cargo\.lock|server/openapi\.json|src/api/schema\.d\.ts|android-client/app/src/main/java/nl/muorg/android/data/api/schema/(ApiSchema|MuorgApi)\.kt|android-client/app/build\.gradle\.kts|web-client/package\.json|web-client/package-lock\.json)$'
 
           HEAD_REF="${TAG_REF}"
           TAG_FILES="$(git diff --name-only "${TAG_REF}^" "${TAG_REF}" 2>/dev/null || true)"

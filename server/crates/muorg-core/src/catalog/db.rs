@@ -478,7 +478,7 @@ fn load_tracks_filtered(
         None => {
             let filter = if deleted_at_col { " WHERE deleted_at IS NULL" } else { "" };
             format!(
-                "SELECT {} FROM tracks{} ORDER BY artist, album, track_number, title",
+                "SELECT {} FROM tracks{} ORDER BY artist, album, track_number, title, id",
                 cols.join(", "), filter
             )
         }

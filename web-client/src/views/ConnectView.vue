@@ -24,8 +24,9 @@
 
         <form class="w-full space-y-4" @submit.prevent="connect">
           <div>
-            <label class="mb-1 block text-body-sm text-on-surface-variant">Server URL</label>
+            <label for="server-url" class="mb-1 block text-body-sm text-on-surface-variant">Server URL</label>
             <input
+              id="server-url"
               v-model="url"
               type="url"
               inputmode="url"
@@ -37,9 +38,10 @@
           </div>
 
           <div>
-            <label class="mb-1 block text-body-sm text-on-surface-variant">API Key</label>
+            <label for="api-key" class="mb-1 block text-body-sm text-on-surface-variant">API Key</label>
             <div class="relative">
               <input
+                id="api-key"
                 v-model="apiKey"
                 :type="showKey ? 'text' : 'password'"
                 autocomplete="current-password"
@@ -48,6 +50,8 @@
               <button
                 type="button"
                 class="absolute inset-y-0 right-3 flex items-center text-on-surface-variant"
+                :aria-label="showKey ? 'Hide API key' : 'Show API key'"
+                :aria-pressed="showKey"
                 @click="showKey = !showKey"
               >
                 <MageIcon :name="showKey ? 'eye-off' : 'eye'" class="h-5 w-5" />
@@ -55,7 +59,7 @@
             </div>
           </div>
 
-          <p v-if="errorMsg" class="text-body-sm text-error">{{ errorMsg }}</p>
+          <p v-if="errorMsg" role="alert" class="text-body-sm text-error">{{ errorMsg }}</p>
 
           <button
             type="submit"

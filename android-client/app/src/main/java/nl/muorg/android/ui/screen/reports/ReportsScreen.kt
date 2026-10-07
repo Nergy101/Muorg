@@ -107,7 +107,7 @@ fun ReportsScreen(
                 }
             }
 
-            state.error != null -> {
+            state.error != null && state.tracks.isEmpty() -> {
                 Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = state.error ?: "",
@@ -121,6 +121,16 @@ fun ReportsScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = LocalBottomInset.current + 8.dp),
             ) {
+                if (state.error != null) {
+                    item(key = "refresh-error") {
+                        Text(
+                            text = "Couldn't refresh reports. Showing previously loaded results. ${state.error}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                }
                 items(rows, key = { it.kind.name }) { row ->
                     val count = state.counts[row.kind] ?: 0
                     Row(

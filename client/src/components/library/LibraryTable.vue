@@ -7,6 +7,7 @@ import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack, MetadataUpdate } from "../../types";
 import type { MissingMetadataField } from "../../stores/settings";
 import { extractBestFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
+import { albumIdentityKey } from "../../utils/albumIdentity";
 import {
   duplicateCount as countDuplicates,
   runReport,
@@ -51,7 +52,7 @@ watch(revealTrackId, (id) => {
     // Return to grid overview (close any open album detail), then scroll to the album.
     const track = tracks.value.find((t) => t.id === id);
     if (track) {
-      const key = albumKeyFor(track);
+      const key = albumIdentityKey(track.album, track.album_artist);
       selectedAlbumKey.value = null;
       nextTick(() => nextTick(() => {
         albumGridRef.value?.scrollToAlbum(key);
@@ -88,16 +89,12 @@ watch(libraryLayoutMode, (mode) => {
   if (mode !== "table") tableBodyMounted.value = true;
 });
 
-function albumKeyFor(track: CatalogTrack): string {
-  const album = (track.album ?? "Unknown Album").trim() || "Unknown Album";
-  return album.toLocaleLowerCase();
-}
 
 const albums = computed<AlbumGridItem[]>(() => {
   if (libraryLayoutMode.value !== "album_grid") return [];
   const grouped = new Map<string, { album: string; albumArtist: string; tracks: CatalogTrack[] }>();
   for (const track of filteredTracks.value) {
-    const key = albumKeyFor(track);
+    const key = albumIdentityKey(track.album, track.album_artist);
     const existing = grouped.get(key);
     if (existing) {
       existing.tracks.push(track);
@@ -105,7 +102,7 @@ const albums = computed<AlbumGridItem[]>(() => {
     }
     grouped.set(key, {
       album: (track.album ?? "Unknown Album").trim() || "Unknown Album",
-      albumArtist: ((track.album_artist ?? track.artist) ?? "Unknown Artist").trim() || "Unknown Artist",
+      albumArtist: (track.album_artist ?? "").trim() || "Unknown Artist",
       tracks: [track],
     });
   }
@@ -114,8 +111,7 @@ const albums = computed<AlbumGridItem[]>(() => {
       const firstWithCover = data.tracks.find((t) => t.has_cover);
       const years = data.tracks.map((t) => t.year).filter((y): y is number => y != null);
       const uniqueArtists = [...new Set(
-        data.tracks
-          .map((t) => ((t.album_artist ?? t.artist) ?? "Unknown Artist").trim() || "Unknown Artist")
+        data.tracks.map((t) => (t.album_artist ?? "").trim() || "Unknown Artist")
       )];
       return {
         key,
@@ -152,7 +148,7 @@ const albums = computed<AlbumGridItem[]>(() => {
 const selectedAlbum = computed(() => albums.value.find((a) => a.key === selectedAlbumKey.value) ?? null);
 const selectedAlbumTracks = computed(() => {
   if (!selectedAlbum.value) return [];
-  return filteredTracks.value.filter((t) => albumKeyFor(t) === selectedAlbum.value!.key);
+  return filteredTracks.value.filter((t) => albumIdentityKey(t.album, t.album_artist) === selectedAlbum.value!.key);
 });
 
 watch(libraryLayoutMode, (mode) => {
@@ -339,7 +335,7 @@ function openAlbum(albumKey: string) {
 }
 
 function onAlbumGridContextMenu(e: MouseEvent, albumKey: string) {
-  const albumTracks = filteredTracks.value.filter((t) => albumKeyFor(t) === albumKey);
+  const albumTracks = filteredTracks.value.filter((t) => albumIdentityKey(t.album, t.album_artist) === albumKey);
   if (albumTracks.length) tableBodyRef.value?.openContextMenu(e, albumTracks);
 }
 

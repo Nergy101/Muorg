@@ -16,7 +16,13 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if ! git -C "$REPO_ROOT" diff --quiet || ! git -C "$REPO_ROOT" diff --cached --quiet; then
+if ! git -C "$REPO_ROOT" diff --quiet --ignore-space-at-eol -- android-client/gradlew.bat; then
+  echo "Error: android-client/gradlew.bat has content changes. Commit or stash changes first." >&2
+  exit 1
+fi
+
+if ! git -C "$REPO_ROOT" diff --quiet -- . ':(exclude)android-client/gradlew.bat' \
+  || ! git -C "$REPO_ROOT" diff --cached --quiet; then
   echo "Error: working tree is not clean. Commit or stash changes first." >&2
   exit 1
 fi
@@ -85,6 +91,15 @@ node -e "
   fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
 "
 
+node -e "
+  const fs = require('fs');
+  const file = '$REPO_ROOT/web-client/package-lock.json';
+  const lock = JSON.parse(fs.readFileSync(file, 'utf8'));
+  lock.version = '$VERSION';
+  lock.packages[''].version = '$VERSION';
+  fs.writeFileSync(file, JSON.stringify(lock, null, 2) + '\n');
+"
+
 # The OpenAPI document carries the server crate's version, so a bump changes
 # the spec and every generated client with it. Regenerating here is what keeps
 # them together: the 3.0.0 bump did not, and because a version-only commit
@@ -111,7 +126,8 @@ git -C "$REPO_ROOT" add \
   android-client/app/src/main/java/nl/muorg/android/data/api/schema/ApiSchema.kt \
   android-client/app/src/main/java/nl/muorg/android/data/api/schema/MuorgApi.kt \
   android-client/app/build.gradle.kts \
-  web-client/package.json
+  web-client/package.json \
+  web-client/package-lock.json
 
 git -C "$REPO_ROOT" commit -m "🔖 chore: bump version to $VERSION"
 

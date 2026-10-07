@@ -165,6 +165,34 @@ fn pagination_walks_the_whole_library_without_gaps_or_repeats() {
 }
 
 #[test]
+fn pagination_breaks_equal_sort_keys_by_track_id() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    cat::save_roots(&conn, &["/music".to_string()]).unwrap();
+    let same_tags = meta("Same title", "Same artist", "Same album");
+    let ids: Vec<i64> = (0..3)
+        .map(|i| {
+            insert_track(
+                &conn,
+                "/music",
+                &format!("/music/copy{i}.mp3"),
+                &same_tags,
+                None,
+            )
+        })
+        .collect();
+
+    let mut paged_ids = Vec::new();
+    for offset in 0..ids.len() as i64 {
+        let (page, _) = cat::load_tracks_paginated(&conn, offset, 1).unwrap();
+        assert_eq!(page.len(), 1);
+        paged_ids.push(page[0].id);
+    }
+
+    assert_eq!(paged_ids, ids, "equal catalog sort keys must have stable page boundaries");
+}
+
+#[test]
 fn pagination_past_the_end_returns_an_empty_page_not_an_error() {
     let tc = TestCatalog::new();
     let conn = tc.conn();
