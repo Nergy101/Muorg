@@ -5,6 +5,7 @@ import nl.muorg.android.data.api.bodyOrThrow
 import nl.muorg.android.data.api.orThrow
 import nl.muorg.android.data.api.schema.CreateBody
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.PlaylistPinsBody
 import nl.muorg.android.data.api.schema.ReorderBody
 import nl.muorg.android.data.api.schema.SmartCreateBody
 import nl.muorg.android.data.api.schema.TrackIdsBody
@@ -139,5 +140,21 @@ class PlaylistRepository @Inject constructor(
     suspend fun reorderTracks(playlistId: Int, trackIds: List<Int>): Result<Unit> = runCatching {
         api.reorderPlaylistTracks(playlistId.toLong(), ReorderBody(trackIds.map { it.toLong() }))
             .orThrow("PUT /api/playlists/$playlistId/tracks/order")
+    }
+
+    /**
+     * The server's pinned playlist ids, in pin order.
+     *
+     * Server mode only: pins live on the server so every device agrees. Local
+     * mode keeps its own set in preferences — the two are never merged.
+     */
+    suspend fun getPins(): Result<List<Int>> = runCatching {
+        api.getPlaylistPins().bodyOrThrow("GET /api/playlists/pins").ids.map { it.toInt() }
+    }
+
+    /** Replace the whole pin set; [ids] is the full set, in pin order. */
+    suspend fun setPins(ids: List<Int>): Result<Unit> = runCatching {
+        api.setPlaylistPins(PlaylistPinsBody(ids.map { it.toLong() }))
+            .orThrow("PUT /api/playlists/pins")
     }
 }

@@ -68,6 +68,16 @@ data class CastDevice(
     val port: Int
 )
 
+@Serializable
+data class CastPlayResponse(
+    /**
+     * Id of the started session. While polling `GET /api/cast/status`, an
+     * active session whose `session_id` differs from this one means another
+     * device took the session over.
+     */
+    @SerialName("session_id") val sessionId: String
+)
+
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @JsonClassDiscriminator("status")
@@ -104,6 +114,12 @@ sealed interface CastSessionStatus {
 @Serializable
 data class CastStatusResponse(
     val session: CastSessionStatus,
+    /**
+     * Id of the current cast session, empty when idle. A client that started
+     * a cast remembers its own id; an active session carrying a different id
+     * means another device took the session over.
+     */
+    @SerialName("session_id") val sessionId: String,
     val volume: Float
 )
 
@@ -241,6 +257,18 @@ data class Playlist(
 )
 
 @Serializable
+data class PlaylistPinsBody(
+    /** The full pin set, in pin order. Replaces whatever was pinned before. */
+    val ids: List<Long>
+)
+
+@Serializable
+data class PlaylistPinsResponse(
+    /** Pinned playlist ids, in pin order. */
+    val ids: List<Long>
+)
+
+@Serializable
 data class PlaylistTrackEntry(
     @SerialName("entry_id") val entryId: Long,
     @SerialName("track_id") val trackId: Long
@@ -252,13 +280,51 @@ data class RatingBody(
 )
 
 @Serializable
+data class RecordPlayBody(
+    /** Optional per-device name the play is attributed to in play history. */
+    @SerialName("device_name") val deviceName: String? = null
+)
+
+@Serializable
 data class RemoveFolderBody(
     @SerialName("root_path") val rootPath: String
 )
 
 @Serializable
 data class RenameBody(
+    @SerialName("new_path") val newPath: String,
+    /**
+     * Replace a file that already sits at the destination. Default false: a
+     * rename onto an existing path is refused instead of clobbering it.
+     */
+    val overwrite: Boolean? = null
+)
+
+@Serializable
+data class RenameCheckBody(
+    val items: List<RenameCheckItem>
+)
+
+@Serializable
+data class RenameCheckItem(
+    val id: Long,
     @SerialName("new_path") val newPath: String
+)
+
+@Serializable
+data class RenameCheckResponse(
+    val collisions: List<RenameCollision>
+)
+
+@Serializable
+data class RenameCollision(
+    val id: Long,
+    @SerialName("new_path") val newPath: String,
+    /**
+     * Why the destination collides: "exists" — a file already sits there;
+     * "duplicate" — another item in the same batch targets it too.
+     */
+    val reason: String
 )
 
 @Serializable

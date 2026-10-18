@@ -1,6 +1,7 @@
 package nl.muorg.android.data.preferences
 
 import android.content.Context
+import android.os.Build
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -45,6 +46,9 @@ class AppPreferences @Inject constructor(
         private val KEY_SORT_ASCENDING = booleanPreferencesKey("sort_ascending")
         private val KEY_MATERIAL_YOU = booleanPreferencesKey("material_you")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        private val KEY_DEVICE_NAME = stringPreferencesKey("device_name")
+        private val KEY_OFFLINE_MODE = booleanPreferencesKey("offline_mode")
+        private val KEY_DOWNLOAD_MOBILE_DATA = booleanPreferencesKey("download_mobile_data")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -56,6 +60,25 @@ class AppPreferences @Inject constructor(
     // Eagerly-cached StateFlows for synchronous reads in OkHttp interceptors.
     val serverUrlState: StateFlow<String> = serverUrl.stateIn(scope, SharingStarted.Eagerly, "")
     val apiKeyState: StateFlow<String> = apiKey.stateIn(scope, SharingStarted.Eagerly, "")
+
+    /**
+     * The name this device reports with every play it records. Required: it
+     * defaults to the device's own model name and the user may change it, but
+     * it never falls back to empty.
+     */
+    val deviceName: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[KEY_DEVICE_NAME]?.takeIf { it.isNotBlank() } ?: Build.MODEL }
+
+    // Eagerly-cached StateFlow for synchronous reads on the playback path.
+    val deviceNameState: StateFlow<String> = deviceName.stateIn(scope, SharingStarted.Eagerly, Build.MODEL)
+
+    /** Offline mode: the queue is built only from downloaded files. */
+    val offlineMode: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[KEY_OFFLINE_MODE] ?: false }
+
+    /** Allow playlist downloads over mobile data; Wi-Fi only by default. */
+    val downloadMobileData: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[KEY_DOWNLOAD_MOBILE_DATA] ?: false }
 
     val playerBarTapOpensPlayer: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] ?: true }
@@ -166,6 +189,22 @@ class AppPreferences @Inject constructor(
 
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { it[KEY_THEME_MODE] = mode }
+    }
+
+    suspend fun setDeviceName(name: String) {
+        // The field is required: a blank entry falls back to the model name
+        // rather than recording plays against an unnamed device.
+        context.dataStore.edit { prefs ->
+            prefs[KEY_DEVICE_NAME] = name.trim().ifBlank { Build.MODEL }
+        }
+    }
+
+    suspend fun setOfflineMode(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_OFFLINE_MODE] = enabled }
+    }
+
+    suspend fun setDownloadMobileData(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_DOWNLOAD_MOBILE_DATA] = enabled }
     }
 
     suspend fun clearCredentials() {

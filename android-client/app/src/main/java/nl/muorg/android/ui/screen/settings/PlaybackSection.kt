@@ -64,5 +64,23 @@ fun PlaybackSection(
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
 
+    ListItem(
+        headlineContent = { Text("Offline mode") },
+        supportingContent = { Text("Play only downloaded tracks") },
+        leadingContent = {
+            Icon(
+                painter = painterResource(mageIconRes("download")), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        trailingContent = {
+            Switch(
+                checked = uiState.offlineMode,
+                onCheckedChange = viewModel::setOfflineMode,
+            )
+        },
+        modifier = Modifier.clickable { viewModel.setOfflineMode(!uiState.offlineMode) },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+    )
+
     HorizontalDivider()
 }

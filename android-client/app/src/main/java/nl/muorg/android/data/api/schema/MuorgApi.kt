@@ -118,7 +118,7 @@ interface MuorgApi {
     @POST("api/cast/play")
     suspend fun castPlay(
         @Body body: PlayBody,
-    ): Response<Unit>
+    ): Response<CastPlayResponse>
 
     /**
      * Resume the cast session.
@@ -182,7 +182,9 @@ interface MuorgApi {
     ): Response<FetchedImage>
 
     /**
-     * Unauthenticated liveness probe.
+     * Unauthenticated liveness probe. Reports `Scanning` while the startup
+     * library scan is still running, so a healthcheck can tell "up but busy"
+     * from "up and ready".
      *
      * `GET /api/health`
      */
@@ -232,6 +234,24 @@ interface MuorgApi {
     ): Response<OkResponse>
 
     /**
+     * Pinned playlist ids, in pin order.
+     *
+     * `GET /api/playlists/pins`
+     */
+    @GET("api/playlists/pins")
+    suspend fun getPlaylistPins(): Response<PlaylistPinsResponse>
+
+    /**
+     * Replace the whole pin set.
+     *
+     * `PUT /api/playlists/pins`
+     */
+    @PUT("api/playlists/pins")
+    suspend fun setPlaylistPins(
+        @Body body: PlaylistPinsBody,
+    ): Response<OkResponse>
+
+    /**
      * Create a rule-driven smart playlist.
      *
      * `POST /api/playlists/smart`
@@ -263,7 +283,8 @@ interface MuorgApi {
     ): Response<List<Long>>
 
     /**
-     * Rename a playlist and/or set its icon.
+     * Rename a playlist and/or set its icon. The `Favorites` playlist cannot be
+     * renamed — clients locate it by its exact name — but its icon can change.
      *
      * `PATCH /api/playlists/{id}`
      */
@@ -274,7 +295,8 @@ interface MuorgApi {
     ): Response<OkResponse>
 
     /**
-     * Delete a playlist and its entries.
+     * Delete a playlist and its entries. The `Favorites` playlist cannot be
+     * deleted — clients locate it by its exact name.
      *
      * `DELETE /api/playlists/{id}`
      */
@@ -394,6 +416,18 @@ interface MuorgApi {
     ): Response<List<CatalogTrack>>
 
     /**
+     * Pre-flight for a batch rename: report the destinations that are already
+     * taken on disk, or that more than one item in the batch targets. Lets a
+     * client offer cancel/override before any file moves.
+     *
+     * `POST /api/tracks/rename/check`
+     */
+    @POST("api/tracks/rename/check")
+    suspend fun checkRename(
+        @Body body: RenameCheckBody,
+    ): Response<RenameCheckResponse>
+
+    /**
      * MusicBrainz candidates for this track. With no body, the query is built from the file\u2019s own tags.
      *
      * `POST /api/tracks/{id}/auto-tag-suggestions`
@@ -453,13 +487,16 @@ interface MuorgApi {
     ): Response<OkResponse>
 
     /**
-     * Record a play. Bumps `play_count`/`last_played_at` and appends to play history.
+     * Record a play. Bumps `play_count`/`last_played_at` and appends to play
+     * history. The optional body carries the device name the play is attributed
+     * to; requests with no body keep working.
      *
      * `POST /api/tracks/{id}/play`
      */
     @POST("api/tracks/{id}/play")
     suspend fun recordPlay(
         @Path("id") id: Long,
+        @Body body: RecordPlayBody?,
     ): Response<OkResponse>
 
     /**
@@ -474,7 +511,8 @@ interface MuorgApi {
     ): Response<OkResponse>
 
     /**
-     * Move the file on disk and repoint the catalog row.
+     * Move the file on disk and repoint the catalog row. Refuses to overwrite an
+     * existing destination unless `overwrite` is set.
      *
      * `POST /api/tracks/{id}/rename`
      */

@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -55,6 +56,9 @@ import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
+
+/** The server's favorites playlist — managed by the server, not editable. */
+private const val FAVORITES_PLAYLIST_NAME = "Favorites"
 
 private val PLAYLIST_EMOJIS = listOf(
     "🎵", "🎶", "🎸", "🎹", "🎺", "🎻", "🥁", "🎷",
@@ -138,6 +142,50 @@ fun PlaylistsScreen(
             }
         }
 
+        // Download status: a progress line while a playlist downloads, a
+        // summary (with failures) once it finishes.
+        val download = uiState.downloadProgress
+        if (download.totalTracks > 0) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                if (download.isActive) {
+                    val processed = download.completedTracks + download.failedTracks
+                    LinearProgressIndicator(
+                        progress = { processed.toFloat() / download.totalTracks },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Downloading $processed/${download.totalTracks} — ${download.currentTrackName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (download.completedTracks > 0 || download.failedTracks > 0) {
+                    val failed = download.failedTracks
+                    Text(
+                        if (failed > 0) {
+                            "Downloaded ${download.completedTracks}/${download.totalTracks} tracks — $failed failed"
+                        } else {
+                            "Downloaded ${download.completedTracks}/${download.totalTracks} tracks"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (failed > 0) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                download.errorMessage?.let { message ->
+                    Text(
+                        message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             when {
                 uiState.isLoading -> {
@@ -153,11 +201,14 @@ fun PlaylistsScreen(
                     )
                 }
                 else -> {
-                    // Pinned playlists sort to the front, as on the web. Hoisted
-                    // out of the lazy scope: that block is not a composable, so
-                    // `remember` cannot live inside it.
+                    // Pinned playlists sort to the front, in pin order, as on
+                    // the web. Hoisted out of the lazy scope: that block is
+                    // not a composable, so `remember` cannot live inside it.
                     val ordered = remember(uiState.playlists, uiState.pinnedIds) {
-                        uiState.playlists.sortedByDescending { it.id in uiState.pinnedIds }
+                        val pinned = uiState.pinnedIds
+                        uiState.playlists.sortedWith(
+                            compareBy({ it.id !in pinned }, { pinned.indexOf(it.id) })
+                        )
                     }
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
@@ -183,6 +234,8 @@ fun PlaylistsScreen(
                                 onEdit = { viewModel.showEditDialog(playlist) },
                                 onDownload = { viewModel.downloadPlaylist(playlist) },
                                 onDelete = { viewModel.deletePlaylist(playlist.id) },
+                                isFavorites = uiState.isServerMode &&
+                                    playlist.name == FAVORITES_PLAYLIST_NAME,
                             )
                         }
                     }

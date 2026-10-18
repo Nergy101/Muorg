@@ -19,7 +19,9 @@ import nl.muorg.android.data.api.schema.MuorgApi
 import nl.muorg.android.data.api.toDomain
 import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
+import nl.muorg.android.player.PlayerController
 import nl.muorg.android.ui.screen.library.SortMode
 import java.net.URL
 import javax.inject.Inject
@@ -57,6 +59,9 @@ data class SettingsUiState(
     val themeMode: String = "dark",
     val albumViewStyle: String = "grid",
     val sortAscending: Boolean = true,
+    val deviceName: String = "",
+    val offlineMode: Boolean = false,
+    val downloadMobileData: Boolean = false,
 )
 
 @HiltViewModel
@@ -64,6 +69,8 @@ class SettingsViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val api: MuorgApi,
     private val localLibraryRepository: LocalLibraryRepository,
+    private val playerController: PlayerController,
+    private val libraryRepository: LibraryRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -126,6 +133,21 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferences.themeMode.collect { mode ->
                 _uiState.update { it.copy(themeMode = mode) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.deviceName.collect { name ->
+                _uiState.update { it.copy(deviceName = name) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.offlineMode.collect { enabled ->
+                _uiState.update { it.copy(offlineMode = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.downloadMobileData.collect { enabled ->
+                _uiState.update { it.copy(downloadMobileData = enabled) }
             }
         }
         loadStats()
@@ -223,11 +245,33 @@ class SettingsViewModel @Inject constructor(
     fun showLogoutDialog() = _uiState.update { it.copy(showLogoutDialog = true) }
     fun dismissLogoutDialog() = _uiState.update { it.copy(showLogoutDialog = false) }
 
+    /**
+     * Log out: stop playback and drop the cached catalog, so the next
+     * account never sees (or hears) the previous one's session.
+     */
     fun logout(onDone: () -> Unit) {
         viewModelScope.launch {
+            playerController.stopPlayback()
+            libraryRepository.clearCache()
             preferences.clearCredentials()
             onDone()
         }
+    }
+
+    fun setDeviceName(name: String) {
+        _uiState.update { it.copy(deviceName = name) }
+        // The field is required: a blank entry falls back to the model name.
+        viewModelScope.launch { preferences.setDeviceName(name) }
+    }
+
+    fun setOfflineMode(enabled: Boolean) {
+        _uiState.update { it.copy(offlineMode = enabled) }
+        viewModelScope.launch { preferences.setOfflineMode(enabled) }
+    }
+
+    fun setDownloadMobileData(enabled: Boolean) {
+        _uiState.update { it.copy(downloadMobileData = enabled) }
+        viewModelScope.launch { preferences.setDownloadMobileData(enabled) }
     }
 
     fun setMusicMode(mode: String) {

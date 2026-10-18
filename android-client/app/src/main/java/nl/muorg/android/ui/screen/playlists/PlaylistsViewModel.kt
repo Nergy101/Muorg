@@ -6,12 +6,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.DownloadProgress
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import kotlinx.serialization.json.Json
 import nl.muorg.android.data.api.CatalogTrack
@@ -34,7 +36,10 @@ data class PlaylistsUiState(
     val editIcon: String = "🎵",
     /** Four DISTINCT-album track ids per playlist, for the 2x2 cover mosaic. */
     val covers: Map<Int, List<Int>> = emptyMap(),
-    val pinnedIds: Set<Int> = emptySet(),
+    /** Pinned playlist ids, in pin order — pinned tiles sort to the front. */
+    val pinnedIds: List<Int> = emptyList(),
+    val isServerMode: Boolean = false,
+    val downloadProgress: DownloadProgress = DownloadProgress(),
     val showSmartDialog: Boolean = false,
     val smartName: String = "",
     val smartRules: List<SmartRule> = listOf(SmartRule("genre", "contains", "")),
@@ -87,13 +92,23 @@ class PlaylistsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             preferences.pinnedPlaylists.collect { pinned ->
-                _uiState.update { it.copy(pinnedIds = pinned) }
+                // Local mode only: pins are a per-device preference there.
+                // In server mode the server's pin set (loaded with the
+                // playlists) is the source of truth — never merged.
+                if (currentMode == "local") {
+                    _uiState.update { it.copy(pinnedIds = pinned.toList()) }
+                }
             }
         }
         viewModelScope.launch {
             preferences.musicMode.collect { mode ->
                 currentMode = mode
                 loadPlaylists()
+            }
+        }
+        viewModelScope.launch {
+            offlineDownloadManager.downloadProgress.collect { progress ->
+                _uiState.update { it.copy(downloadProgress = progress) }
             }
         }
     }
@@ -204,7 +219,27 @@ class PlaylistsViewModel @Inject constructor(
     }
 
     fun togglePin(playlistId: Int) {
-        viewModelScope.launch { preferences.togglePinnedPlaylist(playlistId) }
+        if (currentMode == "local") {
+            viewModelScope.launch { preferences.togglePinnedPlaylist(playlistId) }
+        } else {
+            // The server stores the whole pin set in order, so toggling is a
+            // read-modify-write of that list, applied optimistically.
+            val next = if (playlistId in _uiState.value.pinnedIds) {
+                _uiState.value.pinnedIds.filterNot { it == playlistId }
+            } else {
+                _uiState.value.pinnedIds + playlistId
+            }
+            _uiState.update { it.copy(pinnedIds = next) }
+            viewModelScope.launch {
+                repository.setPins(next).onFailure {
+                    // Re-read rather than revert: the server's set is the
+                    // truth and a second toggle may already have landed.
+                    repository.getPins().onSuccess { pins ->
+                        _uiState.update { it.copy(pinnedIds = pins) }
+                    }
+                }
+            }
+        }
     }
 
     fun downloadPlaylist(playlist: Playlist) {
@@ -220,7 +255,9 @@ class PlaylistsViewModel @Inject constructor(
 
     fun loadPlaylists() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(isLoading = true, error = null, isServerMode = currentMode != "local")
+            }
             if (currentMode == "local") {
                 runCatching { localRepository.getPlaylists() }.fold(
                     onSuccess = { playlists ->
@@ -231,6 +268,7 @@ class PlaylistsViewModel @Inject constructor(
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
                     }
                 )
+                _uiState.update { it.copy(pinnedIds = preferences.pinnedPlaylists.first().toList()) }
             } else {
                 repository.getPlaylists().fold(
                     onSuccess = { playlists ->
@@ -241,6 +279,11 @@ class PlaylistsViewModel @Inject constructor(
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
                     }
                 )
+                // Server pins replace the local set for this screen; the two
+                // stores are never merged.
+                repository.getPins().onSuccess { pins ->
+                    _uiState.update { it.copy(pinnedIds = pins) }
+                }
             }
         }
     }
@@ -370,7 +413,13 @@ class PlaylistsViewModel @Inject constructor(
                 )
             } else {
                 repository.deletePlaylist(id).fold(
-                    onSuccess = { loadPlaylists() },
+                    onSuccess = {
+                        // The playlist's downloads go with it — the files
+                        // would otherwise sit in offline storage with no
+                        // playlist left to play them.
+                        offlineDownloadManager.removePlaylist(id)
+                        loadPlaylists()
+                    },
                     onFailure = { error ->
                         _uiState.update { it.copy(error = error.message) }
                     }

@@ -25,8 +25,12 @@ import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** A play counts once the listener has heard this much of the track. */
+private const val PLAY_COUNT_THRESHOLD_MS = 30_000L
 
 data class PlayerState(
     val currentTrack: CatalogTrack? = null,
@@ -40,6 +44,8 @@ data class PlayerState(
     val queue: List<CatalogTrack> = emptyList(),
     val favorites: Set<String> = emptySet(),
     val isSeekable: Boolean = true,
+    /** A FLAC seek is reloading the stream; the seek bar shows buffering. */
+    val isSeekBuffering: Boolean = false,
     val errorMessage: String? = null,
     /**
      * The play order, each entry tagged with whether the listener queued it or
@@ -53,6 +59,7 @@ class PlayerController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val preferences: AppPreferences,
     private val libraryRepository: LibraryRepository,
+    private val offlineDownloadManager: OfflineDownloadManager,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var pollingJob: Job? = null
@@ -84,6 +91,14 @@ class PlayerController @Inject constructor(
     // after a seek (which reloads the stream from a new start position).
     private var flacSeekOffsetMs: Long = 0L
     private var lastSyncedTrackId: Int? = null
+
+    // Set while a FLAC seek's replacement stream is still loading; the seek
+    // bar shows a buffering indicator until the player reports READY.
+    private var flacSeekInFlight = false
+
+    // The track whose play has already been recorded, so a track counts once
+    // no matter how often it repeats or re-enters the queue.
+    private var playCountedTrackId: Int? = null
 
     init {
         connect()
@@ -120,9 +135,16 @@ class PlayerController @Inject constructor(
     }
 
     private val playerListener = object : Player.Listener {
-        override fun onPlaybackStateChanged(playbackState: Int) = syncState()
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            // The reloaded FLAC stream is ready — the seek has landed.
+            if (flacSeekInFlight && playbackState == Player.STATE_READY) flacSeekInFlight = false
+            syncState()
+        }
         override fun onIsPlayingChanged(isPlaying: Boolean) = syncState()
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = syncState()
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            flacSeekInFlight = false
+            syncState()
+        }
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = syncState()
         override fun onRepeatModeChanged(repeatMode: Int) = syncState()
         // Fires when duration becomes available (e.g. FLAC headers parsed after buffering starts)
@@ -130,6 +152,7 @@ class PlayerController @Inject constructor(
         // A mid-stream failure (dropped connection, server error) used to be
         // invisible: the player stopped with no UI feedback. Surface it.
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            flacSeekInFlight = false
             _state.update {
                 it.copy(
                     isPlaying = false,
@@ -156,7 +179,17 @@ class PlayerController @Inject constructor(
             lastSyncedTrackId = trackId
         }
 
-        val currentTrack = trackId?.let { id -> trackCache.find { it.id == id } }
+        // Media3 walks the timeline itself; its index is where the queue is now.
+        val index = ctrl.currentMediaItemIndex
+        if (ctrl.mediaItemCount > 0 && index in queue.entries.indices && index != queue.position) {
+            queue = queue.copy(position = index)
+        }
+
+        // The queue's own entry is the freshest copy of the track — in offline
+        // mode it carries the resolved local file path — so prefer it over the
+        // id-keyed cache.
+        val currentTrack = queue.entries.getOrNull(index)?.track
+            ?: trackId?.let { id -> trackCache.find { it.id == id } }
 
         // Prefer metadata duration: FLAC streams with ?start=N report only the remaining
         // chunk duration, not the full track duration.
@@ -166,10 +199,16 @@ class PlayerController @Inject constructor(
         val positionMs = (ctrl.currentPosition + flacSeekOffsetMs).coerceAtMost(durationMs.coerceAtLeast(1L))
         val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
-        // Media3 walks the timeline itself; its index is where the queue is now.
-        val index = ctrl.currentMediaItemIndex
-        if (ctrl.mediaItemCount > 0 && index in queue.entries.indices && index != queue.position) {
-            queue = queue.copy(position = index)
+        // A play counts after 30 s of listening, once per track — the same
+        // threshold the desktop and web players use. Local-library tracks have
+        // no server row to record against (their ids are negative).
+        if (currentTrack != null && currentTrack.id > 0 &&
+            playCountedTrackId != currentTrack.id && positionMs >= PLAY_COUNT_THRESHOLD_MS
+        ) {
+            playCountedTrackId = currentTrack.id
+            scope.launch {
+                libraryRepository.recordPlay(currentTrack.id, preferences.deviceNameState.value)
+            }
         }
 
         _state.update { state ->
@@ -183,6 +222,7 @@ class PlayerController @Inject constructor(
                 repeatMode = ctrl.repeatMode,
                 queue = queue.tracks,
                 isSeekable = ctrl.isCurrentMediaItemSeekable,
+                isSeekBuffering = flacSeekInFlight,
                 playbackQueue = queue,
             )
         }
@@ -201,7 +241,10 @@ class PlayerController @Inject constructor(
         pollingJob = scope.launch {
             while (true) {
                 delay(500)
-                syncState()
+                // Nothing advances on its own while paused or in the
+                // background — the listener callbacks cover every transition
+                // — so the poll only needs to run while something is playing.
+                if (controller?.isPlaying == true) syncState()
             }
         }
     }
@@ -227,7 +270,31 @@ class PlayerController @Inject constructor(
         scope.launch {
             _state.update { it.copy(errorMessage = null) }
             mediaItems.clear()
-            this@PlayerController.queue = this@PlayerController.queue.playContext(queue, track)
+            // Offline mode builds the queue from downloaded files only: every
+            // track is pointed at its local copy, and one with no download has
+            // nothing to play from.
+            val effectiveTrack: CatalogTrack
+            val effectiveQueue: List<CatalogTrack>
+            if (preferences.offlineMode.first()) {
+                val startPath = track.localFilePath
+                    ?: offlineDownloadManager.getLocalFilePath(track.id)
+                if (startPath == null) {
+                    _state.update {
+                        it.copy(errorMessage = "Not downloaded — download it or turn off offline mode")
+                    }
+                    scope.launch { delay(4000); _state.update { it.copy(errorMessage = null) } }
+                    return@launch
+                }
+                effectiveTrack = track.copy(localFilePath = startPath)
+                effectiveQueue = queue.mapNotNull { t ->
+                    (t.localFilePath ?: offlineDownloadManager.getLocalFilePath(t.id))
+                        ?.let { t.copy(localFilePath = it) }
+                }
+            } else {
+                effectiveTrack = track
+                effectiveQueue = queue
+            }
+            this@PlayerController.queue = this@PlayerController.queue.playContext(effectiveQueue, effectiveTrack)
             val items = buildItems(this@PlayerController.queue.tracks) ?: return@launch
             // Media3's own shuffle reorders a timeline the queue screen never
             // reads, so the list and the playback disagreed. Order is ours now.
@@ -236,9 +303,6 @@ class PlayerController @Inject constructor(
             ctrl.prepare()
             ctrl.play()
             syncState()
-            if (track.localFilePath == null) {
-                libraryRepository.recordPlay(track.id)
-            }
         }
     }
 
@@ -286,14 +350,33 @@ class PlayerController @Inject constructor(
      */
     private fun applyQueue(next: PlaybackQueue) {
         val ctrl = controller ?: return
-        queue = next
         scope.launch {
-            val tail = next.entries.drop(next.position + 1).map { it.track }
+            val effective = next.withDownloadedFiles()
+            queue = effective
+            val tail = effective.entries.drop(effective.position + 1).map { it.track }
             val items = buildItems(tail) ?: return@launch
             val from = (ctrl.currentMediaItemIndex + 1).coerceAtMost(ctrl.mediaItemCount)
             ctrl.replaceMediaItems(from, ctrl.mediaItemCount, items)
             syncState()
         }
+    }
+
+    /**
+     * Offline mode: drop upcoming tracks that have no downloaded file and
+     * point the rest at their local copy, so no stream token is requested
+     * while offline mode is on. History and the current track are left alone
+     * — the song in progress keeps playing.
+     */
+    private suspend fun PlaybackQueue.withDownloadedFiles(): PlaybackQueue {
+        if (!preferences.offlineMode.first()) return this
+        val head = entries.take(position + 1)
+        val tail = entries.drop(position + 1).mapNotNull { entry ->
+            val path = entry.track.localFilePath
+                ?: offlineDownloadManager.getLocalFilePath(entry.track.id)
+            if (path == null) null
+            else entry.copy(track = entry.track.copy(localFilePath = path))
+        }
+        return copy(entries = head + tail)
     }
 
     fun playPause() {
@@ -327,10 +410,17 @@ class PlayerController @Inject constructor(
 
         if (track.format.lowercase() == "flac" && track.localFilePath == null) {
             // FLAC server stream: the server transcodes to MP3 starting at ?start=N.
-            // Re-request with a fresh token and the desired start offset.
+            // Re-request with a fresh token and the desired start offset. The
+            // seek bar shows buffering until the replacement stream is READY.
             scope.launch {
+                flacSeekInFlight = true
+                _state.update { it.copy(isSeekBuffering = true) }
                 val baseUrl = preferences.serverUrl.first().trimEnd('/')
-                val token = libraryRepository.getStreamToken(track.id).getOrNull() ?: return@launch
+                val token = libraryRepository.getStreamToken(track.id).getOrNull() ?: run {
+                    flacSeekInFlight = false
+                    _state.update { it.copy(isSeekBuffering = false) }
+                    return@launch
+                }
                 val targetSecs = targetMs / 1000.0
                 val uri = "$baseUrl/stream/${track.id}?token=$token&start=${"%.2f".format(targetSecs)}"
                 val currentIndex = ctrl.currentMediaItemIndex
@@ -354,6 +444,9 @@ class PlayerController @Inject constructor(
                 ?: ((track.durationSecs ?: 0.0) * 1000).toLong().takeIf { it > 0 }
                 ?: return
             ctrl.seekTo((durationMs * fraction).toLong())
+            // The progress poll only runs while playing, so a seek while
+            // paused has to push the new position itself.
+            syncState()
         }
     }
 
@@ -481,6 +574,35 @@ class PlayerController @Inject constructor(
     private fun ensureConnected() {
         if (controller == null || controllerFuture?.isDone == false) {
             connect()
+        }
+    }
+
+    /**
+     * Stop playback and forget the session — used on logout, so the next
+     * account never sees (or hears) the previous one's queue. Favorites stay:
+     * they are a per-device preference, not server data.
+     */
+    fun stopPlayback() {
+        controller?.pause()
+        controller?.clearMediaItems()
+        queue = PlaybackQueue()
+        mediaItems.clear()
+        trackCache = emptyList()
+        flacSeekOffsetMs = 0L
+        flacSeekInFlight = false
+        lastSyncedTrackId = null
+        playCountedTrackId = null
+        _state.update {
+            it.copy(
+                currentTrack = null,
+                isPlaying = false,
+                progress = 0f,
+                positionMs = 0L,
+                durationMs = 0L,
+                queue = emptyList(),
+                isSeekBuffering = false,
+                playbackQueue = PlaybackQueue(),
+            )
         }
     }
 

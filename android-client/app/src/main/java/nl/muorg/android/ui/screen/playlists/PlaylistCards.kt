@@ -135,6 +135,8 @@ internal fun PlaylistTile(
     onEdit: () -> Unit,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
+    /** The server's Favorites playlist: rename and delete are refused. */
+    isFavorites: Boolean = false,
 ) {
     Box(
         modifier = Modifier
@@ -165,7 +167,9 @@ internal fun PlaylistTile(
             )
         }
 
-        // Four discs across the top, as on the web: pin, rename, download, delete.
+        // Discs across the top, as on the web: pin, rename, download, delete.
+        // The server's Favorites playlist is managed by the server — renaming
+        // or deleting it is refused — so its tile offers neither.
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -174,9 +178,9 @@ internal fun PlaylistTile(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             FrostDisc("pin", if (pinned) "Unpin playlist" else "Pin playlist", onTogglePin, on = pinned)
-            FrostDisc("edit", "Rename playlist", onEdit)
+            if (!isFavorites) FrostDisc("edit", "Rename playlist", onEdit)
             FrostDisc("download", "Download playlist", onDownload)
-            FrostDisc("trash", "Delete playlist", onDelete)
+            if (!isFavorites) FrostDisc("trash", "Delete playlist", onDelete)
         }
 
         GlassSurface(

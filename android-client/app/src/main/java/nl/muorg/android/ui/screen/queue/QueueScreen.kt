@@ -30,13 +30,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -277,65 +273,35 @@ fun QueueScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value != SwipeToDismissBoxValue.Settled) {
-                                playerViewModel.removeFromQueue(track)
-                                true
-                            } else false
+                    // Removal is a long-press on the row, which opens the
+                    // action sheet's "Remove from queue" — a swipe deleted
+                    // instantly, with no way back.
+                    QueueTrackRow(
+                        track = track,
+                        baseUrl = baseUrl,
+                        imageLoader = imageLoader,
+                        isDragged = isDragged,
+                        dragTranslationY = if (isDragged) dragTranslationY else 0f,
+                        onSkipTo = { if (!isDragged) playerViewModel.skipTo(track) },
+                        onLongPress = { sheetTrack = track },
+                        onDragStart = {
+                            draggedId = track.id
+                            dragAccumY = 0f
+                        },
+                        onDragDelta = { dy -> dragAccumY += dy },
+                        onDragEnd = {
+                            val from = draggedFromIndex
+                            val to = dropTargetIndex
+                            if (from >= 0 && to >= 0 && from != to) {
+                                // Display indices are offsets into "up next";
+                                // the queue is indexed from the start.
+                                val offset = playbackQueue.position + 1
+                                playerViewModel.reorderQueue(offset + from, offset + to)
+                            }
+                            draggedId = null
+                            dragAccumY = 0f
                         },
                     )
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = false,
-                        backgroundContent = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.errorContainer,
-                                        RoundedCornerShape(8.dp),
-                                    ),
-                                contentAlignment = Alignment.CenterEnd,
-                            ) {
-                                Icon(
-                        painter = painterResource(mageIconRes("trash")),
-                                    contentDescription = "Remove",
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.padding(end = 20.dp).size(20.dp),
-                                )
-                            }
-                        },
-                    ) {
-                        QueueTrackRow(
-                            track = track,
-                            baseUrl = baseUrl,
-                            imageLoader = imageLoader,
-                            isDragged = isDragged,
-                            dragTranslationY = if (isDragged) dragTranslationY else 0f,
-                            onSkipTo = { if (!isDragged) playerViewModel.skipTo(track) },
-                            onLongPress = { sheetTrack = track },
-                            onRemove = { playerViewModel.removeFromQueue(track) },
-                            onDragStart = {
-                                draggedId = track.id
-                                dragAccumY = 0f
-                            },
-                            onDragDelta = { dy -> dragAccumY += dy },
-                            onDragEnd = {
-                                val from = draggedFromIndex
-                                val to = dropTargetIndex
-                                if (from >= 0 && to >= 0 && from != to) {
-                                    // Display indices are offsets into "up next";
-                                    // the queue is indexed from the start.
-                                    val offset = playbackQueue.position + 1
-                                    playerViewModel.reorderQueue(offset + from, offset + to)
-                                }
-                                draggedId = null
-                                dragAccumY = 0f
-                            },
-                        )
-                    }
                 }
             }
         }
@@ -411,7 +377,6 @@ private fun QueueTrackRow(
     baseUrl: String,
     imageLoader: ImageLoader,
     onSkipTo: () -> Unit,
-    onRemove: () -> Unit,
     onLongPress: () -> Unit = {},
     isDragged: Boolean = false,
     dragTranslationY: Float = 0f,
@@ -489,14 +454,6 @@ private fun QueueTrackRow(
                     "%d:%02d".format(mins, s),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isDragged) MuorgGreenLight.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = onRemove) {
-                Icon(
-                        painter = painterResource(mageIconRes("multiply")),
-                    contentDescription = "Remove",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

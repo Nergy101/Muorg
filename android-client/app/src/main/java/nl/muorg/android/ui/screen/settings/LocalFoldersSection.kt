@@ -2,6 +2,8 @@ package nl.muorg.android.ui.screen.settings
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +16,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -62,7 +63,17 @@ fun LocalFoldersSection(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
                 trailingContent = {
-                    IconButton(onClick = { viewModel.removeFolder(uriString) }) {
+                    // Removing a folder deletes its local tracks and playlist
+                    // entries, so it is a long-press, not a tap.
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = { viewModel.removeFolder(uriString) },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Icon(
                 painter = painterResource(mageIconRes("trash")), contentDescription = "Remove folder",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)

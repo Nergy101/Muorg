@@ -3,6 +3,7 @@ package nl.muorg.android.ui.screen.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -18,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -48,6 +51,26 @@ fun ServerSection(
             Icon(Icons.Filled.Cloud, contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
         },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+    )
+
+    // Required: the name every play this device records is attributed to.
+    // Defaults to the device's model name; a blank entry falls back to it.
+    ListItem(
+        headlineContent = {
+            OutlinedTextField(
+                value = uiState.deviceName,
+                onValueChange = viewModel::setDeviceName,
+                label = { Text("Device name") },
+                leadingIcon = {
+                    Icon(Icons.Filled.Person, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        supportingContent = { Text("Sent with every play you record") },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
 

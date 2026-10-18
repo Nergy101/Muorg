@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,44 +68,63 @@ fun ColumnScope.PlayerControls(
     // that difference is the loudest thing on the screen. Both slots are
     // replaced rather than recoloured.
     val primary = accent
-    Slider(
-        value = displayProgress,
-        onValueChange = { value ->
-            isSeeking = true
-            seekPosition = value
-        },
-        onValueChangeFinished = {
-            playerViewModel.seekTo(seekPosition)
-            isSeeking = false
-        },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(16.dp),
-        thumb = {
-            Box(
-                modifier = Modifier
-                    .size(13.dp)
-                    .clip(CircleShape)
-                    .background(primary),
-            )
-        },
-        track = { state ->
-            val fraction = state.value.coerceIn(0f, 1f)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.22f)),
-            ) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .height(16.dp),
+    ) {
+        Slider(
+            value = displayProgress,
+            onValueChange = { value ->
+                isSeeking = true
+                seekPosition = value
+            },
+            onValueChangeFinished = {
+                playerViewModel.seekTo(seekPosition)
+                isSeeking = false
+            },
+            // A FLAC seek reloads the stream; the bar is inert until it lands.
+            enabled = !playerState.isSeekBuffering,
+            modifier = Modifier.fillMaxWidth().height(16.dp),
+            thumb = {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(fraction)
-                        .fillMaxHeight()
+                        .size(13.dp)
                         .clip(CircleShape)
                         .background(primary),
                 )
-            }
-        },
-    )
+            },
+            track = { state ->
+                val fraction = state.value.coerceIn(0f, 1f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.22f)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .fillMaxHeight()
+                            .clip(CircleShape)
+                            .background(primary),
+                    )
+                }
+            },
+        )
+        // Buffering while a FLAC seek's replacement stream loads.
+        if (playerState.isSeekBuffering) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(16.dp),
+                strokeWidth = 2.dp,
+                color = primary,
+            )
+        }
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),

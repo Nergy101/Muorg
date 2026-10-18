@@ -63,6 +63,8 @@ fun SettingsScreen(
 
         PlaybackSection(uiState, viewModel)
 
+        DownloadsSection(uiState, viewModel)
+
         LibrarySection(uiState, viewModel)
 
         ThemeSection(uiState, viewModel)

@@ -12,6 +12,7 @@ import nl.muorg.android.data.api.orThrow
 import nl.muorg.android.data.api.schema.MuorgApi
 import nl.muorg.android.data.api.schema.MatchCandidate
 import nl.muorg.android.data.api.schema.PatchMetadataBody
+import nl.muorg.android.data.api.schema.RecordPlayBody
 import nl.muorg.android.data.api.schema.RenameBody
 import nl.muorg.android.data.api.schema.SearchQuery
 import nl.muorg.android.data.api.schema.TrackBackupRecord
@@ -110,8 +111,22 @@ class LibraryRepository @Inject constructor(
         api.getStats().bodyOrThrow("GET /api/stats").toDomain()
     }
 
-    suspend fun recordPlay(trackId: Int): Result<Unit> = runCatching {
-        api.recordPlay(trackId.toLong()).orThrow("POST /api/tracks/$trackId/play")
+    /**
+     * Record a play, attributed to [deviceName] in the server's play history.
+     * The server accepts a missing body too, but the app always sends one.
+     */
+    suspend fun recordPlay(trackId: Int, deviceName: String?): Result<Unit> = runCatching {
+        api.recordPlay(trackId.toLong(), RecordPlayBody(deviceName = deviceName))
+            .orThrow("POST /api/tracks/$trackId/play")
+    }
+
+    /**
+     * Drop the cached catalog. Logout calls this so the next server's screens
+     * never render the previous server's tracks from the ten-minute cache.
+     */
+    suspend fun clearCache() = cacheLock.withLock {
+        cachedTracks = null
+        cachedAtMs = 0L
     }
 
     suspend fun getStreamToken(trackId: Int): Result<String> = runCatching {

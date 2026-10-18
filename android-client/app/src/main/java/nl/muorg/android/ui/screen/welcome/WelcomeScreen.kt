@@ -200,6 +200,15 @@ fun WelcomeScreen(
                         onClick = viewModel::chooseLocal,
                     )
                 }
+
+                Spacer(Modifier.height(24.dp))
+
+                Text(
+                    text = "Settings are kept on this device and don't sync through the server.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
             }
         }
 
