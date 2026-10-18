@@ -94,6 +94,15 @@ fun HomeScreen(
             Spacer(Modifier.statusBarsPadding().height(24.dp))
         }
 
+        // Offline mode is a hard divide: every shelf is a server call, so
+        // instead of four empty sections the page says so once, in the middle.
+        if (state.isOfflineMode) {
+            item(span = { GridItemSpan(2) }) {
+                OfflineModePlaceholder()
+            }
+            return@LazyVerticalGrid
+        }
+
         item(span = { GridItemSpan(2) }) {
             ShelfHeader(
                 icon = "heart",
@@ -188,6 +197,35 @@ fun HomeScreen(
                 onClick = { onOpenAlbum(album.albumName) },
             )
         }
+    }
+}
+
+/** Shown in place of every shelf while offline mode is on. */
+@Composable
+private fun OfflineModePlaceholder() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 96.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        MageIcon(
+            name = "download",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(40.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "You are in offline mode",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Only downloaded music is available.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

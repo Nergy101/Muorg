@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ data class HomeUiState(
     val mixes: List<Mix> = emptyList(),
     val mostPlayed: List<AlbumGroup> = emptyList(),
     val recentlyPlayed: List<AlbumGroup> = emptyList(),
+    val isOfflineMode: Boolean = false,
 )
 
 private const val RECOMMENDED_COUNT = 4
@@ -47,12 +49,38 @@ class HomeViewModel @Inject constructor(
     private var tracks: List<CatalogTrack> = emptyList()
     private var albums: List<AlbumGroup> = emptyList()
 
-    init { load() }
+    init {
+        // Toggling offline mode while this screen is open re-reads from
+        // whichever side of the divide is now in force. The first emission is
+        // the current value, which the initial load() already covers.
+        viewModelScope.launch {
+            preferences.offlineMode.drop(1).collect { load() }
+        }
+        load()
+    }
 
     fun load() {
         viewModelScope.launch {
-            _uiState.update { it.copy(loading = true, error = null) }
             val local = preferences.musicMode.first() == "local"
+            // Offline mode is a hard divide: every shelf is a server call, so
+            // there is nothing to load — the screen shows the offline
+            // placeholder instead. Local mode reads the device's own storage
+            // and needs no such guard.
+            if (!local && preferences.offlineMode.first()) {
+                _uiState.update {
+                    it.copy(
+                        loading = false,
+                        error = null,
+                        isOfflineMode = true,
+                        recommended = emptyList(),
+                        mixes = emptyList(),
+                        mostPlayed = emptyList(),
+                        recentlyPlayed = emptyList(),
+                    )
+                }
+                return@launch
+            }
+            _uiState.update { it.copy(loading = true, error = null, isOfflineMode = false) }
             val result = if (local) {
                 runCatching { localRepository.getAllTracks() to localRepository.buildAlbumGroups() }
             } else {
