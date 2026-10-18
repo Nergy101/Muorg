@@ -339,6 +339,25 @@ class PlaybackQueueTest {
         assertTrue(origins.drop(firstSystem).all { it == QueueOrigin.SYSTEM })
     }
 
+    @Test
+    fun `dragging to the very top with no user queue starts your queue`() {
+        // Nothing queued yet: dragging an up-next track above the list makes
+        // it the first queued entry instead of just reordering the context.
+        val q = album().move(3, 1)
+        assertEquals(listOf(4), q.userUpNext.map { it.track.id })
+        assertEquals(listOf(2, 3, 5), q.systemUpNext.map { it.track.id })
+        assertTrue(q.userUpNext.all { it.origin == QueueOrigin.USER })
+    }
+
+    @Test
+    fun `dragging to the very top puts the track first in your queue`() {
+        // Your queue: 9, 8. Up next: 2, 3, 4, 5. Drag 3 above the list.
+        val q = album().addToUserQueue(tracks(9, 8)).move(4, 1)
+        assertEquals(listOf(3, 9, 8), q.userUpNext.map { it.track.id })
+        assertEquals(listOf(2, 4, 5), q.systemUpNext.map { it.track.id })
+        assertTrue(q.userUpNext.all { it.origin == QueueOrigin.USER })
+    }
+
     // ── Topping up a context ──────────────────────────────────────────────
 
     @Test

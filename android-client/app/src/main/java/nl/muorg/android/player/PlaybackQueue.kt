@@ -219,7 +219,8 @@ data class PlaybackQueue(
      * list without the moved track: dropping between two tracks of one
      * section joins it, dropping exactly on the boundary keeps the track's
      * own origin (reordering within a section never ejects it), and dropping
-     * at the very top takes the section of the track below.
+     * at the very top starts your queue — the track becomes its first entry,
+     * even when nothing is queued yet.
      */
     fun move(from: Int, to: Int): PlaybackQueue {
         if (from !in entries.indices || to !in entries.indices || from == to) return this
@@ -228,6 +229,9 @@ data class PlaybackQueue(
         val before = rest.getOrNull(to - 1)?.takeIf { to - 1 > position }
         val after = rest.getOrNull(to)
         val origin = when {
+            // Above the list there is no section to join, so the top of the
+            // queue is always "your queue" territory.
+            to == position + 1 -> QueueOrigin.USER
             before != null && after != null && before.origin == after.origin -> before.origin
             before != null && after != null -> moved.origin
             before != null -> before.origin
