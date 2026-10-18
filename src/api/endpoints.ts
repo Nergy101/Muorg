@@ -19,6 +19,7 @@ import type {
   CatalogTrack,
   MatchCandidate,
   MetadataUpdate,
+  RenameCollision,
   TracksPage,
 } from "./types";
 import { TRACKS_PAGE_SIZE } from "./types";
@@ -191,10 +192,15 @@ export function createApi(t: Transport) {
       );
     },
 
-    async recordPlay(trackId: number) {
+    /**
+     * Record a play. `deviceName` is the optional per-device name the play is
+     * attributed to in play history; omit it to record the play without one.
+     */
+    async recordPlay(trackId: number, deviceName?: string) {
       return unwrap(
         await client.POST("/api/tracks/{id}/play", {
           params: { path: { id: trackId } },
+          body: deviceName != null ? { device_name: deviceName } : {},
         }),
         "/api/tracks/{id}/play",
       );
@@ -218,14 +224,34 @@ export function createApi(t: Transport) {
       );
     },
 
-    async renameTrackFile(trackId: number, newPath: string) {
+    /**
+     * Move a track's file. Refused when the destination already exists unless
+     * `overwrite` is set — check first with {@link checkRenameCollisions} so the
+     * user can choose cancel/override instead of failing mid-batch.
+     */
+    async renameTrackFile(trackId: number, newPath: string, overwrite = false) {
       return unwrap(
         await client.POST("/api/tracks/{id}/rename", {
           params: { path: { id: trackId } },
-          body: { new_path: newPath },
+          body: { new_path: newPath, overwrite },
         }),
         "/api/tracks/{id}/rename",
       );
+    },
+
+    /**
+     * Pre-flight a batch rename: the destinations that already exist on disk,
+     * or that more than one item targets. Empty when the batch is safe to run.
+     */
+    async checkRenameCollisions(
+      items: { id: number; newPath: string }[],
+    ): Promise<RenameCollision[]> {
+      return unwrap(
+        await client.POST("/api/tracks/rename/check", {
+          body: { items: items.map((i) => ({ id: i.id, new_path: i.newPath })) },
+        }),
+        "/api/tracks/rename/check",
+      ).collisions;
     },
 
     /**
@@ -348,6 +374,19 @@ export function createApi(t: Transport) {
       );
     },
 
+    /** Pinned playlist ids, in pin order. */
+    async getPlaylistPins() {
+      return unwrap(await client.GET("/api/playlists/pins"), "/api/playlists/pins");
+    },
+
+    /** Replace the whole pin set, in the order given. */
+    async setPlaylistPins(ids: number[]) {
+      return unwrap(
+        await client.PUT("/api/playlists/pins", { body: { ids } }),
+        "/api/playlists/pins",
+      );
+    },
+
     async reorderPlaylistTracks(id: number, ids: number[]) {
       return unwrap(
         await client.PUT("/api/playlists/{id}/tracks/order", {
@@ -410,8 +449,17 @@ export function createApi(t: Transport) {
       return unwrap(await client.GET("/api/cast/status"), "/api/cast/status");
     },
 
-    async castPlay(deviceAddress: string, devicePort: number, trackId: number) {
-      unwrap(
+    /**
+     * Start casting. Resolves to the session id the server stamped the session
+     * with; while polling {@link castStatus}, an active session whose
+     * `session_id` differs from this one means another device took over.
+     */
+    async castPlay(
+      deviceAddress: string,
+      devicePort: number,
+      trackId: number,
+    ): Promise<string> {
+      return unwrap(
         await client.POST("/api/cast/play", {
           body: {
             device_address: deviceAddress,
@@ -420,7 +468,7 @@ export function createApi(t: Transport) {
           },
         }),
         "/api/cast/play",
-      );
+      ).session_id;
     },
 
     async castPause() {

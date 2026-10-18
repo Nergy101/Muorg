@@ -160,6 +160,8 @@ Only three values differ between providers:
 host = "0.0.0.0"           # bind address — use 0.0.0.0 in Docker
 port = 7700
 api_key = "secret"         # Bearer token required on all /api/* requests
+# rate_limit_requests = 100     # requests one IP may make per window before a 429
+# rate_limit_window_secs = 60   # window length in seconds; 429s carry Retry-After
 
 [library]
 content_paths = ["/music"] # music directories to index (inside the container)
@@ -181,7 +183,15 @@ cover_cache_dir = "/data/covers"  # cover cache for cloud tracks (default: <db d
 cover_cache_max_bytes = 536870912 # 512 MiB
 
 [cors]
-allowed_origins = ["*"]    # restrict to your domain for public deployments
+# List every origin that needs access: the desktop app, the web UI's dev
+# server, and your web UI's production URL. Never use ["*"] on a public
+# deployment — "*" allows ANY website to call the server.
+allowed_origins = [
+  "tauri://localhost",       # desktop app (Tauri)
+  "http://tauri.localhost",  # desktop app (Tauri, Windows)
+  "http://localhost:7800",   # web UI dev server (vite)
+  # "https://music.example.com",  # your web UI's production origin
+]
 
 [images]
 # Hosts POST /api/fetch-image may pull album art from. An entry also matches
@@ -262,7 +272,7 @@ Authorization: Bearer <api_key>
 
 - **Always change `api_key`** before exposing the server outside your LAN.
 - Run behind a reverse proxy (nginx, Caddy) with HTTPS for remote access.
-- Set `cors.allowed_origins` to your actual domain instead of `["*"]` for public deployments.
+- Set `cors.allowed_origins` to your actual origins instead of `["*"]` for public deployments. `["*"]` allows **any** website to call the server — any page you visit could read your library and change your playlists using your API key.
 - The `/data` volume contains your full library database — back it up regularly.
 - `POST /api/fetch-image` is the one route that makes an outbound request to a
   URL the caller chooses, so it is confined to `images.allowed_hosts` and

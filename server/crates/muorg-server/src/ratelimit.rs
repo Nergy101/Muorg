@@ -33,6 +33,12 @@ impl RateLimiter {
 
     /// Returns true if the request from `addr` is allowed, false if rate-limited.
     pub fn check(&self, addr: SocketAddr) -> bool {
+        self.check_with_retry_after(addr).is_ok()
+    }
+
+    /// Like [`check`], but a refused request returns the seconds until the
+    /// current window resets, for the `Retry-After` header on a 429.
+    pub fn check_with_retry_after(&self, addr: SocketAddr) -> Result<(), u64> {
         let mut inner = self.inner.lock().unwrap();
         let now = Instant::now();
         let window_secs = inner.window_secs;
@@ -54,11 +60,14 @@ impl RateLimiter {
         }
 
         if entry.count >= max_requests {
-            return false;
+            let remaining = entry.reset_at.saturating_duration_since(now);
+            // Ceil, so a client never retries before the window has reset.
+            let secs = remaining.as_millis().div_ceil(1000) as u64;
+            return Err(secs.max(1));
         }
 
         entry.count += 1;
-        true
+        Ok(())
     }
 }
 
@@ -104,6 +113,23 @@ mod tests {
     fn a_zero_limit_refuses_everything() {
         let limiter = RateLimiter::new(0, 60);
         assert!(!limiter.check(addr("10.0.0.1:1234")));
+    }
+
+    #[test]
+    fn a_refused_request_reports_the_seconds_until_the_window_resets() {
+        let limiter = RateLimiter::new(1, 60);
+        let ip = addr("10.0.0.1:1234");
+        assert_eq!(limiter.check_with_retry_after(ip), Ok(()));
+        let retry_after = limiter
+            .check_with_retry_after(ip)
+            .expect_err("the second request is over the limit");
+        assert!((1..=60).contains(&retry_after), "got {retry_after} seconds");
+    }
+
+    #[test]
+    fn an_allowed_request_reports_no_retry_after() {
+        let limiter = RateLimiter::new(5, 60);
+        assert_eq!(limiter.check_with_retry_after(addr("10.0.0.1:1234")), Ok(()));
     }
 
     #[test]

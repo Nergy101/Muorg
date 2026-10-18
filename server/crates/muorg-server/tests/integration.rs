@@ -314,3 +314,413 @@ async fn a_playlist_survives_a_round_trip_through_the_api() {
     assert_eq!(listed.as_array().map(Vec::len), Some(1));
     assert_eq!(listed[0]["id"], created["id"]);
 }
+
+// ---------------------------------------------------------------------------
+// Health: "Scanning" while the startup scan runs (Q14)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn health_reports_scanning_while_the_startup_scan_runs() {
+    let srv = TestServer::start_with(|state| {
+        state
+            .scanning
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    })
+    .await;
+    let resp = srv.get("/api/health").await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.text().await.unwrap(), "Scanning");
+}
+
+// ---------------------------------------------------------------------------
+// Playlist pins (Q24)
+// ---------------------------------------------------------------------------
+
+/// Create a playlist through the API and return its id.
+async fn create_playlist(srv: &TestServer, name: &str) -> i64 {
+    let created: serde_json::Value = srv
+        .post_auth("/api/playlists", serde_json::json!({ "name": name }))
+        .await
+        .json()
+        .await
+        .unwrap();
+    created["id"].as_i64().unwrap()
+}
+
+/// The pinned playlist ids, in pin order.
+async fn get_pins(srv: &TestServer) -> Vec<i64> {
+    let body: serde_json::Value = srv
+        .get_auth("/api/playlists/pins")
+        .await
+        .json()
+        .await
+        .unwrap();
+    body["ids"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_i64().unwrap())
+        .collect()
+}
+
+#[tokio::test]
+async fn playlist_pins_round_trip_in_order() {
+    let srv = TestServer::start().await;
+    let a = create_playlist(&srv, "A").await;
+    let b = create_playlist(&srv, "B").await;
+    let c = create_playlist(&srv, "C").await;
+
+    assert_eq!(get_pins(&srv).await, Vec::<i64>::new(), "no pins on a fresh server");
+
+    // Pin out of creation order; the order given is the order stored.
+    let resp = srv
+        .put_auth("/api/playlists/pins", serde_json::json!({ "ids": [c, a] }))
+        .await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(get_pins(&srv).await, vec![c, a]);
+
+    // Replacing the set drops the unlisted pin.
+    let resp = srv
+        .put_auth("/api/playlists/pins", serde_json::json!({ "ids": [b] }))
+        .await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(get_pins(&srv).await, vec![b]);
+}
+
+#[tokio::test]
+async fn pinning_an_unknown_playlist_is_a_400() {
+    let srv = TestServer::start().await;
+    let resp = srv
+        .put_auth("/api/playlists/pins", serde_json::json!({ "ids": [999] }))
+        .await;
+    assert_eq!(resp.status(), 400);
+    // The refusal changes nothing.
+    assert_eq!(get_pins(&srv).await, Vec::<i64>::new());
+}
+
+#[tokio::test]
+async fn deleting_a_playlist_drops_its_pin() {
+    let srv = TestServer::start().await;
+    let a = create_playlist(&srv, "A").await;
+    let b = create_playlist(&srv, "B").await;
+    srv.put_auth("/api/playlists/pins", serde_json::json!({ "ids": [a, b] }))
+        .await;
+
+    let resp = srv.delete_auth(&format!("/api/playlists/{a}")).await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        get_pins(&srv).await,
+        vec![b],
+        "the pin cascades away with the playlist"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Favorites playlist protection (Q21)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn the_favorites_playlist_cannot_be_deleted_or_renamed() {
+    let srv = TestServer::start().await;
+    // `ensure_favorites_playlist` runs at startup in main; the test server
+    // does not run main, so create it the same way the startup does.
+    let favorites = create_playlist(&srv, "Favorites").await;
+    let other = create_playlist(&srv, "Other").await;
+
+    let resp = srv.delete_auth(&format!("/api/playlists/{favorites}")).await;
+    assert_eq!(resp.status(), 403);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body["error"].as_str().unwrap().contains("Favorites"));
+
+    let resp = srv
+        .patch_auth(
+            &format!("/api/playlists/{favorites}"),
+            serde_json::json!({ "name": "Liked" }),
+        )
+        .await;
+    assert_eq!(resp.status(), 403);
+
+    // Icon changes stay allowed.
+    let resp = srv
+        .patch_auth(
+            &format!("/api/playlists/{favorites}"),
+            serde_json::json!({ "icon": "heart" }),
+        )
+        .await;
+    assert_eq!(resp.status(), 200);
+
+    // Other playlists are unaffected.
+    let resp = srv
+        .patch_auth(
+            &format!("/api/playlists/{other}"),
+            serde_json::json!({ "name": "Renamed" }),
+        )
+        .await;
+    assert_eq!(resp.status(), 200);
+    let resp = srv.delete_auth(&format!("/api/playlists/{other}")).await;
+    assert_eq!(resp.status(), 200);
+
+    // The Favorites playlist survived, still under its exact name.
+    let listed: serde_json::Value = srv.get_auth("/api/playlists").await.json().await.unwrap();
+    let names: Vec<&str> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, vec!["Favorites"]);
+}
+
+// ---------------------------------------------------------------------------
+// Rate limit: Retry-After on 429 (Q16)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn a_429_carries_retry_after() {
+    let srv = TestServer::start_with(|state| {
+        state.rate_limiter = muorg_server::ratelimit::RateLimiter::new(2, 60);
+    })
+    .await;
+    // Two requests fit the budget. Bodies are read so the pooled connection
+    // is reused — the limiter keys on the client's socket address.
+    for _ in 0..2 {
+        let resp = srv.get_auth("/api/tracks").await;
+        assert_eq!(resp.status(), 200);
+        resp.text().await.unwrap();
+    }
+    let resp = srv.get_auth("/api/tracks").await;
+    assert_eq!(resp.status(), 429);
+    let retry_after = resp
+        .headers()
+        .get("retry-after")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+    let secs: u64 = retry_after
+        .expect("a 429 must carry Retry-After")
+        .parse()
+        .expect("Retry-After is a number of seconds");
+    assert!((1..=60).contains(&secs), "got {secs} seconds");
+}
+
+// ---------------------------------------------------------------------------
+// Play history: optional device name (Q19)
+// ---------------------------------------------------------------------------
+
+/// Insert a root and one track directly into the catalog, returning the track id.
+fn seed_track(srv: &TestServer, path: &str) -> i64 {
+    let conn = srv.catalog.db.lock().unwrap();
+    conn.execute("INSERT OR IGNORE INTO roots (path, added_at) VALUES ('/music', 0)", [])
+        .unwrap();
+    let root_id: i64 = conn
+        .query_row("SELECT id FROM roots WHERE path = '/music'", [], |r| r.get(0))
+        .unwrap();
+    conn.execute(
+        "INSERT INTO tracks (root_id, path, format, mtime_secs) VALUES (?1, ?2, 'mp3', 0)",
+        rusqlite::params![root_id, path],
+    )
+    .unwrap();
+    conn.query_row("SELECT id FROM tracks WHERE path = ?1", [path], |r| r.get(0))
+        .unwrap()
+}
+
+#[tokio::test]
+async fn recording_a_play_stores_the_optional_device_name() {
+    let srv = TestServer::start().await;
+    let track_id = seed_track(&srv, "/music/song.mp3");
+
+    // No body at all keeps working.
+    let resp = srv
+        .post_auth_empty(&format!("/api/tracks/{track_id}/play"))
+        .await;
+    assert_eq!(resp.status(), 200);
+    // An empty body works too.
+    let resp = srv
+        .post_auth(&format!("/api/tracks/{track_id}/play"), serde_json::json!({}))
+        .await;
+    assert_eq!(resp.status(), 200);
+    // A body with a device name records it.
+    let resp = srv
+        .post_auth(
+            &format!("/api/tracks/{track_id}/play"),
+            serde_json::json!({ "device_name": "Living room" }),
+        )
+        .await;
+    assert_eq!(resp.status(), 200);
+
+    let conn = srv.catalog.db.lock().unwrap();
+    let device_names: Vec<Option<String>> = conn
+        .prepare("SELECT device_name FROM play_history ORDER BY id")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(device_names, vec![None, None, Some("Living room".to_string())]);
+}
+
+// ---------------------------------------------------------------------------
+// Cast: session id takeover signal (Q15)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn cast_play_returns_a_session_id_that_status_reports() {
+    let srv = TestServer::start().await;
+    let track_id = seed_track(&srv, "/music/song.mp3");
+
+    let resp = srv
+        .post_auth(
+            "/api/cast/play",
+            serde_json::json!({
+                "device_address": "192.0.2.1",
+                "device_port": 8009,
+                "track_id": track_id,
+            }),
+        )
+        .await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let session_id = body["session_id"]
+        .as_str()
+        .expect("play returns a session id");
+    assert!(!session_id.is_empty());
+
+    let status: serde_json::Value = srv.get_auth("/api/cast/status").await.json().await.unwrap();
+    assert_eq!(
+        status["session_id"], session_id,
+        "status reports the session the play started"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Rename: destination collision check and overwrite (Q2 follow-up)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn rename_check_reports_existing_and_duplicate_destinations() {
+    let srv = TestServer::start().await;
+    let track_a = seed_track(&srv, "/music/a.mp3");
+    let track_b = seed_track(&srv, "/music/b.mp3");
+    let track_c = seed_track(&srv, "/music/c.mp3");
+    let track_d = seed_track(&srv, "/music/d.mp3");
+
+    // A file already sitting at one of the destinations.
+    let dir = tempfile::tempdir().unwrap();
+    let taken = dir.path().join("taken.mp3");
+    std::fs::write(&taken, b"occupied").unwrap();
+    let taken = taken.to_str().unwrap().to_string();
+
+    let resp = srv
+        .post_auth(
+            "/api/tracks/rename/check",
+            serde_json::json!({
+                "items": [
+                    { "id": track_a, "new_path": taken },
+                    { "id": track_b, "new_path": "/music/free.mp3" },
+                    { "id": track_c, "new_path": "/music/free.mp3" },
+                    { "id": track_d, "new_path": "/music/also-free.mp3" },
+                ]
+            }),
+        )
+        .await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let collisions = body["collisions"].as_array().expect("collisions array");
+
+    let reason_for = |id: i64| -> Option<&str> {
+        collisions
+            .iter()
+            .find(|c| c["id"].as_i64() == Some(id))
+            .and_then(|c| c["reason"].as_str())
+    };
+    assert_eq!(reason_for(track_a), Some("exists"));
+    assert_eq!(reason_for(track_b), Some("duplicate"));
+    assert_eq!(reason_for(track_c), Some("duplicate"));
+    assert_eq!(reason_for(track_d), None, "a free destination is not reported");
+}
+
+#[tokio::test]
+async fn rename_refuses_to_clobber_and_overwrite_replaces() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("src.mp3");
+    let dst = dir.path().join("dst.mp3");
+    std::fs::write(&src, b"new content").unwrap();
+    std::fs::write(&dst, b"old content").unwrap();
+    let track_id = seed_track(&srv, src.to_str().unwrap());
+    let dst_str = dst.to_str().unwrap().to_string();
+
+    // Without overwrite the existing destination is refused and both files survive.
+    let resp = srv
+        .post_auth(
+            &format!("/api/tracks/{track_id}/rename"),
+            serde_json::json!({ "new_path": dst_str }),
+        )
+        .await;
+    assert_eq!(resp.status(), 400);
+    assert_eq!(std::fs::read(&src).unwrap(), b"new content");
+    assert_eq!(std::fs::read(&dst).unwrap(), b"old content");
+
+    // With overwrite the destination is replaced.
+    let resp = srv
+        .post_auth(
+            &format!("/api/tracks/{track_id}/rename"),
+            serde_json::json!({ "new_path": dst_str, "overwrite": true }),
+        )
+        .await;
+    assert_eq!(resp.status(), 200);
+    assert!(!src.exists(), "the source file moved away");
+    assert_eq!(std::fs::read(&dst).unwrap(), b"new content");
+
+    // The catalog row follows the file.
+    let conn = srv.catalog.db.lock().unwrap();
+    let path: String = conn
+        .query_row("SELECT path FROM tracks WHERE id = ?1", [track_id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(path, dst_str);
+}
+
+#[tokio::test]
+async fn rename_onto_another_tracks_path_is_refused_even_with_overwrite() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("src.mp3");
+    let dst = dir.path().join("dst.mp3");
+    std::fs::write(&src, b"new content").unwrap();
+    std::fs::write(&dst, b"old content").unwrap();
+    let track_id = seed_track(&srv, src.to_str().unwrap());
+    let other_id = seed_track(&srv, dst.to_str().unwrap());
+    let dst_str = dst.to_str().unwrap().to_string();
+
+    // The destination is another track's cataloged path: refused even with
+    // overwrite, and neither the files nor the catalog change.
+    let resp = srv
+        .post_auth(
+            &format!("/api/tracks/{track_id}/rename"),
+            serde_json::json!({ "new_path": dst_str, "overwrite": true }),
+        )
+        .await;
+    assert_eq!(resp.status(), 400);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(
+        body["error"].as_str().unwrap().contains(&other_id.to_string()),
+        "the error names the track that holds the destination: {body}"
+    );
+    assert_eq!(std::fs::read(&src).unwrap(), b"new content");
+    assert_eq!(std::fs::read(&dst).unwrap(), b"old content");
+
+    let conn = srv.catalog.db.lock().unwrap();
+    let paths: Vec<String> = conn
+        .prepare("SELECT path FROM tracks ORDER BY id")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(
+        paths,
+        vec![src.to_str().unwrap().to_string(), dst_str],
+        "both catalog rows keep their paths"
+    );
+}

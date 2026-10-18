@@ -12,6 +12,7 @@ id3 = "1.16"
 walkdir = "2"
 base64 = "0.23"
 sha2 = "0.11"
+uuid = { version = "1", features = ["v4"] }
 utoipa = { version = "6", optional = true }
 rust_cast = { version = "0.14", optional = true }
 mdns-sd = { version = "0.21", optional = true }

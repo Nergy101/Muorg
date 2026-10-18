@@ -315,7 +315,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Unauthenticated liveness probe. */
+        /**
+         * Unauthenticated liveness probe. Reports `Scanning` while the startup
+         *     library scan is still running, so a healthcheck can tell "up but busy"
+         *     from "up and ready".
+         */
         get: operations["health"];
         put?: never;
         post?: never;
@@ -385,11 +389,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a playlist and its entries. */
+        /**
+         * Delete a playlist and its entries. The `Favorites` playlist cannot be
+         *     deleted — clients locate it by its exact name.
+         */
         delete: operations["delete_playlist"];
         options?: never;
         head?: never;
-        /** Rename a playlist and/or set its icon. */
+        /**
+         * Rename a playlist and/or set its icon. The `Favorites` playlist cannot be
+         *     renamed — clients locate it by its exact name — but its icon can change.
+         */
         patch: operations["update_playlist"];
         trace?: never;
     };
@@ -473,6 +483,24 @@ export interface paths {
         get?: never;
         /** Reorder the playlists themselves. */
         put: operations["reorder_playlists"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/playlists/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pinned playlist ids, in pin order. */
+        get: operations["get_playlist_pins"];
+        /** Replace the whole pin set. */
+        put: operations["set_playlist_pins"];
         post?: never;
         delete?: never;
         options?: never;
@@ -689,7 +717,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Record a play. Bumps `play_count`/`last_played_at` and appends to play history. */
+        /**
+         * Record a play. Bumps `play_count`/`last_played_at` and appends to play
+         *     history. The optional body carries the device name the play is attributed
+         *     to; requests with no body keep working.
+         */
         post: operations["record_play"];
         delete?: never;
         options?: never;
@@ -723,7 +755,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Move the file on disk and repoint the catalog row. */
+        /**
+         * Move the file on disk and repoint the catalog row. Refuses to overwrite an
+         *     existing destination unless `overwrite` is set.
+         */
         post: operations["rename_file"];
         delete?: never;
         options?: never;
@@ -818,6 +853,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracks/rename/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pre-flight for a batch rename: report the destinations that are already
+         *     taken on disk, or that more than one item in the batch targets. Lets a
+         *     client offer cancel/override before any file moves.
+         */
+        post: operations["check_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stream/{id}": {
         parameters: {
             query?: never;
@@ -875,6 +931,14 @@ export interface components {
             /** Format: int32 */
             port: number;
         };
+        CastPlayResponse: {
+            /**
+             * @description Id of the started session. While polling `GET /api/cast/status`, an
+             *     active session whose `session_id` differs from this one means another
+             *     device took the session over.
+             */
+            session_id: string;
+        };
         CastSessionStatus: {
             /** @enum {string} */
             status: "idle";
@@ -905,6 +969,12 @@ export interface components {
         };
         CastStatusResponse: {
             session: components["schemas"]["CastSessionStatus"];
+            /**
+             * @description Id of the current cast session, empty when idle. A client that started
+             *     a cast remembers its own id; an active session carrying a different id
+             *     means another device took the session over.
+             */
+            session_id: string;
             /** Format: float */
             volume: number;
         };
@@ -1032,6 +1102,14 @@ export interface components {
             /** Format: int64 */
             track_count: number;
         };
+        PlaylistPinsBody: {
+            /** @description The full pin set, in pin order. Replaces whatever was pinned before. */
+            ids: number[];
+        };
+        PlaylistPinsResponse: {
+            /** @description Pinned playlist ids, in pin order. */
+            ids: number[];
+        };
         PlaylistTrackEntry: {
             /** Format: int64 */
             entry_id: number;
@@ -1042,11 +1120,41 @@ export interface components {
             /** Format: int64 */
             rating?: number | null;
         };
+        RecordPlayBody: {
+            /** @description Optional per-device name the play is attributed to in play history. */
+            device_name?: string | null;
+        };
         RemoveFolderBody: {
             root_path: string;
         };
         RenameBody: {
             new_path: string;
+            /**
+             * @description Replace a file that already sits at the destination. Default false: a
+             *     rename onto an existing path is refused instead of clobbering it.
+             */
+            overwrite?: boolean;
+        };
+        RenameCheckBody: {
+            items: components["schemas"]["RenameCheckItem"][];
+        };
+        RenameCheckItem: {
+            /** Format: int64 */
+            id: number;
+            new_path: string;
+        };
+        RenameCheckResponse: {
+            collisions: components["schemas"]["RenameCollision"][];
+        };
+        RenameCollision: {
+            /** Format: int64 */
+            id: number;
+            new_path: string;
+            /**
+             * @description Why the destination collides: "exists" — a file already sits there;
+             *     "duplicate" — another item in the same batch targets it too.
+             */
+            reason: string;
         };
         ReorderBody: {
             ids: number[];
@@ -1155,6 +1263,7 @@ export type SchemaBackupDirectoryResponse = components['schemas']['BackupDirecto
 export type SchemaBatchMetadataItem = components['schemas']['BatchMetadataItem'];
 export type SchemaBatchUpdateResponse = components['schemas']['BatchUpdateResponse'];
 export type SchemaCastDevice = components['schemas']['CastDevice'];
+export type SchemaCastPlayResponse = components['schemas']['CastPlayResponse'];
 export type SchemaCastSessionStatus = components['schemas']['CastSessionStatus'];
 export type SchemaCastStatusResponse = components['schemas']['CastStatusResponse'];
 export type SchemaCatalogTrack = components['schemas']['CatalogTrack'];
@@ -1170,10 +1279,17 @@ export type SchemaOkResponse = components['schemas']['OkResponse'];
 export type SchemaPatchMetadataBody = components['schemas']['PatchMetadataBody'];
 export type SchemaPlayBody = components['schemas']['PlayBody'];
 export type SchemaPlaylist = components['schemas']['Playlist'];
+export type SchemaPlaylistPinsBody = components['schemas']['PlaylistPinsBody'];
+export type SchemaPlaylistPinsResponse = components['schemas']['PlaylistPinsResponse'];
 export type SchemaPlaylistTrackEntry = components['schemas']['PlaylistTrackEntry'];
 export type SchemaRatingBody = components['schemas']['RatingBody'];
+export type SchemaRecordPlayBody = components['schemas']['RecordPlayBody'];
 export type SchemaRemoveFolderBody = components['schemas']['RemoveFolderBody'];
 export type SchemaRenameBody = components['schemas']['RenameBody'];
+export type SchemaRenameCheckBody = components['schemas']['RenameCheckBody'];
+export type SchemaRenameCheckItem = components['schemas']['RenameCheckItem'];
+export type SchemaRenameCheckResponse = components['schemas']['RenameCheckResponse'];
+export type SchemaRenameCollision = components['schemas']['RenameCollision'];
 export type SchemaReorderBody = components['schemas']['ReorderBody'];
 export type SchemaRescanBody = components['schemas']['RescanBody'];
 export type SchemaRescanResult = components['schemas']['RescanResult'];
@@ -1495,15 +1611,26 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Command accepted */
-            204: {
+            /** @description Session started */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CastPlayResponse"];
+                };
             };
             /** @description Missing or invalid API key */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such track */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1709,7 +1836,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Server is up */
+            /** @description `Healthy`, or `Scanning` while the startup scan runs */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1880,6 +2007,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description The Favorites playlist cannot be deleted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description No such playlist */
             404: {
                 headers: {
@@ -1918,6 +2054,15 @@ export interface operations {
             };
             /** @description Missing or invalid API key */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Favorites playlist cannot be renamed */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2216,6 +2361,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_playlist_pins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pinned playlist ids, in pin order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistPinsResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_playlist_pins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistPinsBody"];
+            };
+        };
+        responses: {
+            /** @description Pins replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Unknown playlist id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Missing or invalid API key */
@@ -2753,7 +2969,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RecordPlayBody"] | null;
+            };
+        };
         responses: {
             /** @description Updated */
             200: {
@@ -3066,6 +3286,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogTrack"][];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameCheckBody"];
+            };
+        };
+        responses: {
+            /** @description Destinations that would collide */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenameCheckResponse"];
                 };
             };
             /** @description Missing or invalid API key */

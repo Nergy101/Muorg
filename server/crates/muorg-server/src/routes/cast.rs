@@ -60,6 +60,10 @@ pub async fn stop_discovery(State(state): State<Arc<AppState>>) -> StatusCode {
 pub struct CastStatusResponse {
     session: CastSessionStatus,
     volume: f32,
+    /// Id of the current cast session, empty when idle. A client that started
+    /// a cast remembers its own id; an active session carrying a different id
+    /// means another device took the session over.
+    session_id: String,
 }
 
 /// Current cast session state and device volume.
@@ -77,7 +81,8 @@ pub struct CastStatusResponse {
 pub async fn get_status(State(state): State<Arc<AppState>>) -> Json<CastStatusResponse> {
     let session = state.cast_session.status.lock().unwrap().clone();
     let volume = *state.cast_session.volume.lock().unwrap();
-    Json(CastStatusResponse { session, volume })
+    let session_id = state.cast_session.session_id();
+    Json(CastStatusResponse { session, volume, session_id })
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -88,6 +93,14 @@ pub struct PlayBody {
     track_id: i64,
 }
 
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct CastPlayResponse {
+    /// Id of the started session. While polling `GET /api/cast/status`, an
+    /// active session whose `session_id` differs from this one means another
+    /// device took the session over.
+    session_id: String,
+}
+
 /// Start casting a track to a device.
 #[utoipa::path(
     post,
@@ -96,15 +109,16 @@ pub struct PlayBody {
     tag = "Cast",
     request_body = PlayBody,
     responses(
-        (status = 204, description = "Command accepted"),
+        (status = 200, description = "Session started", body = CastPlayResponse),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
     ),
     security(("BearerAuth" = [])),
 )]
 pub async fn play(
     State(state): State<Arc<AppState>>,
     Json(body): Json<PlayBody>,
-) -> Result<StatusCode, ApiError> {
+) -> Result<Json<CastPlayResponse>, ApiError> {
     let track_path = {
         let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
         muorg_core::catalog::get_track_path_by_id(&conn, body.track_id)?
@@ -129,7 +143,8 @@ pub async fn play(
         is_flac,
         NoObserver,
     );
-    Ok(StatusCode::NO_CONTENT)
+    let session_id = state.cast_session.session_id();
+    Ok(Json(CastPlayResponse { session_id }))
 }
 
 /// Pause the cast session.

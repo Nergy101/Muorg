@@ -3,7 +3,6 @@ use muorg_server::config::TranscodingConfig;
 use muorg_server::state::AppState;
 use muorg_server::build_router;
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
@@ -13,6 +12,9 @@ pub struct TestServer {
     pub addr: SocketAddr,
     pub api_key: String,
     pub client: reqwest::Client,
+    /// The catalog the server serves, so tests can seed rows and inspect
+    /// what the handlers wrote.
+    pub catalog: Arc<Catalog>,
     /// Kept alive so the temp dir isn't deleted until Drop.
     _temp_dir: TempDir,
     /// Sender to trigger graceful shutdown.
@@ -27,6 +29,12 @@ impl TestServer {
     /// - CORS is permissive (`["*"]`).
     /// - The server binds to `127.0.0.1:0` (random port).
     pub async fn start() -> Self {
+        Self::start_with(|_| {}).await
+    }
+
+    /// Start the server, letting the test tweak the state (rate limiter,
+    /// scanning flag, ...) before the router is built.
+    pub async fn start_with(configure: impl FnOnce(&mut AppState)) -> Self {
         let temp_dir = TempDir::new().expect("failed to create temp dir");
         let db_path = temp_dir.path().join("test.db");
         let backup_dir = temp_dir.path().join("backups");
@@ -38,12 +46,12 @@ impl TestServer {
         let cover_cache_dir = temp_dir.path().join("covers");
         std::fs::create_dir_all(&cover_cache_dir).ok();
 
-        let state = Arc::new(AppState::new(
-            catalog,
+        let mut state = AppState::new(
+            catalog.clone(),
             backup_dir,
             5,
             api_key.clone(),
-            0, // server_port placeholder; real port will be from listener
+            0, // server_port placeholder; real port will be from the listener
             TranscodingConfig::default(),
             Arc::new(muorg_server::storage::RemoteStores::default()),
             Arc::new(muorg_server::storage::covers::CoverCache::new(
@@ -51,9 +59,11 @@ impl TestServer {
                 64 * 1024 * 1024,
             )),
             8,
-        ));
+        );
+        configure(&mut state);
+        let state = Arc::new(state);
 
-        let app = build_router(state, &["*".to_string()]);
+        let app = build_router(state.clone(), &["*".to_string()]);
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -82,6 +92,7 @@ impl TestServer {
             addr,
             api_key,
             client,
+            catalog,
             _temp_dir: temp_dir,
             shutdown_tx: Some(shutdown_tx),
         }
@@ -123,6 +134,48 @@ impl TestServer {
             .post(&self.url(path))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&body)
+            .send()
+            .await
+            .unwrap()
+    }
+
+    /// Perform an authenticated POST with no body at all.
+    pub async fn post_auth_empty(&self, path: &str) -> reqwest::Response {
+        self.client
+            .post(&self.url(path))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .send()
+            .await
+            .unwrap()
+    }
+
+    /// Perform an authenticated PATCH with a JSON body.
+    pub async fn patch_auth(&self, path: &str, body: serde_json::Value) -> reqwest::Response {
+        self.client
+            .patch(&self.url(path))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+    }
+
+    /// Perform an authenticated PUT with a JSON body.
+    pub async fn put_auth(&self, path: &str, body: serde_json::Value) -> reqwest::Response {
+        self.client
+            .put(&self.url(path))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+    }
+
+    /// Perform an authenticated DELETE.
+    pub async fn delete_auth(&self, path: &str) -> reqwest::Response {
+        self.client
+            .delete(&self.url(path))
+            .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await
             .unwrap()

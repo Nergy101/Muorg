@@ -199,6 +199,24 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     }
+    // Which device a play was recorded from (Q19: per-device "device name").
+    if !schema_has_column(conn, "play_history", "device_name")? {
+        conn.execute("ALTER TABLE play_history ADD COLUMN device_name TEXT", [])
+            .map_err(|e| e.to_string())?;
+    }
+    // File size at scan time, so suffix-based move detection can require it.
+    if !schema_has_column(conn, "tracks", "file_size")? {
+        conn.execute("ALTER TABLE tracks ADD COLUMN file_size INTEGER", [])
+            .map_err(|e| e.to_string())?;
+    }
+    // Server-side playlist pins (Q24), one row per pinned playlist.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS playlist_pins (
+            playlist_id INTEGER PRIMARY KEY REFERENCES playlists(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL
+        );",
+    )
+    .map_err(|e| e.to_string())?;
     // Embedded lyrics, written during a scan and served back to clients.
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS track_lyrics (
@@ -296,6 +314,49 @@ pub fn update_track_hash(
     Ok(())
 }
 
+/// `(id, path)` of up to `limit` tracks with no content hash and an id greater
+/// than `after_id`, ordered by id. The startup backfill walks the table with
+/// this cursor: a row whose file is missing keeps its NULL hash but is not
+/// revisited, so the walk always terminates.
+pub fn tracks_missing_content_hash(
+    conn: &rusqlite::Connection,
+    after_id: i64,
+    limit: i64,
+) -> Result<Vec<(i64, String)>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, path FROM tracks \
+             WHERE content_hash IS NULL AND id > ?1 \
+             ORDER BY id LIMIT ?2",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params![after_id, limit], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+/// Set a track's content hash by row id, but only while it is still missing —
+/// a concurrent scan may have computed it first, and that value wins.
+pub fn set_track_content_hash(
+    conn: &rusqlite::Connection,
+    id: i64,
+    hash: &str,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE tracks SET content_hash = ?1 WHERE id = ?2 AND content_hash IS NULL",
+        rusqlite::params![hash, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub fn gc_deleted_tracks(
     conn: &rusqlite::Connection,
     older_than_secs: i64,
@@ -388,6 +449,22 @@ pub fn get_track_path_by_id(conn: &rusqlite::Connection, id: i64) -> Result<Opti
     );
     match result {
         Ok(path) => Ok(Some(path)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// The id of the track row at `path`, if any. Soft-deleted rows count: the
+/// `UNIQUE(root_id, path)` constraint covers them, so a rename onto a path any
+/// row still holds would fail the catalog update after the file already moved.
+pub fn get_track_id_by_path(conn: &rusqlite::Connection, path: &str) -> Result<Option<i64>, String> {
+    let result = conn.query_row(
+        "SELECT id FROM tracks WHERE path = ?1",
+        [path],
+        |r| r.get::<_, i64>(0),
+    );
+    match result {
+        Ok(id) => Ok(Some(id)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
@@ -571,6 +648,10 @@ pub struct ScannedTrack<'a> {
     pub format: &'a str,
     pub mtime_secs: i64,
     pub content_hash: Option<&'a str>,
+    /// File size in bytes at scan time. Move detection's suffix fallback
+    /// requires it to match, so a same-named file of a different size is
+    /// never mistaken for a move.
+    pub file_size: Option<i64>,
     /// Carried explicitly rather than derived from `meta` so scanners can drop
     /// large embedded pictures before batching rows.
     pub has_cover: bool,
@@ -608,12 +689,12 @@ impl<'c> RootUpsert<'c> {
     /// hashes this reuses an existing row when the track merely moved, so
     /// playlists, ratings and play counts survive a rename: exact
     /// `root_id + path`, then the same path in any root, then an identical
-    /// content hash, then a matching path suffix.
+    /// content hash, then a matching path suffix with the same file size.
     pub fn upsert(&self, t: &ScannedTrack<'_>) -> Result<(), String> {
         let conn = self.conn;
         let root_id = self.root_id;
         let featuring_col = self.featuring_col;
-        let ScannedTrack { path: path_str, format, mtime_secs, content_hash: hash, has_cover, meta } = *t;
+        let ScannedTrack { path: path_str, format, mtime_secs, content_hash: hash, file_size, has_cover, meta } = *t;
 
         if self.use_smart_upsert {
             let by_path: Option<i64> = conn
@@ -625,7 +706,7 @@ impl<'c> RootUpsert<'c> {
                 .ok();
 
             if let Some(track_id) = by_path {
-                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, file_size, has_cover, hash, featuring_col);
             }
 
             let by_path_any_root: Option<i64> = conn
@@ -637,7 +718,7 @@ impl<'c> RootUpsert<'c> {
                 .ok();
 
             if let Some(track_id) = by_path_any_root {
-                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, file_size, has_cover, hash, featuring_col);
             }
 
             if let Some(h) = hash {
@@ -650,29 +731,40 @@ impl<'c> RootUpsert<'c> {
                     .ok();
 
                 if let Some(track_id) = by_hash {
-                    return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+                    return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, file_size, has_cover, hash, featuring_col);
                 }
             }
 
-            let by_suffix: Option<i64> = conn
-                .query_row(
-                    "SELECT t.id FROM tracks t \
-                     JOIN roots r ON r.id = t.root_id \
-                     WHERE t.deleted_at IS NOT NULL \
-                     AND t.content_hash IS NULL \
-                     AND ?1 LIKE '%' || SUBSTR(t.path, LENGTH(r.path) + 2) \
-                     ORDER BY LENGTH(t.path) DESC \
-                     LIMIT 1",
-                    [path_str],
-                    |r| r.get(0),
-                )
-                .ok();
+            // Last resort: the same path suffix under the same root. The file
+            // name is implied by the suffix, and the size must match too —
+            // without it, a different file that happens to share a name would
+            // inherit this row's rating, play count and playlist membership.
+            // Rows with no recorded size (scanned before the column existed)
+            // never match here.
+            let by_suffix: Option<i64> = match file_size {
+                Some(size) => conn
+                    .query_row(
+                        "SELECT t.id FROM tracks t \
+                         JOIN roots r ON r.id = t.root_id \
+                         WHERE t.deleted_at IS NOT NULL \
+                         AND t.content_hash IS NULL \
+                         AND t.file_size IS NOT NULL \
+                         AND t.file_size = ?2 \
+                         AND ?1 LIKE '%' || SUBSTR(t.path, LENGTH(r.path) + 2) \
+                         ORDER BY LENGTH(t.path) DESC \
+                         LIMIT 1",
+                        rusqlite::params![path_str, size],
+                        |r| r.get(0),
+                    )
+                    .ok(),
+                None => None,
+            };
 
             if let Some(track_id) = by_suffix {
-                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+                return update_track_row(conn, track_id, root_id, path_str, meta, format, mtime_secs, file_size, has_cover, hash, featuring_col);
             }
 
-            return insert_track_row(conn, root_id, path_str, meta, format, mtime_secs, has_cover, hash, featuring_col);
+            return insert_track_row(conn, root_id, path_str, meta, format, mtime_secs, file_size, has_cover, hash, featuring_col);
         }
 
         let insert_sql = if featuring_col {
@@ -774,12 +866,14 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
             None => continue,
         };
         let path_str = path.to_str().ok_or("Invalid path encoding")?.to_string();
-        let mtime_secs = std::fs::metadata(path)
-            .ok()
+        let fs_meta = std::fs::metadata(path).ok();
+        let mtime_secs = fs_meta
+            .as_ref()
             .and_then(|m| m.modified().ok())
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
+        let file_size = fs_meta.map(|m| m.len() as i64);
 
         let meta = match metadata::read_metadata(path) {
             Ok(m) => m,
@@ -797,6 +891,7 @@ pub fn scan_and_insert(conn: &rusqlite::Connection, root_path: &str) -> Result<u
             format,
             mtime_secs,
             content_hash: hash.as_deref(),
+            file_size,
             has_cover: meta.picture_base64.as_ref().is_some_and(|s| !s.is_empty()),
             meta: &meta,
         })?;
@@ -872,6 +967,7 @@ fn update_track_row(
     meta: &metadata::TrackMetadata,
     format: &str,
     mtime_secs: i64,
+    file_size: Option<i64>,
     has_cover: bool,
     content_hash: Option<&str>,
     featuring_col: bool,
@@ -895,6 +991,9 @@ fn update_track_row(
     ];
     if featuring_col {
         sets.push("featuring = ?");
+    }
+    if file_size.is_some() {
+        sets.push("file_size = ?");
     }
     if content_hash.is_some() {
         sets.push("content_hash = ?");
@@ -920,6 +1019,9 @@ fn update_track_row(
     if featuring_col {
         params.push(meta.featuring.clone().map(rusqlite::types::Value::Text).unwrap_or(rusqlite::types::Value::Null));
     }
+    if let Some(size) = file_size {
+        params.push(rusqlite::types::Value::Integer(size));
+    }
     if let Some(h) = content_hash {
         params.push(rusqlite::types::Value::Text(h.to_string()));
     }
@@ -940,6 +1042,7 @@ fn insert_track_row(
     meta: &metadata::TrackMetadata,
     format: &str,
     mtime_secs: i64,
+    file_size: Option<i64>,
     has_cover: bool,
     content_hash: Option<&str>,
     featuring_col: bool,
@@ -950,6 +1053,7 @@ fn insert_track_row(
         "format", "mtime_secs", "has_cover", "created_at",
     ];
     if featuring_col { cols.push("featuring"); }
+    if file_size.is_some() { cols.push("file_size"); }
     if content_hash.is_some() { cols.push("content_hash"); }
     let placeholders: Vec<&str> = (0..cols.len()).map(|_| "?").collect();
     let sql = format!(
@@ -978,6 +1082,9 @@ fn insert_track_row(
     ];
     if featuring_col {
         params.push(meta.featuring.clone().map(rusqlite::types::Value::Text).unwrap_or(rusqlite::types::Value::Null));
+    }
+    if let Some(size) = file_size {
+        params.push(rusqlite::types::Value::Integer(size));
     }
     if let Some(h) = content_hash {
         params.push(rusqlite::types::Value::Text(h.to_string()));
@@ -1132,6 +1239,72 @@ pub fn set_playlist_icon(conn: &rusqlite::Connection, id: i64, icon: Option<&str
 pub fn delete_playlist(conn: &rusqlite::Connection, id: i64) -> Result<(), String> {
     conn.execute("DELETE FROM playlists WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Name of the server-side favorites playlist. Clients locate it by this exact
+/// name in the playlists list, so it can be neither deleted nor renamed.
+pub const FAVORITES_PLAYLIST_NAME: &str = "Favorites";
+
+/// Create the favorites playlist if no playlist with that name exists.
+/// Idempotent: safe to call on every startup.
+pub fn ensure_favorites_playlist(conn: &rusqlite::Connection) -> Result<(), String> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM playlists WHERE name = ?1)",
+            [FAVORITES_PLAYLIST_NAME],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if !exists {
+        create_playlist(conn, FAVORITES_PLAYLIST_NAME)?;
+    }
+    Ok(())
+}
+
+/// Name of a playlist, or `None` when no playlist has this id.
+pub fn get_playlist_name(conn: &rusqlite::Connection, id: i64) -> Result<Option<String>, String> {
+    use rusqlite::OptionalExtension;
+    conn.query_row("SELECT name FROM playlists WHERE id = ?1", [id], |r| {
+        r.get::<_, String>(0)
+    })
+    .optional()
+    .map_err(|e| e.to_string())
+}
+
+/// Pinned playlist ids, in pin order.
+pub fn get_playlist_pins(conn: &rusqlite::Connection) -> Result<Vec<i64>, String> {
+    let mut stmt = conn
+        .prepare("SELECT playlist_id FROM playlist_pins ORDER BY position")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows { out.push(row.map_err(|e| e.to_string())?); }
+    Ok(out)
+}
+
+/// Replace the whole pin set with `ids`, in the order given. Duplicate ids are
+/// collapsed to their first occurrence, since the table keys on playlist id.
+pub fn set_playlist_pins(conn: &rusqlite::Connection, ids: &[i64]) -> Result<(), String> {
+    let mut seen = std::collections::HashSet::new();
+    let unique: Vec<i64> = ids
+        .iter()
+        .copied()
+        .filter(|id| seen.insert(*id))
+        .collect();
+    conn.execute_batch("BEGIN DEFERRED").map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM playlist_pins", [])
+        .map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("INSERT INTO playlist_pins (playlist_id, position) VALUES (?1, ?2)")
+        .map_err(|e| e.to_string())?;
+    for (i, id) in unique.iter().enumerate() {
+        stmt.execute(rusqlite::params![id, i as i64])
+            .map_err(|e| e.to_string())?;
+    }
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1332,7 +1505,13 @@ pub fn get_latest_track_backup(conn: &rusqlite::Connection, track_path: &str) ->
     Ok(None)
 }
 
-pub fn record_play(conn: &rusqlite::Connection, path: &str) -> Result<(), String> {
+/// Record a play of the track at `path`. `device_name` is the optional
+/// per-device name the play is attributed to in play history.
+pub fn record_play(
+    conn: &rusqlite::Connection,
+    path: &str,
+    device_name: Option<&str>,
+) -> Result<(), String> {
     let now = now_secs()?;
     let track_id: Option<i64> = conn
         .query_row(
@@ -1347,8 +1526,8 @@ pub fn record_play(conn: &rusqlite::Connection, path: &str) -> Result<(), String
     ).map_err(|e| e.to_string())?;
     if let Some(id) = track_id {
         conn.execute(
-            "INSERT INTO play_history (track_id, played_at) VALUES (?1, ?2)",
-            rusqlite::params![id, now],
+            "INSERT INTO play_history (track_id, played_at, device_name) VALUES (?1, ?2, ?3)",
+            rusqlite::params![id, now, device_name],
         )
         .map_err(|e| e.to_string())?;
     }

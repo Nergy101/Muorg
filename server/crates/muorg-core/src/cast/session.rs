@@ -69,6 +69,10 @@ pub struct CastState {
     pub status: Arc<Mutex<CastSessionStatus>>,
     /// Device volume, 0.0–1.0, as last reported by the receiver.
     pub volume: Arc<Mutex<f32>>,
+    /// Id of the current session, empty when idle. Fresh for every
+    /// [`CastState::start_session`], so a client that remembers the id it was
+    /// given can tell a takeover (active session, different id) from its own.
+    session_id: Mutex<String>,
     cmd_tx: Arc<Mutex<Option<std::sync::mpsc::Sender<CastCommand>>>>,
 }
 
@@ -83,8 +87,14 @@ impl CastState {
         Self {
             status: Arc::new(Mutex::new(CastSessionStatus::Idle)),
             volume: Arc::new(Mutex::new(1.0)),
+            session_id: Mutex::new(String::new()),
             cmd_tx: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Id of the current cast session, empty when no session has been started.
+    pub fn session_id(&self) -> String {
+        self.session_id.lock().unwrap().clone()
     }
 
     pub fn send_command(&self, cmd: CastCommand) -> Result<(), String> {
@@ -112,6 +122,12 @@ impl CastState {
         if let Some(tx) = self.cmd_tx.lock().unwrap().take() {
             let _ = tx.send(CastCommand::Stop);
         }
+
+        // Fresh id for this session. A client that started a cast remembers
+        // the id it was given; while polling, an active session carrying a
+        // different id means another device took the session over.
+        let session_id = uuid::Uuid::new_v4().to_string();
+        *self.session_id.lock().unwrap() = session_id;
 
         let (tx, rx) = std::sync::mpsc::channel::<CastCommand>();
         *self.cmd_tx.lock().unwrap() = Some(tx);
@@ -162,7 +178,9 @@ impl CastState {
             };
 
             let dest_id = app_info.transport_id.clone();
-            let session_id = app_info.session_id.clone();
+            // The receiver app's own session id — distinct from the
+            // `session_id` this CastState was stamped with above.
+            let app_session_id = app_info.session_id.clone();
 
             // Connect the media channel to the launched app
             if let Err(e) = device.connection.connect(dest_id.as_str()) {
@@ -191,7 +209,7 @@ impl CastState {
                 duration: None,
             };
 
-            let load_status = match device.media.load(dest_id.as_str(), session_id.as_str(), &media) {
+            let load_status = match device.media.load(dest_id.as_str(), app_session_id.as_str(), &media) {
                 Ok(s) => s,
                 Err(e) => {
                     emit(CastSessionStatus::Error { message: e.to_string() });
@@ -319,7 +337,7 @@ impl CastState {
                                 duration: None,
                             };
                             emit(CastSessionStatus::Transcoding);
-                            match device.media.load(dest_id.as_str(), session_id.as_str(), &seek_media) {
+                            match device.media.load(dest_id.as_str(), app_session_id.as_str(), &seek_media) {
                                 Ok(s) => {
                                     if let Some(e) = s.entries.first() {
                                         media_session_id = e.media_session_id;
@@ -459,6 +477,40 @@ mod tests {
     fn a_new_state_starts_idle() {
         let state = CastState::new();
         assert!(matches!(*state.status.lock().unwrap(), CastSessionStatus::Idle));
+    }
+
+    #[test]
+    fn a_new_state_has_no_session_id() {
+        let state = CastState::new();
+        assert_eq!(state.session_id(), "");
+    }
+
+    #[test]
+    fn starting_a_session_stamps_a_fresh_session_id() {
+        // The id is generated synchronously, before the session thread is
+        // spawned, so the caller can read it back immediately. The thread
+        // itself fails to connect here (nothing listens on port 1), which is
+        // fine — the id is what is under test.
+        let state = CastState::new();
+        state.start_session(
+            "127.0.0.1".to_string(),
+            1,
+            "http://127.0.0.1/stream/1".to_string(),
+            false,
+            NoObserver,
+        );
+        let first = state.session_id();
+        assert!(!first.is_empty(), "a started session must have an id");
+
+        state.start_session(
+            "127.0.0.1".to_string(),
+            1,
+            "http://127.0.0.1/stream/1".to_string(),
+            false,
+            NoObserver,
+        );
+        let second = state.session_id();
+        assert_ne!(first, second, "each session gets its own id, so a client can spot a takeover");
     }
 
     #[test]

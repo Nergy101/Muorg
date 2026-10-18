@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path;
 use std::sync::Arc;
 use crate::backup;
@@ -383,13 +383,22 @@ pub async fn set_rating(
     Ok(Json(OkResponse::new()))
 }
 
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct RecordPlayBody {
+    /// Optional per-device name the play is attributed to in play history.
+    pub device_name: Option<String>,
+}
+
 // POST /api/tracks/:id/play
-/// Record a play. Bumps `play_count`/`last_played_at` and appends to play history.
+/// Record a play. Bumps `play_count`/`last_played_at` and appends to play
+/// history. The optional body carries the device name the play is attributed
+/// to; requests with no body keep working.
 #[utoipa::path(
     post,
     path = "/api/tracks/{id}/play",
     tag = "Tracks",
     params(("id" = i64, Path, description = "Track id")),
+    request_body = Option<RecordPlayBody>,
     responses(
         (status = 200, description = "Updated", body = OkResponse),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
@@ -400,10 +409,12 @@ pub async fn set_rating(
 pub async fn record_play(
     Path(id): Path<i64>,
     State(state): State<Arc<AppState>>,
+    body: Option<Json<RecordPlayBody>>,
 ) -> Result<Json<OkResponse>, ApiError> {
     let track_path = resolve_track(&state, id)?;
+    let device_name = body.and_then(|Json(body)| body.device_name);
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    muorg_core::catalog::record_play(&conn, &track_path)?;
+    muorg_core::catalog::record_play(&conn, &track_path, device_name.as_deref())?;
     Ok(Json(OkResponse::new()))
 }
 
@@ -510,10 +521,15 @@ pub async fn restore_backup(
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct RenameBody {
     pub new_path: String,
+    /// Replace a file that already sits at the destination. Default false: a
+    /// rename onto an existing path is refused instead of clobbering it.
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 // POST /api/tracks/:id/rename
-/// Move the file on disk and repoint the catalog row.
+/// Move the file on disk and repoint the catalog row. Refuses to overwrite an
+/// existing destination unless `overwrite` is set.
 #[utoipa::path(
     post,
     path = "/api/tracks/{id}/rename",
@@ -535,6 +551,21 @@ pub async fn rename_file(
 ) -> Result<Json<OkResponse>, ApiError> {
     let old_path = resolve_track(&state, id)?;
 
+    // A destination another track's row already holds cannot be renamed onto:
+    // the catalog keys tracks by path, so the update would fail after the file
+    // had already moved. Refuse before touching the disk, whatever `overwrite`
+    // says — overriding replaces an uncatalogued file, not another track.
+    {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        if let Some(other_id) = muorg_core::catalog::get_track_id_by_path(&conn, &body.new_path)? {
+            if other_id != id {
+                return Err(ApiError::bad_request(format!(
+                    "Destination path is already used by track {other_id}"
+                )));
+            }
+        }
+    }
+
     if let Some((remote, old_key)) = state.remotes.resolve(&old_path) {
         // A rename is a copy+delete inside one bucket; crossing backends would
         // be a transfer, which this endpoint does not do.
@@ -547,6 +578,19 @@ pub async fn rename_file(
             }
         };
         use object_store::ObjectStoreExt;
+        if remote.store.head(&new_key).await.is_ok() {
+            if !body.overwrite {
+                return Err(ApiError::bad_request(format!(
+                    "Destination already exists: {}",
+                    body.new_path
+                )));
+            }
+            remote
+                .store
+                .delete(&new_key)
+                .await
+                .map_err(|e| format!("Rename failed: {e}"))?;
+        }
         remote
             .store
             .rename(&old_key, &new_key)
@@ -564,6 +608,18 @@ pub async fn rename_file(
     }
 
     let new = path::Path::new(&body.new_path);
+    if new.exists() {
+        if !body.overwrite {
+            return Err(ApiError::bad_request(format!(
+                "Destination already exists: {}",
+                body.new_path
+            )));
+        }
+        // std::fs::rename replaces silently on Unix but fails on Windows when
+        // the destination exists — remove first so an override behaves the
+        // same on every platform.
+        std::fs::remove_file(new).map_err(|e| e.to_string())?;
+    }
     if let Some(parent) = new.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -571,6 +627,87 @@ pub async fn rename_file(
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::update_track_path(&conn, &old_path, &body.new_path)?;
     Ok(Json(OkResponse::new()))
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct RenameCheckItem {
+    pub id: i64,
+    pub new_path: String,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct RenameCheckBody {
+    pub items: Vec<RenameCheckItem>,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct RenameCollision {
+    pub id: i64,
+    pub new_path: String,
+    /// Why the destination collides: "exists" — a file already sits there;
+    /// "duplicate" — another item in the same batch targets it too.
+    pub reason: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct RenameCheckResponse {
+    pub collisions: Vec<RenameCollision>,
+}
+
+// POST /api/tracks/rename/check
+/// Pre-flight for a batch rename: report the destinations that are already
+/// taken on disk, or that more than one item in the batch targets. Lets a
+/// client offer cancel/override before any file moves.
+#[utoipa::path(
+    post,
+    path = "/api/tracks/rename/check",
+    tag = "Tracks",
+    request_body = RenameCheckBody,
+    responses(
+        (status = 200, description = "Destinations that would collide", body = RenameCheckResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
+pub async fn check_rename(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<RenameCheckBody>,
+) -> Result<Json<RenameCheckResponse>, ApiError> {
+    let mut collisions = Vec::new();
+    let mut first_seen: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    for item in &body.items {
+        if let Some(first_id) = first_seen.get(&item.new_path) {
+            // Two tracks landing on one path: the second rename would clobber
+            // the first (or fail, without overwrite).
+            collisions.push(RenameCollision {
+                id: *first_id,
+                new_path: item.new_path.clone(),
+                reason: "duplicate".to_string(),
+            });
+            collisions.push(RenameCollision {
+                id: item.id,
+                new_path: item.new_path.clone(),
+                reason: "duplicate".to_string(),
+            });
+        } else {
+            first_seen.insert(item.new_path.clone(), item.id);
+        }
+        let taken = match state.remotes.resolve(&item.new_path) {
+            Some((remote, key)) => {
+                use object_store::ObjectStoreExt;
+                remote.store.head(&key).await.is_ok()
+            }
+            None => path::Path::new(&item.new_path).exists(),
+        };
+        if taken {
+            collisions.push(RenameCollision {
+                id: item.id,
+                new_path: item.new_path.clone(),
+                reason: "exists".to_string(),
+            });
+        }
+    }
+    Ok(Json(RenameCheckResponse { collisions }))
 }
 
 // POST /api/tracks/:id/auto-tag-suggestions

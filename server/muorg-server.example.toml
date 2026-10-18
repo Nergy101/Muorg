@@ -7,6 +7,10 @@ port = 7700
 api_key = "change-me-to-something-secret"
 # Graceful shutdown: wait up to this many seconds for in-flight requests before force-exiting.
 shutdown_timeout_secs = 30
+# Rate limit: requests one IP may make within the window before the server
+# answers 429 (with a Retry-After header telling the client when to come back).
+# rate_limit_requests = 100
+# rate_limit_window_secs = 60
 
 [library]
 # Paths to scan for music files. Sub-folders are scanned recursively.
@@ -52,6 +56,14 @@ backup_dir = "/data/backups"
 # cover_cache_max_bytes = 536870912   # 512 MiB
 
 [cors]
-# Origins allowed to call the API.
-# Use ["*"] for LAN / home-server use; restrict to your domain for public deployments.
-allowed_origins = ["*"]
+# Origins allowed to call the API. List every origin that needs access:
+# the desktop app, the web UI's dev server, and your web UI's production URL.
+allowed_origins = [
+    "tauri://localhost",       # desktop app (Tauri)
+    "http://tauri.localhost",  # desktop app (Tauri, Windows)
+    "http://localhost:7800",   # web UI dev server (vite)
+    # "https://music.example.com",  # your web UI's production origin
+]
+# WARNING: never use ["*"] on a public deployment. "*" allows ANY website to
+# call the server — any page you visit could read your library and change your
+# playlists using your API key. Keep the list explicit.

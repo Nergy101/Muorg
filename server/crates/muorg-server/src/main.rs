@@ -135,10 +135,20 @@ async fn main() {
     std::fs::create_dir_all(&config.storage.backup_dir).ok();
     std::fs::create_dir_all(&cover_cache_dir).ok();
 
-    let catalog = Catalog::new(&config.storage.db_path).unwrap_or_else(|e| {
+    let catalog = Arc::new(Catalog::new(&config.storage.db_path).unwrap_or_else(|e| {
         tracing::error!("Failed to open database: {e}");
         std::process::exit(1);
-    });
+    }));
+
+    // The Favorites playlist is located by its exact name, so it must exist
+    // and keep that name. Idempotent: safe to run on every startup.
+    {
+        let conn = catalog.db.lock().unwrap();
+        if let Err(e) = muorg_core::catalog::ensure_favorites_playlist(&conn) {
+            tracing::error!("Failed to ensure the Favorites playlist: {e}");
+            std::process::exit(1);
+        }
+    }
 
     // Prune soft-deleted tracks older than 30 days
     {
@@ -154,21 +164,6 @@ async fn main() {
         let _ = muorg_core::catalog::prune_play_history(&conn, ninety_days);
     }
 
-    if config.library.scan_on_startup {
-        let conn = catalog.db.lock().unwrap();
-        for root in &config.library.content_paths {
-            tracing::info!(path = root, "scanning library");
-            if let Err(e) = muorg_core::catalog::save_roots(&conn, std::slice::from_ref(root)) {
-                tracing::error!(path = root, "save_roots failed: {e}");
-                continue;
-            }
-            match muorg_core::catalog::rescan_root(&conn, root) {
-                Ok(n) => tracing::info!(path = root, tracks = n, "scan complete"),
-                Err(e) => tracing::error!(path = root, "scan failed: {e}"),
-            }
-        }
-    }
-
     let addr: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
         .unwrap_or_else(|_| "127.0.0.1:7700".parse().unwrap());
@@ -180,7 +175,7 @@ async fn main() {
     let server_port = listener.local_addr().map(|a| a.port()).unwrap_or(addr.port());
 
     let state = Arc::new(AppState::new(
-        Arc::new(catalog),
+        catalog.clone(),
         config.storage.backup_dir.clone(),
         config.storage.backup_retention_count,
         config.server.api_key.clone(),
@@ -192,9 +187,43 @@ async fn main() {
             config.storage.cover_cache_max_bytes,
         )),
         config.library.remote_scan_concurrency,
-    ).with_image_fetch(config.images.clone()));
+    ).with_image_fetch(config.images.clone())
+     .with_rate_limiter(
+        config.server.rate_limit_requests,
+        config.server.rate_limit_window_secs,
+    ));
+
+    // mDNS discovery starts here rather than in `AppState::new` so a test
+    // server never opens the sweep's per-interface sockets.
+    state
+        .cast_discovery
+        .start(muorg_server::cast::NoDiscoveryObserver);
 
     let app = build_router(state.clone(), &config.cors.allowed_origins);
+
+    // The startup scan runs in the background so the listener is up
+    // immediately; /api/health reports "Scanning" until it finishes.
+    if config.library.scan_on_startup {
+        let catalog = catalog.clone();
+        let scanning = state.scanning.clone();
+        let roots = config.library.content_paths.clone();
+        tokio::task::spawn_blocking(move || {
+            scanning.store(true, std::sync::atomic::Ordering::SeqCst);
+            for root in &roots {
+                tracing::info!(path = root, "scanning library");
+                let conn = catalog.db.lock().unwrap();
+                if let Err(e) = muorg_core::catalog::save_roots(&conn, std::slice::from_ref(root)) {
+                    tracing::error!(path = root, "save_roots failed: {e}");
+                    continue;
+                }
+                match muorg_core::catalog::rescan_root(&conn, root) {
+                    Ok(n) => tracing::info!(path = root, tracks = n, "scan complete"),
+                    Err(e) => tracing::error!(path = root, "scan failed: {e}"),
+                }
+            }
+            scanning.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
+    }
 
     // Remote scans run in the background: a first-time index of a large bucket
     // must not delay the listener, and the track list fills in as it goes.
@@ -212,6 +241,80 @@ async fn main() {
                     Err(e) => tracing::error!(root = %root, "remote scan failed: {e}"),
                 }
             }
+        });
+    }
+
+    // Clean-up runs daily in the background. The startup run above already
+    // happened, so the first tick is 24 h out.
+    {
+        let catalog = catalog.clone();
+        tokio::spawn(async move {
+            let interval = std::time::Duration::from_secs(24 * 60 * 60);
+            loop {
+                tokio::time::sleep(interval).await;
+                let conn = catalog.db.lock().unwrap();
+                let thirty_days = 30 * 24 * 60 * 60;
+                if let Err(e) = muorg_core::catalog::gc_deleted_tracks(&conn, thirty_days) {
+                    tracing::error!("daily gc of deleted tracks failed: {e}");
+                }
+                let ninety_days = 90 * 24 * 60 * 60;
+                if let Err(e) = muorg_core::catalog::prune_play_history(&conn, ninety_days) {
+                    tracing::error!("daily play-history prune failed: {e}");
+                }
+            }
+        });
+    }
+
+    // Backfill content hashes for tracks scanned before hashing existed, so
+    // hash-based move detection works and the suffix fallback is rarely needed.
+    {
+        let catalog = catalog.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut after_id = 0i64;
+            let mut done = 0u64;
+            loop {
+                let batch = {
+                    let conn = catalog.db.lock().unwrap();
+                    match muorg_core::catalog::tracks_missing_content_hash(&conn, after_id, 500) {
+                        Ok(batch) => batch,
+                        Err(e) => {
+                            tracing::error!("content-hash backfill failed to list tracks: {e}");
+                            return;
+                        }
+                    }
+                };
+                if batch.is_empty() {
+                    break;
+                }
+                for (id, path) in batch {
+                    after_id = id;
+                    // Remote tracks have no local file; the remote scanner
+                    // hashes them from the object store instead.
+                    if path.starts_with("remote://") {
+                        continue;
+                    }
+                    match muorg_core::catalog::compute_content_hash(std::path::Path::new(&path)) {
+                        Ok(hash) => {
+                            let conn = catalog.db.lock().unwrap();
+                            if let Err(e) =
+                                muorg_core::catalog::set_track_content_hash(&conn, id, &hash)
+                            {
+                                tracing::warn!(track_id = id, "content-hash backfill update failed: {e}");
+                            }
+                        }
+                        Err(e) => {
+                            // Missing or unreadable file: leave the hash NULL.
+                            // The cursor still advances, so the walk terminates.
+                            tracing::debug!(path = %path, "content-hash backfill skipped: {e}");
+                        }
+                    }
+                    done += 1;
+                    if done.is_multiple_of(500) {
+                        tracing::info!(done, "content-hash backfill progress");
+                    }
+                }
+            }
+            tracing::info!(done, "content-hash backfill complete");
         });
     }
 

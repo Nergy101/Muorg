@@ -24,9 +24,18 @@ pub struct ServerConfig {
     pub api_key: String,
     #[serde(default = "default_shutdown_timeout")]
     pub shutdown_timeout_secs: u64,
+    /// Requests one IP may make within `rate_limit_window_secs` before the
+    /// server answers 429.
+    #[serde(default = "default_rate_limit_requests")]
+    pub rate_limit_requests: u32,
+    /// Length of the rate-limit window, in seconds.
+    #[serde(default = "default_rate_limit_window_secs")]
+    pub rate_limit_window_secs: u64,
 }
 
 fn default_shutdown_timeout() -> u64 { 30 }
+fn default_rate_limit_requests() -> u32 { 100 }
+fn default_rate_limit_window_secs() -> u64 { 60 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
@@ -35,6 +44,8 @@ impl Default for ServerConfig {
             port: 7700,
             api_key: "change-me".to_string(),
             shutdown_timeout_secs: 30,
+            rate_limit_requests: default_rate_limit_requests(),
+            rate_limit_window_secs: default_rate_limit_window_secs(),
         }
     }
 }

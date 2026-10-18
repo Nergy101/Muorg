@@ -133,6 +133,8 @@ docker compose up -d
 
 The API listens on port **7700**. In the desktop app, go to **Settings → Connection**, switch to **Online**, and enter your server URL and API key.
 
+> **Warning — CORS:** in `muorg-server.toml`, never set `cors.allowed_origins` to `["*"]` on a public deployment. `*` allows **any** website to call the server — any page you visit could read your library and change your playlists using your API key. List the origins you actually use explicitly: the desktop app (`tauri://localhost`, `http://tauri.localhost`), the web UI dev server (`http://localhost:7800`), and your web UI's production URL.
+
 ### Server + Web UI (browser access)
 
 Run both muorg-server and the muorg-web browser interface together. Drop this `docker-compose.yml` next to your `muorg-server.toml`:

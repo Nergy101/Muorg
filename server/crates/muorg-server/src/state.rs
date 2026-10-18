@@ -1,10 +1,11 @@
-use crate::cast::{CastState, DiscoveryState, NoDiscoveryObserver};
+use crate::cast::{CastState, DiscoveryState};
 use crate::config::{ImageFetchConfig, TranscodingConfig};
 use crate::musicbrainz::AutoTagService;
 use crate::ratelimit::RateLimiter;
 use muorg_core::catalog::Catalog;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -127,6 +128,10 @@ pub struct AppState {
     /// [`AppState::with_image_fetch`] rather than through `new`, which has
     /// enough positional arguments already.
     pub image_fetch: ImageFetchConfig,
+    /// True while the startup library scan is still running. `GET /api/health`
+    /// reports `Scanning` instead of `Healthy` so a healthcheck can tell "up
+    /// but busy" from "up and ready".
+    pub scanning: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -142,8 +147,6 @@ impl AppState {
         cover_cache: Arc<crate::storage::covers::CoverCache>,
         remote_scan_concurrency: usize,
     ) -> Self {
-        let cast_discovery = DiscoveryState::new();
-        cast_discovery.start(NoDiscoveryObserver);
         Self {
             catalog,
             backup_dir,
@@ -154,13 +157,17 @@ impl AppState {
             transcoding_config,
             transcode_cache: TranscodeCache::new(24),
             server_port,
-            cast_discovery,
+            // Discovery is started by the caller (main), not here: a test
+            // server has no use for an mDNS sweep, and the daemon opens a
+            // socket per network interface.
+            cast_discovery: DiscoveryState::new(),
             cast_session: CastState::new(),
             rate_limiter: RateLimiter::new(100, 60),
             remotes,
             cover_cache,
             remote_scan_concurrency: remote_scan_concurrency.max(1),
             image_fetch: ImageFetchConfig::default(),
+            scanning: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -168,6 +175,12 @@ impl AppState {
     /// that skips this gets the built-in allowlist rather than no allowlist.
     pub fn with_image_fetch(mut self, image_fetch: ImageFetchConfig) -> Self {
         self.image_fetch = image_fetch;
+        self
+    }
+
+    /// Override the rate limiter. Defaults to 100 requests per 60 s per IP.
+    pub fn with_rate_limiter(mut self, max_requests: u32, window_secs: u64) -> Self {
+        self.rate_limiter = RateLimiter::new(max_requests, window_secs);
         self
     }
 }

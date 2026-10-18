@@ -53,15 +53,21 @@ pub async fn home() -> Html<String> {
     Html(include_str!("home.html").replace("{{VERSION}}", env!("CARGO_PKG_VERSION")))
 }
 
-/// Unauthenticated liveness probe.
+/// Unauthenticated liveness probe. Reports `Scanning` while the startup
+/// library scan is still running, so a healthcheck can tell "up but busy"
+/// from "up and ready".
 #[utoipa::path(
     get,
     path = "/api/health",
     tag = "System",
-    responses((status = 200, description = "Server is up", content_type = "text/plain")),
+    responses((status = 200, description = "`Healthy`, or `Scanning` while the startup scan runs", content_type = "text/plain")),
 )]
-pub async fn health() -> impl IntoResponse {
-    (StatusCode::OK, "Healthy")
+pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    if state.scanning.load(std::sync::atomic::Ordering::Relaxed) {
+        (StatusCode::OK, "Scanning")
+    } else {
+        (StatusCode::OK, "Healthy")
+    }
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]

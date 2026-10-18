@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, State},
     Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::routes::dto::{ErrorResponse, OkResponse};
 use crate::routes::ApiError;
@@ -60,7 +60,8 @@ pub struct UpdateBody {
     pub icon: Option<Option<String>>,
 }
 
-/// Rename a playlist and/or set its icon.
+/// Rename a playlist and/or set its icon. The `Favorites` playlist cannot be
+/// renamed — clients locate it by its exact name — but its icon can change.
 #[utoipa::path(
     patch,
     path = "/api/playlists/{id}",
@@ -71,6 +72,7 @@ pub struct UpdateBody {
     responses(
         (status = 200, description = "Updated", body = OkResponse),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 403, description = "The Favorites playlist cannot be renamed", body = ErrorResponse),
         (status = 404, description = "No such playlist", body = ErrorResponse),
     ),
     security(("BearerAuth" = [])),
@@ -82,6 +84,13 @@ pub async fn update(
 ) -> Result<Json<OkResponse>, ApiError> {
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
     if let Some(name) = body.name {
+        if muorg_core::catalog::get_playlist_name(&conn, id)?
+            .is_some_and(|current| current == muorg_core::catalog::FAVORITES_PLAYLIST_NAME)
+        {
+            return Err(ApiError::forbidden(
+                "The Favorites playlist cannot be renamed",
+            ));
+        }
         muorg_core::catalog::rename_playlist(&conn, id, &name)?;
     }
     if let Some(icon) = body.icon {
@@ -90,7 +99,8 @@ pub async fn update(
     Ok(Json(OkResponse::new()))
 }
 
-/// Delete a playlist and its entries.
+/// Delete a playlist and its entries. The `Favorites` playlist cannot be
+/// deleted — clients locate it by its exact name.
 #[utoipa::path(
     delete,
     path = "/api/playlists/{id}",
@@ -100,6 +110,7 @@ pub async fn update(
     responses(
         (status = 200, description = "Deleted", body = OkResponse),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 403, description = "The Favorites playlist cannot be deleted", body = ErrorResponse),
         (status = 404, description = "No such playlist", body = ErrorResponse),
     ),
     security(("BearerAuth" = [])),
@@ -109,7 +120,80 @@ pub async fn delete(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<OkResponse>, ApiError> {
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    if muorg_core::catalog::get_playlist_name(&conn, id)?
+        .is_some_and(|name| name == muorg_core::catalog::FAVORITES_PLAYLIST_NAME)
+    {
+        return Err(ApiError::forbidden(
+            "The Favorites playlist cannot be deleted",
+        ));
+    }
     muorg_core::catalog::delete_playlist(&conn, id)?;
+    Ok(Json(OkResponse::new()))
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct PlaylistPinsResponse {
+    /// Pinned playlist ids, in pin order.
+    pub ids: Vec<i64>,
+}
+
+/// Pinned playlist ids, in pin order.
+#[utoipa::path(
+    get,
+    path = "/api/playlists/pins",
+    operation_id = "get_playlist_pins",
+    tag = "Playlists",
+    responses(
+        (status = 200, description = "Pinned playlist ids, in pin order", body = PlaylistPinsResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
+pub async fn get_pins(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<PlaylistPinsResponse>, ApiError> {
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    Ok(Json(PlaylistPinsResponse {
+        ids: muorg_core::catalog::get_playlist_pins(&conn)?,
+    }))
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct PlaylistPinsBody {
+    /// The full pin set, in pin order. Replaces whatever was pinned before.
+    pub ids: Vec<i64>,
+}
+
+/// Replace the whole pin set.
+#[utoipa::path(
+    put,
+    path = "/api/playlists/pins",
+    operation_id = "set_playlist_pins",
+    tag = "Playlists",
+    request_body = PlaylistPinsBody,
+    responses(
+        (status = 200, description = "Pins replaced", body = OkResponse),
+        (status = 400, description = "Unknown playlist id", body = ErrorResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
+pub async fn set_pins(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<PlaylistPinsBody>,
+) -> Result<Json<OkResponse>, ApiError> {
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    // Reject ids that are not playlists rather than pinning ghosts.
+    let existing: std::collections::HashSet<i64> = muorg_core::catalog::load_playlists(&conn)?
+        .into_iter()
+        .map(|p| p.id)
+        .collect();
+    if let Some(unknown) = body.ids.iter().find(|id| !existing.contains(id)) {
+        return Err(ApiError::bad_request(format!(
+            "Playlist {unknown} does not exist"
+        )));
+    }
+    muorg_core::catalog::set_playlist_pins(&conn, &body.ids)?;
     Ok(Json(OkResponse::new()))
 }
 

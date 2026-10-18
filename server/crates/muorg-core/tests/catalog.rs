@@ -62,6 +62,18 @@ fn insert_track(
     m: &TrackMetadata,
     content_hash: Option<&str>,
 ) -> i64 {
+    insert_track_sized(conn, root, path, m, content_hash, None)
+}
+
+/// Insert one track with an explicit file size, for move-detection tests.
+fn insert_track_sized(
+    conn: &Connection,
+    root: &str,
+    path: &str,
+    m: &TrackMetadata,
+    content_hash: Option<&str>,
+    file_size: Option<i64>,
+) -> i64 {
     let upsert = RootUpsert::new(conn, root).expect("root must exist");
     upsert
         .upsert(&ScannedTrack {
@@ -69,6 +81,7 @@ fn insert_track(
             format: "mp3",
             mtime_secs: 1_700_000_000,
             content_hash,
+            file_size,
             has_cover: false,
             meta: m,
         })
@@ -259,7 +272,7 @@ fn a_moved_file_keeps_its_rating_play_count_and_playlists() {
     let id = insert_track(&conn, "/music", old_path, &m, Some("deadbeefcafe"));
 
     cat::set_track_rating(&conn, old_path, Some(4)).unwrap();
-    cat::record_play(&conn, old_path).unwrap();
+    cat::record_play(&conn, old_path, None).unwrap();
     let pl = cat::create_playlist(&conn, "Favourites").unwrap();
     cat::add_tracks_to_playlist(&conn, pl.id, &[id]).unwrap();
 
@@ -303,6 +316,92 @@ fn a_different_file_at_a_new_path_gets_its_own_row() {
     );
     assert_ne!(first, second);
     assert_eq!(cat::count_tracks(&conn).unwrap(), 2);
+}
+
+#[test]
+fn a_suffix_match_requires_the_same_file_size() {
+    // The suffix fallback exists for rows scanned before content hashes were
+    // recorded. The suffix already pins the file name, and the size must pin
+    // the file too — otherwise a different file that happens to share a name
+    // would inherit the old row's rating, play count and playlists.
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    cat::save_roots(&conn, &["/music".to_string()]).unwrap();
+    let m = meta("Song", "Artist", "Album");
+
+    let old_id = insert_track_sized(&conn, "/music", "/music/old/song.mp3", &m, None, Some(100));
+    let none = std::collections::HashSet::new();
+    cat::sweep_missing_tracks(&conn, "/music", &none).unwrap();
+
+    // Same suffix, different size: no match, a fresh row is inserted.
+    let other_size = insert_track_sized(
+        &conn,
+        "/music",
+        "/music/new/old/song.mp3",
+        &m,
+        None,
+        Some(200),
+    );
+    assert_ne!(other_size, old_id, "a different-sized file is not the same track");
+
+    // Same suffix and same size: the soft-deleted row is reused.
+    let same_size = insert_track_sized(
+        &conn,
+        "/music",
+        "/music/other/old/song.mp3",
+        &m,
+        None,
+        Some(100),
+    );
+    assert_eq!(same_size, old_id, "the same file at a new path is a move");
+}
+
+#[test]
+fn a_suffix_match_never_fires_without_a_recorded_size() {
+    // Rows scanned before the file_size column existed have NULL there; they
+    // must not match on name alone.
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    cat::save_roots(&conn, &["/music".to_string()]).unwrap();
+    let m = meta("Song", "Artist", "Album");
+
+    let old_id = insert_track(&conn, "/music", "/music/old/song.mp3", &m, None);
+    let none = std::collections::HashSet::new();
+    cat::sweep_missing_tracks(&conn, "/music", &none).unwrap();
+
+    let moved = insert_track_sized(
+        &conn,
+        "/music",
+        "/music/new/old/song.mp3",
+        &m,
+        None,
+        Some(100),
+    );
+    assert_ne!(moved, old_id, "a NULL-sized row must not match a sized scan");
+}
+
+#[test]
+fn the_content_hash_backfill_cursor_walks_each_row_once() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 3);
+
+    let first = cat::tracks_missing_content_hash(&conn, 0, 2).unwrap();
+    assert_eq!(first.len(), 2, "the walk is batched");
+    let cursor = first.last().unwrap().0;
+    let rest = cat::tracks_missing_content_hash(&conn, cursor, 2).unwrap();
+    assert_eq!(rest.len(), 1);
+    assert!(
+        cat::tracks_missing_content_hash(&conn, rest[0].0, 2).unwrap().is_empty(),
+        "the cursor must reach the end of the table"
+    );
+
+    cat::set_track_content_hash(&conn, first[0].0, "abc123").unwrap();
+    let remaining = cat::tracks_missing_content_hash(&conn, 0, 10).unwrap();
+    assert!(
+        remaining.iter().all(|(id, _)| *id != first[0].0),
+        "a hashed row leaves the walk"
+    );
 }
 
 #[test]
@@ -506,8 +605,8 @@ fn recording_a_play_bumps_the_count_and_the_history() {
     let tc = TestCatalog::new();
     let conn = tc.conn();
     let ids = seed(&conn, "/music", 1);
-    cat::record_play(&conn, "/music/track0.mp3").unwrap();
-    cat::record_play(&conn, "/music/track0.mp3").unwrap();
+    cat::record_play(&conn, "/music/track0.mp3", None).unwrap();
+    cat::record_play(&conn, "/music/track0.mp3", None).unwrap();
 
     let track = cat::get_track_by_id(&conn, ids[0]).unwrap().unwrap();
     assert_eq!(track.play_count, 2);
@@ -518,13 +617,36 @@ fn recording_a_play_bumps_the_count_and_the_history() {
 }
 
 #[test]
+fn recording_a_play_stores_the_device_name() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 1);
+    cat::record_play(&conn, "/music/track0.mp3", Some("Living room")).unwrap();
+    cat::record_play(&conn, "/music/track0.mp3", None).unwrap();
+
+    let mut stmt = conn
+        .prepare("SELECT device_name FROM play_history ORDER BY id")
+        .unwrap();
+    let rows: Vec<Option<String>> = stmt
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![Some("Living room".to_string()), None],
+        "the device name is recorded per play, and stays NULL when not sent"
+    );
+}
+
+#[test]
 fn most_played_ranks_by_count_inside_the_window() {
     let tc = TestCatalog::new();
     let conn = tc.conn();
     seed(&conn, "/music", 2);
-    cat::record_play(&conn, "/music/track1.mp3").unwrap();
-    cat::record_play(&conn, "/music/track1.mp3").unwrap();
-    cat::record_play(&conn, "/music/track0.mp3").unwrap();
+    cat::record_play(&conn, "/music/track1.mp3", None).unwrap();
+    cat::record_play(&conn, "/music/track1.mp3", None).unwrap();
+    cat::record_play(&conn, "/music/track0.mp3", None).unwrap();
 
     let top = cat::load_most_played(&conn, 10, 30).unwrap();
     assert_eq!(titles(&top).first().map(String::as_str), Some("Track 1"));
@@ -538,7 +660,7 @@ fn most_played_over_a_zero_day_window_still_sees_todays_plays() {
     let tc = TestCatalog::new();
     let conn = tc.conn();
     seed(&conn, "/music", 1);
-    cat::record_play(&conn, "/music/track0.mp3").unwrap();
+    cat::record_play(&conn, "/music/track0.mp3", None).unwrap();
     assert_eq!(cat::load_most_played(&conn, 10, 0).unwrap().len(), 1);
 }
 
@@ -547,7 +669,7 @@ fn pruning_history_drops_old_entries_and_keeps_the_play_count() {
     let tc = TestCatalog::new();
     let conn = tc.conn();
     let ids = seed(&conn, "/music", 1);
-    cat::record_play(&conn, "/music/track0.mp3").unwrap();
+    cat::record_play(&conn, "/music/track0.mp3", None).unwrap();
 
     cat::prune_play_history(&conn, -1).unwrap();
     assert!(
@@ -566,7 +688,7 @@ fn recording_a_play_for_an_unknown_path_is_a_no_op() {
     let tc = TestCatalog::new();
     let conn = tc.conn();
     seed(&conn, "/music", 1);
-    cat::record_play(&conn, "/music/does-not-exist.mp3").unwrap();
+    cat::record_play(&conn, "/music/does-not-exist.mp3", None).unwrap();
     assert!(cat::load_recently_played(&conn, 10).unwrap().is_empty());
 }
 
@@ -677,6 +799,50 @@ fn playlists_come_back_in_their_sort_order() {
     cat::reorder_playlists(&conn, &[c.id, a.id, b.id]).unwrap();
     let names: Vec<String> = cat::load_playlists(&conn).unwrap().into_iter().map(|p| p.name).collect();
     assert_eq!(names, vec!["C", "A", "B"]);
+}
+
+#[test]
+fn ensure_favorites_playlist_creates_it_exactly_once() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    cat::ensure_favorites_playlist(&conn).unwrap();
+    cat::ensure_favorites_playlist(&conn).unwrap();
+
+    let favorites: Vec<_> = cat::load_playlists(&conn)
+        .unwrap()
+        .into_iter()
+        .filter(|p| p.name == cat::FAVORITES_PLAYLIST_NAME)
+        .collect();
+    assert_eq!(favorites.len(), 1, "idempotent: one Favorites playlist, by exact name");
+}
+
+#[test]
+fn playlist_pins_are_stored_in_order_and_replaced_as_a_set() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    let a = cat::create_playlist(&conn, "A").unwrap();
+    let b = cat::create_playlist(&conn, "B").unwrap();
+
+    assert!(cat::get_playlist_pins(&conn).unwrap().is_empty());
+    cat::set_playlist_pins(&conn, &[b.id, a.id]).unwrap();
+    assert_eq!(cat::get_playlist_pins(&conn).unwrap(), vec![b.id, a.id]);
+
+    // Replacing the set drops pins that are not in the new list.
+    cat::set_playlist_pins(&conn, &[a.id]).unwrap();
+    assert_eq!(cat::get_playlist_pins(&conn).unwrap(), vec![a.id]);
+
+    // Deleting a playlist drops its pin (ON DELETE CASCADE).
+    cat::delete_playlist(&conn, a.id).unwrap();
+    assert!(cat::get_playlist_pins(&conn).unwrap().is_empty());
+}
+
+#[test]
+fn setting_pins_collapses_duplicate_ids() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    let a = cat::create_playlist(&conn, "A").unwrap();
+    cat::set_playlist_pins(&conn, &[a.id, a.id]).unwrap();
+    assert_eq!(cat::get_playlist_pins(&conn).unwrap(), vec![a.id]);
 }
 
 #[test]

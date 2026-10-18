@@ -1399,6 +1399,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "utoipa",
+ "uuid",
  "walkdir",
 ]
 
@@ -1416,6 +1417,7 @@ dependencies = [
  "muorg-core",
  "object_store",
  "reqwest 0.12.28",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

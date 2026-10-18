@@ -28,6 +28,7 @@ struct Scanned {
     format: &'static str,
     mtime_secs: i64,
     content_hash: Option<String>,
+    file_size: Option<i64>,
     has_cover: bool,
     meta: TrackMetadata,
 }
@@ -97,6 +98,7 @@ pub async fn scan_remote_root(
             let handle = tokio::runtime::Handle::current();
             let key = meta.location.clone();
             let size = meta.size;
+            let file_size = Some(size as i64);
             let read = tokio::task::spawn_blocking(move || {
                 read_tags_and_hash(store, key, size, format, handle)
             })
@@ -109,6 +111,7 @@ pub async fn scan_remote_root(
                             format: format.as_str(),
                             mtime_secs: meta.last_modified.timestamp(),
                             content_hash: hash,
+                            file_size,
                             has_cover,
                             meta: meta_read,
                         })
@@ -165,6 +168,7 @@ fn flush_batch(
             format: item.format,
             mtime_secs: item.mtime_secs,
             content_hash: item.content_hash.as_deref(),
+            file_size: item.file_size,
             has_cover: item.has_cover,
             meta: &item.meta,
         })?;

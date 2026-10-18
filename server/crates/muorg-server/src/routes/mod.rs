@@ -30,6 +30,10 @@ impl ApiError {
     pub fn bad_request(msg: impl ToString) -> Self {
         ApiError(StatusCode::BAD_REQUEST, msg.to_string())
     }
+
+    pub fn forbidden(msg: impl ToString) -> Self {
+        ApiError(StatusCode::FORBIDDEN, msg.to_string())
+    }
 }
 
 impl From<String> for ApiError {

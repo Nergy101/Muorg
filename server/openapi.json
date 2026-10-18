@@ -111,6 +111,18 @@
         ],
         "type": "object"
       },
+      "CastPlayResponse": {
+        "properties": {
+          "session_id": {
+            "description": "Id of the started session. While polling `GET /api/cast/status`, an\nactive session whose `session_id` differs from this one means another\ndevice took the session over.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
       "CastSessionStatus": {
         "oneOf": [
           {
@@ -240,6 +252,10 @@
           "session": {
             "$ref": "#/components/schemas/CastSessionStatus"
           },
+          "session_id": {
+            "description": "Id of the current cast session, empty when idle. A client that started\na cast remembers its own id; an active session carrying a different id\nmeans another device took the session over.",
+            "type": "string"
+          },
           "volume": {
             "format": "float",
             "type": "number"
@@ -247,7 +263,8 @@
         },
         "required": [
           "session",
-          "volume"
+          "volume",
+          "session_id"
         ],
         "type": "object"
       },
@@ -668,6 +685,38 @@
         ],
         "type": "object"
       },
+      "PlaylistPinsBody": {
+        "properties": {
+          "ids": {
+            "description": "The full pin set, in pin order. Replaces whatever was pinned before.",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "PlaylistPinsResponse": {
+        "properties": {
+          "ids": {
+            "description": "Pinned playlist ids, in pin order.",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
       "PlaylistTrackEntry": {
         "properties": {
           "entry_id": {
@@ -697,6 +746,18 @@
         },
         "type": "object"
       },
+      "RecordPlayBody": {
+        "properties": {
+          "device_name": {
+            "description": "Optional per-device name the play is attributed to in play history.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "RemoveFolderBody": {
         "properties": {
           "root_path": {
@@ -712,10 +773,79 @@
         "properties": {
           "new_path": {
             "type": "string"
+          },
+          "overwrite": {
+            "description": "Replace a file that already sits at the destination. Default false: a\nrename onto an existing path is refused instead of clobbering it.",
+            "type": "boolean"
           }
         },
         "required": [
           "new_path"
+        ],
+        "type": "object"
+      },
+      "RenameCheckBody": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RenameCheckItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "RenameCheckItem": {
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "new_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "new_path"
+        ],
+        "type": "object"
+      },
+      "RenameCheckResponse": {
+        "properties": {
+          "collisions": {
+            "items": {
+              "$ref": "#/components/schemas/RenameCollision"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "collisions"
+        ],
+        "type": "object"
+      },
+      "RenameCollision": {
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "new_path": {
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the destination collides: \"exists\" — a file already sits there;\n\"duplicate\" — another item in the same batch targets it too.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "new_path",
+          "reason"
         ],
         "type": "object"
       },
@@ -1465,8 +1595,15 @@
           "required": true
         },
         "responses": {
-          "204": {
-            "description": "Command accepted"
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastPlayResponse"
+                }
+              }
+            },
+            "description": "Session started"
           },
           "401": {
             "content": {
@@ -1477,6 +1614,16 @@
               }
             },
             "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
           }
         },
         "security": [
@@ -1727,10 +1874,10 @@
             "content": {
               "text/plain": {}
             },
-            "description": "Server is up"
+            "description": "`Healthy`, or `Scanning` while the startup scan runs"
           }
         },
-        "summary": "Unauthenticated liveness probe.",
+        "summary": "Unauthenticated liveness probe. Reports `Scanning` while the startup\nlibrary scan is still running, so a healthcheck can tell \"up but busy\"\nfrom \"up and ready\".",
         "tags": [
           "System"
         ]
@@ -1997,6 +2144,96 @@
         ]
       }
     },
+    "/api/playlists/pins": {
+      "get": {
+        "operationId": "get_playlist_pins",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistPinsResponse"
+                }
+              }
+            },
+            "description": "Pinned playlist ids, in pin order"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Pinned playlist ids, in pin order.",
+        "tags": [
+          "Playlists"
+        ]
+      },
+      "put": {
+        "operationId": "set_playlist_pins",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistPinsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Pins replaced"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown playlist id"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Replace the whole pin set.",
+        "tags": [
+          "Playlists"
+        ]
+      }
+    },
     "/api/playlists/smart": {
       "post": {
         "operationId": "create_smart_playlist",
@@ -2209,6 +2446,16 @@
             },
             "description": "Missing or invalid API key"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The Favorites playlist cannot be deleted"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2225,7 +2472,7 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Delete a playlist and its entries.",
+        "summary": "Delete a playlist and its entries. The `Favorites` playlist cannot be\ndeleted — clients locate it by its exact name.",
         "tags": [
           "Playlists"
         ]
@@ -2275,6 +2522,16 @@
             },
             "description": "Missing or invalid API key"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The Favorites playlist cannot be renamed"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2291,7 +2548,7 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Rename a playlist and/or set its icon.",
+        "summary": "Rename a playlist and/or set its icon. The `Favorites` playlist cannot be\nrenamed — clients locate it by its exact name — but its icon can change.",
         "tags": [
           "Playlists"
         ]
@@ -3056,6 +3313,52 @@
         ]
       }
     },
+    "/api/tracks/rename/check": {
+      "post": {
+        "operationId": "check_rename",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameCheckBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenameCheckResponse"
+                }
+              }
+            },
+            "description": "Destinations that would collide"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Pre-flight for a batch rename: report the destinations that are already\ntaken on disk, or that more than one item in the batch targets. Lets a\nclient offer cancel/override before any file moves.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
     "/api/tracks/{id}/auto-tag-suggestions": {
       "post": {
         "operationId": "auto_tag_suggestions",
@@ -3453,6 +3756,22 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RecordPlayBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -3490,7 +3809,7 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Record a play. Bumps `play_count`/`last_played_at` and appends to play history.",
+        "summary": "Record a play. Bumps `play_count`/`last_played_at` and appends to play\nhistory. The optional body carries the device name the play is attributed\nto; requests with no body keep working.",
         "tags": [
           "Tracks"
         ]
@@ -3636,7 +3955,7 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Move the file on disk and repoint the catalog row.",
+        "summary": "Move the file on disk and repoint the catalog row. Refuses to overwrite an\nexisting destination unless `overwrite` is set.",
         "tags": [
           "Tracks"
         ]

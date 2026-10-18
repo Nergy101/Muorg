@@ -1,9 +1,9 @@
 use axum::{
     body::Body,
     extract::{ConnectInfo, State},
-    http::{Request, StatusCode},
+    http::{header, Request, StatusCode},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -32,10 +32,14 @@ pub async fn rate_limit_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // Apply rate limiting per IP
-    let allowed = state.rate_limiter.check(addr);
-    if !allowed {
-        return Err(StatusCode::TOO_MANY_REQUESTS);
+    // Apply rate limiting per IP. A refusal says when to come back, so a
+    // well-behaved client backs off instead of hammering.
+    if let Err(retry_after_secs) = state.rate_limiter.check_with_retry_after(addr) {
+        let mut response = StatusCode::TOO_MANY_REQUESTS.into_response();
+        if let Ok(value) = header::HeaderValue::from_str(&retry_after_secs.to_string()) {
+            response.headers_mut().insert(header::RETRY_AFTER, value);
+        }
+        return Ok(response);
     }
     Ok(next.run(request).await)
 }

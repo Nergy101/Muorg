@@ -47,6 +47,7 @@ export type MetadataUpdate = Schemas["MetadataUpdate"];
 export type TrackBackupRecord = AlwaysPresent<Schemas["TrackBackupRecord"]>;
 export type BatchMetadataItem = Schemas["BatchMetadataItem"];
 export type MatchCandidate = AlwaysPresent<Schemas["MatchCandidate"]>;
+export type RenameCollision = AlwaysPresent<Schemas["RenameCollision"]>;
 
 // -------------------------------------------------------------- playlists ---
 
