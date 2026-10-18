@@ -165,6 +165,9 @@ class SettingsViewModel @Inject constructor(
 
     private fun checkForUpdate() {
         viewModelScope.launch {
+            // Offline mode makes no network calls — this one bypasses OkHttp,
+            // so the interceptor cannot stop it; the check has to be skipped.
+            if (preferences.offlineModeState.value) return@launch
             runCatching {
                 withContext(Dispatchers.IO) {
                     val text = URL("https://api.github.com/repos/Nergy101/Muorg/releases/latest").readText()

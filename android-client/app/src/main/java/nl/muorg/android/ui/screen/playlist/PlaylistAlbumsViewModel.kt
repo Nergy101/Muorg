@@ -11,12 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.drop
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.data.repository.PlaylistTrackEntry
 import javax.inject.Inject
@@ -49,6 +51,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val localRepository: LocalLibraryRepository,
     private val playlistRepository: PlaylistRepository,
+    private val offlineDownloadManager: OfflineDownloadManager,
 ) : ViewModel() {
 
     private val playlistId: Int = checkNotNull(savedStateHandle["playlistId"])
@@ -61,6 +64,12 @@ class PlaylistAlbumsViewModel @Inject constructor(
             preferences.playlistViewStyle.collect { style ->
                 _uiState.update { it.copy(viewStyle = style) }
             }
+        }
+        // Toggling offline mode while this screen is open re-reads from
+        // whichever side of the divide is now in force. The first emission is
+        // the current value, which the initial load() already covers.
+        viewModelScope.launch {
+            preferences.offlineMode.drop(1).collect { load() }
         }
         load()
     }
@@ -77,9 +86,37 @@ class PlaylistAlbumsViewModel @Inject constructor(
 
             if (mode == "local") {
                 loadLocal()
+            } else if (preferences.offlineMode.first()) {
+                loadOffline()
             } else {
                 loadRemote()
             }
+        }
+    }
+
+    /**
+     * Offline mode: the playlist and its tracks come from the download
+     * store, each track already pointing at its local file, so the screen
+     * renders and plays with no server involved.
+     */
+    private suspend fun loadOffline() {
+        val playlist = offlineDownloadManager.getDownloadedPlaylist(playlistId)
+        if (playlist == null) {
+            _uiState.update {
+                it.copy(isLoading = false, error = "Not downloaded — download it while online")
+            }
+            return
+        }
+        val tracks = offlineDownloadManager.getDownloadedTracks(playlistId)
+        _uiState.update {
+            it.copy(
+                playlist = playlist,
+                albums = libraryRepository.buildAlbumGroups(tracks),
+                allTracks = tracks,
+                playlists = offlineDownloadManager.getDownloadedPlaylists(),
+                isLoading = false,
+                isLocalMode = false,
+            )
         }
     }
 

@@ -66,7 +66,7 @@ fun PlaybackSection(
 
     ListItem(
         headlineContent = { Text("Offline mode") },
-        supportingContent = { Text("Play only downloaded tracks") },
+        supportingContent = { Text("No network calls — only downloaded playlists are available") },
         leadingContent = {
             Icon(
                 painter = painterResource(mageIconRes("download")), contentDescription = null,

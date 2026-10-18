@@ -76,6 +76,10 @@ class AppPreferences @Inject constructor(
     val offlineMode: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_OFFLINE_MODE] ?: false }
 
+    // Eagerly-cached StateFlow for the synchronous read in the OkHttp
+    // interceptor that blocks every network call while offline mode is on.
+    val offlineModeState: StateFlow<Boolean> = offlineMode.stateIn(scope, SharingStarted.Eagerly, false)
+
     /** Allow playlist downloads over mobile data; Wi-Fi only by default. */
     val downloadMobileData: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_DOWNLOAD_MOBILE_DATA] ?: false }

@@ -16,6 +16,7 @@ import nl.muorg.android.data.api.buildCoilImageLoader
 import nl.muorg.android.data.db.AppDatabase
 import nl.muorg.android.data.db.LocalPlaylistDao
 import nl.muorg.android.data.db.LocalTrackDao
+import nl.muorg.android.data.db.OfflinePlaylistDao
 import nl.muorg.android.data.db.OfflineTrackDao
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.preferences.SearchHistoryManager
@@ -118,7 +119,11 @@ object AppModule {
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "muorg_local.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+            )
             .build()
 
     @Provides
@@ -132,4 +137,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideOfflineTrackDao(db: AppDatabase): OfflineTrackDao = db.offlineTrackDao()
+
+    @Provides
+    @Singleton
+    fun provideOfflinePlaylistDao(db: AppDatabase): OfflinePlaylistDao = db.offlinePlaylistDao()
 }

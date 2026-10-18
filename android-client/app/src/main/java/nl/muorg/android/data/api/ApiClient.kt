@@ -4,9 +4,21 @@ import coil.ImageLoader
 import coil.request.CachePolicy
 import nl.muorg.android.data.preferences.AppPreferences
 import okhttp3.Dispatcher
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+
+/**
+ * Thrown before a request leaves the device while offline mode is on.
+ *
+ * An [IOException] on purpose: Retrofit, the stream downloader and Coil all
+ * already treat IOExceptions as ordinary call failures, so the block needs no
+ * special handling anywhere downstream.
+ */
+class OfflineException(
+    message: String = "Offline mode is on — no network calls are made",
+) : IOException(message)
 
 /**
  * Builds an OkHttpClient that injects the Bearer token from AppPreferences on every request.
@@ -17,6 +29,11 @@ fun buildAuthOkHttpClient(preferences: AppPreferences): OkHttpClient {
     }
     return OkHttpClient.Builder()
         .addInterceptor { chain ->
+            // The hard divide: with offline mode on, no request leaves the
+            // device — not the API, not streams, not cover art. This client
+            // backs Retrofit, the download manager and Coil alike, so one
+            // check covers every network path in the app.
+            if (preferences.offlineModeState.value) throw OfflineException()
             val apiKey = preferences.apiKeyState.value
             val request = chain.request().newBuilder()
                 .apply {

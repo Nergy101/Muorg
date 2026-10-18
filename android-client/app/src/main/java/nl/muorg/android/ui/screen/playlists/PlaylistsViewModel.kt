@@ -44,6 +44,15 @@ data class PlaylistsUiState(
     val smartName: String = "",
     val smartRules: List<SmartRule> = listOf(SmartRule("genre", "contains", "")),
     val smartSaving: Boolean = false,
+    /**
+     * Offline mode is on: the list shows downloaded playlists only, and
+     * every server operation (create, pin, rename, delete, download) is off.
+     */
+    val isOfflineMode: Boolean = false,
+    /** Playlist ids with a download — the tile's filled download button. */
+    val downloadedPlaylistIds: Set<Int> = emptySet(),
+    val showRemoveDownloadDialog: Boolean = false,
+    val removingDownloadPlaylist: Playlist? = null,
 )
 
 /** The fields the server's rule engine accepts, in the web's order. */
@@ -107,11 +116,26 @@ class PlaylistsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            preferences.offlineMode.collect { enabled ->
+                _uiState.update { it.copy(isOfflineMode = enabled) }
+                loadPlaylists()
+            }
+        }
+        viewModelScope.launch {
             offlineDownloadManager.downloadProgress.collect { progress ->
                 _uiState.update { it.copy(downloadProgress = progress) }
             }
         }
+        viewModelScope.launch {
+            offlineDownloadManager.observeDownloadedPlaylistIds().collect { ids ->
+                _uiState.update { it.copy(downloadedPlaylistIds = ids) }
+            }
+        }
     }
+
+    /** Server operations are unreachable while offline mode is on. */
+    private fun isOffline(): Boolean =
+        currentMode != "local" && _uiState.value.isOfflineMode
 
     /**
      * The web's playlist tile is a 2x2 mosaic of the playlist's own covers, so
@@ -131,6 +155,22 @@ class PlaylistsViewModel @Inject constructor(
      */
     private fun loadCovers(playlists: List<Playlist>) {
         viewModelScope.launch {
+            // Offline mode: the catalog and the track lists are server calls,
+            // so the mosaic is built from the downloaded tracks themselves.
+            if (isOffline()) {
+                val covers = playlists.map { playlist ->
+                    async {
+                        val tracks = offlineDownloadManager.getDownloadedTracks(playlist.id)
+                        playlist.id to pickDistinctCovers(
+                            tracks.map { it.id },
+                            tracks.associateBy { it.id },
+                        )
+                    }
+                }.awaitAll().toMap()
+                _uiState.update { it.copy(covers = covers) }
+                return@launch
+            }
+
             val byId = runCatching { libraryRepository.getAllTracks().getOrThrow() }
                 .getOrDefault(emptyList())
                 .associateBy { it.id }
@@ -200,6 +240,7 @@ class PlaylistsViewModel @Inject constructor(
     }
 
     fun createSmartPlaylist() {
+        if (isOffline()) return
         val state = _uiState.value
         val rules = state.smartRules.filter { it.value.isNotBlank() }
         if (state.smartName.isBlank() || rules.isEmpty()) return
@@ -219,6 +260,7 @@ class PlaylistsViewModel @Inject constructor(
     }
 
     fun togglePin(playlistId: Int) {
+        if (isOffline()) return
         if (currentMode == "local") {
             viewModelScope.launch { preferences.togglePinnedPlaylist(playlistId) }
         } else {
@@ -242,21 +284,55 @@ class PlaylistsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * The tile's download button: a fresh download for a playlist that is not
+     * downloaded yet, the remove-downloads confirmation for one that is.
+     */
+    fun onDownloadClicked(playlist: Playlist) {
+        if (playlist.id in _uiState.value.downloadedPlaylistIds) {
+            _uiState.update {
+                it.copy(showRemoveDownloadDialog = true, removingDownloadPlaylist = playlist)
+            }
+        } else {
+            downloadPlaylist(playlist)
+        }
+    }
+
+    fun dismissRemoveDownloadDialog() {
+        _uiState.update { it.copy(showRemoveDownloadDialog = false, removingDownloadPlaylist = null) }
+    }
+
+    fun confirmRemoveDownload() {
+        val id = _uiState.value.removingDownloadPlaylist?.id ?: return
+        dismissRemoveDownloadDialog()
+        offlineDownloadManager.removePlaylist(id)
+    }
+
     fun downloadPlaylist(playlist: Playlist) {
+        if (isOffline()) return
         viewModelScope.launch {
             val ids = repository.getTracksFor(playlist).getOrDefault(emptyList())
             val byId = runCatching { libraryRepository.getAllTracks().getOrThrow() }
                 .getOrDefault(emptyList())
                 .associateBy { it.id }
             val tracks = ids.mapNotNull { byId[it] }
-            if (tracks.isNotEmpty()) offlineDownloadManager.downloadPlaylist(playlist.id, tracks)
+            if (tracks.isNotEmpty()) offlineDownloadManager.downloadPlaylist(playlist, tracks)
         }
     }
 
     fun loadPlaylists() {
         viewModelScope.launch {
+            // Read the preference directly rather than the state the
+            // collector maintains: this also runs from the screen's resume
+            // effect, which can fire before the collector's first emission.
+            val offline = currentMode != "local" && preferences.offlineMode.first()
             _uiState.update {
-                it.copy(isLoading = true, error = null, isServerMode = currentMode != "local")
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    isServerMode = currentMode != "local",
+                    isOfflineMode = offline,
+                )
             }
             if (currentMode == "local") {
                 runCatching { localRepository.getPlaylists() }.fold(
@@ -269,6 +345,18 @@ class PlaylistsViewModel @Inject constructor(
                     }
                 )
                 _uiState.update { it.copy(pinnedIds = preferences.pinnedPlaylists.first().toList()) }
+            } else if (offline) {
+                // Offline mode: the server is unreachable by design, so the
+                // list is the downloaded playlists, read from the device.
+                val playlists = offlineDownloadManager.getDownloadedPlaylists()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        playlists = playlists,
+                        pinnedIds = preferences.pinnedPlaylists.first().toList(),
+                    )
+                }
+                loadCovers(playlists)
             } else {
                 repository.getPlaylists().fold(
                     onSuccess = { playlists ->
@@ -305,6 +393,7 @@ class PlaylistsViewModel @Inject constructor(
     }
 
     fun createPlaylist() {
+        if (isOffline()) return
         val state = _uiState.value
         if (state.newPlaylistName.isBlank()) return
 
@@ -358,6 +447,7 @@ class PlaylistsViewModel @Inject constructor(
     }
 
     fun updatePlaylist() {
+        if (isOffline()) return
         val state = _uiState.value
         val id = state.editingPlaylist?.id ?: return
         if (state.editName.isBlank()) return
@@ -405,6 +495,7 @@ class PlaylistsViewModel @Inject constructor(
     }
 
     fun deletePlaylist(id: Int) {
+        if (isOffline()) return
         viewModelScope.launch {
             if (currentMode == "local") {
                 runCatching { localRepository.deletePlaylist(id) }.fold(

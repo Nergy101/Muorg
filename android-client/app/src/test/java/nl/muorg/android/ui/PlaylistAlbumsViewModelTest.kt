@@ -14,10 +14,12 @@ import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.ui.screen.playlist.PlaylistAlbumsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -69,10 +71,13 @@ class PlaylistAlbumsViewModelTest {
         playlists: List<Playlist>,
         library: LibraryRepository,
         playlistRepo: PlaylistRepository,
+        offlineMode: Boolean = false,
+        offlineDownloadManager: OfflineDownloadManager = mockk(relaxed = true),
     ): PlaylistAlbumsViewModel {
         val preferences = mockk<AppPreferences>(relaxed = true)
         every { preferences.musicMode } returns flowOf("remote")
         every { preferences.playlistViewStyle } returns flowOf("tracks")
+        every { preferences.offlineMode } returns flowOf(offlineMode)
         coEvery { playlistRepo.getPlaylists() } returns Result.success(playlists)
         return PlaylistAlbumsViewModel(
             SavedStateHandle(mapOf("playlistId" to playlistId)),
@@ -80,6 +85,7 @@ class PlaylistAlbumsViewModelTest {
             library,
             mockk<LocalLibraryRepository>(relaxed = true),
             playlistRepo,
+            offlineDownloadManager,
         )
     }
 
@@ -162,6 +168,44 @@ class PlaylistAlbumsViewModelTest {
         advanceUntilIdle()
 
         assertNotNull(vm.uiState.value.error)
+        assertEquals(false, vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `offline mode loads the playlist from the download store, not the server`() = runTest {
+        // The regression this exists for: with offline mode on, the screen
+        // asked the server for a playlist the server cannot be asked about,
+        // and the playlist showed nothing at all.
+        val playlistRepo = mockk<PlaylistRepository>(relaxed = true)
+        val library = mockk<LibraryRepository>(relaxed = true)
+        every { library.buildAlbumGroups(any()) } returns emptyList()
+        val downloads = mockk<OfflineDownloadManager>(relaxed = true)
+        coEvery { downloads.getDownloadedPlaylist(7) } returns playlist(7)
+        coEvery { downloads.getDownloadedTracks(7) } returns listOf(track(1), track(2))
+        coEvery { downloads.getDownloadedPlaylists() } returns listOf(playlist(7))
+
+        val vm = viewModel(7, emptyList(), library, playlistRepo, offlineMode = true, offlineDownloadManager = downloads)
+        advanceUntilIdle()
+
+        assertEquals(listOf(1, 2), vm.uiState.value.allTracks.map { it.id })
+        assertEquals(7, vm.uiState.value.playlist?.id)
+        assertEquals(false, vm.uiState.value.isLoading)
+        assertEquals(null, vm.uiState.value.error)
+        coVerify(exactly = 0) { playlistRepo.getPlaylists() }
+        coVerify(exactly = 0) { library.getAllTracks(any()) }
+    }
+
+    @Test
+    fun `offline mode reports a playlist that was never downloaded`() = runTest {
+        val downloads = mockk<OfflineDownloadManager>(relaxed = true)
+        coEvery { downloads.getDownloadedPlaylist(7) } returns null
+
+        val vm = viewModel(7, emptyList(), mockk(relaxed = true), mockk(relaxed = true),
+            offlineMode = true, offlineDownloadManager = downloads)
+        advanceUntilIdle()
+
+        assertNotNull(vm.uiState.value.error)
+        assertTrue(vm.uiState.value.allTracks.isEmpty())
         assertEquals(false, vm.uiState.value.isLoading)
     }
 }

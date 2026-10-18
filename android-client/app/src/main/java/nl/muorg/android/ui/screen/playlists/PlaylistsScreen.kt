@@ -93,59 +93,64 @@ fun PlaylistsScreen(
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         // The web floats its create control as a glass pill in the top-right
         // corner; there is no title bar above the grid.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Spacer(modifier = Modifier.weight(1f))
-            GlassSurface(
-                material = GlassMaterial.Glass,
-                shape = MuorgShapes.pill,
-                modifier = Modifier.height(44.dp),
+        // Creating playlists is a server operation, so the pill is gone in
+        // offline mode — the list there is the downloaded playlists.
+        if (!uiState.isOfflineMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clickable(onClick = viewModel::showCreateDialog),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(mageIconRes("plus")),
-                            contentDescription = "New playlist",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp),
+                Spacer(modifier = Modifier.weight(1f))
+                GlassSurface(
+                    material = GlassMaterial.Glass,
+                    shape = MuorgShapes.pill,
+                    modifier = Modifier.height(44.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clickable(onClick = viewModel::showCreateDialog),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(mageIconRes("plus")),
+                                contentDescription = "New playlist",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(20.dp)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)),
                         )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(20.dp)
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clickable(onClick = viewModel::showSmartCreateDialog),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(mageIconRes("zap")),
-                            contentDescription = "New smart playlist",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp),
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clickable(onClick = viewModel::showSmartCreateDialog),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(mageIconRes("zap")),
+                                contentDescription = "New smart playlist",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Download status: a progress line while a playlist downloads, a
-        // summary (with failures) once it finishes.
+        // Download status: the count while a playlist downloads. Once it is
+        // done the count is irrelevant — the tile's filled download button is
+        // the record — so only failures stay on screen.
         val download = uiState.downloadProgress
-        if (download.totalTracks > 0) {
+        if (download.isActive || download.errorMessage != null) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -162,18 +167,6 @@ fun PlaylistsScreen(
                         "Downloading $processed/${download.totalTracks} — ${download.currentTrackName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else if (download.completedTracks > 0 || download.failedTracks > 0) {
-                    val failed = download.failedTracks
-                    Text(
-                        if (failed > 0) {
-                            "Downloaded ${download.completedTracks}/${download.totalTracks} tracks — $failed failed"
-                        } else {
-                            "Downloaded ${download.completedTracks}/${download.totalTracks} tracks"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (failed > 0) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 download.errorMessage?.let { message ->
@@ -193,7 +186,11 @@ fun PlaylistsScreen(
                 }
                 uiState.playlists.isEmpty() -> {
                     Text(
-                        text = "No playlists yet.\nTap + to create one.",
+                        text = if (uiState.isOfflineMode) {
+                            "No downloaded playlists.\nDownload playlists while online to use them offline."
+                        } else {
+                            "No playlists yet.\nTap + to create one."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -232,10 +229,12 @@ fun PlaylistsScreen(
                                 onClick = { onPlaylistClick(playlist.id) },
                                 onTogglePin = { viewModel.togglePin(playlist.id) },
                                 onEdit = { viewModel.showEditDialog(playlist) },
-                                onDownload = { viewModel.downloadPlaylist(playlist) },
+                                onDownload = { viewModel.onDownloadClicked(playlist) },
                                 onDelete = { viewModel.deletePlaylist(playlist.id) },
                                 isFavorites = uiState.isServerMode &&
                                     playlist.name == FAVORITES_PLAYLIST_NAME,
+                                downloaded = playlist.id in uiState.downloadedPlaylistIds,
+                                showOnlineActions = !uiState.isOfflineMode,
                             )
                         }
                     }
@@ -243,6 +242,26 @@ fun PlaylistsScreen(
             }
         }
 
+    }
+
+    if (uiState.showRemoveDownloadDialog) {
+        val playlist = uiState.removingDownloadPlaylist
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRemoveDownloadDialog,
+            title = { Text("Remove downloaded songs?") },
+            text = {
+                Text(
+                    "This deletes the downloaded tracks of \"${playlist?.name}\" from this device. " +
+                        "The playlist itself stays on the server."
+                )
+            },
+            confirmButton = {
+                Button(onClick = viewModel::confirmRemoveDownload) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissRemoveDownloadDialog) { Text("Cancel") }
+            },
+        )
     }
 
     if (uiState.showSmartDialog) {

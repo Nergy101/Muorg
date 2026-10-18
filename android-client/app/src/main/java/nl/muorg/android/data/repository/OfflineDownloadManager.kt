@@ -7,15 +7,23 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.bodyOrThrow
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.db.OfflinePlaylist
+import nl.muorg.android.data.db.OfflinePlaylistDao
 import nl.muorg.android.data.db.OfflineTrack
 import nl.muorg.android.data.db.OfflineTrackDao
 import nl.muorg.android.data.preferences.AppPreferences
@@ -47,9 +55,11 @@ data class DownloadProgress(
 class OfflineDownloadManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val offlineTrackDao: OfflineTrackDao,
+    private val offlinePlaylistDao: OfflinePlaylistDao,
     private val api: MuorgApi,
     private val preferences: AppPreferences,
     private val okHttpClient: OkHttpClient,
+    private val json: Json,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -61,11 +71,11 @@ class OfflineDownloadManager @Inject constructor(
     private val offlineDir: File
         get() = File(context.filesDir, "offline").also { it.mkdirs() }
 
-    fun downloadPlaylist(playlistId: Int, tracks: List<CatalogTrack>) {
+    fun downloadPlaylist(playlist: Playlist, tracks: List<CatalogTrack>) {
         scope.launch {
             _downloadProgress.update {
                 it.copy(
-                    playlistId = playlistId,
+                    playlistId = playlist.id,
                     totalTracks = tracks.size,
                     completedTracks = 0,
                     failedTracks = 0,
@@ -74,6 +84,16 @@ class OfflineDownloadManager @Inject constructor(
                     isActive = true,
                 )
             }
+            // The row is what marks the playlist downloaded — written up front
+            // so a partial download (storage cap, a failed track) still shows
+            // as downloaded and can be removed again from the tile.
+            offlinePlaylistDao.upsert(
+                OfflinePlaylist(
+                    playlistId = playlist.id,
+                    name = playlist.name,
+                    icon = playlist.icon,
+                )
+            )
             // Wi-Fi only unless the user opted into mobile data.
             if (!isOnWifi() && !preferences.downloadMobileData.first()) {
                 _downloadProgress.update {
@@ -96,14 +116,14 @@ class OfflineDownloadManager @Inject constructor(
                 // Stop before the next file would push the offline folder
                 // past the cap; the rest of the playlist stays undownloaded.
                 if (usedBytes >= capBytes) {
-                    markFailed(track, playlistId)
+                    markFailed(track, playlist.id)
                     _downloadProgress.update {
                         it.copy(failedTracks = it.failedTracks + 1, errorMessage = "Storage limit reached")
                     }
                     break
                 }
                 val written = try {
-                    downloadTrack(track, playlistId)
+                    downloadTrack(track, playlist.id)
                 } catch (e: Exception) {
                     null
                 }
@@ -111,7 +131,7 @@ class OfflineDownloadManager @Inject constructor(
                     usedBytes += written
                     _downloadProgress.update { it.copy(completedTracks = it.completedTracks + 1) }
                 } else {
-                    markFailed(track, playlistId)
+                    markFailed(track, playlist.id)
                     _downloadProgress.update { it.copy(failedTracks = it.failedTracks + 1) }
                 }
             }
@@ -126,6 +146,7 @@ class OfflineDownloadManager @Inject constructor(
                 filePath = "",
                 playlistId = playlistId,
                 status = "failed",
+                trackJson = json.encodeToString(track),
             )
         )
     }
@@ -175,6 +196,7 @@ class OfflineDownloadManager @Inject constructor(
                                 status = "downloading",
                                 progress = pct,
                                 totalBytes = totalBytes,
+                                trackJson = json.encodeToString(track),
                             )
                         )
                     }
@@ -196,6 +218,7 @@ class OfflineDownloadManager @Inject constructor(
                 status = "ready",
                 progress = 100,
                 totalBytes = totalBytes,
+                trackJson = json.encodeToString(track),
             )
         )
         return written
@@ -208,6 +231,7 @@ class OfflineDownloadManager @Inject constructor(
                 if (t.filePath.isNotBlank()) File(t.filePath).delete()
             }
             offlineTrackDao.deleteForPlaylist(playlistId)
+            offlinePlaylistDao.delete(playlistId)
         }
     }
 
@@ -228,5 +252,75 @@ class OfflineDownloadManager @Inject constructor(
         return if (track?.status == "ready" && track.filePath.isNotBlank() && File(track.filePath).exists()) {
             track.filePath
         } else null
+    }
+
+    /** Playlist ids with a download, for the tile's filled download button. */
+    fun observeDownloadedPlaylistIds(): Flow<Set<Int>> =
+        offlinePlaylistDao.observeIds().map { it.toSet() }
+
+    /**
+     * The downloaded playlists, for the playlist list while offline mode is
+     * on. A playlist whose every file has since vanished is left out — there
+     * is nothing in it to play.
+     */
+    suspend fun getDownloadedPlaylists(): List<Playlist> {
+        val readyByPlaylist = offlineTrackDao.getDownloadedTracks()
+            .filter { it.filePath.isNotBlank() && File(it.filePath).exists() }
+            .groupBy { it.playlistId }
+        return offlinePlaylistDao.getAll().mapNotNull { row ->
+            val count = readyByPlaylist[row.playlistId]?.size ?: 0
+            if (count == 0) null
+            else Playlist(
+                id = row.playlistId,
+                name = row.name,
+                icon = row.icon,
+                trackCount = count,
+            )
+        }
+    }
+
+    suspend fun getDownloadedPlaylist(playlistId: Int): Playlist? =
+        getDownloadedPlaylists().find { it.id == playlistId }
+
+    /**
+     * A downloaded playlist's tracks, ready to render and play offline: each
+     * carries its metadata from download time and its local file path.
+     */
+    suspend fun getDownloadedTracks(playlistId: Int): List<CatalogTrack> =
+        offlineTrackDao.getDownloadedTracksForPlaylist(playlistId)
+            .mapNotNull { it.toCatalogTrack(json) }
+            .sortedWith(
+                compareBy(
+                    { it.displayAlbum.lowercase() },
+                    { it.discNumber ?: 0 },
+                    { it.trackNumber ?: 0 },
+                    { it.displayTitle.lowercase() },
+                )
+            )
+}
+
+/**
+ * A downloaded row back into a playable track. The stored metadata carries
+ * everything the server would have said; a row from before metadata was
+ * stored falls back to a filename-only track rather than disappearing.
+ */
+private fun OfflineTrack.toCatalogTrack(json: Json): CatalogTrack? {
+    if (status != "ready" || filePath.isBlank() || !File(filePath).exists()) return null
+    val stored = trackJson?.let {
+        runCatching { json.decodeFromString<CatalogTrack>(it) }.getOrNull()
+    }
+    return if (stored != null) {
+        stored.copy(localFilePath = filePath)
+    } else {
+        CatalogTrack(
+            id = trackId,
+            path = filePath,
+            rootId = -1,
+            format = filePath.substringAfterLast('.', "mp3"),
+            mtimeSecs = downloadedAt / 1000,
+            hasCover = false,
+            playCount = 0,
+            localFilePath = filePath,
+        )
     }
 }

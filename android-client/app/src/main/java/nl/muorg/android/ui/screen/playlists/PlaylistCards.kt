@@ -137,6 +137,10 @@ internal fun PlaylistTile(
     onDelete: () -> Unit,
     /** The server's Favorites playlist: rename and delete are refused. */
     isFavorites: Boolean = false,
+    /** The playlist has a download: the button shows filled and offers removal. */
+    downloaded: Boolean = false,
+    /** Offline mode: pin, rename and delete are server operations, so they are hidden. */
+    showOnlineActions: Boolean = true,
 ) {
     Box(
         modifier = Modifier
@@ -169,7 +173,9 @@ internal fun PlaylistTile(
 
         // Discs across the top, as on the web: pin, rename, download, delete.
         // The server's Favorites playlist is managed by the server — renaming
-        // or deleting it is refused — so its tile offers neither.
+        // or deleting it is refused — so its tile offers neither. In offline
+        // mode the remaining three are server operations too, so only the
+        // download disc stays: filled, and offering removal when tapped.
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -177,10 +183,17 @@ internal fun PlaylistTile(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            FrostDisc("pin", if (pinned) "Unpin playlist" else "Pin playlist", onTogglePin, on = pinned)
-            if (!isFavorites) FrostDisc("edit", "Rename playlist", onEdit)
-            FrostDisc("download", "Download playlist", onDownload)
-            if (!isFavorites) FrostDisc("trash", "Delete playlist", onDelete)
+            if (showOnlineActions) {
+                FrostDisc("pin", if (pinned) "Unpin playlist" else "Pin playlist", onTogglePin, on = pinned)
+            }
+            if (showOnlineActions && !isFavorites) FrostDisc("edit", "Rename playlist", onEdit)
+            FrostDisc(
+                "download",
+                if (downloaded) "Remove downloaded songs" else "Download playlist",
+                onDownload,
+                on = downloaded,
+            )
+            if (showOnlineActions && !isFavorites) FrostDisc("trash", "Delete playlist", onDelete)
         }
 
         GlassSurface(
