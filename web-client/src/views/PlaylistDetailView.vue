@@ -71,6 +71,23 @@
             <MageIcon name="save-floppy" class="h-5 w-5" />
           </button>
 
+          <!-- Download every track for offline playback (Q11). Hidden for
+               ephemeral mixes, which are not server playlists. -->
+          <button
+            v-if="!isMix && tracks.length > 0"
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            :class="offlineDownloaded ? 'text-primary' : ''"
+            :aria-label="offlineDownloadLabel"
+            @click="offline.downloadPlaylist(playlistId)"
+          >
+            <MageIcon
+              :name="offlineDownloadIcon"
+              class="h-5 w-5"
+              :class="offlineDownloading ? 'animate-spin' : ''"
+            />
+          </button>
+
           <button
             type="button"
             class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
@@ -227,6 +244,7 @@ import { usePlaylistStore, rulesToSmartJson, parseSmartRules } from "../stores/p
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
+import { useOfflineStore } from "../stores/offline";
 import { findMix } from "@shared/composables/useMixes";
 import type { AlbumGridItem, AlbumViewStyle, CatalogTrack, Playlist, SmartRule } from "../types";
 
@@ -238,6 +256,7 @@ const playlistStore = usePlaylistStore();
 const player = usePlayerStore();
 const settings = useSettingsStore();
 const lib = useLibraryStore();
+const offline = useOfflineStore();
 
 const playlistId = computed(() => Number(props.id));
 
@@ -282,6 +301,20 @@ async function onSmartEdited(_name: string, _icon: string, rules: SmartRule[]): 
 
 const viewIcon = computed(
   () => ({ grid: "layout-grid", list: "arrowlist", tracks: "music" })[viewStyle.value],
+);
+
+// --- Offline download (Q11) ---
+const offlineDownloading = computed(() => offline.activePlaylistId === playlistId.value);
+const offlineDownloaded = computed(() => offline.isPlaylistDownloaded(playlistId.value));
+const offlineDownloadIcon = computed(() =>
+  offlineDownloading.value ? "refresh" : offlineDownloaded.value ? "check" : "download",
+);
+const offlineDownloadLabel = computed(() =>
+  offlineDownloading.value
+    ? "Downloading for offline use"
+    : offlineDownloaded.value
+      ? "Downloaded for offline use"
+      : "Download for offline use",
 );
 
 // --- View style ---

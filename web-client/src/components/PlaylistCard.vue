@@ -34,7 +34,9 @@
         </template>
       </div>
 
-      <!-- Actions: pin / edit / download / delete (download sits between edit and delete) -->
+      <!-- Actions: pin / edit / download / delete (download sits between edit and delete).
+           The server-owned Favorites playlist cannot be renamed or deleted (403),
+           so those two actions are hidden for it (Q21). -->
       <div class="absolute right-0 top-0 flex items-center gap-1 p-1.5" @click.stop>
         <button
           type="button"
@@ -46,6 +48,7 @@
           <MageIcon name="pin" class="h-4 w-4" />
         </button>
         <button
+          v-if="!isFavorites"
           type="button"
           class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
           aria-label="Edit playlist"
@@ -62,6 +65,7 @@
           <MageIcon name="download" class="h-4 w-4" />
         </button>
         <button
+          v-if="!isFavorites"
           type="button"
           class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
           aria-label="Delete playlist"
@@ -115,6 +119,9 @@ const emit = defineEmits<{ open: []; edit: []; delete: [] }>();
 
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
+
+/** The server-owned Favorites playlist: rename/delete are hidden (Q21). */
+const isFavorites = computed(() => playlistStore.isFavoritesPlaylist(props.playlist));
 
 const cardEl = ref<HTMLElement | null>(null);
 const orderedIds = ref<number[]>([]);

@@ -74,6 +74,9 @@
         <p class="text-center text-body-sm text-on-surface-variant/70">
           The server URL and API key are saved locally in your browser.
         </p>
+        <p class="text-center text-body-sm text-on-surface-variant/70">
+          Settings are kept per device and do not sync through the server.
+        </p>
       </div>
     </div>
   </div>

@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from "vue-router";
 import { isConnected } from "./api/client";
 import { navTransition, resolveNavTransition } from "./composables/useNavTransition";
 import { useLibraryStore } from "./stores/library";
+import { useOfflineStore } from "./stores/offline";
 import { usePlaylistStore } from "./stores/playlists";
 
 import ConnectView from "./views/ConnectView.vue";
@@ -26,7 +27,13 @@ import ReportDetailView from "./views/ReportDetailView.vue";
 export async function loadData(): Promise<void> {
   const lib = useLibraryStore();
   const playlistStore = usePlaylistStore();
+  const offline = useOfflineStore();
+  // Scan the offline cache first so the banner and cached playback resolve
+  // correctly even when the server is unreachable.
+  await offline.init();
   await Promise.all([lib.loadLibrary(), playlistStore.loadPlaylists()]);
+  // Top up the automatic recent-plays cache in the background (Q11).
+  void offline.refreshRecentCache();
 }
 
 /**

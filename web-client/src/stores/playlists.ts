@@ -12,7 +12,10 @@ import {
   createSmartPlaylist as apiCreateSmart,
   updateSmartPlaylistRules as apiUpdateSmartRules,
   getSmartTracks,
+  getPlaylistPins,
+  setPlaylistPins,
 } from "../api/playlists";
+import { showToast } from "../composables/useToast";
 import type { Playlist, SmartRule } from "../types";
 import { usePlayerStore } from "./player";
 
@@ -53,19 +56,6 @@ export function parseSmartRules(json: string | null): SmartRule[] {
   }
 }
 
-/** Client-side pin state (per device, survives reloads). Pins may move to the
- *  server later; for now order = the order in which playlists were pinned. */
-const PIN_KEY = "muorg:pinned-playlists";
-
-function loadPinnedIds(): number[] {
-  try {
-    const raw: unknown = JSON.parse(localStorage.getItem(PIN_KEY) ?? "[]");
-    return Array.isArray(raw) ? raw.filter((x): x is number => typeof x === "number") : [];
-  } catch {
-    return [];
-  }
-}
-
 export const usePlaylistStore = defineStore("playlists", () => {
   const playlists = ref<Playlist[]>([]);
   const loading = ref(false);
@@ -76,23 +66,29 @@ export const usePlaylistStore = defineStore("playlists", () => {
   /** Cache of ordered track-id arrays per playlist (used for cover collages). */
   const trackOrders = ref<Map<number, number[]>>(new Map());
 
-  /** Pinned playlist ids in pin order (earliest pin first). */
-  const pinnedIds = ref<number[]>(loadPinnedIds());
-
-  function persistPinned(): void {
-    localStorage.setItem(PIN_KEY, JSON.stringify(pinnedIds.value));
-  }
+  /** Pinned playlist ids in pin order (earliest pin first). The pin set lives
+   *  on the server (Q24) — the web client is always in server mode — so it is
+   *  fetched with the playlists and written back on every change. */
+  const pinnedIds = ref<number[]>([]);
 
   function isPinned(playlistId: number): boolean {
     return pinnedIds.value.includes(playlistId);
   }
 
-  /** Pin/unpin a playlist; pin order = order in which pins happened. */
-  function togglePin(playlistId: number): void {
-    pinnedIds.value = isPinned(playlistId)
-      ? pinnedIds.value.filter((id) => id !== playlistId)
-      : [...pinnedIds.value, playlistId];
-    persistPinned();
+  /** Pin/unpin a playlist; pin order = order in which pins happened. The
+   *  change is applied optimistically and reverted when the server rejects it. */
+  async function togglePin(playlistId: number): Promise<void> {
+    const previous = pinnedIds.value;
+    const next = isPinned(playlistId)
+      ? previous.filter((id) => id !== playlistId)
+      : [...previous, playlistId];
+    pinnedIds.value = next;
+    try {
+      await setPlaylistPins(next);
+    } catch (e) {
+      pinnedIds.value = previous;
+      showToast(`Failed to update pins: ${(e as Error).message}`);
+    }
   }
 
   /** Pinned playlists first (in pin order), then the rest in server order. */
@@ -113,6 +109,12 @@ export const usePlaylistStore = defineStore("playlists", () => {
     loading.value = true;
     try {
       playlists.value = await getPlaylists();
+      // Pins live on the server (Q24); a failed read must not break boot.
+      try {
+        pinnedIds.value = await getPlaylistPins();
+      } catch {
+        /* keep whatever pin state we already had */
+      }
     } finally {
       loading.value = false;
     }
@@ -168,8 +170,11 @@ export const usePlaylistStore = defineStore("playlists", () => {
     trackIdSets.value.delete(id);
     trackOrders.value.delete(id);
     if (isPinned(id)) {
-      pinnedIds.value = pinnedIds.value.filter((x) => x !== id);
-      persistPinned();
+      const next = pinnedIds.value.filter((x) => x !== id);
+      pinnedIds.value = next;
+      // The server drops the pin with the playlist; write the filtered set
+      // back in case it keeps stale ids around.
+      await setPlaylistPins(next).catch(() => undefined);
     }
   }
 
@@ -250,11 +255,18 @@ export const usePlaylistStore = defineStore("playlists", () => {
     return createPlaylist(FAVORITES_NAME, FAVORITES_ICON);
   }
 
+  /** The server-owned Favorites playlist, matched by exact name. The server
+   *  refuses to delete or rename it (403), so the UI hides those actions. */
+  function isFavoritesPlaylist(p: Playlist): boolean {
+    return p.name === FAVORITES_NAME;
+  }
+
   function reset(): void {
     playlists.value = [];
     loading.value = false;
     trackIdSets.value = new Map();
     trackOrders.value = new Map();
+    pinnedIds.value = [];
   }
 
   return {
@@ -279,6 +291,7 @@ export const usePlaylistStore = defineStore("playlists", () => {
     removeTracks,
     reorderTracks,
     ensureFavoritesPlaylist,
+    isFavoritesPlaylist,
     reset,
   };
 });

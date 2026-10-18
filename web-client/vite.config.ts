@@ -52,9 +52,40 @@ export default defineConfig({
         navigateFallback: "index.html",
         runtimeCaching: [
           {
-            // Never cache audio streams or API calls
-            urlPattern: /\/(stream|api)\//,
+            // API calls always go to the server — never cache them.
+            urlPattern: /\/api\//,
             handler: "NetworkOnly",
+          },
+          {
+            // Audio streams: a cached track (a whole file written by the
+            // offline store, src/stores/offline.ts) is served from Cache
+            // Storage; everything else goes to the network and is never
+            // cached. The Cache API cannot store partial (206) range
+            // responses, and caching every played track would grow without
+            // bound, so cacheWillUpdate only lets responses explicitly
+            // marked ?offline=1 through — and those are written by the
+            // offline store via cache.put, not by the SW.
+            urlPattern: /\/stream\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "muorg-offline-tracks",
+              matchOptions: { ignoreSearch: true },
+              plugins: [
+                {
+                  cacheWillUpdate: async ({
+                    request,
+                    response,
+                  }: {
+                    request: Request;
+                    response: Response;
+                  }): Promise<Response | null> =>
+                    new URL(request.url).searchParams.has("offline") &&
+                    response.status === 200
+                      ? response
+                      : null,
+                },
+              ],
+            },
           },
         ],
       },

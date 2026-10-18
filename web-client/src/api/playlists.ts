@@ -56,6 +56,17 @@ export function getPlaylistTracks(playlistId: number): Promise<number[]> {
   return api.getPlaylistTracks(playlistId);
 }
 
+/** Pinned playlist ids, in pin order. Pins live on the server (Q24). */
+export async function getPlaylistPins(): Promise<number[]> {
+  const res = await api.getPlaylistPins();
+  return res.ids;
+}
+
+/** Replace the whole pin set, in the order given. */
+export async function setPlaylistPins(ids: number[]): Promise<void> {
+  await api.setPlaylistPins(ids);
+}
+
 export async function addTracksToPlaylist(
   playlistId: number,
   trackIds: number[],

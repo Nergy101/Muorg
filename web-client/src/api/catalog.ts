@@ -61,8 +61,9 @@ export function getTrackLyrics(trackId: number): Promise<TrackLyrics | null> {
   return api.getLyrics(trackId);
 }
 
-export async function recordPlay(trackId: number): Promise<void> {
-  await api.recordPlay(trackId).catch(() => {
+/** Record a play, attributed to this device's name (Q19). */
+export async function recordPlay(trackId: number, deviceName?: string): Promise<void> {
+  await api.recordPlay(trackId, deviceName).catch(() => {
     /* fire-and-forget */
   });
 }

@@ -6,6 +6,38 @@ import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types"
 const MAX_SEARCH_HISTORY = 10;
 
 /**
+ * Best-effort "Browser on OS" label for the device-name default (Q19): the
+ * server attributes plays to a per-device name, and this is what a device
+ * calls itself until the user picks something else.
+ */
+function defaultDeviceName(): string {
+  const ua = navigator.userAgent;
+  const os = /Windows/.test(ua)
+    ? "Windows"
+    : /Android/.test(ua)
+      ? "Android"
+      : /iPhone|iPad|iPod/.test(ua)
+        ? "iOS"
+        : /Macintosh|Mac OS X/.test(ua)
+          ? "macOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "Unknown OS";
+  const browser = /Edg\//.test(ua)
+    ? "Edge"
+    : /OPR\//.test(ua)
+      ? "Opera"
+      : /Chrome\//.test(ua)
+        ? "Chrome"
+        : /Firefox\//.test(ua)
+          ? "Firefox"
+          : /Safari\//i.test(ua)
+            ? "Safari"
+            : "Browser";
+  return `${browser} on ${os}`;
+}
+
+/**
  * Drops keystroke-fragment artifacts recorded by an older build that added
  * every debounced fragment to history: any entry that is a proper prefix of a
  * longer entry (typing "metallica" used to record "m", "me", "met", …).
@@ -31,6 +63,9 @@ export const useSettingsStore = defineStore("settings", () => {
   const accent = ref<AccentColor>(loadPref("muorg-web-accent", "green"));
   const reduceMotion = ref(loadPref("muorg-web-reduce-motion", false));
   const openOnLastTab = ref(loadPref("muorg-web-open-last-tab", true));
+  /** Per-device name recorded with plays on the server (Q19). Required: an
+   *  emptied field falls back to the generated default. */
+  const deviceName = ref(loadPref("muorg-web-device-name", "") || defaultDeviceName());
   // Sanitize once and persist the cleaned list: an older build recorded every
   // debounced keystroke fragment, and without the write-back the junk would
   // linger in storage and re-filter on every load forever.
@@ -153,6 +188,11 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-open-last-tab", v);
   }
 
+  function setDeviceName(v: string): void {
+    deviceName.value = v.trim() || defaultDeviceName();
+    savePref("muorg-web-device-name", deviceName.value);
+  }
+
   function addSearch(q: string): void {
     const trimmed = q.trim();
     if (!trimmed) return;
@@ -182,6 +222,7 @@ export const useSettingsStore = defineStore("settings", () => {
     accent,
     reduceMotion,
     openOnLastTab,
+    deviceName,
     searchHistory,
     resolvedTheme,
     setTheme,
@@ -198,6 +239,7 @@ export const useSettingsStore = defineStore("settings", () => {
     setAccent,
     setReduceMotion,
     setOpenOnLastTab,
+    setDeviceName,
     addSearch,
     clearSearchHistory,
   };

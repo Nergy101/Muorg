@@ -255,6 +255,21 @@
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Device name</p>
+          <p class="text-body-sm text-on-surface-variant">Shown in play history on the server</p>
+        </div>
+        <input
+          type="text"
+          :value="settings.deviceName"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="Device name"
+          class="w-44 rounded-lg bg-surface px-3 py-1.5 text-right text-body-md text-on-surface outline-none focus:ring-2 focus:ring-primary"
+          @change="settings.setDeviceName(($event.target as HTMLInputElement).value)"
+        />
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Refresh library</p>
         </div>
         <button
@@ -319,7 +334,7 @@
     <ConfirmDialog
       :open="logoutOpen"
       title="Log out?"
-      message="This will clear your server URL and API key. You'll need to reconnect."
+      message="This will clear your server URL and API key. You'll need to reconnect. Your search history, sort order and theme stay on this device."
       confirm-label="Log out"
       danger
       @confirm="onLogout"
@@ -340,6 +355,7 @@ import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
+import { useOfflineStore } from "../stores/offline";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { reportCounts } from "@shared/reports";
@@ -387,6 +403,7 @@ const reportIssues = computed(() => {
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
+const offline = useOfflineStore();
 const { canInstall, isIos, install } = useInstallPrompt();
 
 const version = __APP_VERSION__;
@@ -500,6 +517,9 @@ async function onLogout(): Promise<void> {
   player.reset();
   lib.reset();
   playlistStore.reset();
+  // The offline cache is derived from this server's tracks — drop it so a
+  // different server does not inherit (or pay quota for) stale files.
+  await offline.clearAll();
   await router.replace({ name: "connect" });
 }
 </script>

@@ -17,6 +17,8 @@ const castSetVolume = vi.fn();
 const castDevices = vi.fn();
 const castStartDiscovery = vi.fn();
 const castStopDiscovery = vi.fn();
+const toastShow = vi.fn();
+const toastWarn = vi.fn();
 
 vi.mock("../api/client", () => ({
   api: {
@@ -31,6 +33,11 @@ vi.mock("../api/client", () => ({
     castStartDiscovery: () => castStartDiscovery(),
     castStopDiscovery: () => castStopDiscovery(),
   },
+}));
+
+vi.mock("../composables/useToast", () => ({
+  showToast: (...a: unknown[]) => toastShow(...a),
+  showWarning: (...a: unknown[]) => toastWarn(...a),
 }));
 
 const { useCastStore } = await import("./cast");
@@ -283,6 +290,69 @@ describe("transport", () => {
     await tick();
 
     expect(cast.positionSecs).toBeNull();
+    cast.dispose();
+  });
+});
+
+describe("session takeover (Q15)", () => {
+  it("clears local cast state and notifies when another device takes over", async () => {
+    castPlay.mockResolvedValue("session-ours");
+    const cast = useCastStore();
+    await cast.play(device, 42);
+    await tick();
+    expect(cast.isCasting).toBe(true);
+
+    // Another device started a cast: the server reports a different session id.
+    castStatus.mockResolvedValue({
+      session: { status: "playing", position_secs: 5 },
+      volume: 1,
+      session_id: "session-other",
+    });
+    await tick();
+
+    expect(cast.isCasting).toBe(false);
+    expect(cast.device).toBeNull();
+    expect(toastShow).toHaveBeenCalledWith("Another device took over the cast session");
+
+    // Polling stops after a takeover.
+    castStatus.mockClear();
+    await tick(5000);
+    expect(castStatus).not.toHaveBeenCalled();
+  });
+
+  it("keeps casting when the reported session id matches ours", async () => {
+    castPlay.mockResolvedValue("session-ours");
+    const cast = useCastStore();
+    await cast.play(device, 42);
+
+    castStatus.mockResolvedValue({
+      session: { status: "playing", position_secs: 5 },
+      volume: 1,
+      session_id: "session-ours",
+    });
+    await tick();
+
+    expect(cast.isCasting).toBe(true);
+    expect(cast.device).toEqual(device);
+    expect(toastShow).not.toHaveBeenCalled();
+    cast.dispose();
+  });
+
+  it("ignores a differing session id when no session id is known", async () => {
+    // castPlay resolves undefined (no session id) — an older server or a mock.
+    const cast = useCastStore();
+    await cast.play(device, 42);
+    await tick();
+
+    castStatus.mockResolvedValue({
+      session: { status: "playing", position_secs: 5 },
+      volume: 1,
+      session_id: "session-other",
+    });
+    await tick();
+
+    expect(cast.isCasting).toBe(true);
+    expect(toastShow).not.toHaveBeenCalled();
     cast.dispose();
   });
 });

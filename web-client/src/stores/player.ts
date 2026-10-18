@@ -3,10 +3,12 @@ import { computed, ref, watch, watchEffect } from "vue";
 import { issueStreamToken, recordPlay, patchMetadata } from "../api/catalog";
 import type { MetadataUpdate } from "../api/catalog";
 import { streamUrl } from "../api/client";
-import { showToast } from "../composables/useToast";
+import { showToast, showWarning } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
 import { useDominantColor } from "../composables/useDominantColor";
+import { useCastStore } from "./cast";
 import { useLibraryStore } from "./library";
+import { useOfflineStore, offlineStreamUrl } from "./offline";
 import { usePlaylistStore } from "./playlists";
 import { useSettingsStore } from "./settings";
 import type { CatalogTrack, RepeatMode } from "../types";
@@ -22,6 +24,14 @@ const PLAYER_STATE_KEY = "muorg-player-state";
 const SNAPSHOT_DEBOUNCE_MS = 500;
 /** While playing, the position is persisted at most this often. */
 const POSITION_SAVE_INTERVAL_MS = 5000;
+/** A play is counted after this many seconds of listening (Q20), matching the
+ *  desktop and Android apps — not at track start. */
+const PLAY_COUNT_THRESHOLD_SECS = 30;
+/** localStorage flag for the one-time "tags are written in place" warning (Q1). */
+const TAG_WRITE_WARNED_KEY = "muorg-tag-write-warned";
+/** Metadata saves debounce the full catalog reload by this long (Q26), so a
+ *  burst of edits triggers one reload instead of one per save. */
+const LIBRARY_RELOAD_DEBOUNCE_MS = 1500;
 
 interface PlayerStateSnapshot {
   v: 1;
@@ -177,6 +187,9 @@ export const usePlayerStore = defineStore("player", () => {
   // the seconds the server skipped so the wall-clock position stays right.
   let flacSeekOffset = 0;
   let _seekSeq = 0;
+  /** Track id whose play has already been counted this session (Q20): a play
+   *  counts once per track after 30 s, not on every start. */
+  let playCountedTrackId: number | null = null;
   let errorTimer: ReturnType<typeof setTimeout> | undefined;
   let sleepInterval: ReturnType<typeof setInterval> | undefined;
   /**
@@ -282,20 +295,41 @@ export const usePlayerStore = defineStore("player", () => {
     playOrderPos.value = 0;
   }
 
+  /** Resolves the <audio> src for a track. A cached track plays the complete
+   *  file from Cache Storage (via the service worker), so no ?start= transcode
+   *  is needed and the browser seeks natively; a fresh token keeps online
+   *  playback working when the SW is not controlling the page, and when the
+   *  server is unreachable the offline copy is used (Q11). */
+  async function resolveStreamSrc(track: CatalogTrack, startSecs: number): Promise<string> {
+    if (useOfflineStore().isCached(track.id)) {
+      try {
+        const token = await issueStreamToken(track.id);
+        return streamUrl(track.id, token);
+      } catch {
+        return offlineStreamUrl(track.id);
+      }
+    }
+    const token = await issueStreamToken(track.id);
+    return streamUrl(track.id, token, startSecs);
+  }
+
   async function playCurrent(startSecs = 0): Promise<void> {
     const track = currentTrack.value;
     if (!track) return;
     const seq = ++_seekSeq;
+    const cached = useOfflineStore().isCached(track.id);
     try {
-      const token = await issueStreamToken(track.id);
+      const src = await resolveStreamSrc(track, startSecs);
       if (seq !== _seekSeq) return;
       const el = initAudio();
-      flacSeekOffset = track.format === "flac" ? startSecs : 0;
-      el.src = streamUrl(track.id, token, startSecs);
+      // A cached file is complete, so even FLAC seeks natively — no transcode
+      // offset to track.
+      flacSeekOffset = !cached && track.format === "flac" ? startSecs : 0;
+      el.src = src;
       positionSecs.value = startSecs;
       durationSecs.value = track.duration_secs ?? 0;
       await el.play();
-      recordPlay(track.id);
+      if (cached && startSecs > 0) el.currentTime = startSecs;
       void preloadNext();
     } catch (e) {
       setError((e as Error).message);
@@ -345,7 +379,6 @@ export const usePlayerStore = defineStore("player", () => {
     positionSecs.value = 0;
     durationSecs.value = target.duration_secs ?? 0;
     buf.play().catch((e) => setError((e as Error).message));
-    recordPlay(target.id);
     void preloadNext();
     return true;
   }
@@ -378,10 +411,10 @@ export const usePlayerStore = defineStore("player", () => {
     if (preloadedTrack?.id === next.id && buf.src) return; // already buffering it
     const seq = ++preloadSeq;
     try {
-      const token = await issueStreamToken(next.id);
+      const src = await resolveStreamSrc(next, 0);
       if (seq !== preloadSeq || !preloadEl) return;
       preloadedTrack = next;
-      buf.src = streamUrl(next.id, token, 0);
+      buf.src = src;
       buf.load(); // preload=auto — the browser fills the buffer now
     } catch {
       preloadedTrack = null;
@@ -504,10 +537,12 @@ export const usePlayerStore = defineStore("player", () => {
 
     const seq = ++_seekSeq;
     const wasPlaying = !el.paused;
+    const cached = useOfflineStore().isCached(track.id);
 
-    if (track.format === "flac") {
-      // FLAC: the server transcodes from ?start=, so the stream must reload.
-      // Issue a fresh token — the original expires 60s after track start.
+    if (track.format === "flac" && !cached) {
+      // Streamed FLAC: the server transcodes from ?start=, so the stream must
+      // reload. Issue a fresh token — the original expires 60s after track
+      // start. A cached FLAC is a complete file and seeks natively below.
       el.pause();
       flacSeekOffset = secs;
       el.src = "";
@@ -532,7 +567,7 @@ export const usePlayerStore = defineStore("player", () => {
         // seek aborted or token fetch failed
       }
     } else {
-      // MP3: the server serves Range requests, so the browser seeks natively.
+      // MP3, or a cached track (complete file): the browser seeks natively.
       positionSecs.value = secs;
       el.currentTime = secs;
       if (wasPlaying) {
@@ -850,6 +885,32 @@ export const usePlayerStore = defineStore("player", () => {
     sleepTimerRemainingMs.value = 0;
   }
 
+  /** Q1: tags are written in place with no backup (the default stays off).
+   *  Warn once on the first write, and on every bulk edit. */
+  function warnTagWrite(bulk: boolean): void {
+    if (bulk) {
+      showWarning("Bulk edit: tags are written in place — no backup is made.");
+      return;
+    }
+    try {
+      if (localStorage.getItem(TAG_WRITE_WARNED_KEY)) return;
+      localStorage.setItem(TAG_WRITE_WARNED_KEY, "1");
+    } catch {
+      /* storage unavailable — still show the warning */
+    }
+    showWarning("Tags are written in place — no backup is made.");
+  }
+
+  /** Q26: several saves in a row debounce into one catalog reload. */
+  let libraryReloadTimer: ReturnType<typeof setTimeout> | undefined;
+  function scheduleLibraryReload(): void {
+    clearTimeout(libraryReloadTimer);
+    libraryReloadTimer = setTimeout(() => {
+      libraryReloadTimer = undefined;
+      void useLibraryStore().loadLibrary();
+    }, LIBRARY_RELOAD_DEBOUNCE_MS);
+  }
+
   async function saveMetadata(track: CatalogTrack, update: MetadataUpdate): Promise<void> {
     const current = track as unknown as Record<string, string | number | null>;
     const changed: Record<string, string | number | null> = {};
@@ -861,9 +922,15 @@ export const usePlayerStore = defineStore("player", () => {
       showToast("No changes to save");
       return;
     }
+    warnTagWrite(false);
     try {
+      // backupBeforeWrite stays off (Q1) — the warning above is the mitigation.
       await patchMetadata(track.id, changed as MetadataUpdate, false);
-      await useLibraryStore().loadLibrary();
+      // The save response is only {ok:true}, so apply the confirmed fields to
+      // the in-memory track immediately (Q26) and let a debounced reload
+      // reconcile the rest of the catalog shortly after.
+      useLibraryStore().applyTrackUpdate(track.id, changed);
+      scheduleLibraryReload();
     } catch (e) {
       showToast(`Failed to save: ${(e as Error).message}`);
     }
@@ -973,8 +1040,21 @@ export const usePlayerStore = defineStore("player", () => {
   });
 
   // Keep the cover warm so the OS notification has artwork.
-  watch(currentTrack, (t) => {
+  watch(currentTrack, (t, old) => {
+    // A new track gets a fresh play-count window (Q20).
+    if (t?.id !== old?.id) playCountedTrackId = null;
     if (t?.has_cover) useLibraryStore().requestCover(t.id);
+  });
+
+  // Q20: a play counts after 30 s of listening, not at track start — matching
+  // the desktop and Android apps. The flag makes it once per track per session.
+  watch([positionSecs, isPlaying], () => {
+    const t = currentTrack.value;
+    if (!t || !isPlaying.value) return;
+    if (playCountedTrackId === t.id) return;
+    if (positionSecs.value < PLAY_COUNT_THRESHOLD_SECS) return;
+    playCountedTrackId = t.id;
+    void recordPlay(t.id, settings.deviceName);
   });
 
   // --- Session persistence (queue, modes, position) across reloads ---
@@ -1049,6 +1129,10 @@ export const usePlayerStore = defineStore("player", () => {
     }
   }
 
+  // Q10: cast auto-advance must work from any screen, not just the Player
+  // view — the store owns the subscription so it survives view unmounts.
+  useCastStore().onTrackEnded(() => skipNext());
+
   /** Stops playback and drops all session state (logout). */
   function reset(): void {
     const el = audioEl.value;
@@ -1069,6 +1153,9 @@ export const usePlayerStore = defineStore("player", () => {
     errorTimer = undefined;
     clearTimeout(snapshotTimer);
     snapshotTimer = undefined;
+    clearTimeout(libraryReloadTimer);
+    libraryReloadTimer = undefined;
+    playCountedTrackId = null;
     try {
       localStorage.removeItem(PLAYER_STATE_KEY);
     } catch {

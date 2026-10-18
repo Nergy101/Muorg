@@ -1,6 +1,7 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { api } from "../api/client";
+import { showToast } from "../composables/useToast";
 import type { CastDevice, CastSessionStatus } from "@shared/api";
 
 /**
@@ -31,6 +32,10 @@ export const useCastStore = defineStore("cast", () => {
   const volume = ref(1);
   const error = ref<string | null>(null);
   const discovering = ref(false);
+  /** Id the server stamped on the cast session WE started (null when idle).
+   *  The server runs one global session: while polling, an active session
+   *  carrying a different id means another device took over (Q15). */
+  const sessionId = ref<string | null>(null);
 
   let statusTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryTimer: ReturnType<typeof setInterval> | null = null;
@@ -104,12 +109,13 @@ export const useCastStore = defineStore("cast", () => {
     device.value = target;
     status.value = { status: "connecting" };
     try {
-      await api.castPlay(target.address, target.port, trackId);
+      sessionId.value = await api.castPlay(target.address, target.port, trackId);
       startPolling();
     } catch (e) {
       error.value = (e as Error).message;
       status.value = { status: "idle" };
       device.value = null;
+      sessionId.value = null;
     }
   }
 
@@ -136,6 +142,7 @@ export const useCastStore = defineStore("cast", () => {
     stopPolling();
     status.value = { status: "idle" };
     device.value = null;
+    sessionId.value = null;
     await api.castStop().catch(() => undefined);
   }
 
@@ -163,10 +170,12 @@ export const useCastStore = defineStore("cast", () => {
 
   async function refreshStatus(): Promise<void> {
     let next: CastSessionStatus;
+    let reportedSessionId: string | undefined;
     try {
       const response = await api.castStatus();
       next = response.session;
       volume.value = response.volume;
+      reportedSessionId = response.session_id;
     } catch (e) {
       // A server that went away mid-session should not leave the UI stuck
       // showing "casting" forever.
@@ -174,6 +183,25 @@ export const useCastStore = defineStore("cast", () => {
       stopPolling();
       status.value = { status: "idle" };
       device.value = null;
+      sessionId.value = null;
+      return;
+    }
+
+    // The server runs one global session: starting a cast on another device
+    // replaces it. An active session carrying a different id than ours means
+    // we were taken over — notify and clear the local cast state (Q15).
+    if (
+      sessionId.value != null &&
+      reportedSessionId != null &&
+      reportedSessionId !== "" &&
+      reportedSessionId !== sessionId.value &&
+      (LIVE as readonly string[]).includes(next.status)
+    ) {
+      sessionId.value = null;
+      stopPolling();
+      status.value = { status: "idle" };
+      device.value = null;
+      showToast("Another device took over the cast session");
       return;
     }
 
@@ -208,6 +236,7 @@ export const useCastStore = defineStore("cast", () => {
   /** Clear timers — called when the app tears down. */
   function dispose(): void {
     stopPolling();
+    sessionId.value = null;
     if (discoveryTimer) {
       clearInterval(discoveryTimer);
       discoveryTimer = null;

@@ -352,6 +352,18 @@ export const useLibraryStore = defineStore("library", () => {
       .sort(compareTrackOrder);
   }
 
+  /** Applies a confirmed metadata save to the in-memory track in place (Q26),
+   *  so the UI reflects the edit without waiting for a full catalog reload.
+   *  The queue holds the same reactive track objects, so it updates too. */
+  function applyTrackUpdate(
+    trackId: number,
+    update: Record<string, string | number | null>,
+  ): void {
+    const t = tracks.value.find((x) => x.id === trackId);
+    if (!t) return;
+    Object.assign(t, update);
+  }
+
   /**
    * `/api/tracks` is paginated. The first page renders immediately and the
    * rest stream in behind it, so search and the album grid stay usable on a
@@ -478,6 +490,8 @@ export const useLibraryStore = defineStore("library", () => {
     albumByKey,
     keyForTrack,
     tracksForAlbum,
+    applyTrackUpdate,
+    trackById,
     loadLibrary,
     requestCover,
     reset,

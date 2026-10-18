@@ -316,7 +316,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
@@ -369,11 +369,6 @@ function togglePlay(): void {
 const displayPositionSecs = computed(() =>
   cast.isCasting ? (cast.positionSecs ?? player.positionSecs) : player.positionSecs,
 );
-
-// A track played to the end on the device should advance the queue the same
-// way a local `ended` event does.
-const stopListeningForTrackEnd = cast.onTrackEnded(() => player.skipNext());
-onUnmounted(stopListeningForTrackEnd);
 
 // --- Lyrics ---------------------------------------------------------------
 // Embedded lyrics are fetched from the server per track; when the track has
