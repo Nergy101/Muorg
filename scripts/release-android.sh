@@ -18,7 +18,16 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if ! git -C "$REPO_ROOT" diff --quiet || ! git -C "$REPO_ROOT" diff --cached --quiet; then
+# gradlew.bat is a Windows script whose line endings git keeps wanting to
+# renormalise; tolerate an EOL-only diff there (same as release.sh) but still
+# reject real content changes.
+if ! git -C "$REPO_ROOT" diff --quiet --ignore-space-at-eol -- android-client/gradlew.bat; then
+  echo "Error: android-client/gradlew.bat has content changes. Commit or stash changes first." >&2
+  exit 1
+fi
+
+if ! git -C "$REPO_ROOT" diff --quiet -- . ':(exclude)android-client/gradlew.bat' \
+  || ! git -C "$REPO_ROOT" diff --cached --quiet; then
   echo "Error: working tree is not clean. Commit or stash changes first." >&2
   exit 1
 fi
