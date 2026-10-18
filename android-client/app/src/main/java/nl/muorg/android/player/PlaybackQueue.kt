@@ -63,11 +63,10 @@ data class PlaybackQueue(
     /**
      * The user queue's remainder — "Your queue" on the queue screen.
      *
-     * The leading run rather than every user entry, because this list is a
-     * *slice of the play order*, not a filter over it: these are the tracks
-     * that play before the context resumes. Every operation here keeps queued
-     * tracks in one run right after the current track; only a manual drag can
-     * push one past the context, and then it genuinely does play later.
+     * The leading run of user entries. Every operation keeps queued tracks in
+     * one run right after the current track: a drag across the boundary
+     * transfers the track to the other section (see [move]), so the two halves
+     * never interleave.
      */
     val userUpNext: List<QueueEntry> get() = upNext.takeWhile { it.origin == QueueOrigin.USER }
 
@@ -141,17 +140,25 @@ data class PlaybackQueue(
      * of the context.
      *
      * Tracks already queued by the user are left where they are rather than
-     * duplicated.
+     * duplicated. Tracks still sitting in the context are pulled out first, so
+     * adding a track moves it to the queue instead of cloning it — which is
+     * also what re-queueing a track that was dragged down into the context does.
      */
     fun addToUserQueue(toAdd: List<CatalogTrack>): PlaybackQueue {
+        if (toAdd.isEmpty()) return this
         // Deduped against everything still queued by hand, not just the run
-        // above, so a track dragged down the list is not silently re-added.
-        val queuedByHand = upNext.filter { it.origin == QueueOrigin.USER }
-        val fresh = toAdd.filterNot { t -> queuedByHand.any { it.track.id == t.id } }
+        // above, so a track already in the user queue is not silently re-added.
+        val queuedByHand = upNext.filter { it.origin == QueueOrigin.USER }.map { it.track.id }.toSet()
+        val fresh = toAdd.filterNot { it.id in queuedByHand }
         if (fresh.isEmpty()) return this
+        // Drop upcoming context copies of the tracks being added. Only system
+        // entries sit past the user run, so the run itself — and the insertion
+        // point — are untouched.
+        val freshIds = fresh.map { it.id }.toSet()
+        val kept = entries.filterIndexed { i, e -> i <= position || e.track.id !in freshIds }
         val at = userQueueEnd()
         val added = fresh.map { QueueEntry(it, QueueOrigin.USER) }
-        val next = entries.subList(0, at) + added + entries.subList(at, entries.size)
+        val next = kept.subList(0, at) + added + kept.subList(at, kept.size)
         // Nothing playing: the first added track starts.
         return copy(entries = next, position = if (position < 0) 0 else position)
     }
@@ -203,11 +210,31 @@ data class PlaybackQueue(
         )
     }
 
-    /** Move a queued track, by index into [entries]. */
+    /**
+     * Move a queued track, by index into [entries].
+     *
+     * A drag across the your-queue / up-next boundary transfers the track to
+     * the other section — its origin flips — so the two sections never
+     * interleave. The destination section is read off the neighbours in the
+     * list without the moved track: dropping between two tracks of one
+     * section joins it, dropping exactly on the boundary keeps the track's
+     * own origin (reordering within a section never ejects it), and dropping
+     * at the very top takes the section of the track below.
+     */
     fun move(from: Int, to: Int): PlaybackQueue {
         if (from !in entries.indices || to !in entries.indices || from == to) return this
-        val next = entries.toMutableList()
-        next.add(to, next.removeAt(from))
+        val moved = entries[from]
+        val rest = entries.toMutableList().apply { removeAt(from) }
+        val before = rest.getOrNull(to - 1)?.takeIf { to - 1 > position }
+        val after = rest.getOrNull(to)
+        val origin = when {
+            before != null && after != null && before.origin == after.origin -> before.origin
+            before != null && after != null -> moved.origin
+            before != null -> before.origin
+            after != null -> after.origin
+            else -> moved.origin
+        }
+        val next = rest.toMutableList().apply { add(to, moved.copy(origin = origin)) }
         val newPosition = when {
             position == from -> to
             from < position && to >= position -> position - 1

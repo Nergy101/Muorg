@@ -111,14 +111,15 @@ fun QueueScreen(
         (draggedFromIndex + rowsMoved).coerceIn(0, (upNextEntries.size - 1).coerceAtLeast(0))
     } else -1
 
-    val displayList = remember(upNextEntries, draggedFromIndex, dropTargetIndex) {
+    // The preview runs the same move the drop will commit, so a track dragged
+    // across the your-queue / up-next boundary is shown in its destination
+    // section while it is still being dragged — the headers stay truthful.
+    val displayList = remember(playbackQueue, draggedFromIndex, dropTargetIndex) {
         if (draggedFromIndex < 0 || dropTargetIndex < 0 || draggedFromIndex == dropTargetIndex) {
             upNextEntries
         } else {
-            upNextEntries.toMutableList().apply {
-                val item = removeAt(draggedFromIndex)
-                add(dropTargetIndex.coerceIn(0, size), item)
-            }
+            val offset = playbackQueue.position + 1
+            playbackQueue.move(offset + draggedFromIndex, offset + dropTargetIndex).upNext
         }
     }
 

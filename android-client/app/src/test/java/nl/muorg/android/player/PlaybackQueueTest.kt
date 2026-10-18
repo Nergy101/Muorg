@@ -270,18 +270,73 @@ class PlaybackQueueTest {
 
     @Test
     fun `a queued track dragged past the album is shown where it will play`() {
-        // The sections are slices of the play order, not a filter over it. A
-        // track dragged below the album really does play after it, and saying
-        // otherwise would put the screen back to disagreeing with playback.
+        // Dragging a queued track past the album transfers it to up next: it
+        // really does play after the album, and it is shown there — the two
+        // sections never interleave.
         val q = album().addToUserQueue(tracks(9)).move(1, 4)
         assertTrue(q.userUpNext.isEmpty())
         assertEquals(listOf(2, 3, 4, 9, 5), q.systemUpNext.map { it.track.id })
     }
 
     @Test
-    fun `re-queueing a track dragged down the list does not duplicate it`() {
+    fun `re-queueing a track dragged down the list moves it back, not clones it`() {
         val q = album().addToUserQueue(tracks(9)).move(1, 4).addToUserQueue(tracks(9))
         assertEquals(1, q.ids.count { it == 9 })
+        assertEquals(listOf(9), q.userUpNext.map { it.track.id })
+    }
+
+    // ── Dragging across the your-queue / up-next boundary ──────────────────
+
+    @Test
+    fun `dragging an up-next track into the user queue moves it there`() {
+        // Your queue: 9, 8. Up next: 2, 3, 4, 5. Drag 3 up between 9 and 8.
+        val q = album().addToUserQueue(tracks(9, 8)).move(4, 2)
+        assertEquals(listOf(9, 3, 8), q.userUpNext.map { it.track.id })
+        assertEquals(listOf(2, 4, 5), q.systemUpNext.map { it.track.id })
+        assertTrue(q.userUpNext.all { it.origin == QueueOrigin.USER })
+        assertTrue(q.systemUpNext.all { it.origin == QueueOrigin.SYSTEM })
+    }
+
+    @Test
+    fun `dragging a queued track into up next moves it there`() {
+        // Your queue: 9. Up next: 2, 3, 4, 5. Drag 9 down between 3 and 4.
+        val q = album().addToUserQueue(tracks(9)).move(1, 4)
+        assertTrue(q.userUpNext.isEmpty())
+        assertEquals(listOf(2, 3, 4, 9, 5), q.systemUpNext.map { it.track.id })
+        assertTrue(q.systemUpNext.all { it.origin == QueueOrigin.SYSTEM })
+    }
+
+    @Test
+    fun `dragging within the user queue keeps the track in it`() {
+        // Reordering your own queue never ejects a track into up next.
+        val q = album().addToUserQueue(tracks(9, 8)).move(1, 2)
+        assertEquals(listOf(8, 9), q.userUpNext.map { it.track.id })
+        assertEquals(listOf(2, 3, 4, 5), q.systemUpNext.map { it.track.id })
+    }
+
+    @Test
+    fun `dragging within up next keeps the track in it`() {
+        // Reordering the context never pulls a track into the user queue.
+        val q = album().addToUserQueue(tracks(9)).move(5, 2)
+        assertEquals(listOf(9), q.userUpNext.map { it.track.id })
+        assertEquals(listOf(5, 2, 3, 4), q.systemUpNext.map { it.track.id })
+    }
+
+    @Test
+    fun `dropping exactly on the boundary keeps the track's own section`() {
+        // Right after the last queued track is the boundary; a track dropped
+        // there has not crossed into the other section.
+        val q = album().addToUserQueue(tracks(9)).move(3, 2)
+        assertEquals(listOf(9), q.userUpNext.map { it.track.id })
+        assertEquals(listOf(3, 2, 4, 5), q.systemUpNext.map { it.track.id })
+    }
+
+    @Test
+    fun `the two sections never interleave after a cross-boundary drag`() {
+        val q = album().addToUserQueue(tracks(9, 8)).move(4, 2)
+        val origins = q.upNext.map { it.origin }
+        val firstSystem = origins.indexOf(QueueOrigin.SYSTEM)
+        assertTrue(origins.drop(firstSystem).all { it == QueueOrigin.SYSTEM })
     }
 
     // ── Topping up a context ──────────────────────────────────────────────
