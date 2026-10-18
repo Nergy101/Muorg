@@ -14,6 +14,7 @@ import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.ui.screen.playlist.AddConflictState
 import javax.inject.Inject
@@ -39,6 +40,7 @@ class AlbumDetailViewModel @Inject constructor(
     private val repository: LibraryRepository,
     private val localRepository: LocalLibraryRepository,
     private val playlistRepository: PlaylistRepository,
+    private val offlineDownloadManager: OfflineDownloadManager,
     private val preferences: AppPreferences,
 ) : ViewModel() {
 
@@ -81,6 +83,31 @@ class AlbumDetailViewModel @Inject constructor(
                     },
                     onFailure = { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
                 )
+            } else if (preferences.offlineMode.first()) {
+                // Offline mode: the catalog is unreachable, so the album's
+                // songs come from the download store — only what is actually
+                // downloaded shows.
+                var albumTracks = offlineDownloadManager.getAllDownloadedTracks()
+                    .filter { it.displayAlbum == albumName }
+                    .sortedWith(compareBy({ it.discNumber ?: 0 }, { it.trackNumber ?: 0 }))
+                if (filterPlaylistId != null) {
+                    val playlistTrackIds = offlineDownloadManager
+                        .getDownloadedTracks(filterPlaylistId)
+                        .map { it.id }
+                        .toSet()
+                    albumTracks = albumTracks.filter { it.id in playlistTrackIds }
+                }
+                val rep = albumTracks.firstOrNull()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        tracks = albumTracks,
+                        artist = rep?.albumArtist ?: rep?.displayArtist ?: "",
+                        year = rep?.year,
+                        coverTrackId = null,
+                        coverArtUri = null,
+                    )
+                }
             } else {
                 repository.getAllTracks().fold(
                     onSuccess = { allTracks ->
@@ -120,6 +147,8 @@ class AlbumDetailViewModel @Inject constructor(
                 runCatching { localRepository.getPlaylists() }.onSuccess { playlists ->
                     _uiState.update { it.copy(playlists = playlists) }
                 }
+            } else if (preferences.offlineMode.first()) {
+                _uiState.update { it.copy(playlists = offlineDownloadManager.getDownloadedPlaylists()) }
             } else {
                 playlistRepository.getPlaylists().onSuccess { playlists ->
                     _uiState.update { it.copy(playlists = playlists) }

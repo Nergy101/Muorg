@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -19,6 +20,7 @@ import nl.muorg.android.data.preferences.SearchHistoryEntry
 import nl.muorg.android.data.preferences.SearchHistoryManager
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.ui.screen.playlist.AddConflictState
 import javax.inject.Inject
@@ -62,6 +64,7 @@ class LibraryViewModel @Inject constructor(
     private val repository: LibraryRepository,
     private val localRepository: LocalLibraryRepository,
     private val playlistRepository: PlaylistRepository,
+    private val offlineDownloadManager: OfflineDownloadManager,
     private val preferences: AppPreferences,
     private val searchHistoryManager: SearchHistoryManager,
 ) : ViewModel() {
@@ -102,6 +105,15 @@ class LibraryViewModel @Inject constructor(
                 loadTracks()
             }
         }
+        // Toggling offline mode while this screen is open re-reads from
+        // whichever side of the divide is now in force. The first emission is
+        // the current value, which the initial load already covers.
+        viewModelScope.launch {
+            preferences.offlineMode.drop(1).collect {
+                loadTracks()
+                loadPlaylists()
+            }
+        }
         loadPlaylists()
         observeSearch()
     }
@@ -139,6 +151,8 @@ class LibraryViewModel @Inject constructor(
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
                     }
                 )
+            } else if (preferences.offlineMode.first()) {
+                loadOfflineTracks()
             } else {
                 repository.getAllTracks(onPage = { partial -> publishTracks(partial, false) }).fold(
                     onSuccess = { tracks -> publishTracks(tracks, true) },
@@ -147,6 +161,27 @@ class LibraryViewModel @Inject constructor(
                     }
                 )
             }
+        }
+    }
+
+    /**
+     * Offline mode: the catalog is unreachable, so the library is the
+     * download store — every downloaded track, grouped into its albums.
+     * Albums with nothing downloaded drop out, and so does every track that
+     * is not on the device; the track view and the album detail screen read
+     * from the same filtered list.
+     */
+    private suspend fun loadOfflineTracks() {
+        val tracks = offlineDownloadManager.getAllDownloadedTracks()
+        val albums = repository.buildAlbumGroups(tracks)
+        _uiState.update { state ->
+            state.copy(
+                isLoading = false,
+                allTracks = tracks,
+                filteredTracks = applyFilters(tracks, state),
+                albums = albums,
+                filteredAlbums = applyAlbumFilters(albums, state),
+            )
         }
     }
 
@@ -186,6 +221,10 @@ class LibraryViewModel @Inject constructor(
             if (currentMode == "local") {
                 val playlists = localRepository.getPlaylists()
                 _uiState.update { it.copy(playlists = playlists) }
+            } else if (preferences.offlineMode.first()) {
+                // The server's playlist list is unreachable; the downloaded
+                // ones are what the filter row can offer.
+                _uiState.update { it.copy(playlists = offlineDownloadManager.getDownloadedPlaylists()) }
             } else {
                 playlistRepository.getPlaylists().onSuccess { playlists ->
                     _uiState.update { it.copy(playlists = playlists) }

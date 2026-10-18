@@ -283,6 +283,18 @@ class OfflineDownloadManager @Inject constructor(
         getDownloadedPlaylists().find { it.id == playlistId }
 
     /**
+     * Every downloaded track across all playlists, for the library and album
+     * screens while offline mode is on: the catalog is unreachable, so the
+     * download store is the library. A track downloaded through several
+     * playlists appears once.
+     */
+    suspend fun getAllDownloadedTracks(): List<CatalogTrack> =
+        offlineTrackDao.getDownloadedTracks()
+            .filter { it.filePath.isNotBlank() && File(it.filePath).exists() }
+            .mapNotNull { it.toCatalogTrack(json) }
+            .distinctBy { it.id }
+
+    /**
      * A downloaded playlist's tracks, ready to render and play offline: each
      * carries its metadata from download time and its local file path.
      */
