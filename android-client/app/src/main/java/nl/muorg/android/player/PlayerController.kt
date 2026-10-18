@@ -294,12 +294,18 @@ class PlayerController @Inject constructor(
                 effectiveTrack = track
                 effectiveQueue = queue
             }
-            this@PlayerController.queue = this@PlayerController.queue.playContext(effectiveQueue, effectiveTrack)
-            val items = buildItems(this@PlayerController.queue.tracks) ?: return@launch
+            // The new queue is swapped in only once its media items exist.
+            // Until setMediaItems lands, the player is still walking the old
+            // timeline, and the progress poll would read that stale index back
+            // over the new position — which is how tapping a second song
+            // restarted the one that was already playing.
+            val newQueue = this@PlayerController.queue.playContext(effectiveQueue, effectiveTrack)
+            val items = buildItems(newQueue.tracks) ?: return@launch
+            this@PlayerController.queue = newQueue
             // Media3's own shuffle reorders a timeline the queue screen never
             // reads, so the list and the playback disagreed. Order is ours now.
             ctrl.shuffleModeEnabled = false
-            ctrl.setMediaItems(items, this@PlayerController.queue.position.coerceAtLeast(0), 0L)
+            ctrl.setMediaItems(items, newQueue.position.coerceAtLeast(0), 0L)
             ctrl.prepare()
             ctrl.play()
             syncState()
