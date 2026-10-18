@@ -1,7 +1,9 @@
 package nl.muorg.android.ui.screen.mix
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,8 +27,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,10 +43,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
+import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
@@ -52,6 +59,7 @@ import nl.muorg.android.ui.theme.MuorgShapes
  * anatomy as album detail — compact header, filled primary play, track rows —
  * over a mix that only exists for the session.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MixDetailScreen(
     mixId: Int,
@@ -59,12 +67,21 @@ fun MixDetailScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onBack: () -> Unit,
+    onViewArtist: (String) -> Unit = {},
+    onViewAlbum: (String) -> Unit = {},
     viewModel: MixDetailViewModel = hiltViewModel(),
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
+    val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
+    val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
     val mix = remember(mixId) { viewModel.mix(mixId) }
     val tracks = remember(mixId) { viewModel.tracks(mixId) }
     val currentId = playerState.currentTrack?.id
+
+    var sheetTrack by remember { mutableStateOf<CatalogTrack?>(null) }
+    LaunchedEffect(sheetTrack) {
+        if (sheetTrack != null) playerViewModel.loadCurrentTrackMembership(sheetTrack!!)
+    }
 
     if (mix == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -165,7 +182,10 @@ fun MixDetailScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { playerViewModel.playTrack(track, tracks) }
+                    .combinedClickable(
+                        onClick = { playerViewModel.playTrack(track, tracks) },
+                        onLongClick = { sheetTrack = track },
+                    )
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -214,8 +234,42 @@ fun MixDetailScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // The same action sheet long-press opens, reachable without the
+                // gesture.
+                IconButton(
+                    onClick = { sheetTrack = track },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(mageIconRes("dots")),
+                        contentDescription = "Track actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
+    }
+
+    sheetTrack?.let { track ->
+        TrackActionsSheet(
+            track = track,
+            playerViewModel = playerViewModel,
+            playlists = playlists,
+            isFavorite = track.id.toString() in playerState.favorites,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            onDismiss = { sheetTrack = null },
+            onAddToPlaylist = { playlistId -> playerViewModel.addTrackToPlaylist(track, playlistId); sheetTrack = null },
+            onRemoveFromPlaylist = { playlistId -> playerViewModel.removeTrackFromPlaylist(track, playlistId); sheetTrack = null },
+            trackInPlaylistIds = currentTrackMembership,
+            onViewArtist = { sheetTrack = null; onViewArtist(track.displayArtist) },
+            onViewAlbum = { sheetTrack = null; onViewAlbum(track.displayAlbum) },
+            onSaveMetadata = { title, artist, album, albumArtist, genre, year ->
+                sheetTrack = null
+                playerViewModel.saveMetadata(track, title, artist, album, albumArtist, genre, year)
+            },
+        )
     }
 }
 

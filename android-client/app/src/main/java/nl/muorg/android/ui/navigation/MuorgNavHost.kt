@@ -84,6 +84,12 @@ fun MuorgNavHost(
                 imageLoader = imageLoader,
                 baseUrl = baseUrl,
                 onBack = { navController.popBackStack() },
+                onViewArtist = { artistName ->
+                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                },
+                onViewAlbum = { albumName ->
+                    navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                },
             )
         }
 
