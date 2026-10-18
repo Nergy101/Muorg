@@ -184,9 +184,11 @@ fun BottomIsland(
 }
 
 /**
- * The web's mini player: artwork flush into the island's left edge at full row
- * height, then title over artist, then the action cluster — and a hairline
- * progress line riding the bottom edge of the row, running under the artwork.
+ * The mini player row: the song's 3-dots menu sits in the island's
+ * corner-radius area, so the artwork starts past the rounded corner at full
+ * row height instead of being clipped by it — then title over artist, then
+ * the action cluster, and a hairline progress line riding the bottom edge of
+ * the row, running under the artwork.
  */
 @Composable
 private fun MiniPlayerRow(
@@ -218,6 +220,17 @@ private fun MiniPlayerRow(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // The song's 3-dots menu lives in the island's corner-radius area,
+            // so the artwork starts where the radius ends instead of being
+            // clipped by the rounded corner — the queue icon and the text
+            // shift over with the artwork.
+            IconButton(
+                onClick = onMenu,
+                modifier = Modifier.size(width = 24.dp, height = 56.dp),
+            ) {
+                MageIcon("dots", tint = onSurface, contentDescription = "Track actions", modifier = Modifier.size(20.dp))
+            }
+
             val coverModel: Any? = when {
                 track.localCoverPath != null -> java.io.File(track.localCoverPath)
                 track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover"
@@ -267,9 +280,6 @@ private fun MiniPlayerRow(
                     contentDescription = if (queueActive) "Close queue" else "Queue",
                     modifier = Modifier.size(20.dp),
                 )
-            }
-            IconButton(onClick = onMenu, modifier = Modifier.size(32.dp)) {
-                MageIcon("dots", tint = onSurface, contentDescription = "Track actions", modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onPlayPause, modifier = Modifier.size(44.dp)) {
                 MageIcon(
