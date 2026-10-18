@@ -9,8 +9,11 @@ import android.view.ContextThemeWrapper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,14 +48,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -64,6 +71,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import kotlinx.coroutines.launch
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.rememberDominantColor
@@ -163,6 +171,14 @@ fun PlayerScreen(
     val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
     val favorites = playerState.favorites
 
+    // Swipe down anywhere on the player to dismiss it, alongside the chevron
+    // and the back gesture: the screen follows the finger and springs back, or
+    // leaves once dragged past the threshold.
+    val density = LocalDensity.current
+    val swipeScope = rememberCoroutineScope()
+    val swipeOffset = remember { Animatable(0f) }
+    val swipeDismissThresholdPx = remember(density) { with(density) { 120.dp.toPx() } }
+
     LaunchedEffect(sheetOpen, currentTrack) {
         if (sheetOpen && currentTrack != null) {
             playerViewModel.loadCurrentTrackMembership(currentTrack)
@@ -187,7 +203,28 @@ fun PlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Color.Black)
+            .graphicsLayer { translationY = swipeOffset.value }
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        swipeScope.launch {
+                            swipeOffset.snapTo((swipeOffset.value + dragAmount).coerceAtLeast(0f))
+                        }
+                    },
+                    onDragEnd = {
+                        if (swipeOffset.value >= swipeDismissThresholdPx) {
+                            onBack()
+                        } else {
+                            swipeScope.launch { swipeOffset.animateTo(0f, spring()) }
+                        }
+                    },
+                    onDragCancel = {
+                        swipeScope.launch { swipeOffset.animateTo(0f, spring()) }
+                    },
+                )
+            },
     ) {
         PlayerBackdrop(
             displayedCoverUrl = displayedCoverUrl,
