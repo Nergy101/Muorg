@@ -104,3 +104,14 @@ export function getSmartPlaylistTrackIds(playlistId: number): Promise<number[]> 
 export async function reorderPlaylists(ids: number[]): Promise<void> {
   await api.reorderPlaylists(ids);
 }
+
+/** Q24: pinned playlist ids, in pin order (server-side pin set). */
+export async function getPlaylistPins(): Promise<number[]> {
+  const res = await api.getPlaylistPins();
+  return res.ids;
+}
+
+/** Q24: replace the whole server-side pin set, in the order given. */
+export async function setPlaylistPins(ids: number[]): Promise<void> {
+  await api.setPlaylistPins(ids);
+}

@@ -2,7 +2,7 @@
 import { computed, nextTick, onUnmounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
-import { usePlaylistStore } from "../../stores/playlists";
+import { FAVORITES_PLAYLIST_NAME, usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import { getServerUrl } from "../../api/client";
@@ -27,7 +27,7 @@ const availableGenres = computed(() => {
   }
   return [...set].sort((a, b) => a.localeCompare(b));
 });
-const { playlists, loading: playlistsLoading, error: playlistsError } = storeToRefs(playlistStore);
+const { playlists, sortedPlaylists, loading: playlistsLoading, error: playlistsError } = storeToRefs(playlistStore);
 const { pendingAdd, tryAddToPlaylist, confirmAddAll, confirmAddDeduped, cancelPendingAdd } = usePlaylistAdd();
 
 // ── Create playlist ────────────────────────────────────────────────────────
@@ -166,8 +166,15 @@ async function confirmSmartPlaylist(name: string, icon: string, rules: SmartRule
 
 // ── Delete / click ─────────────────────────────────────────────────────────
 
+function handleTogglePin(id: number) {
+  void playlistStore.togglePin(id);
+  closePlaylistContextMenu();
+}
+
 async function handleDeletePlaylist(id: number, name: string) {
   closePlaylistContextMenu();
+  // Q21: the Favorites playlist cannot be deleted (the server refuses with 403).
+  if (name === FAVORITES_PLAYLIST_NAME) return;
   if (!confirm(`Delete playlist "${name}"?`)) return;
   if (store.activePlaylistId === id) store.clearActivePlaylist();
   await playlistStore.deletePlaylist(id);
@@ -254,6 +261,14 @@ function openPlaylistContextMenu(e: MouseEvent, id: number, name: string) {
 function closePlaylistContextMenu() {
   playlistContextMenu.value = null;
 }
+
+/** Q21: the Favorites playlist is owned by the server, which refuses to rename or delete it (403). */
+const contextMenuIsFavorites = computed(() => {
+  const menu = playlistContextMenu.value;
+  if (!menu) return false;
+  const playlist = playlists.value.find((p) => p.id === menu.id);
+  return playlist ? playlistStore.isFavoritesPlaylist(playlist) : menu.name === FAVORITES_PLAYLIST_NAME;
+});
 
 // ── Track drag-and-drop (dropping tracks onto a playlist) ──────────────────
 
@@ -355,7 +370,8 @@ function onReorderPointerUp() {
   if (hasDragCrossedThreshold && draggedPlaylistId.value !== null) {
     const srcId = draggedPlaylistId.value;
     const slotIdx = dropSlotIndex.value ?? 0;
-    const list = [...playlists.value];
+    // Reorder the rendered (pin-sorted) list; the server order follows it.
+    const list = [...sortedPlaylists.value];
     const srcIdx = list.findIndex((p) => p.id === srcId);
     if (srcIdx !== -1) {
       const [moved] = list.splice(srcIdx, 1);
@@ -469,9 +485,9 @@ const exportingPlaylist = ref<Playlist | null>(null);
       </button>
     </div>
 
-    <!-- Playlist list -->
-    <div v-else-if="playlists.length" ref="listRef" class="flex flex-col">
-      <template v-for="(playlist, idx) in playlists" :key="playlist.id">
+    <!-- Playlist list (pinned first, in pin order) -->
+    <div v-else-if="sortedPlaylists.length" ref="listRef" class="flex flex-col">
+      <template v-for="(playlist, idx) in sortedPlaylists" :key="playlist.id">
         <!-- Drop slot before this item -->
         <div :style="slotStyle(idx)" />
 
@@ -575,6 +591,17 @@ const exportingPlaylist = ref<Playlist | null>(null);
             </button>
             <button
               type="button"
+              class="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-stone-600"
+              :class="playlistStore.isPinned(playlist.id) ? 'text-[#8ab55a] opacity-100' : 'text-stone-500 opacity-0 hover:text-stone-200 group-hover/pl:opacity-100'"
+              :aria-label="playlistStore.isPinned(playlist.id) ? 'Unpin playlist' : 'Pin playlist'"
+              :aria-pressed="playlistStore.isPinned(playlist.id)"
+              :title="playlistStore.isPinned(playlist.id) ? 'Unpin playlist' : 'Pin playlist'"
+              @click.stop="playlistStore.togglePin(playlist.id)"
+            >
+              <FeatherIcon name="paperclip" class="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
               class="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
               :class="activePlaylistId === playlist.id ? 'opacity-100' : 'opacity-0 group-hover/pl:opacity-100'"
               aria-label="Shuffle playlist"
@@ -591,7 +618,7 @@ const exportingPlaylist = ref<Playlist | null>(null);
       </template>
 
       <!-- Final slot after last item -->
-      <div :style="slotStyle(playlists.length)" />
+      <div :style="slotStyle(sortedPlaylists.length)" />
     </div>
 
     <div v-else class="flex flex-col items-center gap-2 pt-6 text-xs text-stone-500">
@@ -624,8 +651,17 @@ const exportingPlaylist = ref<Playlist | null>(null);
         <FeatherIcon name="shuffle" class="h-4 w-4 shrink-0 text-stone-400" />
         Shuffle
       </button>
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        @click="handleTogglePin(playlistContextMenu.id)"
+      >
+        <FeatherIcon name="paperclip" class="h-4 w-4 shrink-0 text-stone-400" />
+        {{ playlistStore.isPinned(playlistContextMenu.id) ? 'Unpin playlist' : 'Pin playlist' }}
+      </button>
       <div class="my-1 border-t border-stone-700" />
       <button
+        v-if="!contextMenuIsFavorites"
         type="button"
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
         @click="startEditing(playlistContextMenu.id, playlistContextMenu.name, playlists.find(p => p.id === playlistContextMenu!.id)?.icon ?? null)"
@@ -651,6 +687,7 @@ const exportingPlaylist = ref<Playlist | null>(null);
         Export to M3U
       </button>
       <button
+        v-if="!contextMenuIsFavorites"
         type="button"
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
         @click="handleDeletePlaylist(playlistContextMenu.id, playlistContextMenu.name)"

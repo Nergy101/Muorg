@@ -82,14 +82,20 @@ function onGlobalKeydown(e: KeyboardEvent) {
       !!target &&
       (tag === "INPUT" || tag === "TEXTAREA" || (target as HTMLElement).isContentEditable);
     if (!isEditable && store.selectedTrackIds.length > 0) {
+      let rating: number | null | undefined;
       if (e.key >= "1" && e.key <= "5") {
-        e.preventDefault();
-        store.setRatingForSelection(parseInt(e.key, 10));
-        return;
+        rating = parseInt(e.key, 10);
+      } else if (e.key === "0") {
+        rating = null;
       }
-      if (e.key === "0") {
+      if (rating !== undefined) {
         e.preventDefault();
-        store.setRatingForSelection(null);
+        // Q4: confirm before rating more than one track at once
+        if (store.selectedTrackIds.length > 1) {
+          const label = rating == null ? "clear the rating" : `set rating to ${rating}`;
+          if (!confirm(`Apply to ${store.selectedTrackIds.length} selected tracks: ${label}?`)) return;
+        }
+        store.setRatingForSelection(rating);
         return;
       }
     }
@@ -374,6 +380,18 @@ watch(genreDropdownOpen, (open) => {
           </div>
         </div>
       </div>
+      <!-- Shuffle all -->
+      <button
+        type="button"
+        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+        :class="store.shuffleAllActive ? 'border-primary text-[#5b7c32]' : 'border-stone-600'"
+        aria-label="Shuffle all"
+        :aria-pressed="store.shuffleAllActive"
+        title="Shuffle all"
+        @click="store.startShuffleAll(filteredTracks)"
+      >
+        <FeatherIcon name="shuffle" class="h-4 w-4" />
+      </button>
       <!-- Min-rating filter -->
       <div class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2 py-1" :class="filterMinRating !== null ? 'border-amber-600/60' : ''">
         <StarRating

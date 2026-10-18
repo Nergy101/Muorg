@@ -3,6 +3,7 @@ import type { CatalogTrack } from "../types";
 import { useSettingsStore } from "./settings";
 import type { MissingMetadataField, SortableColumn } from "./settings";
 import { MOCK_ROOTS, MOCK_TRACKS } from "../mockTracks";
+import { playFuture, playHistory } from "../state/playback";
 import * as api from "../api/catalog";
 
 export type { CoverInfo } from "../api/catalog";
@@ -46,6 +47,9 @@ export const MAX_COVERS = 500;
 
 // ── FTS search debounce (module-level, not reactive) ─────────────────────────
 let _searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** How many tracks "Shuffle all" queues up front and tops up with. */
+const SHUFFLE_ALL_BATCH = 20;
 
 const DEFAULT_GROUP_BY_KEY = "muorg-default-group-by";
 const HIDDEN_ROOTS_KEY = "muorg-hidden-roots";
@@ -126,6 +130,14 @@ export const useCatalogStore = defineStore("catalog", {
     multiSelectMode: false,
     hiddenRoots: loadStoredHiddenRoots(),
     queueTrackIds: [] as number[],
+    /**
+     * Q23: backing pool for "Shuffle all". Holds the track ids not yet queued;
+     * the queue is topped up from here as it drains. Empties once every track
+     * has been queued.
+     */
+    shuffleAllPoolIds: [] as number[],
+    /** True while a "Shuffle all" queue is what is playing. */
+    shuffleAllActive: false,
     playRequestTrackId: null as number | null,
     isInternalQueueDrag: false,
     pendingDragTrackIds: null as number[] | null,
@@ -291,6 +303,7 @@ export const useCatalogStore = defineStore("catalog", {
       return this.tracks.find((t) => t.path === path)?.id;
     },
     setCurrentPlaying(id: number | null) {
+      const changed = id !== this.currentPlayingTrackId;
       this.currentPlayingTrackId = id;
       if (id == null) this.playingFromPlaylistId = null;
       if (id != null) {
@@ -298,6 +311,7 @@ export const useCatalogStore = defineStore("catalog", {
         if (idx >= 0) {
           this.queueTrackIds = this.queueTrackIds.filter((_, i) => i !== idx);
         }
+        if (changed) this._topUpShuffleAllQueue();
       }
     },
     setPlayingFromPlaylistId(id: number | null) {
@@ -558,22 +572,31 @@ export const useCatalogStore = defineStore("catalog", {
               disc_number: track.disc_number ?? null,
               picture_base64: cover?.base64 ?? undefined,
             },
+            rating: track.rating ?? null,
           };
         })
         .filter((s): s is UndoSnapshot => s != null);
     },
 
     /** Push an undo entry and clear the redo stack. */
-    _pushUndo(paths: string[], description: string) {
+    _pushUndo(paths: string[], description: string, kind: "metadata" | "rating" = "metadata") {
       const snapshots = this._buildSnapshots(paths);
       if (snapshots.length === 0) return;
       const MAX_UNDO = 50;
-      this.undoStack = [...this.undoStack.slice(-(MAX_UNDO - 1)), { description, snapshots }];
+      this.undoStack = [...this.undoStack.slice(-(MAX_UNDO - 1)), { description, kind, snapshots }];
       this.redoStack = [];
     },
 
     /** Restore an undo/redo entry's snapshots back to disk + DB. */
     async _applySnapshots(entry: UndoEntry) {
+      if (entry.kind === "rating") {
+        // Rating-only entries restore the DB rating; no file tags are touched.
+        for (const snap of entry.snapshots) {
+          await api.setRating(snap.trackId, snap.rating);
+        }
+        await this.loadTracks();
+        return;
+      }
       let hadBackupTrack = false;
       for (const snap of entry.snapshots) {
         await api.patchMetadata(snap.trackId, snap.metadata, false);
@@ -589,19 +612,45 @@ export const useCatalogStore = defineStore("catalog", {
       await this.loadTracks();
     },
 
-    async writeMetadata(path: string, update: import("../types").MetadataUpdate, description?: string) {
+    /**
+     * Q1: warn before writing tags in place (no backup by default). Shows a
+     * one-time warning on the first tag write (persisted) and a warning on
+     * every bulk edit. Returns false when the user cancels, so the caller
+     * aborts the write without pushing undo or touching disk.
+     */
+    async _confirmTagWrite(trackCount: number): Promise<boolean> {
+      const settingsStore = useSettingsStore();
+      if (trackCount > 1) {
+        const ok = confirm(
+          `Write tags to ${trackCount} tracks? This changes the files on disk in place.`,
+        );
+        if (ok) settingsStore.setTagWriteWarned(true);
+        return ok;
+      }
+      if (!settingsStore.tagWriteWarned) {
+        const ok = confirm("Writing tags changes the files on disk in place. Continue?");
+        if (ok) settingsStore.setTagWriteWarned(true);
+        return ok;
+      }
+      return true;
+    },
+
+    async writeMetadata(path: string, update: import("../types").MetadataUpdate, description?: string): Promise<boolean> {
+      const settingsStore = useSettingsStore();
+      if (!(await this._confirmTagWrite(1))) return false;
       // Snapshot current state for undo before applying the change
       const trackTitle = this.tracks.find((t) => t.path === path)?.title ?? path;
       this._pushUndo([path], description ?? `Edit "${trackTitle}"`);
-      const settingsStore = useSettingsStore();
       const id = this._trackIdByPath(path);
       if (id == null) throw new Error(`Track not found: ${path}`);
       await api.patchMetadata(id, update, settingsStore.backupBeforeWrite);
       this.invalidateCover(path);
       await this.loadTracks();
+      return true;
     },
-    async writeMetadataBulk(paths: string[], update: import("../types").MetadataUpdate) {
-      if (paths.length === 0) return;
+    async writeMetadataBulk(paths: string[], update: import("../types").MetadataUpdate): Promise<boolean> {
+      if (paths.length === 0) return false;
+      if (!(await this._confirmTagWrite(paths.length))) return false;
       // Snapshot current state for undo before applying the change
       this._pushUndo(paths, `Edit ${paths.length} tracks`);
       this.loading = true;
@@ -632,6 +681,7 @@ export const useCatalogStore = defineStore("catalog", {
         this.loading = false;
         this.bulkProgress = null;
       }
+      return true;
     },
     async undo() {
       const entry = this.undoStack.pop();
@@ -642,7 +692,7 @@ export const useCatalogStore = defineStore("catalog", {
       if (redoSnapshots.length > 0) {
         this.redoStack = [
           ...this.redoStack.slice(-(50 - 1)),
-          { description: entry.description, snapshots: redoSnapshots },
+          { description: entry.description, kind: entry.kind, snapshots: redoSnapshots },
         ];
       }
       await this._applySnapshots(entry);
@@ -656,7 +706,7 @@ export const useCatalogStore = defineStore("catalog", {
       if (undoSnapshots.length > 0) {
         this.undoStack = [
           ...this.undoStack.slice(-(50 - 1)),
-          { description: entry.description, snapshots: undoSnapshots },
+          { description: entry.description, kind: entry.kind, snapshots: undoSnapshots },
         ];
       }
       await this._applySnapshots(entry);
@@ -664,8 +714,9 @@ export const useCatalogStore = defineStore("catalog", {
     /** Bulk write with per-track custom updates. Pushes a single undo entry. */
     async writeMetadataCustomBulk(
       updates: { path: string; update: import("../types").MetadataUpdate }[],
-    ) {
-      if (updates.length === 0) return;
+    ): Promise<boolean> {
+      if (updates.length === 0) return false;
+      if (!(await this._confirmTagWrite(updates.length))) return false;
       const paths = updates.map((u) => u.path);
       this._pushUndo(paths, `Edit ${paths.length} tracks`);
       this.loading = true;
@@ -691,6 +742,7 @@ export const useCatalogStore = defineStore("catalog", {
         this.loading = false;
         this.bulkProgress = null;
       }
+      return true;
     },
     async setRatingForSelection(rating: number | null) {
       const paths = this.selectedTracks.map((t) => t.path);
@@ -723,12 +775,17 @@ export const useCatalogStore = defineStore("catalog", {
           : t,
       );
       try {
-        await api.recordPlay(id);
+        // Q19: attribute the play to this device's name in the server's play history.
+        await api.recordPlay(id, useSettingsStore().deviceName);
       } catch {
         // Non-critical; ignore errors silently.
       }
     },
     async setRating(paths: string[], rating: number | null) {
+      if (paths.length === 0) return;
+      // Snapshot current ratings for undo before applying the change
+      const label = rating == null ? "no rating" : `${rating} star${rating === 1 ? "" : "s"}`;
+      this._pushUndo(paths, paths.length > 1 ? `Rate ${paths.length} tracks: ${label}` : `Rate: ${label}`, "rating");
       this.tracks = this.tracks.map((t) =>
         paths.includes(t.path) ? { ...t, rating } : t,
       );
@@ -823,6 +880,60 @@ export const useCatalogStore = defineStore("catalog", {
     },
     clearQueue() {
       this.queueTrackIds = [];
+      // An explicit clear also ends a running "Shuffle all" so it does not refill.
+      this.shuffleAllActive = false;
+      this.shuffleAllPoolIds = [];
+    },
+    /**
+     * Q32: switching local ↔ online — the queue and selection hold track ids
+     * from the other catalog, so both are cleared, along with the play history
+     * and any running "Shuffle all".
+     */
+    clearQueueAndSelection() {
+      this.clearQueue();
+      this.clearSelection();
+      this.setCurrentPlaying(null);
+      playHistory.value = [];
+      playFuture.value = [];
+    },
+    /**
+     * Q23: "Shuffle all" — replace the queue with a shuffled batch of the
+     * given tracks and start playing the first one. The rest of the library
+     * stays in a pool that tops the queue up as it drains.
+     */
+    startShuffleAll(tracks: CatalogTrack[]) {
+      if (tracks.length === 0) return;
+      const settingsStore = useSettingsStore();
+      // Shuffle-all is its own ordering; the random-next toggle would fight it.
+      settingsStore.setShuffle(false);
+      const shuffled = [...tracks];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      const batch = shuffled.slice(0, SHUFFLE_ALL_BATCH);
+      this.shuffleAllPoolIds = shuffled.slice(batch.length).map((t) => t.id);
+      this.shuffleAllActive = true;
+      // A new context replaces the queue — queued tracks belonged to the previous context.
+      this.queueTrackIds = batch.map((t) => t.id);
+      const first = batch[0];
+      this.setPlayRequestTrackId(first.id);
+      this.clearSelection();
+      this.toggleSelection(first.id);
+    },
+    /** Top up the queue from the "Shuffle all" pool when it runs low. */
+    _topUpShuffleAllQueue() {
+      if (!this.shuffleAllActive || this.shuffleAllPoolIds.length === 0) return;
+      if (this.queueTrackIds.length > 1) return;
+      const inQueue = new Set(this.queueTrackIds);
+      const remaining = this.shuffleAllPoolIds.filter((id) => !inQueue.has(id));
+      if (remaining.length === 0) {
+        this.shuffleAllPoolIds = [];
+        return;
+      }
+      const batch = remaining.slice(0, SHUFFLE_ALL_BATCH);
+      this.shuffleAllPoolIds = remaining.slice(batch.length);
+      this.queueTrackIds = [...this.queueTrackIds, ...batch];
     },
     setPlayRequestTrackId(id: number | null) {
       this.playRequestTrackId = id;

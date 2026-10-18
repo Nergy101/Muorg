@@ -14,6 +14,8 @@ import type { CastSessionStatus, CastDevice } from "../stores/cast";
 
 export interface CastStatusResponse {
   session: CastSessionStatus;
+  /** Id of the current cast session, empty when idle. */
+  session_id: string;
   volume: number;
 }
 
@@ -37,11 +39,16 @@ export function getStatus(): Promise<CastStatusResponse> {
   return api.castStatus() as Promise<CastStatusResponse>;
 }
 
+/**
+ * Start casting. Resolves to the session id the server stamped the session
+ * with; while polling {@link getStatus}, an active session whose `session_id`
+ * differs from this one means another device took the session over.
+ */
 export function castPlay(
   trackId: number,
   deviceAddress: string,
   devicePort: number,
-): Promise<void> {
+): Promise<string> {
   return api.castPlay(deviceAddress, devicePort, trackId);
 }
 

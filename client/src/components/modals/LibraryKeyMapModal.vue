@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import { KEY_MAP_ENTRIES } from "../../utils/keyMap";
 
 const props = defineProps<{
   open: boolean;
@@ -11,29 +12,6 @@ const emit = defineEmits<{
 }>();
 
 const keyMapModalRef = ref<HTMLDivElement | null>(null);
-
-const keyMapEntries: { keys: string; description: string }[] = [
-  { keys: "Ctrl+F / ⌘F", description: "Focus search bar" },
-  { keys: "Ctrl+R / ⌘R", description: "Refresh whole library (all folders, all reports)" },
-  { keys: "Ctrl+M / ⌘M", description: "Open maximized player" },
-  { keys: "Ctrl+S / ⌘S", description: "Toggle sidebar" },
-  { keys: "Ctrl+1 / ⌘1", description: "Show library panel" },
-  { keys: "Ctrl+2 / ⌘2", description: "Toggle metadata editor panel for current selection" },
-  { keys: "Ctrl+3 / ⌘3", description: "Toggle full player panel" },
-  { keys: "Ctrl+4 / ⌘4", description: "Toggle queue panel" },
-  { keys: "Ctrl+A / ⌘A", description: "Select all tracks in current view and enable multi-select" },
-  { keys: "Ctrl+K / ⌘K", description: "Open key map" },
-  { keys: "Ctrl+T / ⌘T", description: "Toggle dark / light theme" },
-  { keys: "Ctrl+Z / ⌘Z", description: "Undo last metadata save" },
-  { keys: "Ctrl+Shift+Z / ⌘⇧Z", description: "Redo last undone metadata save" },
-  { keys: "Escape", description: "Close metadata panel (discard changes)" },
-  { keys: "↓ Arrow Down", description: "Move focus down in track list" },
-  { keys: "↑ Arrow Up", description: "Move focus up in track list" },
-  { keys: "Space", description: "On group row: expand or collapse. On track row: select (add to selection in multi-select)" },
-  { keys: "Enter", description: "With one track selected: start playback or pause if already playing" },
-  { keys: "1–5", description: "Set star rating for selected track(s) (no modifier key, focus not in a text field)" },
-  { keys: "0", description: "Clear star rating for selected track(s)" },
-];
 
 watch(
   () => props.open,
@@ -80,7 +58,7 @@ function onKeydown(e: KeyboardEvent) {
         </div>
         <div class="max-h-[70vh] overflow-y-auto p-4">
           <dl class="space-y-3">
-            <div v-for="entry in keyMapEntries" :key="entry.keys" class="flex gap-3 text-sm">
+            <div v-for="entry in KEY_MAP_ENTRIES" :key="entry.keys" class="flex gap-3 text-sm">
               <dt class="w-36 shrink-0 font-mono text-stone-400">{{ entry.keys }}</dt>
               <dd class="min-w-0 text-stone-300">{{ entry.description }}</dd>
             </div>

@@ -8,7 +8,7 @@ import { useCastStore } from "../../stores/cast";
 import { usePlaylistStore } from "../../stores/playlists";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import * as castApi from "../../api/cast";
-import { flacSeekOffset } from "../../state/playback";
+import { flacSeekOffset, peekPlayFuture, playHistory, stepBackPlayHistory } from "../../state/playback";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
@@ -60,6 +60,12 @@ function getNextTrack(): CatalogTrack | null {
   const current = singleTrack.value;
   const list = playbackList.value;
   if (!current || !list.length) return null;
+  // Q31: after Previous, Next returns through what was stepped back over.
+  const futureId = peekPlayFuture((id) => store.tracks.some((t) => t.id === id));
+  if (futureId != null) {
+    const futureTrack = store.tracks.find((t) => t.id === futureId);
+    if (futureTrack) return futureTrack;
+  }
   // Shuffle only applies when the queue is empty; queue tracks always play in order.
   if (shuffle.value && queueTracks.value.length === 0) {
     const others = list.filter((t) => t.id !== current.id);
@@ -91,6 +97,13 @@ function getPreviousTrack(): CatalogTrack | null {
   if (idx > 0) return list[idx - 1];
   return null;
 }
+
+/** Q31: Previous is available with play history to step back to, or a table neighbour. */
+const canPlayPrevious = computed(() => {
+  if (!singleTrack.value) return false;
+  if (playHistory.value.some((id) => store.tracks.some((t) => t.id === id))) return true;
+  return getPreviousTrack() != null;
+});
 
 const isPlaying = ref(false);
 const currentTime = ref(0);
@@ -267,11 +280,17 @@ function playNext() {
 }
 
 function playPrevious() {
-  const prev = getPreviousTrack();
-  if (!prev) return;
-  store.setPlayRequestTrackId(prev.id);
+  const current = singleTrack.value;
+  if (!current) return;
+  // Q31: step back through what was actually played, not the table neighbour.
+  const backId = stepBackPlayHistory(current.id, (id) => store.tracks.some((t) => t.id === id));
+  const target = backId != null
+    ? store.tracks.find((t) => t.id === backId) ?? null
+    : getPreviousTrack();
+  if (!target) return;
+  store.setPlayRequestTrackId(target.id);
   store.clearSelection();
-  store.toggleSelection(prev.id);
+  store.toggleSelection(target.id);
 }
 
 function restart() {
@@ -358,6 +377,16 @@ function addToQueue() {
   if (!track) return;
   store.addToQueue([track.id]);
   closeContextMenu();
+}
+
+/** Q21: favorite state of the current track. */
+const isFavorite = computed(() => (singleTrack.value ? playlistStore.isFavorite(singleTrack.value.id) : false));
+
+function toggleFavorite() {
+  const track = singleTrack.value;
+  if (!track) return;
+  closeContextMenu();
+  void playlistStore.toggleFavorite(track.id);
 }
 
 async function addToPlaylist(playlistId: number) {
@@ -463,7 +492,7 @@ onUnmounted(() => {
       <div class="mpx-bar-inner">
         <div class="mpx-actions">
           <span class="inline-flex" @mouseenter="showTooltip('Previous track', $event)" @mouseleave="scheduleHideTooltip">
-            <button type="button" class="mpx-nav-btn" aria-label="Previous track" @click="playPrevious" :disabled="!singleTrack || !getPreviousTrack()">
+            <button type="button" class="mpx-nav-btn" aria-label="Previous track" @click="playPrevious" :disabled="!canPlayPrevious">
               <FeatherIcon name="skip-back" class="h-6 w-6" />
             </button>
           </span>
@@ -497,6 +526,9 @@ onUnmounted(() => {
           <button type="button" class="mpx-shuffle-btn relative" :class="{ 'mpx-shuffle-btn--active': repeat !== 'none' }" :aria-label="repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'" @click="settingsStore.setRepeat(repeat === 'none' ? 'all' : repeat === 'all' ? 'one' : 'none')">
             <FeatherIcon name="repeat" class="h-4 w-4" />
             <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
+          </button>
+          <button type="button" class="mpx-shuffle-btn" :class="{ 'mpx-shuffle-btn--active': isFavorite }" :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'" :aria-pressed="isFavorite" @click="toggleFavorite">
+            <FeatherIcon name="heart" class="h-4 w-4" />
           </button>
           <div class="mpx-actions-right">
             <div class="mpx-volume-wrap">
@@ -536,7 +568,7 @@ onUnmounted(() => {
           class="flex items-center justify-center rounded-full bg-stone-800/80 p-3 text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-40"
           aria-label="Previous track"
           @click="playPrevious"
-          :disabled="!singleTrack || !getPreviousTrack()"
+          :disabled="!canPlayPrevious"
         >
           <FeatherIcon name="skip-back" class="h-6 w-6" />
         </button>
@@ -614,6 +646,17 @@ onUnmounted(() => {
             <FeatherIcon name="repeat" class="h-4 w-4" />
             <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
           </button>
+          <button
+            type="button"
+            class="flex shrink-0 items-center justify-center rounded p-2 hover:bg-stone-700 hover:text-stone-200"
+            :class="isFavorite ? 'text-primary' : 'text-stone-400'"
+            :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+            :aria-pressed="isFavorite"
+            title="Favorite"
+            @click="toggleFavorite"
+          >
+            <FeatherIcon name="heart" class="h-4 w-4" />
+          </button>
           <VolumeControl mode="playscreen" />
           <CastButton size="md" />
           <button
@@ -651,6 +694,18 @@ onUnmounted(() => {
         >
           <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
           Add to queue
+        </button>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          @click="toggleFavorite"
+        >
+          <FeatherIcon
+            name="heart"
+            class="h-4 w-4 shrink-0"
+            :class="isFavorite ? 'text-primary' : 'text-stone-400'"
+          />
+          {{ isFavorite ? "Remove from favorites" : "Add to favorites" }}
         </button>
         <div class="my-1 border-t border-stone-700" />
         <div

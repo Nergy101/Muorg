@@ -1,10 +1,22 @@
 import { listen } from "@tauri-apps/api/event";
+import { message as tauriMessage } from "@tauri-apps/plugin-dialog";
 import { onMounted, onUnmounted } from "vue";
 import { useCastStore } from "../stores/cast";
 import * as castApi from "../api/cast";
 import type { CastDevice } from "../stores/cast";
 
 const POLL_INTERVAL_MS = 1000;
+
+/** Notify the user that another device took over the cast session. */
+async function notifyCastTakeover() {
+  const text = "Another device took over the Chromecast session.";
+  try {
+    await tauriMessage(text, { title: "Cast", kind: "warning" });
+  } catch {
+    // Fallback for web/mock mode
+    window.alert(text);
+  }
+}
 
 /**
  * Wires up cast event listeners and status polling.
@@ -19,9 +31,13 @@ export function useCastEvents() {
 
   async function poll() {
     try {
-      const { session, volume } = await castApi.getStatus();
+      const { session, volume, session_id } = await castApi.getStatus();
       castStore.handleStatusEvent(session);
       castStore.handleVolumeEvent(volume);
+      // Must run after handleStatusEvent so isCasting reflects the new status.
+      if (castStore.handleSessionId(session_id)) {
+        await notifyCastTakeover();
+      }
     } catch {
       // Server unreachable — don't spam errors
     }

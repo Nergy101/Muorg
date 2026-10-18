@@ -29,11 +29,14 @@ const connError = ref("");
 async function applyAndReload() {
   connStatus.value = "saving";
   connError.value = "";
+  const previousMode = getBackendMode();
   if (connMode.value === "online") {
     setOnlineServerUrl(connOnlineUrl.value.trim());
     setOnlineApiKey(connOnlineApiKey.value.trim());
   }
   settingsStore.setBackendMode(connMode.value);
+  // Q32: the queue and selection hold track ids from the other catalog.
+  if (connMode.value !== previousMode) store.clearQueueAndSelection();
 
   await store.loadRoots();
   if (store.error) { connStatus.value = "error"; connError.value = store.error; return; }
@@ -136,6 +139,24 @@ async function refreshFromServer() {
               </div>
             </div>
 
+            <!-- Q19: device name, reported with every play recorded to the server -->
+            <div class="settings-section space-y-3">
+              <div>
+                <label class="mb-1 block text-xs font-medium text-stone-400">Device name</label>
+                <input
+                  :value="settingsStore.deviceName"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="Device name"
+                  placeholder="Muorg on macOS"
+                  class="w-full rounded border border-stone-600 bg-stone-900 px-3 py-1.5 text-xs text-stone-200 placeholder-stone-600 focus:border-stone-400 focus:outline-none"
+                  @change="settingsStore.setDeviceName(($event.target as HTMLInputElement).value)"
+                />
+                <p class="mt-1 text-[11px] text-stone-500">Shown in play history on the server</p>
+              </div>
+            </div>
+
             <!-- Actions -->
             <div class="flex items-center gap-3">
               <button
@@ -174,5 +195,10 @@ async function refreshFromServer() {
                 <FeatherIcon name="x-circle" class="h-3.5 w-3.5" /> {{ refreshError || 'Failed' }}
               </span>
             </div>
+
+            <!-- Q25: settings live in a per-device file and are not synced. -->
+            <p class="text-[11px] text-stone-500 leading-relaxed">
+              Settings are kept per device and do not sync through the server.
+            </p>
           </div>
 </template>

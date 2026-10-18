@@ -48,7 +48,8 @@ async function selectDevice(device: CastDevice) {
 
   castStore.setConnectedDevice(device.id, device.name);
   try {
-    await castApi.castPlay(track.id, device.address, device.port);
+    const sessionId = await castApi.castPlay(track.id, device.address, device.port);
+    castStore.setSessionId(sessionId);
   } catch (e) {
     console.error("[Cast] cast_play error:", e);
   }

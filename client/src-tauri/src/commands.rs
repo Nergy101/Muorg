@@ -86,10 +86,35 @@ pub async fn remove_folder(
     muorg_core::catalog::remove_root(&conn, &root_path)
 }
 
+/// Clear the on-disk cover art cache (regenerated on demand). This is the
+/// cache-only clear — it does NOT touch soft-deleted tracks; use
+/// `purge_deleted_tracks` for that.
+#[tauri::command]
+pub async fn clear_cache(app: tauri::AppHandle) -> Result<(), String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Could not determine app data directory: {}", e))?;
+    let cover_cache_dir = app_data.join("covers");
+    // Remove cached cover files but keep the directory itself: the sidecar's
+    // CoverCache writes into it directly and does not recreate it on demand.
+    if cover_cache_dir.is_dir() {
+        for entry in std::fs::read_dir(&cover_cache_dir).map_err(|e| e.to_string())? {
+            let path = entry.map_err(|e| e.to_string())?.path();
+            if path.is_file() {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+    } else {
+        std::fs::create_dir_all(&cover_cache_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Hard-delete all soft-deleted tracks and their now-orphaned roots immediately,
 /// bypassing the 30-day grace period used at startup.
 #[tauri::command]
-pub async fn clear_cache(catalog: State<'_, Arc<Catalog>>) -> Result<(), String> {
+pub async fn purge_deleted_tracks(catalog: State<'_, Arc<Catalog>>) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
     muorg_core::catalog::gc_deleted_tracks(&conn, 0)
 }
@@ -387,9 +412,10 @@ pub async fn remove_tracks_from_playlist(
 pub async fn record_play(
     catalog: State<'_, Arc<Catalog>>,
     path: String,
+    device_name: Option<String>,
 ) -> Result<(), String> {
     let conn = catalog.db.lock().map_err(|e| e.to_string())?;
-    muorg_core::catalog::record_play(&conn, &path)
+    muorg_core::catalog::record_play(&conn, &path, device_name.as_deref())
 }
 
 // ── Full-text search ────────────────────────────────────────────────────────

@@ -7,9 +7,10 @@
  * runtime shrug.
  */
 
+import { invoke } from "@tauri-apps/api/core";
 import { api } from "./client";
 import type { CatalogTrack, MetadataUpdate, TrackMetadataRead } from "../types";
-import type { MatchCandidate, TracksPage } from "@shared/api";
+import type { MatchCandidate, RenameCollision, TracksPage } from "@shared/api";
 
 export type { TrackMetadataRead, TracksPage };
 
@@ -76,6 +77,23 @@ export async function clearCache(): Promise<void> {
   await api.clearCache();
 }
 
+/**
+ * Q3: clear the on-disk cover art cache (regenerated on demand). Cache-only —
+ * does not touch soft-deleted tracks. Runs in the Tauri backend, which shares
+ * the sidecar's app data directory.
+ */
+export async function clearCoverCacheDir(): Promise<void> {
+  await invoke("clear_cache");
+}
+
+/**
+ * Q3: hard-delete all soft-deleted tracks and their orphaned roots immediately,
+ * bypassing the 30-day grace period. Destructive — confirm with the user first.
+ */
+export async function purgeDeletedTracks(): Promise<void> {
+  await invoke("purge_deleted_tracks");
+}
+
 export async function getCover(trackId: number): Promise<CoverInfo | null> {
   try {
     const blob = await api.getCoverBlob(trackId);
@@ -125,8 +143,8 @@ export function patchMetadataBatch(
   return api.patchMetadataBatch(items.map(({ id, update }) => ({ id, ...update })));
 }
 
-export async function recordPlay(trackId: number): Promise<void> {
-  await api.recordPlay(trackId);
+export async function recordPlay(trackId: number, deviceName?: string): Promise<void> {
+  await api.recordPlay(trackId, deviceName);
 }
 
 export async function setRating(
@@ -182,8 +200,19 @@ export function getBackupDir(): Promise<string> {
 export async function renameTrackFile(
   trackId: number,
   newPath: string,
+  overwrite = false,
 ): Promise<void> {
-  await api.renameTrackFile(trackId, newPath);
+  await api.renameTrackFile(trackId, newPath, overwrite);
+}
+
+/**
+ * Pre-flight a batch rename: destinations already on disk, or targeted by
+ * more than one item. Empty when the batch is safe to run.
+ */
+export function checkRenameCollisions(
+  items: { id: number; newPath: string }[],
+): Promise<RenameCollision[]> {
+  return api.checkRenameCollisions(items);
 }
 
 /** Embedded lyrics for a track, or null when it has none. */

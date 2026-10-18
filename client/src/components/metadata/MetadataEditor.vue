@@ -64,6 +64,26 @@ const backupWouldChangeMetadata = ref(false);
 const showAutoTag = ref(false);
 const lastAction = ref<string | null>(null);
 
+/** Q5: transient "Saved — undo" toast shown after each metadata write. */
+const undoToastVisible = ref(false);
+let undoToastTimer: ReturnType<typeof setTimeout> | null = null;
+function showUndoToast() {
+  undoToastVisible.value = true;
+  if (undoToastTimer) clearTimeout(undoToastTimer);
+  undoToastTimer = setTimeout(() => {
+    undoToastVisible.value = false;
+    undoToastTimer = null;
+  }, 4000);
+}
+function undoFromToast() {
+  undoToastVisible.value = false;
+  if (undoToastTimer) {
+    clearTimeout(undoToastTimer);
+    undoToastTimer = null;
+  }
+  void store.undo();
+}
+
 function onAutoTagApply(candidate: AutoTagCandidate) {
   // Fill form fields from the candidate
   title.value = candidate.title;
@@ -422,6 +442,7 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onCoverPopupKeydown);
   document.removeEventListener("keydown", onWikipediaModalKeydown);
   document.removeEventListener("keydown", onPanelKeydown);
+  if (undoToastTimer) clearTimeout(undoToastTimer);
 });
 
 function clearField(field: keyof NonNullable<typeof baseline.value>) {
@@ -551,7 +572,8 @@ async function applyFromPath() {
         }
         store.setBulkProgress({ current: i + 1, total });
       }
-      await store.writeMetadataCustomBulk(updates);
+      const wrote = await store.writeMetadataCustomBulk(updates);
+      if (wrote) showUndoToast();
       await nextTick();
       syncFromTracks();
     } catch (e) {
@@ -602,8 +624,9 @@ async function save() {
   saveError.value = null;
   try {
     const update = buildUpdate();
+    let wrote: boolean;
     if (tracks.length > 1) {
-      await store.writeMetadataBulk(
+      wrote = await store.writeMetadataBulk(
         tracks.map((t) => t.path),
         update,
       );
@@ -612,8 +635,9 @@ async function save() {
         ? `Apply from path "${tracks[0].title ?? tracks[0].path}"`
         : undefined;
       lastAction.value = null;
-      await store.writeMetadata(tracks[0].path, update, desc);
+      wrote = await store.writeMetadata(tracks[0].path, update, desc);
     }
+    if (wrote) showUndoToast();
     clearCoverRequested.value = false;
     await nextTick();
     syncFromTracks();
@@ -633,14 +657,16 @@ async function save() {
           const prev = settingsStore.backupBeforeWrite;
           settingsStore.setBackupBeforeWrite(false);
           const update = buildUpdate();
+          let wroteRetry: boolean;
           if (tracks.length > 1) {
-            await store.writeMetadataBulk(
+            wroteRetry = await store.writeMetadataBulk(
               tracks.map((t) => t.path),
               update,
             );
           } else {
-            await store.writeMetadata(tracks[0].path, update);
+            wroteRetry = await store.writeMetadata(tracks[0].path, update);
           }
+          if (wroteRetry) showUndoToast();
           settingsStore.setBackupBeforeWrite(prev);
           clearCoverRequested.value = false;
           await nextTick();
@@ -908,10 +934,11 @@ async function applyToWholeAlbum() {
   saving.value = true;
   saveError.value = null;
   try {
-    await store.writeMetadataBulk(
+    const wrote = await store.writeMetadataBulk(
       tracks.map((t) => t.path),
       { picture_base64: base64 },
     );
+    if (wrote) showUndoToast();
     await nextTick();
     syncFromTracks();
   } catch (e) {
@@ -934,10 +961,11 @@ async function applyFromOtherTracks() {
   saving.value = true;
   saveError.value = null;
   try {
-    await store.writeMetadataBulk(
+    const wrote = await store.writeMetadataBulk(
       [currentTrack.path],
       { picture_base64: coverInfo.base64 },
     );
+    if (wrote) showUndoToast();
     await nextTick();
     syncFromTracks();
   } catch (e) {
@@ -1456,5 +1484,21 @@ async function applyFromOtherTracks() {
       @apply="onAutoTagApply"
       @save-and-apply="onAutoTagSaveAndApply"
     />
+    <!-- Q5: transient undo toast after each metadata write -->
+    <div
+      v-if="undoToastVisible"
+      class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-stone-600 bg-stone-800 px-4 py-2 text-sm text-stone-200 shadow-xl"
+    >
+      <FeatherIcon name="check" class="h-4 w-4 shrink-0 text-emerald-400" />
+      <span>Saved — Ctrl+Z to undo</span>
+      <button
+        type="button"
+        class="ml-1 inline-flex items-center gap-1 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100"
+        @click="undoFromToast"
+      >
+        <FeatherIcon name="corner-up-left" class="h-3.5 w-3.5 shrink-0" />
+        Undo
+      </button>
+    </div>
   </div>
 </template>

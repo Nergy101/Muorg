@@ -90,6 +90,7 @@ pub fn run() {
             commands::rescan,
             commands::remove_folder,
             commands::clear_cache,
+            commands::purge_deleted_tracks,
             commands::write_track_metadata,
             commands::get_track_metadata,
             commands::get_latest_track_backup,

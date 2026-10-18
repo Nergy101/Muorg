@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import type { Playlist } from "../types";
 import * as api from "../api/playlists";
+import { getBackendMode } from "../api/client";
+import { useSettingsStore } from "./settings";
 
 export interface PlaylistEntry {
   entryId: number;
@@ -9,12 +11,46 @@ export interface PlaylistEntry {
 
 const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
 
+/** Shared with the web and Android clients so a common library stays consistent. */
+export const FAVORITES_PLAYLIST_NAME = "Favorites";
+const FAVORITES_PLAYLIST_ICON = "⭐";
+
 export const usePlaylistStore = defineStore("playlists", {
   state: () => ({
     playlists: [] as Playlist[],
     loading: false,
     error: null as string | null,
+    /**
+     * Q24: pinned playlist ids in pin order (earliest pin first). The pin set
+     * lives on the server in online mode and on the device in local mode.
+     */
+    pinnedIds: [] as number[],
+    /**
+     * Q21: track ids in the Favorites playlist of the active backend. Seeded
+     * from that backend's Favorites playlist on every load — the online
+     * server's and the local sidecar's favorites are never merged.
+     */
+    favoriteTrackIds: [] as number[],
   }),
+  getters: {
+    isPinned: (state) => (playlistId: number) => state.pinnedIds.includes(playlistId),
+    isFavorite: (state) => (trackId: number) => state.favoriteTrackIds.includes(trackId),
+    /** The Favorites playlist of the active backend, matched by exact name. */
+    favoritesPlaylist(state): Playlist | null {
+      return state.playlists.find((p) => p.name === FAVORITES_PLAYLIST_NAME) ?? null;
+    },
+    /** The server refuses to delete or rename the Favorites playlist (403), so the UI hides those actions. */
+    isFavoritesPlaylist: () => (p: Playlist) => p.name === FAVORITES_PLAYLIST_NAME,
+    /** Pinned playlists first (in pin order), then the rest in server order. */
+    sortedPlaylists(state): Playlist[] {
+      const pinned = state.pinnedIds
+        .map((id) => state.playlists.find((p) => p.id === id))
+        .filter((p): p is Playlist => p != null);
+      const pinnedSet = new Set(state.pinnedIds);
+      const rest = state.playlists.filter((p) => !pinnedSet.has(p.id));
+      return [...pinned, ...rest];
+    },
+  },
   actions: {
     async loadPlaylists() {
       if (isMock()) return;
@@ -22,10 +58,102 @@ export const usePlaylistStore = defineStore("playlists", {
       this.error = null;
       try {
         this.playlists = await api.getPlaylists();
+        await this.loadPins();
+        await this.hydrateFavorites();
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
       } finally {
         this.loading = false;
+      }
+    },
+
+    /** Q24: load the pin set — from the server in online mode, from device settings in local mode. */
+    async loadPins() {
+      if (isMock()) return;
+      try {
+        if (getBackendMode() === "online") {
+          this.pinnedIds = await api.getPlaylistPins();
+        } else {
+          this.pinnedIds = [...useSettingsStore().pinnedPlaylistIds];
+        }
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+      }
+    },
+
+    /**
+     * Q24: pin/unpin a playlist; pin order = order in which pins happened.
+     * Applied optimistically and reverted when the write fails.
+     */
+    async togglePin(playlistId: number) {
+      if (isMock()) return;
+      const previous = this.pinnedIds;
+      const next = previous.includes(playlistId)
+        ? previous.filter((id) => id !== playlistId)
+        : [...previous, playlistId];
+      this.pinnedIds = next;
+      try {
+        if (getBackendMode() === "online") {
+          await api.setPlaylistPins(next);
+        } else {
+          useSettingsStore().setPinnedPlaylistIds(next);
+        }
+      } catch (e) {
+        this.pinnedIds = previous;
+        this.error = e instanceof Error ? e.message : String(e);
+      }
+    },
+
+    /** Q21: seed the favorite ids from the active backend's Favorites playlist. */
+    async hydrateFavorites() {
+      if (isMock()) return;
+      const fav = this.favoritesPlaylist;
+      if (!fav) {
+        this.favoriteTrackIds = [];
+        return;
+      }
+      try {
+        this.favoriteTrackIds = await api.getPlaylistTracks(fav.id);
+      } catch (e) {
+        this.error = e instanceof Error ? e.message : String(e);
+      }
+    },
+
+    /** Q21: the Favorites playlist, matched by exact name; created (with the star icon) when missing. */
+    async ensureFavoritesPlaylist(): Promise<Playlist | null> {
+      const existing = this.favoritesPlaylist;
+      if (existing) return existing;
+      const created = await this.createPlaylist(FAVORITES_PLAYLIST_NAME);
+      if (!created) return null;
+      await this.setPlaylistIcon(created.id, FAVORITES_PLAYLIST_ICON);
+      return { ...created, icon: FAVORITES_PLAYLIST_ICON };
+    },
+
+    /**
+     * Q21: toggle a track's favorite state. Optimistic; the write goes to the
+     * Favorites playlist of whichever backend is active (the server in online
+     * mode, the local sidecar in local mode) — the two are never merged.
+     */
+    async toggleFavorite(trackId: number) {
+      if (isMock()) return;
+      const wasFavorite = this.favoriteTrackIds.includes(trackId);
+      const previous = this.favoriteTrackIds;
+      this.favoriteTrackIds = wasFavorite
+        ? previous.filter((id) => id !== trackId)
+        : [...previous, trackId];
+      try {
+        const fav = await this.ensureFavoritesPlaylist();
+        if (!fav) throw new Error("Could not create the Favorites playlist");
+        // Call the API directly (not the store actions, which swallow errors)
+        // so a failed write reverts the optimistic state below.
+        if (wasFavorite) await api.removeTracksFromPlaylist(fav.id, [trackId]);
+        else await api.addTracksToPlaylist(fav.id, [trackId]);
+        // The reload re-hydrates favoriteTrackIds from the backend, so the
+        // optimistic state is replaced by server truth.
+        await this.loadPlaylists();
+      } catch (e) {
+        this.favoriteTrackIds = previous;
+        this.error = e instanceof Error ? e.message : String(e);
       }
     },
 

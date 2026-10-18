@@ -90,6 +90,7 @@ function coerceBool(v: unknown, def: boolean): boolean {
   if (v === "false") return false;
   return def;
 }
+
 function coerceVolume(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
   if (!Number.isFinite(n)) return 0.25;
@@ -217,6 +218,23 @@ function coerceTableColWidths(v: unknown): Record<string, number> {
   return out;
 }
 
+/**
+ * Best-effort "Muorg on OS" label for the device-name default (Q19): the
+ * server attributes plays to a per-device name, and this is what the device
+ * calls itself until the user picks something else.
+ */
+function defaultDeviceName(): string {
+  const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  const os = /Windows/.test(ua)
+    ? "Windows"
+    : /Macintosh|Mac OS X/.test(ua)
+      ? "macOS"
+      : /Linux/.test(ua)
+        ? "Linux"
+        : "Unknown OS";
+  return `Muorg on ${os}`;
+}
+
 export const useSettingsStore = defineStore("settings", {
   state: () => ({
     theme: "auto" as ThemeId,
@@ -283,6 +301,12 @@ export const useSettingsStore = defineStore("settings", {
     /** Session persistence: playback position in seconds. */
     sessionCurrentPositionSecs: 0,
     backupBeforeWrite: false,
+    /** Q1: the one-time "writing tags changes files on disk" warning has been shown. */
+    tagWriteWarned: false,
+    /** Q24: playlist pins stored on this device (used in local mode; online mode uses the server pin set). */
+    pinnedPlaylistIds: [] as number[],
+    /** Q19: the name this device reports with every play it records. */
+    deviceName: defaultDeviceName(),
     replayGainMode: "off" as ReplayGainMode,
     replayGainPreampDb: 0,
     replayGainPreventClipping: true,
@@ -362,6 +386,9 @@ export const useSettingsStore = defineStore("settings", {
         }
         if ("sessionCurrentPositionSecs" in data) this.sessionCurrentPositionSecs = coercePositionSecs(data.sessionCurrentPositionSecs);
         if ("backupBeforeWrite" in data) this.backupBeforeWrite = coerceBool(data.backupBeforeWrite, false);
+        if ("tagWriteWarned" in data) this.tagWriteWarned = coerceBool(data.tagWriteWarned, false);
+        if ("pinnedPlaylistIds" in data) this.pinnedPlaylistIds = coerceNumberArray(data.pinnedPlaylistIds);
+        if ("deviceName" in data) this.deviceName = coerceString(data.deviceName, "").trim() || defaultDeviceName();
         if ("replayGainMode" in data) this.replayGainMode = coerceReplayGainMode(data.replayGainMode);
         if ("replayGainPreampDb" in data) this.replayGainPreampDb = coercePreampDb(data.replayGainPreampDb);
         if ("replayGainPreventClipping" in data) this.replayGainPreventClipping = coerceBool(data.replayGainPreventClipping, true);
@@ -423,6 +450,9 @@ export const useSettingsStore = defineStore("settings", {
           sessionCurrentTrackId: this.sessionCurrentTrackId,
           sessionCurrentPositionSecs: this.sessionCurrentPositionSecs,
           backupBeforeWrite: this.backupBeforeWrite,
+          tagWriteWarned: this.tagWriteWarned,
+          pinnedPlaylistIds: this.pinnedPlaylistIds,
+          deviceName: this.deviceName,
           replayGainMode: this.replayGainMode,
           replayGainPreampDb: this.replayGainPreampDb,
           replayGainPreventClipping: this.replayGainPreventClipping,
@@ -634,6 +664,20 @@ export const useSettingsStore = defineStore("settings", {
     },
     setBackupBeforeWrite(value: boolean) {
       this.backupBeforeWrite = value;
+      this.saveToFile();
+    },
+    setTagWriteWarned(value: boolean) {
+      this.tagWriteWarned = value;
+      this.saveToFile();
+    },
+    /** Q24: device-local playlist pins (local mode). */
+    setPinnedPlaylistIds(ids: number[]) {
+      this.pinnedPlaylistIds = [...ids];
+      this.saveToFile();
+    },
+    /** Q19: device name reported with recorded plays; never falls back to empty. */
+    setDeviceName(value: string) {
+      this.deviceName = value.trim() || defaultDeviceName();
       this.saveToFile();
     },
     setReplayGainMode(value: ReplayGainMode) {

@@ -15,11 +15,13 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { open as openShell } from "@tauri-apps/plugin-shell";
 import { storeToRefs } from "pinia";
 import * as catalogApi from "../../../api/catalog";
+import { useCatalogStore } from "../../../stores/catalog";
 import { useSettingsStore } from "../../../stores/settings";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import packageJson from "../../../../package.json";
 
 const settingsStore = useSettingsStore();
+const catalogStore = useCatalogStore();
 const { navWrap, navFocusFollowsMouse } = storeToRefs(settingsStore);
 
 const appVersion = packageJson.version;
@@ -123,15 +125,37 @@ async function restartAfterUpdate() {
 const clearCacheStatus = ref<"idle" | "clearing" | "done" | "error">("idle");
 const clearCacheError = ref<string | null>(null);
 
+/** Q3: "Clear cache" clears only the cover art cache (in-memory + on-disk). */
 async function clearCache() {
   clearCacheStatus.value = "clearing";
   clearCacheError.value = null;
   try {
-    await catalogApi.clearCache();
+    catalogStore.clearCoverCache();
+    await catalogApi.clearCoverCacheDir();
     clearCacheStatus.value = "done";
   } catch (e) {
     clearCacheError.value = e instanceof Error ? e.message : String(e);
     clearCacheStatus.value = "error";
+  }
+}
+
+const purgeStatus = ref<"idle" | "purging" | "done" | "error">("idle");
+const purgeError = ref<string | null>(null);
+
+/** Q3: hard-delete soft-deleted tracks. Destructive — confirm first. */
+async function purgeRemovedTracks() {
+  const proceed = confirm(
+    "Permanently delete all tracks from removed folders? This cannot be undone, and playlists that reference them will lose those entries.",
+  );
+  if (!proceed) return;
+  purgeStatus.value = "purging";
+  purgeError.value = null;
+  try {
+    await catalogApi.purgeDeletedTracks();
+    purgeStatus.value = "done";
+  } catch (e) {
+    purgeError.value = e instanceof Error ? e.message : String(e);
+    purgeStatus.value = "error";
   }
 }
 
@@ -276,9 +300,8 @@ async function copyPathToClipboard(path: string) {
                   Database cache
                 </p>
                 <p class="mb-2 text-xs text-stone-500">
-                  Removed folders are kept in the database temporarily so
-                  playlists can be restored if the folder is re-added. Use this
-                  to free that space immediately.
+                  Clears cached cover art only; covers are re-read from disk on
+                  demand. Safe to run any time.
                 </p>
                 <button
                   type="button"
@@ -297,6 +320,37 @@ async function copyPathToClipboard(path: string) {
                 </button>
                 <p v-if="clearCacheError" class="mt-1 text-xs text-amber-400">
                   {{ clearCacheError }}
+                </p>
+              </div>
+
+              <div class="settings-section">
+                <p
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                >
+                  <FeatherIcon
+                    name="trash-2"
+                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  />
+                  Removed tracks
+                </p>
+                <p class="mb-2 text-xs text-stone-500">
+                  Removed folders are kept in the database temporarily so
+                  playlists can be restored if the folder is re-added.
+                  Permanently delete them to free that space.
+                </p>
+                <button
+                  type="button"
+                  class="rounded border border-red-900 bg-stone-800 px-3 py-1.5 text-xs text-red-300 hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="purgeStatus === 'purging'"
+                  @click="purgeRemovedTracks"
+                >
+                  <span v-if="purgeStatus === 'idle'">Purge removed tracks</span>
+                  <span v-else-if="purgeStatus === 'purging'">Purging…</span>
+                  <span v-else-if="purgeStatus === 'done'">Purged</span>
+                  <span v-else-if="purgeStatus === 'error'">Failed</span>
+                </button>
+                <p v-if="purgeError" class="mt-1 text-xs text-amber-400">
+                  {{ purgeError }}
                 </p>
               </div>
 

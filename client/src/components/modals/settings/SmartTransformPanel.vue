@@ -10,6 +10,7 @@ import * as catalogApi from "../../../api/catalog";
 import { useCatalogStore } from "../../../stores/catalog";
 import { buildTransformPath } from "../../../utils/pathFormat";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import type { RenameCollision } from "@shared/api";
 
 const store = useCatalogStore();
 
@@ -17,6 +18,8 @@ const transformOrigin = ref("");
 const transformDest = ref("");
 const transformSelectedIds = ref<Set<number>>(new Set());
 const transformError = ref<string | null>(null);
+/** Destinations that would collide, shown as a cancel/override dialog. */
+const collisionDialog = ref<RenameCollision[] | null>(null);
 
 interface TransformMatch {
   track: (typeof store.tracks)[0];
@@ -59,18 +62,41 @@ function toggleTransformTrack(id: number) {
   transformSelectedIds.value = next;
 }
 
-async function runTransform() {
+async function runTransform(overwrite = false) {
   const selected = transformSelectedIds.value;
   const toTransform = transformMatches.value.filter((m) => selected.has(m.track.id));
   if (!toTransform.length) return;
   transformError.value = null;
+  // Q2 follow-up: check the destinations before moving anything, so a file
+  // already sitting at a destination is offered as cancel/override instead of
+  // being clobbered mid-batch.
+  if (!overwrite) {
+    let collisions: RenameCollision[];
+    try {
+      collisions = await catalogApi.checkRenameCollisions(
+        toTransform.map((m) => ({ id: m.track.id, newPath: m.newPath })),
+      );
+    } catch (err) {
+      transformError.value = String(err);
+      return;
+    }
+    if (collisions.length > 0) {
+      collisionDialog.value = collisions;
+      return;
+    }
+    // Q2: this moves real files on disk with no undo — confirm first.
+    const proceed = confirm(
+      `Move ${toTransform.length} file${toTransform.length === 1 ? "" : "s"} on disk to the new paths?\n\nThis cannot be undone.`,
+    );
+    if (!proceed) return;
+  }
   const total = toTransform.length;
   store.setBulkProgress({ current: 0, total });
   try {
     for (let i = 0; i < toTransform.length; i++) {
       const { track, newPath } = toTransform[i];
       const id = store._trackIdByPath(track.path);
-      if (id != null) await catalogApi.renameTrackFile(id, newPath);
+      if (id != null) await catalogApi.renameTrackFile(id, newPath, overwrite);
       store.setBulkProgress({ current: i + 1, total });
     }
     await store.loadTracks();
@@ -80,6 +106,20 @@ async function runTransform() {
   } finally {
     store.setBulkProgress(null);
   }
+}
+
+function cancelCollisionDialog() {
+  collisionDialog.value = null;
+}
+
+/** Override: re-run the transform, replacing the colliding destinations. */
+function overrideCollisions() {
+  collisionDialog.value = null;
+  void runTransform(true);
+}
+
+function collisionReasonLabel(reason: string): string {
+  return reason === "duplicate" ? "targeted by more than one track" : "already exists on disk";
 }
 
 // Reset selection when matches change
@@ -180,7 +220,7 @@ watch(transformMatches, () => {
                 type="button"
                 class="settings-action-btn rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
                 :disabled="transformSelectedIds.size === 0"
-                @click="runTransform"
+                @click="runTransform()"
               >
                 Transform
               </button>
@@ -188,4 +228,63 @@ watch(transformMatches, () => {
           </div>
 
           <!-- ── Statistics ──────────────────────────────────────────── -->
+
+  <!-- Q2 follow-up: destination collision check — cancel or override -->
+  <Teleport to="body">
+    <div
+      v-if="collisionDialog"
+      class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="transform-collision-title"
+      @click.self="cancelCollisionDialog"
+    >
+      <div class="w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl" @click.stop>
+        <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
+          <h2 id="transform-collision-title" class="text-sm font-semibold text-stone-200">Destinations already taken</h2>
+          <button
+            type="button"
+            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            aria-label="Cancel"
+            @click="cancelCollisionDialog"
+          >
+            <FeatherIcon name="x" class="h-4 w-4" />
+          </button>
+        </div>
+        <div class="max-h-[50vh] overflow-y-auto p-4">
+          <p class="text-xs text-stone-400">
+            Moving these files would overwrite {{ collisionDialog.length }}
+            existing destination{{ collisionDialog.length === 1 ? "" : "s" }}.
+            This cannot be undone.
+          </p>
+          <ul class="mt-3 space-y-1.5">
+            <li
+              v-for="c in collisionDialog"
+              :key="`${c.id}-${c.new_path}`"
+              class="font-mono text-xs text-stone-300 break-all"
+            >
+              {{ c.new_path }}
+              <span class="text-stone-500">— {{ collisionReasonLabel(c.reason) }}</span>
+            </li>
+          </ul>
+        </div>
+        <div class="flex items-center justify-end gap-2 border-t border-stone-700 px-4 py-3">
+          <button
+            type="button"
+            class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-stone-700"
+            @click="cancelCollisionDialog"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="settings-action-btn rounded px-3 py-1.5 text-xs font-medium"
+            @click="overrideCollisions"
+          >
+            Override
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>

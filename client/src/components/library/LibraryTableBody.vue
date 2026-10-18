@@ -740,6 +740,19 @@ function addToQueueFromContextMenu() {
   }
 }
 
+/** Q21: true when every track in the context menu is already a favorite. */
+const contextMenuAllFavorite = computed(() => {
+  const tracks = contextMenu.value?.tracks ?? [];
+  return tracks.length > 0 && tracks.every((t) => playlistStore.isFavorite(t.id));
+});
+
+async function toggleFavoriteFromContextMenu() {
+  const tracks = contextMenu.value?.tracks ?? [];
+  if (!tracks.length) return;
+  closeContextMenu();
+  for (const t of tracks) await playlistStore.toggleFavorite(t.id);
+}
+
 async function addToPlaylistFromContextMenu(playlistId: number) {
   if (!contextMenu.value?.tracks.length) return;
   const trackIds = contextMenu.value.tracks.map((t) => t.id);
@@ -1207,6 +1220,18 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
       >
         <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
         Add to queue
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        @click="toggleFavoriteFromContextMenu"
+      >
+        <FeatherIcon
+          name="heart"
+          class="h-4 w-4 shrink-0"
+          :class="contextMenuAllFavorite ? 'text-primary' : 'text-stone-400'"
+        />
+        {{ contextMenuAllFavorite ? "Remove from favorites" : "Add to favorites" }}
       </button>
 
       <!-- Add to playlist section -->
