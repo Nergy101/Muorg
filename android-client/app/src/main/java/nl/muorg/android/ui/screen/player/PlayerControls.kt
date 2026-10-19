@@ -3,9 +3,11 @@ package nl.muorg.android.ui.screen.player
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,9 +42,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
+import kotlin.math.PI
+import kotlin.math.sin
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.player.PlayerState
 import nl.muorg.android.ui.icon.mageIconRes
@@ -131,6 +138,16 @@ fun ColumnScope.PlayerControls(
             .padding(horizontal = 20.dp)
             .height(16.dp),
     ) {
+        // The line is drawn behind the slider: a Lotus-style wave while
+        // playing, straight when paused or dragged. The slider contributes
+        // only the thumb, so the wave is free to take the full height.
+        SeekWaveLine(
+            fraction = displayProgress,
+            isPlaying = playerState.isPlaying,
+            isSeeking = isSeeking,
+            color = primary,
+            modifier = Modifier.fillMaxWidth().height(16.dp),
+        )
         Slider(
             value = displayProgress,
             onValueChange = { value ->
@@ -152,24 +169,7 @@ fun ColumnScope.PlayerControls(
                         .background(primary),
                 )
             },
-            track = { state ->
-                val fraction = state.value.coerceIn(0f, 1f)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.22f)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(fraction)
-                            .fillMaxHeight()
-                            .clip(CircleShape)
-                            .background(primary),
-                    )
-                }
-            },
+            track = {},
         )
         // Buffering while a FLAC seek's replacement stream loads.
         if (playerState.isSeekBuffering) {
@@ -285,4 +285,64 @@ fun ColumnScope.PlayerControls(
     }
 
     Spacer(modifier = Modifier.height(18.dp))
+}
+
+/**
+ * The seek line, drawn behind the slider's thumb: a travelling wave while
+ * playing (Lotus-style), straight when paused or dragged. Its own composable
+ * so the per-frame wave phase recomposes only this canvas, not the whole
+ * controls row.
+ */
+@Composable
+private fun SeekWaveLine(
+    fraction: Float,
+    isPlaying: Boolean,
+    isSeeking: Boolean,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val waveTransition = rememberInfiniteTransition(label = "seekWave")
+    val wavePhase by waveTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "seekWavePhase",
+    )
+    val waveAmount by animateFloatAsState(
+        targetValue = if (isPlaying && !isSeeking) 1f else 0f,
+        animationSpec = tween(durationMillis = 250),
+        label = "seekWaveAmount",
+    )
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val centerY = h / 2f
+        val amplitude = 2.5.dp.toPx() * waveAmount
+        val wavelength = 28.dp.toPx()
+        val twoPi = (2.0 * PI).toFloat()
+        val phase = wavePhase * twoPi
+        val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+
+        fun waveY(x: Float): Float =
+            centerY + amplitude * sin(twoPi * (x / wavelength) + phase)
+
+        fun wavePath(fromX: Float, toX: Float): Path {
+            val path = Path()
+            if (toX <= fromX) return path
+            path.moveTo(fromX, waveY(fromX))
+            var x = fromX + 2f
+            while (x < toX) {
+                path.lineTo(x, waveY(x))
+                x += 2f
+            }
+            path.lineTo(toX, waveY(toX))
+            return path
+        }
+
+        drawPath(wavePath(0f, w), Color.White.copy(alpha = 0.22f), style = stroke)
+        drawPath(wavePath(0f, w * fraction.coerceIn(0f, 1f)), color, style = stroke)
+    }
 }
