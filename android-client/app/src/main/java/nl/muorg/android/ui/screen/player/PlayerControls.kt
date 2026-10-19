@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -138,9 +139,10 @@ fun ColumnScope.PlayerControls(
             .padding(horizontal = 20.dp)
             .height(16.dp),
     ) {
-        // The line is drawn behind the slider: a Lotus-style wave while
-        // playing, straight when paused or dragged. The slider contributes
-        // only the thumb, so the wave is free to take the full height.
+        // The slider is gesture-only: no visible thumb, no track. The line
+        // and the thumb are drawn by SeekWaveLine so the thumb can ride the
+        // wave; the slider's invisible 13dp thumb keeps its tap/drag mapping
+        // aligned with the drawn thumb.
         SeekWaveLine(
             fraction = displayProgress,
             isPlaying = playerState.isPlaying,
@@ -162,12 +164,7 @@ fun ColumnScope.PlayerControls(
             enabled = !playerState.isSeekBuffering,
             modifier = Modifier.fillMaxWidth().height(16.dp),
             thumb = {
-                Box(
-                    modifier = Modifier
-                        .size(13.dp)
-                        .clip(CircleShape)
-                        .background(primary),
-                )
+                Box(modifier = Modifier.size(13.dp))
             },
             track = {},
         )
@@ -288,10 +285,11 @@ fun ColumnScope.PlayerControls(
 }
 
 /**
- * The seek line, drawn behind the slider's thumb: a travelling wave while
- * playing (Lotus-style), straight when paused or dragged. Its own composable
- * so the per-frame wave phase recomposes only this canvas, not the whole
- * controls row.
+ * The seek line and its thumb, drawn on one canvas: a travelling wave while
+ * playing (Lotus-style) behind the thumb, a straight faint hairline ahead of
+ * it, and the thumb riding the wave at the progress point. Straightens while
+ * paused or dragged. Its own composable so the per-frame wave phase
+ * recomposes only this canvas, not the whole controls row.
  */
 @Composable
 private fun SeekWaveLine(
@@ -325,24 +323,43 @@ private fun SeekWaveLine(
         val twoPi = (2.0 * PI).toFloat()
         val phase = wavePhase * twoPi
         val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+        // The slider's gesture mapping insets the thumb travel by half the
+        // thumb width at each end; the same inset here keeps the drawn thumb
+        // exactly under a tap or a dragging finger.
+        val thumbRadius = 6.5.dp.toPx()
+        val thumbX = thumbRadius +
+            fraction.coerceIn(0f, 1f) * (w - 2 * thumbRadius).coerceAtLeast(0f)
 
         fun waveY(x: Float): Float =
             centerY + amplitude * sin(twoPi * (x / wavelength) + phase)
 
-        fun wavePath(fromX: Float, toX: Float): Path {
-            val path = Path()
-            if (toX <= fromX) return path
-            path.moveTo(fromX, waveY(fromX))
-            var x = fromX + 2f
-            while (x < toX) {
-                path.lineTo(x, waveY(x))
+        // Ahead of the thumb: a straight, faint hairline.
+        if (thumbX < w) {
+            drawLine(
+                color = Color.White.copy(alpha = 0.22f),
+                start = Offset(thumbX, centerY),
+                end = Offset(w, centerY),
+                strokeWidth = stroke.width,
+                cap = stroke.cap,
+            )
+        }
+        // Behind the thumb: the travelling wave, up to the progress point.
+        val wave = Path()
+        if (thumbX > 0f) {
+            wave.moveTo(0f, waveY(0f))
+            var x = 2f
+            while (x < thumbX) {
+                wave.lineTo(x, waveY(x))
                 x += 2f
             }
-            path.lineTo(toX, waveY(toX))
-            return path
+            wave.lineTo(thumbX, waveY(thumbX))
         }
-
-        drawPath(wavePath(0f, w), Color.White.copy(alpha = 0.22f), style = stroke)
-        drawPath(wavePath(0f, w * fraction.coerceIn(0f, 1f)), color, style = stroke)
+        drawPath(wave, color, style = stroke)
+        // The thumb rides the wave at the progress point.
+        drawCircle(
+            color = color,
+            radius = thumbRadius,
+            center = Offset(thumbX, waveY(thumbX)),
+        )
     }
 }
