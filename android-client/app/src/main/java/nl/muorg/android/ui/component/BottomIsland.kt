@@ -185,10 +185,11 @@ fun BottomIsland(
 
 /**
  * The mini player row: the song's 3-dots menu sits in the island's
- * corner-radius area, so the artwork starts past the rounded corner at full
- * row height instead of being clipped by it — then title over artist, then
- * the action cluster, and a hairline progress line riding the bottom edge of
- * the row, running under the artwork.
+ * corner-radius area, so the artwork starts past the rounded corner instead
+ * of being clipped by it — then title over artist, then the action cluster,
+ * and a hairline progress line riding the bottom edge of the row. The
+ * artwork is inset a little top and bottom so the island's top highlight and
+ * that progress line stay visible across it rather than being broken by it.
  */
 @Composable
 private fun MiniPlayerRow(
@@ -236,17 +237,21 @@ private fun MiniPlayerRow(
                 track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover"
                 else -> null
             }
+            // Inset a little top and bottom: at full row height the artwork
+            // covers the island's top highlight and the progress hairline
+            // along the bottom edge, breaking both where it sits.
             if (coverModel != null) {
                 AsyncImage(
                     model = coverModel,
                     contentDescription = null,
                     imageLoader = imageLoader,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxHeight().aspectRatio(1f),
+                    modifier = Modifier.padding(vertical = 5.dp).fillMaxHeight().aspectRatio(1f),
                 )
             } else {
                 Box(
                     modifier = Modifier
+                        .padding(vertical = 5.dp)
                         .fillMaxHeight()
                         .aspectRatio(1f)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
