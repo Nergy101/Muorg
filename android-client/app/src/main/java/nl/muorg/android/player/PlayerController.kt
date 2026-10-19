@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
@@ -40,6 +42,12 @@ private const val PLAY_COUNT_THRESHOLD_MS = 30_000L
  * re-buffers; flashing the loading bar for those blips is the flicker.
  */
 private const val BUFFERING_UI_DELAY_MS = 400L
+
+/**
+ * How many times a queue edit re-reads the queue when the player moved on, or
+ * another edit landed, while it was waiting on the preferences store.
+ */
+private const val QUEUE_EDIT_ATTEMPTS = 5
 
 data class PlayerState(
     val currentTrack: CatalogTrack? = null,
@@ -197,10 +205,11 @@ class PlayerController @Inject constructor(
         }
 
         // Media3 walks the timeline itself; its index is where the queue is now.
+        // The timeline is also what is audible, so if the two ever disagree on
+        // the order, the queue is rebuilt from it rather than the other way
+        // round — the UI must never name a different song than the one playing.
+        adoptTimeline(ctrl)
         val index = ctrl.currentMediaItemIndex
-        if (ctrl.mediaItemCount > 0 && index in queue.entries.indices && index != queue.position) {
-            queue = queue.copy(position = index)
-        }
 
         // The queue's own entry is the freshest copy of the track — in offline
         // mode it carries the resolved local file path — so prefer it over the
@@ -346,7 +355,7 @@ class PlayerController @Inject constructor(
             // Media3's own shuffle reorders a timeline the queue screen never
             // reads, so the list and the playback disagreed. Order is ours now.
             ctrl.shuffleModeEnabled = false
-            ctrl.setMediaItems(items, newQueue.position.coerceAtLeast(0), 0L)
+            mutateTimeline { ctrl.setMediaItems(items, newQueue.position.coerceAtLeast(0), 0L) }
             ctrl.prepare()
             ctrl.play()
             syncState()
@@ -390,21 +399,91 @@ class PlayerController @Inject constructor(
     }
 
     /**
-     * Apply a reordered or edited queue to the timeline.
+     * Re-anchor [queue] to Media3's timeline.
+     *
+     * Normally that is just copying the playing index across. If the order
+     * itself differs — an edit raced a track change, say — the timeline wins:
+     * it is what plays, and [PlayerState.currentTrack] is read from the queue,
+     * so a queue that disagrees names the wrong song (audio of A with B's art).
+     * Entries keep their origin; a track the queue has never seen is looked up
+     * in the cache, and if any id cannot be resolved the queue is left alone.
+     */
+    private fun adoptTimeline(ctrl: MediaController) {
+        val count = ctrl.mediaItemCount
+        if (count == 0) return
+        val index = ctrl.currentMediaItemIndex
+        val entries = queue.entries
+        val inOrder = entries.size == count &&
+            (0 until count).all { ctrl.getMediaItemAt(it).mediaId.toIntOrNull() == entries[it].track.id }
+        // While one of our own edits is rewriting the timeline, listener
+        // callbacks can fire between its steps and see a half-applied order;
+        // that is not a disagreement, so only the position is followed.
+        if (inOrder || mutatingTimeline) {
+            if (index in entries.indices && index != queue.position) {
+                queue = queue.copy(position = index)
+            }
+            return
+        }
+        val known = entries.associateBy { it.track.id }
+        val rebuilt = (0 until count).map { i ->
+            val id = ctrl.getMediaItemAt(i).mediaId.toIntOrNull() ?: return
+            known[id]
+                ?: trackCache.find { it.id == id }?.let { QueueEntry(it, QueueOrigin.SYSTEM) }
+                ?: return
+        }
+        queue = queue.copy(entries = rebuilt, position = index.coerceIn(rebuilt.indices))
+    }
+
+    private val queueEdits = Mutex()
+
+    /** True while this class is itself rewriting Media3's timeline. */
+    private var mutatingTimeline = false
+
+    private inline fun mutateTimeline(block: () -> Unit) {
+        mutatingTimeline = true
+        try {
+            block()
+        } finally {
+            mutatingTimeline = false
+        }
+    }
+
+    /**
+     * Apply an edit to the queue and rewrite the timeline after the current
+     * track to match.
      *
      * Only the part after the current track is rewritten, so whatever is
      * playing keeps playing — a queue edit should never restart the song.
+     *
+     * [edit] runs against the queue as it is *when the edit is applied*, not
+     * when it was requested: building the items waits on the preferences
+     * store, and in that gap the player can advance a track (the tail would
+     * then be spliced in one slot too late, duplicating the song that just
+     * started) or another edit can land (and be overwritten). Either is
+     * detected after the wait and the edit is recomputed from fresh state.
+     * Edits are serialised so two of them cannot interleave their writes.
      */
-    private fun applyQueue(next: PlaybackQueue) {
-        val ctrl = controller ?: return
+    private fun editQueue(edit: (PlaybackQueue) -> PlaybackQueue) {
+        if (controller == null) return
         scope.launch {
-            val effective = next.withDownloadedFiles()
-            queue = effective
-            val tail = effective.entries.drop(effective.position + 1).map { it.track }
-            val items = buildItems(tail) ?: return@launch
-            val from = (ctrl.currentMediaItemIndex + 1).coerceAtMost(ctrl.mediaItemCount)
-            ctrl.replaceMediaItems(from, ctrl.mediaItemCount, items)
-            syncState()
+            queueEdits.withLock {
+                for (attempt in 1..QUEUE_EDIT_ATTEMPTS) {
+                    val ctrl = controller ?: return@withLock
+                    adoptTimeline(ctrl)
+                    val base = queue
+                    val effective = edit(base).withDownloadedFiles()
+                    val tail = effective.entries.drop(effective.position + 1).map { it.track }
+                    val items = buildItems(tail) ?: return@withLock
+                    val stale = queue !== base ||
+                        (base.position >= 0 && ctrl.currentMediaItemIndex != base.position)
+                    if (stale && attempt < QUEUE_EDIT_ATTEMPTS) continue
+                    queue = effective
+                    val from = (ctrl.currentMediaItemIndex + 1).coerceAtMost(ctrl.mediaItemCount)
+                    mutateTimeline { ctrl.replaceMediaItems(from, ctrl.mediaItemCount, items) }
+                    syncState()
+                    return@withLock
+                }
+            }
         }
     }
 
@@ -513,7 +592,7 @@ class PlayerController @Inject constructor(
      */
     fun setShuffle(enabled: Boolean) {
         if (enabled == queue.shuffleEnabled) return
-        applyQueue(queue.withShuffle(enabled))
+        editQueue { it.withShuffle(enabled) }
     }
 
     fun cycleRepeatMode() {
@@ -541,7 +620,7 @@ class PlayerController @Inject constructor(
         val index = queue.entries.indexOfFirst { it.track.id == track.id }
         if (index < 0 || index == queue.position) return
         queue = queue.remove(track.id)
-        ctrl.removeMediaItem(index)
+        mutateTimeline { ctrl.removeMediaItem(index) }
         syncState()
     }
 
@@ -549,21 +628,23 @@ class PlayerController @Inject constructor(
     fun clearQueue() {
         val ctrl = controller ?: return
         queue = queue.clearUpNext()
-        for (i in (ctrl.currentMediaItemIndex + 1 until ctrl.mediaItemCount).reversed()) {
-            ctrl.removeMediaItem(i)
+        mutateTimeline {
+            for (i in (ctrl.currentMediaItemIndex + 1 until ctrl.mediaItemCount).reversed()) {
+                ctrl.removeMediaItem(i)
+            }
         }
         syncState()
     }
 
     /** Drop only what the listener queued, leaving the album or playlist. */
-    fun clearUserQueue() = applyQueue(queue.clearUserQueue())
+    fun clearUserQueue() = editQueue { it.clearUserQueue() }
 
     /** Reorder by index into the whole queue, history included. */
     fun reorderQueue(fromIndex: Int, toIndex: Int) {
         val ctrl = controller ?: return
         if (fromIndex !in queue.entries.indices || toIndex !in queue.entries.indices) return
         queue = queue.move(fromIndex, toIndex)
-        ctrl.moveMediaItem(fromIndex, toIndex)
+        mutateTimeline { ctrl.moveMediaItem(fromIndex, toIndex) }
         syncState()
     }
 
@@ -581,13 +662,13 @@ class PlayerController @Inject constructor(
     fun addTracksToQueue(tracks: List<CatalogTrack>) {
         if (tracks.isEmpty()) return
         cacheTracks(tracks)
-        applyQueue(queue.addToUserQueue(tracks))
+        editQueue { it.addToUserQueue(tracks) }
     }
 
     /** Queue a track to play immediately after the current one. */
     fun playNext(track: CatalogTrack) {
         cacheTracks(listOf(track))
-        applyQueue(queue.playNext(track))
+        editQueue { it.playNext(track) }
     }
 
     /**
@@ -598,7 +679,7 @@ class PlayerController @Inject constructor(
     fun appendToContext(tracks: List<CatalogTrack>) {
         if (tracks.isEmpty()) return
         cacheTracks(tracks)
-        applyQueue(queue.appendToContext(tracks))
+        editQueue { it.appendToContext(tracks) }
     }
 
     /** Keep the id → track lookup able to resolve anything in the queue. */
