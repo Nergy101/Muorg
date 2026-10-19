@@ -347,18 +347,22 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.weight(1.3f))
 
-            // Metadata is LEFT aligned with the secondary actions on the same
+            // The title gets the full width on its own row — squeezed into a
+            // weighted column next to the action icons it was cut off halfway
+            // across the screen. Marquee still kicks in when it overflows.
+            MarqueeText(
+                text = currentTrack?.displayTitle ?: "Nothing playing",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            )
+            // Artist + album on the left, the secondary actions on the same
             // row — the web never centres the title under the artwork.
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.Bottom,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    MarqueeText(
-                        text = currentTrack?.displayTitle ?: "Nothing playing",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White,
-                    )
                     MarqueeText(
                         text = currentTrack?.displayArtist ?: "",
                         style = MaterialTheme.typography.bodyLarge,
