@@ -73,6 +73,7 @@ import coil.request.ImageRequest
 import coil.request.SuccessResult
 import kotlinx.coroutines.launch
 import nl.muorg.android.ui.component.MarqueeText
+import nl.muorg.android.ui.component.PlaylistPickerSheet
 import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.glass.glassSheer
@@ -167,9 +168,23 @@ fun PlayerScreen(
     var showSleepTimerPicker by remember { mutableStateOf(false) }
 
     var sheetOpen by remember { mutableStateOf(false) }
+    var showPlaylistPicker by remember { mutableStateOf(false) }
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
     val favorites = playerState.favorites
+
+    // The picker shows the same effective membership as the actions sheet: a
+    // favourite counts as a member of the Favorites playlist even when the
+    // join row was never written.
+    val favPlaylistId = remember(playlists) { playlists.firstOrNull { it.name == "Favorites" }?.id }
+    val pickerMembership = remember(currentTrackMembership, favPlaylistId, favorites, currentTrack) {
+        val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
+        when {
+            favPlaylistId == null -> currentTrackMembership
+            isFavorite -> currentTrackMembership + favPlaylistId
+            else -> currentTrackMembership - favPlaylistId
+        }
+    }
 
     // Swipe down anywhere on the player to dismiss it, alongside the chevron
     // and the back gesture: the screen follows the finger and springs back, or
@@ -179,8 +194,8 @@ fun PlayerScreen(
     val swipeOffset = remember { Animatable(0f) }
     val swipeDismissThresholdPx = remember(density) { with(density) { 120.dp.toPx() } }
 
-    LaunchedEffect(sheetOpen, currentTrack) {
-        if (sheetOpen && currentTrack != null) {
+    LaunchedEffect(sheetOpen, showPlaylistPicker, currentTrack) {
+        if ((sheetOpen || showPlaylistPicker) && currentTrack != null) {
             playerViewModel.loadCurrentTrackMembership(currentTrack)
         }
     }
@@ -383,7 +398,7 @@ fun PlayerScreen(
                         modifier = Modifier.size(21.dp),
                     )
                 }
-                IconButton(onClick = { sheetOpen = true }, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = { showPlaylistPicker = true }, modifier = Modifier.size(40.dp)) {
                     Icon(
                         painter = painterResource(mageIconRes("playlist-add")),
                         contentDescription = "Add to playlist",
@@ -472,6 +487,17 @@ fun PlayerScreen(
                 }
             }
         }
+    }
+
+    if (showPlaylistPicker && currentTrack != null) {
+        PlaylistPickerSheet(
+            playlists = playlists,
+            membershipIds = pickerMembership,
+            onAdd = { playlist -> playerViewModel.addTrackToPlaylist(currentTrack, playlist.id) },
+            onRemove = { playlist -> playerViewModel.removeTrackFromPlaylist(currentTrack, playlist.id) },
+            onCreatePlaylist = { name -> playerViewModel.createPlaylist(name) },
+            onDismiss = { showPlaylistPicker = false },
+        )
     }
 
     if (sheetOpen && currentTrack != null) {

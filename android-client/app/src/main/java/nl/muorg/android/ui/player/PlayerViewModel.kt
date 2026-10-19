@@ -203,6 +203,20 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun createPlaylist(name: String) {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                runCatching { localRepository.createPlaylist(name) }
+                refreshPlaylists()
+            } else {
+                playlistRepository.createPlaylist(name, "🎵")
+                    .onFailure { _toastEvent.tryEmit(it.message ?: "Could not create playlist") }
+                refreshPlaylists()
+            }
+        }
+    }
+
     private suspend fun refreshPlaylists() {
         val mode = preferences.musicMode.first()
         if (mode == "local") {
