@@ -33,11 +33,33 @@ If a server connection fails, check that the server is up (`/api/health`), that 
 
 ## Browsing and playback
 
+- **Home** — shelves for Recommended, Mixes, Most Played and Recently Played, plus a **Shuffle all** button in the header that shuffles your whole library and keeps topping the queue up as it plays.
 - **Library** — album grid, album list or flat track list, with live search and recent-search chips.
 - **Album view** — tap an album to browse and play its tracks.
-- **Player** — artwork, seek, shuffle, repeat and queue.
+- **Player** — artwork, seek bar, shuffle, repeat and queue. Swipe down to close it.
 - **Playlists** — create and manage regular playlists. Smart playlists defined on the server are shown and playable, but their rules are edited on [desktop](/docs/desktop/) or in the [web app](/docs/web-client/).
 - **Metadata** — edit a single track's title, artist, album, album artist, genre and year from its actions sheet. The **metadata scan** tool under Settings → Library tools finds tracks that still need tags.
+
+### Seek bar
+
+The line under the artwork is a seek bar. While a track plays, the elapsed part ripples as a wave; paused, it is a straight line. Touch the bar anywhere to jump there, or put your finger on it and drag to scrub — the wave straightens the moment you touch it so the thumb is easy to follow, and playback seeks when you lift. The touch area is taller than the drawn line, so you do not need to hit the thin line exactly.
+
+While a track is still streaming in, the bar turns into a loading bar until it is ready to play.
+
+## Queue
+
+Open the queue from the mini player or the player screen. It is one ordered list — what you see is what will play — split into two sections:
+
+| Section | What it holds |
+|---------|---------------|
+| **Your queue** | Tracks you added yourself (**Add to queue** from a track's actions sheet). They play first, in the order you put them. **Clear** empties just this section. |
+| **Up next** | The rest of the album, playlist or mix you started. It picks up after your queue. |
+
+- **Reorder** — drag a row by its handle. Dropping a track across the divider moves it to the other section, and dropping at the very top starts your queue.
+- **Remove** — long-press a row and choose **Remove from queue**.
+- **Jump** — tap a row to play it now.
+- **Shuffle** — shuffles what is still to come in *Up next*; your queue and the song playing are left alone, and turning it off restores the original order.
+- **Clear all** — drops everything after the current track.
 
 ## Sleep timer
 
@@ -58,7 +80,11 @@ The widget updates when the app updates playback state. If it looks stuck, remov
 
 ## Settings
 
-Version and update check, playback behaviour (continuous playback, what tapping the mini player does), default library sort and layout, theme (dark / light / follow system, true black, Material You), the music-source switch with per-mode options (server URL, statistics, refresh and log out; or add-folder and rescan), and the metadata scan tool.
+Version and update check, playback behaviour (continuous playback, what tapping the mini player does, **offline mode**), downloads (playlist downloads wait for Wi-Fi unless you allow mobile data), default library sort and layout, theme (dark / light / follow system, true black, Material You), the music-source switch with per-mode options (server URL, statistics, refresh and log out; or add-folder and rescan), and the metadata scan tool.
+
+:::note Offline mode
+Offline mode makes no network calls: only downloaded albums, playlists and tracks are shown and played, and Home shows a placeholder instead of the shelves.
+:::
 
 :::info Client ↔ server compatibility
 See [Version Compatibility](/docs/compatibility) for which client versions work with which server versions.

@@ -6,6 +6,25 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v3.2.0
+
+- **All components**: coordinated release implementing the handoff-audit decisions across the server, desktop, web app and Android client.
+
+## Android 3.2.x – 3.3.x
+
+The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
+
+- **android-v3.3.3** — fixed the seek bar: the thumb can be grabbed and dragged again and tapping the bar seeks. The home header logo is back in its real colours.
+- **android-v3.3.2** — fixed the queue and the playing track disagreeing (one song's audio with another song's artwork); queue edits are now applied one at a time and re-checked against the player.
+- **android-v3.3.1** — larger seek touch area; the wave stops as soon as you touch the bar.
+- **android-v3.3.0** — home header with the Muorg brand and a **Shuffle all** button.
+- **android-v3.2.9** — the player's add-to-playlist button opens the playlist picker.
+- **android-v3.2.8 / v3.2.7** — wave-animated seek line: it ripples behind the thumb while playing and straightens when paused or dragged.
+- **android-v3.2.4** — a loading bar while a track streams in.
+- **android-v3.2.3** — mini player artwork inset so it no longer breaks the island lines.
+- **android-v3.2.2** — swipe down to dismiss the full player; tapping a second song no longer restarts the one already playing; dragging a track to the top of an empty queue starts your queue; offline mode shows only downloaded albums and tracks, with a placeholder on Home; 3-dots track menus on playlist and mix rows.
+- **android-v3.2.1** — dragging a track across the **Your queue** / **Up next** divider moves it to the other section; offline mode is a hard, self-contained mode.
+
 ## v3.1.1
 
 - **Server**: deterministic track ordering when pagination sort keys are tied.
