@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -232,7 +233,9 @@ private fun HomeHeader(
             .padding(top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        // Image, not Icon: Icon tints to a single colour and flattens the mark
+        // to a silhouette; the logo carries its own colours.
+        Image(
             painter = painterResource(R.drawable.ic_muorg_logo),
             contentDescription = null,
             modifier = Modifier.size(30.dp),
