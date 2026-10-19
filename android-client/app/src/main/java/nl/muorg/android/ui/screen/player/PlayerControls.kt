@@ -10,6 +10,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -37,10 +40,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -133,20 +138,29 @@ fun ColumnScope.PlayerControls(
             }
         }
     } else {
+    // The visible line is 16dp, but the touch target is 40dp tall: a finger
+    // can't reliably land on a 16dp strip, least of all on a thumb that is
+    // bobbing on the wave. The canvas is centred inside the taller box.
+    val seekInteraction = remember { MutableInteractionSource() }
+    val isHeld by seekInteraction.collectIsPressedAsState()
+    val isDragged by seekInteraction.collectIsDraggedAsState()
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .height(16.dp),
+            .height(SEEK_TOUCH_HEIGHT),
+        contentAlignment = Alignment.Center,
     ) {
         // The slider is gesture-only: no visible thumb, no track. The line
         // and the thumb are drawn by SeekWaveLine so the thumb can ride the
         // wave; the slider's invisible 13dp thumb keeps its tap/drag mapping
-        // aligned with the drawn thumb.
+        // aligned with the drawn thumb. The wave stops on touch-down (not
+        // after the first drag delta) so the thumb is already still, and
+        // straight, by the time the finger starts moving it.
         SeekWaveLine(
             fraction = displayProgress,
             isPlaying = playerState.isPlaying,
-            isSeeking = isSeeking,
+            isSeeking = isSeeking || isHeld || isDragged,
             color = primary,
             modifier = Modifier.fillMaxWidth().height(16.dp),
         )
@@ -162,7 +176,8 @@ fun ColumnScope.PlayerControls(
             },
             // A FLAC seek reloads the stream; the bar is inert until it lands.
             enabled = !playerState.isSeekBuffering,
-            modifier = Modifier.fillMaxWidth().height(16.dp),
+            interactionSource = seekInteraction,
+            modifier = Modifier.fillMaxWidth().height(SEEK_TOUCH_HEIGHT),
             thumb = {
                 Box(modifier = Modifier.size(13.dp))
             },
@@ -180,8 +195,19 @@ fun ColumnScope.PlayerControls(
         }
     }
 
+    // Pulled up into the seek box's spare touch height so the labels stay
+    // as close to the line as they were with the 16dp bar.
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                val pull = SEEK_LABEL_PULL_UP.roundToPx()
+                layout(placeable.width, (placeable.height - pull).coerceAtLeast(0)) {
+                    placeable.place(0, -pull)
+                }
+            },
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         val displayDurationMs = if (playerState.durationMs > 0) playerState.durationMs
@@ -283,6 +309,11 @@ fun ColumnScope.PlayerControls(
 
     Spacer(modifier = Modifier.height(18.dp))
 }
+
+// Touch-target height of the seek bar (the drawn line is 16dp), and how far
+// the time labels are pulled up into its spare height to compensate.
+private val SEEK_TOUCH_HEIGHT = 40.dp
+private val SEEK_LABEL_PULL_UP = 12.dp
 
 /**
  * The seek line and its thumb, drawn on one canvas: a travelling wave while
