@@ -59,7 +59,7 @@ The Android app can also run fully offline: pick **Local Library** on the welcom
    content_paths = ["/music"]            # the path *inside* the container
 
    [cors]
-   allowed_origins = ["*"]               # required for the browser web app
+   allowed_origins = ["tauri://localhost", "http://tauri.localhost", "http://<host>:7800"]  # add the web app's origin for browser use
    ```
 
    Then edit `docker-compose.yml` so the `/path/to/your/music` volume points at your actual music folder.

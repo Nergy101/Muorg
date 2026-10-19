@@ -77,7 +77,7 @@ backup_dir = "/data/backups"
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `allowed_origins` | `["*"]` | Origins allowed to call the API. Restrict to your domain for public deployments. |
+| `allowed_origins` | `["tauri://localhost", "http://tauri.localhost"]` | Origins allowed to call the API. The default only permits the desktop app; add the web app's origin to use it from a browser. Avoid `["*"]` on public deployments. |
 
 ### `[transcoding]`
 

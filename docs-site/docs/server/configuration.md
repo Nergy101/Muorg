@@ -21,7 +21,7 @@ backup_dir = "/data/muorg-backups"
 backup_retention_count = 5
 
 [cors]
-allowed_origins = ["*"]
+allowed_origins = ["tauri://localhost", "http://tauri.localhost", "http://localhost:7800"]
 
 [transcoding]
 bitrate = 320
@@ -53,3 +53,15 @@ sample_rate = 48000
 | `bitrate` | `128` | Output bitrate in kbps (128/160/192/256/320) |
 | `format` | `"mp3"` | Output format (currently only mp3) |
 | `sample_rate` | `44100` | Output sample rate in Hz |
+
+### `[cors]`
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `allowed_origins` | `["tauri://localhost", "http://tauri.localhost"]` | Origins allowed to call the API. The default only permits the desktop app. |
+
+List every origin that needs access: the desktop app (`tauri://localhost`, `http://tauri.localhost`), the web UI dev server (`http://localhost:7800`) and your web app's production URL.
+
+:::warning
+Never set `allowed_origins = ["*"]` on a public deployment. `*` lets **any** website you visit call your server, read your library and change your playlists using your API key.
+:::

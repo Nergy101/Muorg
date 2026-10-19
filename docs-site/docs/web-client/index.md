@@ -21,7 +21,7 @@ There is no `VITE_API_URL` or any other environment variable that points the web
 :::
 
 :::caution CORS
-The server's default `allowed_origins` only permits the desktop app. Before a browser can talk to your server, set `allowed_origins` in `[cors]` to `["*"]` (LAN use) or to the web app's exact origin. See [Configuration](/docs/server/configuration#cors).
+The server's default `allowed_origins` only permits the desktop app. Before a browser can talk to your server, set `allowed_origins` in `[cors]` to include the web app's exact origin (e.g. `http://<host>:7800`). Avoid `["*"]` on public deployments. See [Configuration](/docs/server/configuration#cors).
 :::
 
 ## Deploying

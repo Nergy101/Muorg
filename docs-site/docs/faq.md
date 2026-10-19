@@ -41,7 +41,7 @@ Check, in order:
 1. **Server is up** — `curl http://<host>:7700/api/health` returns `Healthy`. If not, check the server logs.
 2. **Reachable** — from the client device, the URL must be reachable. On the same machine `localhost`/`127.0.0.1` works; for other devices use the LAN IP (`ipconfig getifaddr en0` on macOS, `ip addr` on Linux) or a domain. In Docker, make sure the port is published (`ports: ["7700:7700"]`).
 3. **API key matches** — the client must use the exact `api_key` from the server config. Changing the key on the server invalidates all existing client connections.
-4. **CORS** — for browser clients, `allowed_origins` must include your web app's origin. `["*"]` works for LAN/home use.
+4. **CORS** — for browser clients, `allowed_origins` must include your web app's origin. The desktop-only default does not allow browsers. List the exact origin (e.g. `http://<host>:7800`); avoid `["*"]` on anything exposed to the internet.
 
 ## Music files are not appearing after I added a folder
 
