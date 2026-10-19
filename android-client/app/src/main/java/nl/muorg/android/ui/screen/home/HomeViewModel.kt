@@ -155,6 +155,9 @@ class HomeViewModel @Inject constructor(
 
     fun tracksForMix(mix: Mix): List<CatalogTrack> = mixRepository.tracksFor(mix)
 
+    /** The full catalog behind the shelves, for "Shuffle all". */
+    fun allTracks(): List<CatalogTrack> = tracks
+
     private fun pickRecommended(): List<AlbumGroup> =
         albums.shuffled().take(RECOMMENDED_COUNT)
 

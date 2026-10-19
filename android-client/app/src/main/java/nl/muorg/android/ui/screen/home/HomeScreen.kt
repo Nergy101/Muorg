@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,11 +43,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import nl.muorg.android.R
 import nl.muorg.android.data.repository.Mix
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.CoverMosaic
@@ -59,6 +63,9 @@ import nl.muorg.android.ui.glass.scrimLabelStyle
 import nl.muorg.android.ui.icon.MageIcon
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
+
+/** "Shuffle all" seeds the queue with this many random songs from the catalog. */
+private const val SHUFFLE_ALL_COUNT = 100
 
 /**
  * The web's Home tab (`HomeView.vue`): shelves, not a library. "Recommended"
@@ -91,7 +98,14 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(span = { GridItemSpan(2) }) {
-            Spacer(Modifier.statusBarsPadding().height(24.dp))
+            HomeHeader(
+                shuffleEnabled = !state.isOfflineMode,
+                onShuffleAll = {
+                    playerViewModel.startShuffleAll(
+                        viewModel.allTracks().shuffled().take(SHUFFLE_ALL_COUNT)
+                    )
+                },
+            )
         }
 
         // Offline mode is a hard divide: every shelf is a server call, so
@@ -196,6 +210,73 @@ fun HomeScreen(
                 imageLoader = imageLoader,
                 onClick = { onOpenAlbum(album.albumName) },
             )
+        }
+    }
+}
+
+/**
+ * The brand row: the Muorg mark and name on the left (as in the web's
+ * sidebar), "Shuffle all" as a glass pill on the right. Always shown, even
+ * in offline mode — there the button is dimmed and inert, since the catalog
+ * is not loaded.
+ */
+@Composable
+private fun HomeHeader(
+    shuffleEnabled: Boolean,
+    onShuffleAll: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_muorg_logo),
+            contentDescription = null,
+            modifier = Modifier.size(30.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Muorg",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.weight(1f))
+        GlassSurface(
+            material = GlassMaterial.Glass,
+            shape = MuorgShapes.pill,
+            modifier = Modifier
+                .height(36.dp)
+                .clickable(
+                    enabled = shuffleEnabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onShuffleAll,
+                ),
+        ) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MageIcon(
+                    name = "exchange",
+                    tint = if (shuffleEnabled) MaterialTheme.colorScheme.onSurface
+                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Shuffle all",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (shuffleEnabled) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
