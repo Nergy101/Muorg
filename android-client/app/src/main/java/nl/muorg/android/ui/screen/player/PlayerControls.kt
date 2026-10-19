@@ -10,9 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -40,12 +37,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.layout
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -141,47 +146,49 @@ fun ColumnScope.PlayerControls(
     // The visible line is 16dp, but the touch target is 40dp tall: a finger
     // can't reliably land on a 16dp strip, least of all on a thumb that is
     // bobbing on the wave. The canvas is centred inside the taller box.
-    val seekInteraction = remember { MutableInteractionSource() }
-    val isHeld by seekInteraction.collectIsPressedAsState()
-    val isDragged by seekInteraction.collectIsDraggedAsState()
+    //
+    // The gesture is handled here rather than by a Material Slider. The
+    // Slider was only ever a hidden gesture layer over the drawn line, and on
+    // the full player it stopped delivering drag and tap callbacks at all
+    // (pointer events reached it; onValueChange never fired). Owning the
+    // gesture also lets the wave stop on touch-down instead of after the
+    // first drag delta, so the thumb is already still and straight when the
+    // finger starts moving it.
+    // A FLAC seek reloads the stream; the bar is inert until it lands.
+    val seekEnabled = !playerState.isSeekBuffering
+    val latestSeekTo by rememberUpdatedState(playerViewModel::seekTo)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .height(SEEK_TOUCH_HEIGHT),
+            .height(SEEK_TOUCH_HEIGHT)
+            .seekGesture(
+                enabled = seekEnabled,
+                onSeekStart = { fraction ->
+                    isSeeking = true
+                    seekPosition = fraction
+                },
+                onSeekMove = { fraction -> seekPosition = fraction },
+                onSeekEnd = { committed ->
+                    if (committed) latestSeekTo(seekPosition)
+                    isSeeking = false
+                },
+            )
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(displayProgress.coerceIn(0f, 1f), 0f..1f)
+                if (seekEnabled) setProgress { target ->
+                    latestSeekTo(target.coerceIn(0f, 1f))
+                    true
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
-        // The slider is gesture-only: no visible thumb, no track. The line
-        // and the thumb are drawn by SeekWaveLine so the thumb can ride the
-        // wave; the slider's invisible 13dp thumb keeps its tap/drag mapping
-        // aligned with the drawn thumb. The wave stops on touch-down (not
-        // after the first drag delta) so the thumb is already still, and
-        // straight, by the time the finger starts moving it.
         SeekWaveLine(
             fraction = displayProgress,
             isPlaying = playerState.isPlaying,
-            isSeeking = isSeeking || isHeld || isDragged,
+            isSeeking = isSeeking,
             color = primary,
             modifier = Modifier.fillMaxWidth().height(16.dp),
-        )
-        Slider(
-            value = displayProgress,
-            onValueChange = { value ->
-                isSeeking = true
-                seekPosition = value
-            },
-            onValueChangeFinished = {
-                playerViewModel.seekTo(seekPosition)
-                isSeeking = false
-            },
-            // A FLAC seek reloads the stream; the bar is inert until it lands.
-            enabled = !playerState.isSeekBuffering,
-            interactionSource = seekInteraction,
-            modifier = Modifier.fillMaxWidth().height(SEEK_TOUCH_HEIGHT),
-            thumb = {
-                Box(modifier = Modifier.size(13.dp))
-            },
-            track = {},
         )
         // Buffering while a FLAC seek's replacement stream loads.
         if (playerState.isSeekBuffering) {
@@ -315,6 +322,9 @@ fun ColumnScope.PlayerControls(
 private val SEEK_TOUCH_HEIGHT = 40.dp
 private val SEEK_LABEL_PULL_UP = 12.dp
 
+/** Radius of the drawn thumb; the gesture insets its travel by the same amount. */
+private val SEEK_THUMB_RADIUS = 6.5.dp
+
 /**
  * The seek line and its thumb, drawn on one canvas: a travelling wave while
  * playing (Lotus-style) behind the thumb, a straight faint hairline ahead of
@@ -354,10 +364,10 @@ private fun SeekWaveLine(
         val twoPi = (2.0 * PI).toFloat()
         val phase = wavePhase * twoPi
         val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-        // The slider's gesture mapping insets the thumb travel by half the
-        // thumb width at each end; the same inset here keeps the drawn thumb
+        // The seek gesture insets the thumb travel by the thumb radius at each
+        // end ([seekGesture]); the same inset here keeps the drawn thumb
         // exactly under a tap or a dragging finger.
-        val thumbRadius = 6.5.dp.toPx()
+        val thumbRadius = SEEK_THUMB_RADIUS.toPx()
         val thumbX = thumbRadius +
             fraction.coerceIn(0f, 1f) * (w - 2 * thumbRadius).coerceAtLeast(0f)
 
@@ -392,5 +402,42 @@ private fun SeekWaveLine(
             radius = thumbRadius,
             center = Offset(thumbX, waveY(thumbX)),
         )
+    }
+}
+
+/**
+ * The seek bar's gesture: touch-down grabs the thumb and puts it under the
+ * finger at once, dragging moves it, and lifting commits.
+ *
+ * There is no touch-slop to cross first — the thumb follows from the very
+ * first pixel, and [onSeekStart] fires on touch-down so the wave can stop
+ * before anything moves. Handled changes are consumed so the full player's
+ * swipe-down-to-dismiss does not fight a seek. [onSeekEnd] gets `false` when
+ * the gesture was cancelled, in which case nothing should be committed.
+ *
+ * Positions map through the same thumb-radius inset [SeekWaveLine] draws
+ * with, so the thumb stays exactly under the finger. The callbacks only touch
+ * hoisted state, so the closure capturing the first ones is harmless.
+ */
+private fun Modifier.seekGesture(
+    enabled: Boolean,
+    onSeekStart: (Float) -> Unit,
+    onSeekMove: (Float) -> Unit,
+    onSeekEnd: (committed: Boolean) -> Unit,
+): Modifier = if (!enabled) this else pointerInput(Unit) {
+    val inset = SEEK_THUMB_RADIUS.toPx()
+    fun fractionAt(x: Float): Float {
+        val travel = size.width - 2 * inset
+        return if (travel <= 0f) 0f else ((x - inset) / travel).coerceIn(0f, 1f)
+    }
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        down.consume()
+        onSeekStart(fractionAt(down.position.x))
+        val committed = horizontalDrag(down.id) { change ->
+            change.consume()
+            onSeekMove(fractionAt(change.position.x))
+        }
+        onSeekEnd(committed)
     }
 }
