@@ -1,15 +1,23 @@
 package nl.muorg.android.ui.screen.player
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -70,15 +78,28 @@ fun ColumnScope.PlayerControls(
     val primary = accent
     if (playerState.isBuffering) {
         // The track is still streaming in: the time-bar becomes a loading bar
-        // that fills 0–100 with the buffered amount, in the same hairline
-        // track the seek slider uses so the swap is seamless.
-        Box(
+        // in the same hairline track the seek slider uses, so the swap is
+        // seamless. The dim fill is the buffered amount (0–100); a bright
+        // segment slides across it as the indeterminate loading motion.
+        val slideTransition = rememberInfiniteTransition(label = "buffering")
+        val slide by slideTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "bufferingSlide",
+        )
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .height(16.dp),
             contentAlignment = Alignment.Center,
         ) {
+            val segmentWidth = maxWidth * 0.3f
+            val slideOffset = (maxWidth + segmentWidth) * slide - segmentWidth
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -91,7 +112,15 @@ fun ColumnScope.PlayerControls(
                         .fillMaxWidth(playerState.bufferedPercentage.coerceIn(0, 100) / 100f)
                         .fillMaxHeight()
                         .clip(CircleShape)
-                        .background(primary),
+                        .background(primary.copy(alpha = 0.45f)),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.3f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(primary)
+                        .offset(x = slideOffset),
                 )
             }
         }
