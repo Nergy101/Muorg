@@ -3,6 +3,7 @@ package nl.muorg.android.ui.screen.settings
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -52,6 +53,9 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Opaque: the route is transparent otherwise, and while a back
+            // gesture is in flight the home screen shows through it.
+            .background(MaterialTheme.colorScheme.background)
             // Before verticalScroll, so the inset shrinks the viewport instead
             // of scrolling away — there is no app bar here to sit under the
             // status bar, so the first section would collide with the clock.

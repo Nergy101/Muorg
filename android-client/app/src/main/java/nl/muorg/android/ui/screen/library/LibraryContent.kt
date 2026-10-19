@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,7 +62,14 @@ fun LibraryContent(
 ) {
     val currentAlbum = playerState.currentTrack?.displayAlbum
 
-    Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+    // Opaque, like the other routes: otherwise the screen underneath shows
+    // through while a back gesture is in flight.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding(),
+    ) {
             when {
                 // Only block on the very first page: the remote catalog streams
                 // in page by page, so later pages must grow the list in place

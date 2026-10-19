@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.navigation
 
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -27,6 +28,13 @@ import nl.muorg.android.ui.screen.reports.ReportsScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import nl.muorg.android.ui.screen.welcome.WelcomeScreen
 
+/** Routes that enter from the bottom and leave downwards. */
+private val slideOverlayRoutes = setOf(
+    Screen.Settings.route,
+    Screen.Player.route,
+    Screen.Queue.route,
+)
+
 /**
  * Every route in the app, and the transitions between them.
  *
@@ -46,6 +54,23 @@ fun MuorgNavHost(
     NavHost(
         navController = navController,
         startDestination = Screen.Welcome.route,
+        // Gesture-driven back. The host default is scaleOut(0.7) for every
+        // route, which shrinks a slide-up overlay into the middle of the
+        // screen beneath it instead of dragging it down like a tap-back does.
+        predictivePopEnterTransition = { _ ->
+            if (initialState.destination.route in slideOverlayRoutes) {
+                EnterTransition.None
+            } else {
+                fadeIn(spring(dampingRatio = 1f, stiffness = 1600f))
+            }
+        },
+        predictivePopExitTransition = { _ ->
+            if (initialState.destination.route in slideOverlayRoutes) {
+                slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            } else {
+                scaleOut(targetScale = 0.7f)
+            }
+        },
     ) {
         composable(Screen.Welcome.route) {
             WelcomeScreen(
