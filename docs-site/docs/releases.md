@@ -14,6 +14,7 @@ Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notab
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v3.3.4** — fixed the visual glitch on Android 16 when swiping back from Settings: the screen no longer shrinks into the home screen with its contents showing through. Settings, Player and Queue now slide down with the back gesture, and Settings and Library have an opaque background.
 - **android-v3.3.3** — fixed the seek bar: the thumb can be grabbed and dragged again and tapping the bar seeks. The home header logo is back in its real colours.
 - **android-v3.3.2** — fixed the queue and the playing track disagreeing (one song's audio with another song's artwork); queue edits are now applied one at a time and re-checked against the player.
 - **android-v3.3.1** — larger seek touch area; the wave stops as soon as you touch the bar.
