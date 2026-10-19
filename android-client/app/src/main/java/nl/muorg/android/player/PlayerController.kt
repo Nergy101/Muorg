@@ -46,6 +46,10 @@ data class PlayerState(
     val isSeekable: Boolean = true,
     /** A FLAC seek is reloading the stream; the seek bar shows buffering. */
     val isSeekBuffering: Boolean = false,
+    /** The current track is still streaming in; the time-bar is replaced by a loading bar. */
+    val isBuffering: Boolean = false,
+    /** How much of the current track has buffered, 0–100. */
+    val bufferedPercentage: Int = 0,
     val errorMessage: String? = null,
     /**
      * The play order, each entry tagged with whether the listener queued it or
@@ -223,6 +227,8 @@ class PlayerController @Inject constructor(
                 queue = queue.tracks,
                 isSeekable = ctrl.isCurrentMediaItemSeekable,
                 isSeekBuffering = flacSeekInFlight,
+                isBuffering = ctrl.playbackState == Player.STATE_BUFFERING,
+                bufferedPercentage = ctrl.bufferedPercentage,
                 playbackQueue = queue,
             )
         }
@@ -244,7 +250,10 @@ class PlayerController @Inject constructor(
                 // Nothing advances on its own while paused or in the
                 // background — the listener callbacks cover every transition
                 // — so the poll only needs to run while something is playing.
-                if (controller?.isPlaying == true) syncState()
+                // Buffering is the exception: isPlaying() is false there, but
+                // the buffer fills on its own and the loading bar must track it.
+                val ctrl = controller
+                if (ctrl?.isPlaying == true || ctrl?.playbackState == Player.STATE_BUFFERING) syncState()
             }
         }
     }
@@ -607,6 +616,8 @@ class PlayerController @Inject constructor(
                 durationMs = 0L,
                 queue = emptyList(),
                 isSeekBuffering = false,
+                isBuffering = false,
+                bufferedPercentage = 0,
                 playbackQueue = PlaybackQueue(),
             )
         }

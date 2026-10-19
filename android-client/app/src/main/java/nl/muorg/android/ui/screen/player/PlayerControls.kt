@@ -68,6 +68,34 @@ fun ColumnScope.PlayerControls(
     // that difference is the loudest thing on the screen. Both slots are
     // replaced rather than recoloured.
     val primary = accent
+    if (playerState.isBuffering) {
+        // The track is still streaming in: the time-bar becomes a loading bar
+        // that fills 0–100 with the buffered amount, in the same hairline
+        // track the seek slider uses so the swap is seamless.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .height(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.22f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(playerState.bufferedPercentage.coerceIn(0, 100) / 100f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(primary),
+                )
+            }
+        }
+    } else {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -145,6 +173,7 @@ fun ColumnScope.PlayerControls(
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.70f),
         )
+    }
     }
 
     Spacer(modifier = Modifier.height(14.dp))
