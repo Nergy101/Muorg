@@ -15,6 +15,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -41,6 +45,9 @@ import javax.inject.Singleton
  */
 private const val MAX_OFFLINE_BYTES = 2L * 1024 * 1024 * 1024
 
+/** How long a cold-started sync waits for the saved credentials to load. */
+private const val CREDENTIALS_WAIT_MS = 5_000L
+
 data class DownloadProgress(
     val playlistId: Int? = null,
     val totalTracks: Int = 0,
@@ -60,6 +67,9 @@ class OfflineDownloadManager @Inject constructor(
     private val preferences: AppPreferences,
     private val okHttpClient: OkHttpClient,
     private val json: Json,
+    private val playlistRepository: PlaylistRepository,
+    private val libraryRepository: LibraryRepository,
+    private val syncScheduler: OfflineSyncScheduler,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -71,72 +81,162 @@ class OfflineDownloadManager @Inject constructor(
     private val offlineDir: File
         get() = File(context.filesDir, "offline").also { it.mkdirs() }
 
+    // One download at a time: a download the user started and a background
+    // sync write the same progress state and the same offline folder.
+    private val downloadMutex = Mutex()
+
     fun downloadPlaylist(playlist: Playlist, tracks: List<CatalogTrack>) {
         scope.launch {
-            _downloadProgress.update {
-                it.copy(
-                    playlistId = playlist.id,
-                    totalTracks = tracks.size,
-                    completedTracks = 0,
-                    failedTracks = 0,
-                    currentTrackName = "",
-                    errorMessage = null,
-                    isActive = true,
+            downloadMutex.withLock {
+                beginProgress(playlist.id, tracks.size)
+                // The row is what marks the playlist downloaded — written up front
+                // so a partial download (storage cap, a failed track) still shows
+                // as downloaded and can be removed again from the tile.
+                offlinePlaylistDao.upsert(
+                    OfflinePlaylist(
+                        playlistId = playlist.id,
+                        name = playlist.name,
+                        icon = playlist.icon,
+                        trackCount = playlist.trackCount,
+                    )
                 )
-            }
-            // The row is what marks the playlist downloaded — written up front
-            // so a partial download (storage cap, a failed track) still shows
-            // as downloaded and can be removed again from the tile.
-            offlinePlaylistDao.upsert(
-                OfflinePlaylist(
-                    playlistId = playlist.id,
-                    name = playlist.name,
-                    icon = playlist.icon,
-                )
-            )
-            // Wi-Fi only unless the user opted into mobile data.
-            if (!isOnWifi() && !preferences.downloadMobileData.first()) {
-                _downloadProgress.update {
-                    it.copy(isActive = false, errorMessage = "Downloads are limited to Wi-Fi")
-                }
-                return@launch
-            }
-            var usedBytes = offlineDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
-            // Online mode caches for listening without internet, so the cache
-            // is capped; local mode reads the device's own storage and is not.
-            val capBytes =
-                if (preferences.musicMode.first() == "local") Long.MAX_VALUE else MAX_OFFLINE_BYTES
-            for (track in tracks) {
-                _downloadProgress.update { it.copy(currentTrackName = track.displayTitle) }
-                val existing = offlineTrackDao.getTrack(track.id)
-                if (existing?.status == "ready") {
-                    _downloadProgress.update { it.copy(completedTracks = it.completedTracks + 1) }
-                    continue
-                }
-                // Stop before the next file would push the offline folder
-                // past the cap; the rest of the playlist stays undownloaded.
-                if (usedBytes >= capBytes) {
-                    markFailed(track, playlist.id)
+                syncScheduler.reconcile()
+                // Wi-Fi only unless the user opted into mobile data.
+                if (!networkAllowsDownload()) {
                     _downloadProgress.update {
-                        it.copy(failedTracks = it.failedTracks + 1, errorMessage = "Storage limit reached")
+                        it.copy(isActive = false, errorMessage = "Downloads are limited to Wi-Fi")
                     }
-                    break
+                    return@withLock
                 }
-                val written = try {
-                    downloadTrack(track, playlist.id)
-                } catch (e: Exception) {
-                    null
-                }
-                if (written != null) {
-                    usedBytes += written
-                    _downloadProgress.update { it.copy(completedTracks = it.completedTracks + 1) }
-                } else {
-                    markFailed(track, playlist.id)
-                    _downloadProgress.update { it.copy(failedTracks = it.failedTracks + 1) }
-                }
+                downloadTracks(playlist.id, tracks)
+                _downloadProgress.update { it.copy(isActive = false) }
             }
+        }
+    }
+
+    /**
+     * Downloads what was added to downloaded playlists since they were last
+     * looked at. A playlist is only re-read when the server's track count no
+     * longer matches the one recorded at its last sync, so the common run is a
+     * single playlist-list request.
+     *
+     * Silent by design — it runs from a background worker. A metered
+     * connection, offline mode, or an unreachable server means nothing happens
+     * until the next run, never an error in the UI.
+     */
+    suspend fun syncDownloadedPlaylists() = withContext(Dispatchers.IO) {
+        downloadMutex.withLock {
+            if (preferences.musicMode.first() == "local" || preferences.offlineMode.first()) return@withLock
+            val rows = offlinePlaylistDao.getAll()
+            if (rows.isEmpty() || !networkAllowsDownload()) return@withLock
+            if (!credentialsLoaded()) return@withLock
+
+            val serverPlaylists = playlistRepository.getPlaylists()
+                .getOrElse { return@withLock }
+                .associateBy { it.id }
+            for (row in rows) {
+                // A playlist gone from the server is left alone: deleting the
+                // user's downloads is not this job.
+                val playlist = serverPlaylists[row.playlistId] ?: continue
+                if (playlist.trackCount != row.trackCount) syncPlaylist(row, playlist)
+            }
+        }
+    }
+
+    private suspend fun syncPlaylist(row: OfflinePlaylist, playlist: Playlist) {
+        val ids = playlistRepository.getTracksFor(playlist).getOrElse { return }
+        val catalog = libraryRepository.getAllTracks().getOrElse { return }.associateBy { it.id }
+        val tracks = ids.mapNotNull { catalog[it] }
+        val missing = tracks.filter { offlineTrackDao.getTrack(it.id)?.status != "ready" }
+
+        // An id the catalog does not know yet (a track the server has not
+        // scanned) cannot be downloaded, so it keeps the playlist out of date.
+        var complete = tracks.size == ids.size
+        if (missing.isNotEmpty()) {
+            beginProgress(playlist.id, missing.size)
+            complete = downloadTracks(playlist.id, missing) && complete
             _downloadProgress.update { it.copy(isActive = false) }
         }
+        // Recorded only once everything is in; otherwise the next run sees the
+        // same mismatch and tries the rest again. Re-checked because the
+        // playlist may have been removed while its files were downloading.
+        if (complete && offlinePlaylistDao.get(row.playlistId) != null) {
+            offlinePlaylistDao.upsert(row.copy(trackCount = playlist.trackCount))
+        }
+    }
+
+    /**
+     * A cold-started worker can reach here before the preference flows have
+     * caught up with DataStore, and the API client reads those flows' cached
+     * values — which would be empty, aiming the request at localhost.
+     */
+    private suspend fun credentialsLoaded(): Boolean {
+        val url = preferences.serverUrl.first()
+        if (url.isBlank()) return false
+        val key = preferences.apiKey.first()
+        return withTimeoutOrNull(CREDENTIALS_WAIT_MS) {
+            preferences.serverUrlState.first { it == url }
+            preferences.apiKeyState.first { it == key }
+            true
+        } ?: false
+    }
+
+    private fun beginProgress(playlistId: Int, total: Int) {
+        _downloadProgress.update {
+            it.copy(
+                playlistId = playlistId,
+                totalTracks = total,
+                completedTracks = 0,
+                failedTracks = 0,
+                currentTrackName = "",
+                errorMessage = null,
+                isActive = true,
+            )
+        }
+    }
+
+    private suspend fun networkAllowsDownload(): Boolean =
+        isOnWifi() || preferences.downloadMobileData.first()
+
+    /** True when every one of [tracks] is on disk afterwards. */
+    private suspend fun downloadTracks(playlistId: Int, tracks: List<CatalogTrack>): Boolean {
+        var usedBytes = offlineDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        // Online mode caches for listening without internet, so the cache
+        // is capped; local mode reads the device's own storage and is not.
+        val capBytes =
+            if (preferences.musicMode.first() == "local") Long.MAX_VALUE else MAX_OFFLINE_BYTES
+        var allReady = true
+        for (track in tracks) {
+            _downloadProgress.update { it.copy(currentTrackName = track.displayTitle) }
+            val existing = offlineTrackDao.getTrack(track.id)
+            if (existing?.status == "ready") {
+                _downloadProgress.update { it.copy(completedTracks = it.completedTracks + 1) }
+                continue
+            }
+            // Stop before the next file would push the offline folder
+            // past the cap; the rest of the playlist stays undownloaded.
+            if (usedBytes >= capBytes) {
+                markFailed(track, playlistId)
+                _downloadProgress.update {
+                    it.copy(failedTracks = it.failedTracks + 1, errorMessage = "Storage limit reached")
+                }
+                return false
+            }
+            val written = try {
+                downloadTrack(track, playlistId)
+            } catch (e: Exception) {
+                null
+            }
+            if (written != null) {
+                usedBytes += written
+                _downloadProgress.update { it.copy(completedTracks = it.completedTracks + 1) }
+            } else {
+                allReady = false
+                markFailed(track, playlistId)
+                _downloadProgress.update { it.copy(failedTracks = it.failedTracks + 1) }
+            }
+        }
+        return allReady
     }
 
     private suspend fun markFailed(track: CatalogTrack, playlistId: Int) {
@@ -232,6 +332,7 @@ class OfflineDownloadManager @Inject constructor(
             }
             offlineTrackDao.deleteForPlaylist(playlistId)
             offlinePlaylistDao.delete(playlistId)
+            syncScheduler.reconcile()
         }
     }
 

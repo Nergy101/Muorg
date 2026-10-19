@@ -21,6 +21,7 @@ import nl.muorg.android.data.db.OfflineTrackDao
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.preferences.SearchHistoryManager
 import nl.muorg.android.data.repository.LibraryRepository
+import nl.muorg.android.data.repository.OfflineSyncScheduler
 import nl.muorg.android.data.repository.PlaylistRepository
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -105,8 +106,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providePlaylistRepository(api: MuorgApi): PlaylistRepository =
-        PlaylistRepository(api)
+    fun providePlaylistRepository(
+        api: MuorgApi,
+        offlineSyncScheduler: OfflineSyncScheduler,
+    ): PlaylistRepository =
+        PlaylistRepository(api, onTracksAdded = offlineSyncScheduler::syncNow)
 
     @Provides
     @Singleton
@@ -123,6 +127,7 @@ object AppModule {
                 AppDatabase.MIGRATION_1_2,
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
             )
             .build()
 

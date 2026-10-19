@@ -17,6 +17,7 @@ activity-compose = "1.13.0"
 coroutines = "1.11.0"
 serialization-json = "1.11.0"
 room = "2.8.5"
+work = "2.12.0"
 documentfile = "1.1.0"
 cast-framework = "22.3.1"
 mediarouter = "1.8.1"
@@ -84,6 +85,9 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
+# WorkManager (background sync of downloaded playlists)
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 
 # DocumentFile (SAF)
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }

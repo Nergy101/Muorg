@@ -13,7 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         OfflineTrack::class,
         OfflinePlaylist::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -80,6 +80,17 @@ abstract class AppDatabase : RoomDatabase() {
                 // albums offline. Nullable: rows from before this column fall
                 // back to a filename-only track.
                 database.execSQL("ALTER TABLE `offline_tracks` ADD COLUMN `trackJson` TEXT")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // The server's track count at the last sync. Rows from before
+                // this column read 0, which never matches a real playlist, so
+                // the first background sync reconciles them once.
+                database.execSQL(
+                    "ALTER TABLE `offline_playlists` ADD COLUMN `trackCount` INTEGER NOT NULL DEFAULT 0"
+                )
             }
         }
     }

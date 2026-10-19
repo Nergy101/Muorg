@@ -11,7 +11,6 @@ import nl.muorg.android.data.api.schema.SmartCreateBody
 import nl.muorg.android.data.api.schema.TrackIdsBody
 import nl.muorg.android.data.api.schema.UpdateBody
 import nl.muorg.android.data.api.toDomain
-import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
@@ -25,9 +24,14 @@ import javax.inject.Singleton
 class SmartPlaylistNotEditable(playlistName: String) :
     IllegalArgumentException("\"$playlistName\" is a smart playlist — its tracks come from its rules")
 
+/**
+ * [onTracksAdded] runs after the server accepted an add, so a downloaded
+ * playlist can pull the new songs without waiting for the periodic sync.
+ */
 @Singleton
-class PlaylistRepository @Inject constructor(
+class PlaylistRepository(
     private val api: MuorgApi,
+    private val onTracksAdded: () -> Unit = {},
 ) {
     suspend fun getPlaylists(): Result<List<Playlist>> = runCatching {
         api.listPlaylists().bodyOrThrow("GET /api/playlists").toDomain()
@@ -130,6 +134,7 @@ class PlaylistRepository @Inject constructor(
     private suspend fun addTracksUnchecked(playlistId: Int, trackIds: List<Int>): Result<Unit> = runCatching {
         api.addPlaylistTracks(playlistId.toLong(), TrackIdsBody(trackIds.map { it.toLong() }))
             .orThrow("POST /api/playlists/$playlistId/tracks")
+        onTracksAdded()
     }
 
     suspend fun removeTracks(playlistId: Int, trackIds: List<Int>): Result<Unit> = runCatching {
