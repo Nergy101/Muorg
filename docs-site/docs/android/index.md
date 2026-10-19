@@ -86,6 +86,10 @@ Version and update check, playback behaviour (continuous playback, what tapping 
 Offline mode makes no network calls: only downloaded albums, playlists and tracks are shown and played, and Home shows a placeholder instead of the shelves.
 :::
 
+:::note Downloaded playlists stay in step
+When songs are added to a playlist you have downloaded, the app downloads them in the background — right after you add them in the app, and within about 15 minutes for changes made elsewhere (the web app, another device, or a smart playlist that grew). It follows the same rules as any download: Wi-Fi only unless you allow mobile data, the storage limit, and nothing while offline mode is on.
+:::
+
 :::info Client ↔ server compatibility
 See [Version Compatibility](/docs/compatibility) for which client versions work with which server versions.
 :::
