@@ -2,6 +2,7 @@ package nl.muorg.android.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -32,6 +33,14 @@ import javax.inject.Singleton
 /** A play counts once the listener has heard this much of the track. */
 private const val PLAY_COUNT_THRESHOLD_MS = 30_000L
 
+/**
+ * How long the player must stay in STATE_BUFFERING before the UI swaps the
+ * seek bar for the loading bar. ExoPlayer passes through BUFFERING briefly
+ * on every prepare — even for a local file — and on every seek that
+ * re-buffers; flashing the loading bar for those blips is the flicker.
+ */
+private const val BUFFERING_UI_DELAY_MS = 400L
+
 data class PlayerState(
     val currentTrack: CatalogTrack? = null,
     val isPlaying: Boolean = false,
@@ -46,7 +55,7 @@ data class PlayerState(
     val isSeekable: Boolean = true,
     /** A FLAC seek is reloading the stream; the seek bar shows buffering. */
     val isSeekBuffering: Boolean = false,
-    /** The current track is still streaming in; the time-bar is replaced by a loading bar. */
+    /** Buffering has persisted long enough that the time-bar is replaced by a loading bar. */
     val isBuffering: Boolean = false,
     /** How much of the current track has buffered, 0–100. */
     val bufferedPercentage: Int = 0,
@@ -99,6 +108,10 @@ class PlayerController @Inject constructor(
     // Set while a FLAC seek's replacement stream is still loading; the seek
     // bar shows a buffering indicator until the player reports READY.
     private var flacSeekInFlight = false
+
+    // When the player entered STATE_BUFFERING (elapsed realtime), for the
+    // loading-bar hysteresis.
+    private var bufferingSinceElapsedMs: Long? = null
 
     // The track whose play has already been recorded, so a track counts once
     // no matter how often it repeats or re-enters the queue.
@@ -215,6 +228,21 @@ class PlayerController @Inject constructor(
             }
         }
 
+        // Hysteresis: the loading bar only appears once buffering has
+        // persisted past BUFFERING_UI_DELAY_MS. The brief BUFFERING blips
+        // on every prepare and seek must not flash it — during playback
+        // the seek bar is the only bar.
+        val nowBuffering = ctrl.playbackState == Player.STATE_BUFFERING
+        val isBufferingUi: Boolean
+        if (nowBuffering) {
+            val now = SystemClock.elapsedRealtime()
+            val since = bufferingSinceElapsedMs ?: now.also { bufferingSinceElapsedMs = it }
+            isBufferingUi = now - since >= BUFFERING_UI_DELAY_MS
+        } else {
+            bufferingSinceElapsedMs = null
+            isBufferingUi = false
+        }
+
         _state.update { state ->
             state.copy(
                 currentTrack = currentTrack ?: queue.current,
@@ -227,7 +255,7 @@ class PlayerController @Inject constructor(
                 queue = queue.tracks,
                 isSeekable = ctrl.isCurrentMediaItemSeekable,
                 isSeekBuffering = flacSeekInFlight,
-                isBuffering = ctrl.playbackState == Player.STATE_BUFFERING,
+                isBuffering = isBufferingUi,
                 bufferedPercentage = ctrl.bufferedPercentage,
                 playbackQueue = queue,
             )
@@ -246,7 +274,11 @@ class PlayerController @Inject constructor(
         pollingJob?.cancel()
         pollingJob = scope.launch {
             while (true) {
-                delay(500)
+                val buffering = controller?.playbackState == Player.STATE_BUFFERING
+                // While buffering, poll faster so the loading bar's fill
+                // tracks the buffered percentage smoothly; otherwise the
+                // 500ms poll is plenty.
+                delay(if (buffering) 100 else 500)
                 // Nothing advances on its own while paused or in the
                 // background — the listener callbacks cover every transition
                 // — so the poll only needs to run while something is playing.
@@ -605,6 +637,7 @@ class PlayerController @Inject constructor(
         trackCache = emptyList()
         flacSeekOffsetMs = 0L
         flacSeekInFlight = false
+        bufferingSinceElapsedMs = null
         lastSyncedTrackId = null
         playCountedTrackId = null
         _state.update {
