@@ -530,6 +530,10 @@ fun PlayerScreen(
                 sheetOpen = false
                 playerViewModel.saveMetadata(currentTrack, title, artist, album, albumArtist, genre, year)
             },
+            onRenameFile = { newPath ->
+                sheetOpen = false
+                playerViewModel.renameTrackFile(currentTrack, newPath)
+            },
         )
     }
 }

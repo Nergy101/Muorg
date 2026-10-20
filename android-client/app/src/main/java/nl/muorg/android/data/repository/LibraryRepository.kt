@@ -14,6 +14,9 @@ import nl.muorg.android.data.api.schema.MatchCandidate
 import nl.muorg.android.data.api.schema.PatchMetadataBody
 import nl.muorg.android.data.api.schema.RecordPlayBody
 import nl.muorg.android.data.api.schema.RenameBody
+import nl.muorg.android.data.api.schema.RenameCheckBody
+import nl.muorg.android.data.api.schema.RenameCheckItem
+import nl.muorg.android.data.api.schema.RenameCollision
 import nl.muorg.android.data.api.schema.SearchQuery
 import nl.muorg.android.data.api.schema.TrackBackupRecord
 import nl.muorg.android.data.api.toDomain
@@ -181,6 +184,17 @@ class LibraryRepository @Inject constructor(
         api.renameFile(trackId.toLong(), RenameBody(newPath = newPath))
             .orThrow("POST /api/tracks/$trackId/rename")
         cacheLock.withLock { cachedTracks = null }
+    }
+
+    /**
+     * Pre-flight for a rename: report destinations that already exist on
+     * disk or are targeted by another item in the same batch. Returns the
+     * list of collisions (empty when the rename is safe).
+     */
+    suspend fun checkRename(trackId: Int, newPath: String): Result<List<RenameCollision>> = runCatching {
+        api.checkRename(RenameCheckBody(items = listOf(RenameCheckItem(id = trackId.toLong(), newPath = newPath))))
+            .bodyOrThrow("POST /api/tracks/rename/check")
+            .collisions
     }
 
     fun buildAlbumGroups(tracks: List<CatalogTrack>): List<AlbumGroup> {

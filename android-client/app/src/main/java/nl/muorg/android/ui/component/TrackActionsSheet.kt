@@ -65,7 +65,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO, EDIT_METADATA }
+private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO, EDIT_METADATA, RENAME_FILE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,6 +84,7 @@ fun TrackActionsSheet(
     onViewAlbum: () -> Unit,
     onRemoveFromQueue: (() -> Unit)? = null,
     onSaveMetadata: ((title: String?, artist: String?, album: String?, albumArtist: String?, genre: String?, year: Int?) -> Unit)? = null,
+    onRenameFile: ((newPath: String) -> Unit)? = null,
 ) {
     var level by remember { mutableStateOf(SheetLevel.MAIN) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -121,6 +122,9 @@ fun TrackActionsSheet(
                 onViewAlbum = onViewAlbum,
                 onRemoveFromQueue = onRemoveFromQueue,
                 onGoToEditMetadata = { level = SheetLevel.EDIT_METADATA },
+                onGoToRenameFile = if (onRenameFile != null && track.id > 0) {
+                    { level = SheetLevel.RENAME_FILE }
+                } else null,
             )
             SheetLevel.PLAYLISTS -> PlaylistsLevel(
                 playlists = playlists,
@@ -143,6 +147,14 @@ fun TrackActionsSheet(
                 },
                 onToast = playerViewModel::showToast,
             )
+            SheetLevel.RENAME_FILE -> RenameFileLevel(
+                track = track,
+                onBack = { level = SheetLevel.MAIN },
+                onRename = { newPath ->
+                    onRenameFile?.invoke(newPath)
+                    onDismiss()
+                },
+            )
         }
     }
 }
@@ -161,6 +173,7 @@ private fun MainLevel(
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
     onRemoveFromQueue: (() -> Unit)? = null,
+    onGoToRenameFile: (() -> Unit)? = null,
 ) {
     // Header
     Row(
@@ -275,6 +288,16 @@ private fun MainLevel(
                         painter = painterResource(mageIconRes("edit")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToEditMetadata() },
     )
+    // Renaming moves the file on disk — a server operation, so it is
+    // hidden for on-device tracks (negative id, no server row).
+    if (onGoToRenameFile != null) {
+        ListItem(
+            headlineContent = { Text("Rename file", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+            leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("folder")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            modifier = Modifier.clickable { onGoToRenameFile() },
+        )
+    }
     Spacer(Modifier.height(16.dp))
 }
 
@@ -557,6 +580,74 @@ private fun MetadataEditLevel(
                 },
             ) {
                 Text("Save")
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * Rename a track's file on the server. The field is pre-filled with the
+ * current path; the rename is refused client-side when the path is
+ * unchanged, and the server refuses it when the destination exists.
+ */
+@Composable
+private fun RenameFileLevel(
+    track: CatalogTrack,
+    onBack: () -> Unit,
+    onRename: (newPath: String) -> Unit,
+) {
+    var newPath by remember { mutableStateOf(track.path) }
+
+    ListItem(
+        headlineContent = { Text("Back") },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("chevron-left")), null, modifier = Modifier.size(18.dp)) },
+        modifier = Modifier.clickable { onBack() },
+    )
+    Text(
+        "RENAME FILE",
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.8.sp,
+        ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp).padding(bottom = 6.dp),
+    )
+
+    Column(
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp),
+    ) {
+        Text(
+            "Moves the file on the server and updates the catalog. The new path must include the file name.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
+        androidx.compose.material3.OutlinedTextField(
+            value = newPath,
+            onValueChange = { newPath = it },
+            label = { Text("New path") },
+            singleLine = false,
+            textStyle = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = onBack) {
+                Text("Cancel")
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = { onRename(newPath) },
+                enabled = newPath.trim().isNotBlank() && newPath.trim() != track.path,
+            ) {
+                Text("Rename")
             }
         }
         Spacer(Modifier.height(24.dp))

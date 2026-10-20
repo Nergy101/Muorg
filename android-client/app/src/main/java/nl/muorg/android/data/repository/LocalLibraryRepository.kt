@@ -24,11 +24,6 @@ data class PlaylistTrackEntry(
     val track: CatalogTrack?,
 )
 
-data class AddConflictCheck(
-    val newTracks: List<CatalogTrack>,
-    val alreadyPresentCount: Int,
-)
-
 @Singleton
 class LocalLibraryRepository @Inject constructor(
     @ApplicationContext private val context: Context,

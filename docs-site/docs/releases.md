@@ -6,6 +6,11 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v3.2.1
+
+- **Web App**: fixed adding songs to favorites and playlists — the API transport now rebuilds requests with an explicit body instead of cloning the Request object, which some browsers silently dropped on cross-origin POST/PATCH/DELETE calls. Add-to-playlist actions now show an error toast and revert the optimistic UI on failure instead of failing silently. Favorites toggle shows a confirmation toast again. The Playlists bottom-nav icon is now a library-music icon.
+- **Android**: consistent add-to-playlist conflict checking across all screens (library, album, playlist, player); rename-file action in the track menu with a pre-flight collision check; Playlists bottom-nav icon is now a library-music icon.
+
 ## v3.2.0
 
 - **All components**: coordinated release implementing the handoff-audit decisions across the server, desktop, web app and Android client.
@@ -14,6 +19,7 @@ Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notab
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v3.3.6** — consistent add-to-playlist conflict checking across library, album, playlist and player screens; rename-file action in the track menu with a pre-flight collision check; Playlists bottom-nav icon is now a library-music icon.
 - **android-v3.3.5** — downloaded playlists keep up with the server: when songs are added to one, they are downloaded automatically in the background, right after you add them in the app and within about 15 minutes for changes made elsewhere.
 - **android-v3.3.4** — fixed the visual glitch on Android 16 when swiping back from Settings: the screen no longer shrinks into the home screen with its contents showing through. Settings, Player and Queue now slide down with the back gesture, and Settings and Library have an opaque background.
 - **android-v3.3.3** — fixed the seek bar: the thumb can be grabbed and dragged again and tapping the bar seeks. The home header logo is back in its real colours.

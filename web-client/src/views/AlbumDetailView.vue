@@ -263,25 +263,37 @@ const partialMembershipIds = computed(() => {
 async function onPickerAdd(p: Playlist): Promise<void> {
   const existing = playlistStore.trackIdSets.get(p.id) ?? new Set<number>();
   const toAdd = tracks.value.map((t) => t.id).filter((id) => !existing.has(id));
-  if (toAdd.length > 0) await playlistStore.addTracks(p.id, toAdd);
-  showToast(`Added to ${p.name}`);
+  try {
+    if (toAdd.length > 0) await playlistStore.addTracks(p.id, toAdd);
+    showToast(`Added to ${p.name}`);
+  } catch (e) {
+    showToast(`Failed: ${(e as Error).message}`);
+  }
 }
 
 async function onPickerRemove(p: Playlist): Promise<void> {
-  await playlistStore.removeTracks(
-    p.id,
-    tracks.value.map((t) => t.id),
-  );
-  showToast(`Removed from ${p.name}`);
+  try {
+    await playlistStore.removeTracks(
+      p.id,
+      tracks.value.map((t) => t.id),
+    );
+    showToast(`Removed from ${p.name}`);
+  } catch (e) {
+    showToast(`Failed: ${(e as Error).message}`);
+  }
 }
 
 async function onPickerCreate(name: string): Promise<void> {
-  const p = await playlistStore.createPlaylist(name, "🎵");
-  await playlistStore.addTracks(
-    p.id,
-    tracks.value.map((t) => t.id),
-  );
-  showToast(`Added to ${p.name}`);
+  try {
+    const p = await playlistStore.createPlaylist(name, "🎵");
+    await playlistStore.addTracks(
+      p.id,
+      tracks.value.map((t) => t.id),
+    );
+    showToast(`Added to ${p.name}`);
+  } catch (e) {
+    showToast(`Failed: ${(e as Error).message}`);
+  }
 }
 
 // KeepAlive reuses this one instance for every album, so the offset is keyed by

@@ -53,6 +53,8 @@ private val MAGE_ICONS: Map<String, Int> = mapOf(
     "home-fill" to R.drawable.ic_home_fill,
     "information-circle" to R.drawable.ic_information_circle,
     "layout-grid" to R.drawable.ic_layout_grid,
+    "library-music" to R.drawable.ic_library_music,
+    "library-music-fill" to R.drawable.ic_library_music_fill,
     "moon" to R.drawable.ic_moon,
     "multiply" to R.drawable.ic_multiply,
     "music" to R.drawable.ic_music,

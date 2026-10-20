@@ -8,7 +8,7 @@
 export const NAV_TABS = [
   { name: "home", label: "Home", icon: "home-2", iconActive: "home-2-fill" },
   { name: "library", label: "Library", icon: "compact-disk", iconActive: "compact-disk-fill" },
-  { name: "playlists", label: "Playlists", icon: "dashboard", iconActive: "dashboard-fill" },
+  { name: "playlists", label: "Playlists", icon: "library-music", iconActive: "library-music-fill" },
   { name: "settings", label: "Settings", icon: "settings", iconActive: "settings-fill" },
 ] as const;
 

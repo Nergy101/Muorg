@@ -269,6 +269,10 @@ fun MixDetailScreen(
                 sheetTrack = null
                 playerViewModel.saveMetadata(track, title, artist, album, albumArtist, genre, year)
             },
+            onRenameFile = { newPath ->
+                sheetTrack = null
+                playerViewModel.renameTrackFile(track, newPath)
+            },
         )
     }
 }

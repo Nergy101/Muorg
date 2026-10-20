@@ -114,7 +114,7 @@ sealed class Screen(val route: String) {
 private val islandTabs = listOf(
     Screen.Home to IslandTab("home-2", "home-2-fill", "Home"),
     Screen.Library to IslandTab("compact-disk", "compact-disk-fill", "Library"),
-    Screen.Playlists to IslandTab("dashboard", "dashboard-fill", "Playlists"),
+    Screen.Playlists to IslandTab("library-music", "library-music-fill", "Playlists"),
     Screen.Settings to IslandTab("settings", "settings-fill", "Settings"),
 )
 
@@ -366,6 +366,10 @@ fun NavGraph() {
                         onSaveMetadata = { title, artist, album, albumArtist, genre, year ->
                             miniPlayerSheet = false
                             playerViewModel.saveMetadata(track, title, artist, album, albumArtist, genre, year)
+                        },
+                        onRenameFile = { newPath ->
+                            miniPlayerSheet = false
+                            playerViewModel.renameTrackFile(track, newPath)
                         },
                     )
                 }

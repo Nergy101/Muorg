@@ -1,5 +1,6 @@
 package nl.muorg.android.data.repository
 
+import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.bodyOrThrow
 import nl.muorg.android.data.api.orThrow
@@ -12,6 +13,17 @@ import nl.muorg.android.data.api.schema.TrackIdsBody
 import nl.muorg.android.data.api.schema.UpdateBody
 import nl.muorg.android.data.api.toDomain
 import javax.inject.Singleton
+
+/**
+ * The result of a duplicate check before adding tracks to a playlist.
+ * Shared by [LocalLibraryRepository.checkAddConflict] and
+ * [PlaylistRepository.checkAddConflict] so the conflict dialog is the
+ * same in both modes.
+ */
+data class AddConflictCheck(
+    val newTracks: List<CatalogTrack>,
+    val alreadyPresentCount: Int,
+)
 
 /**
  * Thrown when something tries to put a track into a rule-driven playlist.
@@ -104,6 +116,23 @@ class PlaylistRepository(
     suspend fun getPlaylistTracks(id: Int): Result<List<Int>> = runCatching {
         api.getPlaylistTracks(id.toLong())
             .bodyOrThrow("GET /api/playlists/$id/tracks").map { it.toInt() }
+    }
+
+    /**
+     * Diff [tracks] against a playlist's current membership, so the caller
+     * can offer "add new only" / "add all" instead of inserting duplicates.
+     *
+     * The server's `add_tracks` uses a plain INSERT with no uniqueness
+     * constraint on (playlist_id, track_id), so duplicates are possible.
+     * This check is the client-side guard.
+     */
+    suspend fun checkAddConflict(playlist: Playlist, tracks: List<CatalogTrack>): AddConflictCheck {
+        val existingIds = getTracksFor(playlist).getOrDefault(emptyList()).toSet()
+        val newTracks = tracks.filter { it.id !in existingIds }
+        return AddConflictCheck(
+            newTracks = newTracks,
+            alreadyPresentCount = tracks.size - newTracks.size,
+        )
     }
 
     /**

@@ -412,12 +412,21 @@ async function togglePlaylist(p: Playlist): Promise<void> {
   else next.add(p.id);
   membership.value = next;
 
-  if (wasIn) {
-    await playlistStore.removeTracks(p.id, [t.id]);
-    showToast(`Removed from ${p.name}`);
-  } else {
-    await playlistStore.addTracks(p.id, [t.id]);
-    showToast(`Added to ${p.name}`);
+  try {
+    if (wasIn) {
+      await playlistStore.removeTracks(p.id, [t.id]);
+      showToast(`Removed from ${p.name}`);
+    } else {
+      await playlistStore.addTracks(p.id, [t.id]);
+      showToast(`Added to ${p.name}`);
+    }
+  } catch (e) {
+    // Revert the optimistic membership flip on failure.
+    const reverted = new Set(membership.value);
+    if (wasIn) reverted.add(p.id);
+    else reverted.delete(p.id);
+    membership.value = reverted;
+    showToast(`Failed: ${(e as Error).message}`);
   }
 }
 
@@ -433,10 +442,14 @@ async function submitCreate(): Promise<void> {
   if (!t || !name) return;
   creating.value = false;
   newName.value = "";
-  const p = await playlistStore.createPlaylist(name, "🎵");
-  await playlistStore.addTracks(p.id, [t.id]);
-  membership.value = new Set(membership.value).add(p.id);
-  showToast(`Added to ${name}`);
+  try {
+    const p = await playlistStore.createPlaylist(name, "🎵");
+    await playlistStore.addTracks(p.id, [t.id]);
+    membership.value = new Set(membership.value).add(p.id);
+    showToast(`Added to ${name}`);
+  } catch (e) {
+    showToast(`Failed: ${(e as Error).message}`);
+  }
 }
 
 // --- info level ------------------------------------------------------------

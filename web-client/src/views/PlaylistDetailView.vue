@@ -387,10 +387,14 @@ const saveMixOpen = ref(false);
 
 async function onSaveMix(name: string, icon: string): Promise<void> {
   if (!mix.value) return;
-  const created = await playlistStore.createPlaylist(name, icon);
-  await playlistStore.addTracks(created.id, mix.value.trackIds);
-  saveMixOpen.value = false;
-  showToast("Mix saved as playlist");
+  try {
+    const created = await playlistStore.createPlaylist(name, icon);
+    await playlistStore.addTracks(created.id, mix.value.trackIds);
+    saveMixOpen.value = false;
+    showToast("Mix saved as playlist");
+  } catch (e) {
+    showToast(`Failed: ${(e as Error).message}`);
+  }
 }
 
 // A refreshed mix can keep the same id but change contents — so also reload when

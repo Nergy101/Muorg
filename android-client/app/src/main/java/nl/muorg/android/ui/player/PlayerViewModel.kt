@@ -180,12 +180,19 @@ class PlayerViewModel @Inject constructor(
                 // The picker's playlists are already loaded, so pass the
                 // playlist itself and save the repository a lookup.
                 val playlist = _playlists.value.find { it.id == playlistId }
-                val result = if (playlist != null) {
-                    playlistRepository.addTracks(playlist, listOf(track.id))
-                } else {
-                    playlistRepository.addTracks(playlistId, listOf(track.id))
+                if (playlist == null) {
+                    _toastEvent.tryEmit("Playlist not found")
+                    return@launch
                 }
-                result.onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to playlist") }
+                // The server's add_tracks uses a plain INSERT with no
+                // uniqueness constraint, so check for duplicates first.
+                val check = playlistRepository.checkAddConflict(playlist, listOf(track))
+                if (check.alreadyPresentCount > 0) {
+                    _toastEvent.tryEmit("Already in this playlist")
+                    return@launch
+                }
+                playlistRepository.addTracks(playlist, listOf(track.id))
+                    .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to playlist") }
             }
         }
     }
@@ -396,6 +403,35 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Rename a track's file on the server. Pre-flights with [LibraryRepository.checkRename]
+     * so a collision is reported before the rename is attempted.
+     */
+    fun renameTrackFile(track: CatalogTrack, newPath: String) {
+        viewModelScope.launch {
+            val trimmed = newPath.trim()
+            if (trimmed.isBlank() || trimmed == track.path) {
+                _toastEvent.tryEmit("Enter a new path")
+                return@launch
+            }
+            // Pre-flight: refuse before touching the disk if the destination
+            // already exists or another track's row holds it.
+            val collisions = libraryRepository.checkRename(track.id, trimmed).getOrNull()
+            if (collisions != null && collisions.isNotEmpty()) {
+                val reason = collisions.first().reason
+                _toastEvent.tryEmit(
+                    if (reason == "exists") "A file already exists at that path"
+                    else "Rename would collide with another track"
+                )
+                return@launch
+            }
+            libraryRepository.renameTrackFile(track.id, trimmed).fold(
+                onSuccess = { _toastEvent.tryEmit("File renamed") },
+                onFailure = { e -> _toastEvent.tryEmit("Rename failed: ${e.message}") },
+            )
+        }
+    }
+
     fun toggleFavorite(track: CatalogTrack) {
         viewModelScope.launch {
             val wasFavorite = track.id.toString() in playerController.state.value.favorites
@@ -410,9 +446,25 @@ class PlayerViewModel @Inject constructor(
                     localRepository.addTracksToPlaylist(playlistId, listOf(track))
                     _toastEvent.tryEmit("Added to favorites")
                 } else {
-                    playlistRepository.addTracks(playlistId, listOf(track.id))
-                        .onSuccess { _toastEvent.tryEmit("Added to favorites") }
-                        .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to favorites") }
+                    // Defensive: the local favorites set may be out of sync
+                    // with the server playlist (added on another device), so
+                    // check before adding to avoid a duplicate row.
+                    val playlist = _playlists.value.find { it.id == playlistId }
+                    if (playlist != null) {
+                        val check = playlistRepository.checkAddConflict(playlist, listOf(track))
+                        if (check.alreadyPresentCount > 0) {
+                            _toastEvent.tryEmit("Already in favorites")
+                            refreshPlaylists()
+                            return@launch
+                        }
+                        playlistRepository.addTracks(playlist, listOf(track.id))
+                            .onSuccess { _toastEvent.tryEmit("Added to favorites") }
+                            .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to favorites") }
+                    } else {
+                        playlistRepository.addTracks(playlistId, listOf(track.id))
+                            .onSuccess { _toastEvent.tryEmit("Added to favorites") }
+                            .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to favorites") }
+                    }
                 }
             }
             refreshPlaylists()

@@ -267,10 +267,32 @@ class LibraryViewModel @Inject constructor(
                     }
                 }
             } else {
-                playlistRepository.addTracks(playlistId, tracks.map { it.id })
-                    .onFailure { e ->
-                        _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                // The server's add_tracks uses a plain INSERT with no
+                // uniqueness constraint, so duplicates are possible. Check
+                // first, same as local mode.
+                val playlist = _uiState.value.playlists.find { it.id == playlistId }
+                if (playlist == null) {
+                    _uiState.update { it.copy(addToastMsg = "Playlist not found") }
+                    return@launch
+                }
+                val check = playlistRepository.checkAddConflict(playlist, tracks)
+                when {
+                    check.alreadyPresentCount == 0 -> {
+                        playlistRepository.addTracks(playlist, tracks.map { it.id })
+                            .onFailure { e ->
+                                _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                            }
+                        loadPlaylists()
                     }
+                    check.newTracks.isEmpty() -> {
+                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                    }
+                    else -> {
+                        _uiState.update {
+                            it.copy(addConflict = AddConflictState(tracks, check.newTracks, playlistId))
+                        }
+                    }
+                }
             }
         }
     }
@@ -279,9 +301,20 @@ class LibraryViewModel @Inject constructor(
         val conflict = _uiState.value.addConflict ?: return
         _uiState.update { it.copy(addConflict = null) }
         viewModelScope.launch {
-            localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.newTracks)
-            loadPlaylistMembership()
-            loadPlaylists()
+            if (currentMode == "local") {
+                localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.newTracks)
+                loadPlaylistMembership()
+                loadPlaylists()
+            } else {
+                val playlist = _uiState.value.playlists.find { it.id == conflict.targetPlaylistId }
+                if (playlist != null) {
+                    playlistRepository.addTracks(playlist, conflict.newTracks.map { it.id })
+                        .onFailure { e ->
+                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                        }
+                    loadPlaylists()
+                }
+            }
         }
     }
 
@@ -289,9 +322,20 @@ class LibraryViewModel @Inject constructor(
         val conflict = _uiState.value.addConflict ?: return
         _uiState.update { it.copy(addConflict = null) }
         viewModelScope.launch {
-            localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.allTracks)
-            loadPlaylistMembership()
-            loadPlaylists()
+            if (currentMode == "local") {
+                localRepository.addTracksToPlaylist(conflict.targetPlaylistId, conflict.allTracks)
+                loadPlaylistMembership()
+                loadPlaylists()
+            } else {
+                val playlist = _uiState.value.playlists.find { it.id == conflict.targetPlaylistId }
+                if (playlist != null) {
+                    playlistRepository.addTracks(playlist, conflict.allTracks.map { it.id })
+                        .onFailure { e ->
+                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                        }
+                    loadPlaylists()
+                }
+            }
         }
     }
 

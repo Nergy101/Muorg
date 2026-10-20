@@ -250,6 +250,10 @@ export const usePlaylistStore = defineStore("playlists", () => {
   }
 
   async function ensureFavoritesPlaylist(): Promise<Playlist> {
+    // If playlists haven't loaded yet, load them first — otherwise we'd
+    // create a duplicate "Favorites" playlist (the server has no uniqueness
+    // constraint on names) and split the user's favorites across two.
+    if (playlists.value.length === 0 && !loading.value) await loadPlaylists();
     const existing = playlists.value.find((p) => p.name === FAVORITES_NAME);
     if (existing) return existing;
     return createPlaylist(FAVORITES_NAME, FAVORITES_ICON);
