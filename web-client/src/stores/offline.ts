@@ -77,6 +77,10 @@ export const useOfflineStore = defineStore("offline", () => {
   const playlistTrackIds = ref<Record<number, number[]>>(
     loadPref<Record<number, number[]>>(PLAYLIST_TRACKS_KEY, {}),
   );
+  /** Tracks that failed to download this session (e.g. the file is missing on
+   *  the server). The background recent-plays refresh skips these so a stale
+   *  library entry does not cost a token + stream request on every navigation. */
+  const failedIds = new Set<number>();
 
   let cache: Cache | null = null;
 
@@ -139,39 +143,67 @@ export const useOfflineStore = defineStore("offline", () => {
   }
 
   /** Downloads one track whole and stores it as a complete file (Q11: the
-   *  Cache API cannot reliably store 206 partial responses). */
-  async function downloadTrack(track: CatalogTrack): Promise<boolean> {
+   *  Cache API cannot reliably store 206 partial responses). With `silent`,
+   *  failures are not toasted — the background recent-plays refresh runs on
+   *  every navigation and a stale library entry must not nag on each load. */
+  async function downloadTrack(track: CatalogTrack, opts?: { silent?: boolean }): Promise<boolean> {
     if (!cache) return false;
     if (isCached(track.id)) return true;
+    const silent = opts?.silent === true;
     let token: string;
     try {
       token = await issueStreamToken(track.id);
     } catch (e) {
-      showToast(`Offline download failed: ${(e as Error).message}`);
+      failedIds.add(track.id);
+      if (!silent) showToast(`Offline download failed: ${(e as Error).message}`);
       return false;
     }
     let res: Response;
     try {
       res = await fetch(streamUrl(track.id, token));
     } catch (e) {
-      showToast(`Offline download failed: ${(e as Error).message}`);
+      failedIds.add(track.id);
+      if (!silent) showToast(`Offline download failed: ${(e as Error).message}`);
       return false;
     }
     if (!res.ok) {
-      showToast(`Offline download failed (${res.status})`);
+      failedIds.add(track.id);
+      if (!silent) {
+        // The server answers 404 from /stream/{id} when the track's file is
+        // missing on disk — say so instead of a bare status code.
+        showToast(
+          res.status === 404
+            ? "Offline download failed — the server could not find this track's file"
+            : `Offline download failed (${res.status})`,
+        );
+      }
       return false;
     }
     const size = Number(res.headers.get("content-length") ?? 0);
     if (size > 0 && !(await hasRoomFor(size))) {
-      showToast("Not enough storage for offline downloads");
+      if (!silent) showToast("Not enough storage for offline downloads");
       return false;
     }
     try {
-      await cache.put(cacheKey(track.id), res);
+      // The server sends `Vary: Accept-Encoding` on stream responses, and the
+      // Cache API honours Vary when matching — but an entry stored via
+      // cache.put carries no original request headers, so any later request
+      // (browsers always send Accept-Encoding) would miss and the SW would
+      // fall through to the network. A cached track is one fixed whole file
+      // (the response has no content-encoding), so Vary is meaningless here:
+      // strip it to keep the entry matchable.
+      const headers = new Headers(res.headers);
+      headers.delete("vary");
+      await cache.put(
+        cacheKey(track.id),
+        new Response(res.body, { status: res.status, statusText: res.statusText, headers }),
+      );
     } catch (e) {
-      showToast(`Offline download failed: ${(e as Error).message}`);
+      failedIds.add(track.id);
+      if (!silent) showToast(`Offline download failed: ${(e as Error).message}`);
       return false;
     }
+    failedIds.delete(track.id);
     cachedIds.value = new Set(cachedIds.value).add(track.id);
     if (Number.isFinite(size) && size > 0) cachedBytes.value += size;
     return true;
@@ -179,13 +211,13 @@ export const useOfflineStore = defineStore("offline", () => {
 
   /** Downloads tracks sequentially, stopping at the first failure or when the
    *  storage quota is reached. */
-  async function downloadTracks(tracks: CatalogTrack[]): Promise<void> {
+  async function downloadTracks(tracks: CatalogTrack[], opts?: { silent?: boolean }): Promise<void> {
     if (downloading.value || tracks.length === 0) return;
     downloading.value = true;
     downloadProgress.value = { done: 0, total: tracks.length };
     try {
       for (const t of tracks) {
-        const ok = await downloadTrack(t);
+        const ok = await downloadTrack(t, opts);
         downloadProgress.value = {
           done: downloadProgress.value.done + 1,
           total: tracks.length,
@@ -226,9 +258,10 @@ export const useOfflineStore = defineStore("offline", () => {
         savePref(PLAYLISTS_KEY, downloadedPlaylists.value);
         savePref(PLAYLIST_TRACKS_KEY, playlistTrackIds.value);
         showToast(`Downloaded ${tracks.length} track(s) for offline use`);
-      } else {
-        showToast("Download stopped — not enough storage");
       }
+      // No else-toast on partial failure: downloadTrack already reported the
+      // specific reason (missing file, storage), and a second toast would
+      // clobber it within milliseconds.
     } finally {
       activePlaylistId.value = null;
     }
@@ -255,8 +288,11 @@ export const useOfflineStore = defineStore("offline", () => {
     recentIds.value = target;
     savePref(RECENT_KEY, target);
     // Download the missing recent tracks (downloadTracks stops on quota).
-    const missing = recent.filter((t) => !isCached(t.id));
-    if (missing.length > 0) await downloadTracks(missing);
+    // Silent: this runs in the background on every navigation, so a track
+    // whose file is missing on the server must not toast on each load — and
+    // tracks that already failed this session are skipped outright.
+    const missing = recent.filter((t) => !isCached(t.id) && !failedIds.has(t.id));
+    if (missing.length > 0) await downloadTracks(missing, { silent: true });
   }
 
   /** Removes one track from the offline cache. */
@@ -281,6 +317,7 @@ export const useOfflineStore = defineStore("offline", () => {
     cache = null;
     cachedIds.value = new Set();
     cachedBytes.value = 0;
+    failedIds.clear();
     recentIds.value = [];
     downloadedPlaylists.value = [];
     playlistTrackIds.value = {};

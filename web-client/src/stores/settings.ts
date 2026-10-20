@@ -63,6 +63,9 @@ export const useSettingsStore = defineStore("settings", () => {
   const accent = ref<AccentColor>(loadPref("muorg-web-accent", "green"));
   const reduceMotion = ref(loadPref("muorg-web-reduce-motion", false));
   const openOnLastTab = ref(loadPref("muorg-web-open-last-tab", true));
+  /** Offline mode (mirrors the Android app): the player makes no network
+   *  calls and only plays tracks held in the offline cache. */
+  const offlineMode = ref(loadPref("muorg-web-offline-mode", false));
   /** Per-device name recorded with plays on the server (Q19). Required: an
    *  emptied field falls back to the generated default. */
   const deviceName = ref(loadPref("muorg-web-device-name", "") || defaultDeviceName());
@@ -188,6 +191,11 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-open-last-tab", v);
   }
 
+  function setOfflineMode(v: boolean): void {
+    offlineMode.value = v;
+    savePref("muorg-web-offline-mode", v);
+  }
+
   function setDeviceName(v: string): void {
     deviceName.value = v.trim() || defaultDeviceName();
     savePref("muorg-web-device-name", deviceName.value);
@@ -222,6 +230,7 @@ export const useSettingsStore = defineStore("settings", () => {
     accent,
     reduceMotion,
     openOnLastTab,
+    offlineMode,
     deviceName,
     searchHistory,
     resolvedTheme,
@@ -239,6 +248,7 @@ export const useSettingsStore = defineStore("settings", () => {
     setAccent,
     setReduceMotion,
     setOpenOnLastTab,
+    setOfflineMode,
     setDeviceName,
     addSearch,
     clearSearchHistory,

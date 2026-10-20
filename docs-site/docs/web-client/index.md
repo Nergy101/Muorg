@@ -94,12 +94,13 @@ The bottom bar has four tabs — **Home**, **Library**, **Playlists** and **Sett
 
 ### Settings
 
-Version and update status, install-as-app prompt, playback behaviour (continuous playback, what tapping the mini player does), default library sort and layout, theme (dark / light / follow system, plus a true-black OLED mode), library statistics, server URL, refresh library, and log out.
+Version and update status, install-as-app prompt, playback behaviour (continuous playback, what tapping the mini player does, offline mode), default library sort and layout, theme (dark / light / follow system, plus a true-black OLED mode), offline downloads (cached tracks, storage used, downloaded playlists, clear cache), library statistics, server URL, refresh library, and log out.
 
 ## PWA and offline behaviour
 
 - **Installable** — from the browser's install prompt on Android and desktop Chrome, or **Share → Add to Home Screen** on iOS. Settings shows an *Install app* row when installation is possible.
-- **Offline** — the app shell is precached, so it opens without a network. API calls and audio streams are never cached: with the server unreachable you get an offline banner, the library is whatever was already loaded, and playback will fail.
+- **Offline downloads** — a playlist's download button stores every track whole in Cache Storage (recent plays are cached automatically, up to 100 tracks and a 2 GiB cap). Settings → Offline shows what is cached and can clear it.
+- **Offline mode** — the Settings → Playback toggle makes the player use no network calls at all: only downloaded tracks play, anything else shows "Not downloaded". With the server unreachable you also get an offline banner, and cached tracks keep playing.
 - **Updates** — a new deployment does not reload you mid-listen. A banner appears saying a new version is available with a **Refresh now** button (also in Settings); the app checks again every 30 minutes while open.
 - **Gestures** — swipe horizontally between the tabs; when installed as a PWA, swipe from the left edge to go back.
 

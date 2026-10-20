@@ -6,6 +6,11 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v3.2.2
+
+- **Web App**: added an **Offline mode** toggle in Settings → Playback (mirroring the Android app) — when on, the player makes no network calls and only plays downloaded tracks, with a "Not downloaded" message for anything else. Settings gained an **Offline** section showing cached tracks, storage used and downloaded playlists, with a clear-cache action. The background auto-download of recent plays no longer toasts on failure (a track whose file is missing on the server used to nag "Offline download failed (404)" on every page load), and an explicit download now says the server could not find the track's file instead of a bare 404. Downloaded tracks now actually play offline: the service worker's `/stream/` route never matched cross-origin server URLs (workbox only matches a cross-origin URL when the regex matches at index 0), so cached tracks silently fell through to the network, and the server's `Vary: Accept-Encoding` header defeated Cache API matching — both fixed. A cold deep-link to a playlist no longer shows "No tracks" when the playlists list was still loading.
+- **CI**: the VPS deploy no longer races the release build — it now runs after the Release workflow completes, so a `v*` tag deploys the image it just built instead of the previous one.
+
 ## v3.2.1
 
 - **Web App**: fixed adding songs to favorites and playlists — the API transport now rebuilds requests with an explicit body instead of cloning the Request object, which some browsers silently dropped on cross-origin POST/PATCH/DELETE calls. Add-to-playlist actions now show an error toast and revert the optimistic UI on failure instead of failing silently. Favorites toggle shows a confirmation toast again. The Playlists bottom-nav icon is now a library-music icon.

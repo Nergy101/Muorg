@@ -105,20 +105,34 @@ export const usePlaylistStore = defineStore("playlists", () => {
     return [...pinned, ...rest];
   });
 
+  /** In-flight loadPlaylists() call, so concurrent callers (the router's
+   *  fire-and-forget loadData() plus a deep-linked playlist view) share one
+   *  fetch instead of racing two. Cleared when the flight ends, so a later
+   *  call still refetches. */
+  let loadPlaylistsFlight: Promise<void> | null = null;
+
   async function loadPlaylists(): Promise<void> {
-    loading.value = true;
-    try {
-      playlists.value = await getPlaylists();
-      // Pins live on the server (Q24); a failed read must not break boot.
+    if (loadPlaylistsFlight) return loadPlaylistsFlight;
+    loadPlaylistsFlight = (async () => {
+      loading.value = true;
       try {
-        pinnedIds.value = await getPlaylistPins();
-      } catch {
-        /* keep whatever pin state we already had */
+        playlists.value = await getPlaylists();
+        // Pins live on the server (Q24); a failed read must not break boot.
+        try {
+          pinnedIds.value = await getPlaylistPins();
+        } catch {
+          /* keep whatever pin state we already had */
+        }
+      } finally {
+        loading.value = false;
       }
+      await hydrateFavorites();
+    })();
+    try {
+      await loadPlaylistsFlight;
     } finally {
-      loading.value = false;
+      loadPlaylistsFlight = null;
     }
-    await hydrateFavorites();
   }
 
   /** Seeds the player's favourite ids from the server-side Favorites playlist. */
@@ -181,6 +195,10 @@ export const usePlaylistStore = defineStore("playlists", () => {
   async function loadTrackIdsForPlaylist(playlistId: number): Promise<Set<number>> {
     const cached = trackIdSets.value.get(playlistId);
     if (cached) return cached;
+    // The router boots loadData() without blocking navigation, so a cold
+    // deep-link can reach this before the playlist list has landed — wait for
+    // it instead of concluding the playlist does not exist.
+    if (playlists.value.length === 0) await loadPlaylists();
     const playlist = playlists.value.find((p) => p.id === playlistId);
     if (!playlist) return new Set();
     const ids = await getTracksForPlaylist(playlist);
@@ -196,6 +214,9 @@ export const usePlaylistStore = defineStore("playlists", () => {
       const cached = trackOrders.value.get(playlistId);
       if (cached) return cached;
     }
+    // See loadTrackIdsForPlaylist: a cold deep-link can arrive before the
+    // playlist list has landed.
+    if (playlists.value.length === 0) await loadPlaylists();
     const playlist = playlists.value.find((p) => p.id === playlistId);
     if (!playlist) return [];
     const ids = await getTracksForPlaylist(playlist);

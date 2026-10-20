@@ -53,7 +53,12 @@ export default defineConfig({
         runtimeCaching: [
           {
             // API calls always go to the server — never cache them.
-            urlPattern: /\/api\//,
+            // The patterns must be start-anchored and origin-agnostic: the
+            // API server is usually a different origin than the web client,
+            // and workbox's RegExpRoute only matches a cross-origin URL when
+            // the regex matches at index 0 of it — a bare /\/api\// would
+            // never match and the route would be dead.
+            urlPattern: /^https?:\/\/[^/]+\/(?:.*\/)?api\//,
             handler: "NetworkOnly",
           },
           {
@@ -64,8 +69,11 @@ export default defineConfig({
             // responses, and caching every played track would grow without
             // bound, so cacheWillUpdate only lets responses explicitly
             // marked ?offline=1 through — and those are written by the
-            // offline store via cache.put, not by the SW.
-            urlPattern: /\/stream\//,
+            // offline store via cache.put, not by the SW. Start-anchored
+            // for the same cross-origin reason as the /api/ route above —
+            // without it the SW never serves cached tracks and offline
+            // playback silently falls through to the network.
+            urlPattern: /^https?:\/\/[^/]+\/(?:.*\/)?stream\//,
             handler: "CacheFirst",
             options: {
               cacheName: "muorg-offline-tracks",

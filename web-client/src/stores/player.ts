@@ -299,9 +299,18 @@ export const usePlayerStore = defineStore("player", () => {
    *  file from Cache Storage (via the service worker), so no ?start= transcode
    *  is needed and the browser seeks natively; a fresh token keeps online
    *  playback working when the SW is not controlling the page, and when the
-   *  server is unreachable the offline copy is used (Q11). */
+   *  server is unreachable the offline copy is used (Q11). Offline mode (the
+   *  settings toggle, mirroring the Android app) makes no network calls at
+   *  all: cached tracks play from the cache, anything else is an error. */
   async function resolveStreamSrc(track: CatalogTrack, startSecs: number): Promise<string> {
-    if (useOfflineStore().isCached(track.id)) {
+    const offline = useOfflineStore();
+    if (useSettingsStore().offlineMode) {
+      if (!offline.isCached(track.id)) {
+        throw new Error("Not downloaded — download it or turn off offline mode");
+      }
+      return offlineStreamUrl(track.id);
+    }
+    if (offline.isCached(track.id)) {
       try {
         const token = await issueStreamToken(track.id);
         return streamUrl(track.id, token);
@@ -332,7 +341,11 @@ export const usePlayerStore = defineStore("player", () => {
       if (cached && startSecs > 0) el.currentTime = startSecs;
       void preloadNext();
     } catch (e) {
+      // The queue is already set, so currentTrack is non-null and the
+      // MiniPlayer error banner (gated on !currentTrack) stays hidden —
+      // surface the failure as a toast as well.
       setError((e as Error).message);
+      showToast((e as Error).message);
     }
   }
 

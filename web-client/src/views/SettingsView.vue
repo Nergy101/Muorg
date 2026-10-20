@@ -75,6 +75,23 @@
           <span :class="knobClass(settings.miniPlayerTapOpensPlayer)" />
         </button>
       </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Offline mode</p>
+          <p class="text-body-sm text-on-surface-variant">
+            No network calls — only downloaded tracks are available
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.offlineMode)"
+          role="switch"
+          :aria-checked="settings.offlineMode"
+          @click="settings.setOfflineMode(!settings.offlineMode)"
+        >
+          <span :class="knobClass(settings.offlineMode)" />
+        </button>
+      </div>
 
       <!-- ─── Library ────────────────────────────────────────────────── -->
       <div :class="[SECTION, 'flex items-center gap-1.5']">
@@ -183,6 +200,61 @@
           @click="settings.setOpenOnLastTab(!settings.openOnLastTab)"
         >
           <span :class="knobClass(settings.openOnLastTab)" />
+        </button>
+      </div>
+
+      <!-- ─── Offline ────────────────────────────────────────────────── -->
+      <div :class="[SECTION, 'flex items-center gap-1.5']">
+        <MageIcon name="download" class="h-3.5 w-3.5" />
+        <span>Offline</span>
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Cached tracks</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Downloaded for offline playback
+          </p>
+        </div>
+        <span class="text-body-md text-on-surface-variant">
+          {{ offline.cachedTrackCount }}
+        </span>
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Storage used</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Cache Storage quota for downloaded tracks
+          </p>
+        </div>
+        <span class="text-body-md text-on-surface-variant">
+          {{ storageUsedLabel }}
+        </span>
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Downloaded playlists</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ downloadedPlaylistNames || "None" }}
+          </p>
+        </div>
+        <span class="text-body-md text-on-surface-variant">
+          {{ offline.downloadedPlaylists.length }}
+        </span>
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Clear offline cache</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Deletes every downloaded track from this device
+          </p>
+        </div>
+        <button
+          type="button"
+          class="px-2 text-label-lg text-error disabled:opacity-60"
+          :disabled="offline.cachedTrackCount === 0"
+          @click="clearOfflineOpen = true"
+        >
+          Clear
         </button>
       </div>
 
@@ -339,6 +411,16 @@
       danger
       @confirm="onLogout"
       @cancel="logoutOpen = false"
+    />
+
+    <ConfirmDialog
+      :open="clearOfflineOpen"
+      title="Clear offline cache?"
+      message="This deletes every downloaded track from this device. Downloaded playlists will need to be downloaded again for offline playback."
+      confirm-label="Clear"
+      danger
+      @confirm="onClearOffline"
+      @cancel="clearOfflineOpen = false"
     />
   </div>
 </template>
@@ -521,5 +603,31 @@ async function onLogout(): Promise<void> {
   // different server does not inherit (or pay quota for) stale files.
   await offline.clearAll();
   await router.replace({ name: "connect" });
+}
+
+// --- Offline cache ---------------------------------------------------------
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1) return `${Math.max(1, Math.round(mb * 10) / 10)} MB`;
+  if (mb < 1024) return `${Math.round(mb)} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
+
+const storageUsedLabel = computed(() => formatBytes(offline.cachedBytes));
+
+const downloadedPlaylistNames = computed(() =>
+  offline.downloadedPlaylists
+    .map((id) => playlistStore.playlists.find((p) => p.id === id)?.name)
+    .filter((n): n is string => n != null)
+    .join(", "),
+);
+
+const clearOfflineOpen = ref(false);
+
+async function onClearOffline(): Promise<void> {
+  clearOfflineOpen.value = false;
+  await offline.clearAll();
 }
 </script>
