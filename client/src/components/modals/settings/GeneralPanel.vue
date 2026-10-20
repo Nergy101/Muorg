@@ -551,8 +551,6 @@ async function copyPathToClipboard(path: string) {
                   </button>
                 </div>
               </div>
-            </div>
-
 
   <Teleport to="body">
     <div
@@ -607,4 +605,5 @@ async function copyPathToClipboard(path: string) {
       </div>
     </div>
   </Teleport>
+            </div>
 </template>

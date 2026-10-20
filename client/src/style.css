@@ -8,6 +8,17 @@ body {
   @apply bg-stone-900 text-stone-200 antialiased;
 }
 
+/* Desktop app: no mouse-drag text selection anywhere. Form fields stay
+   selectable/editable; everything else (tables, titles, labels) does not. */
+html, body, #app {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, select, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 input[type="checkbox"] {
   accent-color: #5b7c32;
 }

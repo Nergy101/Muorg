@@ -16,6 +16,7 @@ use axum::{
     Router,
 };
 use state::AppState;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -34,6 +35,37 @@ pub fn build_cors(allowed_origins: &[String]) -> CorsLayer {
         .allow_origin(origins)
         .allow_methods(Any)
         .allow_headers(Any)
+}
+
+/// The router for the stream-only listener: just the token-protected
+/// `/stream/{id}` route, nothing else. Used when the main listener is
+/// loopback-only — a Chromecast on the LAN must still be able to fetch the
+/// audio a cast session points it at, while `/api/*` stays loopback-only
+/// behind the API key.
+pub fn build_stream_router(state: Arc<AppState>) -> Router {
+    Router::new()
+        .route("/stream/{id}", get(routes::stream::stream_audio))
+        .with_state(state)
+}
+
+/// Bind the stream-only listener on all interfaces, but only when the main
+/// listener is loopback-only (the desktop app's sidecar binds `127.0.0.1`).
+/// A server already bound to a LAN address serves `/stream` itself, so it
+/// gets no second listener. Returns the bound listener; the caller reads the
+/// port and serves [`build_stream_router`] on it.
+pub async fn bind_stream_listener_if_loopback(
+    addr: SocketAddr,
+) -> Option<tokio::net::TcpListener> {
+    if !addr.ip().is_loopback() {
+        return None;
+    }
+    match tokio::net::TcpListener::bind("0.0.0.0:0").await {
+        Ok(listener) => Some(listener),
+        Err(e) => {
+            tracing::error!("Failed to bind stream listener on 0.0.0.0: {e}");
+            None
+        }
+    }
 }
 
 pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {

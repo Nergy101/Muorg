@@ -9,6 +9,11 @@
     "fs:default",
     "fs:allow-appconfig-read",
     "fs:allow-appconfig-write",
+    "fs:allow-write-text-file",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**"]
+    },
     "core:path:default",
     "updater:default",
     "process:allow-restart",

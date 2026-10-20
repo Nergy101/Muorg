@@ -101,6 +101,19 @@ pub struct CastPlayResponse {
     session_id: String,
 }
 
+/// The URL a Chromecast is told to load. The stream route is public
+/// (token-protected); when the API listener is loopback-only, the server also
+/// runs a stream-only listener on all interfaces (see `main.rs`), and the
+/// device fetches from that port — the main port would refuse the
+/// connection. Otherwise the main listener already serves `/stream`.
+fn cast_stream_url(state: &AppState, lan_ip: &std::net::IpAddr, track_id: i64, token: &str) -> String {
+    let port = state.stream_port.unwrap_or(state.server_port);
+    format!(
+        "http://{}:{}/stream/{}?token={}",
+        lan_ip, port, track_id, token
+    )
+}
+
 /// Start casting a track to a device.
 #[utoipa::path(
     post,
@@ -128,10 +141,7 @@ pub async fn play(
     // 4-hour token — cast sessions can run for the duration of an album or playlist
     let token = state.tokens.issue(body.track_id, 4 * 60 * 60);
     let lan_ip = local_ip_address::local_ip().map_err(|e| e.to_string())?;
-    let stream_url = format!(
-        "http://{}:{}/stream/{}?token={}",
-        lan_ip, state.server_port, body.track_id, token
-    );
+    let stream_url = cast_stream_url(&state, &lan_ip, body.track_id, &token);
     let is_flac = track_path.to_lowercase().ends_with(".flac");
 
     // The server reads its own state for GET /api/cast/status, so it has
@@ -253,4 +263,55 @@ pub async fn set_volume(
     let level = body.level.clamp(0.0, 1.0);
     state.cast_session.send_command(CastCommand::SetVolume(level))?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use muorg_core::catalog::Catalog;
+
+    fn state_with_ports(server_port: u16, stream_port: Option<u16>) -> AppState {
+        let dir = tempfile::tempdir().unwrap();
+        let catalog = Arc::new(Catalog::new(&dir.path().join("test.db")).unwrap());
+        let mut state = AppState::new(
+            catalog,
+            dir.path().join("backups"),
+            5,
+            "key".to_string(),
+            server_port,
+            crate::config::TranscodingConfig::default(),
+            Arc::new(crate::storage::RemoteStores::default()),
+            Arc::new(crate::storage::covers::CoverCache::new(
+                dir.path().join("covers"),
+                1024,
+            )),
+            8,
+        );
+        if let Some(port) = stream_port {
+            state = state.with_stream_port(port);
+        }
+        state
+    }
+
+    #[test]
+    fn the_stream_url_uses_the_main_port_when_no_stream_listener_runs() {
+        let state = state_with_ports(7700, None);
+        let ip: std::net::IpAddr = "192.168.1.10".parse().unwrap();
+        assert_eq!(
+            cast_stream_url(&state, &ip, 3, "tok"),
+            "http://192.168.1.10:7700/stream/3?token=tok"
+        );
+    }
+
+    #[test]
+    fn the_stream_url_uses_the_stream_listener_port_when_the_api_is_loopback_only() {
+        // The desktop sidecar binds 127.0.0.1; the Chromecast fetches from the
+        // all-interfaces stream listener, not the loopback-only API port.
+        let state = state_with_ports(7700, Some(41234));
+        let ip: std::net::IpAddr = "192.168.1.10".parse().unwrap();
+        assert_eq!(
+            cast_stream_url(&state, &ip, 3, "tok"),
+            "http://192.168.1.10:41234/stream/3?token=tok"
+        );
+    }
 }

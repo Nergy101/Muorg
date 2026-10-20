@@ -592,6 +592,91 @@ async fn cast_play_returns_a_session_id_that_status_reports() {
 }
 
 // ---------------------------------------------------------------------------
+// Cast: stream listener for loopback-bound servers (the desktop sidecar)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn a_loopback_bound_server_gets_a_stream_only_lan_listener() {
+    // The desktop app's sidecar binds 127.0.0.1, so the Chromecast cannot
+    // fetch /stream from the API port. The server must expose the
+    // token-protected stream route on a second, all-interfaces listener —
+    // and nothing else.
+    let srv = TestServer::start().await;
+
+    // A real file so the stream route can serve bytes.
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.mp3");
+    std::fs::write(&song, b"fake mp3 bytes").unwrap();
+    let track_id = seed_track(&srv, song.to_str().unwrap());
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    assert_eq!(resp.status(), 200);
+    let token: serde_json::Value = resp.json().await.unwrap();
+    let token = token["token"].as_str().unwrap().to_string();
+
+    // The main listener is loopback, so a stream listener is bound.
+    let listener = muorg_server::bind_stream_listener_if_loopback(srv.addr)
+        .await
+        .expect("a loopback-bound server gets a stream listener");
+    let stream_addr = listener.local_addr().unwrap();
+    let app = muorg_server::build_stream_router(srv.state.clone());
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    // The stream route answers on the second listener, token-protected.
+    let resp = srv
+        .client
+        .get(format!("http://{stream_addr}/stream/{track_id}?token={token}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(&body[..], b"fake mp3 bytes");
+
+    // Without a token the stream route refuses.
+    let resp = srv
+        .client
+        .get(format!("http://{stream_addr}/stream/{track_id}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+
+    // The API is not exposed on the stream listener.
+    for path in ["/api/health", "/api/tracks", "/api/cast/status"] {
+        let resp = srv
+            .client
+            .get(format!("http://{stream_addr}{path}"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            404,
+            "{path} must not be served on the stream listener"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_lan_bound_server_needs_no_stream_listener() {
+    for addr in ["0.0.0.0:7700", "192.168.1.10:7700"] {
+        let addr: std::net::SocketAddr = addr.parse().unwrap();
+        assert!(
+            muorg_server::bind_stream_listener_if_loopback(addr)
+                .await
+                .is_none(),
+            "{addr} is already LAN-reachable, so no second listener"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Rename: destination collision check and overwrite (Q2 follow-up)
 // ---------------------------------------------------------------------------
 

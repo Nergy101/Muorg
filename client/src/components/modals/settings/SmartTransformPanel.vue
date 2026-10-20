@@ -225,7 +225,6 @@ watch(transformMatches, () => {
                 Transform
               </button>
             </div>
-          </div>
 
           <!-- ── Statistics ──────────────────────────────────────────── -->
 
@@ -287,4 +286,5 @@ watch(transformMatches, () => {
       </div>
     </div>
   </Teleport>
+          </div>
 </template>

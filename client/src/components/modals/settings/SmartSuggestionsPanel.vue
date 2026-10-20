@@ -245,5 +245,4 @@ function addTemplate() {
                 </div>
               </div>
             </div>
-          <!-- ── Smart Transform ───────────────────────────────────── -->
 </template>

@@ -116,6 +116,11 @@ pub struct AppState {
     pub transcoding_config: TranscodingConfig,
     pub transcode_cache: TranscodeCache,
     pub server_port: u16,
+    /// Port of the stream-only listener bound on all interfaces when the main
+    /// listener is loopback-only (the desktop app's sidecar). Cast devices on
+    /// the LAN fetch `/stream/{id}` from this port; `None` when the main
+    /// listener is already reachable from the LAN. See `main.rs`.
+    pub stream_port: Option<u16>,
     pub cast_discovery: DiscoveryState,
     pub cast_session: CastState,
     pub rate_limiter: RateLimiter,
@@ -157,6 +162,7 @@ impl AppState {
             transcoding_config,
             transcode_cache: TranscodeCache::new(24),
             server_port,
+            stream_port: None,
             // Discovery is started by the caller (main), not here: a test
             // server has no use for an mDNS sweep, and the daemon opens a
             // socket per network interface.
@@ -181,6 +187,12 @@ impl AppState {
     /// Override the rate limiter. Defaults to 100 requests per 60 s per IP.
     pub fn with_rate_limiter(mut self, max_requests: u32, window_secs: u64) -> Self {
         self.rate_limiter = RateLimiter::new(max_requests, window_secs);
+        self
+    }
+
+    /// Set the stream-only listener's port (see [`AppState::stream_port`]).
+    pub fn with_stream_port(mut self, port: u16) -> Self {
+        self.stream_port = Some(port);
         self
     }
 }

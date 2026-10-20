@@ -3,6 +3,8 @@ import { computed, ref, watch } from "vue";
 // Aliased: an `open` binding in <script setup> shadows the `open` prop in
 // the template, so `v-if="open"` would read this function — always truthy.
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { join } from "@tauri-apps/api/path";
 import * as playlistApi from "../../api/playlists";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
@@ -107,14 +109,10 @@ async function doExport() {
   try {
     const content = buildM3uContent();
     const filename = sanitizeFilename(props.playlist.name) + ".m3u";
-    // Trigger a browser download instead of writing to a server path.
-    const blob = new Blob([content], { type: "audio/x-mpegurl" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Write through the Tauri fs plugin into the picked output folder. A
+    // blob-URL download is not reliable in a desktop webview (WKWebView has
+    // no download delegate here) and would ignore the chosen folder anyway.
+    await writeTextFile(await join(outputDir.value.trim(), filename), content);
     emit("close");
   } catch (e) {
     exportError.value = e instanceof Error ? e.message : String(e);

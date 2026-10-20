@@ -63,6 +63,4 @@ function handleViewField(field: MissingMetadataField) {
               <RatingChart :tracks="store.tracks" />
             </div>
           </div>
-
-          <!-- Connection tab -->
 </template>

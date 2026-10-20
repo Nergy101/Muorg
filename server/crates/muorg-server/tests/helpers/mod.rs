@@ -15,6 +15,9 @@ pub struct TestServer {
     /// The catalog the server serves, so tests can seed rows and inspect
     /// what the handlers wrote.
     pub catalog: Arc<Catalog>,
+    /// The server's state, so tests can build extra routers on it (e.g. the
+    /// stream-only listener) or tweak ports.
+    pub state: Arc<AppState>,
     /// Kept alive so the temp dir isn't deleted until Drop.
     _temp_dir: TempDir,
     /// Sender to trigger graceful shutdown.
@@ -93,6 +96,7 @@ impl TestServer {
             api_key,
             client,
             catalog,
+            state,
             _temp_dir: temp_dir,
             shutdown_tx: Some(shutdown_tx),
         }

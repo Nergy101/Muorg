@@ -121,6 +121,13 @@ export const usePlaylistStore = defineStore("playlists", {
 
     /** Q21: the Favorites playlist, matched by exact name; created (with the star icon) when missing. */
     async ensureFavoritesPlaylist(): Promise<Playlist | null> {
+      // If playlists haven't loaded yet, load them first — otherwise we'd
+      // create a duplicate "Favorites" playlist (the server has no uniqueness
+      // constraint on names) and split the user's favorites across two, so
+      // the heart would revert on the next hydrate. Same fix as the web
+      // client (bbe81cc); without the loading guard so a click during the
+      // first in-flight load waits for it too.
+      if (this.playlists.length === 0) await this.loadPlaylists();
       const existing = this.favoritesPlaylist;
       if (existing) return existing;
       const created = await this.createPlaylist(FAVORITES_PLAYLIST_NAME);

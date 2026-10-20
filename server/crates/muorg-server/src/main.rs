@@ -172,9 +172,21 @@ async fn main() {
         tracing::error!("Failed to bind {addr}: {e}");
         std::process::exit(1);
     });
-    let server_port = listener.local_addr().map(|a| a.port()).unwrap_or(addr.port());
+    let listen_addr = listener.local_addr().unwrap_or(addr);
+    let server_port = listen_addr.port();
 
-    let state = Arc::new(AppState::new(
+    // When the API listener is loopback-only (the desktop app's sidecar binds
+    // 127.0.0.1), a Chromecast on the LAN still needs to fetch the audio a cast
+    // session points it at. Bind a second, all-interfaces listener serving
+    // only the token-protected stream route; /api/* stays loopback-only
+    // behind the API key.
+    let stream_listener = muorg_server::bind_stream_listener_if_loopback(listen_addr).await;
+    let stream_port = stream_listener
+        .as_ref()
+        .and_then(|l| l.local_addr().ok())
+        .map(|a| a.port());
+
+    let state_builder = AppState::new(
         catalog.clone(),
         config.storage.backup_dir.clone(),
         config.storage.backup_retention_count,
@@ -191,7 +203,12 @@ async fn main() {
      .with_rate_limiter(
         config.server.rate_limit_requests,
         config.server.rate_limit_window_secs,
-    ));
+    );
+    let state_builder = match stream_port {
+        Some(port) => state_builder.with_stream_port(port),
+        None => state_builder,
+    };
+    let state = Arc::new(state_builder);
 
     // mDNS discovery starts here rather than in `AppState::new` so a test
     // server never opens the sweep's per-interface sockets.
@@ -200,6 +217,18 @@ async fn main() {
         .start(muorg_server::cast::NoDiscoveryObserver);
 
     let app = build_router(state.clone(), &config.cors.allowed_origins);
+
+    if let Some(stream_listener) = stream_listener {
+        let stream_app = muorg_server::build_stream_router(state.clone());
+        let stream_addr = stream_listener.local_addr().unwrap_or(listen_addr);
+        tracing::info!(address = %stream_addr, "stream listener bound for cast devices");
+        tokio::spawn(async move {
+            axum::serve(stream_listener, stream_app)
+                .with_graceful_shutdown(shutdown_signal())
+                .await
+                .ok();
+        });
+    }
 
     // The startup scan runs in the background so the listener is up
     // immediately; /api/health reports "Scanning" until it finishes.
@@ -318,7 +347,6 @@ async fn main() {
         });
     }
 
-    let listen_addr = listener.local_addr().unwrap_or(addr);
     tracing::info!(address = %listen_addr, "listening");
 
     let shutdown_timeout = config.server.shutdown_timeout_secs.max(1);

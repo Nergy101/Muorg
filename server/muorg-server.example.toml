@@ -1,5 +1,9 @@
 [server]
 # Use 0.0.0.0 when running in Docker; use 127.0.0.1 for local-only standalone use.
+# When host is loopback (the desktop app's sidecar), the server also binds a
+# second, all-interfaces listener that serves only the token-protected
+# /stream/{id} route, so Chromecast devices on the LAN can fetch the audio a
+# cast session points them at. /api/* stays loopback-only behind the API key.
 host = "0.0.0.0"
 port = 7700
 # IMPORTANT: change this to a long random string before exposing to the internet.

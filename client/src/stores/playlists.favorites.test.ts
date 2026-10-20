@@ -129,4 +129,19 @@ describe("favorites", () => {
     expect(api.addTracksToPlaylist).toHaveBeenCalledWith(9, [5]);
     expect(store.isFavorite(5)).toBe(true);
   });
+
+  it("loads playlists first when favoriting before the initial load, so it never creates a duplicate Favorites playlist", async () => {
+    // The backend already has a Favorites playlist (id 7); the store has not
+    // loaded yet — e.g. the user clicked the heart while the first
+    // loadPlaylists() was still in flight (online mode has no startup overlay).
+    const store = usePlaylistStore();
+    expect(store.playlists).toEqual([]);
+
+    await store.toggleFavorite(1);
+
+    expect(api.createPlaylist).not.toHaveBeenCalled();
+    expect(api.addTracksToPlaylist).toHaveBeenCalledWith(7, [1]);
+    expect(backend.playlists.filter((p) => p.name === FAVORITES_PLAYLIST_NAME)).toHaveLength(1);
+    expect(store.isFavorite(1)).toBe(true);
+  });
 });
