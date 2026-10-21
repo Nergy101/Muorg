@@ -1,6 +1,5 @@
 package nl.muorg.android.ui.navigation
 
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -54,9 +53,10 @@ fun MuorgNavHost(
     NavHost(
         navController = navController,
         startDestination = Screen.Welcome.route,
-        // Gesture-driven back. The host default is scaleOut(0.7) for every
-        // route, which shrinks a slide-up overlay into the middle of the
-        // screen beneath it instead of dragging it down like a tap-back does.
+        // Gesture-driven back. The host default exit is scaleOut(0.7) — the
+        // outgoing screen shrinks to 70% as you swipe. We fade instead so
+        // nothing shrinks. Slide-up overlays still slide down, matching a
+        // tap-back.
         predictivePopEnterTransition = { _ ->
             if (initialState.destination.route in slideOverlayRoutes) {
                 EnterTransition.None
@@ -68,7 +68,7 @@ fun MuorgNavHost(
             if (initialState.destination.route in slideOverlayRoutes) {
                 slideOutVertically(targetOffsetY = { it }) + fadeOut()
             } else {
-                scaleOut(targetScale = 0.7f)
+                fadeOut()
             }
         },
     ) {
