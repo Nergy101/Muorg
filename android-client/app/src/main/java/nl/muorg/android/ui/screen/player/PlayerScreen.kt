@@ -412,7 +412,9 @@ fun PlayerScreen(
                 ) {
                     val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
                     Icon(
-                        painter = painterResource(mageIconRes("heart")),
+                        // Same glyph as the web player: outline until favorited,
+                        // filled once it is.
+                        painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
                         contentDescription = "Favourite",
                         tint = if (isFavorite) accent else Color.White,
                         modifier = Modifier.size(21.dp),

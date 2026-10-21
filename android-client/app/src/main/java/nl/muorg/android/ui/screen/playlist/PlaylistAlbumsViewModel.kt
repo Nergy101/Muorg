@@ -19,6 +19,7 @@ import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
+import nl.muorg.android.data.repository.PlaylistEntry
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.data.repository.PlaylistTrackEntry
 import javax.inject.Inject
@@ -29,10 +30,25 @@ data class AddConflictState(
     val targetPlaylistId: Int,
 )
 
+/**
+ * The order-by fields for a playlist's tracks. [PLAYLIST_ORDER] is the saved
+ * playlist order (what drag-reorder writes); the rest are view transforms.
+ */
+enum class PlaylistSortMode(val label: String) {
+    PLAYLIST_ORDER("Playlist order"),
+    BY_ADDED("Added date"),
+    BY_TITLE("Title"),
+    BY_ARTIST("Artist"),
+}
+
 data class PlaylistAlbumsUiState(
     val playlist: Playlist? = null,
     val albums: List<AlbumGroup> = emptyList(),
     val allTracks: List<CatalogTrack> = emptyList(),
+    /** [allTracks] under the active sort — what the screen renders and plays. */
+    val sortedTracks: List<CatalogTrack> = emptyList(),
+    /** trackId to added-order key (entry id / download time), for [PlaylistSortMode.BY_ADDED]. */
+    val addedKeys: Map<Int, Long> = emptyMap(),
     val localEntries: List<PlaylistTrackEntry> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
     val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
@@ -42,6 +58,8 @@ data class PlaylistAlbumsUiState(
     val addConflict: AddConflictState? = null,
     val addToastMsg: String? = null,
     val viewStyle: String = "tracks",
+    val sortMode: PlaylistSortMode = PlaylistSortMode.PLAYLIST_ORDER,
+    val sortAscending: Boolean = true,
 )
 
 @HiltViewModel
@@ -65,6 +83,22 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 _uiState.update { it.copy(viewStyle = style) }
             }
         }
+        viewModelScope.launch {
+            val sortName = preferences.playlistSort.first()
+            val sortMode = PlaylistSortMode.entries.firstOrNull { it.name == sortName }
+                ?: PlaylistSortMode.PLAYLIST_ORDER
+            _uiState.update { it.copy(sortMode = sortMode) }
+        }
+        // The direction is the app-wide sort direction, shared with the
+        // library and the settings screen.
+        viewModelScope.launch {
+            preferences.sortAscending.collect { ascending ->
+                _uiState.update { state ->
+                    val updated = state.copy(sortAscending = ascending)
+                    updated.copy(sortedTracks = applySort(state.allTracks, state.addedKeys, updated))
+                }
+            }
+        }
         // Toggling offline mode while this screen is open re-reads from
         // whichever side of the divide is now in force. The first emission is
         // the current value, which the initial load() already covers.
@@ -77,6 +111,43 @@ class PlaylistAlbumsViewModel @Inject constructor(
     fun setViewStyle(style: String) {
         _uiState.update { it.copy(viewStyle = style) }
         viewModelScope.launch { preferences.setPlaylistViewStyle(style) }
+    }
+
+    fun setSortMode(mode: PlaylistSortMode) {
+        _uiState.update { state ->
+            val updated = state.copy(sortMode = mode)
+            updated.copy(sortedTracks = applySort(state.allTracks, state.addedKeys, updated))
+        }
+        viewModelScope.launch { preferences.setPlaylistSort(mode.name) }
+    }
+
+    fun toggleSortDirection() {
+        val newAscending = !_uiState.value.sortAscending
+        _uiState.update { state ->
+            val updated = state.copy(sortAscending = newAscending)
+            updated.copy(sortedTracks = applySort(state.allTracks, state.addedKeys, updated))
+        }
+        viewModelScope.launch { preferences.setSortAscending(newAscending) }
+    }
+
+    private fun applySort(
+        tracks: List<CatalogTrack>,
+        addedKeys: Map<Int, Long>,
+        state: PlaylistAlbumsUiState,
+    ): List<CatalogTrack> {
+        var result = when (state.sortMode) {
+            PlaylistSortMode.PLAYLIST_ORDER -> tracks
+            // A smart playlist has no entries, so there is no added order to
+            // sort by — keep the server's natural order.
+            PlaylistSortMode.BY_ADDED -> if (addedKeys.isEmpty()) tracks
+            else tracks.sortedBy { addedKeys[it.id] ?: Long.MAX_VALUE }
+            PlaylistSortMode.BY_TITLE -> tracks.sortedBy { it.displayTitle.lowercase() }
+            PlaylistSortMode.BY_ARTIST -> tracks.sortedWith(
+                compareBy({ it.displayArtist.lowercase() }, { it.displayTitle.lowercase() })
+            )
+        }
+        if (!state.sortAscending) result = result.reversed()
+        return result
     }
 
     private fun load() {
@@ -108,15 +179,18 @@ class PlaylistAlbumsViewModel @Inject constructor(
             return
         }
         val tracks = offlineDownloadManager.getDownloadedTracks(playlistId)
-        _uiState.update {
-            it.copy(
+        val addedKeys = offlineDownloadManager.getDownloadedAddedAts(playlistId)
+        _uiState.update { state ->
+            val updated = state.copy(
                 playlist = playlist,
                 albums = libraryRepository.buildAlbumGroups(tracks),
                 allTracks = tracks,
+                addedKeys = addedKeys,
                 playlists = offlineDownloadManager.getDownloadedPlaylists(),
                 isLoading = false,
                 isLocalMode = false,
             )
+            updated.copy(sortedTracks = applySort(tracks, addedKeys, updated))
         }
     }
 
@@ -129,20 +203,27 @@ class PlaylistAlbumsViewModel @Inject constructor(
             val contents = contentsDeferred.await()
             val playlist = playlists.find { it.id == playlistId }
             val tracks = contents.mapNotNull { it.track }
+            // The entry row's own id grows with every insert, so it is the
+            // order the tracks were added in.
+            val addedKeys = contents
+                .mapNotNull { entry -> entry.track?.let { it.id to entry.entryId } }
+                .toMap()
             val albums = localRepository.buildAlbumGroupsForTracks(tracks)
 
             val membership = localRepository.getPlaylistMembershipByPath()
-            _uiState.update {
-                it.copy(
+            _uiState.update { state ->
+                val updated = state.copy(
                     playlist = playlist,
                     albums = albums,
                     allTracks = tracks,
+                    addedKeys = addedKeys,
                     localEntries = contents,
                     playlists = playlists,
                     trackPlaylistMembership = membership,
                     isLoading = false,
                     isLocalMode = true,
                 )
+                updated.copy(sortedTracks = applySort(tracks, addedKeys, updated))
             }
         }.onFailure { e ->
             _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load playlist") }
@@ -181,20 +262,39 @@ class PlaylistAlbumsViewModel @Inject constructor(
         val playlistTracks = trackIdList.mapNotNull { trackById[it] }
         val albums = libraryRepository.buildAlbumGroups(playlistTracks)
 
-        _uiState.update {
-            it.copy(
+        // The entry id is the join row's id, which grows with every insert,
+        // so it doubles as the added order. A smart playlist has no rows, so
+        // there is nothing to fetch — and no added order to sort by.
+        val entriesResult = if (playlist?.smartRules != null) {
+            Result.success(emptyList<PlaylistEntry>())
+        } else {
+            playlistRepository.getPlaylistEntries(playlistId)
+        }
+        val addedKeys = entriesResult.getOrDefault(emptyList())
+            .associate { it.trackId to it.entryId }
+
+        // A smart playlist has no added order; drop that sort if it was left
+        // over from another playlist.
+        if (playlist?.smartRules != null && _uiState.value.sortMode == PlaylistSortMode.BY_ADDED) {
+            _uiState.update { it.copy(sortMode = PlaylistSortMode.PLAYLIST_ORDER) }
+        }
+
+        _uiState.update { state ->
+            val updated = state.copy(
                 playlist = playlist,
                 albums = albums,
                 allTracks = playlistTracks,
+                addedKeys = addedKeys,
                 playlists = playlists,
                 isLoading = false,
                 isLocalMode = false,
             )
+            updated.copy(sortedTracks = applySort(playlistTracks, addedKeys, updated))
         }
     }
 
     fun getTracksForAlbum(albumName: String): List<CatalogTrack> =
-        _uiState.value.allTracks.filter { it.displayAlbum == albumName }
+        _uiState.value.sortedTracks.filter { it.displayAlbum == albumName }
 
     fun requestAddTracksToPlaylist(tracks: List<CatalogTrack>, targetPlaylistId: Int) {
         viewModelScope.launch {
@@ -337,7 +437,10 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 playlistRepository.reorderTracks(playlistId, reorderedTracks.map { it.id }).isSuccess
             }
             if (success) {
-                _uiState.update { it.copy(allTracks = reorderedTracks) }
+                _uiState.update { state ->
+                    val updated = state.copy(allTracks = reorderedTracks)
+                    updated.copy(sortedTracks = applySort(reorderedTracks, state.addedKeys, updated))
+                }
             }
         }
     }

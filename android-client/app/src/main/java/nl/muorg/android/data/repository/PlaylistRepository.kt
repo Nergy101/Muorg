@@ -26,6 +26,15 @@ data class AddConflictCheck(
 )
 
 /**
+ * One row of a playlist's join table: the entry's own id and the track it
+ * points at. Entries carry their own id so the same track can appear twice.
+ */
+data class PlaylistEntry(
+    val entryId: Long,
+    val trackId: Int,
+)
+
+/**
  * Thrown when something tries to put a track into a rule-driven playlist.
  *
  * A smart playlist's membership is computed from its rules; the join table an
@@ -116,6 +125,19 @@ class PlaylistRepository(
     suspend fun getPlaylistTracks(id: Int): Result<List<Int>> = runCatching {
         api.getPlaylistTracks(id.toLong())
             .bodyOrThrow("GET /api/playlists/$id/tracks").map { it.toInt() }
+    }
+
+    /**
+     * The playlist's entries, in playlist order.
+     *
+     * The entry id is the join row's id, which grows with every insert, so it
+     * doubles as the order the tracks were added in — the "added date" sort.
+     * Empty for a smart playlist, whose membership is computed from rules.
+     */
+    suspend fun getPlaylistEntries(id: Int): Result<List<PlaylistEntry>> = runCatching {
+        api.getPlaylistEntries(id.toLong())
+            .bodyOrThrow("GET /api/playlists/$id/entries")
+            .map { PlaylistEntry(entryId = it.entryId, trackId = it.trackId.toInt()) }
     }
 
     /**

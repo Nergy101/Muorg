@@ -43,6 +43,7 @@ class AppPreferences @Inject constructor(
         private val KEY_PINNED_PLAYLISTS = stringSetPreferencesKey("pinned_playlists")
         private val KEY_ALBUM_VIEW_STYLE = stringPreferencesKey("album_view_style")
         private val KEY_PLAYLIST_VIEW_STYLE = stringPreferencesKey("playlist_view_style")
+        private val KEY_PLAYLIST_SORT = stringPreferencesKey("playlist_sort")
         private val KEY_SORT_ASCENDING = booleanPreferencesKey("sort_ascending")
         private val KEY_MATERIAL_YOU = booleanPreferencesKey("material_you")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
@@ -99,6 +100,10 @@ class AppPreferences @Inject constructor(
     val sortAscending: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_SORT_ASCENDING] ?: true }
 
+    /** The playlist screen's order-by field, as a [nl.muorg.android.ui.screen.playlist.PlaylistSortMode] name. */
+    val playlistSort: Flow<String> = context.dataStore.data
+        .map { prefs -> prefs[KEY_PLAYLIST_SORT] ?: "PLAYLIST_ORDER" }
+
     val materialYou: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_MATERIAL_YOU] ?: false }
 
@@ -140,6 +145,17 @@ class AppPreferences @Inject constructor(
     suspend fun toggleFavorite(trackId: String) = context.dataStore.edit { prefs ->
         val current = prefs[KEY_FAVORITES] ?: emptySet()
         prefs[KEY_FAVORITES] = if (trackId in current) current - trackId else current + trackId
+    }
+
+    /**
+     * Replace the whole favorites set. Used to hydrate the set from the
+     * server's Favorites playlist, which is the source of truth in server
+     * mode — the same seeding the web and desktop clients do on load.
+     */
+    suspend fun setFavorites(trackIds: Set<String>): Unit {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FAVORITES] = trackIds
+        }
     }
 
     suspend fun setMusicMode(mode: String) = context.dataStore.edit { it[KEY_MUSIC_MODE] = mode }
@@ -185,6 +201,10 @@ class AppPreferences @Inject constructor(
 
     suspend fun setSortAscending(ascending: Boolean) {
         context.dataStore.edit { it[KEY_SORT_ASCENDING] = ascending }
+    }
+
+    suspend fun setPlaylistSort(sort: String) {
+        context.dataStore.edit { prefs -> prefs[KEY_PLAYLIST_SORT] = sort }
     }
 
     suspend fun setMaterialYou(enabled: Boolean) {

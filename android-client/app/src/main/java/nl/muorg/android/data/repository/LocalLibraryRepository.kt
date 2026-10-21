@@ -18,6 +18,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class PlaylistTrackEntry(
+    /** The entry row's own id, which grows with every insert — the added order. */
+    val entryId: Long,
     val filePath: String,
     val storedTitle: String?,
     val storedArtist: String?,
@@ -127,6 +129,7 @@ class LocalLibraryRepository @Inject constructor(
         val allTracks = trackDao.getAllTracks().associateBy { it.path }
         return entries.map { entry ->
             PlaylistTrackEntry(
+                entryId = entry.id.toLong(),
                 filePath = entry.filePath,
                 storedTitle = entry.trackTitle,
                 storedArtist = entry.trackArtist,

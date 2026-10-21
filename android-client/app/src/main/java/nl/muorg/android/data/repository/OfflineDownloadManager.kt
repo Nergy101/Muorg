@@ -410,6 +410,11 @@ class OfflineDownloadManager @Inject constructor(
                     { it.displayTitle.lowercase() },
                 )
             )
+
+    /** trackId to download time for one downloaded playlist — the added-date sort. */
+    suspend fun getDownloadedAddedAts(playlistId: Int): Map<Int, Long> =
+        offlineTrackDao.getDownloadedTracksForPlaylist(playlistId)
+            .associate { it.trackId to it.downloadedAt }
 }
 
 /**

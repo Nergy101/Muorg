@@ -207,6 +207,7 @@ class PlaylistsViewModelTest {
         coEvery { localRepo.getAllTracks() } returns listOf(localTrack)
         coEvery { localRepo.getPlaylistContents(7) } returns listOf(
             PlaylistTrackEntry(
+                entryId = 1,
                 filePath = localTrack.path,
                 storedTitle = null,
                 storedArtist = null,

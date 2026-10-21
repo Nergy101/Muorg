@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LowPriority
@@ -31,6 +33,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Spacer
@@ -100,7 +104,7 @@ fun PlaylistAlbumsScreen(
     val trackList = reorderedPaths?.let { paths ->
         val trackByPath = uiState.allTracks.associateBy { it.path }
         paths.mapNotNull { trackByPath[it] }
-    } ?: uiState.allTracks
+    } ?: uiState.sortedTracks
 
     val draggedFromIndex = remember(draggedPath, trackList) {
         draggedPath?.let { p -> trackList.indexOfFirst { it.path == p } } ?: -1
@@ -133,10 +137,12 @@ fun PlaylistAlbumsScreen(
         }
     }
 
-    val sortedTracks = remember(uiState.allTracks) {
-        uiState.allTracks.sortedWith(
-            compareBy({ it.displayAlbum.lowercase() }, { it.discNumber ?: 0 }, { it.trackNumber ?: 0 })
-        )
+    // A smart playlist's membership comes from its rules, so there is no
+    // added order to sort by — the option is hidden for those.
+    val sortOptions = if (uiState.playlist?.smartRules != null) {
+        PlaylistSortMode.entries.filter { it != PlaylistSortMode.BY_ADDED }
+    } else {
+        PlaylistSortMode.entries.toList()
     }
 
     uiState.addToastMsg?.let { msg ->
@@ -252,10 +258,17 @@ fun PlaylistAlbumsScreen(
                 trackCount = uiState.allTracks.size,
                 onPlay = {
                     playerViewModel.disableShuffle()
-                    playerViewModel.playTrack(uiState.allTracks.first(), uiState.allTracks)
+                    playerViewModel.playTrack(uiState.sortedTracks.first(), uiState.sortedTracks)
                 },
-                onShuffle = { playerViewModel.shuffleTracks(uiState.allTracks) },
+                onShuffle = { playerViewModel.shuffleTracks(uiState.sortedTracks) },
                 shuffleActive = playerState.shuffleEnabled,
+            )
+            PlaylistSortRow(
+                sortMode = uiState.sortMode,
+                sortAscending = uiState.sortAscending,
+                options = sortOptions,
+                onSelect = viewModel::setSortMode,
+                onToggleDirection = viewModel::toggleSortDirection,
             )
         }
         when {
@@ -566,5 +579,69 @@ private fun PlaylistPlaybackActions(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * Order-by selection and direction switch for the playlist's tracks, sitting
+ * under the play and shuffle buttons. Mirrors the library's sort row.
+ */
+@Composable
+private fun PlaylistSortRow(
+    sortMode: PlaylistSortMode,
+    sortAscending: Boolean,
+    options: List<PlaylistSortMode>,
+    onSelect: (PlaylistSortMode) -> Unit,
+    onToggleDirection: () -> Unit,
+) {
+    var showSortMenu by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box {
+            TextButton(
+                onClick = { showSortMenu = true },
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Text("Sort: ${sortMode.label}")
+                Icon(
+                    painter = painterResource(mageIconRes("chevron-down")),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            DropdownMenu(
+                expanded = showSortMenu,
+                onDismissRequest = { showSortMenu = false },
+            ) {
+                options.forEach { mode ->
+                    DropdownMenuItem(
+                        text = { Text(mode.label) },
+                        onClick = {
+                            onSelect(mode)
+                            showSortMenu = false
+                        },
+                        trailingIcon = {
+                            if (sortMode == mode) {
+                                Text("✓", color = MaterialTheme.colorScheme.primary)
+                            }
+                        },
+                    )
+                }
+            }
+        }
+        IconButton(onClick = onToggleDirection) {
+            Icon(
+                imageVector = if (sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                contentDescription = if (sortAscending) "Sort ascending" else "Sort descending",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }

@@ -97,13 +97,8 @@ class PlayerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val mode = preferences.musicMode.first()
             ensureFavoritesPlaylist()
-            if (mode == "local") {
-                _playlists.value = localRepository.getPlaylists()
-            } else {
-                playlistRepository.getPlaylists().onSuccess { _playlists.value = it }
-            }
+            refreshPlaylists()
         }
         // When cast session starts, pause local player and load track onto the Chromecast
         viewModelScope.launch {
@@ -229,7 +224,20 @@ class PlayerViewModel @Inject constructor(
         if (mode == "local") {
             _playlists.value = localRepository.getPlaylists()
         } else {
-            playlistRepository.getPlaylists().onSuccess { _playlists.value = it }
+            playlistRepository.getPlaylists().onSuccess { playlists ->
+                _playlists.value = playlists
+                hydrateFavorites(playlists)
+            }
+        }
+    }
+
+    // Seed the local favorites set from the server's Favorites playlist so the
+    // heart icons match what the server holds (e.g. favorited on another device).
+    // Only writes on success — a failed read must not wipe the hearts.
+    private suspend fun hydrateFavorites(playlists: List<Playlist>) {
+        val favorites = playlists.firstOrNull { it.name == FAVORITES_PLAYLIST_NAME } ?: return
+        playlistRepository.getTracksFor(favorites).onSuccess { ids ->
+            preferences.setFavorites(ids.map { it.toString() }.toSet())
         }
     }
 
@@ -448,12 +456,14 @@ class PlayerViewModel @Inject constructor(
                 } else {
                     // Defensive: the local favorites set may be out of sync
                     // with the server playlist (added on another device), so
-                    // check before adding to avoid a duplicate row.
+                    // check before adding to avoid a duplicate row. The heart
+                    // was just toggled on, so the end state is "favorited"
+                    // either way — say "Added", not "Already".
                     val playlist = _playlists.value.find { it.id == playlistId }
                     if (playlist != null) {
                         val check = playlistRepository.checkAddConflict(playlist, listOf(track))
                         if (check.alreadyPresentCount > 0) {
-                            _toastEvent.tryEmit("Already in favorites")
+                            _toastEvent.tryEmit("Added to favorites")
                             refreshPlaylists()
                             return@launch
                         }

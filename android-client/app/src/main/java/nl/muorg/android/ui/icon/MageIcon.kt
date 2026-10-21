@@ -47,6 +47,7 @@ private val MAGE_ICONS: Map<String, Int> = mapOf(
     "eye-off" to R.drawable.ic_eye_off,
     "github" to R.drawable.ic_github,
     "heart" to R.drawable.ic_heart,
+    "heart-fill" to R.drawable.ic_heart_fill,
     "home" to R.drawable.ic_home,
     "home-2" to R.drawable.ic_home_2,
     "home-2-fill" to R.drawable.ic_home_2_fill,
