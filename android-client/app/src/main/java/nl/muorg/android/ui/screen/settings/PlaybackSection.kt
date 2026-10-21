@@ -104,26 +104,28 @@ fun PlaybackSection(
         }
     }
 
-    ListItem(
-        headlineContent = { Text("Playback stops automatically?") },
-        supportingContent = { Text("Some phones stop music in the background to save battery") },
-        leadingContent = {
-            Icon(
-                painter = painterResource(mageIconRes("zap")), contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-    )
+    // Once the app is exempt there is nothing left to do here, so the whole
+    // row and its button are hidden; the state is re-read on resume above,
+    // which is what hides them right after the system dialog grants it.
+    if (!uiState.isBatteryOptimizationExempt) {
+        ListItem(
+            headlineContent = { Text("Playback stops automatically?") },
+            supportingContent = { Text("Some phones stop music in the background to save battery") },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(mageIconRes("zap")), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        Button(
-            onClick = { viewModel.requestBatteryOptimizationExemption() },
-            enabled = !uiState.isBatteryOptimizationExempt,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         ) {
-            Text(if (uiState.isBatteryOptimizationExempt) "Already exempt" else "Exempt from battery optimization")
+            Button(onClick = { viewModel.requestBatteryOptimizationExemption() }) {
+                Text("Exempt from battery optimization")
+            }
         }
     }
 
