@@ -40,6 +40,12 @@ class PlaybackService : MediaSessionService() {
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
             .setHandleAudioBecomingNoisy(true)
+            // Hold a partial wake lock while playing. With the screen off, the
+            // audio HAL's own lock is all that keeps the CPU awake during a
+            // song; at the song boundary — audio stopped, next stream still
+            // loading — the CPU can suspend and the load stalls, so playback
+            // stops instead of advancing to the next track.
+            .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
         mediaSession = MediaSession.Builder(this, player).build()
