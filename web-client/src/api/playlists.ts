@@ -3,7 +3,7 @@
  */
 
 import { api } from "./client";
-import type { Playlist } from "../types";
+import type { Playlist, PlaylistTrackEntry } from "../types";
 
 export function getPlaylists(): Promise<Playlist[]> {
   return api.getPlaylists();
@@ -54,6 +54,15 @@ export async function deletePlaylist(id: number): Promise<void> {
 
 export function getPlaylistTracks(playlistId: number): Promise<number[]> {
   return api.getPlaylistTracks(playlistId);
+}
+
+/**
+ * Playlist entries (`entry_id` + `track_id`), in playlist order. The entry id
+ * grows with every insert, so it doubles as the added order — the "Added
+ * date" sort's key. Smart playlists have no entries.
+ */
+export function getPlaylistEntries(playlistId: number): Promise<PlaylistTrackEntry[]> {
+  return api.getPlaylistEntries(playlistId);
 }
 
 /** Pinned playlist ids, in pin order. Pins live on the server (Q24). */

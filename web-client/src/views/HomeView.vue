@@ -1,6 +1,25 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+      <!-- Brand row: the Muorg mark and name on the left (as in the sidebar),
+           "Shuffle all" on the right (mirrors the Android app's HomeHeader). -->
+      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4">
+        <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />
+        <span class="text-title-md font-bold tracking-tight text-on-surface">Muorg</span>
+        <div class="flex-1" />
+        <button
+          type="button"
+          class="glass flex h-9 items-center gap-1.5 rounded-full px-3 text-label-lg transition-colors"
+          :class="player.shuffleAllActive ? 'text-primary' : 'text-on-surface'"
+          aria-label="Shuffle all"
+          :aria-pressed="player.shuffleAllActive"
+          @click="shuffleAll"
+        >
+          <MageIcon name="exchange" class="h-4 w-4" />
+          <span>Shuffle all</span>
+        </button>
+      </div>
+
       <!-- Recommended: 4 random albums from the catalog (refresh re-rolls). -->
       <section v-if="shelfViews[0]" class="px-4 pt-6">
         <!-- Bottom spacing belongs to the row, not the heading: with `pb-2` on
@@ -163,7 +182,9 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import MixCard from "../components/MixCard.vue";
+import logoUrl from "../assets/muorg-logo.svg";
 import { useLibraryStore } from "../stores/library";
+import { usePlayerStore } from "../stores/player";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useGridColumns } from "../composables/useGridColumns";
@@ -173,6 +194,7 @@ import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
 const lib = useLibraryStore();
+const player = usePlayerStore();
 
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
@@ -399,5 +421,13 @@ watch(
 
 function openMix(id: number): void {
   void router.push({ name: "mix", params: { id: String(id) } });
+}
+
+/** The header's "Shuffle all" (mirrors the Android app's HomeHeader): seeds
+ *  the queue with random songs from the catalog. The Library's own shuffle
+ *  button passes the filtered catalog; the home header always passes the
+ *  whole thing. */
+function shuffleAll(): void {
+  player.startShuffleAll(lib.tracks);
 }
 </script>
