@@ -57,6 +57,7 @@ import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
+import nl.muorg.android.ui.component.coverModelFor
 import androidx.compose.ui.graphics.RectangleShape
 import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
@@ -163,7 +164,13 @@ fun HomeScreen(
         items(state.mixes, key = { it.name }) { mix ->
             MixCard(
                 mix = mix,
-                baseUrl = baseUrl,
+                // Resolved once per lineup: local art files in local mode,
+                // server cover URLs otherwise.
+                covers = remember(mix.coverTrackIds, baseUrl) {
+                    mix.coverTrackIds.map {
+                        coverModelFor(viewModel.trackFor(it)?.localCoverPath, it, baseUrl)
+                    }
+                },
                 imageLoader = imageLoader,
                 onClick = { onOpenMix(mix.id) },
             )
@@ -379,7 +386,7 @@ private fun ShelfHeader(
 @Composable
 private fun MixCard(
     mix: Mix,
-    baseUrl: String,
+    covers: List<Any>,
     imageLoader: ImageLoader,
     onClick: () -> Unit,
 ) {
@@ -403,8 +410,7 @@ private fun MixCard(
             ),
     ) {
         CoverMosaic(
-            coverTrackIds = mix.coverTrackIds,
-            baseUrl = baseUrl,
+            covers = covers,
             imageLoader = imageLoader,
             modifier = Modifier.fillMaxSize(),
         ) {

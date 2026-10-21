@@ -51,6 +51,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import coil.ImageLoader
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.component.LocalBottomInset
+import nl.muorg.android.ui.component.coverModelFor
 import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.icon.mageIconRes
@@ -220,11 +221,18 @@ fun PlaylistsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(ordered, key = { it.id }) { playlist ->
+                            val coverIds = uiState.covers[playlist.id].orEmpty()
+                            // Resolved once per playlist: local art files in
+                            // local mode, server cover URLs otherwise.
+                            val covers = remember(coverIds, uiState.coverPaths, baseUrl) {
+                                coverIds.map { id ->
+                                    coverModelFor(uiState.coverPaths[id], id, baseUrl)
+                                }
+                            }
                             PlaylistTile(
                                 playlist = playlist,
-                                coverTrackIds = uiState.covers[playlist.id].orEmpty(),
+                                covers = covers,
                                 pinned = playlist.id in uiState.pinnedIds,
-                                baseUrl = baseUrl,
                                 imageLoader = imageLoader,
                                 onClick = { onPlaylistClick(playlist.id) },
                                 onTogglePin = { viewModel.togglePin(playlist.id) },
@@ -235,6 +243,7 @@ fun PlaylistsScreen(
                                     playlist.name == FAVORITES_PLAYLIST_NAME,
                                 downloaded = playlist.id in uiState.downloadedPlaylistIds,
                                 showOnlineActions = !uiState.isOfflineMode,
+                                showDownload = uiState.isServerMode,
                             )
                         }
                     }

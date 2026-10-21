@@ -155,6 +155,9 @@ class HomeViewModel @Inject constructor(
 
     fun tracksForMix(mix: Mix): List<CatalogTrack> = mixRepository.tracksFor(mix)
 
+    /** The catalog track behind a cover id, for resolving mosaic covers. */
+    fun trackFor(trackId: Int): CatalogTrack? = tracks.firstOrNull { it.id == trackId }
+
     /** The full catalog behind the shelves, for "Shuffle all". */
     fun allTracks(): List<CatalogTrack> = tracks
 

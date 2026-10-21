@@ -126,9 +126,8 @@ internal fun PlaylistCard(
 @Composable
 internal fun PlaylistTile(
     playlist: Playlist,
-    coverTrackIds: List<Int>,
+    covers: List<Any>,
     pinned: Boolean,
-    baseUrl: String,
     imageLoader: ImageLoader,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
@@ -141,6 +140,8 @@ internal fun PlaylistTile(
     downloaded: Boolean = false,
     /** Offline mode: pin, rename and delete are server operations, so they are hidden. */
     showOnlineActions: Boolean = true,
+    /** Local mode: the playlist is already on the device, so there is nothing to download. */
+    showDownload: Boolean = true,
 ) {
     Box(
         modifier = Modifier
@@ -158,8 +159,7 @@ internal fun PlaylistTile(
             .clickable(onClick = onClick),
     ) {
         CoverMosaic(
-            coverTrackIds = coverTrackIds,
-            baseUrl = baseUrl,
+            covers = covers,
             imageLoader = imageLoader,
             modifier = Modifier.fillMaxSize(),
         ) {
@@ -175,7 +175,9 @@ internal fun PlaylistTile(
         // The server's Favorites playlist is managed by the server — renaming
         // or deleting it is refused — so its tile offers neither. In offline
         // mode the remaining three are server operations too, so only the
-        // download disc stays: filled, and offering removal when tapped.
+        // download disc stays: filled, and offering removal when tapped. In
+        // local mode the playlist is already on the device, so the download
+        // disc is gone entirely.
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -187,12 +189,14 @@ internal fun PlaylistTile(
                 FrostDisc("pin", if (pinned) "Unpin playlist" else "Pin playlist", onTogglePin, on = pinned)
             }
             if (showOnlineActions && !isFavorites) FrostDisc("edit", "Rename playlist", onEdit)
-            FrostDisc(
-                "download",
-                if (downloaded) "Remove downloaded songs" else "Download playlist",
-                onDownload,
-                on = downloaded,
-            )
+            if (showDownload) {
+                FrostDisc(
+                    "download",
+                    if (downloaded) "Remove downloaded songs" else "Download playlist",
+                    onDownload,
+                    on = downloaded,
+                )
+            }
             if (showOnlineActions && !isFavorites) FrostDisc("trash", "Delete playlist", onDelete)
         }
 

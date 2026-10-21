@@ -49,6 +49,7 @@ import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.TrackActionsSheet
+import nl.muorg.android.ui.component.coverModelFor
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
@@ -94,6 +95,13 @@ fun MixDetailScreen(
         return
     }
 
+    // Local art files in local mode, server cover URLs otherwise.
+    val covers = remember(mix, tracks, baseUrl) {
+        mix.coverTrackIds.map { id ->
+            coverModelFor(tracks.firstOrNull { it.id == id }?.localCoverPath, id, baseUrl)
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -118,8 +126,7 @@ fun MixDetailScreen(
                 }
                 Spacer(Modifier.width(2.dp))
                 CoverMosaic(
-                    coverTrackIds = mix.coverTrackIds,
-                    baseUrl = baseUrl,
+                    covers = covers,
                     imageLoader = imageLoader,
                     modifier = Modifier.size(112.dp).clip(MuorgShapes.art),
                 ) {

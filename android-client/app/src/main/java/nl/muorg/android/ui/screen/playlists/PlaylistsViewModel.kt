@@ -36,6 +36,12 @@ data class PlaylistsUiState(
     val editIcon: String = "🎵",
     /** Four DISTINCT-album track ids per playlist, for the 2x2 cover mosaic. */
     val covers: Map<Int, List<Int>> = emptyMap(),
+    /**
+     * Track id to on-device art file, for the local-mode mosaic. Empty in
+     * server mode — server tracks have no local art — so the tiles fall back
+     * to the server's cover endpoint there.
+     */
+    val coverPaths: Map<Int, String> = emptyMap(),
     /** Pinned playlist ids, in pin order — pinned tiles sort to the front. */
     val pinnedIds: List<Int> = emptyList(),
     val isServerMode: Boolean = false,
@@ -167,13 +173,19 @@ class PlaylistsViewModel @Inject constructor(
                         )
                     }
                 }.awaitAll().toMap()
-                _uiState.update { it.copy(covers = covers) }
+                // Downloaded tracks carry no local art files, so there are no
+                // local cover paths to offer in offline mode either.
+                _uiState.update { it.copy(covers = covers, coverPaths = emptyMap()) }
                 return@launch
             }
 
-            val byId = runCatching { libraryRepository.getAllTracks().getOrThrow() }
-                .getOrDefault(emptyList())
-                .associateBy { it.id }
+            // Local mode reads the device's own catalog: the server's track
+            // ids never match the local (negative) ones, so the mosaic would
+            // come back empty.
+            val byId = runCatching {
+                if (currentMode == "local") localRepository.getAllTracks()
+                else libraryRepository.getAllTracks().getOrThrow()
+            }.getOrDefault(emptyList()).associateBy { it.id }
 
             val covers = playlists.map { playlist ->
                 async {
@@ -187,7 +199,14 @@ class PlaylistsViewModel @Inject constructor(
                     playlist.id to pickDistinctCovers(ids, byId)
                 }
             }.awaitAll().toMap()
-            _uiState.update { it.copy(covers = covers) }
+            _uiState.update {
+                it.copy(
+                    covers = covers,
+                    coverPaths = byId.mapNotNull { (id, track) ->
+                        track.localCoverPath?.let { path -> id to path }
+                    }.toMap(),
+                )
+            }
         }
     }
 
@@ -287,8 +306,14 @@ class PlaylistsViewModel @Inject constructor(
     /**
      * The tile's download button: a fresh download for a playlist that is not
      * downloaded yet, the remove-downloads confirmation for one that is.
+     *
+     * Local mode has no download action at all: the playlist is already on
+     * the device, and asking the server for it by id would fetch whatever
+     * server playlist happens to share the id. The tile hides the button;
+     * this guard keeps the server call unreachable from any other path.
      */
     fun onDownloadClicked(playlist: Playlist) {
+        if (currentMode == "local") return
         if (playlist.id in _uiState.value.downloadedPlaylistIds) {
             _uiState.update {
                 it.copy(showRemoveDownloadDialog = true, removingDownloadPlaylist = playlist)
@@ -310,6 +335,7 @@ class PlaylistsViewModel @Inject constructor(
 
     fun downloadPlaylist(playlist: Playlist) {
         if (isOffline()) return
+        if (currentMode == "local") return
         viewModelScope.launch {
             val ids = repository.getTracksFor(playlist).getOrDefault(emptyList())
             val byId = runCatching { libraryRepository.getAllTracks().getOrThrow() }

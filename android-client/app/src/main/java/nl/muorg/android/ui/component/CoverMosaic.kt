@@ -20,7 +20,19 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 
 /**
+ * The Coil model for a track's cover: the on-device art file for a local
+ * track, the server's cover endpoint otherwise — the same rule TrackRow
+ * applies to its thumbnails. Callers resolve their track ids through this so
+ * every mosaic works in local mode, where there is no server to ask.
+ */
+fun coverModelFor(localCoverPath: String?, trackId: Int, baseUrl: String): Any =
+    localCoverPath ?: "$baseUrl/api/tracks/$trackId/cover"
+
+/**
  * The 2x2 cover collage used by playlist tiles, mix tiles and the mix header.
+ *
+ * [covers] are ready-to-load Coil models — server cover URLs, or local art
+ * files in local mode — resolved by the caller through [coverModelFor].
  *
  * FALLS BACK RATHER THAN LEAVING HOLES. A tile only shows the 2x2 when all
  * four covers actually decode; the moment one fails — a 404, a cover the
@@ -36,14 +48,13 @@ import coil.compose.AsyncImage
  */
 @Composable
 fun CoverMosaic(
-    coverTrackIds: List<Int>,
-    baseUrl: String,
+    covers: List<Any>,
     imageLoader: ImageLoader,
     modifier: Modifier = Modifier,
     placeholder: @Composable BoxScope.() -> Unit = {},
 ) {
-    var failed by remember(coverTrackIds) { mutableStateOf(emptySet<Int>()) }
-    val usable = remember(coverTrackIds, failed) { coverTrackIds.filterNot { it in failed } }
+    var failed by remember(covers) { mutableStateOf(emptySet<Any>()) }
+    val usable = remember(covers, failed) { covers.filterNot { it in failed } }
 
     Box(
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
@@ -55,13 +66,13 @@ fun CoverMosaic(
                 for (row in 0 until 2) {
                     Row(Modifier.fillMaxWidth().weight(1f)) {
                         for (col in 0 until 2) {
-                            val id = usable[row * 2 + col]
+                            val model = usable[row * 2 + col]
                             AsyncImage(
-                                model = "$baseUrl/api/tracks/$id/cover",
+                                model = model,
                                 contentDescription = null,
                                 imageLoader = imageLoader,
                                 contentScale = ContentScale.Crop,
-                                onError = { failed = failed + id },
+                                onError = { failed = failed + model },
                                 // weight FIRST: fillMaxSize would resolve against the
                                 // incoming max width, so a cell claims the whole row
                                 // and its siblings measure to nothing.
@@ -72,14 +83,17 @@ fun CoverMosaic(
                 }
             }
 
-            else -> AsyncImage(
-                model = "$baseUrl/api/tracks/${usable.first()}/cover",
-                contentDescription = null,
-                imageLoader = imageLoader,
-                contentScale = ContentScale.Crop,
-                onError = { failed = failed + usable.first() },
-                modifier = Modifier.fillMaxSize(),
-            )
+            else -> {
+                val model = usable.first()
+                AsyncImage(
+                    model = model,
+                    contentDescription = null,
+                    imageLoader = imageLoader,
+                    contentScale = ContentScale.Crop,
+                    onError = { failed = failed + model },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }

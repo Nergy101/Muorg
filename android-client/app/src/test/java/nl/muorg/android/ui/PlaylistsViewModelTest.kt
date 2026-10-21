@@ -17,6 +17,7 @@ import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
+import nl.muorg.android.data.repository.PlaylistTrackEntry
 import nl.muorg.android.ui.screen.playlists.PlaylistsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -67,16 +68,18 @@ class PlaylistsViewModelTest {
         library: LibraryRepository,
         downloads: OfflineDownloadManager,
         downloadedIds: Set<Int> = emptySet(),
+        mode: String = "remote",
+        localRepo: LocalLibraryRepository = mockk(relaxed = true),
     ): PlaylistsViewModel {
         val preferences = mockk<AppPreferences>(relaxed = true)
-        every { preferences.musicMode } returns flowOf("remote")
+        every { preferences.musicMode } returns flowOf(mode)
         every { preferences.offlineMode } returns flowOf(offlineMode)
         every { preferences.pinnedPlaylists } returns flowOf(emptySet())
         every { downloads.downloadProgress } returns MutableStateFlow(DownloadProgress())
         every { downloads.observeDownloadedPlaylistIds() } returns flowOf(downloadedIds)
         return PlaylistsViewModel(
             playlistRepo,
-            mockk<LocalLibraryRepository>(relaxed = true),
+            localRepo,
             preferences,
             library,
             downloads,
@@ -164,5 +167,65 @@ class PlaylistsViewModelTest {
 
         assertFalse(vm.uiState.value.showRemoveDownloadDialog)
         coVerify(exactly = 1) { downloads.downloadPlaylist(playlist(7), any()) }
+    }
+
+    @Test
+    fun `local mode never downloads — the playlist is already on the device`() = runTest {
+        val playlistRepo = mockk<PlaylistRepository>(relaxed = true)
+        val library = mockk<LibraryRepository>(relaxed = true)
+        val downloads = mockk<OfflineDownloadManager>(relaxed = true)
+        val localRepo = mockk<LocalLibraryRepository>(relaxed = true)
+        coEvery { localRepo.getPlaylists() } returns listOf(playlist(7))
+
+        val vm = viewModel(
+            offlineMode = false,
+            playlistRepo,
+            library,
+            downloads,
+            mode = "local",
+            localRepo = localRepo,
+        )
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isServerMode)
+        vm.onDownloadClicked(playlist(7))
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.showRemoveDownloadDialog)
+        coVerify(exactly = 0) { downloads.downloadPlaylist(any(), any()) }
+        coVerify(exactly = 0) { playlistRepo.getTracksFor(any()) }
+    }
+
+    @Test
+    fun `local mode builds mosaic covers from the device's own tracks`() = runTest {
+        val playlistRepo = mockk<PlaylistRepository>(relaxed = true)
+        val library = mockk<LibraryRepository>(relaxed = true)
+        val downloads = mockk<OfflineDownloadManager>(relaxed = true)
+        val localRepo = mockk<LocalLibraryRepository>(relaxed = true)
+        val localTrack = track(-1).copy(hasCover = true, localCoverPath = "/cache/album_art/1.jpg")
+        coEvery { localRepo.getPlaylists() } returns listOf(playlist(7))
+        coEvery { localRepo.getAllTracks() } returns listOf(localTrack)
+        coEvery { localRepo.getPlaylistContents(7) } returns listOf(
+            PlaylistTrackEntry(
+                filePath = localTrack.path,
+                storedTitle = null,
+                storedArtist = null,
+                track = localTrack,
+            )
+        )
+
+        val vm = viewModel(
+            offlineMode = false,
+            playlistRepo,
+            library,
+            downloads,
+            mode = "local",
+            localRepo = localRepo,
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf(-1), vm.uiState.value.covers[7])
+        assertEquals("/cache/album_art/1.jpg", vm.uiState.value.coverPaths[-1])
+        coVerify(exactly = 0) { library.getAllTracks(any()) }
     }
 }
