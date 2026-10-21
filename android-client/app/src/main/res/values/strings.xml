@@ -25,4 +25,8 @@
     <string name="action_next">Next</string>
     <string name="action_shuffle">Shuffle</string>
     <string name="action_repeat">Repeat</string>
+    <string name="cast_channel_name">Casting</string>
+    <string name="cast_notification_title">Casting to %1$s</string>
+    <string name="cast_notification_text">Muorg is playing on a Cast device</string>
+    <string name="cast_default_device">Cast device</string>
 </resources>

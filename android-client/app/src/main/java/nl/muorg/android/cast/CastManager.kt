@@ -73,24 +73,28 @@ class CastManager @Inject constructor(
             _isCasting.value = true
             _castDeviceName.value = session.castDevice?.friendlyName
             startPolling(session)
+            startCastForeground(session.castDevice?.friendlyName)
         }
 
         override fun onSessionEnded(session: CastSession, error: Int) {
             _isCasting.value = false
             _castDeviceName.value = null
             stopPolling()
+            stopCastForeground()
         }
 
         override fun onSessionSuspended(session: CastSession, reason: Int) {
             _isCasting.value = false
             _castDeviceName.value = null
             stopPolling()
+            stopCastForeground()
         }
 
         override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
             _isCasting.value = true
             _castDeviceName.value = session.castDevice?.friendlyName
             startPolling(session)
+            startCastForeground(session.castDevice?.friendlyName)
         }
 
         override fun onSessionStarting(session: CastSession) {}
@@ -112,6 +116,7 @@ class CastManager @Inject constructor(
                     _isCasting.value = true
                     _castDeviceName.value = current.castDevice?.friendlyName
                     startPolling(current)
+                    startCastForeground(current.castDevice?.friendlyName)
                 }
             } catch (_: Exception) {}
         }
@@ -239,7 +244,30 @@ class CastManager @Inject constructor(
     fun release() {
         castContext?.sessionManager?.removeSessionManagerListener(sessionListener, CastSession::class.java)
         stopPolling()
+        stopCastForeground()
         if (multicastLock.isHeld) multicastLock.release()
         if (localCastServer.isAlive) localCastServer.stop()
+    }
+
+    /**
+     * Keep the process foreground (and Doze-exempt) for the whole cast session.
+     * Without this, the paused local player lets Media3 drop its foreground
+     * state, and with the screen off Doze suspends network access — the poll
+     * loop stops seeing status updates and the next track never loads.
+     */
+    private fun startCastForeground(deviceName: String?) {
+        try {
+            CastForegroundService.start(context, deviceName)
+        } catch (_: Exception) {
+            // Android 12+ blocks foreground-service starts from the background;
+            // the service starts once the app is next in the foreground.
+        }
+    }
+
+    private fun stopCastForeground() {
+        try {
+            CastForegroundService.stop(context)
+        } catch (_: Exception) {
+        }
     }
 }
