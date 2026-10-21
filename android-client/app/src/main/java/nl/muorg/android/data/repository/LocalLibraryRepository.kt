@@ -2,6 +2,8 @@ package nl.muorg.android.data.repository
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import nl.muorg.android.data.api.AlbumGroup
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.MetadataUpdateRequest
@@ -63,13 +65,36 @@ class LocalLibraryRepository @Inject constructor(
         playlistDao.removeEntriesWithPathPrefix("$treeUri/document/")
     }
 
-    suspend fun scanAndSave(folderUris: Set<String>, onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }): Int {
-        val tracks = scanner.scan(folderUris, onProgress)
-        trackDao.clearAll()
-        trackDao.insertAll(tracks)
-        playlistDao.removeOrphanedEntries()
-        return tracks.size
-    }
+    // One scan at a time, app-wide: a scan clears the table before inserting,
+    // so two overlapping scans would interleave into a half-written library.
+    private val scanMutex = Mutex()
+
+    suspend fun scanAndSave(folderUris: Set<String>, onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }): Int =
+        scanMutex.withLock {
+            val tracks = scanner.scan(folderUris, onProgress)
+            trackDao.clearAll()
+            trackDao.insertAll(tracks)
+            playlistDao.removeOrphanedEntries()
+            tracks.size
+        }
+
+    /**
+     * The automatic first scan: runs only while the local library is still
+     * empty, so Home and Library can both offer it without racing each other
+     * or scanning the same folder twice. Returns true when a scan actually ran.
+     */
+    suspend fun scanIfEmpty(folderUris: Set<String>, onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }): Boolean =
+        scanMutex.withLock {
+            if (trackDao.count() > 0) {
+                false
+            } else {
+                val tracks = scanner.scan(folderUris, onProgress)
+                trackDao.clearAll()
+                trackDao.insertAll(tracks)
+                playlistDao.removeOrphanedEntries()
+                true
+            }
+        }
 
     suspend fun getPlaylists(): List<Playlist> = playlistDao.getAll().map { pl ->
         Playlist(

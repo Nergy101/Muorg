@@ -28,6 +28,12 @@ data class HomeUiState(
     val mostPlayed: List<AlbumGroup> = emptyList(),
     val recentlyPlayed: List<AlbumGroup> = emptyList(),
     val isOfflineMode: Boolean = false,
+    /** True while the local library's automatic first scan is running. */
+    val isScanning: Boolean = false,
+    val scanProgress: Int = 0,
+    val scanTotal: Int = 0,
+    /** Set once a first scan has run, so an empty result is not re-scanned on every load. */
+    val scanCompleted: Boolean = false,
 )
 
 private const val RECOMMENDED_COUNT = 4
@@ -82,7 +88,7 @@ class HomeViewModel @Inject constructor(
             }
             _uiState.update { it.copy(loading = true, error = null, isOfflineMode = false) }
             val result = if (local) {
-                runCatching { localRepository.getAllTracks() to localRepository.buildAlbumGroups() }
+                runCatching { scanIfNeeded() to localRepository.buildAlbumGroups() }
             } else {
                 repository.getAllTracks().map { it to repository.buildAlbumGroups(it) }
             }
@@ -105,6 +111,32 @@ class HomeViewModel @Inject constructor(
                 onFailure = { e -> _uiState.update { it.copy(loading = false, error = e.message) } },
             )
         }
+    }
+
+    /**
+     * Local mode reads the device's own storage, and right after setup that
+     * storage is still empty — the folder was just picked and nothing has
+     * scanned it yet. The first load therefore kicks off the scan itself and
+     * reports progress through [HomeUiState.isScanning], so the screen can
+     * show the scanner bar instead of empty shelves; the tracks read back
+     * afterwards are the freshly scanned ones.
+     */
+    private suspend fun scanIfNeeded(): List<CatalogTrack> {
+        val tracks = localRepository.getAllTracks()
+        if (tracks.isNotEmpty()) return tracks
+        val state = _uiState.value
+        if (state.scanCompleted || state.isScanning) return tracks
+        val uris = preferences.localFolderUris.first()
+        if (uris.isEmpty()) return tracks
+        _uiState.update { it.copy(isScanning = true, scanProgress = 0, scanTotal = 0) }
+        try {
+            localRepository.scanIfEmpty(uris) { done, total ->
+                _uiState.update { it.copy(scanProgress = done, scanTotal = total) }
+            }
+        } finally {
+            _uiState.update { it.copy(isScanning = false, scanCompleted = true) }
+        }
+        return localRepository.getAllTracks()
     }
 
     /**

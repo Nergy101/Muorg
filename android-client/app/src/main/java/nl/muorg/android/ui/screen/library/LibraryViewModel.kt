@@ -207,7 +207,9 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = false, isInitialScanning = true, initialScanProgress = 0, initialScanTotal = 0) }
             runCatching {
-                localRepository.scanAndSave(uris) { done, total ->
+                // scanIfEmpty: Home may already be running this same first
+                // scan — don't queue a second one behind it.
+                localRepository.scanIfEmpty(uris) { done, total ->
                     _uiState.update { it.copy(initialScanProgress = done, initialScanTotal = total) }
                 }
             }

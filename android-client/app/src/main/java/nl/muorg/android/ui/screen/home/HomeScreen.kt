@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -85,6 +86,20 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Local mode's automatic first scan: while it runs, a full-screen loader
+    // with the scanner bar replaces the page. It hides itself as soon as the
+    // scan completes, revealing the filled shelves underneath.
+    if (state.isScanning) {
+        ScanningPlaceholder(
+            progress = state.scanProgress,
+            total = state.scanTotal,
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        )
+        return
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -287,6 +302,62 @@ private fun HomeHeader(
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Full-screen loader for the local library's automatic first scan: the
+ * scanner bar with its live progress, in place of the still-empty page.
+ */
+@Composable
+private fun ScanningPlaceholder(
+    progress: Int,
+    total: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        MageIcon(
+            name = "music",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(40.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Scanning library…",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(20.dp))
+        if (total > 0) {
+            LinearProgressIndicator(
+                progress = { progress.toFloat() / total },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "$progress / $total files scanned",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            // The scan's first phase only counts the files, so the total —
+            // and with it the bar's fraction — is not known yet.
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Counting files…",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
