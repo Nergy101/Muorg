@@ -73,23 +73,27 @@ fun PlaybackSection(
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
 
-    ListItem(
-        headlineContent = { Text("Offline mode") },
-        supportingContent = { Text("No network calls — only downloaded playlists are available") },
-        leadingContent = {
-            Icon(
-                painter = painterResource(mageIconRes("download")), contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        },
-        trailingContent = {
-            Switch(
-                checked = uiState.offlineMode,
-                onCheckedChange = viewModel::setOfflineMode,
-            )
-        },
-        modifier = Modifier.clickable { viewModel.setOfflineMode(!uiState.offlineMode) },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-    )
+    // Local folders are already on the device, so the offline toggle has no
+    // effect there — it only applies to the online server source.
+    if (uiState.sourceMode == SourceMode.ONLINE_SERVER) {
+        ListItem(
+            headlineContent = { Text("Offline mode") },
+            supportingContent = { Text("No network calls — only downloaded playlists are available") },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(mageIconRes("download")), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(
+                    checked = uiState.offlineMode,
+                    onCheckedChange = viewModel::setOfflineMode,
+                )
+            },
+            modifier = Modifier.clickable { viewModel.setOfflineMode(!uiState.offlineMode) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
+    }
 
     // The exemption is granted (or revoked) in a system dialog outside the
     // app, so the state is re-read every time this screen resumes.
