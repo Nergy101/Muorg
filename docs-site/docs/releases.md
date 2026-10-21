@@ -34,6 +34,7 @@ Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notab
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v3.3.11** — when an update is available, an "Update available" button appears next to the app version in Settings and opens that release's page for an easy download. The update check now looks at the newest Android release specifically, instead of whichever release GitHub happens to list as latest.
 - **android-v3.3.10** — fixed playback stopping at the end of a song with the screen off: a wake lock now keeps local playback advancing to the next track, and a foreground service keeps the app alive while casting to a Chromecast so the next track still loads. Added an "Exempt from battery optimization" button under Settings > Playback, and removed the screen-shrinking animation on the back gesture.
 - **android-v3.3.9** — in local mode the Home page now scans the selected folder automatically after setup: a full-screen loader with the scanner bar shows while the first scan runs and hides itself once the library is filled. Scans are serialized app-wide, so Home and Library can no longer scan at the same time.
 - **android-v3.3.8** — fixed the favorites toast saying "Already in favorites" when adding a song that wasn't favorited; playlists can be sorted by added date, title or artist, with an ascending/descending switch under the Play/Shuffle buttons; the player's favorite button shows a filled heart when the song is favorited.
