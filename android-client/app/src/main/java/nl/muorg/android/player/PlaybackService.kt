@@ -18,13 +18,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import nl.muorg.android.R
 import nl.muorg.android.cast.CastManager
-import nl.muorg.android.data.preferences.AppPreferences
 import javax.inject.Inject
 
 @OptIn(UnstableApi::class)
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
-    @Inject lateinit var preferences: AppPreferences
     @Inject lateinit var castManager: CastManager
 
     private var mediaSession: MediaSession? = null
@@ -49,12 +47,7 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         mediaSession = MediaSession.Builder(this, player).build()
-
-        serviceScope.launch {
-            preferences.notificationActions.collect { actions ->
-                mediaSession?.setMediaButtonPreferences(buildCommandButtons(actions))
-            }
-        }
+        mediaSession?.setMediaButtonPreferences(buildCommandButtons())
 
         // Keep the notification scrubber in sync with Chromecast position while casting.
         // ExoPlayer is paused during cast; seeking it (within its buffer) updates the
@@ -71,32 +64,16 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    private fun buildCommandButtons(actions: Set<String>): List<CommandButton> = buildList {
-        if ("skip_previous" in actions) add(
-            CommandButton.Builder(CommandButton.ICON_PREVIOUS)
-                .setDisplayName(getString(R.string.action_previous))
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
-                .build()
-        )
-        if ("shuffle" in actions) add(
-            CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-                .setDisplayName(getString(R.string.action_shuffle))
-                .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE)
-                .build()
-        )
-        if ("skip_next" in actions) add(
-            CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setDisplayName(getString(R.string.action_next))
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
-                .build()
-        )
-        if ("repeat" in actions) add(
-            CommandButton.Builder(CommandButton.ICON_REPEAT_ALL)
-                .setDisplayName(getString(R.string.action_repeat))
-                .setPlayerCommand(Player.COMMAND_SET_REPEAT_MODE)
-                .build()
-        )
-    }
+    private fun buildCommandButtons(): List<CommandButton> = listOf(
+        CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+            .setDisplayName(getString(R.string.action_previous))
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build(),
+        CommandButton.Builder(CommandButton.ICON_NEXT)
+            .setDisplayName(getString(R.string.action_next))
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+            .build(),
+    )
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         mediaSession
@@ -109,12 +86,5 @@ class PlaybackService : MediaSessionService() {
             mediaSession = null
         }
         super.onDestroy()
-    }
-
-    companion object {
-        const val ACTION_PLAY = "nl.muorg.android.action.PLAY"
-        const val ACTION_PAUSE = "nl.muorg.android.action.PAUSE"
-        const val ACTION_NEXT = "nl.muorg.android.action.NEXT"
-        const val ACTION_PREVIOUS = "nl.muorg.android.action.PREVIOUS"
     }
 }

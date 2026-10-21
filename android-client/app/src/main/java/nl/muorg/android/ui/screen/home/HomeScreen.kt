@@ -64,6 +64,7 @@ import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.glass.scrimLabelStyle
 import nl.muorg.android.ui.icon.MageIcon
+import nl.muorg.android.ui.layout.rememberGridColumns
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
 
@@ -101,8 +102,9 @@ fun HomeScreen(
         return
     }
 
+    val columns = rememberGridColumns()
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Fixed(columns),
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
@@ -114,7 +116,7 @@ fun HomeScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(span = { GridItemSpan(2) }) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             HomeHeader(
                 shuffleEnabled = !state.isOfflineMode,
                 onShuffleAll = {
@@ -128,23 +130,23 @@ fun HomeScreen(
         // Offline mode is a hard divide: every shelf is a server call, so
         // instead of four empty sections the page says so once, in the middle.
         if (state.isOfflineMode) {
-            item(span = { GridItemSpan(2) }) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 OfflineModePlaceholder()
             }
             return@LazyVerticalGrid
         }
 
-        item(span = { GridItemSpan(2) }) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             ShelfHeader(
                 icon = "heart",
                 title = "Recommended",
-                busy = state.loading,
+                busy = "recommended" in state.refreshing,
                 onRefresh = viewModel::refreshRecommended,
             )
         }
 
         if (state.error != null) {
-            item(span = { GridItemSpan(2) }) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     text = "Couldn't load recommended.",
                     style = MaterialTheme.typography.bodySmall,
@@ -163,14 +165,18 @@ fun HomeScreen(
             )
         }
 
-        item(span = { GridItemSpan(2) }) {
+        if (state.loading && state.recommended.isEmpty()) {
+            items(4) { ShelfSkeletonCard() }
+        }
+
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ShelfHeader(
                     icon = "color-swatch",
                     title = "Mixes",
-                    busy = state.loading,
+                    busy = "mixes" in state.refreshing,
                     onRefresh = viewModel::refreshMixes,
                 )
             }
@@ -191,14 +197,18 @@ fun HomeScreen(
             )
         }
 
-        item(span = { GridItemSpan(2) }) {
+        if (state.loading && state.mixes.isEmpty()) {
+            items(4) { ShelfSkeletonCard() }
+        }
+
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ShelfHeader(
                     icon = "chart-up",
                     title = "Most Played",
-                    busy = state.loading,
+                    busy = "most" in state.refreshing,
                     onRefresh = viewModel::refreshMostPlayed,
                 )
             }
@@ -213,14 +223,18 @@ fun HomeScreen(
             )
         }
 
-        item(span = { GridItemSpan(2) }) {
+        if (state.loading && state.mostPlayed.isEmpty()) {
+            items(4) { ShelfSkeletonCard() }
+        }
+
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 ShelfHeader(
                     icon = "clock",
                     title = "Recently Played",
-                    busy = state.loading,
+                    busy = "recent" in state.refreshing,
                     onRefresh = viewModel::refreshRecentlyPlayed,
                 )
             }
@@ -234,7 +248,23 @@ fun HomeScreen(
                 onClick = { onOpenAlbum(album.albumName) },
             )
         }
+
+        if (state.loading && state.recentlyPlayed.isEmpty()) {
+            items(4) { ShelfSkeletonCard() }
+        }
     }
+}
+
+/** Stand-in for [AlbumCard] while a shelf's first page is still loading. */
+@Composable
+private fun ShelfSkeletonCard(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(MuorgShapes.card)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    )
 }
 
 /**
@@ -429,26 +459,31 @@ private fun ShelfHeader(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
-        GlassSurface(
-            material = GlassMaterial.Glass,
-            shape = MuorgShapes.pill,
+        Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(48.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onRefresh,
                 ),
+            contentAlignment = Alignment.Center,
         ) {
-            MageIcon(
-                name = "refresh",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                contentDescription = "New $title",
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(16.dp)
-                    .graphicsLayer { rotationZ = if (busy) angle else 0f },
-            )
+            GlassSurface(
+                material = GlassMaterial.Glass,
+                shape = MuorgShapes.pill,
+                modifier = Modifier.size(36.dp),
+            ) {
+                MageIcon(
+                    name = "refresh",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentDescription = "New $title",
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(16.dp)
+                        .graphicsLayer { rotationZ = if (busy) angle else 0f },
+                )
+            }
         }
     }
 }

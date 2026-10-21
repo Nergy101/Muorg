@@ -89,7 +89,7 @@ fun ReportsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = { viewModel.load() }, modifier = Modifier.size(40.dp)) {
+            IconButton(onClick = { viewModel.load() }, modifier = Modifier.size(48.dp)) {
                 Icon(
                     painter = painterResource(mageIconRes("refresh")),
                     contentDescription = "Refresh reports",

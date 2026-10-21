@@ -34,6 +34,8 @@ data class HomeUiState(
     val scanTotal: Int = 0,
     /** Set once a first scan has run, so an empty result is not re-scanned on every load. */
     val scanCompleted: Boolean = false,
+    /** Shelf ids ("recommended", "mixes", "most", "recent") currently re-fetching. */
+    val refreshing: Set<String> = emptySet(),
 )
 
 private const val RECOMMENDED_COUNT = 4
@@ -87,6 +89,8 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
             _uiState.update { it.copy(loading = true, error = null, isOfflineMode = false) }
+            setRefreshing("recommended", true)
+            setRefreshing("mixes", true)
             val result = if (local) {
                 runCatching { scanIfNeeded() to localRepository.buildAlbumGroups() }
             } else {
@@ -104,12 +108,25 @@ class HomeViewModel @Inject constructor(
                             mixes = mixRepository.current().ifEmpty { mixRepository.roll(t) },
                         )
                     }
+                    setRefreshing("recommended", false)
+                    setRefreshing("mixes", false)
                     // Needs `albums` populated to resolve covers, so it runs
                     // after the catalog lands rather than in parallel with it.
-                    loadHistoryShelves()
+                    fetchMostPlayed()
+                    fetchRecentlyPlayed()
                 },
-                onFailure = { e -> _uiState.update { it.copy(loading = false, error = e.message) } },
+                onFailure = { e ->
+                    _uiState.update { it.copy(loading = false, error = e.message) }
+                    setRefreshing("recommended", false)
+                    setRefreshing("mixes", false)
+                },
             )
+        }
+    }
+
+    private fun setRefreshing(id: String, value: Boolean) {
+        _uiState.update { state ->
+            state.copy(refreshing = if (value) state.refreshing + id else state.refreshing - id)
         }
     }
 
@@ -160,29 +177,38 @@ class HomeViewModel @Inject constructor(
         return out.values.toList()
     }
 
-    private fun loadHistoryShelves() {
+    private fun fetchMostPlayed() {
         viewModelScope.launch {
+            setRefreshing("most", true)
             val top = repository.getTopPlayHistory(limit = 30, days = 30).getOrDefault(emptyList())
-            val recent = repository.getRecentPlayHistory(limit = 30).getOrDefault(emptyList())
-            _uiState.update {
-                it.copy(
-                    mostPlayed = shelfAlbums(top),
-                    recentlyPlayed = shelfAlbums(recent),
-                )
-            }
+            _uiState.update { it.copy(mostPlayed = shelfAlbums(top)) }
+            setRefreshing("most", false)
         }
     }
 
-    fun refreshMostPlayed() = loadHistoryShelves()
+    private fun fetchRecentlyPlayed() {
+        viewModelScope.launch {
+            setRefreshing("recent", true)
+            val recent = repository.getRecentPlayHistory(limit = 30).getOrDefault(emptyList())
+            _uiState.update { it.copy(recentlyPlayed = shelfAlbums(recent)) }
+            setRefreshing("recent", false)
+        }
+    }
 
-    fun refreshRecentlyPlayed() = loadHistoryShelves()
+    fun refreshMostPlayed() = fetchMostPlayed()
+
+    fun refreshRecentlyPlayed() = fetchRecentlyPlayed()
 
     fun refreshRecommended() {
+        setRefreshing("recommended", true)
         _uiState.update { it.copy(recommended = pickRecommended()) }
+        setRefreshing("recommended", false)
     }
 
     fun refreshMixes() {
+        setRefreshing("mixes", true)
         _uiState.update { it.copy(mixes = mixRepository.roll(tracks)) }
+        setRefreshing("mixes", false)
     }
 
     fun tracksForMix(mix: Mix): List<CatalogTrack> = mixRepository.tracksFor(mix)

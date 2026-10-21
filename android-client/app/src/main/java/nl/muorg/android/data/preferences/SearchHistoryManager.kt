@@ -3,6 +3,8 @@ package nl.muorg.android.data.preferences
 import android.content.Context
 import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -28,9 +30,9 @@ class SearchHistoryManager @Inject constructor(
     }
 
     /** Returns the list of recent searches, newest first. */
-    fun getRecentSearches(): List<SearchHistoryEntry> {
-        val json = prefs.getString(KEY_HISTORY, null) ?: return emptyList()
-        return try {
+    suspend fun getRecentSearches(): List<SearchHistoryEntry> = withContext(Dispatchers.IO) {
+        val json = prefs.getString(KEY_HISTORY, null) ?: return@withContext emptyList()
+        try {
             Json.decodeFromString<List<SearchHistoryEntry>>(json)
         } catch (_: Exception) {
             emptyList()
@@ -38,8 +40,8 @@ class SearchHistoryManager @Inject constructor(
     }
 
     /** Adds a query to the history (deduplicates, caps at MAX_ENTRIES). */
-    fun addSearch(query: String) {
-        if (query.isBlank()) return
+    suspend fun addSearch(query: String): Unit = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext
         val current = getRecentSearches().toMutableList()
         // Remove duplicate if exists
         current.removeAll { it.query.equals(query, ignoreCase = true) }

@@ -22,6 +22,8 @@ import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistEntry
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.data.repository.PlaylistTrackEntry
+import nl.muorg.android.ui.UiMessenger
+import nl.muorg.android.ui.friendlyMessage
 import javax.inject.Inject
 
 data class AddConflictState(
@@ -56,7 +58,7 @@ data class PlaylistAlbumsUiState(
     val error: String? = null,
     val isLocalMode: Boolean = false,
     val addConflict: AddConflictState? = null,
-    val addToastMsg: String? = null,
+    val hasUnsavedOrder: Boolean = false,
     val viewStyle: String = "tracks",
     val sortMode: PlaylistSortMode = PlaylistSortMode.PLAYLIST_ORDER,
     val sortAscending: Boolean = true,
@@ -70,6 +72,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
     private val localRepository: LocalLibraryRepository,
     private val playlistRepository: PlaylistRepository,
     private val offlineDownloadManager: OfflineDownloadManager,
+    private val uiMessenger: UiMessenger,
 ) : ViewModel() {
 
     private val playlistId: Int = checkNotNull(savedStateHandle["playlistId"])
@@ -307,7 +310,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                         loadLocal()
                     }
                     check.newTracks.isEmpty() -> {
-                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                        uiMessenger.show("All tracks already in this playlist")
                     }
                     else -> {
                         _uiState.update {
@@ -321,7 +324,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 // first, same as local mode.
                 val playlist = state.playlists.find { it.id == targetPlaylistId }
                 if (playlist == null) {
-                    _uiState.update { it.copy(addToastMsg = "Playlist not found") }
+                    uiMessenger.show("Playlist not found")
                     return@launch
                 }
                 val check = playlistRepository.checkAddConflict(playlist, tracks)
@@ -329,12 +332,12 @@ class PlaylistAlbumsViewModel @Inject constructor(
                     check.alreadyPresentCount == 0 -> {
                         playlistRepository.addTracks(playlist, tracks.map { it.id })
                             .onFailure { e ->
-                                _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                                uiMessenger.show(e.friendlyMessage())
                             }
                         load()
                     }
                     check.newTracks.isEmpty() -> {
-                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                        uiMessenger.show("All tracks already in this playlist")
                     }
                     else -> {
                         _uiState.update {
@@ -358,7 +361,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.newTracks.map { it.id })
                         .onFailure { e ->
-                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                            uiMessenger.show(e.friendlyMessage())
                         }
                     load()
                 }
@@ -378,7 +381,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.allTracks.map { it.id })
                         .onFailure { e ->
-                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                            uiMessenger.show(e.friendlyMessage())
                         }
                     load()
                 }
@@ -388,10 +391,6 @@ class PlaylistAlbumsViewModel @Inject constructor(
 
     fun dismissConflict() {
         _uiState.update { it.copy(addConflict = null) }
-    }
-
-    fun clearToast() {
-        _uiState.update { it.copy(addToastMsg = null) }
     }
 
     fun createPlaylist(name: String) {
@@ -409,19 +408,37 @@ class PlaylistAlbumsViewModel @Inject constructor(
     fun removeAlbumFromPlaylist(albumName: String, targetPlaylistId: Int) {
         viewModelScope.launch {
             val tracks = _uiState.value.allTracks.filter { it.displayAlbum == albumName }
+            val playlistName = _uiState.value.playlists.find { it.id == targetPlaylistId }?.name
+                ?: _uiState.value.playlist?.name ?: "playlist"
             if (_uiState.value.isLocalMode) {
                 tracks.forEach { localRepository.removeTrackFromPlaylist(targetPlaylistId, it.path) }
                 loadLocal()
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    localRepository.addTracksToPlaylist(targetPlaylistId, tracks)
+                    loadLocal()
+                }
             } else {
                 playlistRepository.removeTracks(targetPlaylistId, tracks.map { it.id })
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    playlistRepository.addTracks(targetPlaylistId, tracks.map { it.id })
+                    load()
+                }
             }
         }
     }
 
     fun removeTrackFromThisPlaylist(filePath: String) {
         viewModelScope.launch {
+            val track = _uiState.value.allTracks.find { it.path == filePath }
+            val playlistName = _uiState.value.playlist?.name ?: "playlist"
             localRepository.removeTrackFromPlaylist(playlistId, filePath)
             loadLocal()
+            if (track != null) {
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    localRepository.addTracksToPlaylist(playlistId, listOf(track))
+                    loadLocal()
+                }
+            }
         }
     }
 
@@ -430,17 +447,23 @@ class PlaylistAlbumsViewModel @Inject constructor(
             val trackByPath = _uiState.value.allTracks.associateBy { it.path }
             val reorderedTracks = orderedPaths.mapNotNull { trackByPath[it] }
             if (reorderedTracks.isEmpty()) return@launch
-            val success = if (_uiState.value.isLocalMode) {
+            _uiState.update { it.copy(hasUnsavedOrder = true) }
+            val result = if (_uiState.value.isLocalMode) {
                 localRepository.reorderPlaylist(playlistId, orderedPaths)
-                true
+                Result.success(Unit)
             } else {
-                playlistRepository.reorderTracks(playlistId, reorderedTracks.map { it.id }).isSuccess
+                playlistRepository.reorderTracks(playlistId, reorderedTracks.map { it.id })
             }
-            if (success) {
+            if (result.isSuccess) {
                 _uiState.update { state ->
-                    val updated = state.copy(allTracks = reorderedTracks)
+                    val updated = state.copy(allTracks = reorderedTracks, hasUnsavedOrder = false)
                     updated.copy(sortedTracks = applySort(reorderedTracks, state.addedKeys, updated))
                 }
+            } else {
+                uiMessenger.show(
+                    "Couldn't save the new order: " +
+                        (result.exceptionOrNull()?.friendlyMessage() ?: "Something went wrong")
+                )
             }
         }
     }

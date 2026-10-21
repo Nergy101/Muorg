@@ -154,7 +154,7 @@ fun QueueScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Spacer(modifier = Modifier.weight(1f))
-            TextButton(onClick = playerViewModel::clearQueue) {
+            TextButton(onClick = playerViewModel::clearQueueWithUndo) {
                 Text("Clear all", color = accent)
             }
         }

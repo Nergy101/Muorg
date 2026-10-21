@@ -71,6 +71,7 @@ import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.AlbumDisplayMode
 import nl.muorg.android.ui.component.TrackRow
+import nl.muorg.android.ui.layout.rememberGridColumns
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
 
@@ -91,10 +92,12 @@ fun PlaylistAlbumsScreen(
     val currentAlbum = playerState.currentTrack?.displayAlbum
     val albumViewStyle = uiState.viewStyle
 
-    // Reorder state
+    // Reorder state. `hasUnsavedOrder` is derived from `reorderedPaths`
+    // rather than tracked separately — a tap on Save used to clear both
+    // immediately, so a failed save silently lost the "unsaved" badge.
     var reorderMode by remember { mutableStateOf(false) }
-    var hasUnsavedOrder by remember { mutableStateOf(false) }
     var reorderedPaths by remember { mutableStateOf<List<String>?>(null) }
+    val hasUnsavedOrder = reorderedPaths != null
 
     val density = LocalDensity.current
     val estimatedItemHeightPx = remember(density) { with(density) { 56.dp.toPx() } }
@@ -132,9 +135,16 @@ fun PlaylistAlbumsScreen(
     LaunchedEffect(albumViewStyle) {
         if (albumViewStyle != "tracks") {
             reorderMode = false
-            hasUnsavedOrder = false
             reorderedPaths = null
         }
+    }
+
+    // The ViewModel is the source of truth for whether a save succeeded:
+    // once it clears `hasUnsavedOrder`, the local pending order is spent.
+    // On failure it stays set, so the badge — and the pending order used to
+    // build the displayed list — survive a failed save for a retry.
+    LaunchedEffect(uiState.hasUnsavedOrder) {
+        if (!uiState.hasUnsavedOrder) reorderedPaths = null
     }
 
     // A smart playlist's membership comes from its rules, so there is no
@@ -145,9 +155,6 @@ fun PlaylistAlbumsScreen(
         PlaylistSortMode.entries.toList()
     }
 
-    uiState.addToastMsg?.let { msg ->
-        LaunchedEffect(msg) { viewModel.clearToast() }
-    }
 
     Scaffold(
         topBar = {
@@ -175,9 +182,7 @@ fun PlaylistAlbumsScreen(
                                     onClick = {
                                         if (hasUnsavedOrder) {
                                             val paths = displayList.map { it.path }
-                                            reorderedPaths = null
                                             reorderMode = false
-                                            hasUnsavedOrder = false
                                             viewModel.reorderTracks(paths)
                                         } else {
                                             reorderMode = !reorderMode
@@ -322,7 +327,6 @@ fun PlaylistAlbumsScreen(
                                                 add(to.coerceIn(0, size), item)
                                             }
                                             reorderedPaths = newList.map { it.path }
-                                            hasUnsavedOrder = true
                                         }
                                         draggedPath = null
                                         dragAccumY = 0f
@@ -409,8 +413,9 @@ fun PlaylistAlbumsScreen(
                 }
             }
             else -> {
+                val columns = rememberGridColumns()
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    columns = GridCells.Fixed(columns),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = LocalBottomInset.current + 8.dp),
                 ) {

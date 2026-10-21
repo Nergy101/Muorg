@@ -22,6 +22,7 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.player.PlayerController
 import nl.muorg.android.player.PlayerState
+import nl.muorg.android.ui.UiMessenger
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -55,6 +56,7 @@ class PlayerViewModelTest {
 
     private class Fixture(
         val viewModel: PlayerViewModel,
+        val uiMessenger: UiMessenger,
         val toasts: MutableList<String>,
         val hydratedFavorites: MutableList<Set<String>>,
     )
@@ -103,6 +105,7 @@ class PlayerViewModelTest {
         every { castManager.trackFinished } returns MutableSharedFlow<Unit>()
 
         val toasts = mutableListOf<String>()
+        val uiMessenger = UiMessenger()
         val viewModel = PlayerViewModel(
             playerController,
             playlistRepository,
@@ -110,8 +113,9 @@ class PlayerViewModelTest {
             preferences,
             castManager,
             mockk<LibraryRepository>(relaxed = true),
+            uiMessenger,
         )
-        return Fixture(viewModel, toasts, hydratedFavorites)
+        return Fixture(viewModel, uiMessenger, toasts, hydratedFavorites)
     }
 
     @Test
@@ -120,7 +124,7 @@ class PlayerViewModelTest {
         // on another device) but the local favorites set — what the heart
         // shows — does not have it, so the heart was empty when pressed.
         val f = fixture(serverFavorites = listOf(1), localFavorites = emptySet())
-        val collector = launch { f.viewModel.toastEvent.collect { f.toasts.add(it) } }
+        val collector = launch { f.uiMessenger.messages.collect { f.toasts.add(it.text) } }
         advanceUntilIdle()
 
         f.viewModel.toggleFavorite(track(1))
@@ -133,7 +137,7 @@ class PlayerViewModelTest {
     @Test
     fun `favoriting a new track adds it and says Added`() = runTest {
         val f = fixture(serverFavorites = emptyList(), localFavorites = emptySet())
-        val collector = launch { f.viewModel.toastEvent.collect { f.toasts.add(it) } }
+        val collector = launch { f.uiMessenger.messages.collect { f.toasts.add(it.text) } }
         advanceUntilIdle()
 
         f.viewModel.toggleFavorite(track(1))

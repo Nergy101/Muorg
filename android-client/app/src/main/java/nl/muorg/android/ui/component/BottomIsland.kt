@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -54,6 +55,7 @@ import coil.compose.AsyncImage
 import nl.muorg.android.player.PlayerState
 import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
+import nl.muorg.android.ui.layout.IslandMaxWidth
 import nl.muorg.android.ui.icon.MageIcon
 import nl.muorg.android.ui.theme.MuorgMotion
 import nl.muorg.android.ui.theme.MuorgShapes
@@ -139,7 +141,7 @@ fun BottomIsland(
     GlassSurface(
         material = GlassMaterial.Deep,
         shape = MuorgShapes.island,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.widthIn(max = IslandMaxWidth).fillMaxWidth(),
         bloom = bloom,
     ) {
     // The whole stack animates its height, so collapsing the chrome and the
@@ -227,7 +229,7 @@ private fun MiniPlayerRow(
             // shift over with the artwork.
             IconButton(
                 onClick = onMenu,
-                modifier = Modifier.size(width = 24.dp, height = 56.dp),
+                modifier = Modifier.size(48.dp),
             ) {
                 MageIcon("dots", tint = onSurface, contentDescription = "Track actions", modifier = Modifier.size(20.dp))
             }
@@ -278,7 +280,7 @@ private fun MiniPlayerRow(
                 )
             }
 
-            IconButton(onClick = onOpenQueue, modifier = Modifier.size(40.dp)) {
+            IconButton(onClick = onOpenQueue, modifier = Modifier.size(48.dp)) {
                 MageIcon(
                     name = "stack",
                     tint = if (queueActive) accent else onSurface,
@@ -286,7 +288,7 @@ private fun MiniPlayerRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
-            IconButton(onClick = onPlayPause, modifier = Modifier.size(44.dp)) {
+            IconButton(onClick = onPlayPause, modifier = Modifier.size(48.dp)) {
                 MageIcon(
                     if (playerState.isPlaying) "pause" else "play",
                     tint = onSurface,
@@ -294,7 +296,7 @@ private fun MiniPlayerRow(
                     modifier = Modifier.size(24.dp),
                 )
             }
-            IconButton(onClick = onNext, modifier = Modifier.size(44.dp)) {
+            IconButton(onClick = onNext, modifier = Modifier.size(48.dp)) {
                 MageIcon("next", tint = onSurface, contentDescription = "Next", modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(6.dp))

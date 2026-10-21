@@ -29,6 +29,7 @@ import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.player.PlayerController
+import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.screen.library.SortMode
 import java.net.URL
 import javax.inject.Inject
@@ -70,6 +71,7 @@ data class SettingsUiState(
     val offlineMode: Boolean = false,
     val downloadMobileData: Boolean = false,
     val isBatteryOptimizationExempt: Boolean = false,
+    val updateCheckInProgress: Boolean = false,
 )
 
 @HiltViewModel
@@ -80,6 +82,7 @@ class SettingsViewModel @Inject constructor(
     private val playerController: PlayerController,
     private val libraryRepository: LibraryRepository,
     @ApplicationContext private val context: Context,
+    private val uiMessenger: UiMessenger,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -173,11 +176,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private fun checkForUpdate() {
+    fun checkForUpdate(userInitiated: Boolean = false) {
         viewModelScope.launch {
             // Offline mode makes no network calls — this one bypasses OkHttp,
             // so the interceptor cannot stop it; the check has to be skipped.
             if (preferences.offlineModeState.value) return@launch
+            _uiState.update { it.copy(updateCheckInProgress = true) }
             runCatching {
                 withContext(Dispatchers.IO) {
                     val text = URL("https://api.github.com/repos/Nergy101/Muorg/releases?per_page=20").readText()
@@ -195,14 +199,18 @@ class SettingsViewModel @Inject constructor(
                             ?.let { version -> version to release }
                     }
                     .reduceOrNull { acc, next -> if (isNewer(next.first, acc.first)) next else acc }
-                    ?: return@onSuccess
-                val (latest, release) = newest
-                if (isNewer(latest, BuildConfig.VERSION_NAME)) {
-                    _uiState.update {
-                        it.copy(latestVersion = latest, latestReleaseUrl = release.htmlUrl)
+                if (newest != null) {
+                    val (latest, release) = newest
+                    if (isNewer(latest, BuildConfig.VERSION_NAME)) {
+                        _uiState.update {
+                            it.copy(latestVersion = latest, latestReleaseUrl = release.htmlUrl)
+                        }
                     }
                 }
+            }.onFailure {
+                if (userInitiated) uiMessenger.show("Couldn't check for updates")
             }
+            _uiState.update { it.copy(updateCheckInProgress = false) }
         }
     }
 

@@ -16,11 +16,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -72,6 +74,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import kotlinx.coroutines.launch
+import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.PlaylistPickerSheet
 import nl.muorg.android.ui.component.TrackActionsSheet
@@ -275,7 +278,7 @@ fun PlayerScreen(
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Row(
-                    modifier = Modifier.glassSheer(MuorgShapes.pill).height(40.dp),
+                    modifier = Modifier.glassSheer(MuorgShapes.pill).height(48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(
@@ -283,7 +286,7 @@ fun PlayerScreen(
                             if (sleepTimerActive) showSleepTimerDialog = true
                             else showSleepTimerPicker = true
                         },
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Icon(
                             painter = painterResource(mageIconRes("clock")),
@@ -304,7 +307,7 @@ fun PlayerScreen(
                                 castPermissionLauncher.launch(castPermission)
                             }
                         },
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Icon(
                             painter = painterResource(mageIconRes("screencast")),
@@ -314,7 +317,7 @@ fun PlayerScreen(
                         )
                     }
                     VerticalHairline()
-                    IconButton(onClick = { sheetOpen = true }, modifier = Modifier.size(40.dp)) {
+                    IconButton(onClick = { sheetOpen = true }, modifier = Modifier.size(48.dp)) {
                         Icon(
                             painter = painterResource(mageIconRes("dots")),
                             contentDescription = "More",
@@ -325,116 +328,90 @@ fun PlayerScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1.0f))
+            BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (maxWidth > maxHeight) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        PlayerArtwork(
+                            displayedCoverUrl = displayedCoverUrl,
+                            imageLoader = imageLoader,
+                            modifier = Modifier
+                                .padding(start = 24.dp)
+                                .align(Alignment.CenterVertically)
+                                .fillMaxHeight(0.72f)
+                                .aspectRatio(1f),
+                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .padding(horizontal = 24.dp),
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            PlayerTrackHeader(
+                                currentTrack = currentTrack,
+                                favorites = favorites,
+                                accent = accent,
+                                onOpenQueue = onOpenQueue,
+                                onAddToPlaylist = { showPlaylistPicker = true },
+                                onToggleFavorite = { currentTrack?.let(playerViewModel::toggleFavorite) },
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            PlayerControls(
+                                playerState = playerState,
+                                playerViewModel = playerViewModel,
+                                currentTrack = currentTrack,
+                                accent = accent,
+                                isCasting = isCasting,
+                                castVolume = castVolume,
+                                displayProgress = displayProgress,
+                                isSeekingState = isSeekingState,
+                                seekPositionState = seekPositionState,
+                            )
+                        }
+                    }
+                } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Spacer(modifier = Modifier.weight(1.0f))
 
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .fillMaxWidth(0.76f)
-                    .aspectRatio(1f)
-                    .shadow(
-                        elevation = 30.dp,
-                        shape = MuorgShapes.art,
-                        clip = false,
-                        ambientColor = Color.Black,
-                        spotColor = Color.Black,
-                    )
-                    .clip(MuorgShapes.art)
-                    .background(Color.Black.copy(alpha = 0.35f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(mageIconRes("compact-disk")),
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.3f),
-                    modifier = Modifier.fillMaxSize().padding(64.dp),
-                )
-                if (displayedCoverUrl != null) {
-                    AsyncImage(
-                        model = displayedCoverUrl,
-                        contentDescription = "Album cover",
-                        imageLoader = imageLoader,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                        PlayerArtwork(
+                            displayedCoverUrl = displayedCoverUrl,
+                            imageLoader = imageLoader,
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .fillMaxWidth(0.76f)
+                                .aspectRatio(1f),
+                        )
+
+                        Spacer(modifier = Modifier.weight(1.3f))
+
+                        // The title gets the full width on its own row — squeezed into a
+                        // weighted column next to the action icons it was cut off halfway
+                        // across the screen. Marquee still kicks in when it overflows.
+                        PlayerTrackHeader(
+                            currentTrack = currentTrack,
+                            favorites = favorites,
+                            accent = accent,
+                            onOpenQueue = onOpenQueue,
+                            onAddToPlaylist = { showPlaylistPicker = true },
+                            onToggleFavorite = { currentTrack?.let(playerViewModel::toggleFavorite) },
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        PlayerControls(
+                            playerState = playerState,
+                            playerViewModel = playerViewModel,
+                            currentTrack = currentTrack,
+                            accent = accent,
+                            isCasting = isCasting,
+                            castVolume = castVolume,
+                            displayProgress = displayProgress,
+                            isSeekingState = isSeekingState,
+                            seekPositionState = seekPositionState,
+                        )
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.weight(1.3f))
-
-            // The title gets the full width on its own row — squeezed into a
-            // weighted column next to the action icons it was cut off halfway
-            // across the screen. Marquee still kicks in when it overflows.
-            MarqueeText(
-                text = currentTrack?.displayTitle ?: "Nothing playing",
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.White,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            )
-            // Artist + album on the left, the secondary actions on the same
-            // row — the web never centres the title under the artwork.
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    MarqueeText(
-                        text = currentTrack?.displayArtist ?: "",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.80f),
-                    )
-                    MarqueeText(
-                        text = currentTrack?.displayAlbum ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.55f),
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = onOpenQueue, modifier = Modifier.size(40.dp)) {
-                    Icon(
-                        painter = painterResource(mageIconRes("stack")),
-                        contentDescription = "Open queue",
-                        tint = Color.White,
-                        modifier = Modifier.size(21.dp),
-                    )
-                }
-                IconButton(onClick = { showPlaylistPicker = true }, modifier = Modifier.size(40.dp)) {
-                    Icon(
-                        painter = painterResource(mageIconRes("playlist-add")),
-                        contentDescription = "Add to playlist",
-                        tint = Color.White,
-                        modifier = Modifier.size(21.dp),
-                    )
-                }
-                IconButton(
-                    onClick = { currentTrack?.let(playerViewModel::toggleFavorite) },
-                    modifier = Modifier.size(40.dp),
-                ) {
-                    val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
-                    Icon(
-                        // Same glyph as the web player: outline until favorited,
-                        // filled once it is.
-                        painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
-                        contentDescription = "Favourite",
-                        tint = if (isFavorite) accent else Color.White,
-                        modifier = Modifier.size(21.dp),
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            PlayerControls(
-                playerState = playerState,
-                playerViewModel = playerViewModel,
-                currentTrack = currentTrack,
-                accent = accent,
-                isCasting = isCasting,
-                castVolume = castVolume,
-                displayProgress = displayProgress,
-                isSeekingState = isSeekingState,
-                seekPositionState = seekPositionState,
-            )
 
         }
     }
@@ -537,6 +514,122 @@ fun PlayerScreen(
                 playerViewModel.renameTrackFile(currentTrack, newPath)
             },
         )
+    }
+}
+
+/**
+ * The square artwork: shared by the portrait Column (full width, below the
+ * top bar) and the wide/short Row branch (full height, beside the track
+ * header), which pass the sizing and alignment through [modifier].
+ */
+@Composable
+private fun PlayerArtwork(
+    displayedCoverUrl: Any?,
+    imageLoader: ImageLoader,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 30.dp,
+                shape = MuorgShapes.art,
+                clip = false,
+                ambientColor = Color.Black,
+                spotColor = Color.Black,
+            )
+            .clip(MuorgShapes.art)
+            .background(Color.Black.copy(alpha = 0.35f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(mageIconRes("compact-disk")),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.3f),
+            modifier = Modifier.fillMaxSize().padding(64.dp),
+        )
+        if (displayedCoverUrl != null) {
+            AsyncImage(
+                model = displayedCoverUrl,
+                contentDescription = "Album cover",
+                imageLoader = imageLoader,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/**
+ * Title, then artist + album on the left with the queue/playlist/favourite
+ * actions on the same row — shared by both [PlayerScreen] layout branches.
+ */
+@Composable
+private fun PlayerTrackHeader(
+    currentTrack: CatalogTrack?,
+    favorites: Set<String>,
+    accent: Color,
+    onOpenQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        MarqueeText(
+            text = currentTrack?.displayTitle ?: "Nothing playing",
+            style = MaterialTheme.typography.headlineSmall,
+            color = Color.White,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        )
+        // Artist + album on the left, the secondary actions on the same
+        // row — the web never centres the title under the artwork.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                MarqueeText(
+                    text = currentTrack?.displayArtist ?: "",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.80f),
+                )
+                MarqueeText(
+                    text = currentTrack?.displayAlbum ?: "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.55f),
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(onClick = onOpenQueue, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    painter = painterResource(mageIconRes("stack")),
+                    contentDescription = "Open queue",
+                    tint = Color.White,
+                    modifier = Modifier.size(21.dp),
+                )
+            }
+            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    painter = painterResource(mageIconRes("playlist-add")),
+                    contentDescription = "Add to playlist",
+                    tint = Color.White,
+                    modifier = Modifier.size(21.dp),
+                )
+            }
+            IconButton(
+                onClick = onToggleFavorite,
+                modifier = Modifier.size(48.dp),
+            ) {
+                val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
+                Icon(
+                    // Same glyph as the web player: outline until favorited,
+                    // filled once it is.
+                    painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
+                    contentDescription = "Favourite",
+                    tint = if (isFavorite) accent else Color.White,
+                    modifier = Modifier.size(21.dp),
+                )
+            }
+        }
     }
 }
 

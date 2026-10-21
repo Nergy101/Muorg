@@ -65,6 +65,13 @@ class ConnectViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
+            // Snapshot whatever was saved before this attempt: a failed
+            // re-connect must restore it, not just wipe it — a user with
+            // working credentials who mistypes on a re-connect would
+            // otherwise lose them.
+            val prevUrl = preferences.serverUrl.first()
+            val prevKey = preferences.apiKey.first()
+
             // Save credentials first so the OkHttp interceptor picks them up
             preferences.saveCredentials(state.serverUrl, state.apiKey)
 
@@ -75,8 +82,13 @@ class ConnectViewModel @Inject constructor(
                 val errorMsg = result.exceptionOrNull()?.message
                     ?: "Could not reach server. Check the URL and try again."
                 _uiState.update { it.copy(isLoading = false, error = errorMsg) }
-                // Revert credentials on failure
-                preferences.clearCredentials()
+                // Restore the previous credentials on failure — only clear
+                // outright when there was nothing saved to restore.
+                if (prevUrl.isBlank() && prevKey.isBlank()) {
+                    preferences.clearCredentials()
+                } else {
+                    preferences.saveCredentials(prevUrl, prevKey)
+                }
             }
         }
     }

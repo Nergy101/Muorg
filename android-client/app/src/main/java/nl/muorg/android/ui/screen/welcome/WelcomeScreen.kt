@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -213,6 +214,7 @@ fun WelcomeScreen(
         }
 
         WelcomeStep.LOCAL_SETUP -> {
+            var pendingFolder by remember { mutableStateOf<String?>(null) }
             Scaffold(
                 topBar = {
                     TopAppBar(
@@ -261,7 +263,7 @@ fun WelcomeScreen(
                                         tint = MaterialTheme.colorScheme.primary)
                                 },
                                 trailingContent = {
-                                    IconButton(onClick = { viewModel.removeFolder(uriString) }) {
+                                    IconButton(onClick = { pendingFolder = uriString }) {
                                         Icon(
                         painter = painterResource(mageIconRes("trash")), contentDescription = "Remove folder",
                                             tint = MaterialTheme.colorScheme.error)
@@ -295,6 +297,31 @@ fun WelcomeScreen(
                         Text("Start listening")
                     }
                 }
+
+                    pendingFolder?.let { uriString ->
+                        val label = Uri.parse(uriString).lastPathSegment
+                            ?.substringAfterLast(':')
+                            ?: uriString
+                        AlertDialog(
+                            onDismissRequest = { pendingFolder = null },
+                            title = { Text("Remove folder?") },
+                            text = {
+                                Text(
+                                    "Tracks scanned from \"$label\" and their playlist entries " +
+                                        "will be deleted from this device."
+                                )
+                            },
+                            confirmButton = {
+                                Button(onClick = {
+                                    viewModel.removeFolder(uriString)
+                                    pendingFolder = null
+                                }) { Text("Remove") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { pendingFolder = null }) { Text("Cancel") }
+                            },
+                        )
+                    }
             }
         }
     }

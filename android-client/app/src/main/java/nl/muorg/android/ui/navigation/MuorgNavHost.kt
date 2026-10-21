@@ -1,17 +1,26 @@
 package nl.muorg.android.ui.navigation
 
+import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.navigation.NamedNavArgument
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
+import androidx.navigation.compose.composable as navComposable
 import androidx.navigation.navArgument
 import coil.ImageLoader
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -27,12 +36,40 @@ import nl.muorg.android.ui.screen.reports.ReportsScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import nl.muorg.android.ui.screen.welcome.WelcomeScreen
 
-/** Routes that enter from the bottom and leave downwards. */
-private val slideOverlayRoutes = setOf(
-    Screen.Settings.route,
-    Screen.Player.route,
-    Screen.Queue.route,
-)
+/**
+ * One sheet-style transition for every route: the new page rises over the old.
+ * No alpha on either spec — a translucent sheet shows the page beneath through
+ * it and the two read as one mixed-up screen.
+ */
+private val sheetEnter: EnterTransition =
+    slideInVertically(
+        initialOffsetY = { it },
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f),
+    )
+
+private val sheetPopExit: ExitTransition =
+    slideOutVertically(
+        targetOffsetY = { it },
+        animationSpec = tween(280, easing = FastOutLinearInEasing),
+    )
+
+/**
+ * Every route draws on an opaque background. The app background lives once
+ * behind the whole NavHost and most screens are transparent, so while two
+ * routes are composed at once during a transition the old one showed through
+ * the new one.
+ */
+private fun NavGraphBuilder.composable(
+    route: String,
+    arguments: List<NamedNavArgument> = emptyList(),
+    content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
+) {
+    navComposable(route = route, arguments = arguments) { entry ->
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            content(entry)
+        }
+    }
+}
 
 /**
  * Every route in the app, and the transitions between them.
@@ -53,24 +90,14 @@ fun MuorgNavHost(
     NavHost(
         navController = navController,
         startDestination = Screen.Welcome.route,
-        // Gesture-driven back. The host default exit is scaleOut(0.7) — the
-        // outgoing screen shrinks to 70% as you swipe. We fade instead so
-        // nothing shrinks. Slide-up overlays still slide down, matching a
-        // tap-back.
-        predictivePopEnterTransition = { _ ->
-            if (initialState.destination.route in slideOverlayRoutes) {
-                EnterTransition.None
-            } else {
-                fadeIn(spring(dampingRatio = 1f, stiffness = 1600f))
-            }
-        },
-        predictivePopExitTransition = { _ ->
-            if (initialState.destination.route in slideOverlayRoutes) {
-                slideOutVertically(targetOffsetY = { it }) + fadeOut()
-            } else {
-                fadeOut()
-            }
-        },
+        // One sheet-style transition for every route: the new page rises over
+        // the stationary old one; back slides it down again.
+        enterTransition = { sheetEnter },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { sheetPopExit },
+        predictivePopEnterTransition = { EnterTransition.None },
+        predictivePopExitTransition = { sheetPopExit },
     ) {
         composable(Screen.Welcome.route) {
             WelcomeScreen(
@@ -179,25 +206,6 @@ fun MuorgNavHost(
 
         composable(
             route = Screen.Player.route,
-            enterTransition = {
-                slideInVertically(
-                    initialOffsetY = { (it * 0.92f).toInt() },
-                    animationSpec = tween(480, easing = androidx.compose.animation.core.EaseOutCubic),
-                ) + fadeIn(animationSpec = tween(320, delayMillis = 60))
-            },
-            exitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(360, easing = androidx.compose.animation.core.EaseInCubic),
-                ) + fadeOut(animationSpec = tween(240))
-            },
-            popEnterTransition = { EnterTransition.None },
-            popExitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(360, easing = androidx.compose.animation.core.EaseInCubic),
-                ) + fadeOut(animationSpec = tween(240))
-            },
         ) {
             PlayerScreen(
                 playerViewModel = playerViewModel,
@@ -218,25 +226,6 @@ fun MuorgNavHost(
 
         composable(
             route = Screen.Queue.route,
-            enterTransition = {
-                slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f),
-                ) + fadeIn(animationSpec = tween(220))
-            },
-            exitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
-                ) + fadeOut(animationSpec = tween(180))
-            },
-            popEnterTransition = { EnterTransition.None },
-            popExitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
-                ) + fadeOut(animationSpec = tween(180))
-            },
         ) {
             nl.muorg.android.ui.screen.queue.QueueScreen(
                 playerViewModel = playerViewModel,
@@ -280,25 +269,6 @@ fun MuorgNavHost(
 
         composable(
             route = Screen.Settings.route,
-            enterTransition = {
-                slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f),
-                ) + fadeIn(animationSpec = tween(220))
-            },
-            exitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
-                ) + fadeOut(animationSpec = tween(180))
-            },
-            popEnterTransition = { EnterTransition.None },
-            popExitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing),
-                ) + fadeOut(animationSpec = tween(180))
-            },
         ) {
             SettingsScreen(
                 onLoggedOut = {

@@ -3,12 +3,9 @@ package nl.muorg.android.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -29,6 +26,8 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.player.PlayerController
 import nl.muorg.android.player.PlayerState
+import nl.muorg.android.ui.UiMessenger
+import nl.muorg.android.ui.friendlyMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,6 +38,7 @@ class PlayerViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val castManager: CastManager,
     private val libraryRepository: LibraryRepository,
+    private val uiMessenger: UiMessenger,
 ) : ViewModel() {
 
     // Shuffle-all mode: pool of all available tracks to draw random batches from.
@@ -81,19 +81,14 @@ class PlayerViewModel @Inject constructor(
     private val _currentTrackMembership = MutableStateFlow<Set<Int>>(emptySet())
     val currentTrackMembership: StateFlow<Set<Int>> = _currentTrackMembership.asStateFlow()
 
-    private val _toastEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
-
     /**
-     * Surface a message on the existing toast channel.
+     * Surface a message on the app-wide Snackbar channel.
      *
-     * Every screen that shows a track sheet already collects `toastEvent`, so
-     * actions inside the sheet report through here rather than each call site
-     * growing its own callback.
+     * Every screen that shows a track sheet already wires its `onToast` to
+     * this, so actions inside the sheet report through here rather than
+     * each call site growing its own callback.
      */
-    fun showToast(message: String) {
-        _toastEvent.tryEmit(message)
-    }
+    fun showToast(message: String) = uiMessenger.show(message)
 
     init {
         viewModelScope.launch {
@@ -176,18 +171,18 @@ class PlayerViewModel @Inject constructor(
                 // playlist itself and save the repository a lookup.
                 val playlist = _playlists.value.find { it.id == playlistId }
                 if (playlist == null) {
-                    _toastEvent.tryEmit("Playlist not found")
+                    uiMessenger.show("Playlist not found")
                     return@launch
                 }
                 // The server's add_tracks uses a plain INSERT with no
                 // uniqueness constraint, so check for duplicates first.
                 val check = playlistRepository.checkAddConflict(playlist, listOf(track))
                 if (check.alreadyPresentCount > 0) {
-                    _toastEvent.tryEmit("Already in this playlist")
+                    uiMessenger.show("Already in this playlist")
                     return@launch
                 }
                 playlistRepository.addTracks(playlist, listOf(track.id))
-                    .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to playlist") }
+                    .onFailure { uiMessenger.show(it.friendlyMessage()) }
             }
         }
     }
@@ -213,7 +208,7 @@ class PlayerViewModel @Inject constructor(
                 refreshPlaylists()
             } else {
                 playlistRepository.createPlaylist(name, "🎵")
-                    .onFailure { _toastEvent.tryEmit(it.message ?: "Could not create playlist") }
+                    .onFailure { uiMessenger.show(it.friendlyMessage()) }
                 refreshPlaylists()
             }
         }
@@ -348,22 +343,39 @@ class PlayerViewModel @Inject constructor(
         _sleepTimerRemainingMs.value = 0L
     }
 
-    fun removeFromQueue(track: CatalogTrack) = playerController.removeFromQueue(track)
-    fun clearQueue() = playerController.clearQueue()
+    fun removeFromQueue(track: CatalogTrack) {
+        playerController.removeFromQueue(track)
+        // The track returns to the end of the user queue on Undo, not its
+        // original index — PlaybackQueue has no insert-at-index.
+        uiMessenger.showWithAction("Removed from queue", "Undo") {
+            playerController.addTracksToQueue(listOf(track))
+        }
+    }
+
+    /** Clear-all keeps its one-tap button — nothing stored is destroyed — but offers Undo. */
+    fun clearQueueWithUndo() {
+        val snapshot = playerState.value.playbackQueue.upNext.map { it.track }
+        playerController.clearQueue()
+        if (snapshot.isNotEmpty()) {
+            uiMessenger.showWithAction("Queue cleared", "Undo") {
+                playerController.addTracksToQueue(snapshot)
+            }
+        }
+    }
     fun clearUserQueue() = playerController.clearUserQueue()
     fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
     fun addToQueue(track: CatalogTrack) {
         playerController.addToQueue(track)
-        _toastEvent.tryEmit("Added to queue")
+        uiMessenger.show("Added to queue")
     }
     fun addTracksToQueue(tracks: List<CatalogTrack>) {
         if (tracks.isEmpty()) return
         playerController.addTracksToQueue(tracks)
-        _toastEvent.tryEmit("Added to queue")
+        uiMessenger.show("Added to queue")
     }
     fun playNext(track: CatalogTrack) {
         playerController.playNext(track)
-        _toastEvent.tryEmit("Will play next")
+        uiMessenger.show("Will play next")
     }
 
     /** Start a context and shuffle it — the playlist screen's shuffle button. */
@@ -394,18 +406,18 @@ class PlayerViewModel @Inject constructor(
                 year = year?.takeIf { it != track.year },
             )
             if (!update.hasAnyField()) {
-                _toastEvent.tryEmit("No changes to save")
+                uiMessenger.show("No changes to save")
                 return@launch
             }
             if (mode == "local") {
                 runCatching {
                     localRepository.updateTrackMetadata(-track.id, update)
                 }.onFailure { e ->
-                    _toastEvent.tryEmit("Failed to save: ${e.message}")
+                    uiMessenger.show("Failed to save: ${e.friendlyMessage()}")
                 }
             } else {
                 libraryRepository.patchTrackMetadata(track.id, update).onFailure { e ->
-                    _toastEvent.tryEmit("Failed to save: ${e.message}")
+                    uiMessenger.show("Failed to save: ${e.friendlyMessage()}")
                 }
             }
         }
@@ -419,7 +431,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             val trimmed = newPath.trim()
             if (trimmed.isBlank() || trimmed == track.path) {
-                _toastEvent.tryEmit("Enter a new path")
+                uiMessenger.show("Enter a new path")
                 return@launch
             }
             // Pre-flight: refuse before touching the disk if the destination
@@ -427,15 +439,15 @@ class PlayerViewModel @Inject constructor(
             val collisions = libraryRepository.checkRename(track.id, trimmed).getOrNull()
             if (collisions != null && collisions.isNotEmpty()) {
                 val reason = collisions.first().reason
-                _toastEvent.tryEmit(
+                uiMessenger.show(
                     if (reason == "exists") "A file already exists at that path"
                     else "Rename would collide with another track"
                 )
                 return@launch
             }
             libraryRepository.renameTrackFile(track.id, trimmed).fold(
-                onSuccess = { _toastEvent.tryEmit("File renamed") },
-                onFailure = { e -> _toastEvent.tryEmit("Rename failed: ${e.message}") },
+                onSuccess = { uiMessenger.show("File renamed") },
+                onFailure = { e -> uiMessenger.show("Rename failed: ${e.friendlyMessage()}") },
             )
         }
     }
@@ -452,7 +464,7 @@ class PlayerViewModel @Inject constructor(
             } else {
                 if (mode == "local") {
                     localRepository.addTracksToPlaylist(playlistId, listOf(track))
-                    _toastEvent.tryEmit("Added to favorites")
+                    uiMessenger.show("Added to favorites")
                 } else {
                     // Defensive: the local favorites set may be out of sync
                     // with the server playlist (added on another device), so
@@ -463,17 +475,17 @@ class PlayerViewModel @Inject constructor(
                     if (playlist != null) {
                         val check = playlistRepository.checkAddConflict(playlist, listOf(track))
                         if (check.alreadyPresentCount > 0) {
-                            _toastEvent.tryEmit("Added to favorites")
+                            uiMessenger.show("Added to favorites")
                             refreshPlaylists()
                             return@launch
                         }
                         playlistRepository.addTracks(playlist, listOf(track.id))
-                            .onSuccess { _toastEvent.tryEmit("Added to favorites") }
-                            .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to favorites") }
+                            .onSuccess { uiMessenger.show("Added to favorites") }
+                            .onFailure { uiMessenger.show(it.friendlyMessage()) }
                     } else {
                         playlistRepository.addTracks(playlistId, listOf(track.id))
-                            .onSuccess { _toastEvent.tryEmit("Added to favorites") }
-                            .onFailure { _toastEvent.tryEmit(it.message ?: "Could not add to favorites") }
+                            .onSuccess { uiMessenger.show("Added to favorites") }
+                            .onFailure { uiMessenger.show(it.friendlyMessage()) }
                     }
                 }
             }

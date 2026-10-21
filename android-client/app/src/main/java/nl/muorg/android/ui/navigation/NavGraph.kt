@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +67,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.ui.UiMessage
+import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.component.BottomIsland
 import nl.muorg.android.ui.component.IslandTab
 import nl.muorg.android.ui.component.LibraryChromeHost
@@ -134,7 +140,9 @@ private fun tabIndexForRoute(route: String?): Int = when {
 class NavViewModel @Inject constructor(
     private val preferences: AppPreferences,
     val imageLoader: ImageLoader,
+    private val uiMessenger: UiMessenger,
 ) : ViewModel() {
+    val messages: SharedFlow<UiMessage> = uiMessenger.messages
     val serverUrl: StateFlow<String> = preferences.serverUrl.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -186,12 +194,16 @@ fun NavGraph() {
     val navViewModel: NavViewModel = hiltViewModel()
     val playerViewModel: PlayerViewModel = hiltViewModel()
 
-    var toastMessage by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
-        playerViewModel.toastEvent.collect { message ->
-            toastMessage = message
-            delay(2000)
-            toastMessage = null
+        navViewModel.messages.collect { msg ->
+            val result = snackbarHostState.showSnackbar(
+                message = msg.text,
+                actionLabel = msg.actionLabel,
+                withDismissAction = false,
+                duration = if (msg.actionLabel == null) SnackbarDuration.Short else SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) msg.onAction?.invoke()
         }
     }
 
@@ -380,27 +392,12 @@ fun NavGraph() {
                 modifier = Modifier.align(Alignment.TopCenter),
             )
 
-            AnimatedVisibility(
-                visible = toastMessage != null,
+            SnackbarHost(
+                hostState = snackbarHostState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = islandHeight + 12.dp),
-                enter = fadeIn(tween(150)) + slideInVertically { it / 2 },
-                exit = fadeOut(tween(200)) + slideOutVertically { it / 2 },
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.inverseSurface,
-                    shadowElevation = 4.dp,
-                ) {
-                    Text(
-                        text = toastMessage ?: "",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
-                    )
-                }
-            }
+            )
         }
     }
     } // MuorgTheme

@@ -2,6 +2,7 @@ package nl.muorg.android.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.media3.common.MediaItem
@@ -20,7 +21,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -29,6 +32,7 @@ import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
+import nl.muorg.android.ui.widget.NowPlayingWidget
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,6 +52,14 @@ private const val BUFFERING_UI_DELAY_MS = 400L
  * another edit landed, while it was waiting on the preferences store.
  */
 private const val QUEUE_EDIT_ATTEMPTS = 5
+
+/** The widget-relevant slice of [PlayerState], so a broadcast fires only on an actual change. */
+private data class WidgetSnapshot(
+    val title: String?,
+    val artist: String?,
+    val album: String?,
+    val isPlaying: Boolean,
+)
 
 data class PlayerState(
     val currentTrack: CatalogTrack? = null,
@@ -133,6 +145,28 @@ class PlayerController @Inject constructor(
             preferences.favorites.collect { favs ->
                 _state.update { it.copy(favorites = favs) }
             }
+        }
+        scope.launch {
+            state.map {
+                WidgetSnapshot(
+                    title = it.currentTrack?.displayTitle,
+                    artist = it.currentTrack?.displayArtist,
+                    album = it.currentTrack?.displayAlbum,
+                    isPlaying = it.isPlaying,
+                )
+            }
+                .distinctUntilChanged()
+                .collect { snapshot ->
+                    context.sendBroadcast(
+                        Intent(context, NowPlayingWidget::class.java).apply {
+                            action = NowPlayingWidget.ACTION_UPDATE_WIDGET
+                            putExtra(NowPlayingWidget.EXTRA_TITLE, snapshot.title)
+                            putExtra(NowPlayingWidget.EXTRA_ARTIST, snapshot.artist)
+                            putExtra(NowPlayingWidget.EXTRA_ALBUM, snapshot.album)
+                            putExtra(NowPlayingWidget.EXTRA_IS_PLAYING, snapshot.isPlaying)
+                        },
+                    )
+                }
         }
     }
 

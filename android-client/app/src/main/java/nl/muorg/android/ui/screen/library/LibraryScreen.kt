@@ -16,7 +16,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.takeOrElse
@@ -45,12 +44,10 @@ fun LibraryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
-    val sleepTimerRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     val currentAlbum = playerState.currentTrack?.displayAlbum
     var searchText by remember { mutableStateOf(viewModel.rawSearchQuery) }
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
-    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(artistFilter) {
         if (artistFilter != null) viewModel.applyArtistFilter(artistFilter)
@@ -64,18 +61,27 @@ fun LibraryScreen(
     }
 
     val currentAlbumRef = rememberUpdatedState(playerState.currentTrack?.displayAlbum)
+    val currentTrackIdRef = rememberUpdatedState(playerState.currentTrack?.id)
     val filteredAlbumsRef = rememberUpdatedState(uiState.filteredAlbums)
+    val filteredTracksRef = rememberUpdatedState(uiState.filteredTracks)
     val albumViewStyleRef = rememberUpdatedState(uiState.albumViewStyle)
+    // Matches the branch LibraryContent uses to decide what's on screen.
+    val trackViewActiveRef = rememberUpdatedState(searchText.isNotEmpty() || uiState.albumViewStyle == "tracks")
     LaunchedEffect(scrollToActiveSignal) {
         scrollToActiveSignal?.collect {
-            val currentAlbum = currentAlbumRef.value ?: return@collect
-            val albums = filteredAlbumsRef.value
-            val index = albums.indexOfFirst { it.albumName == currentAlbum }
-            if (index >= 0) {
-                if (albumViewStyleRef.value == "list") {
-                    lazyListState.animateScrollToItem(index)
-                } else {
-                    lazyGridState.animateScrollToItem(index)
+            if (trackViewActiveRef.value) {
+                val trackId = currentTrackIdRef.value ?: return@collect
+                val index = filteredTracksRef.value.indexOfFirst { it.id == trackId }
+                if (index >= 0) lazyListState.animateScrollToItem(index)
+            } else {
+                val currentAlbum = currentAlbumRef.value ?: return@collect
+                val index = filteredAlbumsRef.value.indexOfFirst { it.albumName == currentAlbum }
+                if (index >= 0) {
+                    if (albumViewStyleRef.value == "list") {
+                        lazyListState.animateScrollToItem(index)
+                    } else {
+                        lazyGridState.animateScrollToItem(index)
+                    }
                 }
             }
         }
@@ -140,9 +146,3 @@ fun LibraryScreen(
     }
 }
 
-private fun formatSleepTimer(ms: Long): String {
-    val totalSecs = (ms / 1000).coerceAtLeast(0)
-    val mins = totalSecs / 60
-    val secs = totalSecs % 60
-    return if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
-}

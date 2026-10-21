@@ -23,9 +23,9 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.ui.screen.playlist.AddConflictState
+import nl.muorg.android.ui.UiMessenger
+import nl.muorg.android.ui.friendlyMessage
 import javax.inject.Inject
-
-enum class ViewMode { TRACKS, ALBUMS }
 
 enum class SortMode(val label: String) {
     BY_ALBUM("Album"),
@@ -38,7 +38,6 @@ data class LibraryUiState(
     val filteredTracks: List<CatalogTrack> = emptyList(),
     val albums: List<AlbumGroup> = emptyList(),
     val filteredAlbums: List<AlbumGroup> = emptyList(),
-    val viewMode: ViewMode = ViewMode.ALBUMS,
     val sortMode: SortMode = SortMode.BY_ALBUM,
     val sortAscending: Boolean = true,
     val searchQuery: String = "",
@@ -50,7 +49,6 @@ data class LibraryUiState(
     val artistFilter: String? = null,
     val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
     val addConflict: AddConflictState? = null,
-    val addToastMsg: String? = null,
     val isInitialScanning: Boolean = false,
     val initialScanProgress: Int = 0,
     val initialScanTotal: Int = 0,
@@ -67,6 +65,7 @@ class LibraryViewModel @Inject constructor(
     private val offlineDownloadManager: OfflineDownloadManager,
     private val preferences: AppPreferences,
     private val searchHistoryManager: SearchHistoryManager,
+    private val uiMessenger: UiMessenger,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
@@ -260,7 +259,7 @@ class LibraryViewModel @Inject constructor(
                         loadPlaylists()
                     }
                     check.newTracks.isEmpty() -> {
-                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                        uiMessenger.show("All tracks already in this playlist")
                     }
                     else -> {
                         _uiState.update {
@@ -274,7 +273,7 @@ class LibraryViewModel @Inject constructor(
                 // first, same as local mode.
                 val playlist = _uiState.value.playlists.find { it.id == playlistId }
                 if (playlist == null) {
-                    _uiState.update { it.copy(addToastMsg = "Playlist not found") }
+                    uiMessenger.show("Playlist not found")
                     return@launch
                 }
                 val check = playlistRepository.checkAddConflict(playlist, tracks)
@@ -282,12 +281,12 @@ class LibraryViewModel @Inject constructor(
                     check.alreadyPresentCount == 0 -> {
                         playlistRepository.addTracks(playlist, tracks.map { it.id })
                             .onFailure { e ->
-                                _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                                uiMessenger.show(e.friendlyMessage())
                             }
                         loadPlaylists()
                     }
                     check.newTracks.isEmpty() -> {
-                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                        uiMessenger.show("All tracks already in this playlist")
                     }
                     else -> {
                         _uiState.update {
@@ -312,7 +311,7 @@ class LibraryViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.newTracks.map { it.id })
                         .onFailure { e ->
-                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                            uiMessenger.show(e.friendlyMessage())
                         }
                     loadPlaylists()
                 }
@@ -333,7 +332,7 @@ class LibraryViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.allTracks.map { it.id })
                         .onFailure { e ->
-                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                            uiMessenger.show(e.friendlyMessage())
                         }
                     loadPlaylists()
                 }
@@ -345,16 +344,14 @@ class LibraryViewModel @Inject constructor(
         _uiState.update { it.copy(addConflict = null) }
     }
 
-    fun clearToast() {
-        _uiState.update { it.copy(addToastMsg = null) }
-    }
-
     fun createPlaylist(name: String) {
         viewModelScope.launch {
             if (currentMode == "local") {
                 runCatching { localRepository.createPlaylist(name) }
+                    .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}") }
             } else {
-                runCatching { playlistRepository.createPlaylist(name, "🎵") }
+                playlistRepository.createPlaylist(name, "🎵")
+                    .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}") }
             }
             loadPlaylists()
         }
@@ -363,24 +360,52 @@ class LibraryViewModel @Inject constructor(
     fun removeAlbumFromPlaylist(albumName: String, playlistId: Int) {
         viewModelScope.launch {
             val tracks = _uiState.value.allTracks.filter { it.displayAlbum == albumName }
+            val playlistName = _uiState.value.playlists.find { it.id == playlistId }?.name ?: "playlist"
             if (currentMode == "local") {
                 tracks.forEach { localRepository.removeTrackFromPlaylist(playlistId, it.path) }
                 loadPlaylistMembership()
                 loadPlaylists()
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    localRepository.addTracksToPlaylist(playlistId, tracks)
+                    loadPlaylistMembership()
+                    loadPlaylists()
+                }
             } else {
-                playlistRepository.removeTracks(playlistId, tracks.map { it.id })
+                playlistRepository.removeTracks(playlistId, tracks.map { it.id }).fold(
+                    onSuccess = {
+                        uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                            playlistRepository.addTracks(playlistId, tracks.map { it.id })
+                            loadPlaylists()
+                        }
+                    },
+                    onFailure = { uiMessenger.show("Couldn't remove: ${it.friendlyMessage()}") },
+                )
             }
         }
     }
 
     fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
         viewModelScope.launch {
+            val playlistName = _uiState.value.playlists.find { it.id == playlistId }?.name ?: "playlist"
             if (currentMode == "local") {
                 localRepository.removeTrackFromPlaylist(playlistId, track.path)
                 loadPlaylistMembership()
                 loadPlaylists()
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    localRepository.addTracksToPlaylist(playlistId, listOf(track))
+                    loadPlaylistMembership()
+                    loadPlaylists()
+                }
             } else {
-                playlistRepository.removeTracks(playlistId, listOf(track.id))
+                playlistRepository.removeTracks(playlistId, listOf(track.id)).fold(
+                    onSuccess = {
+                        uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                            playlistRepository.addTracks(playlistId, listOf(track.id))
+                            loadPlaylists()
+                        }
+                    },
+                    onFailure = { uiMessenger.show("Couldn't remove: ${it.friendlyMessage()}") },
+                )
             }
         }
     }
@@ -395,31 +420,26 @@ class LibraryViewModel @Inject constructor(
                         filteredAlbums = applyAlbumFilters(state.albums, state.copy(searchQuery = query)),
                     )
                 }
+                // Record history only once typing has paused (debounced above)
+                // and only for queries long enough to be a real search — every
+                // keystroke used to write a SharedPreferences fragment and evict
+                // real searches from the capped history.
+                if (query.trim().length >= 2) {
+                    searchHistoryManager.addSearch(query)
+                }
             }
         }
     }
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-        // Record non-empty searches immediately (not on debounce)
-        if (query.isNotBlank()) {
-            searchHistoryManager.addSearch(query)
-        }
     }
 
     /** Returns the list of recent searches (newest first). */
-    fun getRecentSearches(): List<SearchHistoryEntry> = searchHistoryManager.getRecentSearches()
+    suspend fun getRecentSearches(): List<SearchHistoryEntry> = searchHistoryManager.getRecentSearches()
 
     /** Clears all search history. */
     fun clearSearchHistory() = searchHistoryManager.clearAll()
-
-    fun toggleViewMode() {
-        _uiState.update { state ->
-            state.copy(
-                viewMode = if (state.viewMode == ViewMode.TRACKS) ViewMode.ALBUMS else ViewMode.TRACKS
-            )
-        }
-    }
 
     fun setAlbumViewStyle(style: String) {
         _uiState.update { it.copy(albumViewStyle = style) }

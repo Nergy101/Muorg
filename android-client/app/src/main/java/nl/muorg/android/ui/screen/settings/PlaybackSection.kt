@@ -26,7 +26,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import nl.muorg.android.ui.icon.mageIconRes
 
 /**
- * Crossfade, gapless and the rest of what happens between tracks.
+ * Continuous playback, mini-player tap behaviour, offline mode, and the
+ * battery-optimisation exemption prompt.
  *
  * One section of [SettingsScreen], which was a single 640-line composable.
  */

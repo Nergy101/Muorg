@@ -17,6 +17,8 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.ui.screen.playlist.AddConflictState
+import nl.muorg.android.ui.UiMessenger
+import nl.muorg.android.ui.friendlyMessage
 import javax.inject.Inject
 
 data class AlbumDetailUiState(
@@ -31,7 +33,6 @@ data class AlbumDetailUiState(
     val playlists: List<Playlist> = emptyList(),
     val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
     val addConflict: AddConflictState? = null,
-    val addToastMsg: String? = null,
     val filterPlaylistId: Int? = null,
 )
 
@@ -42,6 +43,7 @@ class AlbumDetailViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val offlineDownloadManager: OfflineDownloadManager,
     private val preferences: AppPreferences,
+    private val uiMessenger: UiMessenger,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlbumDetailUiState())
@@ -184,7 +186,7 @@ class AlbumDetailViewModel @Inject constructor(
                         loadPlaylists()
                     }
                     check.newTracks.isEmpty() -> {
-                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                        uiMessenger.show("All tracks already in this playlist")
                     }
                     else -> {
                         _uiState.update {
@@ -198,7 +200,7 @@ class AlbumDetailViewModel @Inject constructor(
                 // first, same as local mode.
                 val playlist = _uiState.value.playlists.find { it.id == playlistId }
                 if (playlist == null) {
-                    _uiState.update { it.copy(addToastMsg = "Playlist not found") }
+                    uiMessenger.show("Playlist not found")
                     return@launch
                 }
                 val check = playlistRepository.checkAddConflict(playlist, tracks)
@@ -206,12 +208,12 @@ class AlbumDetailViewModel @Inject constructor(
                     check.alreadyPresentCount == 0 -> {
                         playlistRepository.addTracks(playlist, tracks.map { it.id })
                             .onFailure { e ->
-                                _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                                uiMessenger.show(e.friendlyMessage())
                             }
                         loadPlaylists()
                     }
                     check.newTracks.isEmpty() -> {
-                        _uiState.update { it.copy(addToastMsg = "All tracks already in this playlist") }
+                        uiMessenger.show("All tracks already in this playlist")
                     }
                     else -> {
                         _uiState.update {
@@ -237,7 +239,7 @@ class AlbumDetailViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.newTracks.map { it.id })
                         .onFailure { e ->
-                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                            uiMessenger.show(e.friendlyMessage())
                         }
                     loadPlaylists()
                 }
@@ -259,7 +261,7 @@ class AlbumDetailViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.allTracks.map { it.id })
                         .onFailure { e ->
-                            _uiState.update { it.copy(addToastMsg = e.message ?: "Could not add to playlist") }
+                            uiMessenger.show(e.friendlyMessage())
                         }
                     loadPlaylists()
                 }
@@ -271,19 +273,25 @@ class AlbumDetailViewModel @Inject constructor(
         _uiState.update { it.copy(addConflict = null) }
     }
 
-    fun clearToast() {
-        _uiState.update { it.copy(addToastMsg = null) }
-    }
-
     fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()
+            val playlistName = _uiState.value.playlists.find { it.id == playlistId }?.name ?: "playlist"
             if (mode == "local") {
                 localRepository.removeTrackFromPlaylist(playlistId, track.path)
                 loadPlaylistMembership()
                 loadPlaylists()
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    localRepository.addTracksToPlaylist(playlistId, listOf(track))
+                    loadPlaylistMembership()
+                    loadPlaylists()
+                }
             } else {
                 playlistRepository.removeTracks(playlistId, listOf(track.id))
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    playlistRepository.addTracks(playlistId, listOf(track.id))
+                    loadPlaylists()
+                }
             }
         }
     }
@@ -304,12 +312,22 @@ class AlbumDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val mode = preferences.musicMode.first()
             val tracks = _uiState.value.tracks
+            val playlistName = _uiState.value.playlists.find { it.id == playlistId }?.name ?: "playlist"
             if (mode == "local") {
                 tracks.forEach { localRepository.removeTrackFromPlaylist(playlistId, it.path) }
                 loadPlaylistMembership()
                 loadPlaylists()
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    localRepository.addTracksToPlaylist(playlistId, tracks)
+                    loadPlaylistMembership()
+                    loadPlaylists()
+                }
             } else {
                 playlistRepository.removeTracks(playlistId, tracks.map { it.id })
+                uiMessenger.showWithAction("Removed from $playlistName", "Undo") {
+                    playlistRepository.addTracks(playlistId, tracks.map { it.id })
+                    loadPlaylists()
+                }
             }
         }
     }

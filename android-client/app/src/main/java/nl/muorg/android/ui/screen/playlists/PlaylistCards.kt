@@ -217,7 +217,7 @@ internal fun PlaylistTile(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(10.dp))
                 if (playlist.smartRules != null) {
                     Icon(
                         painter = painterResource(mageIconRes("zap-fill")),
@@ -244,7 +244,7 @@ internal fun PlaylistTile(
     }
 }
 
-/** A 32dp frosted disc with a fixed dark glyph — legible over any sleeve. */
+/** A 30dp frosted disc with a fixed dark glyph — legible over any sleeve — inside a 48dp tap target. */
 @Composable
 internal fun FrostDisc(
     icon: String,
@@ -255,17 +255,23 @@ internal fun FrostDisc(
     val primary = MaterialTheme.colorScheme.primary
     Box(
         modifier = Modifier
-            .size(30.dp)
-            .glassFrost(MuorgShapes.pill, on = on)
-            .clip(MuorgShapes.pill)
+            .size(48.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            painter = painterResource(mageIconRes(icon)),
-            contentDescription = description,
-            tint = if (on) primary else GlassFrostContent,
-            modifier = Modifier.size(16.dp),
-        )
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .glassFrost(MuorgShapes.pill, on = on)
+                .clip(MuorgShapes.pill),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(mageIconRes(icon)),
+                contentDescription = description,
+                tint = if (on) primary else GlassFrostContent,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }

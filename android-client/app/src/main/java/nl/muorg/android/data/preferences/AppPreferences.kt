@@ -39,7 +39,6 @@ class AppPreferences @Inject constructor(
         private val KEY_FAVORITES = stringSetPreferencesKey("favorites")
         private val KEY_USE_TRUE_BLACK = booleanPreferencesKey("use_true_black")
         private val KEY_PLAYERBAR_TAP_OPENS_PLAYER = booleanPreferencesKey("playerbar_tap_opens_player")
-        private val KEY_NOTIFICATION_ACTIONS = stringSetPreferencesKey("notification_actions")
         private val KEY_PINNED_PLAYLISTS = stringSetPreferencesKey("pinned_playlists")
         private val KEY_ALBUM_VIEW_STYLE = stringPreferencesKey("album_view_style")
         private val KEY_PLAYLIST_VIEW_STYLE = stringPreferencesKey("playlist_view_style")
@@ -87,9 +86,6 @@ class AppPreferences @Inject constructor(
 
     val playerBarTapOpensPlayer: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] ?: true }
-
-    val notificationActions: Flow<Set<String>> = context.dataStore.data
-        .map { it[KEY_NOTIFICATION_ACTIONS] ?: setOf("skip_previous", "skip_next") }
 
     val albumViewStyle: Flow<String> = context.dataStore.data
         .map { it[KEY_ALBUM_VIEW_STYLE] ?: "grid" }
@@ -185,10 +181,6 @@ class AppPreferences @Inject constructor(
 
     suspend fun setPlayerBarTapOpensPlayer(value: Boolean) {
         context.dataStore.edit { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] = value }
-    }
-
-    suspend fun setNotificationActions(actions: Set<String>) {
-        context.dataStore.edit { it[KEY_NOTIFICATION_ACTIONS] = actions }
     }
 
     suspend fun setAlbumViewStyle(style: String) {

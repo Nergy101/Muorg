@@ -63,7 +63,7 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = LocalBottomInset.current),
     ) {
-        InfoSection(uiState)
+        InfoSection(uiState, viewModel)
 
         PlaybackSection(uiState, viewModel)
 

@@ -2,8 +2,6 @@ package nl.muorg.android.ui.screen.settings
 
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,14 +12,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -39,6 +44,7 @@ fun LocalFoldersSection(
     viewModel: SettingsViewModel,
     onAddFolder: () -> Unit,
 ) {
+    var pendingFolder by remember { mutableStateOf<String?>(null) }
     SectionHeader("Local folders")
 
     if (uiState.localFolderUris.isEmpty()) {
@@ -63,16 +69,9 @@ fun LocalFoldersSection(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
                 trailingContent = {
-                    // Removing a folder deletes its local tracks and playlist
-                    // entries, so it is a long-press, not a tap.
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .combinedClickable(
-                                onClick = {},
-                                onLongClick = { viewModel.removeFolder(uriString) },
-                            ),
-                        contentAlignment = Alignment.Center,
+                    IconButton(
+                        onClick = { pendingFolder = uriString },
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Icon(
                 painter = painterResource(mageIconRes("trash")), contentDescription = "Remove folder",
@@ -153,5 +152,30 @@ fun LocalFoldersSection(
                 )
             }
         }
+    }
+
+    pendingFolder?.let { uriString ->
+        val displayName = Uri.parse(uriString).lastPathSegment
+            ?.substringAfterLast(':')
+            ?: uriString
+        AlertDialog(
+            onDismissRequest = { pendingFolder = null },
+            title = { Text("Remove folder?") },
+            text = {
+                Text(
+                    "Tracks scanned from \"$displayName\" and their playlist entries " +
+                        "will be deleted from this device."
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.removeFolder(uriString)
+                    pendingFolder = null
+                }) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingFolder = null }) { Text("Cancel") }
+            },
+        )
     }
 }

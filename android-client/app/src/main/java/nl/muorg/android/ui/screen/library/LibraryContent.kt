@@ -37,6 +37,7 @@ import nl.muorg.android.ui.component.AlbumDisplayMode
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.layout.rememberGridColumns
 import nl.muorg.android.ui.player.PlayerViewModel
 
 /**
@@ -132,7 +133,7 @@ fun LibraryContent(
                         )
                     }
                 }
-                searchText.isNotEmpty() || uiState.viewMode == ViewMode.TRACKS || uiState.albumViewStyle == "tracks" -> {
+                searchText.isNotEmpty() || uiState.albumViewStyle == "tracks" -> {
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(),
@@ -228,9 +229,10 @@ fun LibraryContent(
                     }
                 }
                 else -> {
+                    val columns = rememberGridColumns()
                     LazyVerticalGrid(
                         state = lazyGridState,
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Fixed(columns),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
                             start = 16.dp,

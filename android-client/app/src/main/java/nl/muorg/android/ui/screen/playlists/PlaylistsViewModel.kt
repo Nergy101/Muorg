@@ -21,12 +21,13 @@ import nl.muorg.android.data.api.SmartRule
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
+import nl.muorg.android.ui.UiMessenger
+import nl.muorg.android.ui.friendlyMessage
 import javax.inject.Inject
 
 data class PlaylistsUiState(
     val playlists: List<Playlist> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null,
     val showCreateDialog: Boolean = false,
     val newPlaylistName: String = "",
     val newPlaylistIcon: String = "🎵",
@@ -97,6 +98,7 @@ class PlaylistsViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val libraryRepository: LibraryRepository,
     private val offlineDownloadManager: OfflineDownloadManager,
+    private val uiMessenger: UiMessenger,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlaylistsUiState())
@@ -272,7 +274,8 @@ class PlaylistsViewModel @Inject constructor(
                     loadPlaylists()
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(smartSaving = false, error = e.message) }
+                    _uiState.update { it.copy(smartSaving = false) }
+                    uiMessenger.show("Couldn't create smart playlist: ${e.friendlyMessage()}")
                 },
             )
         }
@@ -355,7 +358,6 @@ class PlaylistsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = true,
-                    error = null,
                     isServerMode = currentMode != "local",
                     isOfflineMode = offline,
                 )
@@ -367,7 +369,8 @@ class PlaylistsViewModel @Inject constructor(
                         loadCovers(playlists)
                     },
                     onFailure = { error ->
-                        _uiState.update { it.copy(isLoading = false, error = error.message) }
+                        _uiState.update { it.copy(isLoading = false) }
+                        uiMessenger.show("Couldn't load playlists: ${error.friendlyMessage()}")
                     }
                 )
                 _uiState.update { it.copy(pinnedIds = preferences.pinnedPlaylists.first().toList()) }
@@ -390,7 +393,8 @@ class PlaylistsViewModel @Inject constructor(
                         loadCovers(playlists)
                     },
                     onFailure = { error ->
-                        _uiState.update { it.copy(isLoading = false, error = error.message) }
+                        _uiState.update { it.copy(isLoading = false) }
+                        uiMessenger.show("Couldn't load playlists: ${error.friendlyMessage()}")
                     }
                 )
                 // Server pins replace the local set for this screen; the two
@@ -433,7 +437,7 @@ class PlaylistsViewModel @Inject constructor(
                     )
                 }.fold(
                     onSuccess = { loadPlaylists() },
-                    onFailure = { error -> _uiState.update { it.copy(error = error.message) } }
+                    onFailure = { error -> uiMessenger.show("Couldn't create playlist: ${error.friendlyMessage()}") }
                 )
             } else {
                 repository.createPlaylist(
@@ -442,7 +446,7 @@ class PlaylistsViewModel @Inject constructor(
                 ).fold(
                     onSuccess = { loadPlaylists() },
                     onFailure = { error ->
-                        _uiState.update { it.copy(error = error.message) }
+                        uiMessenger.show("Couldn't create playlist: ${error.friendlyMessage()}")
                     }
                 )
             }
@@ -489,7 +493,7 @@ class PlaylistsViewModel @Inject constructor(
                     )
                 }.fold(
                     onSuccess = { loadPlaylists() },
-                    onFailure = { error -> _uiState.update { it.copy(error = error.message) } }
+                    onFailure = { error -> uiMessenger.show("Couldn't update playlist: ${error.friendlyMessage()}") }
                 )
                 return@launch
             } else {
@@ -512,7 +516,7 @@ class PlaylistsViewModel @Inject constructor(
                         loadPlaylists() // background refresh for full accuracy
                     },
                     onFailure = { error ->
-                        _uiState.update { it.copy(error = error.message) }
+                        uiMessenger.show("Couldn't update playlist: ${error.friendlyMessage()}")
                         loadPlaylists()
                     }
                 )
@@ -526,7 +530,7 @@ class PlaylistsViewModel @Inject constructor(
             if (currentMode == "local") {
                 runCatching { localRepository.deletePlaylist(id) }.fold(
                     onSuccess = { loadPlaylists() },
-                    onFailure = { error -> _uiState.update { it.copy(error = error.message) } }
+                    onFailure = { error -> uiMessenger.show("Couldn't delete playlist: ${error.friendlyMessage()}") }
                 )
             } else {
                 repository.deletePlaylist(id).fold(
@@ -538,7 +542,7 @@ class PlaylistsViewModel @Inject constructor(
                         loadPlaylists()
                     },
                     onFailure = { error ->
-                        _uiState.update { it.copy(error = error.message) }
+                        uiMessenger.show("Couldn't delete playlist: ${error.friendlyMessage()}")
                     }
                 )
             }

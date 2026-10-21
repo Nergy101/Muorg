@@ -18,6 +18,7 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.data.repository.PlaylistTrackEntry
+import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.screen.playlists.PlaylistsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -83,6 +84,7 @@ class PlaylistsViewModelTest {
             preferences,
             library,
             downloads,
+            UiMessenger(),
         )
     }
 

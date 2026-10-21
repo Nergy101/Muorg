@@ -31,10 +31,10 @@ fun MarqueeText(
         textAlign = textAlign,
         modifier = modifier.basicMarquee(
             iterations = Int.MAX_VALUE,
-            initialDelayMillis = 1200,
-            repeatDelayMillis = 1200,
-            spacing = MarqueeSpacing.fractionOfContainer(0.1f),
-            velocity = 40.dp,
+            initialDelayMillis = 2000,
+            repeatDelayMillis = 2000,
+            spacing = MarqueeSpacing.fractionOfContainer(1f),
+            velocity = 30.dp,
         ),
     )
 }

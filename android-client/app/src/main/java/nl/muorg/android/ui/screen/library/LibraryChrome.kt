@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import nl.muorg.android.ui.component.ProvideLibraryChrome
+import nl.muorg.android.data.preferences.SearchHistoryEntry
 import nl.muorg.android.ui.glass.glassField
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -76,7 +78,10 @@ fun LibraryChrome(
     // Local to the chrome: the sort menu opens from here and nowhere else.
     var showSortMenu by remember { mutableStateOf(false) }
     // Local to the chrome: nothing outside the search field reads it.
-    var recentSearches by remember { mutableStateOf(viewModel.getRecentSearches()) }
+    var recentSearches by remember { mutableStateOf<List<SearchHistoryEntry>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        recentSearches = viewModel.getRecentSearches()
+    }
 
     ProvideLibraryChrome {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -87,7 +92,7 @@ fun LibraryChrome(
                     viewModel.onSearchQueryChange(it)
                     if (it.isNotEmpty()) {
                         // Refresh recent searches to include the new one
-                        recentSearches = viewModel.getRecentSearches()
+                        coroutineScope.launch { recentSearches = viewModel.getRecentSearches() }
                     }
                 },
                 modifier = Modifier
@@ -108,7 +113,7 @@ fun LibraryChrome(
                         IconButton(onClick = {
                             onSearchTextChange("")
                             viewModel.onSearchQueryChange("")
-                            recentSearches = viewModel.getRecentSearches()
+                            coroutineScope.launch { recentSearches = viewModel.getRecentSearches() }
                         }) {
                             Icon(
                         painter = painterResource(mageIconRes("multiply")), contentDescription = "Clear search")
@@ -170,7 +175,7 @@ fun LibraryChrome(
                             onClick = {
                                 onSearchTextChange(entry.query)
                                 viewModel.onSearchQueryChange(entry.query)
-                                recentSearches = viewModel.getRecentSearches()
+                                coroutineScope.launch { recentSearches = viewModel.getRecentSearches() }
                             },
                             label = { Text(entry.query, style = MaterialTheme.typography.bodySmall) },
                             leadingIcon = {

@@ -169,7 +169,7 @@ fun MixDetailScreen(
                         }
                         IconButton(
                             onClick = { playerViewModel.startShuffleAll(tracks) },
-                            modifier = Modifier.size(44.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
                                 painter = painterResource(mageIconRes("exchange")),

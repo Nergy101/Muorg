@@ -33,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,6 +56,7 @@ import nl.muorg.android.ui.component.coverModelFor
 import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.layout.rememberGridColumns
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
 
@@ -83,6 +85,7 @@ fun PlaylistsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
+    var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(lifecycle) {
@@ -208,8 +211,9 @@ fun PlaylistsScreen(
                             compareBy({ it.id !in pinned }, { pinned.indexOf(it.id) })
                         )
                     }
+                    val columns = rememberGridColumns()
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Fixed(columns),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
                             start = 16.dp,
@@ -238,7 +242,7 @@ fun PlaylistsScreen(
                                 onTogglePin = { viewModel.togglePin(playlist.id) },
                                 onEdit = { viewModel.showEditDialog(playlist) },
                                 onDownload = { viewModel.onDownloadClicked(playlist) },
-                                onDelete = { viewModel.deletePlaylist(playlist.id) },
+                                onDelete = { pendingDelete = playlist },
                                 isFavorites = uiState.isServerMode &&
                                     playlist.name == FAVORITES_PLAYLIST_NAME,
                                 downloaded = playlist.id in uiState.downloadedPlaylistIds,
@@ -273,6 +277,30 @@ fun PlaylistsScreen(
         )
     }
 
+
+    pendingDelete?.let { playlist ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete playlist?") },
+            text = {
+                Text(
+                    "\"${playlist.name}\" and its ${playlist.trackCount} tracks will be removed. " +
+                        "This can't be undone."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deletePlaylist(playlist.id)
+                        pendingDelete = null
+                    },
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
     if (uiState.showSmartDialog) {
         SmartPlaylistDialog(
             name = uiState.smartName,

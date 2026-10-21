@@ -18,6 +18,7 @@ import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistEntry
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.data.repository.PlaylistTrackEntry
+import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.screen.playlist.PlaylistAlbumsViewModel
 import nl.muorg.android.ui.screen.playlist.PlaylistSortMode
 import org.junit.Assert.assertEquals
@@ -96,6 +97,7 @@ class PlaylistAlbumsViewModelTest {
             localRepo,
             playlistRepo,
             offlineDownloadManager,
+            UiMessenger(),
         )
     }
 
