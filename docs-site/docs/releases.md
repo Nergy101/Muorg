@@ -34,6 +34,7 @@ Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notab
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v3.3.9** — in local mode the Home page now scans the selected folder automatically after setup: a full-screen loader with the scanner bar shows while the first scan runs and hides itself once the library is filled. Scans are serialized app-wide, so Home and Library can no longer scan at the same time.
 - **android-v3.3.8** — fixed the favorites toast saying "Already in favorites" when adding a song that wasn't favorited; playlists can be sorted by added date, title or artist, with an ascending/descending switch under the Play/Shuffle buttons; the player's favorite button shows a filled heart when the song is favorited.
 - **android-v3.3.7** — in local mode the playlist download button is hidden and playlist cards show mosaic covers.
 - **android-v3.3.6** — consistent add-to-playlist conflict checking across library, album, playlist and player screens; rename-file action in the track menu with a pre-flight collision check; Playlists bottom-nav icon is now a library-music icon.
