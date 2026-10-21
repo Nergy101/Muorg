@@ -180,17 +180,23 @@ class SettingsViewModel @Inject constructor(
             if (preferences.offlineModeState.value) return@launch
             runCatching {
                 withContext(Dispatchers.IO) {
-                    // The repo mixes full releases (v3.2.4) with Android-only
-                    // ones (android-v3.3.10), and /releases/latest returns the
-                    // newest by creation date regardless of tag — so scan the
-                    // list and take the newest Android release instead.
                     val text = URL("https://api.github.com/repos/Nergy101/Muorg/releases?per_page=20").readText()
                     githubJson.decodeFromString<List<GithubRelease>>(text)
-                        .firstOrNull { it.tagName.startsWith("android-v") }
                 }
-            }.onSuccess { release ->
-                if (release == null) return@onSuccess
-                val latest = Regex("""\d+\.\d+\.\d+""").find(release.tagName)?.value ?: return@onSuccess
+            }.onSuccess { releases ->
+                // The repo mixes full releases (v3.2.4) with Android-only ones
+                // (android-v3.3.12), and neither /releases/latest nor the list
+                // order puts the newest Android release first — so compare
+                // every Android tag and keep the newest version.
+                val newest = releases
+                    .filter { it.tagName.startsWith("android-v") }
+                    .mapNotNull { release ->
+                        Regex("""\d+\.\d+\.\d+""").find(release.tagName)?.value
+                            ?.let { version -> version to release }
+                    }
+                    .reduceOrNull { acc, next -> if (isNewer(next.first, acc.first)) next else acc }
+                    ?: return@onSuccess
+                val (latest, release) = newest
                 if (isNewer(latest, BuildConfig.VERSION_NAME)) {
                     _uiState.update {
                         it.copy(latestVersion = latest, latestReleaseUrl = release.htmlUrl)
