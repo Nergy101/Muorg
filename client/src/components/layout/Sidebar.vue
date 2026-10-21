@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
@@ -22,6 +22,41 @@ type SidebarTabId = "folders" | "reports" | "playlists" | "mixes" | "stats";
 const activeSidebarTab = ref<SidebarTabId>(
   (settingsStore.sidebarDefaultTab as SidebarTabId) ?? "folders",
 );
+
+const tabs = computed<{ id: SidebarTabId; label: string }[]>(() => [
+  { id: "folders", label: "Folders" },
+  { id: "stats", label: "Stats" },
+  ...(hideReportsSection.value ? [] : [{ id: "reports" as const, label: "Reports" }]),
+  { id: "playlists", label: "Playlists" },
+  { id: "mixes", label: "Mixes" },
+]);
+
+// When the sidebar is narrow the tabs keep their natural width and the bar
+// scrolls horizontally instead of squeezing/wrapping them.
+const tabBarRef = ref<HTMLElement | null>(null);
+
+/** Vertical wheel over the bar scrolls it sideways (no scrollbar is shown). */
+function onTabBarWheel(e: WheelEvent) {
+  const el = tabBarRef.value;
+  if (!el || el.scrollWidth <= el.clientWidth) return;
+  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  el.scrollLeft += e.deltaY;
+  e.preventDefault();
+}
+
+/** Keep the active tab visible; scrolls only the bar, never an ancestor. */
+function revealActiveTab() {
+  const el = tabBarRef.value;
+  const btn = el?.querySelector<HTMLElement>(`[data-tab="${activeSidebarTab.value}"]`);
+  if (!el || !btn) return;
+  const left = btn.offsetLeft;
+  const right = left + btn.offsetWidth;
+  if (left < el.scrollLeft) el.scrollLeft = left;
+  else if (right > el.scrollLeft + el.clientWidth) el.scrollLeft = right - el.clientWidth;
+}
+
+watch(activeSidebarTab, () => nextTick(revealActiveTab));
+onMounted(revealActiveTab);
 let sidebarDataLoadedOnce = false;
 
 onMounted(async () => {
@@ -45,57 +80,23 @@ onMounted(async () => {
     <div class="flex min-h-0 flex-1 flex-col">
       <!-- Tab bar -->
       <div class="flex min-w-0 shrink-0 items-center gap-1 border-b border-stone-700 px-2 py-1.5">
-        <div class="flex min-w-0 flex-1 items-center gap-1">
+        <div
+          ref="tabBarRef"
+          class="relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          @wheel="onTabBarWheel"
+        >
           <button
+            v-for="tab in tabs"
+            :key="tab.id"
             type="button"
-            class="rounded px-2 py-1 text-xs font-medium"
-            :class="activeSidebarTab === 'folders'
+            :data-tab="tab.id"
+            class="shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-medium"
+            :class="activeSidebarTab === tab.id
               ? 'bg-stone-700 text-stone-100'
               : 'text-stone-300 hover:bg-stone-700/60 hover:text-stone-100'"
-            @click="activeSidebarTab = 'folders'"
+            @click="activeSidebarTab = tab.id"
           >
-            Folders
-          </button>
-          <button
-            type="button"
-            class="rounded px-2 py-1 text-xs font-medium"
-            :class="activeSidebarTab === 'stats'
-              ? 'bg-stone-700 text-stone-100'
-              : 'text-stone-300 hover:bg-stone-700/60 hover:text-stone-100'"
-            @click="activeSidebarTab = 'stats'"
-          >
-            Stats
-          </button>
-          <button
-            v-if="!hideReportsSection"
-            type="button"
-            class="rounded px-2 py-1 text-xs font-medium"
-            :class="activeSidebarTab === 'reports'
-              ? 'bg-stone-700 text-stone-100'
-              : 'text-stone-300 hover:bg-stone-700/60 hover:text-stone-100'"
-            @click="activeSidebarTab = 'reports'"
-          >
-            Reports
-          </button>
-          <button
-            type="button"
-            class="rounded px-2 py-1 text-xs font-medium"
-            :class="activeSidebarTab === 'playlists'
-              ? 'bg-stone-700 text-stone-100'
-              : 'text-stone-300 hover:bg-stone-700/60 hover:text-stone-100'"
-            @click="activeSidebarTab = 'playlists'"
-          >
-            Playlists
-          </button>
-          <button
-            type="button"
-            class="rounded px-2 py-1 text-xs font-medium"
-            :class="activeSidebarTab === 'mixes'
-              ? 'bg-stone-700 text-stone-100'
-              : 'text-stone-300 hover:bg-stone-700/60 hover:text-stone-100'"
-            @click="activeSidebarTab = 'mixes'"
-          >
-            Mixes
+            {{ tab.label }}
           </button>
         </div>
         <button

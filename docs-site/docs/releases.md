@@ -6,6 +6,11 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v3.2.4
+
+- **Desktop App**: the app now checks the bundled server (sidecar) on every launch and replaces an outdated one. A sidecar left running by a previous version (after an auto-update, say) used to keep port 7700, so the new app silently talked to the old server — which is why Chromecast kept failing after updating to v3.2.3. Only a process named `muorg-server` is ever stopped; anything else on the port is left alone. The sidebar's tab bar no longer squeezes or wraps its tabs when the sidebar is narrow: it scrolls horizontally (mouse wheel works too) and keeps the active tab in view.
+- **Server**: `GET /api/health` now sends an `X-Muorg-Version` header with the server's version, which the desktop app uses to detect an outdated sidecar. The response body is unchanged.
+
 ## v3.2.3
 
 - **Desktop App**: fixed connecting to Chromecast devices — devices showed up in the cast menu but clicking them did nothing (see Server below). Fixed favoriting: clicking the heart before the playlists finished loading created a duplicate "Favorites" playlist and the heart reverted on the next refresh, so favorites appeared broken in both local and online mode; the playlist list is now loaded first, so a favorite always lands in the one real Favorites playlist. Mouse-drag text selection is now disabled app-wide (form fields stay selectable and editable). The Connection settings tab no longer renders underneath the other tabs — four panels had fragment template roots (Teleport siblings and stray comments), which `v-show` cannot hide. Exporting a playlist to M3U now writes the file into the chosen output folder through the Tauri fs plugin; the previous blob-URL download never fired in the desktop webview and ignored the picked folder.

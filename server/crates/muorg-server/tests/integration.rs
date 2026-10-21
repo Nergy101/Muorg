@@ -15,6 +15,18 @@ async fn health_returns_200() {
     assert_eq!(body, "Healthy");
 }
 
+// The desktop app compares this header with its own version to spot a sidecar
+// left over from an older release; without it, every sidecar looks outdated.
+#[tokio::test]
+async fn health_reports_the_server_version_in_a_header() {
+    let srv = TestServer::start().await;
+    let resp = srv.get("/api/health").await;
+    assert_eq!(
+        resp.headers().get("x-muorg-version").and_then(|v| v.to_str().ok()),
+        Some(env!("CARGO_PKG_VERSION"))
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Auth: protected endpoint without credentials
 // ---------------------------------------------------------------------------

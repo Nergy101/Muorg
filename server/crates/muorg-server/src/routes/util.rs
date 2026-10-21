@@ -63,11 +63,20 @@ pub async fn home() -> Html<String> {
     responses((status = 200, description = "`Healthy`, or `Scanning` while the startup scan runs", content_type = "text/plain")),
 )]
 pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if state.scanning.load(std::sync::atomic::Ordering::Relaxed) {
-        (StatusCode::OK, "Scanning")
+    let body = if state.scanning.load(std::sync::atomic::Ordering::Relaxed) {
+        "Scanning"
     } else {
-        (StatusCode::OK, "Healthy")
-    }
+        "Healthy"
+    };
+    // `X-Muorg-Version` lets the desktop app tell a sidecar left over from an
+    // older release (no header at all, or a different version) from a current
+    // one. It is deliberately not in the OpenAPI document: the body contract
+    // is unchanged and the generated clients never read it.
+    (
+        StatusCode::OK,
+        [("x-muorg-version", env!("CARGO_PKG_VERSION"))],
+        body,
+    )
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]

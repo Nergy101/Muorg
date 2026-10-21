@@ -1,10 +1,10 @@
 use muorg_core::catalog::{self, Catalog};
 use std::sync::Arc;
 use tauri::Manager;
-use tauri_plugin_shell::ShellExt;
 
 mod cast;
 mod commands;
+mod sidecar;
 
 struct ServerChild(std::sync::Mutex<Option<tauri_plugin_shell::process::CommandChild>>);
 
@@ -52,21 +52,16 @@ pub fn run() {
                 ));
             }
 
-            // Spawn muorg-server sidecar; silently skip if already running (port in use).
+            // Reuse a sidecar of this version, replace an outdated one left over
+            // from a previous release, or start one. Blocking: the replace path
+            // must finish before the webview's first health poll can mistake
+            // the old server for the new one.
             let config_str = server_config_path.to_string_lossy().into_owned();
-            let child_holder = ServerChild(std::sync::Mutex::new(None));
-            if let Ok(cmd) = app.shell().sidecar("muorg-server") {
-                match cmd.args(["--config", &config_str]).spawn() {
-                    Ok((mut rx, child)) => {
-                        tauri::async_runtime::spawn(async move {
-                            while rx.recv().await.is_some() {}
-                        });
-                        *child_holder.0.lock().unwrap() = Some(child);
-                    }
-                    Err(e) => eprintln!("muorg-server sidecar spawn failed (may already be running): {e}"),
-                }
-            }
-            app.manage(child_holder);
+            app.manage(ServerChild(std::sync::Mutex::new(None)));
+            tauri::async_runtime::block_on(sidecar::ensure_running(
+                app.app_handle().clone(),
+                config_str,
+            ));
 
             let catalog = Catalog::new(&db_path).map_err(|e| e.to_string())?;
             // Purge soft-deleted tracks and roots older than 30 days.
