@@ -180,10 +180,16 @@ class SettingsViewModel @Inject constructor(
             if (preferences.offlineModeState.value) return@launch
             runCatching {
                 withContext(Dispatchers.IO) {
-                    val text = URL("https://api.github.com/repos/Nergy101/Muorg/releases/latest").readText()
-                    githubJson.decodeFromString<GithubRelease>(text)
+                    // The repo mixes full releases (v3.2.4) with Android-only
+                    // ones (android-v3.3.10), and /releases/latest returns the
+                    // newest by creation date regardless of tag — so scan the
+                    // list and take the newest Android release instead.
+                    val text = URL("https://api.github.com/repos/Nergy101/Muorg/releases?per_page=20").readText()
+                    githubJson.decodeFromString<List<GithubRelease>>(text)
+                        .firstOrNull { it.tagName.startsWith("android-v") }
                 }
             }.onSuccess { release ->
+                if (release == null) return@onSuccess
                 val latest = Regex("""\d+\.\d+\.\d+""").find(release.tagName)?.value ?: return@onSuccess
                 if (isNewer(latest, BuildConfig.VERSION_NAME)) {
                     _uiState.update {
