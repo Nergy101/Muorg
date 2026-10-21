@@ -2,8 +2,11 @@ package nl.muorg.android.ui.screen.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -12,8 +15,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import nl.muorg.android.ui.icon.mageIconRes
 
 /**
@@ -81,6 +90,38 @@ fun PlaybackSection(
         modifier = Modifier.clickable { viewModel.setOfflineMode(!uiState.offlineMode) },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
+
+    // The exemption is granted (or revoked) in a system dialog outside the
+    // app, so the state is re-read every time this screen resumes.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.refreshBatteryOptimizationExemption()
+        }
+    }
+
+    ListItem(
+        headlineContent = { Text("Playback stops automatically?") },
+        supportingContent = { Text("Some phones stop music in the background to save battery") },
+        leadingContent = {
+            Icon(
+                painter = painterResource(mageIconRes("zap")), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        Button(
+            onClick = { viewModel.requestBatteryOptimizationExemption() },
+            enabled = !uiState.isBatteryOptimizationExempt,
+        ) {
+            Text(if (uiState.isBatteryOptimizationExempt) "Already exempt" else "Exempt from battery optimization")
+        }
+    }
 
     HorizontalDivider()
 }

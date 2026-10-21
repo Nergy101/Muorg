@@ -1,8 +1,15 @@
 package nl.muorg.android.ui.screen.settings
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +69,7 @@ data class SettingsUiState(
     val deviceName: String = "",
     val offlineMode: Boolean = false,
     val downloadMobileData: Boolean = false,
+    val isBatteryOptimizationExempt: Boolean = false,
 )
 
 @HiltViewModel
@@ -71,6 +79,7 @@ class SettingsViewModel @Inject constructor(
     private val localLibraryRepository: LocalLibraryRepository,
     private val playerController: PlayerController,
     private val libraryRepository: LibraryRepository,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -79,6 +88,7 @@ class SettingsViewModel @Inject constructor(
     private val githubJson = Json { ignoreUnknownKeys = true }
 
     init {
+        refreshBatteryOptimizationExemption()
         viewModelScope.launch {
             val url = preferences.serverUrl.first()
             val continuousPlayback = preferences.continuousPlayback.first()
@@ -312,6 +322,37 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             localLibraryRepository.removeTracksForFolder(uri)
             preferences.removeLocalFolderUri(uri)
+        }
+    }
+
+    /**
+     * Whether the system lets this app ignore battery optimizations. Some
+     * OEMs stop background playback otherwise, so Settings offers the
+     * exemption; the state is re-read on resume because it changes outside
+     * the app.
+     */
+    fun refreshBatteryOptimizationExemption() {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        _uiState.update {
+            it.copy(isBatteryOptimizationExempt =
+                powerManager.isIgnoringBatteryOptimizations(context.packageName))
+        }
+    }
+
+    /** Opens the system dialog that exempts the app from battery optimization. */
+    fun requestBatteryOptimizationExemption() {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // Not every OEM implements the direct dialog; the full list always exists.
+            context.startActivity(
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
         }
     }
 
