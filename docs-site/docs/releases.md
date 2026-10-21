@@ -34,6 +34,7 @@ Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notab
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v3.3.14** — once the app is exempt from battery optimization, the "Playback stops automatically?" row and its button are hidden under Settings > Playback instead of showing a disabled "Already exempt" button.
 - **android-v3.3.13** — fixed the "Update available" button never appearing: the update check now finds the newest Android release by comparing versions instead of trusting the order of GitHub's releases list.
 - **android-v3.3.12** — in local folders mode the "Offline mode" setting is hidden under Settings > Playback, since local folders are already on the device and the toggle has no effect there.
 - **android-v3.3.11** — when an update is available, an "Update available" button appears next to the app version in Settings and opens that release's page for an easy download. The update check now looks at the newest Android release specifically, instead of whichever release GitHub happens to list as latest.
