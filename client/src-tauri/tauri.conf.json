@@ -37,6 +37,9 @@
       "entitlements": "./entitlements.plist",
       "infoPlist": "./Info.plist"
     },
+    "iOS": {
+      "infoPlist": "./Info.ios.plist"
+    },
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",

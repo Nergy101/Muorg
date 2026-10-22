@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Keep the WKWebView's media pipeline (and the JS that drives track
+       auto-advance) alive while the screen is locked, so the next song
+       actually starts. Without the audio background mode iOS suspends the
+       webview when the device sleeps and playback stops at the track
+       boundary. Tauri merges this file on top of the generated iOS Info.plist
+       (bundle > iOS > infoPlist). -->
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>audio</string>
+  </array>
+</dict>
+</plist>

@@ -86,6 +86,16 @@ function toggleMute() {
   }
 }
 
+// PlayerBar swaps the active audio element on a preload handoff (iOS
+// lock-screen auto-advance); re-attach the volumechange mirror to the new one.
+function onAudioElementChanged() {
+  const el = getAudio();
+  if (!el) return;
+  el.volume = volume.value;
+  el.addEventListener("volumechange", syncFromAudio);
+}
+window.addEventListener("muorg:audio-element-changed", onAudioElementChanged);
+
 onMounted(() => {
   const el = getAudio();
   if (el) {
@@ -100,6 +110,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("muorg:audio-element-changed", onAudioElementChanged);
   const el = getAudio();
   if (el) {
     el.removeEventListener("volumechange", syncFromAudio);

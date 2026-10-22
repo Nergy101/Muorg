@@ -101,7 +101,6 @@ const canPlayPrevious = computed(() => {
 });
 
 const audioRef = ref<HTMLAudioElement | null>(null);
-const audioElementKey = ref(0);
 const isPlaying = ref(false);
 // Mirror to module state so the library table can animate the playing row.
 watch(isPlaying, (v) => {
@@ -117,8 +116,38 @@ const hasInitializedAutoplay = ref(false);
 let unlistenCastTrackEnded: (() => void) | null = null; // set in onMounted via castStore.onTrackEnded
 const replayGainMeta = ref<TrackMetadataRead | null>(null);
 
-/** Small cache of preloaded audio blobs (next track, maybe a couple more). Keyed by track path. */
-const audioCache = new Map<string, string>();
+/**
+ * Second hidden audio element that buffers the NEXT track while the current
+ * one plays, so the auto-advance handoff is a resume instead of a cold start.
+ * On iOS/WKWebView a locked screen suspends the JS task queue: when the current
+ * track fires `ended`, a fresh token fetch + src swap + play() usually gets
+ * suspended before audio starts, leaving the progress bar running with no
+ * sound. A pre-buffered element with readyState >= HAVE_CURRENT_DATA starts
+ * playing from the buffer without touching the network.
+ */
+let preloadEl: HTMLAudioElement | null = null;
+/** The track currently sitting in `preloadEl` (null = empty/stale). */
+let preloadedTrack: CatalogTrack | null = null;
+/** Guards async preloads against queue changes racing the token fetch. */
+let preloadSeq = 0;
+
+/**
+ * The single source of truth for the active player element. The template
+ * mounts one bare <audio ref="audioRef">; every src change goes through this
+ * setter, which swaps the src in place (no Vue re-render, no element
+ * recreation). Vue never re-binds :src, so a handoff to the preload element
+ * (audioRef.value = buf) cannot be overwritten by a stale render.
+ */
+function setAudioSrc(src: string) {
+  audioSrc.value = src;
+  const el = audioRef.value;
+  if (el && el.getAttribute("src") !== src) el.src = src;
+}
+
+/** Re-points PlayScreenPlayBar/VolumeControl listeners at the active element after a handoff swap. */
+function notifyAudioElementChanged() {
+  window.dispatchEvent(new Event("muorg:audio-element-changed"));
+}
 
 const titleMarqueeRef = ref<HTMLDivElement | null>(null);
 const artistMarqueeRef = ref<HTMLDivElement | null>(null);
@@ -312,21 +341,14 @@ async function seekToFlac(track: CatalogTrack, secs: number) {
 
   audioRef.value?.pause();
   flacSeekOffset.value = secs;
-  audioSrc.value = "";
+  setAudioSrc("");
 
   try {
     const token = await catalogApi.issueStreamToken(track.id);
     if (seq !== _seekSeq) return;
 
     const newSrc = streamUrl(track.id, token, secs);
-    audioSrc.value = newSrc;
-
-    // Increment the key to force Vue to destroy the old <audio> element and
-    // mount a fresh one. This is the only reliable way to make WKWebView release
-    // a chunked HTTP stream — changing src or calling load() alone leaves the
-    // old network connection alive in WebKit's internal media pipeline.
-    audioElementKey.value++;
-    await nextTick();
+    setAudioSrc(newSrc);
 
     const el = audioRef.value;
     if (!el || seq !== _seekSeq) return;
@@ -499,14 +521,48 @@ function revokeUrl(url: string | null) {
   }
 }
 
-function evictOldCacheEntries(maxEntries = 3) {
-  while (audioCache.size > maxEntries) {
-    const firstKey = audioCache.keys().next().value as string | undefined;
-    if (!firstKey) break;
-    const url = audioCache.get(firstKey) ?? null;
-    audioCache.delete(firstKey);
-    revokeUrl(url);
+function onAudioError() {
+  isPlaying.value = false;
+}
+
+/**
+ * Attaches the player event handlers to an audio element. Only the ACTIVE
+ * element (=== audioRef.value) may write playback state; the preload element
+ * fires loadedmetadata/durationchange while it is just buffering.
+ */
+function bindAudioEvents(el: HTMLAudioElement) {
+  el.addEventListener("play", () => { if (el === audioRef.value) onAudioPlay(); });
+  el.addEventListener("pause", () => { if (el === audioRef.value) onAudioPause(); });
+  el.addEventListener("ended", () => { if (el === audioRef.value) onAudioEnded(); });
+  el.addEventListener("timeupdate", () => { if (el === audioRef.value) onTimeUpdate(); });
+  el.addEventListener("loadedmetadata", () => { if (el === audioRef.value) onDurationChange(); });
+  el.addEventListener("durationchange", () => { if (el === audioRef.value) onDurationChange(); });
+  el.addEventListener("error", () => { if (el === audioRef.value) onAudioError(); });
+}
+
+/** Creates the hidden preload element. Must live in the DOM for WKWebView to buffer into it. */
+function ensurePreloadEl(): HTMLAudioElement {
+  if (!preloadEl || !preloadEl.isConnected) {
+    const el = document.createElement("audio");
+    el.preload = "auto";
+    el.classList.add("hidden");
+    el.setAttribute("data-muorg-preload", "true");
+    el.setAttribute("aria-hidden", "true");
+    bindAudioEvents(el);
+    document.body.appendChild(el);
+    preloadEl = el;
   }
+  return preloadEl;
+}
+
+/** Drops the preloaded buffer: the current track ended with nothing to hand off to. */
+function clearPreload() {
+  const el = preloadEl;
+  preloadedTrack = null;
+  if (!el) return;
+  el.pause();
+  el.removeAttribute("src");
+  el.load();
 }
 
 async function updateMediaSession(track: CatalogTrack | null) {
@@ -528,16 +584,13 @@ async function updateMediaSession(track: CatalogTrack | null) {
 }
 
 async function loadAudioBlobForCurrent(track: CatalogTrack) {
-  const path = track.path;
-  const cached = audioCache.get(path);
-
   if (audioRef.value) {
     audioRef.value.pause();
   }
   // Don't clear audioSrc to "" here — on WKWebView, blanking the src resets the
   // media element's autoplay permission so el.play() fires the play event but
   // stalls silently with no audio output.
-  if (audioSrc.value && audioSrc.value !== cached) {
+  if (audioSrc.value) {
     revokeUrl(audioSrc.value);
   }
   isPlaying.value = false;
@@ -545,39 +598,67 @@ async function loadAudioBlobForCurrent(track: CatalogTrack) {
   duration.value = 0;
   flacSeekOffset.value = 0;
 
-  if (cached) {
-    audioSrc.value = cached;
-    audioCache.delete(path);
-    return;
-  }
-
   // Issue a short-lived stream token and use it as the audio src.
   try {
     const token = await catalogApi.issueStreamToken(track.id);
-    audioSrc.value = streamUrl(track.id, token);
+    setAudioSrc(streamUrl(track.id, token));
   } catch {
-    audioSrc.value = "";
+    setAudioSrc("");
   }
 }
 
-async function preloadTrack(track: CatalogTrack | null) {
-  if (!track) return;
-  const path = track.path;
-  if (audioCache.has(path) || path === singleTrack.value?.path) return;
-  // Pre-issue a stream token so the next track can start immediately.
-  try {
-    const token = await catalogApi.issueStreamToken(track.id);
-    audioCache.set(path, streamUrl(track.id, token));
-    evictOldCacheEntries();
-  } catch {
-    // ignore preload failures; playback path will issue a fresh token.
-  }
-}
-
+/** Starts buffering the next track into the preload element. Failure just means a cold start later. */
 async function preloadNextTrack() {
   const next = getNextTrack();
-  if (!next) return;
-  await preloadTrack(next);
+  if (!next || next.path === singleTrack.value?.path) return;
+  const buf = ensurePreloadEl();
+  if (preloadedTrack?.id === next.id && buf.getAttribute("src")) return; // already buffering it
+  const seq = ++preloadSeq;
+  try {
+    const token = await catalogApi.issueStreamToken(next.id);
+    if (seq !== preloadSeq) return;
+    preloadedTrack = next;
+    buf.src = streamUrl(next.id, token);
+    buf.load(); // preload=auto — the browser fills the buffer now
+  } catch {
+    preloadedTrack = null;
+  }
+}
+
+/**
+ * Hands the preloaded element over as the active player if it holds the
+ * current track with data buffered. Returns false to fall back to the
+ * normal src-swap path (stale preload, repeat-one, seek, buffer never filled).
+ * On a locked iOS screen this is the only reliable way to advance: no token
+ * fetch, no new element — just play() on an element that already has bytes.
+ */
+function tryHandoffToPreloaded(track: CatalogTrack): boolean {
+  const buf = preloadEl;
+  const old = audioRef.value;
+  if (!buf || !old) return false;
+  if (preloadedTrack?.id !== track.id) return false;
+  if (buf.readyState < 2) return false; // HAVE_CURRENT_DATA — not ready yet
+
+  // The preload element is already in the DOM and event-bound; make it the
+  // active player. Its src moves with it, so PlayScreenPlayBar/VolumeControl
+  // re-query via the data attribute and the muorg:audio-element-changed event.
+  old.pause();
+  old.removeAttribute("src");
+  old.removeAttribute("data-muorg-player");
+  old.load();
+  buf.setAttribute("data-muorg-player", "true");
+  buf.removeAttribute("data-muorg-preload");
+  audioRef.value = buf;
+  preloadedTrack = null;
+  preloadEl = null;
+  currentTime.value = 0;
+  duration.value = Number.isFinite(buf.duration) ? buf.duration : 0;
+  buf.muted = isCasting.value;
+  applyEffectiveVolume();
+  buf.play().catch(console.error);
+  notifyAudioElementChanged();
+  void preloadNextTrack();
+  return true;
 }
 
 watch(
@@ -592,8 +673,9 @@ watch(
     if (!track) {
       if (audioSrc.value) {
         revokeUrl(audioSrc.value);
-        audioSrc.value = "";
+        setAudioSrc("");
       }
+      clearPreload();
       isPlaying.value = false;
       store.setCurrentPlaying(null);
       shouldScrollTitle.value = false;
@@ -656,6 +738,10 @@ watch(
       if (store.playRequestTrackId === track.id) store.setPlayRequestTrackId(null);
       if (!shouldAutoplay) return;
       shouldAutoplayNextSelection = false;
+      // Auto-advance handoff: when the preload element already holds this track
+      // with data buffered, swap it in and resume — no network, which is what
+      // keeps iOS auto-advance alive while the screen is locked.
+      if (tryHandoffToPreloaded(track)) return;
       nextTick(() => {
         const el = audioRef.value;
         if (!el) return;
@@ -677,8 +763,19 @@ watch(
       preloadNextTrack();
     });
   },
-  { immediate: true }
+  { immediate: true },
 );
+
+// Re-bind when Vue (re)creates the template <audio> — e.g. after the v-if
+// on singleTrack toggles — and re-apply volume/mute.
+watch(audioRef, (el, oldEl) => {
+  if (el && el !== oldEl) {
+    bindAudioEvents(el);
+    if (audioSrc.value) el.src = audioSrc.value;
+    applyEffectiveVolume();
+    el.muted = isCasting.value;
+  }
+});
 
 // Mute local audio while casting — it keeps playing for position tracking
 watch(isCasting, (casting) => {
@@ -843,17 +940,38 @@ function onExternalSeek(e: Event) {
   seekTo((e as CustomEvent<number>).detail);
 }
 
+/**
+ * Self-heal after the screen locks and unlocks. WKWebView can leave the media
+ * element in a state where play() resolves and the play event fires but
+ * currentTime never advances and no audio comes out — the exact symptom of
+ * "the bar runs but no sound" after sleep. When we come back to the
+ * foreground and isPlaying says we're playing but the element has stalled,
+ * reinitialize the pipeline (load() + canplay-gated play()).
+ */
+function onVisibilityChange() {
+  if (document.visibilityState !== "visible") return;
+  const el = audioRef.value;
+  if (!el || !isPlaying.value || isCasting.value) return;
+  if (!el.paused && el.currentTime > 0 && el.currentTime < (el.duration || Infinity)) return; // genuinely playing
+  el.load();
+  el.addEventListener("canplay", () => el.play().catch(console.error), { once: true });
+}
+
 onMounted(async () => {
   document.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("muorg:seek-to", onExternalSeek);
   recomputeMarquee();
   window.addEventListener("resize", recomputeMarquee);
-  nextTick(() => {
-    const el = audioRef.value;
-    if (!el) return;
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  // The template element starts unbound; attach handlers and adopt the src the
+  // (immediate) selection watcher may already have resolved.
+  const el = audioRef.value;
+  if (el) {
+    bindAudioEvents(el);
+    if (audioSrc.value) el.src = audioSrc.value;
     applyEffectiveVolume();
     el.muted = isCasting.value;
-  });
+  }
 
   // When cast finishes the track naturally, advance the queue just like onAudioEnded
   unlistenCastTrackEnded = castStore.onTrackEnded(() => {
@@ -878,14 +996,18 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
   window.removeEventListener("muorg:seek-to", onExternalSeek);
   window.removeEventListener("resize", recomputeMarquee);
+  document.removeEventListener("visibilitychange", onVisibilityChange);
   if (unlistenCastTrackEnded) unlistenCastTrackEnded();
   // Cleanup any cached object URLs to avoid leaks.
   revokeUrl(audioSrc.value);
-  audioSrc.value = "";
-  for (const url of audioCache.values()) {
-    revokeUrl(url);
+  setAudioSrc("");
+  if (preloadEl) {
+    preloadEl.pause();
+    preloadEl.removeAttribute("src");
+    preloadEl.remove();
+    preloadEl = null;
+    preloadedTrack = null;
   }
-  audioCache.clear();
 });
 </script>
 
@@ -894,19 +1016,16 @@ onUnmounted(() => {
     v-if="singleTrack"
     class="flex shrink-0 flex-col items-center gap-2 px-3 pb-1"
   >
+    <!--
+      JS-managed audio element: src and listeners are set imperatively
+      (setAudioSrc / bindAudioEvents) so the preload handoff can swap the
+      element under Vue without a re-render clobbering it.
+    -->
     <audio
-      :key="audioElementKey"
       ref="audioRef"
-      :src="audioSrc"
       class="hidden"
       data-muorg-player="true"
-      @play="onAudioPlay"
-      @pause="onAudioPause"
-      @ended="onAudioEnded"
-      @timeupdate="onTimeUpdate"
-      @loadedmetadata="onDurationChange"
-      @durationchange="onDurationChange"
-      @error="isPlaying = false"
+      playsinline
     />
     <div class="flex min-w-0 w-full items-center gap-3">
       <div class="flex w-64 shrink-0 items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-600/50 cursor-context-menu" @contextmenu="onAlbumArtContextMenu">

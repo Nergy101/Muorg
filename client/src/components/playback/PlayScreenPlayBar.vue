@@ -252,6 +252,16 @@ watch(
   { immediate: true },
 );
 
+// PlayerBar swaps the active audio element on a preload handoff (iOS
+// lock-screen auto-advance); re-attach our mirror listeners to the new one.
+function onAudioElementChanged() {
+  nextTick(() => {
+    attachAudioListeners();
+    syncFromAudio();
+  });
+}
+window.addEventListener("muorg:audio-element-changed", onAudioElementChanged);
+
 function togglePlay() {
   const el = getAudio();
   if (!el) return;
@@ -438,6 +448,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("muorg:audio-element-changed", onAudioElementChanged);
   const el = getAudio();
   if (el) {
     el.removeEventListener("timeupdate", syncFromAudio);
