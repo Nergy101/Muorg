@@ -9,6 +9,7 @@ export type {
   LibraryStats,
   MatchCandidate,
   Playlist,
+  PlaylistTrackEntry,
 } from "@shared/api";
 
 /** One row of a smart playlist's rules editor. Serialized as
@@ -33,6 +34,13 @@ export interface AlbumGridItem {
 
 export type AlbumViewStyle = "grid" | "list" | "tracks";
 export type SortMode = "album" | "artist" | "year";
+
+/**
+ * The order-by fields for a playlist's tracks (mirrors the Android app's
+ * `PlaylistSortMode`). `"order"` is the saved playlist order — what
+ * drag-reorder writes; the rest are view transforms.
+ */
+export type PlaylistSortMode = "order" | "added" | "title" | "artist";
 export type ThemeMode = "dark" | "light" | "system";
 export type AccentColor = "green" | "blue" | "purple" | "orange" | "red" | "teal" | "dynamic";
 export type RepeatMode = "off" | "all" | "one";

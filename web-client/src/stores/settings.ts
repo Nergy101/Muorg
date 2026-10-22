@@ -1,7 +1,13 @@
 import { defineStore } from "pinia";
 import { computed, ref, watchEffect } from "vue";
 import { loadPref, savePref } from "./prefs";
-import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types";
+import type {
+  AccentColor,
+  AlbumViewStyle,
+  PlaylistSortMode,
+  SortMode,
+  ThemeMode,
+} from "../types";
 
 const MAX_SEARCH_HISTORY = 10;
 
@@ -53,6 +59,12 @@ export const useSettingsStore = defineStore("settings", () => {
   const continuousPlayback = ref(loadPref("muorg-web-continuous", true));
   const sortMode = ref<SortMode>(loadPref("muorg-web-sort", "album"));
   const sortAscending = ref(loadPref("muorg-web-sort-asc", true));
+  /**
+   * The playlist detail screen's order-by field (mirrors the Android app's
+   * `playlistSort` preference). The direction is the app-wide `sortAscending`
+   * above, shared with the library and the settings screen.
+   */
+  const playlistSortMode = ref<PlaylistSortMode>(loadPref("muorg-web-playlist-sort", "order"));
   const albumViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-album-view", "grid"));
   /** Layout for the playlist/mix detail view — separate from the Library's
    *  albumViewStyle so a user can keep the library as an album grid while
@@ -140,6 +152,11 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-sort-asc", v);
   }
 
+  function setPlaylistSortMode(m: PlaylistSortMode): void {
+    playlistSortMode.value = m;
+    savePref("muorg-web-playlist-sort", m);
+  }
+
   function setAlbumViewStyle(s: AlbumViewStyle): void {
     albumViewStyle.value = s;
     savePref("muorg-web-album-view", s);
@@ -223,6 +240,7 @@ export const useSettingsStore = defineStore("settings", () => {
     continuousPlayback,
     sortMode,
     sortAscending,
+    playlistSortMode,
     albumViewStyle,
     playlistViewStyle,
     miniPlayerTapOpensPlayer,
@@ -239,6 +257,7 @@ export const useSettingsStore = defineStore("settings", () => {
     setContinuousPlayback,
     setSortMode,
     setSortAscending,
+    setPlaylistSortMode,
     setAlbumViewStyle,
     cycleAlbumViewStyle,
     setPlaylistViewStyle,

@@ -109,6 +109,60 @@
         </button>
       </div>
 
+      <!-- Order-by selection and direction switch for the playlist's tracks
+           (mirrors the Android app's PlaylistSortRow). Like the Android app,
+           it shows in every view style: the sort decides what Play queues. -->
+      <div
+        v-if="tracks.length > 0"
+        class="content-col flex items-center gap-1 px-4 pb-1 pt-2"
+      >
+        <div ref="sortMenuRef" class="relative">
+          <button
+            ref="sortBtnRef"
+            type="button"
+            class="flex items-center gap-1 text-label-lg text-on-surface-variant"
+            @click="sortMenuOpen = !sortMenuOpen"
+          >
+            <span>Sort: {{ sortLabel }}</span>
+            <MageIcon name="chevron-down" class="h-4 w-4" />
+          </button>
+          <Teleport to="body">
+            <div
+              v-if="sortMenuOpen"
+              class="glass-strong fixed z-50 w-40 rounded-xl py-1"
+              :style="sortMenuPos"
+            >
+              <button
+                v-for="opt in sortOptions"
+                :key="opt.value"
+                type="button"
+                class="flex w-full items-center justify-between px-3 py-2 text-label-lg text-on-surface"
+                @click="selectSort(opt.value)"
+              >
+                <span>{{ opt.label }}</span>
+                <MageIcon
+                  v-if="sortMode === opt.value"
+                  name="check"
+                  class="h-4 w-4 text-primary"
+                />
+              </button>
+            </div>
+          </Teleport>
+        </div>
+
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+          :aria-label="settings.sortAscending ? 'Sort descending' : 'Sort ascending'"
+          @click="settings.setSortAscending(!settings.sortAscending)"
+        >
+          <MageIcon
+            :name="settings.sortAscending ? 'arrow-up' : 'arrow-down'"
+            class="h-4 w-4"
+          />
+        </button>
+      </div>
+
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
         <div v-if="tracks.length === 0" class="content-col flex justify-center py-12">
           <p class="text-body-md text-on-surface-variant">No tracks in this playlist</p>
@@ -127,8 +181,12 @@
                 :class="rowClass(entry.index)"
                 :style="rowStyle(entry.index)"
               >
+                <!-- The drag handle reorders the SAVED order, so it only shows
+                     when the list IS the saved order (ascending). Under any
+                     other sort — or a reversed saved order — the column would
+                     drag against a list the user is not seeing. -->
                 <div
-                  v-if="!isSmart && !isMix"
+                  v-if="sortMode === 'order' && settings.sortAscending"
                   class="flex h-14 w-10 shrink-0 items-center justify-center text-on-surface-variant"
                   style="touch-action: none"
                   @pointerdown="drag.start(entry.index, $event)"
@@ -140,7 +198,7 @@
                   class="min-w-0 flex-1"
                   :track="trackById.get(entry.id)!"
                   :is-playing="player.currentTrack?.id === entry.id"
-                  @play="player.playTrack(trackById.get(entry.id)!, tracks)"
+                  @play="player.playTrack(trackById.get(entry.id)!, sortedTracks)"
                   @actions="openActions(trackById.get(entry.id)!)"
                 />
               </div>
@@ -227,7 +285,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, ref, watch } from "vue";
+import { computed, onActivated, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import TrackListRow from "../components/TrackListRow.vue";
@@ -240,13 +298,22 @@ import { useScrollMemory } from "../composables/useScrollMemory";
 import { useVirtualList } from "../composables/useVirtualList";
 import { useGridColumns } from "../composables/useGridColumns";
 import { showToast } from "../composables/useToast";
+import { sortPlaylistTracks } from "../playlistSort";
+import { getPlaylistEntries } from "../api/playlists";
 import { usePlaylistStore, rulesToSmartJson, parseSmartRules } from "../stores/playlists";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
 import { useOfflineStore } from "../stores/offline";
 import { findMix } from "@shared/composables/useMixes";
-import type { AlbumGridItem, AlbumViewStyle, CatalogTrack, Playlist, SmartRule } from "../types";
+import type {
+  AlbumGridItem,
+  AlbumViewStyle,
+  CatalogTrack,
+  Playlist,
+  PlaylistSortMode,
+  SmartRule,
+} from "../types";
 
 const props = defineProps<{ id: string }>();
 
@@ -343,11 +410,13 @@ function toggleViewStyle(): void {
   settings.cyclePlaylistViewStyle();
 }
 
-/** Header play button (mix or playlist): start the first track with the whole
- *  list queued behind it, so Next/auto-advance plays through. */
+/** Header play button (mix or playlist): start the first track of the active
+ *  sort with the whole sorted list queued behind it, so Next/auto-advance
+ *  plays through in the order shown (mirrors the Android app, which plays
+ *  `sortedTracks`). */
 function playAll(): void {
-  const first = tracks.value[0];
-  if (first) player.playTrack(first, tracks.value);
+  const first = sortedTracks.value[0];
+  if (first) player.playTrack(first, sortedTracks.value);
 }
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
@@ -373,6 +442,7 @@ async function loadOrder(force = false): Promise<void> {
     return;
   }
   orderedIds.value = await playlistStore.loadTrackOrderForPlaylist(playlistId.value, force);
+  await loadAddedKeys();
 }
 
 onMounted(() => loadOrder(true));
@@ -412,6 +482,99 @@ const tracks = computed<CatalogTrack[]>(() =>
     .map((id) => trackById.value.get(id))
     .filter((t): t is CatalogTrack => t != null),
 );
+
+// --- Track sorting (mirrors the Android app's PlaylistSortMode) -----------
+
+/**
+ * trackId -> the entry row's id, which grows with every insert and so doubles
+ * as the added order ("Added date" sort). Only server playlists have entries:
+ * a smart playlist stores rules, not rows, and a mix is client-side, so both
+ * leave this empty and the "added" sort falls back to the natural order.
+ */
+const addedKeys = ref<ReadonlyMap<number, number>>(new Map());
+
+async function loadAddedKeys(): Promise<void> {
+  if (mix.value || isSmart.value) {
+    addedKeys.value = new Map();
+    return;
+  }
+  try {
+    const entries = await getPlaylistEntries(playlistId.value);
+    addedKeys.value = new Map(entries.map((e) => [e.track_id, e.entry_id]));
+  } catch {
+    // The added-date sort degrades to the natural order without the keys.
+    addedKeys.value = new Map();
+  }
+}
+
+/**
+ * The sort actually in force. A smart playlist or a mix has no added order, so
+ * an "added" choice left over from another playlist falls back to the saved
+ * order for this view only (mirrors the Android app, which resets its
+ * per-screen state without persisting the reset).
+ */
+const sortMode = computed<PlaylistSortMode>(() =>
+  isSmart.value || isMix.value
+    ? settings.playlistSortMode === "added"
+      ? "order"
+      : settings.playlistSortMode
+    : settings.playlistSortMode,
+);
+
+/**
+ * The saved playlist order under the active sort — what the track list renders
+ * and Play queues. `"order"` is the saved order itself; the rest are view
+ * transforms, so drag-reorder only shows under it.
+ */
+const sortedTracks = computed<CatalogTrack[]>(() =>
+  sortPlaylistTracks(tracks.value, sortMode.value, settings.sortAscending, addedKeys.value),
+);
+
+const SORT_OPTIONS: { value: PlaylistSortMode; label: string }[] = [
+  { value: "order", label: "Playlist order" },
+  { value: "added", label: "Added date" },
+  { value: "title", label: "Title" },
+  { value: "artist", label: "Artist" },
+];
+
+/** A smart playlist or a mix has no added order to sort by — the option is
+ *  hidden for those (mirrors the Android app). */
+const sortOptions = computed(() =>
+  isSmart.value || isMix.value
+    ? SORT_OPTIONS.filter((o) => o.value !== "added")
+    : SORT_OPTIONS,
+);
+
+const sortLabel = computed(
+  () => sortOptions.value.find((o) => o.value === sortMode.value)?.label ?? "Playlist order",
+);
+
+const sortMenuOpen = ref(false);
+const sortMenuRef = ref<HTMLElement | null>(null);
+const sortBtnRef = ref<HTMLElement | null>(null);
+
+/** Position the sort menu just below its trigger. */
+const sortMenuPos = computed(() => {
+  const b = sortBtnRef.value?.getBoundingClientRect();
+  if (!b) return {};
+  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
+});
+
+function selectSort(mode: PlaylistSortMode): void {
+  settings.setPlaylistSortMode(mode);
+  sortMenuOpen.value = false;
+}
+
+function onDocumentClick(e: MouseEvent): void {
+  if (!sortMenuOpen.value) return;
+  const target = e.target as Node;
+  if (sortMenuRef.value && !sortMenuRef.value.contains(target)) {
+    sortMenuOpen.value = false;
+  }
+}
+
+onMounted(() => document.addEventListener("click", onDocumentClick));
+onUnmounted(() => document.removeEventListener("click", onDocumentClick));
 
 async function commitOrder(): Promise<void> {
   if (!hasUnsavedOrder.value) return;
@@ -454,7 +617,9 @@ function rowStyle(i: number): Record<string, string> {
 }
 
 // Grid/list modes group the playlist's tracks into albums locally — the
-// library store's grouping only ever sees the whole catalog.
+// library store's grouping only ever sees the whole catalog. The source is
+// the SORTED list, so the album groups follow the active sort's track order
+// (mirrors the Android app, where `getTracksForAlbum` reads `sortedTracks`).
 function buildAlbumItems(source: CatalogTrack[]): AlbumGridItem[] {
   const map = new Map<string, AlbumGridItem>();
   for (const t of source) {
@@ -491,7 +656,7 @@ function buildAlbumItems(source: CatalogTrack[]): AlbumGridItem[] {
   return [...map.values()].sort((a, b) => a.album.localeCompare(b.album));
 }
 
-const albumItems = computed(() => buildAlbumItems(tracks.value));
+const albumItems = computed(() => buildAlbumItems(sortedTracks.value));
 
 function isAlbumActive(item: AlbumGridItem): boolean {
   const current = player.currentTrack;
@@ -552,10 +717,24 @@ const albumsListAnchor = ref<HTMLElement | null>(null);
 const albumsAnchor = ref<HTMLElement | null>(null);
 const gridCols = useGridColumns(scroller);
 
+/**
+ * The ids the track list renders. Under the saved-order sort this tracks
+ * `reorderedIds` (staged order while a drag is unsaved, and reversed when the
+ * direction is descending — a view transform, mirroring the Android app), so
+ * drag indices stay aligned with row indices. Under any other sort the list
+ * renders the sorted order and the drag handle is hidden.
+ */
+const displayIds = computed<number[]>(() => {
+  if (sortMode.value === "order") {
+    return settings.sortAscending ? reorderedIds.value : [...reorderedIds.value].reverse();
+  }
+  return sortedTracks.value.map((t) => t.id);
+});
+
 const tracksList = useVirtualList({
   scroller,
   anchor: tracksAnchor,
-  count: () => reorderedIds.value.length,
+  count: () => displayIds.value.length,
   rowHeight: () => REORDER_ROW_HEIGHT,
   columns: () => 1,
 });
@@ -588,7 +767,7 @@ const albumGrid = useVirtualList({
 const visibleTrackEntries = computed(() => {
   const s = tracksList.start.value;
   const e = tracksList.end.value;
-  return reorderedIds.value.slice(s, e).map((id, i) => ({ id, index: s + i }));
+  return displayIds.value.slice(s, e).map((id, i) => ({ id, index: s + i }));
 });
 
 const visibleAlbumListItems = computed(() =>
