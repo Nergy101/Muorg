@@ -17,20 +17,20 @@
     "@eslint/js": "^10.0.1",
     "@types/feather-icons": "^4.29.4",
     "@vitejs/plugin-vue": "^6.0.10",
-    "@vitest/coverage-v8": "^5.0.4",
+    "@vitest/coverage-v8": "^5.0.5",
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.5.1",
     "ajv": "^8.20.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.12.0",
+    "eslint": "^10.13.0",
     "eslint-plugin-vue": "^10.11.1",
     "feather-icons": "^4.29.2",
-    "happy-dom": "^21.0.1",
+    "happy-dom": "^21.0.3",
     "openapi-fetch": "^0.17.0",
     "openapi-typescript": "^7.13.0",
-    "typescript-eslint": "^8.71.2",
-    "vitest": "^5.0.4",
-    "vue": "^3.5.43"
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5",
+    "vue": "^3.5.44"
   },
   "packageManager": "pnpm@10.18.3"
 }
