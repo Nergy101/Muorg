@@ -33,7 +33,7 @@ The sidecar binds to `127.0.0.1`, so other devices on your network **cannot** re
 
 You are asked where your music lives:
 
-- **Add a local folder** — pick a directory; Muorg scans it recursively for MP3 and FLAC files.
+- **Add a local folder** — pick a directory; Muorg scans it recursively for MP3, FLAC and WAV files.
 - **Connect to a server** — enter a [muorg-server](/docs/server/) URL and API key.
 
 Folders can be added and removed later from the **Folders** tab in the sidebar. You can also drag files or folders onto the window to add them.

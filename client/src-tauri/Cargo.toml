@@ -30,7 +30,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 local-ip-address = "0.6"
 urlencoding = "2"
-symphonia = { version = "0.6", features = ["flac", "mp3"] }
+symphonia = { version = "0.6", features = ["flac", "mp3", "wav", "pcm"] }
 mp3lame-encoder = "0.2"
 bytes = "1"
 

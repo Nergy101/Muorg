@@ -177,14 +177,18 @@ class CastManager @Inject constructor(
             "$baseUrl/stream/${track.id}?token=$token"
         }
 
-        val contentType = when (track.format.lowercase()) {
-            "mp3" -> "audio/mpeg"
-            "flac" -> "audio/flac"
-            "aac", "m4a" -> "audio/mp4"
-            "ogg" -> "audio/ogg"
-            "opus" -> "audio/ogg;codecs=opus"
-            "wav" -> "audio/wav"
-            else -> "audio/mpeg"
+        val contentType = when {
+            // A server stream of a FLAC/WAV track is the transcoded MP3, not the file itself.
+            track.localFilePath == null && track.needsTranscode -> "audio/mpeg"
+            else -> when (track.format.lowercase()) {
+                "mp3" -> "audio/mpeg"
+                "flac" -> "audio/flac"
+                "aac", "m4a" -> "audio/mp4"
+                "ogg" -> "audio/ogg"
+                "opus" -> "audio/ogg;codecs=opus"
+                "wav" -> "audio/wav"
+                else -> "audio/mpeg"
+            }
         }
 
         val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {

@@ -1300,6 +1300,7 @@ fn scanning_a_directory_indexes_audio_and_ignores_everything_else() {
     let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     std::fs::copy(fixtures.join("cover_front.mp3"), dir.path().join("song.mp3")).unwrap();
     std::fs::copy(fixtures.join("no_cover.flac"), dir.path().join("song.flac")).unwrap();
+    std::fs::copy(fixtures.join("silence.wav"), dir.path().join("song.WAV")).unwrap();
     std::fs::write(dir.path().join("cover.jpg"), b"not audio").unwrap();
     std::fs::write(dir.path().join("notes.txt"), b"not audio").unwrap();
 
@@ -1308,7 +1309,7 @@ fn scanning_a_directory_indexes_audio_and_ignores_everything_else() {
     cat::save_roots(&conn, &[root.clone()]).unwrap();
     let added = cat::scan_and_insert(&conn, &root).unwrap();
 
-    assert_eq!(added, 2, "only the mp3 and the flac are audio");
+    assert_eq!(added, 3, "only the mp3, the flac and the wav are audio");
     let formats: std::collections::HashSet<String> = cat::load_tracks(&conn)
         .unwrap()
         .into_iter()
@@ -1316,7 +1317,9 @@ fn scanning_a_directory_indexes_audio_and_ignores_everything_else() {
         .collect();
     assert_eq!(
         formats,
-        ["mp3".to_string(), "flac".to_string()].into_iter().collect()
+        ["mp3".to_string(), "flac".to_string(), "wav".to_string()]
+            .into_iter()
+            .collect()
     );
 }
 

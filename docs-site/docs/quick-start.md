@@ -22,7 +22,7 @@ Pick the path that matches what you want:
 
    Full details, including the `.deb` and the Android APK, are on the [Install & Update](/docs/installation) page.
 
-2. **Launch Muorg** and add a music folder when prompted. Muorg scans it recursively for MP3 and FLAC files.
+2. **Launch Muorg** and add a music folder when prompted. Muorg scans it recursively for MP3, FLAC and WAV files.
 
 3. **Browse** the library as a track table (default) or an album grid.
 

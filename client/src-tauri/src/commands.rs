@@ -155,7 +155,7 @@ pub async fn read_audio_file(path: String) -> Result<String, String> {
         .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase());
-    if ext.as_deref() != Some("mp3") && ext.as_deref() != Some("flac") {
+    if ext.as_deref().and_then(muorg_core::metadata::format_from_ext).is_none() {
         return Err("Unsupported format".to_string());
     }
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
@@ -539,13 +539,13 @@ pub async fn cast_play(
     let lan_ip = local_ip_address::local_ip().map_err(|e| e.to_string())?;
     let encoded = urlencoding::encode(&track_path);
     let stream_url = format!("http://{lan_ip}:{port}/track?path={encoded}");
-    let is_flac = track_path.to_lowercase().ends_with(".flac");
+    let needs_transcode = muorg_core::metadata::needs_transcode(&track_path);
 
     cast_state.start_session(
         device.address,
         device.port,
         stream_url,
-        is_flac,
+        needs_transcode,
         crate::cast::TauriObserver::new(app),
     );
     Ok(())

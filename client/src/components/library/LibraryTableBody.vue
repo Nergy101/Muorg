@@ -1199,7 +1199,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
         </template>
         <tr v-else class="text-stone-500">
           <td :colspan="tableColCount" class="p-6 text-center">
-            {{ store.searchQuery.trim() ? "No tracks match the search." : "No tracks to show. Add or unhide a folder to show MP3/FLAC files." }}
+            {{ store.searchQuery.trim() ? "No tracks match the search." : "No tracks to show. Add or unhide a folder to show MP3/FLAC/WAV files." }}
           </td>
         </tr>
       </tbody>

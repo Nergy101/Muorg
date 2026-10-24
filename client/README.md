@@ -6,7 +6,7 @@
   <em>Pronounced “Mu-Ork” — think of a Musical Ork who organizes your music.</em>
 </div>
 
-A cross-platform desktop app that organizes your music library with a dense, library-style UI. Add folders of MP3 and FLAC files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+A cross-platform desktop app that organizes your music library with a dense, library-style UI. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
 
 
 **Platforms:** macOS, Windows, Linux
@@ -32,7 +32,7 @@ A cross-platform desktop app that organizes your music library with a dense, lib
 
 ## ✨ Features
 
-- 📁 **Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3` and `.flac` and builds a persistent catalog in SQLite. Rescan or remove folders from the sidebar. **Hide/show folders** in the table (per-root toggle); expand or collapse all groups.
+- 📁 **Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3`, `.flac` and `.wav` and builds a persistent catalog in SQLite. Rescan or remove folders from the sidebar. **Hide/show folders** in the table (per-root toggle); expand or collapse all groups.
 - 📋 **Library view** — Table with album art, title, artist, album, year, duration, format, and path. Full-text search across title, artist, and album. Group by album or artist (collapsible; album art in group header when all tracks share the same art). **Multi-select** (Ctrl+A) for bulk actions.
 - 📂 **Playlists** — Sidebar has **Folders** and **Playlists** tabs. Create, rename, and delete playlists; add tracks via context menu or drag-and-drop (with duplicate handling). Click a playlist to filter the library to that playlist’s tracks. **Export playlists** to M3U (relative paths; Music Root Folder in Settings → Exports).
 - 📋 **Queue** — Right-click tracks or groups and choose **Add to queue**. Bottom bar has a **Queue** tab (Ctrl+Q) with a reorderable list, play-from-queue, and clear. Next/previous follow the queue when it has items (unless shuffle is on). Queue panel width and bottom panel height are resizable and saved in Settings.
@@ -120,7 +120,7 @@ Download the **MSI** or **EXE** installer from [releases](https://github.com/you
 muorg/
 ├── src-tauri/          # Tauri (Rust) backend
 │   ├── src/
-│   │   ├── metadata/   # MP3/FLAC read & write
+│   │   ├── metadata/   # MP3/FLAC/WAV read & write
 │   │   ├── catalog/    # Scan, index, SQLite
 │   │   └── commands.rs # Tauri commands (scan, get_tracks, write_metadata, …)
 │   └── ...

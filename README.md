@@ -13,7 +13,7 @@
 
 ---
 
-A music library organizer with a dense, library-style UI — a cross-platform desktop app, plus a web app and an Android app that connect to the same server. Add folders of MP3 and FLAC files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+A music library organizer with a dense, library-style UI — a cross-platform desktop app, plus a web app and an Android app that connect to the same server. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
 
 Muorg works in two modes:
 - **Local** — music files live on your own machine; no remote server needed.
@@ -57,7 +57,7 @@ The Android app ships on its own tags, so it is not on the release above: take
 
 ## ✨ Features
 
-- **📁 Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3` and `.flac` and builds a persistent SQLite catalog. Rescan or remove folders at any time.
+- **📁 Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3`, `.flac` and `.wav` and builds a persistent SQLite catalog. Rescan or remove folders at any time.
 - **📋 Library view** — Table with album art, title, artist, album, year, duration, and path. Full-text search; group by album or artist; multi-select for bulk actions.
 - **💿 Album view** — Browse your collection as an album grid with cover art. Click an album to see its tracks.
 - **📂 Playlists** — Create, rename, and delete playlists. Add tracks via context menu or drag-and-drop. Export to M3U.

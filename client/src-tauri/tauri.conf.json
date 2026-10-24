@@ -48,7 +48,7 @@
     "externalBin": [
       "binaries/muorg-server"
     ],
-    "longDescription": "Organize your music library. Edit metadata for MP3 and FLAC files.",
+    "longDescription": "Organize your music library. Edit metadata for MP3, FLAC and WAV files.",
     "shortDescription": "The Music Organizer from Hell",
     "linux": {
       "appimage": {

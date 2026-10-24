@@ -46,10 +46,10 @@ async fn serve_track(
     }
 
     let start_secs = params.start.unwrap_or(0.0);
-    let is_flac = params.path.to_lowercase().ends_with(".flac");
+    let needs_transcode = muorg_core::metadata::needs_transcode(&params.path);
 
-    if is_flac {
-        // Transcode FLAC → MP3 on a blocking thread, stream chunks back.
+    if needs_transcode {
+        // Transcode FLAC/WAV → MP3 on a blocking thread, stream chunks back.
         let (tx, rx) = tokio::sync::mpsc::channel::<StreamChunk>(128);
         let path = params.path.clone();
 

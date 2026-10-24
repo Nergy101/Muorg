@@ -633,18 +633,15 @@ fn load_tracks_filtered(
 fn format_from_path(path: &Path) -> Option<&'static str> {
     path.extension()
         .and_then(|e| e.to_str())
-        .and_then(|s| match s.to_lowercase().as_str() {
-            "mp3" => Some("mp3"),
-            "flac" => Some("flac"),
-            _ => None,
-        })
+        .and_then(metadata::format_from_ext)
+        .map(metadata::AudioFormat::as_str)
 }
 
 /// One track as observed by a scanner, ready to be upserted.
 pub struct ScannedTrack<'a> {
     /// Local absolute path or `remote://` URI, stored verbatim.
     pub path: &'a str,
-    /// `"mp3"` or `"flac"`.
+    /// `"mp3"`, `"flac"` or `"wav"`.
     pub format: &'a str,
     pub mtime_secs: i64,
     pub content_hash: Option<&'a str>,
