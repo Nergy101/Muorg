@@ -568,8 +568,8 @@ class PlayerController @Inject constructor(
 
         val targetMs = (fullDurationMs * fraction).toLong()
 
-        if (track.format.lowercase() == "flac" && track.localFilePath == null) {
-            // FLAC server stream: the server transcodes to MP3 starting at ?start=N.
+        if (track.needsTranscode && track.localFilePath == null) {
+            // FLAC/WAV server stream: the server transcodes to MP3 starting at ?start=N.
             // Re-request with a fresh token and the desired start offset. The
             // seek bar shows buffering until the replacement stream is READY.
             scope.launch {

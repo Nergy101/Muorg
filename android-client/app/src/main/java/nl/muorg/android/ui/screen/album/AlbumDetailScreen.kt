@@ -348,11 +348,11 @@ private fun AlbumTrackRow(
             Text(
                 text = track.format.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (track.format == "flac") MaterialTheme.colorScheme.primary
+                color = if (track.isLossless) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .background(
-                        color = if (track.format == "flac")
+                        color = if (track.isLossless)
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
                         shape = MuorgShapes.chip,

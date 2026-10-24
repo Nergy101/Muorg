@@ -41,6 +41,12 @@ data class CatalogTrack(
     val displayArtist: String get() = artist ?: albumArtist ?: "Unknown Artist"
     val displayAlbum: String get() = album ?: "Unknown Album"
 
+    /** The server transcodes every non-MP3 stream to MP3, so those seek by reloading from `?start=`. */
+    val needsTranscode: Boolean get() = !format.equals("mp3", ignoreCase = true)
+
+    /** Lossless formats get the highlighted format badge. */
+    val isLossless: Boolean get() = format.lowercase() in setOf("flac", "wav")
+
     fun formattedDuration(): String {
         val totalSecs = durationSecs?.toInt() ?: return "--:--"
         val minutes = totalSecs / 60

@@ -115,7 +115,7 @@ impl CastState {
         address: String,
         port: u16,
         stream_url: String,
-        is_flac: bool,
+        needs_transcode: bool,
         observer: impl CastObserver,
     ) {
         // Terminate any existing session
@@ -195,8 +195,8 @@ impl CastState {
                 }
             }
 
-            // For FLAC we emit Transcoding before loading since encoding takes time
-            if is_flac {
+            // Transcoded formats emit Transcoding before loading since encoding takes time
+            if needs_transcode {
                 emit(CastSessionStatus::Transcoding);
             }
 
@@ -325,8 +325,8 @@ impl CastState {
                         device.drain_message_buffer();
                     }
                     Ok(CastCommand::Seek { secs, was_playing }) => {
-                        if is_flac {
-                            // FLAC: seek-by-reload — rebuild the URL with ?start=<secs>
+                        if needs_transcode {
+                            // Transcoded: seek-by-reload — rebuild the URL with ?start=<secs>
                             flac_base_secs = secs;
                             let seek_url = format!("{}&start={}", stream_url, secs);
                             let seek_media = Media {

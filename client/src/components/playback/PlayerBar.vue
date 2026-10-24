@@ -10,6 +10,7 @@ import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import StarRating from "../shared/StarRating.vue";
 import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import { needsTranscode } from "@shared/formats";
 import CastButton from "./CastButton.vue";
 import type { CatalogTrack, TrackMetadataRead } from "../../types";
 import * as catalogApi from "../../api/catalog";
@@ -374,7 +375,7 @@ function seekTo(secs: number) {
     if (el) el.currentTime = secs;
     if (wasPlaying) castStore.setPendingCastResume(true);
     castApi.castSeek(secs, wasPlaying).catch(console.error);
-  } else if (singleTrack.value?.format === "flac") {
+  } else if (singleTrack.value && needsTranscode(singleTrack.value.format)) {
     seekToFlac(singleTrack.value, secs).catch(console.error);
   } else if (el) {
     seekToMp3(secs);

@@ -133,11 +133,11 @@ pub async fn stream_audio(
         }
     };
 
-    let is_flac = track_path.to_lowercase().ends_with(".flac");
+    let needs_transcode = muorg_core::metadata::needs_transcode(&track_path);
     let start_secs = params.start.unwrap_or(0.0).max(0.0);
 
     if let Some((remote, key)) = state.remotes.resolve(&track_path) {
-        return stream_remote(&state, id, remote, key, is_flac, start_secs, &req_headers).await;
+        return stream_remote(&state, id, remote, key, needs_transcode, start_secs, &req_headers).await;
     }
 
     // Shared validators: file mtime is the natural cache key
@@ -150,8 +150,8 @@ pub async fn stream_audio(
         return resp;
     }
 
-    if is_flac {
-        // Serve the FLAC track as a seekable MP3: transcode once (cache by
+    if needs_transcode {
+        // Serve the FLAC/WAV track as a seekable MP3: transcode once (cache by
         // track id + mtime), then reply with Content-Length + ranges exactly
         // like the MP3 branch. A length-less live chunked stream would make the
         // browser treat the track as a live stream and desync on buffer stalls.
@@ -293,7 +293,7 @@ async fn stream_remote(
     id: i64,
     remote: Arc<crate::storage::RemoteStore>,
     key: object_store::path::Path,
-    is_flac: bool,
+    needs_transcode: bool,
     start_secs: f32,
     req_headers: &HeaderMap,
 ) -> Response {
@@ -321,8 +321,8 @@ async fn stream_remote(
         headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
     }
 
-    if is_flac {
-        // Same seekable-file treatment as the local FLAC branch: transcode once
+    if needs_transcode {
+        // Same seekable-file treatment as the local transcode branch: transcode once
         // and serve the cached MP3 bytes with Content-Length + ranges.
         let cfg = state.transcoding_config.clone();
         let cached = state.transcode_cache.get(id, secs);
