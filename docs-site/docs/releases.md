@@ -6,6 +6,13 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v3.3.0
+
+- **Server**: WAV support — scanning, tag reading and tag editing now cover `.wav` files. Tags are written to the WAV's ID3 chunk (what DJ software and taggers use), with RIFF LIST/INFO read as a fallback and copied into the new ID3 tag on the first edit so no fields disappear; every other chunk (audio, cue points, smpl, bext, iXML) is left byte-for-byte as it was. Streaming and casting send WAV through the existing MP3 transcode path, like FLAC. Also fixes editing "featuring" on ID3 files: it removed every TXXX frame (catalogue numbers, Discogs IDs, …) and now removes only TXXX:FEATURING.
+- **Desktop App**: WAV support end to end — `.wav` files show up in the library and play, the metadata editor reads and writes their tags, and Chromecast sessions transcode them like FLAC.
+- **Web App**: playlists can be sorted by title, artist or added date (ascending/descending) from the playlist header, and the Home header has a **Shuffle all** button. WAV files play and stream like FLAC. Fixed iOS playback stalling on the lock screen — auto-advance now keeps working when the screen is locked.
+- **Android**: no new Android release in this cycle — see the [Android release notes](#android-32x--33x) (android-v3.3.8 through android-v3.4.0 shipped since v3.2.4). WAV support lands in the next Android release.
+
 ## v3.2.4
 
 - **Desktop App**: the app now checks the bundled server (sidecar) on every launch and replaces an outdated one. A sidecar left running by a previous version (after an auto-update, say) used to keep port 7700, so the new app silently talked to the old server — which is why Chromecast kept failing after updating to v3.2.3. Only a process named `muorg-server` is ever stopped; anything else on the port is left alone. The sidebar's tab bar no longer squeezes or wraps its tabs when the sidebar is narrow: it scrolls horizontally (mouse wheel works too) and keeps the active tab in view.
