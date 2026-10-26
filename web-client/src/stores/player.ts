@@ -3,6 +3,7 @@ import { computed, ref, watch, watchEffect } from "vue";
 import { issueStreamToken, recordPlay, patchMetadata } from "../api/catalog";
 import type { MetadataUpdate } from "../api/catalog";
 import { streamUrl } from "../api/client";
+import { needsTranscode } from "@shared/formats";
 import { showToast, showWarning } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
 import { useDominantColor } from "../composables/useDominantColor";
@@ -343,9 +344,9 @@ export const usePlayerStore = defineStore("player", () => {
       const src = await resolveStreamSrc(track, startSecs);
       if (seq !== _seekSeq) return;
       const el = initAudio();
-      // A cached file is complete, so even FLAC seeks natively — no transcode
-      // offset to track.
-      flacSeekOffset = !cached && track.format === "flac" ? startSecs : 0;
+      // A cached file is complete, so even FLAC/WAV seeks natively — no
+      // transcode offset to track.
+      flacSeekOffset = !cached && needsTranscode(track.format) ? startSecs : 0;
       el.src = src;
       positionSecs.value = startSecs;
       durationSecs.value = track.duration_secs ?? 0;
@@ -568,10 +569,10 @@ export const usePlayerStore = defineStore("player", () => {
     const wasPlaying = !el.paused;
     const cached = useOfflineStore().isCached(track.id);
 
-    if (track.format === "flac" && !cached) {
-      // Streamed FLAC: the server transcodes from ?start=, so the stream must
-      // reload. Issue a fresh token — the original expires 60s after track
-      // start. A cached FLAC is a complete file and seeks natively below.
+    if (needsTranscode(track.format) && !cached) {
+      // Streamed FLAC/WAV: the server transcodes from ?start=, so the stream
+      // must reload. Issue a fresh token — the original expires 60s after track
+      // start. A cached file is complete and seeks natively below.
       el.pause();
       flacSeekOffset = secs;
       el.src = "";

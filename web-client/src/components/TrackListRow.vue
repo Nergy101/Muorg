@@ -41,7 +41,7 @@
         <span
           v-if="showFormatBadge !== false"
           class="ml-auto shrink-0 rounded-[3px] px-1 py-[1px] text-[10px] leading-none uppercase"
-          :class="track.format === 'flac'
+          :class="isLossless(track.format)
             ? 'bg-primary/[0.12] text-primary'
             : 'bg-on-surface-variant/10 text-on-surface-variant'"
         >{{ track.format.toUpperCase() }}</span>
@@ -67,6 +67,7 @@
 import { computed } from "vue";
 import MageIcon from "./MageIcon.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
+import { isLossless } from "@shared/formats";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";

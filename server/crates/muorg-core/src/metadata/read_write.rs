@@ -54,6 +54,7 @@ pub struct TrackMetadata {
 pub enum AudioFormat {
     Mp3,
     Flac,
+    Wav,
 }
 
 impl AudioFormat {
@@ -61,13 +62,21 @@ impl AudioFormat {
         match self {
             Self::Mp3 => "mp3",
             Self::Flac => "flac",
+            Self::Wav => "wav",
         }
+    }
+
+    /// Players are only ever served MP3, so every other format goes through
+    /// the MP3 transcoder before it is streamed or cast.
+    pub fn needs_transcode(self) -> bool {
+        !matches!(self, Self::Mp3)
     }
 
     fn file_type(self) -> FileType {
         match self {
             Self::Mp3 => FileType::Mpeg,
             Self::Flac => FileType::Flac,
+            Self::Wav => FileType::Wav,
         }
     }
 }
@@ -78,8 +87,19 @@ pub fn format_from_ext(ext: &str) -> Option<AudioFormat> {
     match ext.to_lowercase().as_str() {
         "mp3" => Some(AudioFormat::Mp3),
         "flac" => Some(AudioFormat::Flac),
+        "wav" | "wave" => Some(AudioFormat::Wav),
         _ => None,
     }
+}
+
+/// Whether the track at `path` (a local path or `remote://` URI) has to be
+/// transcoded before a player can use it. Unknown extensions are served as-is.
+pub fn needs_transcode(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .and_then(format_from_ext)
+        .is_some_and(AudioFormat::needs_transcode)
 }
 
 pub fn read_metadata(path: &Path) -> Result<TrackMetadata, String> {
@@ -118,9 +138,10 @@ pub fn read_metadata_from_reader<R: std::io::Read + std::io::Seek>(
             .and_then(|k| tag.get_string(k))
             .map(|s| s.to_string());
         meta.year = tag.date().map(|d| d.year as u32);
-        if meta.year.is_none() && format == AudioFormat::Mp3 {
+        if meta.year.is_none() && format != AudioFormat::Flac {
             // lofty does not surface a bare ID3v2 TYER/TDRC year on every file;
-            // fall back to id3's own parse before giving up.
+            // fall back to id3's own parse (which finds a WAV's id3 chunk too)
+            // before giving up.
             if reader.seek(std::io::SeekFrom::Start(0)).is_ok() {
                 if let Ok(id3_tag) = id3::Tag::read_from2(&mut reader) {
                     if let Some(y) = id3_tag.year() {
@@ -238,27 +259,39 @@ pub struct MetadataUpdate {
 }
 
 pub fn write_metadata(path: &Path, update: &MetadataUpdate) -> Result<(), String> {
-    let ext = path
+    let format = path
         .extension()
         .and_then(|e| e.to_str())
-        .map(|s| s.to_lowercase());
-    match ext.as_deref() {
-        Some("mp3") => write_metadata_mp3(path, update),
-        Some("flac") => write_metadata_flac(path, update),
-        _ => Err("Unsupported format".to_string()),
+        .and_then(format_from_ext);
+    match format {
+        Some(f @ (AudioFormat::Mp3 | AudioFormat::Wav)) => write_metadata_id3(path, update, f),
+        Some(AudioFormat::Flac) => write_metadata_flac(path, update),
+        None => Err("Unsupported format".to_string()),
     }
 }
 
-fn write_metadata_mp3(path: &Path, update: &MetadataUpdate) -> Result<(), String> {
+/// MP3s carry ID3v2 at the head of the file, WAVs in an `id3 ` chunk.
+fn write_metadata_id3(
+    path: &Path,
+    update: &MetadataUpdate,
+    format: AudioFormat,
+) -> Result<(), String> {
     use id3::frame::{Content, ExtendedText, Frame, Picture, PictureType};
     use id3::{TagLike, Version};
 
+    // id3 tells an MP3 from a WAV by its magic bytes, on read and on write.
     let mut tag = match id3::Tag::read_from_path(path) {
         Ok(t) => t,
         Err(id3::Error {
             kind: id3::ErrorKind::NoTag,
             ..
-        }) => id3::Tag::new(),
+        }) => {
+            let mut tag = id3::Tag::new();
+            if format == AudioFormat::Wav {
+                seed_from_riff_info(&mut tag, path);
+            }
+            tag
+        }
         Err(e) => return Err(e.to_string()),
     };
 
@@ -287,7 +320,9 @@ fn write_metadata_mp3(path: &Path, update: &MetadataUpdate) -> Result<(), String
         }
     }
     if let Some(v) = &update.featuring {
-        tag.remove("TXXX");
+        // Only the FEATURING frame: other TXXX frames (catalogue numbers,
+        // Discogs IDs, ...) belong to the user and must survive an edit.
+        tag.remove_extended_text(Some("FEATURING"), None);
         if let Some(f) = v {
             tag.add_frame(Frame::with_content(
                 "TXXX",
@@ -344,8 +379,47 @@ fn write_metadata_mp3(path: &Path, update: &MetadataUpdate) -> Result<(), String
         }
     }
 
-    tag.write_to_path(path, Version::Id3v24).map_err(|e| e.to_string())?;
+    let version = match format {
+        // DJ software reads the WAV chunk as-is, so keep the version it was
+        // written in rather than upgrading it behind the user's back.
+        AudioFormat::Wav => tag.version(),
+        _ => Version::Id3v24,
+    };
+    tag.write_to_path(path, version).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// A WAV with no `id3 ` chunk may still carry a RIFF `LIST/INFO` tag. Once an
+/// ID3 tag exists it is the one muorg reads, so copy the INFO fields across
+/// first — otherwise editing one field would hide all the others.
+fn seed_from_riff_info(tag: &mut id3::Tag, path: &Path) {
+    let Ok(meta) = read_metadata(path) else {
+        return;
+    };
+    if let Some(v) = meta.title {
+        tag.set_title(v);
+    }
+    if let Some(v) = meta.artist {
+        tag.set_artist(v);
+    }
+    if let Some(v) = meta.album {
+        tag.set_album(v);
+    }
+    if let Some(v) = meta.album_artist {
+        tag.set_album_artist(v);
+    }
+    if let Some(v) = meta.year {
+        tag.set_year(v as i32);
+    }
+    if let Some(v) = meta.genre {
+        tag.set_genre(v);
+    }
+    if let Some(v) = meta.track_number {
+        tag.set_track(v);
+    }
+    if let Some(v) = meta.disc_number {
+        tag.set_disc(v);
+    }
 }
 
 fn write_metadata_flac(path: &Path, update: &MetadataUpdate) -> Result<(), String> {

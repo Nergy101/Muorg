@@ -142,7 +142,7 @@ pub async fn play(
     let token = state.tokens.issue(body.track_id, 4 * 60 * 60);
     let lan_ip = local_ip_address::local_ip().map_err(|e| e.to_string())?;
     let stream_url = cast_stream_url(&state, &lan_ip, body.track_id, &token);
-    let is_flac = track_path.to_lowercase().ends_with(".flac");
+    let needs_transcode = muorg_core::metadata::needs_transcode(&track_path);
 
     // The server reads its own state for GET /api/cast/status, so it has
     // nothing to be pushed.
@@ -150,7 +150,7 @@ pub async fn play(
         body.device_address,
         body.device_port,
         stream_url,
-        is_flac,
+        needs_transcode,
         NoObserver,
     );
     let session_id = state.cast_session.session_id();
