@@ -193,6 +193,15 @@ export const usePlayerStore = defineStore("player", () => {
   let errorTimer: ReturnType<typeof setTimeout> | undefined;
   let sleepInterval: ReturnType<typeof setInterval> | undefined;
   /**
+   * Screen Wake Lock handle, held while playing. On browsers that support it
+   * (Chrome/Edge on Android and desktop) this keeps the CPU awake across the
+   * track boundary so the next stream's load does not stall — the same fix
+   * the Android app got with ExoPlayer's WAKE_MODE_LOCAL. iOS Safari does not
+   * implement the Wake Lock API (it is silently unavailable), where the
+   * preload handoff + visibility self-heal below are the mitigation.
+   */
+  let wakeLock: WakeLockSentinel | null = null;
+  /**
    * Backing pool for "Shuffle all". Empties once every track has been queued,
    * which is why it cannot double as the button's active state.
    */
@@ -259,6 +268,9 @@ export const usePlayerStore = defineStore("player", () => {
     el.volume = volume.value;
     // Must be in the DOM for the iOS Now Playing widget to register.
     el.style.display = "none";
+    // playsinline keeps playback inline on iOS instead of forcing fullscreen.
+    el.setAttribute("playsinline", "");
+    el.setAttribute("webkit-playsinline", "");
     document.body.appendChild(el);
     return el;
   }
@@ -428,7 +440,11 @@ export const usePlayerStore = defineStore("player", () => {
       if (seq !== preloadSeq || !preloadEl) return;
       preloadedTrack = next;
       buf.src = src;
-      buf.load(); // preload=auto — the browser fills the buffer now
+      // preload=auto on iOS/Safari: WebKit only starts buffering once the
+      // element is "needed", so force it with load(). "metadata" alone would
+      // not fill the buffer the lock-screen handoff depends on.
+      buf.preload = "auto";
+      buf.load();
     } catch {
       preloadedTrack = null;
     }
@@ -1038,7 +1054,71 @@ export const usePlayerStore = defineStore("player", () => {
   watch(isPlaying, (playing) => {
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+    if (playing) void acquireWakeLock();
+    else releaseWakeLock();
   });
+
+  // --- Lock-screen resilience (iOS Safari / installed PWA) ---
+  //
+  // When the phone sleeps, WebKit suspends the page's task queue. Audio keeps
+  // playing (the media pipeline runs in the GPU process), and WebKit wakes the
+  // page briefly when the track fires 'ended' — but a cold start (token fetch
+  // + src swap + play()) usually gets suspended again before audio begins,
+  // leaving the progress bar running with no sound. Three mitigations:
+  //
+  // 1. The preload element (above) turns the handoff into a resume: play() on
+  //    an element that already has bytes needs no network round-trip.
+  // 2. A screen wake lock (where supported) keeps the CPU awake across the
+  //    boundary so even a cold start finishes.
+  // 3. On returning to the foreground, a stalled element that claims to be
+  //    playing but is not advancing is reinitialized — self-heal.
+
+  async function acquireWakeLock(): Promise<void> {
+    // iOS Safari does not implement the Wake Lock API; feature-detect.
+    if (!("wakeLock" in navigator)) return;
+    if (wakeLock && !wakeLock.released) return;
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => {
+        // The OS can release the lock on its own (e.g. battery saver); while
+        // still playing and visible, ask for it again.
+        if (isPlaying.value && document.visibilityState === "visible") {
+          void acquireWakeLock();
+        }
+      });
+    } catch {
+      // Denied or interrupted — playback continues without the lock.
+    }
+  }
+
+  function releaseWakeLock(): void {
+    if (!wakeLock) return;
+    wakeLock.release().catch(() => undefined);
+    wakeLock = null;
+  }
+
+  /**
+   * Self-heal after the screen locks and unlocks. WebKit can leave the media
+   * element in a state where play() resolves and the play event fires but
+   * currentTime never advances and no audio comes out — the exact symptom of
+   * "the bar runs but no sound" after sleep. When we come back to the
+   * foreground and the element claims to be playing but has stalled,
+   * reinitialize the pipeline (load() + canplay-gated play()).
+   */
+  function onVisibilityChange(): void {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+    // The lock is dropped while hidden; re-acquire now that we can.
+    if (isPlaying.value) void acquireWakeLock();
+    const el = audioEl.value;
+    if (!el || !isPlaying.value) return;
+    if (!el.paused && el.currentTime > 0 && el.currentTime < (el.duration || Infinity)) return; // genuinely playing
+    el.load();
+    el.addEventListener("canplay", () => el.play().catch(() => undefined), { once: true });
+  }
+
+  document.addEventListener("visibilitychange", onVisibilityChange);
 
   watch([positionSecs, durationSecs], () => {
     if (!("mediaSession" in navigator) || !durationSecs.value) return;
@@ -1162,6 +1242,7 @@ export const usePlayerStore = defineStore("player", () => {
     }
     preloadedTrack = null;
     preloadSeq++;
+    releaseWakeLock();
     cancelSleepTimer();
     clearTimeout(errorTimer);
     errorTimer = undefined;

@@ -91,6 +91,7 @@ The bottom bar has four tabs — **Home**, **Library**, **Playlists** and **Sett
 - Full-screen player with large artwork, a background glow derived from the cover, draggable seek bar, shuffle, repeat (including repeat-one), and a favourite toggle.
 - **Sleep timer** with presets from 5 to 90 minutes.
 - Queue view with drag-to-reorder, a shuffle toggle and clear-all.
+- **Lock-screen playback** — the next track is pre-buffered while the current one plays, so auto-advance keeps working when the screen is locked (the same handoff as gapless playback). On browsers that support it (Chrome/Edge on Android and desktop), a screen wake lock is held while playing; iOS Safari does not support wake locks, where the pre-buffered handoff carries the advance. If a track ever appears stuck after unlocking the phone, opening the app re-syncs it automatically.
 
 ### Settings
 
