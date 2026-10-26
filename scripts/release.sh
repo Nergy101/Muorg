@@ -71,17 +71,10 @@ node -e "
   fs.writeFileSync(file, content.replace(/^version = \".*\"\$/m, 'version = \"$VERSION\"'));
 "
 
-node -e "
-  const fs = require('fs');
-  const file = '$REPO_ROOT/android-client/app/build.gradle.kts';
-  const content = fs.readFileSync(file, 'utf8');
-  const [maj, min, pat] = '$VERSION'.split('.').map(Number);
-  const code = maj * 10000 + min * 100 + pat;
-  const updated = content
-    .replace(/versionCode = \d+/, 'versionCode = ' + code)
-    .replace(/versionName = \"[^\"]*\"/, 'versionName = \"$VERSION\"');
-  fs.writeFileSync(file, updated);
-"
+# The Android app is NOT bumped here: it is versioned on its own android-v*
+# tags (see docs-site/docs/compatibility.md) and is currently ahead of the main
+# line (3.4.0 vs 3.2.x). Syncing it to the main version would downgrade both
+# versionName and versionCode. Android releases are cut with release-android.sh.
 
 node -e "
   const fs = require('fs');
@@ -125,7 +118,6 @@ git -C "$REPO_ROOT" add \
   src/api/schema.d.ts \
   android-client/app/src/main/java/nl/muorg/android/data/api/schema/ApiSchema.kt \
   android-client/app/src/main/java/nl/muorg/android/data/api/schema/MuorgApi.kt \
-  android-client/app/build.gradle.kts \
   web-client/package.json \
   web-client/package-lock.json
 
