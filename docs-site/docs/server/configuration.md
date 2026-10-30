@@ -45,6 +45,7 @@ sample_rate = 48000
 |-----|---------|-------------|
 | `content_paths` | `[]` | Directories to scan for music |
 | `scan_on_startup` | `true` | Auto-scan on server start |
+| `browse_roots` | `[]` | Directories `GET /api/admin/browse` may start from or descend into. Empty (default) falls back to each `content_paths` entry's parent directory plus the entry itself — never the server user's home directory unless listed here explicitly. |
 
 ### `[transcoding]`
 

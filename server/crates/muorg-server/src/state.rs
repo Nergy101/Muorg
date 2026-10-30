@@ -106,6 +106,14 @@ impl TranscodeCache {
     }
 }
 
+/// Directories `GET /api/admin/browse` may list from or descend into. See
+/// `LibraryConfig::browse_roots` for the default-fallback rule.
+#[derive(Debug, Clone, Default)]
+pub struct BrowseConfig {
+    pub content_paths: Vec<String>,
+    pub browse_roots: Vec<String>,
+}
+
 pub struct AppState {
     pub catalog: Arc<Catalog>,
     pub backup_dir: PathBuf,
@@ -137,6 +145,10 @@ pub struct AppState {
     /// reports `Scanning` instead of `Healthy` so a healthcheck can tell "up
     /// but busy" from "up and ready".
     pub scanning: Arc<AtomicBool>,
+    /// From `[library] content_paths` / `browse_roots`. Set with
+    /// [`AppState::with_browse`] rather than through `new`, which has enough
+    /// positional arguments already.
+    pub browse: BrowseConfig,
 }
 
 impl AppState {
@@ -174,6 +186,7 @@ impl AppState {
             remote_scan_concurrency: remote_scan_concurrency.max(1),
             image_fetch: ImageFetchConfig::default(),
             scanning: Arc::new(AtomicBool::new(false)),
+            browse: BrowseConfig::default(),
         }
     }
 
@@ -187,6 +200,13 @@ impl AppState {
     /// Override the rate limiter. Defaults to 100 requests per 60 s per IP.
     pub fn with_rate_limiter(mut self, max_requests: u32, window_secs: u64) -> Self {
         self.rate_limiter = RateLimiter::new(max_requests, window_secs);
+        self
+    }
+
+    /// Override the browse-root allowlist. Defaults to empty, which confines
+    /// `GET /api/admin/browse` to nothing until configured.
+    pub fn with_browse(mut self, browse: BrowseConfig) -> Self {
+        self.browse = browse;
         self
     }
 

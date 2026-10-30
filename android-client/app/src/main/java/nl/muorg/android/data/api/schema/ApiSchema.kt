@@ -61,6 +61,29 @@ data class BatchUpdateResponse(
 )
 
 @Serializable
+data class BrowseEntry(
+    /**
+     * True when this directory already is, or already contains, a
+     * configured content root.
+     */
+    @SerialName("is_root") val isRoot: Boolean,
+    val name: String,
+    val path: String
+)
+
+@Serializable
+data class BrowseResponse(
+    val entries: List<BrowseEntry>,
+    /**
+     * True when more than [`BROWSE_ENTRY_LIMIT`] sub-directories existed and
+     * the list was cut off.
+     */
+    val truncated: Boolean,
+    /** The directory listed, or `null` for the top-level permitted roots. */
+    val path: String? = null
+)
+
+@Serializable
 data class CastDevice(
     val address: String,
     val id: String,

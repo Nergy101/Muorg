@@ -73,8 +73,13 @@ export async function removeFolder(rootPath: string): Promise<void> {
   await api.removeFolder(rootPath);
 }
 
-export async function clearCache(): Promise<void> {
-  await api.clearCache();
+/**
+ * Purge soft-deleted catalog rows over the HTTP API (vs. `purgeDeletedTracks`,
+ * which goes straight at the local sidecar's catalog). Renamed from the
+ * misleadingly-named `clearCache` — it has never cleared a cache.
+ */
+export async function purgeDeleted(): Promise<void> {
+  await api.purgeDeleted();
 }
 
 /**

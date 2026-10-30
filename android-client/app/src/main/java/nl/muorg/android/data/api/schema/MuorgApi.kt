@@ -35,7 +35,23 @@ interface MuorgApi {
     suspend fun getBackupDirectory(): Response<BackupDirectoryResponse>
 
     /**
-     * Purge soft-deleted rows immediately.
+     * List immediate sub-directories of a server-side path. With no `path`,
+     * lists the configured starting points instead (see `allowed_browse_roots`).
+     * Never returns files, and refuses any path outside the allowlist — see the
+     * module docs on `[library] browse_roots`.
+     *
+     * `GET /api/admin/browse`
+     */
+    @GET("api/admin/browse")
+    suspend fun browse(
+        @Query("path") path: String? = null,
+    ): Response<BrowseResponse>
+
+    /**
+     * Deprecated alias of [`purge_deleted`]: despite the name, this has never
+     * cleared anything but soft-deleted rows. Kept for one release so existing
+     * clients are not broken by the rename; new callers should use
+     * `/api/admin/purge-deleted`.
      *
      * `POST /api/admin/clear-cache`
      */
@@ -57,6 +73,15 @@ interface MuorgApi {
      */
     @GET("api/admin/metrics")
     suspend fun adminMetrics(): Response<ResponseBody>
+
+    /**
+     * Purge soft-deleted catalog rows immediately, bypassing the normal grace
+     * period a `DELETE /api/tracks/{id}` leaves them in.
+     *
+     * `POST /api/admin/purge-deleted`
+     */
+    @POST("api/admin/purge-deleted")
+    suspend fun purgeDeleted(): Response<OkResponse>
 
     /**
      * Drop a root and soft-delete the tracks under it.

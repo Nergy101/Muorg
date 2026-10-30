@@ -86,6 +86,52 @@
         ],
         "type": "object"
       },
+      "BrowseEntry": {
+        "properties": {
+          "is_root": {
+            "description": "True when this directory already is, or already contains, a\nconfigured content root.",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "is_root"
+        ],
+        "type": "object"
+      },
+      "BrowseResponse": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/BrowseEntry"
+            },
+            "type": "array"
+          },
+          "path": {
+            "description": "The directory listed, or `null` for the top-level permitted roots.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "truncated": {
+            "description": "True when more than [`BROWSE_ENTRY_LIMIT`] sub-directories existed and\nthe list was cut off.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "truncated"
+        ],
+        "type": "object"
+      },
       "CastDevice": {
         "properties": {
           "address": {
@@ -1253,8 +1299,79 @@
         ]
       }
     },
+    "/api/admin/browse": {
+      "get": {
+        "operationId": "browse",
+        "parameters": [
+          {
+            "description": "Absolute server-side directory to list. Omit to get the permitted\nstarting points instead of one directory's contents.",
+            "in": "query",
+            "name": "path",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowseResponse"
+                }
+              }
+            },
+            "description": "Directory entries, or the permitted starting points"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Path is outside the configured browse roots"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Path does not exist or is not a directory"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "List immediate sub-directories of a server-side path. With no `path`,\nlists the configured starting points instead (see `allowed_browse_roots`).\nNever returns files, and refuses any path outside the allowlist — see the\nmodule docs on `[library] browse_roots`.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admin/clear-cache": {
       "post": {
+        "deprecated": true,
         "operationId": "clear_cache",
         "responses": {
           "200": {
@@ -1265,7 +1382,7 @@
                 }
               }
             },
-            "description": "Cache cleared"
+            "description": "Deleted rows purged (deprecated; use purge-deleted)"
           },
           "401": {
             "content": {
@@ -1283,7 +1400,7 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Purge soft-deleted rows immediately.",
+        "summary": "Deprecated alias of [`purge_deleted`]: despite the name, this has never\ncleared anything but soft-deleted rows. Kept for one release so existing\nclients are not broken by the rename; new callers should use\n`/api/admin/purge-deleted`.",
         "tags": [
           "Admin"
         ]
@@ -1352,6 +1469,42 @@
           }
         ],
         "summary": "Prometheus exposition format.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/purge-deleted": {
+      "post": {
+        "operationId": "purge_deleted",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Deleted rows purged"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Purge soft-deleted catalog rows immediately, bypassing the normal grace\nperiod a `DELETE /api/tracks/{id}` leaves them in.",
         "tags": [
           "Admin"
         ]

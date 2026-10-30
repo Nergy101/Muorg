@@ -179,6 +179,7 @@ async fn every_mutating_route_is_behind_the_api_key() {
         "/api/admin/rescan",
         "/api/admin/remove-folder",
         "/api/admin/clear-cache",
+        "/api/admin/purge-deleted",
         "/api/playlists",
         "/api/tracks/metadata/batch",
         "/api/fetch-image",
@@ -820,4 +821,231 @@ async fn rename_onto_another_tracks_path_is_refused_even_with_overwrite() {
         vec![src.to_str().unwrap().to_string(), dst_str],
         "both catalog rows keep their paths"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Admin: purge-deleted, and its deprecated alias clear-cache
+// ---------------------------------------------------------------------------
+
+/// Soft-delete a seeded track directly, the way `remove_folder` or a missed
+/// rescan would, so a purge route has something real to remove.
+fn soft_delete(srv: &TestServer, track_id: i64) {
+    let conn = srv.catalog.db.lock().unwrap();
+    conn.execute("UPDATE tracks SET deleted_at = 1 WHERE id = ?1", [track_id])
+        .unwrap();
+}
+
+fn track_row_exists(srv: &TestServer, track_id: i64) -> bool {
+    let conn = srv.catalog.db.lock().unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM tracks WHERE id = ?1", [track_id], |r| r.get(0))
+        .unwrap();
+    count > 0
+}
+
+#[tokio::test]
+async fn purge_deleted_removes_soft_deleted_rows() {
+    let srv = TestServer::start().await;
+    let track_id = seed_track(&srv, "/music/gone.mp3");
+    soft_delete(&srv, track_id);
+
+    let resp = srv.post_auth_empty("/api/admin/purge-deleted").await;
+    assert_eq!(resp.status(), 200);
+    assert!(!track_row_exists(&srv, track_id), "the soft-deleted row should be gone");
+}
+
+#[tokio::test]
+async fn clear_cache_is_a_working_deprecated_alias_of_purge_deleted() {
+    let srv = TestServer::start().await;
+    let track_id = seed_track(&srv, "/music/also-gone.mp3");
+    soft_delete(&srv, track_id);
+
+    let resp = srv.post_auth_empty("/api/admin/clear-cache").await;
+    assert_eq!(resp.status(), 200);
+    assert!(!track_row_exists(&srv, track_id), "the alias purges exactly like the real route");
+}
+
+#[tokio::test]
+async fn purge_deleted_leaves_live_tracks_alone() {
+    let srv = TestServer::start().await;
+    let track_id = seed_track(&srv, "/music/still-here.mp3");
+
+    let resp = srv.post_auth_empty("/api/admin/purge-deleted").await;
+    assert_eq!(resp.status(), 200);
+    assert!(track_row_exists(&srv, track_id), "a live track must survive a purge");
+}
+
+// ---------------------------------------------------------------------------
+// Admin: browse (server-side folder picker for "Add folder")
+// ---------------------------------------------------------------------------
+
+use muorg_server::state::BrowseConfig;
+
+#[tokio::test]
+async fn browse_requires_auth() {
+    let srv = TestServer::start().await;
+    assert_eq!(srv.get("/api/admin/browse").await.status(), 401);
+}
+
+#[tokio::test]
+async fn browse_with_no_configured_roots_permits_nothing() {
+    let srv = TestServer::start().await;
+    let resp = srv.get_auth("/api/admin/browse").await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body["path"].is_null());
+    assert_eq!(body["entries"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn browse_with_no_path_lists_the_permitted_starting_points() {
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("music");
+    std::fs::create_dir_all(&music).unwrap();
+    let music_str = music.to_str().unwrap().to_string();
+
+    let srv = TestServer::start_with(move |state| {
+        state.browse = BrowseConfig { content_paths: vec![music_str.clone()], browse_roots: vec![] };
+    })
+    .await;
+
+    let resp = srv.get_auth("/api/admin/browse").await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body["path"].is_null());
+    let entries = body["entries"].as_array().unwrap();
+    let names: Vec<&str> = entries.iter().filter_map(|e| e["name"].as_str()).collect();
+    // Default fallback: the content root's parent (dir) and the root itself.
+    assert_eq!(names.len(), 2, "{names:?}");
+    assert!(names.contains(&"music"), "{names:?}");
+    let music_entry = entries.iter().find(|e| e["name"] == "music").unwrap();
+    assert_eq!(music_entry["is_root"], true, "the content root itself should be flagged: {body}");
+}
+
+#[tokio::test]
+async fn browse_explicit_roots_override_the_default_fallback() {
+    let allowed = tempfile::tempdir().unwrap();
+    let unrelated_content = tempfile::tempdir().unwrap();
+    let allowed_str = allowed.path().to_str().unwrap().to_string();
+    let unrelated_str = unrelated_content.path().to_str().unwrap().to_string();
+
+    let srv = TestServer::start_with(move |state| {
+        state.browse = BrowseConfig {
+            content_paths: vec![format!("{unrelated_str}/music")],
+            browse_roots: vec![allowed_str.clone()],
+        };
+    })
+    .await;
+
+    let resp = srv.get_auth("/api/admin/browse").await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let entries = body["entries"].as_array().unwrap();
+    assert_eq!(entries.len(), 1, "only the explicit browse_roots entry: {body}");
+    assert_eq!(entries[0]["path"], allowed.path().canonicalize().unwrap().to_str().unwrap());
+}
+
+#[tokio::test]
+async fn browse_lists_subdirectories_only_sorted_and_flags_a_content_root() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("rock")).unwrap();
+    std::fs::create_dir_all(dir.path().join("jazz")).unwrap();
+    std::fs::write(dir.path().join("not-a-dir.txt"), b"nope").unwrap();
+    let root_str = dir.path().to_str().unwrap().to_string();
+    let rock_str = dir.path().join("rock").to_str().unwrap().to_string();
+
+    let browse_root_str = root_str.clone();
+    let srv = TestServer::start_with(move |state| {
+        state.browse = BrowseConfig {
+            content_paths: vec![rock_str.clone()],
+            browse_roots: vec![browse_root_str.clone()],
+        };
+    })
+    .await;
+
+    let resp = srv.get_auth(&format!("/api/admin/browse?path={root_str}")).await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let entries = body["entries"].as_array().unwrap();
+    let names: Vec<&str> = entries.iter().filter_map(|e| e["name"].as_str()).collect();
+    assert_eq!(names, vec!["jazz", "rock"], "sorted, directories only, no file: {names:?}");
+    assert_eq!(
+        entries.iter().find(|e| e["name"] == "rock").unwrap()["is_root"],
+        true,
+        "rock is a configured content root: {body}"
+    );
+    assert_eq!(
+        entries.iter().find(|e| e["name"] == "jazz").unwrap()["is_root"],
+        false,
+    );
+    assert_eq!(body["truncated"], false);
+}
+
+#[tokio::test]
+async fn browse_rejects_a_path_outside_the_allowed_roots() {
+    let allowed = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let allowed_str = allowed.path().to_str().unwrap().to_string();
+    let outside_str = outside.path().to_str().unwrap().to_string();
+
+    let srv = TestServer::start_with(move |state| {
+        state.browse = BrowseConfig { content_paths: vec![], browse_roots: vec![allowed_str.clone()] };
+    })
+    .await;
+
+    let resp = srv.get_auth(&format!("/api/admin/browse?path={outside_str}")).await;
+    assert_eq!(resp.status(), 403);
+}
+
+#[tokio::test]
+async fn browse_rejects_traversal_back_out_of_the_only_allowed_root() {
+    let dir = tempfile::tempdir().unwrap();
+    let allowed = dir.path().join("allowed");
+    std::fs::create_dir_all(&allowed).unwrap();
+    let allowed_str = allowed.to_str().unwrap().to_string();
+
+    let browse_allowed_str = allowed_str.clone();
+    let srv = TestServer::start_with(move |state| {
+        state.browse = BrowseConfig { content_paths: vec![], browse_roots: vec![browse_allowed_str.clone()] };
+    })
+    .await;
+
+    // `..` canonicalizes straight back out to `dir`, which is not allowed.
+    let traversal = format!("{allowed_str}/..");
+    let resp = srv.get_auth(&format!("/api/admin/browse?path={traversal}")).await;
+    assert_eq!(resp.status(), 403);
+}
+
+#[tokio::test]
+async fn browse_a_missing_path_is_404() {
+    let allowed = tempfile::tempdir().unwrap();
+    let allowed_str = allowed.path().to_str().unwrap().to_string();
+    let missing = format!("{allowed_str}/does-not-exist");
+
+    let srv = TestServer::start_with(move |state| {
+        state.browse = BrowseConfig { content_paths: vec![], browse_roots: vec![allowed_str.clone()] };
+    })
+    .await;
+
+    let resp = srv.get_auth(&format!("/api/admin/browse?path={missing}")).await;
+    assert_eq!(resp.status(), 404);
+}
+
+#[tokio::test]
+async fn browse_reports_truncation_past_the_entry_cap() {
+    let dir = tempfile::tempdir().unwrap();
+    for i in 0..505 {
+        std::fs::create_dir_all(dir.path().join(format!("d{i:04}"))).unwrap();
+    }
+    let root_str = dir.path().to_str().unwrap().to_string();
+
+    let srv = TestServer::start_with(move |state| {
+        state.browse = BrowseConfig { content_paths: vec![], browse_roots: vec![root_str.clone()] };
+    })
+    .await;
+
+    let resp = srv.get_auth(&format!("/api/admin/browse?path={}", dir.path().to_str().unwrap())).await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["entries"].as_array().unwrap().len(), 500);
+    assert_eq!(body["truncated"], true);
 }

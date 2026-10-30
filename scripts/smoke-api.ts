@@ -399,7 +399,14 @@ await check("createSmartPlaylist and resolve it", async () => {
 
 console.log("\n-- admin");
 await check("getBackupDirectory", () => api.getBackupDirectory());
-await check("clearCache", () => api.clearCache());
+await check("purgeDeleted", () => api.purgeDeleted(), {
+  path: "/api/admin/purge-deleted",
+  method: "post",
+});
+await check("browse (permitted roots)", () => api.browse(), {
+  path: "/api/admin/browse",
+  method: "get",
+});
 
 console.log("\n-- cast discovery (no device needed)");
 await check("castStartDiscovery", () => api.castStartDiscovery());

@@ -28,6 +28,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/browse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List immediate sub-directories of a server-side path. With no `path`,
+         *     lists the configured starting points instead (see `allowed_browse_roots`).
+         *     Never returns files, and refuses any path outside the allowlist — see the
+         *     module docs on `[library] browse_roots`.
+         */
+        get: operations["browse"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/clear-cache": {
         parameters: {
             query?: never;
@@ -37,7 +59,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Purge soft-deleted rows immediately. */
+        /**
+         * Deprecated alias of [`purge_deleted`]: despite the name, this has never
+         *     cleared anything but soft-deleted rows. Kept for one release so existing
+         *     clients are not broken by the rename; new callers should use
+         *     `/api/admin/purge-deleted`.
+         * @deprecated
+         */
         post: operations["clear_cache"];
         delete?: never;
         options?: never;
@@ -73,6 +101,26 @@ export interface paths {
         get: operations["admin_metrics"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/purge-deleted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge soft-deleted catalog rows immediately, bypassing the normal grace
+         *     period a `DELETE /api/tracks/{id}` leaves them in.
+         */
+        post: operations["purge_deleted"];
         delete?: never;
         options?: never;
         head?: never;
@@ -946,6 +994,25 @@ export interface components {
             /** @description Number of tracks whose tags were actually written. */
             updated: number;
         };
+        BrowseEntry: {
+            /**
+             * @description True when this directory already is, or already contains, a
+             *     configured content root.
+             */
+            is_root: boolean;
+            name: string;
+            path: string;
+        };
+        BrowseResponse: {
+            entries: components["schemas"]["BrowseEntry"][];
+            /** @description The directory listed, or `null` for the top-level permitted roots. */
+            path?: string | null;
+            /**
+             * @description True when more than [`BROWSE_ENTRY_LIMIT`] sub-directories existed and
+             *     the list was cut off.
+             */
+            truncated: boolean;
+        };
         CastDevice: {
             address: string;
             id: string;
@@ -1284,6 +1351,8 @@ export type SchemaAutoTagSuggestionsResponse = components['schemas']['AutoTagSug
 export type SchemaBackupDirectoryResponse = components['schemas']['BackupDirectoryResponse'];
 export type SchemaBatchMetadataItem = components['schemas']['BatchMetadataItem'];
 export type SchemaBatchUpdateResponse = components['schemas']['BatchUpdateResponse'];
+export type SchemaBrowseEntry = components['schemas']['BrowseEntry'];
+export type SchemaBrowseResponse = components['schemas']['BrowseResponse'];
 export type SchemaCastDevice = components['schemas']['CastDevice'];
 export type SchemaCastPlayResponse = components['schemas']['CastPlayResponse'];
 export type SchemaCastSessionStatus = components['schemas']['CastSessionStatus'];
@@ -1357,6 +1426,59 @@ export interface operations {
             };
         };
     };
+    browse: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Absolute server-side directory to list. Omit to get the permitted
+                 *     starting points instead of one directory's contents.
+                 */
+                path?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Directory entries, or the permitted starting points */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowseResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Path is outside the configured browse roots */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Path does not exist or is not a directory */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     clear_cache: {
         parameters: {
             query?: never;
@@ -1366,7 +1488,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Cache cleared */
+            /** @description Deleted rows purged (deprecated; use purge-deleted) */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1431,6 +1553,35 @@ export interface operations {
                 };
                 content: {
                     "text/plain": unknown;
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    purge_deleted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted rows purged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
                 };
             };
             /** @description Missing or invalid API key */
