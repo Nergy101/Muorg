@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -58,6 +59,9 @@ fun TrackRow(
     baseUrl: String,
     imageLoader: ImageLoader,
     isPlaying: Boolean = false,
+    isLoading: Boolean = false,
+    /** Overrides the second line (artist) — search uses it to show the album. */
+    subtitle: String? = null,
     isFavorite: Boolean = false,
     playlists: List<Playlist> = emptyList(),
     trackInPlaylistIds: Set<Int> = emptySet(),
@@ -122,7 +126,20 @@ fun TrackRow(
                         modifier = Modifier.size(28.dp),
                     )
                 }
-                if (isPlaying) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.45f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.5.dp,
+                        )
+                    }
+                } else if (isPlaying) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -147,7 +164,7 @@ fun TrackRow(
                             else MaterialTheme.colorScheme.onSurface,
                 )
                 MarqueeText(
-                    text = track.displayArtist,
+                    text = subtitle ?: track.displayArtist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

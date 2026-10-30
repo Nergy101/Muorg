@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -288,13 +289,26 @@ private fun MiniPlayerRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
+            // While the current track is still loading (tap acknowledged but
+            // stream not ready, or mid-buffer) the play glyph becomes a
+            // spinner — the visible "the app is doing something" cue.
+            val isLoading = playerState.isBuffering ||
+                (playerState.pendingTrackId != null && playerState.pendingTrackId == track.id)
             IconButton(onClick = onPlayPause, modifier = Modifier.size(48.dp)) {
-                MageIcon(
-                    if (playerState.isPlaying) "pause" else "play",
-                    tint = onSurface,
-                    contentDescription = if (playerState.isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(24.dp),
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = onSurface,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.5.dp,
+                    )
+                } else {
+                    MageIcon(
+                        if (playerState.isPlaying) "pause" else "play",
+                        tint = onSurface,
+                        contentDescription = if (playerState.isPlaying) "Pause" else "Play",
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
             IconButton(onClick = onNext, modifier = Modifier.size(48.dp)) {
                 MageIcon("next", tint = onSurface, contentDescription = "Next", modifier = Modifier.size(24.dp))

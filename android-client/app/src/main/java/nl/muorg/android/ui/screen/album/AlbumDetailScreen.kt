@@ -235,6 +235,7 @@ fun AlbumDetailScreen(
                             track = track,
                             isPlaying = playerState.currentTrack?.id == track.id &&
                                 playerState.isPlaying,
+                            isLoading = playerState.pendingTrackId == track.id,
                             isFavorite = track.id.toString() in playerState.favorites,
                             playlists = uiState.playlists,
                             trackInPlaylistIds = membership,
@@ -286,6 +287,7 @@ fun AlbumDetailScreen(
 private fun AlbumTrackRow(
     track: CatalogTrack,
     isPlaying: Boolean,
+    isLoading: Boolean = false,
     isFavorite: Boolean = false,
     playlists: List<Playlist>,
     trackInPlaylistIds: Set<Int> = emptySet(),
@@ -313,7 +315,13 @@ private fun AlbumTrackRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-                if (isPlaying) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.5.dp,
+                    )
+                } else if (isPlaying) {
                     EqualizerBars(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(width = 20.dp, height = 14.dp),

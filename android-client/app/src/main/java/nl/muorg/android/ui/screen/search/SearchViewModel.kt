@@ -110,15 +110,41 @@ class SearchViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = false, error = e.message) }
     }
 
+    /**
+     * Weighted match: title hits outrank artist hits, which outrank album
+     * hits, so a keyword present in both a track and an album title puts the
+     * track on top instead of the order looking random. Exact and prefix
+     * matches score higher than mid-string contains. Ties break on title so
+     * the order is stable.
+     */
     private fun filterTracks(tracks: List<CatalogTrack>, query: String): List<CatalogTrack> {
         val q = query.trim().lowercase()
         if (q.isEmpty()) return emptyList()
-        return tracks.filter { track ->
-            track.displayTitle.lowercase().contains(q) ||
-                track.displayArtist.lowercase().contains(q) ||
-                track.displayAlbum.lowercase().contains(q) ||
-                track.albumArtist?.lowercase()?.contains(q) == true
+        return tracks.mapNotNull { track ->
+            val score = matchScore(track, q) ?: return@mapNotNull null
+            track to score
+        }.sortedWith(
+            compareByDescending<Pair<CatalogTrack, Int>> { it.second }
+                .thenBy { it.first.displayTitle.lowercase() },
+        ).map { it.first }
+    }
+
+    private fun matchScore(track: CatalogTrack, q: String): Int? {
+        var score = 0
+        fun fieldScore(text: String?): Int {
+            val t = text?.lowercase() ?: return 0
+            return when {
+                t == q -> 100
+                t.startsWith(q) -> 60
+                t.contains(q) -> 40
+                else -> 0
+            }
         }
+        score += fieldScore(track.displayTitle)
+        score += fieldScore(track.displayArtist) / 2
+        score += fieldScore(track.displayAlbum) / 4
+        score += fieldScore(track.albumArtist) / 8
+        return score.takeIf { it > 0 }
     }
 
     fun onSearchQueryChange(query: String) {

@@ -1,5 +1,7 @@
 package nl.muorg.android.player
 
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -16,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import nl.muorg.android.MainActivity
 import nl.muorg.android.R
 import nl.muorg.android.cast.CastManager
 import javax.inject.Inject
@@ -46,7 +49,17 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        // Tapping the media notification (the "active app" entry in the
+        // Android drawer) fires this intent — without it the tap does nothing.
+        val sessionActivity = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivity)
+            .build()
         mediaSession?.setMediaButtonPreferences(buildCommandButtons())
 
         // Keep the notification scrubber in sync with Chromecast position while casting.
