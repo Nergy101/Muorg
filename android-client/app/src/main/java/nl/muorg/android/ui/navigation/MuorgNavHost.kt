@@ -32,6 +32,7 @@ import nl.muorg.android.ui.screen.player.PlayerScreen
 import nl.muorg.android.ui.screen.playlist.PlaylistAlbumsScreen
 import nl.muorg.android.ui.screen.playlists.PlaylistsScreen
 import nl.muorg.android.ui.screen.reports.ReportDetailScreen
+import nl.muorg.android.ui.screen.search.SearchScreen
 import nl.muorg.android.ui.screen.reports.ReportsScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import nl.muorg.android.ui.screen.welcome.WelcomeScreen
@@ -123,6 +124,21 @@ fun MuorgNavHost(
                 onOpenMix = { mixId ->
                     navController.navigate(Screen.MixDetail.createRoute(mixId))
                 },
+            )
+        }
+
+        composable(Screen.Search.route) {
+            SearchScreen(
+                playerViewModel = playerViewModel,
+                imageLoader = imageLoader,
+                baseUrl = baseUrl,
+                onAlbumClick = { albumName ->
+                    navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                },
+                onViewArtist = { artistName ->
+                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                },
+                searchFocusSignal = navViewModel.searchFocusSignal,
             )
         }
 

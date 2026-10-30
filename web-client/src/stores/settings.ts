@@ -10,6 +10,7 @@ import type {
 } from "../types";
 
 const MAX_SEARCH_HISTORY = 10;
+const MAX_RECENT_SEARCH_RESULTS = 20;
 
 /**
  * Best-effort "Browser on OS" label for the device-name default (Q19): the
@@ -89,6 +90,9 @@ export const useSettingsStore = defineStore("settings", () => {
   if (searchHistory.value.length !== rawHistory.length) {
     savePref("muorg-web-search-history", searchHistory.value);
   }
+  /** Track ids of the most recently selected search results, newest first —
+   *  shown as track rows on the Search screen when the query is empty. */
+  const recentSearchResultIds = ref<number[]>(loadPref<number[]>("muorg-web-recent-search-results", []));
 
   const systemPrefersDark = ref(
     typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches,
@@ -234,6 +238,21 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-search-history", []);
   }
 
+  /** Records a track picked from search results (dedupes, caps the list). */
+  function addSearchResult(trackId: number): void {
+    const next = [trackId, ...recentSearchResultIds.value.filter((id) => id !== trackId)].slice(
+      0,
+      MAX_RECENT_SEARCH_RESULTS,
+    );
+    recentSearchResultIds.value = next;
+    savePref("muorg-web-recent-search-results", next);
+  }
+
+  function clearSearchResults(): void {
+    recentSearchResultIds.value = [];
+    savePref("muorg-web-recent-search-results", []);
+  }
+
   return {
     theme,
     trueBlack,
@@ -251,6 +270,7 @@ export const useSettingsStore = defineStore("settings", () => {
     offlineMode,
     deviceName,
     searchHistory,
+    recentSearchResultIds,
     resolvedTheme,
     setTheme,
     setTrueBlack,
@@ -271,5 +291,7 @@ export const useSettingsStore = defineStore("settings", () => {
     setDeviceName,
     addSearch,
     clearSearchHistory,
+    addSearchResult,
+    clearSearchResults,
   };
 });

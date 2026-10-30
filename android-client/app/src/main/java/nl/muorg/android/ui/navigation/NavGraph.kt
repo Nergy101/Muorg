@@ -60,6 +60,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -85,6 +86,7 @@ import nl.muorg.android.ui.theme.artworkAccent
 sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object Home : Screen("home")
+    object Search : Screen("search")
     object MixDetail : Screen("mix/{mixId}") {
         fun createRoute(mixId: Int) = "mix/$mixId"
     }
@@ -113,12 +115,15 @@ sealed class Screen(val route: String) {
 }
 
 /**
- * The web's `nav-tabs.ts`, verbatim — home, library, playlists, settings, with
- * the filled Mage variant standing in for the active state. Queue is
- * deliberately absent: it is reached from the mini player, not as a tab.
+ * The web's `nav-tabs.ts`, verbatim — home, search, library, playlists,
+ * settings, with the filled Mage variant standing in for the active state
+ * (the Mage set has no filled search glyph, so Search keeps the same one).
+ * Queue is deliberately absent: it is reached from the mini player, not as a
+ * tab.
  */
 private val islandTabs = listOf(
     Screen.Home to IslandTab("home-2", "home-2-fill", "Home"),
+    Screen.Search to IslandTab("search", "search", "Search"),
     Screen.Library to IslandTab("compact-disk", "compact-disk-fill", "Library"),
     Screen.Playlists to IslandTab("library-music", "library-music-fill", "Playlists"),
     Screen.Settings to IslandTab("settings", "settings-fill", "Settings"),
@@ -127,11 +132,12 @@ private val islandTabs = listOf(
 /** Which tab owns a route; detail screens keep their parent tab lit. */
 private fun tabIndexForRoute(route: String?): Int = when {
     route == null -> 0
-    route.startsWith("album") -> 1
-    route.startsWith("library") -> 1
-    route.startsWith("playlist") -> 2
-    route == Screen.Settings.route -> 3
+    route.startsWith("album") -> 2
+    route.startsWith("library") -> 2
+    route.startsWith("playlist") -> 3
+    route == Screen.Settings.route -> 4
     route == Screen.Home.route -> 0
+    route == Screen.Search.route -> 1
     route.startsWith("mix/") -> 0
     else -> -1
 }
@@ -177,6 +183,23 @@ class NavViewModel @Inject constructor(
     val scrollToActiveSignal: SharedFlow<Unit> = _scrollToActiveSignal.asSharedFlow()
 
     fun requestScrollToActive() { _scrollToActiveSignal.tryEmit(Unit) }
+
+    // Re-tapping the Search tab focuses its input and opens the keyboard.
+    private val _searchFocusSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val searchFocusSignal: SharedFlow<Unit> = _searchFocusSignal.asSharedFlow()
+
+    /**
+     * Emitted slightly after the tab tap: the island's navigate() pops and
+     * restores the search entry (saveState/restoreState), so the screen's
+     * collector is recreated — an immediate emission would be consumed by the
+     * outgoing instance and never reach the new one.
+     */
+    fun requestSearchFocus() {
+        viewModelScope.launch {
+            delay(350)
+            _searchFocusSignal.tryEmit(Unit)
+        }
+    }
 }
 
 @Composable
@@ -320,6 +343,9 @@ fun NavGraph() {
                         if (screen is Screen.Library && alreadyThere) {
                             navViewModel.requestScrollToActive()
                         }
+                        if (screen is Screen.Search && alreadyThere) {
+                            navViewModel.requestSearchFocus()
+                        }
                         val route = if (screen is Screen.Library) Screen.Library.createRoute() else screen.route
                         navController.navigate(route) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -341,7 +367,7 @@ fun NavGraph() {
                     // the outgoing route stays composed for the whole 320ms exit
                     // transition, so keying off disposal leaves the search bar
                     // sitting in the island long after the view has gone.
-                    chrome = if (selectedTab == 1 && currentDestination?.route?.startsWith("library") == true) {
+                    chrome = if (selectedTab == 2 && currentDestination?.route?.startsWith("library") == true) {
                         chromeHost.content
                     } else {
                         null

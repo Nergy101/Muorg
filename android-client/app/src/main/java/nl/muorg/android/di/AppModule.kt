@@ -20,6 +20,7 @@ import nl.muorg.android.data.db.OfflinePlaylistDao
 import nl.muorg.android.data.db.OfflineTrackDao
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.preferences.SearchHistoryManager
+import nl.muorg.android.data.preferences.SearchResultsHistoryManager
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.OfflineSyncScheduler
 import nl.muorg.android.data.repository.PlaylistRepository
@@ -45,6 +46,12 @@ object AppModule {
     fun provideSearchHistoryManager(
         @ApplicationContext context: Context,
     ): SearchHistoryManager = SearchHistoryManager(context)
+
+    @Provides
+    @Singleton
+    fun provideSearchResultsHistoryManager(
+        @ApplicationContext context: Context,
+    ): SearchResultsHistoryManager = SearchResultsHistoryManager(context)
 
     @Provides
     @Singleton

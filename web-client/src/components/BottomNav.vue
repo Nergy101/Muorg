@@ -50,6 +50,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
+import { searchFocusSignal } from "../composables/useSearchFocus";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
 
 const route = useRoute();
@@ -59,5 +60,7 @@ const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
 
 function onTabClick(name: string): void {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;
+  // Re-tapping Search jumps straight back into the input.
+  if (name === "search" && route.name === "search") searchFocusSignal.value++;
 }
 </script>

@@ -64,6 +64,7 @@ import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
+import { searchFocusSignal } from "../composables/useSearchFocus";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
 import { useLibraryStore } from "../stores/library";
 import { reportCounts } from "@shared/reports";
@@ -92,6 +93,8 @@ const reportIssues = computed(() => {
 
 function onTabClick(name: string): void {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;
+  // Re-tapping Search jumps straight back into the input.
+  if (name === "search" && route.name === "search") searchFocusSignal.value++;
 }
 
 /** Queue doubles as a toggle: already on a queue screen → back to the last one. */

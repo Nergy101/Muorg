@@ -7,6 +7,9 @@
  */
 export const NAV_TABS = [
   { name: "home", label: "Home", icon: "home-2", iconActive: "home-2-fill" },
+  // The Mage set has no filled search glyph, so the active tab keeps the same
+  // magnifier and is told apart by the pill + colour alone.
+  { name: "search", label: "Search", icon: "search", iconActive: "search" },
   { name: "library", label: "Library", icon: "compact-disk", iconActive: "compact-disk-fill" },
   { name: "playlists", label: "Playlists", icon: "library-music", iconActive: "library-music-fill" },
   { name: "settings", label: "Settings", icon: "settings", iconActive: "settings-fill" },
@@ -19,7 +22,7 @@ export type NavTabName = (typeof NAV_TABS)[number]["name"];
  * (the queue screen). Detail screens keep their parent tab lit.
  */
 export function tabIndexForRoute(routeName: string): number {
-  if (routeName === "album") return 1;
-  if (routeName === "playlist") return 2;
+  if (routeName === "album") return 2;
+  if (routeName === "playlist") return 3;
   return NAV_TABS.findIndex((t) => t.name === routeName);
 }

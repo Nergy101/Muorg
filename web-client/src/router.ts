@@ -7,6 +7,7 @@ import { usePlaylistStore } from "./stores/playlists";
 
 import ConnectView from "./views/ConnectView.vue";
 import HomeView from "./views/HomeView.vue";
+import SearchView from "./views/SearchView.vue";
 import LibraryView from "./views/LibraryView.vue";
 import AlbumDetailView from "./views/AlbumDetailView.vue";
 import ArtistDetailView from "./views/ArtistDetailView.vue";
@@ -49,6 +50,7 @@ export const router = createRouter({
     { path: "/", redirect: "/home" },
     { path: "/connect", name: "connect", component: ConnectView, meta: { depth: 0 } },
     { path: "/home", name: "home", component: HomeView, meta: { depth: 0 } },
+    { path: "/search", name: "search", component: SearchView, meta: { depth: 0 } },
     { path: "/library", name: "library", component: LibraryView, meta: { depth: 0 } },
     {
       path: "/album/:albumKey",
