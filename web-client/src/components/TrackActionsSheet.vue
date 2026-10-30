@@ -65,6 +65,16 @@
         </button>
 
         <button
+          v-if="canRemoveFromPlaylist"
+          type="button"
+          :class="[ROW, 'text-error']"
+          @click="onRemoveFromPlaylist"
+        >
+          <MageIcon name="trash" class="h-5 w-5 shrink-0" />
+          <span>Remove from this playlist</span>
+        </button>
+
+        <button
           v-if="canRemoveFromQueue"
           type="button"
           :class="[ROW, 'text-error']"
@@ -253,6 +263,9 @@ const props = defineProps<{
   canMoveToUserQueue?: boolean;
   /** Which level to open on. Lets a caller jump straight to the playlist picker. */
   initialLevel?: "main" | "playlists";
+  /** Show "Remove from this playlist" under "Add to playlist" — set by the
+   *  playlist detail screen, where the sheet's track belongs to the open playlist. */
+  canRemoveFromPlaylist?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -260,6 +273,7 @@ const emit = defineEmits<{
   "view-artist": [];
   "view-album": [];
   "remove-from-queue": [];
+  "remove-from-playlist": [];
 }>();
 
 const lib = useLibraryStore();
@@ -341,6 +355,11 @@ function onMoveToPlayNext(): void {
 
 function onRemoveQueue(): void {
   emit("remove-from-queue");
+  emit("close");
+}
+
+function onRemoveFromPlaylist(): void {
+  emit("remove-from-playlist");
   emit("close");
 }
 
