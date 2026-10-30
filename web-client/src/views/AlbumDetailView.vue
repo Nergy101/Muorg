@@ -126,6 +126,7 @@
           :key="track.id"
           :track="track"
           leading="index"
+          :is-loading="player.pendingTrackId === track.id"
           :on-dark="backdropActive"
           :accent-rgb="accentRgb"
           :is-playing="player.currentTrack?.id === track.id"

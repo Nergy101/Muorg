@@ -84,7 +84,8 @@
           :aria-label="transportPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
         >
-          <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-5 w-5" />
+          <MageIcon v-if="isLoading" name="refresh" class="h-5 w-5 animate-spin" />
+          <MageIcon v-else :name="transportPlaying ? 'pause' : 'play'" class="h-5 w-5" />
         </button>
         <button
           type="button"
@@ -120,7 +121,8 @@
           :aria-label="transportPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
         >
-          <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-6 w-6" />
+          <MageIcon v-if="isLoading" name="refresh" class="h-6 w-6 animate-spin" />
+          <MageIcon v-else :name="transportPlaying ? 'pause' : 'play'" class="h-6 w-6" />
         </button>
         <button
           type="button"
@@ -162,6 +164,14 @@ const cast = useCastStore();
 /** While casting, the device is the thing that is playing, not this tab. */
 const transportPlaying = computed(() =>
   cast.isCasting ? cast.isPlaying : player.isPlaying,
+);
+
+/** Spinner on the play button while the current track is still loading. */
+const isLoading = computed(
+  () =>
+    !cast.isCasting &&
+    (player.isBuffering ||
+      (player.pendingTrackId !== null && player.pendingTrackId === player.currentTrack?.id)),
 );
 
 function togglePlay(): void {

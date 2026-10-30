@@ -76,6 +76,7 @@
             :key="track.id"
             :track="track"
             :is-playing="player.currentTrack?.id === track.id"
+            :is-loading="player.pendingTrackId === track.id"
             @play="playTrack(track, recentResultTracks)"
             @actions="sheetTrack = track"
           />
@@ -110,6 +111,7 @@
             :key="track.id"
             :track="track"
             :is-playing="player.currentTrack?.id === track.id"
+            :is-loading="player.pendingTrackId === track.id"
             @play="playTrack(track, results)"
             @actions="sheetTrack = track"
           />

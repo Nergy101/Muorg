@@ -27,7 +27,13 @@
       >{{ track.track_number ?? "·" }}</span>
       <MageIcon v-else name="music" class="h-5 w-5" :class="onDark ? 'text-white/50' : 'text-on-surface-variant/60'" />
       <div
-        v-if="isPlaying"
+        v-if="isLoading"
+        class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
+      >
+        <MageIcon name="refresh" class="h-6 w-6 animate-spin text-primary" />
+      </div>
+      <div
+        v-else-if="isPlaying"
         class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
       >
         <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
@@ -109,6 +115,8 @@ const props = withDefaults(
     track: CatalogTrack;
     leading?: "cover" | "index";
     isPlaying?: boolean;
+    /** Spinner on the cover while this track's play request is still loading. */
+    isLoading?: boolean;
     showFormatBadge?: boolean;
     showDuration?: boolean;
     /** Show a destructive "delete from server" button before the actions dot. */

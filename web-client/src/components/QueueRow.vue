@@ -31,6 +31,7 @@
       <TrackListRow
         class="min-w-0 flex-1"
         :track="track"
+        :is-loading="player.pendingTrackId === track.id"
         :show-format-badge="false"
         :show-duration="false"
         @play="emit('play')"
@@ -53,9 +54,11 @@
 import MageIcon from "./MageIcon.vue";
 import TrackListRow from "./TrackListRow.vue";
 import { useSwipeToRemove } from "../composables/useSwipeToRemove";
+import { usePlayerStore } from "../stores/player";
 import type { CatalogTrack } from "../types";
 
 defineProps<{ track: CatalogTrack; index: number }>();
+const player = usePlayerStore();
 const emit = defineEmits<{
   play: [];
   actions: [];

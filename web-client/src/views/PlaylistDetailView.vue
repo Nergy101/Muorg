@@ -198,6 +198,7 @@
                   class="min-w-0 flex-1"
                   :track="trackById.get(entry.id)!"
                   :is-playing="player.currentTrack?.id === entry.id"
+                  :is-loading="player.pendingTrackId === entry.id"
                   @play="player.playTrack(trackById.get(entry.id)!, sortedTracks)"
                   @actions="openActions(trackById.get(entry.id)!)"
                 />
