@@ -88,6 +88,7 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/tracks/{id}/play", post(routes::tracks::record_play))
         .route("/api/tracks/{id}/backup", get(routes::tracks::get_backup))
         .route("/api/tracks/{id}/restore", post(routes::tracks::restore_backup))
+        .route("/api/tracks/{id}", delete(routes::tracks::delete_track))
         .route("/api/tracks/{id}/rename", post(routes::tracks::rename_file))
         .route("/api/tracks/rename/check", post(routes::tracks::check_rename))
         .route("/api/tracks/{id}/auto-tag-suggestions", post(routes::tracks::auto_tag_suggestions))

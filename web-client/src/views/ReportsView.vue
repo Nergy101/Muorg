@@ -45,6 +45,7 @@
             <p class="text-body-sm text-on-surface-variant">{{ report.hint }}</p>
           </div>
           <span
+            v-if="showsCount(report.kind)"
             class="shrink-0 rounded-full px-2 py-0.5 text-label-sm tabular-nums"
             :class="counts[report.kind] > 0
               ? 'bg-primary/[0.15] text-primary'
@@ -102,6 +103,21 @@ const REPORTS: { kind: ReportKind; icon: string; tint: string; hint: string }[] 
 ];
 
 const counts = computed(() => reportCounts(lib.tracks));
+
+/**
+ * Only the "something is wrong with the files" reports get a count badge.
+ * Recently/most played list every song ever played, so a number there is
+ * noise, not a signal — the sidebar makes the same call.
+ */
+const COUNTED_KINDS: readonly ReportKind[] = [
+  "missing_metadata",
+  "duplicates",
+  "missing_album_cover",
+];
+
+function showsCount(kind: ReportKind): boolean {
+  return COUNTED_KINDS.includes(kind);
+}
 
 const metaLine = computed(() => {
   const total = lib.tracks.length;

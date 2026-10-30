@@ -92,6 +92,7 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
     "/api/tracks/3/rating",
     { rating: null },
   ],
+  ["deleteTrack", (a) => a.deleteTrack(3), "DELETE", "/api/tracks/3"],
   [
     "renameTrackFile",
     (a) => a.renameTrackFile(3, "/new.mp3"),

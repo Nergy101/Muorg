@@ -1,6 +1,7 @@
 <template>
   <div
-    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer lg:hover:bg-surface-container/50"
+    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer"
+    :class="onDark ? 'lg:hover:bg-white/10' : 'lg:hover:bg-surface-container/50'"
     @click="emit('play')"
     @touchstart.passive="lp.onTouchstart"
     @touchmove.passive="lp.onTouchmove"
@@ -8,7 +9,10 @@
     @contextmenu.prevent="emit('actions')"
   >
     <!-- Leading: equalizer while playing, else cover / index / placeholder -->
-    <div class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-variant">
+    <div
+      class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded"
+      :class="onDark ? 'bg-white/10' : 'bg-surface-variant'"
+    >
       <img
         v-if="coverUrl"
         :src="coverUrl"
@@ -18,9 +22,10 @@
       />
       <span
         v-else-if="leading === 'index'"
-        class="text-body-md tabular-nums text-on-surface-variant"
+        class="text-body-md tabular-nums"
+        :class="onDark ? 'text-white/60' : 'text-on-surface-variant'"
       >{{ track.track_number ?? "·" }}</span>
-      <MageIcon v-else name="music" class="h-5 w-5 text-on-surface-variant/60" />
+      <MageIcon v-else name="music" class="h-5 w-5" :class="onDark ? 'text-white/50' : 'text-on-surface-variant/60'" />
       <div
         v-if="isPlaying"
         class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
@@ -34,13 +39,14 @@
     <div class="min-w-0 flex-1">
       <MarqueeText
         :text="track.title ?? '—'"
-        :class="isPlaying ? 'text-body-lg text-primary' : 'text-body-lg text-on-surface'"
+        :class="titleClass"
       />
       <div class="flex min-w-0 items-center gap-1.5">
         <div class="min-w-0 flex-1">
           <MarqueeText
             :text="track.artist ?? track.album_artist ?? '—'"
-            class="text-body-md text-on-surface-variant"
+            class="text-body-md"
+            :class="onDark ? 'text-white/75' : 'text-on-surface-variant'"
           />
         </div>
         <span
@@ -48,18 +54,32 @@
           class="ml-auto shrink-0 rounded-[3px] px-1 py-[1px] text-[10px] leading-none uppercase"
           :class="isLossless(track.format)
             ? 'bg-primary/[0.12] text-primary'
-            : 'bg-on-surface-variant/10 text-on-surface-variant'"
+            : onDark
+              ? 'bg-white/10 text-white/70'
+              : 'bg-on-surface-variant/10 text-on-surface-variant'"
         >{{ track.format.toUpperCase() }}</span>
         <span
           v-if="showDuration !== false"
-          class="shrink-0 text-[10px] leading-none tabular-nums text-on-surface-variant"
+          class="shrink-0 text-[10px] leading-none tabular-nums"
+          :class="onDark ? 'text-white/55' : 'text-on-surface-variant'"
         >{{ duration }}</span>
       </div>
     </div>
 
     <button
+      v-if="showDelete"
       type="button"
-      class="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container/70"
+      class="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-error transition-colors hover:bg-error-container/60"
+      aria-label="Delete from server"
+      @click.stop="emit('delete')"
+    >
+      <MageIcon name="trash" class="h-5 w-5" />
+    </button>
+
+    <button
+      type="button"
+      class="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors"
+      :class="onDark ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant hover:bg-surface-container/70'"
       aria-label="Track actions"
       @click.stop="emit('actions')"
     >
@@ -86,11 +106,29 @@ const props = withDefaults(
     isPlaying?: boolean;
     showFormatBadge?: boolean;
     showDuration?: boolean;
+    /** Show a destructive "delete from server" button before the actions dot. */
+    showDelete?: boolean;
+    /** Render for a dark cover-derived backdrop (white text instead of theme). */
+    onDark?: boolean;
   }>(),
-  { leading: "cover", showFormatBadge: true, showDuration: true },
+  {
+    leading: "cover",
+    showFormatBadge: true,
+    showDuration: true,
+    showDelete: false,
+    onDark: false,
+  },
 );
 
-const emit = defineEmits<{ play: []; actions: [] }>();
+const emit = defineEmits<{ play: []; actions: []; delete: [] }>();
+
+const titleClass = computed(() =>
+  props.isPlaying
+    ? "text-body-lg text-primary"
+    : props.onDark
+      ? "text-body-lg text-white"
+      : "text-body-lg text-on-surface",
+);
 
 const lib = useLibraryStore();
 // `isPlaying` means "this row is the current track"; the store says whether

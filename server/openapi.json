@@ -3359,6 +3359,64 @@
         ]
       }
     },
+    "/api/tracks/{id}": {
+      "delete": {
+        "operationId": "delete_track",
+        "parameters": [
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such track"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Delete a track's file from storage (local disk or its remote bucket) and\nremove its catalog row. Playlist entries, play history and lyrics cascade\naway with the row. Destructive and not undone by a rescan — the file is\ngone, so clients should confirm first.",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
     "/api/tracks/{id}/auto-tag-suggestions": {
       "post": {
         "operationId": "auto_tag_suggestions",

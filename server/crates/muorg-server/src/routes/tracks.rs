@@ -418,6 +418,50 @@ pub async fn record_play(
     Ok(Json(OkResponse::new()))
 }
 
+// DELETE /api/tracks/:id
+/// Delete a track's file from storage (local disk or its remote bucket) and
+/// remove its catalog row. Playlist entries, play history and lyrics cascade
+/// away with the row. Destructive and not undone by a rescan — the file is
+/// gone, so clients should confirm first.
+#[utoipa::path(
+    delete,
+    path = "/api/tracks/{id}",
+    tag = "Tracks",
+    params(("id" = i64, Path, description = "Track id")),
+    responses(
+        (status = 200, description = "Deleted", body = OkResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+        (status = 404, description = "No such track", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
+pub async fn delete_track(
+    Path(id): Path<i64>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<OkResponse>, ApiError> {
+    let track_path = resolve_track(&state, id)?;
+
+    // The file goes first: if the row were removed and the delete then failed,
+    // the track would linger as a phantom until the next scan swept it.
+    if let Some((remote, key)) = state.remotes.resolve(&track_path) {
+        use object_store::ObjectStoreExt;
+        remote
+            .store
+            .delete(&key)
+            .await
+            .map_err(|e| format!("Delete failed: {e}"))?;
+    } else {
+        std::fs::remove_file(&track_path).map_err(|e| format!("Delete failed: {e}"))?;
+    }
+
+    state.cover_cache.invalidate(id);
+    let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+    if !muorg_core::catalog::delete_track(&conn, id)? {
+        return Err(ApiError::not_found(format!("Track {id} not found")));
+    }
+    Ok(Json(OkResponse::new()))
+}
+
 // GET /api/tracks/:id/backup
 /// The most recent pre-write backup of this file, if one exists.
 #[utoipa::path(

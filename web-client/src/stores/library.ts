@@ -364,6 +364,19 @@ export const useLibraryStore = defineStore("library", () => {
     Object.assign(t, update);
   }
 
+  /** Drop a track from the local catalog after the server deleted it. */
+  function removeTrack(trackId: number): void {
+    const idx = tracks.value.findIndex((x) => x.id === trackId);
+    if (idx === -1) return;
+    tracks.value.splice(idx, 1);
+    totalTracks.value = Math.max(0, totalTracks.value - 1);
+    const url = coverCache.value.get(trackId);
+    if (url) URL.revokeObjectURL(url);
+    coverCache.value.delete(trackId);
+    coverFailed.value.delete(trackId);
+    coverPending.value.delete(trackId);
+  }
+
   /**
    * `/api/tracks` is paginated. The first page renders immediately and the
    * rest stream in behind it, so search and the album grid stay usable on a
@@ -491,6 +504,7 @@ export const useLibraryStore = defineStore("library", () => {
     keyForTrack,
     tracksForAlbum,
     applyTrackUpdate,
+    removeTrack,
     trackById,
     loadLibrary,
     requestCover,

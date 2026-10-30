@@ -12,10 +12,16 @@
     </template>
 
     <template v-else>
-      <div class="content-col flex shrink-0 items-center gap-3 px-4 pb-4 pt-4">
+      <!-- Same cover-derived backdrop as the maximized player, but desktop
+           only — on mobile the album list keeps the plain theme background.
+           Only when the album actually has art, so coverless albums keep it. -->
+      <CoverBackdrop v-if="backdropActive" :cover-url="coverUrl" variant="album" />
+
+      <div class="content-col relative z-10 flex shrink-0 items-center gap-3 px-4 pb-4 pt-4">
         <button
           type="button"
-          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors lg:h-9 lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
+          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-colors lg:h-9 lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-white/10"
+          :class="backdropActive ? 'text-white/85' : 'text-on-surface lg:hover:bg-surface-container'"
           aria-label="Back"
           @click="router.back()"
         >
@@ -40,9 +46,19 @@
 
           <div class="flex h-[120px] min-w-0 flex-1 flex-col justify-center gap-3">
             <div class="min-w-0">
-              <MarqueeText :text="item.album" class="text-title-md text-on-surface" />
-              <p class="truncate text-body-md text-on-surface-variant">{{ item.albumArtist }}</p>
-              <p class="text-body-sm text-on-surface-variant">{{ metaLine }}</p>
+              <MarqueeText
+                :text="item.album"
+                class="text-title-md"
+                :class="backdropActive ? 'text-white' : 'text-on-surface'"
+              />
+              <p
+                class="truncate text-body-md"
+                :class="backdropActive ? 'text-white/75' : 'text-on-surface-variant'"
+              >{{ item.albumArtist }}</p>
+              <p
+                class="text-body-sm"
+                :class="backdropActive ? 'text-white/55' : 'text-on-surface-variant'"
+              >{{ metaLine }}</p>
             </div>
 
             <div class="flex items-center gap-2">
@@ -57,7 +73,8 @@
               </button>
               <button
                 type="button"
-                class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
+                class="flex h-9 w-9 items-center justify-center rounded-full"
+                :class="backdropActive ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant'"
                 aria-label="Add album to playlist"
                 @click="openPicker"
               >
@@ -66,7 +83,8 @@
               <div class="relative">
                 <button
                   type="button"
-                  class="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant"
+                  class="flex h-9 w-9 items-center justify-center rounded-full"
+                  :class="backdropActive ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant'"
                   aria-label="More album options"
                   @click="menuOpen = !menuOpen"
                 >
@@ -93,14 +111,21 @@
         </div>
       </div>
 
-      <div class="content-col shrink-0 border-t border-outline/30" />
+      <div
+        class="content-col relative z-10 shrink-0 border-t"
+        :class="backdropActive ? 'border-white/15' : 'border-outline/30'"
+      />
 
-      <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+      <div
+        ref="scroller"
+        class="content-col-children relative z-10 min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]"
+      >
         <TrackListRow
           v-for="track in tracks"
           :key="track.id"
           :track="track"
           leading="index"
+          :on-dark="backdropActive"
           :is-playing="player.currentTrack?.id === track.id"
           @play="player.playTrack(track, tracks)"
           @actions="sheetTrack = track"
@@ -130,10 +155,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
+import CoverBackdrop from "../components/CoverBackdrop.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
@@ -185,6 +211,28 @@ const coverUrl = computed(() => {
   lib.requestCover(id);
   return lib.coverCache.get(id) ?? null;
 });
+
+/**
+ * The cover-derived backdrop is desktop-only (lg, 64rem — the same breakpoint
+ * the content-col measure uses) and only when the album has art.
+ */
+const isDesktop = ref(false);
+let desktopMq: MediaQueryList | null = null;
+function onDesktopMqChange(): void {
+  isDesktop.value = desktopMq?.matches ?? false;
+}
+onMounted(() => {
+  if (typeof window.matchMedia !== "function") return;
+  desktopMq = window.matchMedia("(min-width: 64rem)");
+  onDesktopMqChange();
+  desktopMq.addEventListener("change", onDesktopMqChange);
+});
+onBeforeUnmount(() => {
+  desktopMq?.removeEventListener("change", onDesktopMqChange);
+  desktopMq = null;
+});
+
+const backdropActive = computed(() => coverUrl.value != null && isDesktop.value);
 
 const metaLine = computed(() => {
   const parts: string[] = [];

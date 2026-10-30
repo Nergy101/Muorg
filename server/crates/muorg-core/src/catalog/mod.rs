@@ -3,7 +3,8 @@ mod db;
 pub use db::{
     add_tracks_to_playlist, batch_update_track_metadata, compute_content_hash,
     content_hash_from_parts, count_tracks, create_playlist, create_smart_playlist,
-    delete_playlist, ensure_favorites_playlist, gc_deleted_tracks, get_latest_track_backup,
+    delete_playlist, delete_track, ensure_favorites_playlist, gc_deleted_tracks,
+    get_latest_track_backup,
     get_library_stats, get_playlist_entries, get_playlist_name, get_playlist_pins,
     get_playlist_tracks, get_playlists_for_track, get_track_by_id, get_track_id_by_path,
     get_track_lyrics, get_track_mtime_by_path, get_track_path_and_mtime_by_id,

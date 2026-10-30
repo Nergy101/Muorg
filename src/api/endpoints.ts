@@ -225,6 +225,17 @@ export function createApi(t: Transport) {
     },
 
     /**
+     * Delete a track's file from the server (local disk or remote bucket) and
+     * remove its catalog row. Destructive — confirm with the user first.
+     */
+    async deleteTrack(trackId: number) {
+      return unwrap(
+        await client.DELETE("/api/tracks/{id}", { params: { path: { id: trackId } } }),
+        "/api/tracks/{id}",
+      );
+    },
+
+    /**
      * Move a track's file. Refused when the destination already exists unless
      * `overwrite` is set — check first with {@link checkRenameCollisions} so the
      * user can choose cancel/override instead of failing mid-batch.

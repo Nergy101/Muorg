@@ -75,3 +75,11 @@ export async function patchMetadata(
 ): Promise<void> {
   await api.patchMetadata(trackId, update, backupBeforeWrite);
 }
+
+/**
+ * Delete a track's file from the server and drop its catalog row.
+ * Destructive — callers must confirm with the user first.
+ */
+export async function deleteTrack(trackId: number): Promise<void> {
+  await api.deleteTrack(trackId);
+}

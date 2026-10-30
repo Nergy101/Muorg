@@ -428,6 +428,19 @@ interface MuorgApi {
     ): Response<RenameCheckResponse>
 
     /**
+     * Delete a track's file from storage (local disk or its remote bucket) and
+     * remove its catalog row. Playlist entries, play history and lyrics cascade
+     * away with the row. Destructive and not undone by a rescan — the file is
+     * gone, so clients should confirm first.
+     *
+     * `DELETE /api/tracks/{id}`
+     */
+    @DELETE("api/tracks/{id}")
+    suspend fun deleteTrack(
+        @Path("id") id: Long,
+    ): Response<OkResponse>
+
+    /**
      * MusicBrainz candidates for this track. With no body, the query is built from the file\u2019s own tags.
      *
      * `POST /api/tracks/{id}/auto-tag-suggestions`

@@ -454,6 +454,24 @@ pub fn get_track_path_by_id(conn: &rusqlite::Connection, id: i64) -> Result<Opti
     }
 }
 
+/// Hard-delete one track row. Playlist entries, play history and lyrics
+/// cascade via their `ON DELETE CASCADE` foreign keys; backup records are
+/// keyed by path rather than id, so they are removed explicitly. Returns
+/// whether a live row was deleted.
+pub fn delete_track(conn: &rusqlite::Connection, id: i64) -> Result<bool, String> {
+    if let Some(path) = get_track_path_by_id(conn, id)? {
+        conn.execute("DELETE FROM track_backups WHERE track_path = ?1", [&path])
+            .map_err(|e| e.to_string())?;
+    }
+    let removed = conn
+        .execute(
+            "DELETE FROM tracks WHERE id = ?1 AND deleted_at IS NULL",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(removed > 0)
+}
+
 /// The id of the track row at `path`, if any. Soft-deleted rows count: the
 /// `UNIQUE(root_id, path)` constraint covers them, so a rename onto a path any
 /// row still holds would fail the catalog update after the file already moved.

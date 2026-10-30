@@ -6,12 +6,27 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v3.4.2
+
+- **Server**: new `DELETE /api/tracks/{id}` endpoint — deletes the track's file (local library or S3) and its database row with cascades, and invalidates the cached cover art.
+- **Web App**: Reports — count badges now appear only on issue reports (missing metadata, duplicates, missing album cover); Recently played and Most played no longer show counts. The Duplicates report has a **Delete from server** button per track, with a confirmation dialog.
+- **Web App**: the maximized player and the album overview now share one cover-derived backdrop — the blurred album cover stretched fullscreen with edges masked into the background. On desktop the album backdrop fades into the sidebar/background `#1C1917` (mobile keeps the plain theme background), and the maximized player's edges fade the same way instead of ending in a hard seam. The artist page was rebuilt for wide screens (all sections share one 900px column), the player's sleep-timer/actions pill moved underneath the transport buttons on desktop, and the non-functional Chromecast button was hidden in the web client.
+
+## v3.4.1
+
+- **Web + Android**: search screen polish — recent-results header/row padding aligned, cover tile background while artwork loads, the playing row shows its cover with an equalizer overlay instead of replacing it, and playing a track no longer reorders recent search results.
+- **Shared API client**: request bodies are now read via `clone().text()` unconditionally — Firefox's `Request.body` is `null`, which sent empty POST/DELETE bodies (server `400 EOF`) and broke favorites and other writes.
+
+## v3.4.0
+
+- **Web + Android**: new **Search** tab and screen — a search bar on top with recent searches/results as track rows. First tap opens the Search screen; a second tap while on it focuses the input and opens the keyboard. Recent search results are persisted (web settings store, Android SharedPreferences).
+
 ## v3.3.0
 
 - **Server**: WAV support — scanning, tag reading and tag editing now cover `.wav` files. Tags are written to the WAV's ID3 chunk (what DJ software and taggers use), with RIFF LIST/INFO read as a fallback and copied into the new ID3 tag on the first edit so no fields disappear; every other chunk (audio, cue points, smpl, bext, iXML) is left byte-for-byte as it was. Streaming and casting send WAV through the existing MP3 transcode path, like FLAC. Also fixes editing "featuring" on ID3 files: it removed every TXXX frame (catalogue numbers, Discogs IDs, …) and now removes only TXXX:FEATURING.
 - **Desktop App**: WAV support end to end — `.wav` files show up in the library and play, the metadata editor reads and writes their tags, and Chromecast sessions transcode them like FLAC.
 - **Web App**: playlists can be sorted by title, artist or added date (ascending/descending) from the playlist header, and the Home header has a **Shuffle all** button. WAV files play and stream like FLAC. Fixed iOS playback stalling on the lock screen — auto-advance now keeps working when the screen is locked.
-- **Android**: no new Android release in this cycle — see the [Android release notes](#android-32x--33x) (android-v3.3.8 through android-v3.4.0 shipped since v3.2.4). WAV support lands in the next Android release.
+- **Android**: no new Android release in this cycle — see the [Android release notes](#android-32x--36x) (android-v3.3.8 through android-v3.5.0 shipped since v3.2.4). WAV support landed in android-v3.5.0.
 
 ## v3.2.4
 
@@ -37,10 +52,12 @@ Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notab
 
 - **All components**: coordinated release implementing the handoff-audit decisions across the server, desktop, web app and Android client.
 
-## Android 3.2.x – 3.3.x
+## Android 3.2.x – 3.6.x
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v3.6.1** — search screen polish and the Firefox empty-body write fix (see [v3.4.1](#v341)).
+- **android-v3.6.0** — Search tab and screen (see [v3.4.0](#v340)).
 - **android-v3.5.0** — WAV support: `.wav` files play from the server and from local folders, and show the highlighted lossless format badge next to FLAC. Server streams of WAV (like FLAC) go through the MP3 transcode path, so seeking re-requests the stream at the offset and Chromecast gets the right content type. Also updates Gradle to 9.8.2, kotlinx-serialization-json to 1.12.0 and the Cast framework to 23.0.0.
 - **android-v3.4.0** — UI/UX pass: every screen now slides up over the previous one as a solid page, and phones are locked to portrait while tablets get multi-column grids, a centred bottom bar and a side-by-side Player. Failures now show a snackbar instead of failing silently, removals from playlists and the queue offer Undo, and deleting a playlist or removing a local folder asks first. Long album titles no longer show two copies at once, touch targets are 48dp, Library scroll-to-current works in track view, search history only keeps real searches, Home shelves refresh independently and show placeholders while loading, a failed re-connect no longer wipes working server credentials, and Settings has a "Check for updates" row. The home-screen widget now follows playback and its buttons work.
 - **android-v3.3.14** — once the app is exempt from battery optimization, the "Playback stops automatically?" row and its button are hidden under Settings > Playback instead of showing a disabled "Already exempt" button.

@@ -5,26 +5,8 @@
     :style="rootStyle"
     @pointerdown="onPlayerPointerdown"
   >
-    <!-- Dominant-colour backdrop -->
-    <div class="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
-      <div
-        v-if="useEdgeBlurMode && coverUrl"
-        class="edge-blur-art absolute"
-        :style="{ backgroundImage: `url(${coverUrl})`, opacity: 0.85 }"
-      />
-      <template v-else>
-        <div
-          v-for="(blob, i) in glowBlobs"
-          :key="i"
-          class="absolute inset-0 origin-top-left"
-          :style="{
-            background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${(blob.opacity * 1.6).toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.96).toFixed(2)}) 25%, rgba(${blob.rgb},${(blob.opacity * 0.32).toFixed(2)}) 45%, rgba(${blob.rgb},0.04) 70%, transparent 90%)`,
-            transform: `translate(${blob.cx * 100}%, ${blob.cy * 100}%) translate(-50%, -50%) scale(${blob.rx}, ${blob.ry})`,
-            filter: 'blur(24px)',
-          }"
-        />
-      </template>
-    </div>
+    <!-- Dominant-colour backdrop (shared with the album view) -->
+    <CoverBackdrop :cover-url="coverUrl" />
 
     <!-- The glow backdrop above still spans the full shell; only the controls
          column is centred, so seek and transport stay near the art on desktop
@@ -43,7 +25,9 @@
           <MageIcon name="chevron-down" class="h-6 w-6" />
         </button>
         <div class="flex-1" />
-        <div class="glass-sheer flex items-center overflow-hidden rounded-full">
+        <!-- Mobile: the chrome pill lives in the top bar. On desktop (lg) it
+             moves underneath the transport buttons — see below. -->
+        <div class="glass-sheer flex items-center overflow-hidden rounded-full lg:hidden">
           <button
             type="button"
             class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
@@ -67,15 +51,6 @@
             @click="showLyrics = !showLyrics"
           >
             <MageIcon name="note-text" class="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
-            :class="cast.isCasting ? 'text-primary' : ''"
-            :aria-label="cast.isCasting ? `Casting to ${cast.deviceName}` : 'Cast to a device'"
-            @click="showCastSheet = true"
-          >
-            <MageIcon name="screencast" class="h-5 w-5" />
           </button>
           <button
             type="button"
@@ -273,6 +248,45 @@
               >1</span>
             </button>
           </div>
+
+          <!-- Desktop only: the chrome pill (sleep timer / lyrics / cast /
+               actions) sits underneath the transport buttons. -->
+          <div class="hidden shrink-0 justify-center pt-4 lg:flex">
+            <div class="glass-sheer flex items-center overflow-hidden rounded-full">
+              <button
+                type="button"
+                class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
+                :class="player.sleepTimerActive ? 'text-primary' : ''"
+                aria-label="Sleep timer"
+                @click="onSleepButton"
+              >
+                <MageIcon name="moon" class="h-5 w-5" />
+                <span
+                  v-if="player.sleepTimerActive"
+                  class="pr-1.5 text-label-md tabular-nums"
+                  :class="player.sleepTimerActive ? 'text-primary' : ''"
+                >{{ sleepLabel }}</span>
+              </button>
+              <button
+                v-if="hasLyrics"
+                type="button"
+                class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
+                :class="showLyrics ? 'text-primary' : ''"
+                :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
+                @click="showLyrics = !showLyrics"
+              >
+                <MageIcon name="note-text" class="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
+                aria-label="Track actions"
+                @click="openTrackActions"
+              >
+                <MageIcon name="dots" class="h-5 w-5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -324,13 +338,8 @@ import BottomSheet from "../components/BottomSheet.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
-import {
-  getGlowBlobs,
-  hasOpposingEdgeColors,
-  isColorBland,
-  useDominantColor,
-  useEdgeColors,
-} from "../composables/useDominantColor";
+import CoverBackdrop from "../components/CoverBackdrop.vue";
+import { useDominantColor } from "../composables/useDominantColor";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
 import { formatDuration, useLibraryStore } from "../stores/library";
@@ -410,28 +419,10 @@ onMounted(() => {
   if (!player.currentTrack) void router.replace({ name: "library" });
 });
 
-// --- Dominant-colour background (ported from the deleted PlayerBar.vue) ---
+// --- Dominant-colour background lives in CoverBackdrop; glowRgb here only
+// feeds the halo behind the cover art ---
 const coverUrl = computed(() => player.currentCoverUrl);
 const glowRgb = useDominantColor(coverUrl);
-const edgeColors = useEdgeColors(coverUrl);
-const useEdgeBlurMode = computed(() => {
-  if (!coverUrl.value || !edgeColors.value?.colors.length) return false;
-  const blandCenterVibrantEdges =
-    isColorBland(glowRgb.value) && !isColorBland(edgeColors.value.colors[0]);
-  return blandCenterVibrantEdges || hasOpposingEdgeColors(edgeColors.value.bySide);
-});
-const glowBlobs = computed(() => {
-  if (useEdgeBlurMode.value) return [];
-  if (isColorBland(glowRgb.value)) return [];
-  return getGlowBlobs(glowRgb.value, String(player.currentTrack?.id ?? ""));
-});
-const glowBgColor = computed(() => {
-  const parts = glowRgb.value.split(",").map(Number);
-  if (parts.length !== 3) return "#000";
-  if (isColorBland(glowRgb.value)) return "#0c0a09";
-  const [r, g, b] = parts;
-  return `rgb(${Math.round(r * 0.08)},${Math.round(g * 0.08)},${Math.round(b * 0.08)})`;
-});
 
 // --- Swipe down to dismiss ---
 // The sheet is a modal; the shell's edge-back gesture deliberately skips it,
@@ -447,7 +438,6 @@ const rootStyle = computed(() => ({
   ...(swipeProgress.value > 0
     ? { transform: `translateY(${Math.round(swipeProgress.value * 64)}px)` }
     : {}),
-  backgroundColor: glowBgColor.value,
 }));
 
 function onPlayerPointerdown(e: PointerEvent): void {

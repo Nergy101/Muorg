@@ -508,16 +508,23 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* Player background: album art scaled + blurred across the backdrop */
+/* Player/album background: album art scaled + blurred across the backdrop.
+   Kept soft enough to read as a wash, sharp enough that the cover's shapes
+   stay recognisable — blur 72px at 170% zoom was a vague blob. */
 .edge-blur-art {
-  width: min(108vmin, 630px);
-  height: min(108vmin, 630px);
-  background-size: 170%;
+  /* Fullscreen: the art fills the whole backdrop, and a radial mask fades
+     every edge gradually into the dark base colour — no hard cutoff at the
+     pane borders or corners. */
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(72px);
+  filter: blur(40px);
   inset: 0;
-  margin: auto;
+  /* closest-side sizing makes the gradient reach transparent exactly at the
+     edge midpoints — with the default farthest-corner ellipse the side
+     midpoints sat mid-fade and the cover's edge stayed visible. */
+  -webkit-mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
+  mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
 }
 
 /* ---------------------------------------------------------------------------

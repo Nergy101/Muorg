@@ -84,4 +84,4 @@ Product screenshots live in `docs-site/static/img/screenshots/`. They are refere
 
 ## Release process
 
-Releases are tagged `v2.x.y` and built by GitHub Actions. See [Release Notes](/docs/releases) for the changelog and [Version Compatibility](/docs/compatibility) for cross-component version rules.
+Releases are tagged `v3.x.y` and built by GitHub Actions. See [Release Notes](/docs/releases) for the changelog and [Version Compatibility](/docs/compatibility) for cross-component version rules.

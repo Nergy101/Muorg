@@ -623,6 +623,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tracks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a track's file from storage (local disk or its remote bucket) and
+         *     remove its catalog row. Playlist entries, play history and lyrics cascade
+         *     away with the row. Destructive and not undone by a rescan — the file is
+         *     gone, so clients should confirm first.
+         */
+        delete: operations["delete_track"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tracks/{id}/auto-tag-suggestions": {
         parameters: {
             query?: never;
@@ -2693,6 +2715,47 @@ export interface operations {
             };
             /** @description Missing or invalid API key */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_track: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Track id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such track */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

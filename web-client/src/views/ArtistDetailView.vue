@@ -29,33 +29,40 @@
     </template>
 
     <template v-else>
-      <div ref="scroller" class="content-col min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
-        <div v-if="albums.length > 0" class="flex items-center gap-1.5 pb-2 pt-2 text-label-lg font-semibold text-on-surface">
-          <MageIcon name="compact-disk" class="h-4 w-4 text-primary" />
-          Albums
-        </div>
-        <div class="-mx-4 grid grid-cols-2 gap-3 px-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
-          <AlbumCard
-            v-for="item in albums"
-            :key="item.key"
-            :item="item"
-            mode="grid"
-            @open="openAlbum(item)"
-          />
-        </div>
+      <!-- Not content-col on the scroller: capping it drags the scrollbar
+           inwards on desktop. Every section below keeps the same 900px
+           measure, so the album covers line up with the track rows. -->
+      <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+        <template v-if="albums.length > 0">
+          <div class="content-col flex items-center gap-1.5 px-4 pb-2 pt-2 text-label-lg font-semibold text-on-surface">
+            <MageIcon name="compact-disk" class="h-4 w-4 text-primary" />
+            Albums
+          </div>
+          <div class="content-col grid grid-cols-2 gap-3 px-4 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+            <AlbumCard
+              v-for="item in albums"
+              :key="item.key"
+              :item="item"
+              mode="grid"
+              @open="openAlbum(item)"
+            />
+          </div>
+        </template>
 
-        <div class="mt-4 flex items-center gap-1.5 pb-2 text-label-lg font-semibold text-on-surface">
+        <div class="content-col mt-4 flex items-center gap-1.5 px-4 pb-2 text-label-lg font-semibold text-on-surface">
           <MageIcon name="music" class="h-4 w-4 text-primary" />
           Tracks · {{ tracks.length }}
         </div>
-        <TrackListRow
-          v-for="track in tracks"
-          :key="track.id"
-          :track="track"
-          :is-playing="player.currentTrack?.id === track.id"
-          @play="player.playTrack(track, tracks)"
-          @actions="sheetTrack = track"
-        />
+        <div class="content-col-children">
+          <TrackListRow
+            v-for="track in tracks"
+            :key="track.id"
+            :track="track"
+            :is-playing="player.currentTrack?.id === track.id"
+            @play="player.playTrack(track, tracks)"
+            @actions="sheetTrack = track"
+          />
+        </div>
       </div>
     </template>
 

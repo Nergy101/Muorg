@@ -51,8 +51,10 @@
               :key="track.id"
               :track="track"
               :is-playing="player.currentTrack?.id === track.id"
+              show-delete
               @play="player.playTrack(track, tracks)"
               @actions="sheetTrack = track"
+              @delete="pendingDelete = track"
             />
           </div>
         </template>
@@ -75,6 +77,16 @@
       :track="sheetTrack"
       @close="sheetTrack = null"
     />
+
+    <ConfirmDialog
+      :open="pendingDelete !== null"
+      title="Delete from server?"
+      :message="deleteMessage"
+      confirm-label="Delete"
+      danger
+      @confirm="confirmDelete"
+      @cancel="pendingDelete = null"
+    />
   </div>
 </template>
 
@@ -84,8 +96,11 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { deleteTrack } from "../api/catalog";
+import { showToast, showWarning } from "../composables/useToast";
 import {
   REPORT_KINDS,
   REPORT_LABELS,
@@ -103,6 +118,31 @@ const lib = useLibraryStore();
 const player = usePlayerStore();
 
 const sheetTrack = ref<CatalogTrack | null>(null);
+const pendingDelete = ref<CatalogTrack | null>(null);
+const deleting = ref(false);
+
+const deleteMessage = computed(() => {
+  const t = pendingDelete.value;
+  if (!t) return "";
+  const name = t.title ?? t.path.split("/").pop() ?? `track ${t.id}`;
+  return `"${name}" will be permanently deleted from the server, including its file. This cannot be undone.`;
+});
+
+async function confirmDelete(): Promise<void> {
+  const track = pendingDelete.value;
+  if (!track || deleting.value) return;
+  deleting.value = true;
+  try {
+    await deleteTrack(track.id);
+    lib.removeTrack(track.id);
+    showToast(`Deleted ${track.title ?? "track"} from the server`);
+  } catch (err) {
+    showWarning(`Delete failed: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    deleting.value = false;
+    pendingDelete.value = null;
+  }
+}
 
 /** An unknown `:kind` in the URL falls back rather than rendering nothing. */
 const kind = computed<ReportKind>(() =>
