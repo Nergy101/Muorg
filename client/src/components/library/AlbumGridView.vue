@@ -3,7 +3,7 @@ import { computed, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import AlbumGridCard from "./AlbumGridCard.vue";
-import { albumIdentityKey } from "../../utils/albumIdentity";
+import { albumIdentityKey } from "@shared/utils/albumIdentity";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 export type AlbumGridItem = {
   key: string;

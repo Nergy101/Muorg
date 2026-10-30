@@ -6,8 +6,8 @@ import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack, MetadataUpdate } from "../../types";
 import type { MissingMetadataField } from "../../stores/settings";
-import { extractBestFromPath, buildUpdateFromExtracted } from "../../utils/pathFormat";
-import { albumIdentityKey } from "../../utils/albumIdentity";
+import { extractBestFromPath, buildUpdateFromExtracted } from "@shared/utils/pathFormat";
+import { albumIdentityKey } from "@shared/utils/albumIdentity";
 import {
   duplicateCount as countDuplicates,
   runReport,

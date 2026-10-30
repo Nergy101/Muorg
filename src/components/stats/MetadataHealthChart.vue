@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { CatalogTrack } from "../../types";
-import type { MissingMetadataField } from "../../stores/settings";
+import type { CatalogTrack } from "@/types";
+import type { MissingMetadataField } from "../../reports";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const props = defineProps<{ tracks: CatalogTrack[] }>();

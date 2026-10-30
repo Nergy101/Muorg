@@ -8,7 +8,7 @@
 import { computed, ref, watch } from "vue";
 import * as catalogApi from "../../../api/catalog";
 import { useCatalogStore } from "../../../stores/catalog";
-import { buildTransformPath } from "../../../utils/pathFormat";
+import { buildTransformPath } from "@shared/utils/pathFormat";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import type { RenameCollision } from "@shared/api";
 

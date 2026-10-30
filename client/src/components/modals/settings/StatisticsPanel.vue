@@ -11,8 +11,8 @@ import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import GenrePieChart from "@shared/components/stats/GenrePieChart.vue";
 import YearLineChart from "@shared/components/stats/YearLineChart.vue";
 import RatingChart from "@shared/components/stats/RatingChart.vue";
-import TopArtistsChart from "../../stats/TopArtistsChart.vue";
-import MetadataHealthChart from "../../stats/MetadataHealthChart.vue";
+import TopArtistsChart from "@shared/components/stats/TopArtistsChart.vue";
+import MetadataHealthChart from "@shared/components/stats/MetadataHealthChart.vue";
 
 const store = useCatalogStore();
 

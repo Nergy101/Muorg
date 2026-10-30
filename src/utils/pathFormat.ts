@@ -1,4 +1,4 @@
-import type { MetadataUpdate } from "../types";
+import type { MetadataUpdate } from "../api/types";
 
 /**
  * Extracts metadata fields from a file path using a format template.

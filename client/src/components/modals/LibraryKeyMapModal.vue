@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
-import { KEY_MAP_ENTRIES } from "../../utils/keyMap";
+import { KEY_MAP_ENTRIES } from "@shared/utils/keyMap";
 
 const props = defineProps<{
   open: boolean;

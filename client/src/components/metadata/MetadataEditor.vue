@@ -4,7 +4,7 @@ import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import type { MetadataUpdate, TrackMetadataRead, TrackBackupRecord } from "../../types";
-import { extractBestFromPath, PATH_FIELD_MAP, buildUpdateFromExtracted } from "../../utils/pathFormat";
+import { extractBestFromPath, PATH_FIELD_MAP, buildUpdateFromExtracted } from "@shared/utils/pathFormat";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { open } from "@tauri-apps/plugin-shell";
 import { confirm as tauriConfirm } from "@tauri-apps/plugin-dialog";
@@ -17,7 +17,7 @@ import WikipediaCoverModal from "./WikipediaCoverModal.vue";
 import TooltipPopover from "../shared/TooltipPopover.vue";
 import type { AutoTagCandidate } from "../../api/catalog";
 import { useTooltipPopover } from "../../composables/useTooltipPopover";
-import { findAlbumCoverUrl } from "../../utils/wikipediaCover";
+import { findAlbumCoverUrl } from "@shared/utils/wikipediaCover";
 import {
   bytesToBase64,
   formatImageSize,
@@ -25,7 +25,7 @@ import {
   normalizeMime,
   pngDataUrlToJpegBase64,
   stripDataUrlPrefix,
-} from "../../utils/imageData";
+} from "@shared/utils/imageData";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();

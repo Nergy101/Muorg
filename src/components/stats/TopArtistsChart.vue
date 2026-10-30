@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { CatalogTrack } from "../../types";
+import type { CatalogTrack } from "@/types";
 
 const props = defineProps<{ tracks: CatalogTrack[] }>();
 

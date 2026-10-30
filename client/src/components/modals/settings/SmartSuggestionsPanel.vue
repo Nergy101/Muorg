@@ -7,7 +7,7 @@
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useSettingsStore, DEFAULT_PATH_FORMAT_EXAMPLE_PATH } from "../../../stores/settings";
-import { extractBestFromPath, extractMetadataFromPath, buildUpdateFromExtracted } from "../../../utils/pathFormat";
+import { extractBestFromPath, extractMetadataFromPath, buildUpdateFromExtracted } from "@shared/utils/pathFormat";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const settingsStore = useSettingsStore();
