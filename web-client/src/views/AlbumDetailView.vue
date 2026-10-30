@@ -129,7 +129,10 @@
           :on-dark="backdropActive"
           :accent-rgb="accentRgb"
           :is-playing="player.currentTrack?.id === track.id"
+          :selectable="selection.selecting"
+          :selected="selection.has(track.id)"
           @play="player.playTrack(track, tracks)"
+          @select="(mods) => onSelect(track, mods)"
           @actions="sheetTrack = track"
         />
       </div>
@@ -168,7 +171,9 @@ import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
+import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { provideVisibleIds } from "../composables/useSelectableList";
 import { isColorBland, useDominantColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
 import type { CatalogTrack, Playlist } from "../types";
@@ -182,6 +187,7 @@ const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
+const selection = useSelectionStore();
 
 const albumKey = computed(() => props.albumKey);
 const item = computed(() => lib.albumByKey(albumKey.value));
@@ -207,6 +213,17 @@ const tracks = computed<CatalogTrack[]>(() => {
   const filter = playlistFilter.value;
   return filter ? all.filter((t) => filter.has(t.id)) : all;
 });
+
+provideVisibleIds(() => tracks.value.map((t) => t.id));
+
+function onSelect(track: CatalogTrack, mods: { shift: boolean; ctrl: boolean }): void {
+  const consumed = selection.click(
+    track.id,
+    tracks.value.map((t) => t.id),
+    mods,
+  );
+  if (!consumed) player.playTrack(track, tracks.value);
+}
 
 const coverUrl = computed(() => {
   const id = item.value?.coverTrackId;

@@ -89,6 +89,10 @@
     </div>
   </div>
   <Toast />
+  <SelectionBar />
+  <PlaylistDuplicateDialog />
+  <KeyMapModal />
+  <MetadataEditorHost />
 </template>
 
 <script setup lang="ts">
@@ -101,6 +105,10 @@ import SidebarNav from "./components/SidebarNav.vue";
 import MiniPlayer from "./components/MiniPlayer.vue";
 import LibrarySearchBar from "./components/LibrarySearchBar.vue";
 import Toast from "./components/Toast.vue";
+import SelectionBar from "./components/SelectionBar.vue";
+import PlaylistDuplicateDialog from "./components/PlaylistDuplicateDialog.vue";
+import MetadataEditorHost from "./components/metadata/MetadataEditorHost.vue";
+import KeyMapModal from "./components/KeyMapModal.vue";
 import { usePlayerStore } from "./stores/player";
 import { useSettingsStore } from "./stores/settings";
 import { useSwipeNavigate } from "./composables/useSwipeNavigate";

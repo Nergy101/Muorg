@@ -10,6 +10,7 @@ import type {
   SortMode,
   ThemeMode,
 } from "../types";
+import type { ReplayGainMode } from "../audio/replayGain";
 
 const MAX_SEARCH_HISTORY = 10;
 const MAX_RECENT_SEARCH_RESULTS = 20;
@@ -75,6 +76,13 @@ export const useSettingsStore = defineStore("settings", () => {
   const playlistViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-playlist-view", "tracks"));
   const miniPlayerTapOpensPlayer = ref(loadPref("muorg-web-miniplayer-tap", true));
   const volume = ref(loadPref("muorg-web-volume", 1));
+  /** ReplayGain mode: off (ignore tags), track (each track's own gain — best
+   *  for mixed playlists/shuffle), or album (preserve loudness differences
+   *  within an album). Mirrors the desktop app's setting. */
+  const replayGainMode = ref<ReplayGainMode>(loadPref("muorg-web-replaygain-mode", "off"));
+  /** dB applied on top of the tag's gain, positive or negative. */
+  const replayGainPreampDb = ref(loadPref("muorg-web-replaygain-preamp", 0));
+  const replayGainPreventClipping = ref(loadPref("muorg-web-replaygain-prevent-clipping", true));
   const accent = ref<AccentColor>(loadPref("muorg-web-accent", "green"));
   const reduceMotion = ref(loadPref("muorg-web-reduce-motion", false));
   const openOnLastTab = ref(loadPref("muorg-web-open-last-tab", true));
@@ -214,6 +222,23 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-volume", clamped);
   }
 
+  function setReplayGainMode(m: ReplayGainMode): void {
+    replayGainMode.value = m;
+    savePref("muorg-web-replaygain-mode", m);
+  }
+
+  /** Clamped to a sane ±24 dB range — the UI slider stays within that too. */
+  function setReplayGainPreampDb(db: number): void {
+    const clamped = Math.min(24, Math.max(-24, Number.isFinite(db) ? db : 0));
+    replayGainPreampDb.value = clamped;
+    savePref("muorg-web-replaygain-preamp", clamped);
+  }
+
+  function setReplayGainPreventClipping(v: boolean): void {
+    replayGainPreventClipping.value = v;
+    savePref("muorg-web-replaygain-prevent-clipping", v);
+  }
+
   function setAccent(a: AccentColor): void {
     accent.value = a;
     savePref("muorg-web-accent", a);
@@ -309,6 +334,9 @@ export const useSettingsStore = defineStore("settings", () => {
     playlistViewStyle,
     miniPlayerTapOpensPlayer,
     volume,
+    replayGainMode,
+    replayGainPreampDb,
+    replayGainPreventClipping,
     accent,
     reduceMotion,
     openOnLastTab,
@@ -329,6 +357,9 @@ export const useSettingsStore = defineStore("settings", () => {
     cyclePlaylistViewStyle,
     setMiniPlayerTapOpensPlayer,
     setVolume,
+    setReplayGainMode,
+    setReplayGainPreampDb,
+    setReplayGainPreventClipping,
     setAccent,
     setReduceMotion,
     setOpenOnLastTab,

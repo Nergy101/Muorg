@@ -14,6 +14,15 @@
       <span class="flex-1 text-title-lg text-on-surface">Queue</span>
       <button
         type="button"
+        class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container disabled:opacity-40"
+        aria-label="Save queue as playlist"
+        :disabled="saveableQueueTracks.length === 0"
+        @click="openSaveAsPlaylist"
+      >
+        <MageIcon name="save-floppy" class="h-5 w-5" />
+      </button>
+      <button
+        type="button"
         class="px-2 text-label-lg text-primary"
         @click="player.clearQueue()"
       >Clear all</button>
@@ -130,6 +139,14 @@
       @view-album="onViewAlbum"
       @remove-from-queue="onRemoveFromQueue"
     />
+
+    <PlaylistFormDialog
+      :open="saveAsPlaylistOpen"
+      title="Save queue as playlist"
+      confirm-label="Save"
+      @confirm="confirmSaveAsPlaylist"
+      @cancel="saveAsPlaylistOpen = false"
+    />
   </div>
 </template>
 
@@ -141,10 +158,13 @@ import MarqueeText from "./MarqueeText.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import QueueRow from "./QueueRow.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
+import PlaylistFormDialog from "./PlaylistFormDialog.vue";
 import { REORDER_ROW_HEIGHT, useDragReorder } from "../composables/useDragReorder";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { usePlaylistStore } from "../stores/playlists";
+import { showToast } from "../composables/useToast";
 import type { CatalogTrack } from "../types";
 
 /**
@@ -158,6 +178,7 @@ withDefaults(defineProps<{ safeBottom?: boolean }>(), { safeBottom: false });
 const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
+const playlistStore = usePlaylistStore();
 
 const currentCover = computed(() => {
   const t = player.currentTrack;
@@ -282,6 +303,36 @@ function onViewAlbum(): void {
   const t = sheetTrack.value;
   if (!t) return;
   void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
+}
+
+// --- Save queue as playlist -------------------------------------------------
+
+/** Everything that will actually play from here: the current track plus the
+ *  combined up-next list (user queue first, then the system remainder). */
+const saveableQueueTracks = computed<CatalogTrack[]>(() => {
+  const current = player.currentTrack;
+  const rest = player.upNext.map((e) => e.track);
+  return current ? [current, ...rest] : rest;
+});
+
+const saveAsPlaylistOpen = ref(false);
+
+function openSaveAsPlaylist(): void {
+  if (saveableQueueTracks.value.length === 0) return;
+  saveAsPlaylistOpen.value = true;
+}
+
+async function confirmSaveAsPlaylist(name: string): Promise<void> {
+  saveAsPlaylistOpen.value = false;
+  const trackIds = saveableQueueTracks.value.map((t) => t.id);
+  if (trackIds.length === 0) return;
+  try {
+    const playlist = await playlistStore.createPlaylist(name);
+    await playlistStore.addTracks(playlist.id, trackIds);
+    showToast(`Saved "${name}" with ${trackIds.length} track${trackIds.length === 1 ? "" : "s"}`);
+  } catch (e) {
+    showToast(`Couldn't save playlist: ${(e as Error).message}`);
+  }
 }
 
 const scroller = ref<HTMLElement | null>(null);

@@ -68,10 +68,12 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import { useLibraryStore } from "../stores/library";
+import { useSettingsStore } from "../stores/settings";
 import { REPORT_LABELS, reportCounts, type ReportKind } from "@shared/reports";
 
 const router = useRouter();
 const lib = useLibraryStore();
+const settings = useSettingsStore();
 
 /** Presentation for each report; the definitions live in `@shared/reports`. */
 const REPORTS: { kind: ReportKind; icon: string; tint: string; hint: string }[] = [
@@ -102,7 +104,7 @@ const REPORTS: { kind: ReportKind; icon: string; tint: string; hint: string }[] 
   },
 ];
 
-const counts = computed(() => reportCounts(lib.tracks));
+const counts = computed(() => reportCounts(lib.tracks, settings.missingMetadataFields));
 
 /**
  * Only the "something is wrong with the files" reports get a count badge.

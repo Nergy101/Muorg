@@ -21,6 +21,11 @@
           </div>
         </div>
 
+        <div class="flex items-center justify-between gap-4 px-6 py-2">
+          <span class="text-body-lg text-on-surface">Rating</span>
+          <StarRating :model-value="track.rating" @update:model-value="onSetRating" />
+        </div>
+
         <div class="my-1 border-t border-outline/30" />
 
         <button type="button" :class="ROW" @click="onToggleFavorite">
@@ -108,14 +113,22 @@
         </button>
 
         <div class="my-1 border-t border-outline/30" />
+        <button type="button" :class="ROW" @click="onSelect">
+          <MageIcon name="check-circle" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <span>Select</span>
+        </button>
 
         <button type="button" :class="ROW" @click="level = 'info'">
           <MageIcon name="information-circle" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Track info</span>
         </button>
-        <button type="button" :class="ROW" @click="openEdit">
+        <button type="button" :class="ROW" @click="onEditMetadata">
           <MageIcon name="edit" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Edit metadata</span>
+        </button>
+        <button type="button" :class="[ROW, 'text-error']" @click="deleteConfirmOpen = true">
+          <MageIcon name="trash" class="h-5 w-5 shrink-0" />
+          <span>Delete track</span>
         </button>
         <div class="h-4" />
       </template>
@@ -200,82 +213,36 @@
         </div>
         <div class="pb-6" />
       </template>
-
-      <!-- ─── edit ─────────────────────────────────────────────────────── -->
-      <template v-else-if="level === 'edit'">
-        <button type="button" :class="ROW" @click="level = 'main'">
-          <MageIcon name="arrow-left" class="h-5 w-5 shrink-0" />
-          <span>Back</span>
-        </button>
-        <div :class="LABEL">EDIT METADATA</div>
-
-        <div v-for="field in EDIT_FIELDS" :key="field.key" class="px-6 py-1.5">
-          <label class="mb-1 block text-body-sm text-on-surface-variant">{{ field.label }}</label>
-          <input
-            v-model="form[field.key]"
-            :type="field.key === 'year' ? 'number' : 'text'"
-            class="w-full rounded-xl bg-surface-variant px-3 py-2.5 text-body-lg text-on-surface outline-none"
-          />
-        </div>
-
-        <button type="button" :class="ROW" @click="level = 'autotag'">
-          <MageIcon name="search" class="h-5 w-5 shrink-0" />
-          <span>Look up on MusicBrainz</span>
-        </button>
-
-        <div class="flex justify-end gap-2 px-6 pb-6 pt-3">
-          <button
-            type="button"
-            class="rounded-full px-4 py-2 text-label-lg text-on-surface-variant"
-            @click="level = 'main'"
-          >Cancel</button>
-          <button
-            type="button"
-            class="rounded-full px-4 py-2 text-label-lg text-primary"
-            @click="onSave"
-          >Save</button>
-        </div>
-      </template>
-
-      <!-- ─── MusicBrainz lookup ───────────────────────────────────────── -->
-      <template v-else>
-        <AutoTagPanel
-          :track="props.track"
-          @back="level = 'edit'"
-          @apply="onApplyCandidate"
-        />
-      </template>
     </template>
   </BottomSheet>
+
+  <ConfirmDialog
+    :open="deleteConfirmOpen"
+    title="Delete track"
+    :message="`Delete &quot;${track?.title ?? 'this track'}&quot; from the server? This permanently removes the file and cannot be undone.`"
+    confirm-label="Delete"
+    danger
+    @confirm="onDeleteConfirm"
+    @cancel="deleteConfirmOpen = false"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
-import AutoTagPanel from "./AutoTagPanel.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
-import { showToast } from "../composables/useToast";
-import { applyCandidate } from "../composables/useAutoTag";
-import type { CatalogTrack, MatchCandidate, Playlist } from "../types";
+import { useSelectionStore } from "../stores/selection";
+import { showToast, showWarning } from "../composables/useToast";
+import { openMetadataEditor } from "../composables/useMetadataEditor";
+import type { CatalogTrack, Playlist } from "../types";
 
 const ROW = "flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface";
 const LABEL = "px-6 pt-3 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
-
-/** Editable metadata fields, in the Android sheet's order. */
-const EDIT_FIELDS = [
-  { key: "title", label: "Title" },
-  { key: "artist", label: "Artist" },
-  { key: "album", label: "Album" },
-  { key: "album_artist", label: "Album Artist" },
-  { key: "genre", label: "Genre" },
-  { key: "year", label: "Year" },
-] as const;
-
-type EditKey = (typeof EDIT_FIELDS)[number]["key"];
 
 const props = defineProps<{
   open: boolean;
@@ -298,8 +265,16 @@ const emit = defineEmits<{
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
+const selection = useSelectionStore();
 
-const level = ref<"main" | "playlists" | "info" | "edit" | "autotag">("main");
+function onSelect(): void {
+  const t = props.track;
+  if (!t) return;
+  selection.begin(t.id);
+  emit("close");
+}
+
+const level = ref<"main" | "playlists" | "info">("main");
 
 watch(
   () => props.open,
@@ -366,6 +341,32 @@ function onMoveToPlayNext(): void {
 
 function onRemoveQueue(): void {
   emit("remove-from-queue");
+  emit("close");
+}
+
+/** Single-track rating — no confirm needed (Q4 only requires one for bulk). */
+async function onSetRating(value: number | null): Promise<void> {
+  const t = props.track;
+  if (!t) return;
+  await lib.setRatings([t.id], value);
+}
+
+function onEditMetadata(): void {
+  const t = props.track;
+  if (!t) return;
+  openMetadataEditor([t.id]);
+  emit("close");
+}
+
+const deleteConfirmOpen = ref(false);
+
+async function onDeleteConfirm(): Promise<void> {
+  deleteConfirmOpen.value = false;
+  const t = props.track;
+  if (!t) return;
+  const { deleted, failed } = await lib.deleteTracks([t.id]);
+  if (failed.length > 0) showWarning(`Failed to delete: ${failed[0].message}`);
+  else if (deleted.length > 0) showToast("Deleted");
   emit("close");
 }
 
@@ -485,56 +486,4 @@ const infoFields = computed(() => {
   push("File", t.path);
   return fields;
 });
-
-// --- edit level ------------------------------------------------------------
-
-const form = ref<Record<EditKey, string>>({
-  title: "",
-  artist: "",
-  album: "",
-  album_artist: "",
-  genre: "",
-  year: "",
-});
-
-function openEdit(): void {
-  const t = props.track;
-  if (!t) return;
-  form.value = {
-    title: t.title ?? "",
-    artist: t.artist ?? "",
-    album: t.album ?? "",
-    album_artist: t.album_artist ?? "",
-    genre: t.genre ?? "",
-    year: t.year != null ? String(t.year) : "",
-  };
-  level.value = "edit";
-}
-
-/**
- * Fill the edit form from a MusicBrainz match and go back to it.
- *
- * Deliberately not a save: a wrong match should cost a glance, not a write.
- */
-function onApplyCandidate(candidate: MatchCandidate): void {
-  form.value = applyCandidate(form.value, candidate);
-  level.value = "edit";
-  showToast("Filled from MusicBrainz — review and save");
-}
-
-function onSave(): void {
-  const t = props.track;
-  if (!t) return;
-  const parsedYear = Number.parseInt(form.value.year, 10);
-  // The store owns the diff, the no-change toast and the library reload.
-  void player.saveMetadata(t, {
-    title: form.value.title,
-    artist: form.value.artist,
-    album: form.value.album,
-    album_artist: form.value.album_artist,
-    genre: form.value.genre,
-    year: Number.isNaN(parsedYear) ? null : parsedYear,
-  });
-  emit("close");
-}
 </script>

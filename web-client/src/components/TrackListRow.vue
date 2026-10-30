@@ -1,14 +1,14 @@
 <template>
   <div
     class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer"
-    :class="onDark ? 'lg:hover:bg-white/10' : 'lg:hover:bg-surface-container/50'"
-    @click="emit('play')"
+    :class="rowStateClass"
+    @click="onRowClick"
     @touchstart.passive="lp.onTouchstart"
     @touchmove.passive="lp.onTouchmove"
     @touchend="lp.onTouchend"
     @contextmenu.prevent="emit('actions')"
   >
-    <!-- Leading: equalizer while playing, else cover / index / placeholder -->
+    <!-- Leading: selection checkbox, else equalizer while playing, else cover / index / placeholder -->
     <div
       class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded"
       :class="onDark ? 'bg-white/10' : 'bg-surface-variant'"
@@ -27,7 +27,15 @@
       >{{ track.track_number ?? "·" }}</span>
       <MageIcon v-else name="music" class="h-5 w-5" :class="onDark ? 'text-white/50' : 'text-on-surface-variant/60'" />
       <div
-        v-if="isPlaying"
+        v-if="selectable"
+        class="absolute inset-0 flex items-center justify-center rounded transition-colors"
+        :class="selected ? 'bg-primary/70' : 'bg-black/35'"
+      >
+        <MageIcon v-if="selected" name="check-circle" class="h-6 w-6 text-white" />
+        <div v-else class="h-5 w-5 rounded-full border-2 border-white/80" />
+      </div>
+      <div
+        v-else-if="isPlaying"
         class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
       >
         <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
@@ -101,6 +109,7 @@ import { isLossless } from "@shared/formats";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { useSelectionStore } from "../stores/selection";
 import { useLongPress } from "../composables/useLongPress";
 import type { CatalogTrack } from "../types";
 
@@ -120,6 +129,13 @@ const props = withDefaults(
      * the lossless format badge instead of the theme primary. Null = default.
      */
     accentRgb?: string | null;
+    /** Selection mode is active for this list: shows a checkbox and makes
+     *  every click a selection toggle (Ctrl/Shift-click work regardless of
+     *  this flag — they always start/extend a selection). */
+    selectable?: boolean;
+    /** Whether this row is currently selected. Only meaningful alongside
+     *  `selectable`. */
+    selected?: boolean;
   }>(),
   {
     leading: "cover",
@@ -128,10 +144,18 @@ const props = withDefaults(
     showDelete: false,
     onDark: false,
     accentRgb: null,
+    selectable: false,
+    selected: false,
   },
 );
 
-const emit = defineEmits<{ play: []; actions: []; delete: [] }>();
+const emit = defineEmits<{
+  play: [];
+  actions: [];
+  delete: [];
+  /** Click was (or should be) treated as a selection gesture, not a play. */
+  select: [mods: { shift: boolean; ctrl: boolean }];
+}>();
 
 const titleClass = computed(() =>
   props.isPlaying
@@ -145,7 +169,23 @@ const lib = useLibraryStore();
 // `isPlaying` means "this row is the current track"; the store says whether
 // audio is actually running, which is what freezes the bars.
 const player = usePlayerStore();
-const lp = useLongPress(() => emit("actions"));
+const selection = useSelectionStore();
+const lp = useLongPress(() => selection.begin(props.track.id));
+
+const rowStateClass = computed(() => {
+  const hover = props.onDark ? "lg:hover:bg-white/10" : "lg:hover:bg-surface-container/50";
+  const tint = props.selected ? (props.onDark ? "bg-white/15" : "bg-primary/10") : "";
+  return [hover, tint].filter(Boolean).join(" ");
+});
+
+function onRowClick(e: MouseEvent): void {
+  const mods = { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey };
+  if (props.selectable || mods.shift || mods.ctrl) {
+    emit("select", mods);
+    return;
+  }
+  emit("play");
+}
 
 const coverUrl = computed(() => {
   if (props.leading !== "cover" || !props.track.has_cover) return null;

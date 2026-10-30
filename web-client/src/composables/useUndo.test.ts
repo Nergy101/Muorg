@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_UNDO_DEPTH, canRedo, canUndo, clearUndo, pushUndo, redoLast, undoLast } from "./useUndo";
+import { MAX_UNDO_DEPTH, canRedo, canUndo, clearUndo, pushUndo, recordUndoable, redoLast, undoLast } from "./useUndo";
+import { runToastAction } from "./useToast";
 
 function entry(label: string, log: string[]) {
   return {
@@ -51,5 +52,25 @@ describe("undo stack", () => {
       while (await undoLast()) n++;
       expect(n).toBe(MAX_UNDO_DEPTH);
     })();
+  });
+});
+
+describe("recordUndoable", () => {
+  beforeEach(() => clearUndo());
+
+  it("the toast's Undo button undoes the entry it was shown for", async () => {
+    const log: string[] = [];
+    const e = entry("rated", log);
+    recordUndoable(e);
+    await runToastAction();
+    expect(log).toEqual(["undo rated"]);
+  });
+
+  it("refuses to undo from a stale toast once a newer change exists", async () => {
+    const log: string[] = [];
+    recordUndoable(entry("first", log));
+    pushUndo(entry("second", log));
+    await runToastAction();
+    expect(log).toEqual([]);
   });
 });

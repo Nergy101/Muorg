@@ -96,6 +96,10 @@
         </button>
       </div>
 
+      <div class="hidden shrink-0 items-center pr-1 lg:flex">
+        <VolumeControl />
+      </div>
+
       <div class="flex shrink-0 items-center gap-0.5 pr-2">
         <button
           type="button"
@@ -149,6 +153,7 @@ import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
+import VolumeControl from "./VolumeControl.vue";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";

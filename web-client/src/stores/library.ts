@@ -400,6 +400,29 @@ export const useLibraryStore = defineStore("library", () => {
     });
   }
 
+  /**
+   * Deletes tracks (file + catalog row) on the server one by one and drops each
+   * from the local catalog. Permanent — callers MUST confirm first. Keeps going
+   * past a failure and reports how many succeeded and which failed, so a
+   * half-finished bulk delete is visible rather than silent.
+   */
+  async function deleteTracks(
+    ids: readonly number[],
+  ): Promise<{ deleted: number[]; failed: { id: number; message: string }[] }> {
+    const deleted: number[] = [];
+    const failed: { id: number; message: string }[] = [];
+    for (const id of ids) {
+      try {
+        await api.deleteTrack(id);
+        removeTrack(id);
+        deleted.push(id);
+      } catch (e) {
+        failed.push({ id, message: (e as Error).message });
+      }
+    }
+    return { deleted, failed };
+  }
+
   /** Drop a track from the local catalog after the server deleted it. */
   function removeTrack(trackId: number): void {
     const idx = tracks.value.findIndex((x) => x.id === trackId);
@@ -411,6 +434,22 @@ export const useLibraryStore = defineStore("library", () => {
     coverCache.value.delete(trackId);
     coverFailed.value.delete(trackId);
     coverPending.value.delete(trackId);
+  }
+
+  /**
+   * Drops cached covers for `ids` after a metadata write changes their
+   * artwork, so the next `requestCover` re-fetches instead of showing the
+   * stale blob URL. Leaves the track rows themselves alone.
+   */
+  function invalidateCover(ids: readonly number[]): void {
+    for (const id of ids) {
+      const url = coverCache.value.get(id);
+      if (url) URL.revokeObjectURL(url);
+      coverCache.value.delete(id);
+      coverFailed.value.delete(id);
+    }
+    coverCache.value = new Map(coverCache.value);
+    coverFailed.value = new Set(coverFailed.value);
   }
 
   /**
@@ -541,7 +580,9 @@ export const useLibraryStore = defineStore("library", () => {
     tracksForAlbum,
     applyTrackUpdate,
     setRatings,
+    deleteTracks,
     removeTrack,
+    invalidateCover,
     trackById,
     loadLibrary,
     requestCover,

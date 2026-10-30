@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyCandidate, confidenceClass, rankCandidates } from "./useAutoTag";
-import type { EditForm } from "./useAutoTag";
+import { EMPTY_METADATA_FORM } from "../stores/metadata";
+import type { MetadataForm } from "../stores/metadata";
 import type { MatchCandidate } from "../types";
 
 /**
@@ -12,13 +13,17 @@ import type { MatchCandidate } from "../types";
  * typed, and does it silently.
  */
 describe("applyCandidate", () => {
-  const form: EditForm = {
+  const form: MetadataForm = {
+    ...EMPTY_METADATA_FORM,
     title: "Old title",
     artist: "Old artist",
     album: "Old album",
     album_artist: "Old album artist",
     genre: "Doom",
     year: "1999",
+    featuring: "Old featuring",
+    disc_number: "2",
+    track_number: "9",
   };
 
   const candidate = (over: Partial<MatchCandidate> = {}): MatchCandidate => ({
@@ -40,13 +45,15 @@ describe("applyCandidate", () => {
     expect(next.album).toBe("New album");
     expect(next.album_artist).toBe("New album artist");
     expect(next.year).toBe("2004");
+    expect(next.track_number).toBe("3");
   });
 
   it("keeps a field the match has nothing to say about", () => {
-    const next = applyCandidate(form, candidate({ album: null, album_artist: null, year: null }));
+    const next = applyCandidate(form, candidate({ album: null, album_artist: null, year: null, track_number: null }));
     expect(next.album).toBe("Old album");
     expect(next.album_artist).toBe("Old album artist");
     expect(next.year).toBe("1999");
+    expect(next.track_number).toBe("9");
   });
 
   it("keeps a field the match sends as an empty string", () => {
@@ -56,8 +63,11 @@ describe("applyCandidate", () => {
     expect(next.album_artist).toBe("Old album artist");
   });
 
-  it("never touches genre — MusicBrainz recordings do not carry one", () => {
-    expect(applyCandidate(form, candidate()).genre).toBe("Doom");
+  it("never touches genre, featuring or disc number — a candidate carries none of them", () => {
+    const next = applyCandidate(form, candidate());
+    expect(next.genre).toBe("Doom");
+    expect(next.featuring).toBe("Old featuring");
+    expect(next.disc_number).toBe("2");
   });
 
   it("keeps year 0 distinguishable from no year", () => {

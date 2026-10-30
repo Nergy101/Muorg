@@ -56,7 +56,7 @@ const slices = computed(() => {
       label: "Other",
       count: otherCount,
       pct: (otherCount / total) * 100,
-      color: "#57534e", // stone-600
+      color: "#57534e", // stone-600 (falls back if the "Other" slice isn't themed)
     });
   }
 
@@ -119,7 +119,7 @@ const hovered = ref<number | null>(null);
 </script>
 
 <template>
-  <div v-if="total === 0" class="py-8 text-center text-xs text-stone-500">
+  <div v-if="total === 0" class="py-8 text-center text-xs text-[color:var(--color-on-surface-variant,#78716c)]">
     No tracks in library yet.
   </div>
 
@@ -147,7 +147,7 @@ const hovered = ref<number | null>(null);
           text-anchor="middle"
           dominant-baseline="middle"
           class="select-none"
-          fill="#d6d3d1"
+          fill="var(--color-on-surface,#d6d3d1)"
           font-size="13"
           font-weight="600"
         >
@@ -159,7 +159,7 @@ const hovered = ref<number | null>(null);
           text-anchor="middle"
           dominant-baseline="middle"
           class="select-none"
-          fill="#78716c"
+          fill="var(--color-on-surface-variant,#78716c)"
           font-size="8"
         >
           {{ hovered !== null ? svgSlices[hovered].label : "tracks" }}
@@ -173,7 +173,7 @@ const hovered = ref<number | null>(null);
         v-for="(s, i) in svgSlices"
         :key="s.label"
         class="flex cursor-default items-center gap-2 rounded px-1 py-0.5 transition-colors"
-        :class="hovered === i ? 'bg-stone-700' : 'hover:bg-stone-700/50'"
+        :class="hovered === i ? 'bg-[color:var(--color-surface-variant,#44403c)]' : 'hover:bg-[color:var(--color-surface-variant,#44403c)]/50'"
         @mouseenter="hovered = i"
         @mouseleave="hovered = null"
       >
@@ -181,9 +181,9 @@ const hovered = ref<number | null>(null);
           class="h-2.5 w-2.5 shrink-0 rounded-sm"
           :style="{ background: s.color }"
         />
-        <span class="min-w-0 flex-1 truncate text-xs text-stone-300">{{ s.label }}</span>
-        <span class="shrink-0 text-[11px] tabular-nums text-stone-500">{{ s.count }}</span>
-        <span class="w-10 shrink-0 text-right text-[11px] tabular-nums text-stone-400">
+        <span class="min-w-0 flex-1 truncate text-xs text-[color:var(--color-on-surface,#d6d3d1)]">{{ s.label }}</span>
+        <span class="shrink-0 text-[11px] tabular-nums text-[color:var(--color-on-surface-variant,#78716c)]">{{ s.count }}</span>
+        <span class="w-10 shrink-0 text-right text-[11px] tabular-nums text-[color:var(--color-on-surface-variant,#a8a29e)]">
           {{ s.pct.toFixed(1) }}%
         </span>
       </div>

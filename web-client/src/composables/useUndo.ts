@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, shallowRef } from "vue";
 import { showActionToast, showToast } from "./useToast";
 
 /** Matches the desktop app's depth. */
@@ -16,8 +16,10 @@ export interface UndoEntry {
   redo: () => Promise<void>;
 }
 
-const undoStack = ref<UndoEntry[]>([]);
-const redoStack = ref<UndoEntry[]>([]);
+// shallowRef: entries are compared by identity (see `recordUndoable`), which a
+// deep `ref` would break by handing out reactive proxies of each entry.
+const undoStack = shallowRef<UndoEntry[]>([]);
+const redoStack = shallowRef<UndoEntry[]>([]);
 let busy = false;
 
 export const canUndo = computed(() => undoStack.value.length > 0);

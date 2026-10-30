@@ -1,6 +1,11 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+    <!-- Desktop-class library table (>=1024px, tracks layout). Mounted
+         instead of the mobile scroller so it can own its own virtualization
+         and keyboard focus; the mobile list below is unaffected. -->
+    <LibraryTrackTable v-if="showDesktopTable" />
+
+    <div v-else ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Content -->
       <div v-if="lib.loading" class="flex items-center justify-center py-12">
         <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
@@ -30,7 +35,10 @@
               :key="track.id"
               :track="track"
               :is-playing="player.currentTrack?.id === track.id"
+              :selectable="selection.selecting"
+              :selected="selection.has(track.id)"
               @play="player.playTrack(track, lib.filteredTracks)"
+              @select="(mods) => onSelect(track, mods)"
               @actions="sheetTrack = track"
             />
           </div>
@@ -120,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
@@ -128,10 +136,13 @@ import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import AlbumActionsSheet from "../components/AlbumActionsSheet.vue";
 import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
+import LibraryTrackTable from "../components/library/LibraryTrackTable.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { usePlaylistStore } from "../stores/playlists";
+import { useSelectionStore, type SelectModifiers } from "../stores/selection";
+import { provideVisibleIds } from "../composables/useSelectableList";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useVirtualList } from "../composables/useVirtualList";
@@ -144,6 +155,7 @@ const lib = useLibraryStore();
 const player = usePlayerStore();
 const settings = useSettingsStore();
 const playlistStore = usePlaylistStore();
+const selection = useSelectionStore();
 
 // --- Content -----------------------------------------------------------
 
@@ -155,6 +167,39 @@ const showEmptyState = computed(() =>
 const emptyMessage = computed(() =>
   isSearching.value ? `No results for "${lib.searchQuery}"` : "No tracks in library",
 );
+
+/** The desktop-class table replaces the mobile flat list at >=1024px, only
+ *  for the "tracks" layout (grid/list keep their album views; a search still
+ *  falls back to the familiar flat list regardless of viewport). */
+const isDesktop = ref(false);
+let desktopMq: MediaQueryList | null = null;
+function onDesktopMqChange(): void {
+  isDesktop.value = desktopMq?.matches ?? false;
+}
+onMounted(() => {
+  if (typeof window.matchMedia !== "function") return;
+  desktopMq = window.matchMedia("(min-width: 64rem)");
+  onDesktopMqChange();
+  desktopMq.addEventListener("change", onDesktopMqChange);
+});
+onBeforeUnmount(() => {
+  desktopMq?.removeEventListener("change", onDesktopMqChange);
+  desktopMq = null;
+});
+const showDesktopTable = computed(() => isDesktop.value && settings.albumViewStyle === "tracks");
+
+/** Mobile/search flat list selection — Ctrl/Shift-click or an active
+ *  selection toggles; a plain tap plays as before. */
+function onSelect(track: CatalogTrack, mods: SelectModifiers): void {
+  const consumed = selection.click(
+    track.id,
+    lib.filteredTracks.map((t) => t.id),
+    mods,
+  );
+  if (!consumed) void player.playTrack(track, lib.filteredTracks);
+}
+
+provideVisibleIds(() => lib.filteredTracks.map((t) => t.id));
 
 function isAlbumActive(item: AlbumGridItem): boolean {
   return player.currentTrack != null && item.trackIds.includes(player.currentTrack.id);
@@ -348,6 +393,9 @@ const visibleGridItems = computed(() =>
 // --- Scroll-to-active (re-tapping the active Library tab) ------------------
 
 watch(scrollToActiveSignal, () => {
+  // The desktop table owns its own viewport and has no scroll-to-active hook
+  // yet; nothing to drive here while it's showing.
+  if (showDesktopTable.value) return;
   const t = player.currentTrack;
   if (!t) return;
   if (showTrackList.value) {

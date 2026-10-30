@@ -3,6 +3,20 @@ import { createPinia, setActivePinia } from "pinia";
 import type { Playlist } from "../types";
 
 /**
+ * Drains the microtask queue repeatedly. The duplicate-check path chains
+ * `addCheckChain.then(...)` through a couple of nested async functions
+ * (`loadTrackIdsForPlaylist` awaiting a mocked API call) before `pendingAdd`
+ * is set, which costs more microtask hops than a fixed small count reliably
+ * covers. Looping `await Promise.resolve()` flushes everything queued so
+ * far without depending on real wall-clock time.
+ */
+async function flushMicrotasks(ticks = 10): Promise<void> {
+  for (let i = 0; i < ticks; i++) {
+    await Promise.resolve();
+  }
+}
+
+/**
  * The playlists store, with the API module stubbed.
  *
  * Pins live on the server (Q24): the store fetches them with the playlists
@@ -16,6 +30,7 @@ const setPlaylistPins = vi.fn();
 const deletePlaylistApi = vi.fn();
 const getPlaylistTracks = vi.fn();
 const getSmartTracks = vi.fn();
+const addTracksToPlaylistApi = vi.fn();
 const toastShow = vi.fn();
 
 vi.mock("../api/playlists", () => ({
@@ -31,9 +46,10 @@ vi.mock("../api/playlists", () => ({
   createSmartPlaylist: vi.fn(),
   updateSmartPlaylistRules: vi.fn(),
   renamePlaylist: vi.fn(),
-  addTracksToPlaylist: vi.fn(),
+  addTracksToPlaylist: (...a: unknown[]) => addTracksToPlaylistApi(...a),
   removeTracksFromPlaylist: vi.fn(),
   reorderPlaylistTracks: vi.fn(),
+  reorderPlaylists: vi.fn(),
 }));
 
 vi.mock("../composables/useToast", () => ({
@@ -68,6 +84,7 @@ beforeEach(() => {
   deletePlaylistApi.mockResolvedValue(undefined);
   getPlaylistTracks.mockResolvedValue([]);
   getSmartTracks.mockResolvedValue([]);
+  addTracksToPlaylistApi.mockResolvedValue(undefined);
 });
 
 describe("pins on the server (Q24)", () => {
@@ -151,5 +168,92 @@ describe("favorites playlist (Q21)", () => {
     expect(store.isFavoritesPlaylist(playlist({ id: 1, name: "Favorites" }))).toBe(true);
     expect(store.isFavoritesPlaylist(playlist({ id: 2, name: "favorites" }))).toBe(false);
     expect(store.isFavoritesPlaylist(playlist({ id: 3, name: "My Favorites" }))).toBe(false);
+  });
+});
+
+describe("duplicate-checked add (desktop parity)", () => {
+  it("adds immediately when none of the tracks are already in the playlist", async () => {
+    getPlaylistTracks.mockResolvedValue([5, 6]);
+    const store = usePlaylistStore();
+    await store.loadPlaylists();
+
+    const outcome = await store.addTracksChecked(1, [10, 11]);
+
+    expect(outcome).toBe("added");
+    expect(addTracksToPlaylistApi).toHaveBeenCalledWith(1, [10, 11]);
+    expect(store.pendingAdd).toBeNull();
+  });
+
+  it("asks the user and waits when some tracks are already members", async () => {
+    getPlaylistTracks.mockResolvedValue([10]);
+    const store = usePlaylistStore();
+    await store.loadPlaylists();
+
+    let resolved: "added" | "cancelled" | undefined;
+    const promise = store.addTracksChecked(1, [10, 11]).then((o) => (resolved = o));
+    await flushMicrotasks();
+
+    expect(addTracksToPlaylistApi).not.toHaveBeenCalled();
+    expect(store.pendingAdd).toEqual({
+      playlistId: 1,
+      playlistName: "pl1",
+      allIds: [10, 11],
+      dupeIds: [10],
+      newIds: [11],
+    });
+    expect(resolved).toBeUndefined();
+
+    await store.confirmAddDeduped();
+    await promise;
+
+    expect(resolved).toBe("added");
+    expect(addTracksToPlaylistApi).toHaveBeenCalledWith(1, [11]);
+    expect(store.pendingAdd).toBeNull();
+  });
+
+  it("confirmAddAll adds every id, duplicates included", async () => {
+    getPlaylistTracks.mockResolvedValue([10]);
+    const store = usePlaylistStore();
+    await store.loadPlaylists();
+
+    const promise = store.addTracksChecked(1, [10, 11]);
+    await flushMicrotasks();
+    await store.confirmAddAll();
+
+    expect(await promise).toBe("added");
+    expect(addTracksToPlaylistApi).toHaveBeenCalledWith(1, [10, 11]);
+  });
+
+  it("cancelPendingAdd resolves 'cancelled' and adds nothing", async () => {
+    getPlaylistTracks.mockResolvedValue([10]);
+    const store = usePlaylistStore();
+    await store.loadPlaylists();
+
+    const promise = store.addTracksChecked(1, [10]);
+    await flushMicrotasks();
+    store.cancelPendingAdd();
+
+    expect(await promise).toBe("cancelled");
+    expect(addTracksToPlaylistApi).not.toHaveBeenCalled();
+    expect(store.pendingAdd).toBeNull();
+  });
+
+  it("queues a second check behind a still-open dialog instead of clobbering it", async () => {
+    getPlaylistTracks.mockResolvedValue([10]);
+    const store = usePlaylistStore();
+    await store.loadPlaylists();
+
+    const first = store.addTracksChecked(1, [10, 11]);
+    await flushMicrotasks();
+    const second = store.addTracksChecked(2, [99]);
+
+    // The second check hasn't run yet — the first dialog is still pending.
+    expect(store.pendingAdd?.playlistId).toBe(1);
+
+    await store.confirmAddDeduped();
+    expect(await first).toBe("added");
+
+    expect(await second).toBe("added");
+    expect(addTracksToPlaylistApi).toHaveBeenCalledWith(2, [99]);
   });
 });

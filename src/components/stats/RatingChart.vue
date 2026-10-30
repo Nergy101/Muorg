@@ -26,7 +26,7 @@ const bars = computed(() => {
 </script>
 
 <template>
-  <div v-if="!tracks.length" class="py-4 text-center text-xs text-stone-500">No tracks.</div>
+  <div v-if="!tracks.length" class="py-4 text-center text-xs text-[color:var(--color-on-surface-variant,#78716c)]">No tracks.</div>
   <div v-else class="flex flex-col gap-3">
     <div class="flex h-40 items-end gap-2">
       <div
@@ -39,7 +39,7 @@ const bars = computed(() => {
         <div class="relative min-w-0 w-full flex-1 flex flex-col justify-end">
           <div
             class="w-full rounded-t-sm transition-all duration-200"
-            :class="bar.stars === 0 ? (hovered === bar.stars ? 'bg-stone-500' : 'bg-stone-600') : (hovered === bar.stars ? 'bg-amber-400' : 'bg-amber-500')"
+            :class="bar.stars === 0 ? (hovered === bar.stars ? 'bg-[color:var(--color-outline,#78716c)]' : 'bg-[color:var(--color-surface-variant,#57534e)]') : (hovered === bar.stars ? 'bg-amber-400' : 'bg-amber-500')"
             :style="{ height: bar.heightPct + '%', minHeight: bar.count > 0 ? '2px' : '0' }"
           />
         </div>
@@ -50,14 +50,14 @@ const bars = computed(() => {
         v-for="bar in bars"
         :key="bar.stars"
         class="min-w-0 flex-1 text-center leading-tight"
-        :class="[bar.stars === 0 ? 'text-[9px] text-stone-500' : 'text-[10px] text-amber-500/70', hovered === bar.stars ? (bar.stars === 0 ? '!text-stone-300' : '!text-amber-400') : '']"
+        :class="[bar.stars === 0 ? 'text-[9px] text-[color:var(--color-on-surface-variant,#78716c)]' : 'text-[10px] text-amber-500/70', hovered === bar.stars ? (bar.stars === 0 ? '!text-[color:var(--color-on-surface,#d6d3d1)]' : '!text-amber-400') : '']"
       >
         {{ bar.label }}
       </div>
     </div>
-    <p class="text-center text-xs text-stone-400 transition-opacity duration-100" :class="hovered !== null ? 'opacity-100' : 'opacity-0'">
+    <p class="text-center text-xs text-[color:var(--color-on-surface-variant,#a8a29e)] transition-opacity duration-100" :class="hovered !== null ? 'opacity-100' : 'opacity-0'">
       <template v-if="hovered === 0">
-        <span class="font-medium text-stone-200">Unrated</span> — {{ bars[0].count }} tracks ({{ bars[0].pct }}%)
+        <span class="font-medium text-[color:var(--color-on-surface,#e7e5e4)]">Unrated</span> — {{ bars[0].count }} tracks ({{ bars[0].pct }}%)
       </template>
       <template v-else-if="hovered !== null">
         <span class="font-medium text-amber-400">{{ hovered }}★</span> — {{ bars.find(b => b.stars === hovered)?.count }} tracks ({{ bars.find(b => b.stars === hovered)?.pct }}%)

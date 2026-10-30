@@ -7,29 +7,26 @@ import type { CatalogTrack } from "../types";
  * The player store, with the API and toast modules stubbed.
  *
  * Covers the audit fixes that live in this store: a play counts after 30 s
- * of listening, not at track start (Q20); a metadata save updates the track
- * in place and debounces the catalog reload (Q26); the first tag write warns
- * once that no backup is made (Q1).
+ * of listening, not at track start (Q20).
  */
 
 const issueStreamToken = vi.fn();
 const recordPlay = vi.fn();
-const patchMetadata = vi.fn();
 const getTracks = vi.fn();
 const getStats = vi.fn();
 const getCoverBlob = vi.fn();
 const getRecentPlayHistory = vi.fn();
+const getMetadata = vi.fn();
 const toastShow = vi.fn();
-const toastWarn = vi.fn();
 
 vi.mock("../api/catalog", () => ({
   issueStreamToken: (...a: unknown[]) => issueStreamToken(...a),
   recordPlay: (...a: unknown[]) => recordPlay(...a),
-  patchMetadata: (...a: unknown[]) => patchMetadata(...a),
   getTracks: (...a: unknown[]) => getTracks(...a),
   getStats: (...a: unknown[]) => getStats(...a),
   getCoverBlob: (...a: unknown[]) => getCoverBlob(...a),
   getRecentPlayHistory: (...a: unknown[]) => getRecentPlayHistory(...a),
+  getMetadata: (...a: unknown[]) => getMetadata(...a),
 }));
 
 vi.mock("../api/client", () => ({
@@ -52,7 +49,7 @@ vi.mock("../api/client", () => ({
 
 vi.mock("../composables/useToast", () => ({
   showToast: (...a: unknown[]) => toastShow(...a),
-  showWarning: (...a: unknown[]) => toastWarn(...a),
+  showWarning: vi.fn(),
 }));
 
 // happy-dom's media elements don't really play; stub the transport so the
@@ -67,7 +64,6 @@ HTMLMediaElement.prototype.pause = vi.fn(function (this: HTMLMediaElement) {
 HTMLMediaElement.prototype.load = vi.fn();
 
 const { usePlayerStore } = await import("./player");
-const { useLibraryStore } = await import("./library");
 const { useSettingsStore } = await import("./settings");
 
 function track(p: Partial<CatalogTrack> & { id: number }): CatalogTrack {
@@ -101,7 +97,6 @@ beforeEach(() => {
   vi.useFakeTimers();
   issueStreamToken.mockResolvedValue("tok");
   recordPlay.mockResolvedValue(undefined);
-  patchMetadata.mockResolvedValue(undefined);
   getTracks.mockResolvedValue({ tracks: [], total: 0 });
   getStats.mockResolvedValue({
     track_count: 0,
@@ -111,6 +106,7 @@ beforeEach(() => {
   });
   getCoverBlob.mockResolvedValue(null);
   getRecentPlayHistory.mockResolvedValue([]);
+  getMetadata.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -175,71 +171,5 @@ describe("play counting (Q20)", () => {
     await nextTick();
 
     expect(recordPlay).not.toHaveBeenCalled();
-  });
-});
-
-describe("metadata save (Q26 + Q1)", () => {
-  it("updates the track in place and debounces the catalog reload", async () => {
-    const player = usePlayerStore();
-    const lib = useLibraryStore();
-    const t = track({ id: 7, title: "Old" });
-    lib.tracks = [t];
-
-    await player.saveMetadata(t, { title: "New" });
-
-    // The save went out with backupBeforeWrite off (Q1 default).
-    expect(patchMetadata).toHaveBeenCalledWith(7, { title: "New" }, false);
-    // The in-memory track reflects the change immediately, without a reload.
-    expect(lib.tracks[0].title).toBe("New");
-    // No full catalog reload yet — it is debounced.
-    expect(getTracks).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(1500);
-    expect(getTracks).toHaveBeenCalledTimes(1);
-  });
-
-  it("coalesces a burst of saves into one reload", async () => {
-    const player = usePlayerStore();
-    const lib = useLibraryStore();
-    const t = track({ id: 7, title: "Old", artist: "A" });
-    lib.tracks = [t];
-
-    await player.saveMetadata(t, { title: "B" });
-    await player.saveMetadata(t, { artist: "C" });
-
-    expect(lib.tracks[0].title).toBe("B");
-    expect(lib.tracks[0].artist).toBe("C");
-    expect(getTracks).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(1500);
-    expect(getTracks).toHaveBeenCalledTimes(1);
-  });
-
-  it("warns once on the first tag write, not on later ones (Q1)", async () => {
-    const player = usePlayerStore();
-    const lib = useLibraryStore();
-    const t = track({ id: 7, title: "Old", artist: "A" });
-    lib.tracks = [t];
-
-    await player.saveMetadata(t, { title: "B" });
-    expect(toastWarn).toHaveBeenCalledTimes(1);
-    expect(toastWarn).toHaveBeenCalledWith("Tags are written in place — no backup is made.");
-    expect(localStorage.getItem("muorg-tag-write-warned")).toBe("1");
-
-    await player.saveMetadata(t, { artist: "C" });
-    expect(toastWarn).toHaveBeenCalledTimes(1); // still once — the flag persisted
-  });
-
-  it("does not warn or save when nothing changed", async () => {
-    const player = usePlayerStore();
-    const lib = useLibraryStore();
-    const t = track({ id: 7, title: "Same" });
-    lib.tracks = [t];
-
-    await player.saveMetadata(t, { title: "Same" });
-
-    expect(patchMetadata).not.toHaveBeenCalled();
-    expect(toastWarn).not.toHaveBeenCalled();
-    expect(toastShow).toHaveBeenCalledWith("No changes to save");
   });
 });

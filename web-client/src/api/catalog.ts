@@ -8,9 +8,9 @@
 
 import { api } from "./client";
 import type { CatalogTrack, LibraryStats } from "../types";
-import type { MetadataUpdate, TracksPage, TrackLyrics } from "@shared/api";
+import type { MetadataUpdate, TracksPage, TrackLyrics, TrackMetadata } from "@shared/api";
 
-export type { TracksPage, TrackLyrics, MetadataUpdate };
+export type { TracksPage, TrackLyrics, MetadataUpdate, TrackMetadata };
 
 /** One page of tracks plus the total count (from `X-Total-Count`). */
 export function getTracks(offset = 0, limit?: number): Promise<TracksPage> {
@@ -59,6 +59,16 @@ export function issueStreamToken(trackId: number): Promise<string> {
 /** Embedded lyrics for a track, or null when it has none (404). */
 export function getTrackLyrics(trackId: number): Promise<TrackLyrics | null> {
   return api.getLyrics(trackId);
+}
+
+/** Full tag read (incl. ReplayGain), or null on failure — a missing read
+ *  must not break playback. */
+export async function getMetadata(trackId: number): Promise<TrackMetadata | null> {
+  try {
+    return await api.getMetadata(trackId);
+  } catch {
+    return null;
+  }
 }
 
 /** Record a play, attributed to this device's name (Q19). */

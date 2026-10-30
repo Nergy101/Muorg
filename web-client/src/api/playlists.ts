@@ -97,6 +97,11 @@ export async function reorderPlaylistTracks(
   await api.reorderPlaylistTracks(playlistId, trackIds);
 }
 
+/** Reorder the playlists themselves (the server order sortedPlaylists falls back to). */
+export async function reorderPlaylists(ids: number[]): Promise<void> {
+  await api.reorderPlaylists(ids);
+}
+
 /**
  * Reads a playlist's track ids. Smart playlists must go through the
  * smart endpoint — GET /api/playlists/{id}/tracks does not resolve rules.
