@@ -27,7 +27,13 @@
       >{{ track.track_number ?? "·" }}</span>
       <MageIcon v-else name="music" class="h-5 w-5" :class="onDark ? 'text-white/50' : 'text-on-surface-variant/60'" />
       <div
-        v-if="isPlaying"
+        v-if="isLoading"
+        class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
+      >
+        <MageIcon name="refresh" class="h-6 w-6 animate-spin text-primary" />
+      </div>
+      <div
+        v-else-if="isPlaying"
         class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
       >
         <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
@@ -44,7 +50,7 @@
       <div class="flex min-w-0 items-center gap-1.5">
         <div class="min-w-0 flex-1">
           <MarqueeText
-            :text="track.artist ?? track.album_artist ?? '—'"
+            :text="subtitle ?? track.artist ?? track.album_artist ?? '—'"
             class="text-body-md"
             :class="onDark ? 'text-white/75' : 'text-on-surface-variant'"
           />
@@ -109,6 +115,10 @@ const props = withDefaults(
     track: CatalogTrack;
     leading?: "cover" | "index";
     isPlaying?: boolean;
+    /** Spinner on the cover while this track's play request is still loading. */
+    isLoading?: boolean;
+    /** Overrides the second line (artist) — search uses it to show the album. */
+    subtitle?: string | null;
     showFormatBadge?: boolean;
     showDuration?: boolean;
     /** Show a destructive "delete from server" button before the actions dot. */

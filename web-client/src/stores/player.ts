@@ -116,6 +116,14 @@ export const usePlayerStore = defineStore("player", () => {
   const repeatMode = ref<RepeatMode>(settings.continuousPlayback ? "all" : "off");
   const favorites = ref<Set<number>>(new Set());
   const errorMessage = ref<string | null>(null);
+  /**
+   * Track id whose play request is still working — stream token fetch and
+   * element load happen before any event fires, so rows show a spinner from
+   * the tap itself instead of nothing while the track buffers.
+   */
+  const pendingTrackId = ref<number | null>(null);
+  /** True while the active element is stalled waiting for more data. */
+  const isBuffering = ref(false);
   const sleepTimerRemainingMs = ref(0);
   /**
    * True while a "Shuffle all" queue is what is playing. Stays true after the
@@ -253,6 +261,17 @@ export const usePlayerStore = defineStore("player", () => {
     el.addEventListener("pause", () => {
       if (el === audioEl.value) isPlaying.value = false;
     });
+    // Buffering cue: "waiting" fires when playback stalls for data,
+    // "playing"/"canplay" when it resumes.
+    el.addEventListener("waiting", () => {
+      if (el === audioEl.value) isBuffering.value = true;
+    });
+    el.addEventListener("playing", () => {
+      if (el === audioEl.value) isBuffering.value = false;
+    });
+    el.addEventListener("canplay", () => {
+      if (el === audioEl.value) isBuffering.value = false;
+    });
     // Mid-stream failures (dropped connection, server error) previously went
     // unnoticed: playback silently halted with no toast and no advance.
     el.addEventListener("error", () => {
@@ -351,12 +370,15 @@ export const usePlayerStore = defineStore("player", () => {
       positionSecs.value = startSecs;
       durationSecs.value = track.duration_secs ?? 0;
       await el.play();
+      if (pendingTrackId.value === track.id) pendingTrackId.value = null;
       if (cached && startSecs > 0) el.currentTime = startSecs;
       void preloadNext();
     } catch (e) {
       // The queue is already set, so currentTrack is non-null and the
       // MiniPlayer error banner (gated on !currentTrack) stays hidden —
       // surface the failure as a toast as well.
+      pendingTrackId.value = null;
+      isBuffering.value = false;
       setError((e as Error).message);
       showToast((e as Error).message);
     }
@@ -478,6 +500,9 @@ export const usePlayerStore = defineStore("player", () => {
   async function playTrack(track: CatalogTrack, newQueue: CatalogTrack[]): Promise<void> {
     shuffleAllPool = [];
     shuffleAllActive.value = false;
+    // Visible from the tap itself: the token fetch and load below are async
+    // work the audio element has not even started reporting yet.
+    pendingTrackId.value = track.id;
     // A new context (album/playlist/mix/shuffle-all) resets the user queue —
     // queued tracks belonged to the previous context.
     userQueue.value = [];
@@ -625,6 +650,7 @@ export const usePlayerStore = defineStore("player", () => {
   }
 
   function skipTo(track: CatalogTrack): void {
+    pendingTrackId.value = track.id;
     // The user queue has priority — jumping to one of its tracks plays it now.
     const ui = userQueue.value.findIndex((t) => t.id === track.id);
     if (ui >= 0) {
@@ -1270,6 +1296,8 @@ export const usePlayerStore = defineStore("player", () => {
     shuffleEnabled.value = false;
     favorites.value = new Set();
     errorMessage.value = null;
+    pendingTrackId.value = null;
+    isBuffering.value = false;
   }
 
   return {
@@ -1287,6 +1315,8 @@ export const usePlayerStore = defineStore("player", () => {
     repeatMode,
     favorites,
     errorMessage,
+    pendingTrackId,
+    isBuffering,
     sleepTimerRemainingMs,
     currentIndex,
     currentTrack,

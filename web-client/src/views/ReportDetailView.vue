@@ -51,6 +51,7 @@
               :key="track.id"
               :track="track"
               :is-playing="player.currentTrack?.id === track.id"
+              :is-loading="player.pendingTrackId === track.id"
               show-delete
               @play="player.playTrack(track, tracks)"
               @actions="sheetTrack = track"
@@ -65,6 +66,7 @@
             :key="track.id"
             :track="track"
             :is-playing="player.currentTrack?.id === track.id"
+              :is-loading="player.pendingTrackId === track.id"
             @play="player.playTrack(track, tracks)"
             @actions="sheetTrack = track"
           />

@@ -30,6 +30,7 @@
               :key="track.id"
               :track="track"
               :is-playing="player.currentTrack?.id === track.id"
+              :is-loading="player.pendingTrackId === track.id"
               @play="player.playTrack(track, lib.filteredTracks)"
               @actions="sheetTrack = track"
             />
