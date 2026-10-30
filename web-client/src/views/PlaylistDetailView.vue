@@ -309,9 +309,11 @@
     <TrackActionsSheet
       :open="actionsTrack !== null"
       :track="actionsTrack"
+      :can-remove-from-playlist="!isMix"
       @close="closeActions"
       @view-artist="onViewArtist"
       @view-album="onViewAlbum"
+      @remove-from-playlist="onRemoveFromPlaylist"
     />
   </div>
 </template>
@@ -733,6 +735,17 @@ function openActions(track: CatalogTrack): void {
 
 function closeActions(): void {
   actionsTrack.value = null;
+}
+
+async function onRemoveFromPlaylist(): Promise<void> {
+  const track = actionsTrack.value;
+  if (!track) return;
+  try {
+    await playlistStore.removeTracks(playlistId.value, [track.id]);
+    showToast(`Removed from ${playlist.value?.name ?? "playlist"}`);
+  } catch (e) {
+    showToast(`Failed: ${(e as Error).message}`);
+  }
 }
 
 function onViewArtist(): void {

@@ -18,13 +18,18 @@
       <div
         v-if="open"
         ref="panel"
-        class="glass-deep fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] max-w-[600px] overflow-y-auto rounded-t-[28px] pb-[env(safe-area-inset-bottom)] shadow-2xl lg:bottom-4 lg:max-w-md lg:rounded-2xl lg:pb-2"
+        class="glass-deep fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] max-w-[600px] overflow-y-auto rounded-t-[28px] pb-[env(safe-area-inset-bottom)] shadow-2xl [touch-action:pan-y] [overscroll-behavior:contain] lg:bottom-4 lg:max-w-md lg:rounded-2xl lg:pb-2"
         :style="dragStyle"
         role="dialog"
         aria-modal="true"
         @pointerdown="onPointerdown"
       >
-        <div class="sticky top-0 flex justify-center bg-transparent py-3">
+        <!-- The grip never lets the browser claim the gesture, so swiping it
+             down always drags the sheet, even when the content is scrolled. -->
+        <div
+          class="sticky top-0 flex justify-center bg-transparent py-3 [touch-action:none]"
+          @pointerdown.stop="onHandlePointerdown"
+        >
           <div class="h-1 w-8 rounded-full bg-on-surface-variant/40" />
         </div>
         <slot />
@@ -50,6 +55,8 @@ let startY = 0;
 let height = 1;
 let pointerId: number | null = null;
 let fromScrollTop = 0;
+/** True when the drag started on the grip, which may drag at any scroll offset. */
+let handleDrag = false;
 
 const dragStyle = computed(() =>
   dragY.value > 0
@@ -60,6 +67,7 @@ const dragStyle = computed(() =>
 function cleanup(): void {
   pointerId = null;
   dragging.value = false;
+  handleDrag = false;
   window.removeEventListener("pointermove", onMove);
   window.removeEventListener("pointerup", onUp);
   window.removeEventListener("pointercancel", onUp);
@@ -68,10 +76,12 @@ function cleanup(): void {
 function onMove(e: PointerEvent): void {
   if (e.pointerId !== pointerId) return;
   const dy = e.clientY - startY;
+  const scrolled = !handleDrag && fromScrollTop > 0;
   if (!dragging.value) {
-    // Only start dragging on a downward pull from an un-scrolled panel.
-    if (dy < 8 || fromScrollTop > 0) {
-      if (dy < -8 || fromScrollTop > 0) cleanup();
+    // Only start dragging on a downward pull from an un-scrolled panel
+    // (the grip is exempt — it always drags).
+    if (dy < 8 || scrolled) {
+      if (dy < -8 || scrolled) cleanup();
       return;
     }
     dragging.value = true;
@@ -89,11 +99,20 @@ function onUp(e: PointerEvent): void {
 }
 
 function onPointerdown(e: PointerEvent): void {
+  startDrag(e, false);
+}
+
+function onHandlePointerdown(e: PointerEvent): void {
+  startDrag(e, true);
+}
+
+function startDrag(e: PointerEvent, fromHandle: boolean): void {
   cleanup();
   pointerId = e.pointerId;
   startY = e.clientY;
   height = panel.value?.getBoundingClientRect().height ?? 1;
   fromScrollTop = panel.value?.scrollTop ?? 0;
+  handleDrag = fromHandle;
   window.addEventListener("pointermove", onMove, { passive: false });
   window.addEventListener("pointerup", onUp);
   window.addEventListener("pointercancel", onUp);
