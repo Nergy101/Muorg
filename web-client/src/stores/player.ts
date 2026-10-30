@@ -1,10 +1,12 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch, watchEffect } from "vue";
-import { issueStreamToken, recordPlay, patchMetadata } from "../api/catalog";
-import type { MetadataUpdate } from "../api/catalog";
+import { getMetadata, issueStreamToken, recordPlay } from "../api/catalog";
+import type { TrackMetadata } from "../api/catalog";
 import { streamUrl } from "../api/client";
 import { needsTranscode } from "@shared/formats";
-import { showToast, showWarning } from "../composables/useToast";
+import { computeReplayGainVolume } from "../audio/replayGain";
+import { clearPlayHistory, recordPlayHistory, stepBackPlayHistory } from "../audio/playHistory";
+import { showToast } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
 import { useDominantColor } from "../composables/useDominantColor";
 import { useCastStore } from "./cast";
@@ -28,47 +30,60 @@ const POSITION_SAVE_INTERVAL_MS = 5000;
 /** A play is counted after this many seconds of listening (Q20), matching the
  *  desktop and Android apps — not at track start. */
 const PLAY_COUNT_THRESHOLD_SECS = 30;
-/** localStorage flag for the one-time "tags are written in place" warning (Q1). */
-const TAG_WRITE_WARNED_KEY = "muorg-tag-write-warned";
-/** Metadata saves debounce the full catalog reload by this long (Q26), so a
- *  burst of edits triggers one reload instead of one per save. */
-const LIBRARY_RELOAD_DEBOUNCE_MS = 1500;
+/** Per-track ReplayGain tag cache cap — small, just enough to cover the
+ *  current track plus a few steps of history/lookahead. */
+const METADATA_CACHE_LIMIT = 50;
 
 interface PlayerStateSnapshot {
-  v: 1;
+  v: 2;
   queue: CatalogTrack[];
   playOrder: number[];
   playOrderPos: number;
+  /** The user-queued tracks ("add to queue" / "play next") and the index of
+   *  the one currently playing, or -1 when none is active. */
+  userQueue: CatalogTrack[];
+  userQueuePos: number;
   shuffleEnabled: boolean;
   repeatMode: RepeatMode;
   /** Last known playback position; null once the queue was replaced. */
   position: { trackId: number; secs: number } | null;
 }
 
-/** Tolerant reader: any malformed/partial payload simply restores nothing. */
+/** Tolerant reader: any malformed/partial payload simply restores nothing.
+ *  This only validates shape — dropping ids the catalog no longer has is the
+ *  caller's job, done once the library has actually loaded (see
+ *  `applyRestoredSnapshot`). */
 function readPlayerSnapshot(): PlayerStateSnapshot | null {
   try {
     const raw = localStorage.getItem(PLAYER_STATE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as Partial<PlayerStateSnapshot>;
-    if (data.v !== 1) return null;
-    if (!Array.isArray(data.queue) || data.queue.length === 0) return null;
-    if (!Array.isArray(data.playOrder) || data.playOrder.length === 0) return null;
-    const playOrderPos = data.playOrderPos;
-    if (
-      typeof playOrderPos !== "number" ||
-      !Number.isInteger(playOrderPos) ||
-      playOrderPos < 0 ||
-      playOrderPos >= data.playOrder.length
-    ) {
-      return null;
+    if (data.v !== 2) return null;
+    const queue = Array.isArray(data.queue) ? (data.queue as CatalogTrack[]) : [];
+    const userQueue = Array.isArray(data.userQueue) ? (data.userQueue as CatalogTrack[]) : [];
+    const queueLen = queue.length;
+    const playOrder = Array.isArray(data.playOrder)
+      ? data.playOrder.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < queueLen)
+      : [];
+    if (playOrder.length === 0 && userQueue.length === 0) return null;
+    let playOrderPos = -1;
+    if (playOrder.length > 0) {
+      playOrderPos =
+        typeof data.playOrderPos === "number" &&
+        Number.isInteger(data.playOrderPos) &&
+        data.playOrderPos >= 0
+          ? Math.min(data.playOrderPos, playOrder.length - 1)
+          : 0;
     }
-    // Drop indices that no longer point into the queue (stale snapshot after a
-    // catalog change), and park the position on the last surviving entry.
-    const queueLen = data.queue.length;
-    const playOrder = data.playOrder.filter((i) => Number.isInteger(i) && i >= 0 && i < queueLen);
-    if (playOrder.length === 0) return null;
-    const clampedPos = Math.min(playOrderPos, playOrder.length - 1);
+    let userQueuePos = -1;
+    if (userQueue.length > 0) {
+      userQueuePos =
+        typeof data.userQueuePos === "number" &&
+        Number.isInteger(data.userQueuePos) &&
+        data.userQueuePos >= 0
+          ? Math.min(data.userQueuePos, userQueue.length - 1)
+          : -1;
+    }
     const repeatMode: RepeatMode =
       data.repeatMode === "off" || data.repeatMode === "all" || data.repeatMode === "one"
         ? data.repeatMode
@@ -78,10 +93,12 @@ function readPlayerSnapshot(): PlayerStateSnapshot | null {
         ? { trackId: data.position.trackId, secs: Math.max(0, data.position.secs ?? 0) }
         : null;
     return {
-      v: 1,
-      queue: data.queue as CatalogTrack[],
+      v: 2,
+      queue,
       playOrder,
-      playOrderPos: clampedPos,
+      playOrderPos,
+      userQueue,
+      userQueuePos,
       shuffleEnabled: !!data.shuffleEnabled,
       repeatMode,
       position,
@@ -190,8 +207,16 @@ export const usePlayerStore = defineStore("player", () => {
   let preloadEl: HTMLAudioElement | null = null;
   /** The track currently sitting in `preloadEl` (null = empty/stale). */
   let preloadedTrack: CatalogTrack | null = null;
+  /** ReplayGain tags for the current track (null = none fetched/available).
+   *  Resolved per track via `fetchMetadataCached` and applied on top of the
+   *  user's volume by `applyEffectiveVolume`. */
+  const replayGainTags = ref<TrackMetadata | null>(null);
   /** Guards async preloads against queue changes racing the token fetch. */
   let preloadSeq = 0;
+  /** ReplayGain tags for whatever is sitting in `preloadEl`, resolved ahead of
+   *  the handoff so the swap doesn't have a volume glitch while a fetch
+   *  catches up (null = none fetched/available). */
+  let preloadedMetadata: TrackMetadata | null = null;
   // FLAC seeks reload the stream, so el.currentTime restarts at 0; this holds
   // the seconds the server skipped so the wall-clock position stays right.
   let flacSeekOffset = 0;
@@ -223,6 +248,63 @@ export const usePlayerStore = defineStore("player", () => {
       errorMessage.value = null;
       errorTimer = undefined;
     }, ERROR_CLEAR_MS);
+  }
+
+  // --- ReplayGain ---
+  //
+  // Mirrors the desktop app's PlayerBar: fetch each track's tags once,
+  // compute the effective <audio>.volume from the user's volume + the tag's
+  // gain (plus preamp, clipping cap), and apply it on top of what the user
+  // picked. Boosts above unity would need a Web Audio GainNode — this app
+  // only scales the element's own [0,1] range, so a boosted track just
+  // clamps there (see audio/replayGain.ts for the full math and the
+  // clipping-prevention peak cap).
+
+  const metadataCache = new Map<number, TrackMetadata | null>();
+
+  /** Fetches a track's tags once and caches the result (including a `null`
+   *  "no tags"/failure outcome, so a bad fetch isn't retried every track
+   *  change). Capped so a very long session doesn't grow this unbounded. */
+  async function fetchMetadataCached(trackId: number): Promise<TrackMetadata | null> {
+    if (metadataCache.has(trackId)) return metadataCache.get(trackId) ?? null;
+    let tags: TrackMetadata | null;
+    try {
+      tags = await getMetadata(trackId);
+    } catch {
+      tags = null;
+    }
+    if (metadataCache.size >= METADATA_CACHE_LIMIT) {
+      const oldest = metadataCache.keys().next().value;
+      if (oldest !== undefined) metadataCache.delete(oldest);
+    }
+    metadataCache.set(trackId, tags);
+    return tags;
+  }
+
+  function replayGainOptions(): { mode: typeof settings.replayGainMode; preampDb: number; preventClipping: boolean } {
+    return {
+      mode: settings.replayGainMode,
+      preampDb: settings.replayGainPreampDb,
+      preventClipping: settings.replayGainPreventClipping,
+    };
+  }
+
+  /** `<audio>.volume` throws outside [0, 1]; ReplayGain's peak-limiting math
+   *  can legitimately report just past 1 when the cap binds (see
+   *  audio/replayGain.ts's own doc comment) — clamp before every DOM
+   *  assignment, not inside the math itself. */
+  function clampElementVolume(v: number): number {
+    return Math.max(0, Math.min(1, v));
+  }
+
+  /** Recomputes and applies the active element's volume from the user's
+   *  volume + the current track's ReplayGain tags. */
+  function applyEffectiveVolume(): void {
+    const el = audioEl.value;
+    if (!el) return;
+    el.volume = clampElementVolume(
+      computeReplayGainVolume(volume.value, replayGainTags.value, replayGainOptions()),
+    );
   }
 
   /** Wires the shared listener set onto one hidden, DOM-attached audio element.
@@ -360,13 +442,18 @@ export const usePlayerStore = defineStore("player", () => {
     const seq = ++_seekSeq;
     const cached = useOfflineStore().isCached(track.id);
     try {
-      const src = await resolveStreamSrc(track, startSecs);
+      const [src, tags] = await Promise.all([
+        resolveStreamSrc(track, startSecs),
+        fetchMetadataCached(track.id),
+      ]);
       if (seq !== _seekSeq) return;
+      replayGainTags.value = tags;
       const el = initAudio();
       // A cached file is complete, so even FLAC/WAV seeks natively — no
       // transcode offset to track.
       flacSeekOffset = !cached && needsTranscode(track.format) ? startSecs : 0;
       el.src = src;
+      applyEffectiveVolume();
       positionSecs.value = startSecs;
       durationSecs.value = track.duration_secs ?? 0;
       await el.play();
@@ -419,6 +506,8 @@ export const usePlayerStore = defineStore("player", () => {
     audioEl.value = buf;
     preloadEl = old;
     preloadedTrack = null;
+    replayGainTags.value = preloadedMetadata;
+    preloadedMetadata = null;
     // Free the old element so it becomes the next preload target.
     old.pause();
     old.removeAttribute("src");
@@ -426,6 +515,9 @@ export const usePlayerStore = defineStore("player", () => {
     flacSeekOffset = 0;
     positionSecs.value = 0;
     durationSecs.value = target.duration_secs ?? 0;
+    // The settings or volume may have changed since the preload was primed —
+    // reapply now rather than trust the volume it was buffered at.
+    applyEffectiveVolume();
     buf.play().catch((e) => setError((e as Error).message));
     void preloadNext();
     return true;
@@ -452,6 +544,7 @@ export const usePlayerStore = defineStore("player", () => {
     }
     if (!next) {
       preloadedTrack = null;
+      preloadedMetadata = null;
       buf.removeAttribute("src");
       buf.load();
       return;
@@ -459,10 +552,15 @@ export const usePlayerStore = defineStore("player", () => {
     if (preloadedTrack?.id === next.id && buf.src) return; // already buffering it
     const seq = ++preloadSeq;
     try {
-      const src = await resolveStreamSrc(next, 0);
+      const [src, tags] = await Promise.all([
+        resolveStreamSrc(next, 0),
+        fetchMetadataCached(next.id),
+      ]);
       if (seq !== preloadSeq || !preloadEl) return;
       preloadedTrack = next;
+      preloadedMetadata = tags;
       buf.src = src;
+      buf.volume = clampElementVolume(computeReplayGainVolume(volume.value, tags, replayGainOptions()));
       // preload=auto on iOS/Safari: WebKit only starts buffering once the
       // element is "needed", so force it with load(). "metadata" alone would
       // not fill the buffer the lock-screen handoff depends on.
@@ -470,6 +568,7 @@ export const usePlayerStore = defineStore("player", () => {
       buf.load();
     } catch {
       preloadedTrack = null;
+      preloadedMetadata = null;
     }
   }
 
@@ -550,8 +649,7 @@ export const usePlayerStore = defineStore("player", () => {
     const clamped = Math.min(1, Math.max(0, v));
     volume.value = clamped;
     settings.setVolume(clamped);
-    const el = audioEl.value;
-    if (el) el.volume = clamped;
+    applyEffectiveVolume();
   }
 
   function toggleMute(): void {
@@ -571,6 +669,26 @@ export const usePlayerStore = defineStore("player", () => {
     if (positionSecs.value > RESTART_THRESHOLD_SECS) {
       void seekTo(0);
       return;
+    }
+    const current = currentTrack.value;
+    if (current) {
+      // Q31 parity: step back through what was actually played, not the
+      // queue neighbour — which is simply wrong while shuffling. "Known"
+      // here means still reachable through one of the two live queues (the
+      // desktop app checks its whole flat catalog; this app's two-queue
+      // model makes the live queues the equivalent — entries played and
+      // then explicitly removed are skipped, same as a deleted track there).
+      const isKnown = (id: number): boolean =>
+        queue.value.some((t) => t.id === id) || userQueue.value.some((t) => t.id === id);
+      const backId = stepBackPlayHistory(current.id, isKnown);
+      if (backId != null) {
+        const target =
+          userQueue.value.find((t) => t.id === backId) ?? queue.value.find((t) => t.id === backId);
+        if (target) {
+          skipTo(target);
+          return;
+        }
+      }
     }
     if (userQueuePos.value > 0) {
       userQueuePos.value--;
@@ -942,61 +1060,30 @@ export const usePlayerStore = defineStore("player", () => {
     sleepTimerRemainingMs.value = 0;
   }
 
-  /** Q1: tags are written in place with no backup (the default stays off).
-   *  Warn once on the first write, and on every bulk edit. */
-  function warnTagWrite(bulk: boolean): void {
-    if (bulk) {
-      showWarning("Bulk edit: tags are written in place — no backup is made.");
-      return;
-    }
-    try {
-      if (localStorage.getItem(TAG_WRITE_WARNED_KEY)) return;
-      localStorage.setItem(TAG_WRITE_WARNED_KEY, "1");
-    } catch {
-      /* storage unavailable — still show the warning */
-    }
-    showWarning("Tags are written in place — no backup is made.");
-  }
-
-  /** Q26: several saves in a row debounce into one catalog reload. */
-  let libraryReloadTimer: ReturnType<typeof setTimeout> | undefined;
-  function scheduleLibraryReload(): void {
-    clearTimeout(libraryReloadTimer);
-    libraryReloadTimer = setTimeout(() => {
-      libraryReloadTimer = undefined;
-      void useLibraryStore().loadLibrary();
-    }, LIBRARY_RELOAD_DEBOUNCE_MS);
-  }
-
-  async function saveMetadata(track: CatalogTrack, update: MetadataUpdate): Promise<void> {
-    const current = track as unknown as Record<string, string | number | null>;
-    const changed: Record<string, string | number | null> = {};
-    for (const [key, raw] of Object.entries(update)) {
-      const value = typeof raw === "string" ? (raw.trim() === "" ? null : raw.trim()) : raw ?? null;
-      if (value !== (current[key] ?? null)) changed[key] = value;
-    }
-    if (Object.keys(changed).length === 0) {
-      showToast("No changes to save");
-      return;
-    }
-    warnTagWrite(false);
-    try {
-      // backupBeforeWrite stays off (Q1) — the warning above is the mitigation.
-      await patchMetadata(track.id, changed as MetadataUpdate, false);
-      // The save response is only {ok:true}, so apply the confirmed fields to
-      // the in-memory track immediately (Q26) and let a debounced reload
-      // reconcile the rest of the catalog shortly after.
-      useLibraryStore().applyTrackUpdate(track.id, changed);
-      scheduleLibraryReload();
-    } catch (e) {
-      showToast(`Failed to save: ${(e as Error).message}`);
-    }
-  }
-
   watch(
     () => settings.continuousPlayback,
     (on) => {
       repeatMode.value = on ? "all" : "off";
+    },
+  );
+
+  // Mode/preamp/clipping changes apply immediately, not just on the next
+  // track — including to whatever is already buffered in the preload
+  // element, so a mid-track settings change doesn't get clobbered by a
+  // stale volume at the next handoff.
+  watch(
+    [
+      () => settings.replayGainMode,
+      () => settings.replayGainPreampDb,
+      () => settings.replayGainPreventClipping,
+    ],
+    () => {
+      applyEffectiveVolume();
+      if (preloadEl && preloadedTrack) {
+        preloadEl.volume = clampElementVolume(
+          computeReplayGainVolume(volume.value, preloadedMetadata, replayGainOptions()),
+        );
+      }
     },
   );
 
@@ -1081,8 +1168,15 @@ export const usePlayerStore = defineStore("player", () => {
   watch(isPlaying, (playing) => {
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = playing ? "playing" : "paused";
-    if (playing) void acquireWakeLock();
-    else releaseWakeLock();
+    if (playing) {
+      void acquireWakeLock();
+    } else {
+      releaseWakeLock();
+      // A pause is a natural checkpoint — save now instead of waiting for the
+      // next throttled tick (and a pause might be the last thing that happens
+      // before the tab closes).
+      writeSnapshot(currentPositionSnapshot());
+    }
   });
 
   // --- Lock-screen resilience (iOS Safari / installed PWA) ---
@@ -1134,6 +1228,9 @@ export const usePlayerStore = defineStore("player", () => {
    */
   function onVisibilityChange(): void {
     if (document.visibilityState !== "visible") {
+      // Hidden: a backgrounded tab can be killed at any time — save the
+      // position now rather than waiting for the next throttled tick.
+      writeSnapshot(currentPositionSnapshot());
       return;
     }
     // The lock is dropped while hidden; re-acquire now that we can.
@@ -1164,6 +1261,9 @@ export const usePlayerStore = defineStore("player", () => {
   watch(currentTrack, (t, old) => {
     // A new track gets a fresh play-count window (Q20).
     if (t?.id !== old?.id) playCountedTrackId = null;
+    // Q31: remember what was actually played so Previous can step back
+    // through it instead of the queue neighbour.
+    recordPlayHistory(old?.id ?? null, t?.id ?? null);
     if (t?.has_cover) useLibraryStore().requestCover(t.id);
   });
 
@@ -1192,10 +1292,12 @@ export const usePlayerStore = defineStore("player", () => {
   function writeSnapshot(position: { trackId: number; secs: number } | null): void {
     try {
       const snapshot: PlayerStateSnapshot = {
-        v: 1,
+        v: 2,
         queue: queue.value,
         playOrder: playOrder.value,
         playOrderPos: playOrderPos.value,
+        userQueue: userQueue.value,
+        userQueuePos: userQueuePos.value,
         shuffleEnabled: shuffleEnabled.value,
         repeatMode: repeatMode.value,
         position,
@@ -1213,9 +1315,12 @@ export const usePlayerStore = defineStore("player", () => {
 
   // Queue/mode changes are debounced; a full reload can only ever restore what
   // was last written, so there is no point writing on every single mutation.
-  watch([queue, playOrder, playOrderPos, shuffleEnabled, repeatMode], () => {
-    scheduleSnapshot();
-  });
+  watch(
+    [queue, playOrder, playOrderPos, userQueue, userQueuePos, shuffleEnabled, repeatMode],
+    () => {
+      scheduleSnapshot();
+    },
+  );
 
   // While playing, persist the position at a throttled cadence so a reload
   // mid-track resumes close to where it was.
@@ -1228,25 +1333,93 @@ export const usePlayerStore = defineStore("player", () => {
     }
   });
 
-  // Restore on boot, before any play action could have started. Only the
-  // position matching the restored current track is applied; anything else is
-  // discarded so a stale queue never forces itself onto a fresh session.
-  {
+  /**
+   * Applies a saved snapshot, dropping any track id the catalog no longer
+   * has (deleted/moved files) and remapping the surviving indices. Only the
+   * position matching the restored current track is applied; anything else
+   * is discarded so a stale value never forces itself onto a fresh session.
+   * Playback is never started here — restoring lands paused, same as the
+   * existing "restored session" branch in `playPause`.
+   */
+  function applyRestoredSnapshot(): void {
     const snapshot = readPlayerSnapshot();
-    if (snapshot) {
-      queue.value = snapshot.queue;
-      playOrder.value = snapshot.playOrder;
-      playOrderPos.value = snapshot.playOrderPos;
-      shuffleEnabled.value = snapshot.shuffleEnabled;
-      repeatMode.value = snapshot.repeatMode;
-      if (
-        snapshot.position &&
-        snapshot.position.trackId === currentTrack.value?.id &&
-        currentTrack.value?.duration_secs != null
-      ) {
-        positionSecs.value = Math.min(snapshot.position.secs, currentTrack.value.duration_secs);
-        durationSecs.value = currentTrack.value.duration_secs;
+    if (!snapshot) return;
+    const known = useLibraryStore().trackById;
+
+    // System queue: drop unknown ids, remapping playOrder around the gaps.
+    const indexRemap = new Map<number, number>();
+    const filteredQueue: CatalogTrack[] = [];
+    snapshot.queue.forEach((t, i) => {
+      if (known.has(t.id)) {
+        indexRemap.set(i, filteredQueue.length);
+        filteredQueue.push(t);
       }
+    });
+    const filteredOrder = snapshot.playOrder
+      .filter((i) => indexRemap.has(i))
+      .map((i) => indexRemap.get(i)!);
+    let filteredOrderPos = -1;
+    if (filteredOrder.length > 0) {
+      const originalCurrent = indexRemap.get(snapshot.playOrder[snapshot.playOrderPos]);
+      const mappedPos = originalCurrent != null ? filteredOrder.indexOf(originalCurrent) : -1;
+      filteredOrderPos = mappedPos >= 0 ? mappedPos : 0;
+    }
+
+    // User queue: drop unknown ids outright — there is no index to remap.
+    const filteredUserQueue = snapshot.userQueue.filter((t) => known.has(t.id));
+    let filteredUserQueuePos = -1;
+    if (filteredUserQueue.length > 0 && snapshot.userQueuePos >= 0) {
+      const originalId = snapshot.userQueue[snapshot.userQueuePos]?.id;
+      const mappedPos = originalId != null ? filteredUserQueue.findIndex((t) => t.id === originalId) : -1;
+      filteredUserQueuePos = mappedPos >= 0 ? mappedPos : 0;
+    }
+
+    if (filteredOrder.length === 0 && filteredUserQueue.length === 0) return;
+
+    queue.value = filteredQueue;
+    playOrder.value = filteredOrder;
+    playOrderPos.value = filteredOrderPos;
+    userQueue.value = filteredUserQueue;
+    userQueuePos.value = filteredUserQueuePos;
+    shuffleEnabled.value = snapshot.shuffleEnabled;
+    repeatMode.value = snapshot.repeatMode;
+
+    const resumed = currentTrack.value;
+    if (
+      snapshot.position &&
+      resumed?.id === snapshot.position.trackId &&
+      resumed?.duration_secs != null
+    ) {
+      positionSecs.value = Math.min(snapshot.position.secs, resumed.duration_secs);
+      durationSecs.value = resumed.duration_secs;
+    }
+  }
+
+  // Restore once the library has loaded (or confirmed loaded-with-nothing),
+  // so ids dropped from the catalog are actually known by then — restoring
+  // against an empty, not-yet-fetched library would just drop everything.
+  {
+    const lib = useLibraryStore();
+    let restored = false;
+    const restoreOnce = (): void => {
+      if (restored) return;
+      restored = true;
+      applyRestoredSnapshot();
+    };
+    if (lib.tracks.length > 0) {
+      restoreOnce();
+    } else {
+      let wasLoading = lib.loading;
+      const stopRestoreWatch = watch(
+        () => lib.loading,
+        (loading) => {
+          if (wasLoading && !loading) {
+            stopRestoreWatch();
+            restoreOnce();
+          }
+          wasLoading = loading;
+        },
+      );
     }
   }
 
@@ -1268,6 +1441,7 @@ export const usePlayerStore = defineStore("player", () => {
       preloadEl = null;
     }
     preloadedTrack = null;
+    preloadedMetadata = null;
     preloadSeq++;
     releaseWakeLock();
     cancelSleepTimer();
@@ -1275,9 +1449,10 @@ export const usePlayerStore = defineStore("player", () => {
     errorTimer = undefined;
     clearTimeout(snapshotTimer);
     snapshotTimer = undefined;
-    clearTimeout(libraryReloadTimer);
-    libraryReloadTimer = undefined;
     playCountedTrackId = null;
+    replayGainTags.value = null;
+    metadataCache.clear();
+    clearPlayHistory();
     try {
       localStorage.removeItem(PLAYER_STATE_KEY);
     } catch {
@@ -1348,7 +1523,6 @@ export const usePlayerStore = defineStore("player", () => {
     toggleFavorite,
     startSleepTimer,
     cancelSleepTimer,
-    saveMetadata,
     reset,
   };
 });

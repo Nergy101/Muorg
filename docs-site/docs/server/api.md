@@ -67,9 +67,11 @@ Base URL: `http://<host>:<port>` (default port `7700`).
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/admin/rescan` | Trigger a library rescan |
+| `GET` | `/api/admin/browse` | Browse server-side directories (for "Add folder" pickers); confined to `[library] browse_roots` |
 | `POST` | `/api/admin/remove-folder` | Remove a library folder |
 | `POST` | `/api/admin/backup-directory` | Run a database backup |
-| `POST` | `/api/admin/clear-cache` | Clear caches (e.g. cover cache) |
+| `POST` | `/api/admin/purge-deleted` | Permanently purge soft-deleted catalog rows, bypassing the grace period |
+| `POST` | `/api/admin/clear-cache` | **Deprecated**, use `purge-deleted` instead — same behaviour, kept for one release |
 | `GET` | `/api/admin/health` | Health incl. dependency checks |
 | `GET` | `/api/admin/metrics` | Metrics (Prometheus format) |
 

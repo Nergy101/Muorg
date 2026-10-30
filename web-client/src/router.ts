@@ -19,6 +19,8 @@ import PlayerQueueView from "./views/PlayerQueueView.vue";
 import SettingsView from "./views/SettingsView.vue";
 import ReportsView from "./views/ReportsView.vue";
 import ReportDetailView from "./views/ReportDetailView.vue";
+import SmartTransformView from "./views/SmartTransformView.vue";
+import StatsView from "./views/StatsView.vue";
 
 /**
  * Loads the catalog + playlists exactly once per connected session.
@@ -104,6 +106,13 @@ export const router = createRouter({
       props: true,
       meta: { depth: 2 },
     },
+    {
+      path: "/smart-transform",
+      name: "smart-transform",
+      component: SmartTransformView,
+      meta: { depth: 1 },
+    },
+    { path: "/stats", name: "stats", component: StatsView, meta: { depth: 1 } },
     { path: "/:pathMatch(.*)*", redirect: "/library" },
   ],
 });

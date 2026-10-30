@@ -71,31 +71,68 @@ The full-screen player shows album art with a dominant-colour backdrop, seek bar
 
 The bottom bar has four tabs — **Home**, **Library**, **Playlists** and **Settings**. The queue and full player are reached from the mini player.
 
+Hover or keyboard-focus any icon-only button to see what it does (with its keyboard shortcut where it has one); toggles also say whether they are on and what a click will do.
+
 ### Library
 
 - Album **grid**, album **list** and flat **track list** layouts, cycled from the toolbar; long lists are virtualized.
+- On screens ≥ 1024 px the track list becomes a **desktop-style table**: sortable columns (title, artist, album, year, duration, rating, format), resizable and hideable columns, three row densities, grouping by artist or album, a minimum-rating filter, inline star ratings, keyboard navigation and a right-click menu. Configure it in Settings → Tracks table.
 - Search across albums and artists, with recent searches kept as chips you can re-run or clear.
 - Sort by album, artist or year, ascending or descending, plus a **genre filter**.
 - **Shuffle all** plays everything currently filtered.
 - Tap an album for its tracks; add a whole album to a playlist in one action.
-- Track actions: favourite, add to playlist, add to/remove from queue, view artist, view album, track info, and **edit metadata** (title, artist, album, album artist, genre, year).
+- **Multi-select** — long-press a row on touch, or click / Ctrl-click / Shift-click on desktop (Ctrl/⌘+A selects everything in the list). A selection bar offers add to playlist, add to queue, play next, edit metadata, rate and delete for all selected tracks. Rating or deleting more than one track asks for confirmation; rating changes can be undone from the toast.
+
+### Editing metadata
+
+**Edit metadata** (from a track's menu, the selection bar, or `E`) opens an editor — a full-height sheet on phones, a docked side panel on desktop:
+
+- Title, artist, album, album artist, featuring, year, genre (with autocomplete), track and disc number; ReplayGain tags are shown read-only. The star rating saves immediately.
+- **Cover art** from a file (picker or drag-and-drop), a Wikipedia search, or a URL on the server's image allowlist; clear it, or apply it to the whole album.
+- **Bulk edit** — with several tracks selected, only the fields you touch are written.
+- **Apply from path** fills fields from the folder and file names using the patterns in Settings → Metadata writing; **Look up on MusicBrainz** fetches suggestions to apply to the form or save straight away.
+- **Restore from backup**, **rename file** (with a collision check) and **delete track**.
+- Tags are written in place. Enable **Back up before writing** in Settings to keep a copy of the original first; the first write and every bulk edit show a warning while it is off. Every write shows an **Undo** toast.
 
 ### Playlists
 
 - Create playlists with a name and an emoji icon; pin the ones you use most to the top.
 - **Smart playlists** — create *and* edit rules right in the browser. Rules cover `rating`, `play count`, `genre`, `year`, `artist`, `album`, `title`, `last played` and `has cover`.
 - Regular playlists support drag-to-reorder with an explicit save; smart playlists are ordered by their rules instead.
+- Adding tracks that are already in a playlist asks whether to add anyway or skip the duplicates.
+- On desktop, drag tracks from the table onto a playlist in the sidebar or on the Playlists page.
+- **Export to M3U** with either stream URLs (which expire after 8 hours) or paths relative to a music root folder you set in Settings → Export.
+
+### Reports, Smart Transform and statistics
+
+- **Reports** (missing metadata, duplicates, missing cover, recently played, most played). The fields that count as "missing" are configurable. From a report you can save the result as a playlist, apply "from path" to every track, or **auto-tag all** (MusicBrainz matches of 90 % confidence or better fill only empty fields; the rest are listed for review).
+- **Smart Transform** (Settings → Reports) bulk-renames files by rewriting a path pattern. It checks for collisions, never overwrites without an explicit choice, and asks for confirmation with the file count — renames cannot be undone.
+- **Statistics** shows totals, metadata health, genre, year and rating distributions and top artists.
 
 ### Player and queue
 
-- Full-screen player with large artwork, a background glow derived from the cover, draggable seek bar, shuffle, repeat (including repeat-one), and a favourite toggle.
+- Full-screen player with large artwork, a background glow derived from the cover, draggable seek bar, shuffle, repeat (including repeat-one), a favourite toggle, and **volume and mute** (hidden on iOS, where the system controls volume).
+- **ReplayGain** (Settings → Playback): track or album mode, preamp and clipping prevention. Gain is applied through the element volume, so it can attenuate but not boost above full volume.
 - **Sleep timer** with presets from 5 to 90 minutes.
-- Queue view with drag-to-reorder, a shuffle toggle and clear-all.
+- Queue view with drag-to-reorder, a shuffle toggle, clear-all and **Save queue as playlist**. The queue and position are restored (paused) when you reopen the app.
+- **Previous** restarts the track, and pressing it again steps back through what you played.
 - **Lock-screen playback** — the next track is pre-buffered while the current one plays, so auto-advance keeps working when the screen is locked (the same handoff as gapless playback). On browsers that support it (Chrome/Edge on Android and desktop), a screen wake lock is held while playing; iOS Safari does not support wake locks, where the pre-buffered handoff carries the advance. If a track ever appears stuck after unlocking the phone, opening the app re-syncs it automatically.
+
+### Keyboard shortcuts
+
+Press `?` (or Ctrl/⌘+K) for the full list. Highlights: `Space`/`K` play-pause, `←`/`→` or `J`/`L` seek, `Ctrl+←`/`→` previous/next, `Shift+↑`/`↓` volume, `M` mute, `S` shuffle, `R` repeat, `F` full-screen player, `/` search, `G` then `H`/`L`/`P`/`Q`/`R`/`S` to jump between screens, `E` edit metadata, `Ctrl/⌘+A` select all. Browsers reserve Ctrl/⌘+T, +S and +1–9, so the desktop app's panel shortcuts are single keys here.
 
 ### Settings
 
-Version and update status, install-as-app prompt, playback behaviour (continuous playback, what tapping the mini player does, offline mode), default library sort and layout, theme (dark / light / follow system, plus a true-black OLED mode), offline downloads (cached tracks, storage used, downloaded playlists, clear cache), library statistics, server URL, refresh library, and log out.
+Version and update status, install-as-app prompt, playback behaviour (continuous playback, what tapping the mini player does, offline mode, ReplayGain), default library sort and layout, table options, metadata-writing options, export options, theme (dark / light / follow system, plus a true-black OLED mode), offline downloads (cached tracks, storage used, downloaded playlists, clear cache), library statistics, server URL, refresh library, and log out.
+
+### Folders
+
+Settings → Library Folders lists every configured root with its track count, and lets you rescan one folder or all of them. **Add folder** opens a picker that browses the *server's* disk (not your device) via `GET /api/admin/browse`, confined to directories the operator allowed in `[library] browse_roots`; a typed-path field is there as a fallback when nothing is browsable. Removing a folder soft-deletes its tracks — a grace period runs before the catalog purges them — and leaves the files on disk untouched.
+
+### Maintenance
+
+Settings → Maintenance has one destructive action, **Purge removed tracks**: it permanently drops catalog rows for tracks whose folder was removed, bypassing the normal 30-day grace period. It asks for confirmation first and cannot be undone.
 
 ## PWA and offline behaviour
 

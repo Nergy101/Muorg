@@ -77,7 +77,10 @@
             :track="track"
             :is-playing="player.currentTrack?.id === track.id"
             :is-loading="player.pendingTrackId === track.id"
+            :selectable="selection.selecting"
+            :selected="selection.has(track.id)"
             @play="playTrack(track, recentResultTracks)"
+            @select="(mods) => onSelect(track, mods, recentResultTracks)"
             @actions="sheetTrack = track"
           />
         </div>
@@ -113,7 +116,10 @@
             :is-playing="player.currentTrack?.id === track.id"
             :is-loading="player.pendingTrackId === track.id"
             :subtitle="`${track.artist ?? track.album_artist ?? '—'} • ${track.album ?? '—'}`"
+            :selectable="selection.selecting"
+            :selected="selection.has(track.id)"
             @play="playTrack(track, results)"
+            @select="(mods) => onSelect(track, mods, results)"
             @actions="sheetTrack = track"
           />
         </div>
@@ -131,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import TrackListRow from "../components/TrackListRow.vue";
@@ -139,17 +145,18 @@ import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
+import { useSelectionStore } from "../stores/selection";
 import { searchFocusSignal } from "../composables/useSearchFocus";
+import { provideVisibleIds } from "../composables/useSelectableList";
 import type { CatalogTrack } from "../types";
 
 const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const settings = useSettingsStore();
-
+const selection = useSelectionStore();
 const query = ref("");
 const inputEl = ref<HTMLInputElement | null>(null);
-let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function normalize(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase();
@@ -197,6 +204,10 @@ const recentResultTracks = computed(() => {
     .filter((t): t is CatalogTrack => t !== undefined);
 });
 
+provideVisibleIds(() =>
+  (query.value.trim() ? results.value : recentResultTracks.value).map((t) => t.id),
+);
+
 function focusInput(): void {
   inputEl.value?.focus();
   inputEl.value?.select();
@@ -215,17 +226,14 @@ function recordSearch(value: string): void {
 }
 
 function onSearchEnter(): void {
-  clearTimeout(debounceTimer);
   recordSearch(query.value);
 }
 
 function clearSearch(): void {
-  clearTimeout(debounceTimer);
   query.value = "";
 }
 
 function selectHistoryChip(entry: string): void {
-  clearTimeout(debounceTimer);
   query.value = entry;
   recordSearch(entry);
   focusInput();
@@ -235,6 +243,19 @@ function playTrack(track: CatalogTrack, queue: CatalogTrack[]): void {
   settings.addSearchResult(track.id);
   recordSearch(query.value);
   void player.playTrack(track, queue);
+}
+
+function onSelect(
+  track: CatalogTrack,
+  mods: { shift: boolean; ctrl: boolean },
+  ordered: CatalogTrack[],
+): void {
+  const consumed = selection.click(
+    track.id,
+    ordered.map((t) => t.id),
+    mods,
+  );
+  if (!consumed) playTrack(track, ordered);
 }
 
 // --- Track actions sheet -------------------------------------------------
@@ -253,6 +274,4 @@ function onViewAlbum(): void {
   if (!t) return;
   void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
-
-onUnmounted(() => clearTimeout(debounceTimer));
 </script>

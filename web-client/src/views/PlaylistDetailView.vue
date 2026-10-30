@@ -88,6 +88,18 @@
             />
           </button>
 
+          <!-- Export as .m3u (Stream URLs / Relative paths). Hidden for
+               ephemeral mixes, which are not server playlists. -->
+          <button
+            v-if="!isMix && tracks.length > 0"
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            aria-label="Export playlist as M3U"
+            @click="exportOpen = true"
+          >
+            <MageIcon name="export-list" class="h-5 w-5" />
+          </button>
+
           <button
             type="button"
             class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
@@ -98,6 +110,15 @@
           </button>
         </div>
 
+        <button
+          v-if="tracks.length > 0"
+          type="button"
+          class="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full glass text-on-surface transition-colors lg:hover:bg-on-surface/10"
+          aria-label="Shuffle play"
+          @click="shufflePlaylist"
+        >
+          <MageIcon name="exchange" class="h-4 w-4" />
+        </button>
         <button
           v-if="tracks.length > 0"
           type="button"
@@ -199,7 +220,10 @@
                   :track="trackById.get(entry.id)!"
                   :is-playing="player.currentTrack?.id === entry.id"
                   :is-loading="player.pendingTrackId === entry.id"
+                  :selectable="selection.selecting"
+                  :selected="selection.has(entry.id)"
                   @play="player.playTrack(trackById.get(entry.id)!, sortedTracks)"
+                  @select="(mods) => onSelect(trackById.get(entry.id)!, mods)"
                   @actions="openActions(trackById.get(entry.id)!)"
                 />
               </div>
@@ -275,6 +299,13 @@
       @cancel="saveMixOpen = false"
     />
 
+    <PlaylistExportDialog
+      v-if="playlist"
+      :playlist="playlist"
+      :open="exportOpen"
+      @close="exportOpen = false"
+    />
+
     <TrackActionsSheet
       :open="actionsTrack !== null"
       :track="actionsTrack"
@@ -294,8 +325,10 @@ import AlbumCard from "../components/AlbumCard.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import SmartPlaylistDialog from "../components/SmartPlaylistDialog.vue";
 import PlaylistFormDialog from "../components/PlaylistFormDialog.vue";
+import PlaylistExportDialog from "../components/PlaylistExportDialog.vue";
 import { useDragReorder, REORDER_ROW_HEIGHT } from "../composables/useDragReorder";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { provideVisibleIds } from "../composables/useSelectableList";
 import { useVirtualList } from "../composables/useVirtualList";
 import { useGridColumns } from "../composables/useGridColumns";
 import { showToast } from "../composables/useToast";
@@ -306,6 +339,7 @@ import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
 import { useOfflineStore } from "../stores/offline";
+import { useSelectionStore } from "../stores/selection";
 import { findMix } from "@shared/composables/useMixes";
 import type {
   AlbumGridItem,
@@ -325,6 +359,7 @@ const player = usePlayerStore();
 const settings = useSettingsStore();
 const lib = useLibraryStore();
 const offline = useOfflineStore();
+const selection = useSelectionStore();
 
 const playlistId = computed(() => Number(props.id));
 
@@ -420,6 +455,15 @@ function playAll(): void {
   if (first) player.playTrack(first, sortedTracks.value);
 }
 
+/** Header shuffle button: same sorted list as Play, but with shuffle
+ *  switched on and a random starting track (desktop parity). */
+function shufflePlaylist(): void {
+  const list = sortedTracks.value;
+  if (!list.length) return;
+  if (!player.shuffleEnabled) player.toggleShuffle();
+  player.playTrack(list[Math.floor(Math.random() * list.length)], list);
+}
+
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 
 // Ordered ids loaded from the server; `reorderedIds` mirrors it and only
@@ -455,6 +499,8 @@ onActivated(() => loadOrder(true));
 /** Save the current mix as a real playlist: New-playlist modal, then the mix's
  *  tracks are added to the freshly created playlist. */
 const saveMixOpen = ref(false);
+
+const exportOpen = ref(false);
 
 async function onSaveMix(name: string, icon: string): Promise<void> {
   if (!mix.value) return;
@@ -731,6 +777,13 @@ const displayIds = computed<number[]>(() => {
   }
   return sortedTracks.value.map((t) => t.id);
 });
+
+provideVisibleIds(() => displayIds.value);
+
+function onSelect(track: CatalogTrack, mods: { shift: boolean; ctrl: boolean }): void {
+  const consumed = selection.click(track.id, displayIds.value, mods);
+  if (!consumed) player.playTrack(track, sortedTracks.value);
+}
 
 const tracksList = useVirtualList({
   scroller,

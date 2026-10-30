@@ -8,6 +8,7 @@ import {
   addTracksToPlaylist as apiAdd,
   removeTracksFromPlaylist as apiRemove,
   reorderPlaylistTracks as apiReorder,
+  reorderPlaylists as apiReorderPlaylists,
   getTracksForPlaylist,
   createSmartPlaylist as apiCreateSmart,
   updateSmartPlaylistRules as apiUpdateSmartRules,
@@ -18,6 +19,21 @@ import {
 import { showToast } from "../composables/useToast";
 import type { Playlist, SmartRule } from "../types";
 import { usePlayerStore } from "./player";
+
+/**
+ * A pending "add tracks to a playlist" operation waiting on the user's
+ * duplicate-track decision (desktop parity — see PlaylistDuplicateDialog).
+ */
+export interface PendingPlaylistAdd {
+  playlistId: number;
+  playlistName: string;
+  /** All track IDs the caller originally wanted to add. */
+  allIds: number[];
+  /** Subset already in the playlist. */
+  dupeIds: number[];
+  /** Subset not yet in the playlist. */
+  newIds: number[];
+}
 
 /** Shared with the Android client so a common library stays consistent. */
 const FAVORITES_NAME = "Favorites";
@@ -70,6 +86,10 @@ export const usePlaylistStore = defineStore("playlists", () => {
    *  on the server (Q24) — the web client is always in server mode — so it is
    *  fetched with the playlists and written back on every change. */
   const pinnedIds = ref<number[]>([]);
+
+  /** The duplicate-track confirmation waiting on the user, or null. One at a
+   *  time — PlaylistDuplicateDialog is mounted globally in App.vue. */
+  const pendingAdd = ref<PendingPlaylistAdd | null>(null);
 
   function isPinned(playlistId: number): boolean {
     return pinnedIds.value.includes(playlistId);
@@ -251,6 +271,77 @@ export const usePlaylistStore = defineStore("playlists", () => {
     }
   }
 
+  // ── Duplicate-checked add (desktop parity) ────────────────────────────
+  // Concurrent callers (a picker confirm racing a drag-drop, say) share one
+  // pendingAdd slot — chain them so a second check never clobbers the first
+  // while its dialog is still open.
+  let addCheckChain: Promise<unknown> = Promise.resolve();
+  let resolvePendingAdd: ((outcome: "added" | "cancelled") => void) | null = null;
+
+  async function commitAdd(playlistId: number, trackIds: number[]): Promise<void> {
+    if (!trackIds.length) return;
+    try {
+      await addTracks(playlistId, trackIds);
+    } catch (e) {
+      showToast(`Failed to add tracks: ${(e as Error).message}`);
+      throw e;
+    }
+  }
+
+  async function runAddCheck(playlistId: number, trackIds: number[]): Promise<"added" | "cancelled"> {
+    if (!trackIds.length) return "added";
+    const existing = await loadTrackIdsForPlaylist(playlistId);
+    const dupeIds = trackIds.filter((id) => existing.has(id));
+    const newIds = trackIds.filter((id) => !existing.has(id));
+    if (!dupeIds.length) {
+      await commitAdd(playlistId, trackIds).catch(() => undefined);
+      return "added";
+    }
+    const name = playlists.value.find((p) => p.id === playlistId)?.name ?? "";
+    // The project's TS lib target (ES2020) predates Promise.withResolvers
+    // (ES2024), so the executor form is used here deliberately.
+    return new Promise<"added" | "cancelled">((resolve) => {
+      resolvePendingAdd = resolve;
+      pendingAdd.value = { playlistId, playlistName: name, allIds: trackIds, dupeIds, newIds };
+    });
+  }
+
+  /**
+   * Add tracks to a regular playlist, asking the user when some are already
+   * members (desktop's usePlaylistAdd, moved to the store so every surface —
+   * PlaylistPickerSheet, playlist drop targets — shares one implementation).
+   * Resolves once the add has actually happened (or the user cancelled).
+   */
+  function addTracksChecked(playlistId: number, trackIds: number[]): Promise<"added" | "cancelled"> {
+    const run = addCheckChain.then(() => runAddCheck(playlistId, trackIds));
+    addCheckChain = run.catch(() => undefined);
+    return run;
+  }
+
+  async function confirmAddAll(): Promise<void> {
+    const pending = pendingAdd.value;
+    if (!pending) return;
+    pendingAdd.value = null;
+    await commitAdd(pending.playlistId, pending.allIds).catch(() => undefined);
+    resolvePendingAdd?.("added");
+    resolvePendingAdd = null;
+  }
+
+  async function confirmAddDeduped(): Promise<void> {
+    const pending = pendingAdd.value;
+    if (!pending) return;
+    pendingAdd.value = null;
+    await commitAdd(pending.playlistId, pending.newIds).catch(() => undefined);
+    resolvePendingAdd?.("added");
+    resolvePendingAdd = null;
+  }
+
+  function cancelPendingAdd(): void {
+    pendingAdd.value = null;
+    resolvePendingAdd?.("cancelled");
+    resolvePendingAdd = null;
+  }
+
   async function removeTracks(playlistId: number, trackIds: number[]): Promise<void> {
     await apiRemove(playlistId, trackIds);
     playlists.value = playlists.value.map((p) =>
@@ -268,6 +359,24 @@ export const usePlaylistStore = defineStore("playlists", () => {
 
   async function reorderTracks(playlistId: number, trackIds: number[]): Promise<void> {
     await apiReorder(playlistId, trackIds);
+  }
+
+  /**
+   * Reorder the playlists themselves. `sortedPlaylists` renders pinned ids
+   * first (in pin order) regardless, so this only moves the unpinned tail —
+   * same simplification as the desktop sidebar's reorder.
+   */
+  async function reorderPlaylists(ids: number[]): Promise<void> {
+    const byId = new Map(playlists.value.map((p) => [p.id, p]));
+    const next = ids.map((id) => byId.get(id)).filter((p): p is Playlist => p != null);
+    const previous = playlists.value;
+    playlists.value = next;
+    try {
+      await apiReorderPlaylists(ids);
+    } catch (e) {
+      playlists.value = previous;
+      showToast(`Failed to reorder playlists: ${(e as Error).message}`);
+    }
   }
 
   async function ensureFavoritesPlaylist(): Promise<Playlist> {
@@ -292,6 +401,8 @@ export const usePlaylistStore = defineStore("playlists", () => {
     trackIdSets.value = new Map();
     trackOrders.value = new Map();
     pinnedIds.value = [];
+    pendingAdd.value = null;
+    resolvePendingAdd = null;
   }
 
   return {
@@ -299,6 +410,7 @@ export const usePlaylistStore = defineStore("playlists", () => {
     loading,
     trackIdSets,
     pinnedIds,
+    pendingAdd,
     sortedPlaylists,
     isPinned,
     togglePin,
@@ -313,8 +425,13 @@ export const usePlaylistStore = defineStore("playlists", () => {
     loadAllTrackIds,
     getPlaylistsContainingTrack,
     addTracks,
+    addTracksChecked,
+    confirmAddAll,
+    confirmAddDeduped,
+    cancelPendingAdd,
     removeTracks,
     reorderTracks,
+    reorderPlaylists,
     ensureFavoritesPlaylist,
     isFavoritesPlaylist,
     reset,

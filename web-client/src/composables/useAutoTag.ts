@@ -1,27 +1,19 @@
 import type { MatchCandidate } from "../types";
-
-/** The metadata fields the edit sheet holds, all as strings. */
-export interface EditForm {
-  title: string;
-  artist: string;
-  album: string;
-  album_artist: string;
-  genre: string;
-  year: string;
-}
+import type { MetadataForm } from "../stores/metadata";
 
 /**
- * Fill an edit form from a MusicBrainz match.
+ * Fill a metadata editor form from a MusicBrainz match.
  *
  * Only `title` and `artist` are guaranteed on a candidate; the rest are
  * optional. A candidate that has nothing to say about a field must leave what
  * is already there rather than blanking it — a lookup that clears the genre you
- * just typed is worse than no lookup at all.
+ * just typed is worse than no lookup at all. Fields the candidate never carries
+ * (genre, featuring, disc number) are always left alone.
  *
  * Returns a new form so the caller decides when to commit it. Nothing here
  * writes to the server: applying a match stages an edit, it does not save one.
  */
-export function applyCandidate(form: EditForm, candidate: MatchCandidate): EditForm {
+export function applyCandidate(form: MetadataForm, candidate: MatchCandidate): MetadataForm {
   return {
     ...form,
     title: candidate.title,
@@ -29,6 +21,7 @@ export function applyCandidate(form: EditForm, candidate: MatchCandidate): EditF
     album: candidate.album || form.album,
     album_artist: candidate.album_artist || form.album_artist,
     year: candidate.year != null ? String(candidate.year) : form.year,
+    track_number: candidate.track_number != null ? String(candidate.track_number) : form.track_number,
   };
 }
 

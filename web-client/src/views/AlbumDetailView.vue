@@ -17,7 +17,9 @@
            Only when the album actually has art, so coverless albums keep it. -->
       <CoverBackdrop v-if="backdropActive" :cover-url="coverUrl" variant="album" />
 
-      <div class="content-col relative z-10 flex shrink-0 items-center gap-3 px-4 pb-4 pt-4">
+      <!-- z-20 so the header's dropdown menu paints above the track list
+           scroller (z-10) and its row hover backgrounds. -->
+      <div class="content-col relative z-20 flex shrink-0 items-center gap-3 px-4 pb-4 pt-4">
         <button
           type="button"
           class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-colors lg:h-9 lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-white/10"
@@ -97,6 +99,15 @@
                   class="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl bg-surface-container py-1 shadow-xl"
                 >
                   <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface disabled:opacity-50"
+                    :disabled="tracks.length === 0"
+                    @click="addToPlaylistFromMenu"
+                  >
+                    <MageIcon name="playlist-add" class="h-4 w-4 text-primary" />
+                    <span>Add to playlist</span>
+                  </button>
+                  <button
                     v-if="item?.albumArtist"
                     type="button"
                     class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface"
@@ -130,7 +141,10 @@
           :on-dark="backdropActive"
           :accent-rgb="accentRgb"
           :is-playing="player.currentTrack?.id === track.id"
+          :selectable="selection.selecting"
+          :selected="selection.has(track.id)"
           @play="player.playTrack(track, tracks)"
+          @select="(mods) => onSelect(track, mods)"
           @actions="sheetTrack = track"
         />
       </div>
@@ -169,7 +183,9 @@ import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
+import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { provideVisibleIds } from "../composables/useSelectableList";
 import { isColorBland, useDominantColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
 import type { CatalogTrack, Playlist } from "../types";
@@ -183,6 +199,7 @@ const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
+const selection = useSelectionStore();
 
 const albumKey = computed(() => props.albumKey);
 const item = computed(() => lib.albumByKey(albumKey.value));
@@ -208,6 +225,17 @@ const tracks = computed<CatalogTrack[]>(() => {
   const filter = playlistFilter.value;
   return filter ? all.filter((t) => filter.has(t.id)) : all;
 });
+
+provideVisibleIds(() => tracks.value.map((t) => t.id));
+
+function onSelect(track: CatalogTrack, mods: { shift: boolean; ctrl: boolean }): void {
+  const consumed = selection.click(
+    track.id,
+    tracks.value.map((t) => t.id),
+    mods,
+  );
+  if (!consumed) player.playTrack(track, tracks.value);
+}
 
 const coverUrl = computed(() => {
   const id = item.value?.coverTrackId;
@@ -276,6 +304,13 @@ function playAlbum(): void {
 // --- Album header menu -----------------------------------------------------
 
 const menuOpen = ref(false);
+
+/** Same as the header's playlist-add button: the picker adds the album's
+ *  tracks to the chosen playlist. */
+async function addToPlaylistFromMenu(): Promise<void> {
+  menuOpen.value = false;
+  await openPicker();
+}
 
 function viewArtistFromAlbum(): void {
   const name = item.value?.albumArtist;

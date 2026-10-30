@@ -52,6 +52,8 @@
           type="button"
           :class="switchClass(settings.continuousPlayback)"
           role="switch"
+          aria-label="Continuous playback"
+          :data-tip="`Continuous playback is ${settings.continuousPlayback ? 'on' : 'off'} — click to turn ${settings.continuousPlayback ? 'off' : 'on'}`"
           :aria-checked="settings.continuousPlayback"
           @click="settings.setContinuousPlayback(!settings.continuousPlayback)"
         >
@@ -69,6 +71,8 @@
           type="button"
           :class="switchClass(settings.miniPlayerTapOpensPlayer)"
           role="switch"
+          aria-label="Tap mini player opens the full player"
+          :data-tip="settings.miniPlayerTapOpensPlayer ? 'Tapping the mini player opens the full player — click to make it play/pause instead' : 'Tapping the mini player plays/pauses — click to make it open the full player'"
           :aria-checked="settings.miniPlayerTapOpensPlayer"
           @click="settings.setMiniPlayerTapOpensPlayer(!settings.miniPlayerTapOpensPlayer)"
         >
@@ -86,12 +90,16 @@
           type="button"
           :class="switchClass(settings.offlineMode)"
           role="switch"
+          aria-label="Offline mode"
+          :data-tip="`Offline mode is ${settings.offlineMode ? 'on' : 'off'} — click to turn ${settings.offlineMode ? 'off' : 'on'}`"
           :aria-checked="settings.offlineMode"
           @click="settings.setOfflineMode(!settings.offlineMode)"
         >
           <span :class="knobClass(settings.offlineMode)" />
         </button>
       </div>
+      <PlaybackAudioSettingsSection />
+      <div class="hidden lg:block"><KeyboardSettingsSection /></div>
 
       <!-- ─── Library ────────────────────────────────────────────────── -->
       <div :class="[SECTION, 'flex items-center gap-1.5']">
@@ -109,6 +117,8 @@
         </div>
         <MageIcon name="chevron-right" class="h-5 w-5 shrink-0 text-on-surface-variant" />
       </button>
+      <ReportsSettingsSection />
+      <LibraryFoldersSection />
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Default sort order</p>
@@ -154,6 +164,8 @@
           type="button"
           :class="switchClass(settings.sortAscending)"
           role="switch"
+          aria-label="Sort direction"
+          :data-tip="settings.sortAscending ? 'Ascending — click to sort descending' : 'Descending — click to sort ascending'"
           :aria-checked="settings.sortAscending"
           @click="settings.setSortAscending(!settings.sortAscending)"
         >
@@ -168,6 +180,8 @@
           @update:model-value="settings.setAlbumViewStyle($event as AlbumViewStyle)"
         />
       </div>
+      <LibraryTableSettingsSection />
+      <WriteSettingsSection />
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Reduce motion</p>
@@ -179,6 +193,8 @@
           type="button"
           :class="switchClass(settings.reduceMotion)"
           role="switch"
+          aria-label="Reduce motion"
+          :data-tip="`Reduce motion is ${settings.reduceMotion ? 'on' : 'off'} — click to turn ${settings.reduceMotion ? 'off' : 'on'}`"
           :aria-checked="settings.reduceMotion"
           @click="settings.setReduceMotion(!settings.reduceMotion)"
         >
@@ -196,12 +212,16 @@
           type="button"
           :class="switchClass(settings.openOnLastTab)"
           role="switch"
+          aria-label="Open on last tab"
+          :data-tip="`Reopen on the last visited tab is ${settings.openOnLastTab ? 'on' : 'off'} — click to turn ${settings.openOnLastTab ? 'off' : 'on'}`"
           :aria-checked="settings.openOnLastTab"
           @click="settings.setOpenOnLastTab(!settings.openOnLastTab)"
         >
           <span :class="knobClass(settings.openOnLastTab)" />
         </button>
       </div>
+
+      <ExportSettingsSection />
 
       <!-- ─── Offline ────────────────────────────────────────────────── -->
       <div :class="[SECTION, 'flex items-center gap-1.5']">
@@ -282,6 +302,8 @@
           type="button"
           :class="switchClass(settings.trueBlack)"
           role="switch"
+          aria-label="Use true black"
+          :data-tip="`True black (OLED) background is ${settings.trueBlack ? 'on' : 'off'} — click to turn ${settings.trueBlack ? 'off' : 'on'}`"
           :aria-checked="settings.trueBlack"
           @click="settings.setTrueBlack(!settings.trueBlack)"
         >
@@ -383,6 +405,8 @@
         <span class="text-body-md text-on-surface-variant">{{ totalDurationLabel }}</span>
       </div>
 
+      <MaintenanceSection />
+
       <!-- ─── Development ─────────────────────────────────────────────── -->
       <div :class="[SECTION, 'flex items-center gap-1.5']">
         <MageIcon name="wrench" class="h-3.5 w-3.5" />
@@ -431,6 +455,14 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import SegmentedControl from "../components/SegmentedControl.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import ReportsSettingsSection from "../components/settings/ReportsSettingsSection.vue";
+import LibraryFoldersSection from "../components/settings/LibraryFoldersSection.vue";
+import LibraryTableSettingsSection from "../components/settings/LibraryTableSettingsSection.vue";
+import WriteSettingsSection from "../components/settings/WriteSettingsSection.vue";
+import MaintenanceSection from "../components/settings/MaintenanceSection.vue";
+import ExportSettingsSection from "../components/settings/ExportSettingsSection.vue";
+import PlaybackAudioSettingsSection from "../components/settings/PlaybackAudioSettingsSection.vue";
+import KeyboardSettingsSection from "../components/settings/KeyboardSettingsSection.vue";
 import { pwaUpdateAvailable, refreshApp } from "../composables/usePwaUpdate";
 import { disconnect, getServerUrl } from "../api/client";
 import { useLibraryStore } from "../stores/library";
@@ -438,6 +470,9 @@ import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
 import { useOfflineStore } from "../stores/offline";
+import { useFoldersStore } from "../stores/folders";
+import { useSelectionStore } from "../stores/selection";
+import { clearUndo } from "../composables/useUndo";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { reportCounts } from "@shared/reports";
@@ -479,13 +514,15 @@ const lib = useLibraryStore();
 /** Only the reports that mean something is wrong; see SidebarNav for the same
  *  reasoning — a play-history count next to "Reports" is not a to-do. */
 const reportIssues = computed(() => {
-  const counts = reportCounts(lib.tracks);
+  const counts = reportCounts(lib.tracks, settings.missingMetadataFields);
   return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
 });
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
 const offline = useOfflineStore();
+const folders = useFoldersStore();
+const selection = useSelectionStore();
 const { canInstall, isIos, install } = useInstallPrompt();
 
 const version = __APP_VERSION__;
@@ -595,10 +632,13 @@ const logoutOpen = ref(false);
 async function onLogout(): Promise<void> {
   logoutOpen.value = false;
   disconnect();
+  selection.clear();
+  clearUndo();
   // Player first so audio stops before the library revokes its cover URLs.
   player.reset();
   lib.reset();
   playlistStore.reset();
+  folders.reset();
   // The offline cache is derived from this server's tracks — drop it so a
   // different server does not inherit (or pay quota for) stale files.
   await offline.clearAll();

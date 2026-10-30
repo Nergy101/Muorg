@@ -75,6 +75,7 @@
 import { nextTick, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
+import { usePlaylistStore } from "../stores/playlists";
 import type { Playlist } from "../types";
 
 type MemberState = "full" | "partial" | "none";
@@ -84,6 +85,16 @@ const props = defineProps<{
   playlists: Playlist[];
   membershipIds: Set<number>;
   partialMembershipIds?: Set<number>;
+  /**
+   * The track ids this picker operates on. Optional for backward
+   * compatibility: when given, an "add" tap goes through the store's
+   * duplicate check (playlistStore.addTracksChecked) and the picker performs
+   * the add itself before notifying the caller — bulk callers (many tracks)
+   * just pass the full id list, same props/emit contract otherwise. Omitted,
+   * "add" is emitted immediately and the caller is responsible for the
+   * mutation (legacy behaviour).
+   */
+  trackIds?: number[];
 }>();
 
 const emit = defineEmits<{
@@ -92,6 +103,8 @@ const emit = defineEmits<{
   create: [name: string];
   close: [];
 }>();
+
+const playlistStore = usePlaylistStore();
 
 // Optimistic overlay so a tap responds before the network round-trip lands.
 const overrides = ref<Map<number, MemberState>>(new Map());
@@ -117,13 +130,23 @@ function stateFor(id: number): MemberState {
   return "none";
 }
 
-function toggle(p: Playlist): void {
+async function toggle(p: Playlist): Promise<void> {
   const current = stateFor(p.id);
   // Partial means "some tracks are in" — completing the add is the useful move.
   const next: MemberState = current === "full" ? "none" : "full";
   overrides.value = new Map(overrides.value).set(p.id, next);
-  if (current === "full") emit("remove", p);
-  else emit("add", p);
+  if (current === "full") {
+    emit("remove", p);
+    return;
+  }
+  if (props.trackIds?.length) {
+    const outcome = await playlistStore.addTracksChecked(p.id, props.trackIds);
+    if (outcome === "cancelled") {
+      overrides.value = new Map(overrides.value).set(p.id, current);
+      return;
+    }
+  }
+  emit("add", p);
 }
 
 async function startCreating(): Promise<void> {

@@ -27,7 +27,7 @@ const rows = computed(() => {
 </script>
 
 <template>
-  <div v-if="!tracks.length" class="py-4 text-center text-xs text-stone-500">No tracks.</div>
+  <div v-if="!tracks.length" class="py-4 text-center text-xs text-[color:var(--color-on-surface-variant,#78716c)]">No tracks.</div>
   <div v-else class="space-y-1.5">
     <div
       v-for="row in rows"
@@ -35,19 +35,19 @@ const rows = computed(() => {
       class="group flex items-center gap-3"
     >
       <!-- Artist name -->
-      <span class="w-36 shrink-0 truncate text-right text-xs text-stone-400 group-hover:text-stone-200 transition-colors">
+      <span class="w-36 shrink-0 truncate text-right text-xs text-[color:var(--color-on-surface-variant,#a8a29e)] group-hover:text-[color:var(--color-on-surface,#e7e5e4)] transition-colors">
         {{ row.label }}
       </span>
       <!-- Bar -->
-      <div class="relative h-5 min-w-0 flex-1 overflow-hidden rounded-sm bg-stone-700/60">
+      <div class="relative h-5 min-w-0 flex-1 overflow-hidden rounded-sm bg-[color:var(--color-surface-variant,#44403c)]/60">
         <div
-          class="h-full rounded-sm bg-[#5b7c32] transition-all duration-300"
+          class="h-full rounded-sm bg-[color:var(--color-primary,#5b7c32)] transition-all duration-300"
           :style="{ width: row.pct + '%' }"
         />
       </div>
       <!-- Count -->
-      <span class="w-14 shrink-0 text-right text-xs tabular-nums text-stone-500">
-        {{ row.count }} <span class="text-stone-600">({{ row.trackPct }}%)</span>
+      <span class="w-14 shrink-0 text-right text-xs tabular-nums text-[color:var(--color-on-surface-variant,#78716c)]">
+        {{ row.count }} <span class="text-[color:var(--color-outline,#57534e)]">({{ row.trackPct }}%)</span>
       </span>
     </div>
   </div>

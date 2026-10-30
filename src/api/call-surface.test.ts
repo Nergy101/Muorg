@@ -245,7 +245,9 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
 
   // Admin and system
   ["health", (a) => a.health(), "GET", "/api/health"],
-  ["clearCache", (a) => a.clearCache(), "POST", "/api/admin/clear-cache"],
+  ["purgeDeleted", (a) => a.purgeDeleted(), "POST", "/api/admin/purge-deleted"],
+  ["browse (roots)", (a) => a.browse(), "GET", "/api/admin/browse"],
+  ["browse (path)", (a) => a.browse("/music/rock"), "GET", "/api/admin/browse?path=%2Fmusic%2Frock"],
   ["getBackupDirectory", (a) => a.getBackupDirectory(), "GET", "/api/admin/backup-directory"],
   [
     "rescan (one root)",

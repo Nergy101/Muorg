@@ -249,9 +249,16 @@
             </button>
           </div>
 
-          <!-- Desktop only: the chrome pill (sleep timer / lyrics / cast /
-               actions) sits underneath the transport buttons. -->
-          <div class="hidden shrink-0 justify-center pt-4 lg:flex">
+          <!-- Volume: all widths. Desktop (lg) pairs it with the chrome pill
+               (sleep timer / lyrics / cast / actions) in one row underneath
+               the transport buttons; mobile gets its own centred row. -->
+          <div class="flex shrink-0 justify-center px-6 pt-3 lg:hidden">
+            <VolumeControl variant="player" />
+          </div>
+          <div class="hidden shrink-0 items-center justify-center gap-3 pt-4 lg:flex">
+            <div class="glass-sheer flex h-10 items-center rounded-full px-3">
+              <VolumeControl variant="player" />
+            </div>
             <div class="glass-sheer flex items-center overflow-hidden rounded-full">
               <button
                 type="button"
@@ -276,6 +283,15 @@
                 @click="showLyrics = !showLyrics"
               >
                 <MageIcon name="note-text" class="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center border-l border-white/20 transition-colors hover:bg-white/10"
+                :class="cast.isCasting ? 'text-primary' : 'text-white'"
+                :aria-label="cast.isCasting ? `Casting to ${cast.deviceName ?? 'device'}` : 'Cast to device'"
+                @click="showCastSheet = true"
+              >
+                <MageIcon name="screencast" class="h-5 w-5" />
               </button>
               <button
                 type="button"
@@ -346,6 +362,7 @@ import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
 import CastDevicePicker from "../components/CastDevicePicker.vue";
+import VolumeControl from "../components/VolumeControl.vue";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];

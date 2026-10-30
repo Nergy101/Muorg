@@ -81,11 +81,11 @@ const svgData = computed(() => {
 </script>
 
 <template>
-  <div v-if="!tracks.length || !chartData" class="py-4 text-center text-xs text-stone-500">
+  <div v-if="!tracks.length || !chartData" class="py-4 text-center text-xs text-[color:var(--color-on-surface-variant,#78716c)]">
     No tracks with release year data.
   </div>
   <div v-else class="flex flex-col gap-1">
-    <p class="text-[10px] text-stone-600">
+    <p class="text-[10px] text-[color:var(--color-outline,#57534e)]">
       {{ chartData.datedTracks }} of {{ tracks.length }} tracks have a release year
     </p>
 
@@ -96,8 +96,8 @@ const svgData = computed(() => {
     >
       <defs>
         <linearGradient id="area-grad-shared" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#5b7c32" stop-opacity="0.45" />
-          <stop offset="100%" stop-color="#5b7c32" stop-opacity="0.03" />
+          <stop offset="0%" stop-color="var(--color-primary,#5b7c32)" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="var(--color-primary,#5b7c32)" stop-opacity="0.03" />
         </linearGradient>
       </defs>
 
@@ -109,7 +109,7 @@ const svgData = computed(() => {
         <path
           :d="svgData.linePath"
           fill="none"
-          stroke="#5b7c32"
+          stroke="var(--color-primary,#5b7c32)"
           stroke-width="1.5"
           stroke-linejoin="round"
           stroke-linecap="round"
@@ -123,7 +123,7 @@ const svgData = computed(() => {
           :y="tick.y + 3"
           text-anchor="end"
           font-size="7"
-          fill="#57534e"
+          fill="var(--color-outline,#57534e)"
         >{{ tick.label }}</text>
 
         <!-- X-axis ticks -->
@@ -134,7 +134,7 @@ const svgData = computed(() => {
           :y="H - 4"
           text-anchor="middle"
           font-size="7"
-          fill="#57534e"
+          fill="var(--color-outline,#57534e)"
         >{{ tick.yr }}</text>
 
         <!-- Hover hit areas (transparent rects per year column) -->
@@ -157,7 +157,7 @@ const svgData = computed(() => {
             :x2="svgData.points[hovered].x"
             :y1="PAD_T"
             :y2="PAD_T + svgData.chartH"
-            stroke="#78716c"
+            stroke="var(--color-on-surface-variant,#78716c)"
             stroke-width="1"
             stroke-dasharray="3 2"
           />
@@ -165,8 +165,8 @@ const svgData = computed(() => {
             :cx="svgData.points[hovered].x"
             :cy="svgData.points[hovered].y"
             r="3"
-            fill="#5b7c32"
-            stroke="#1c1917"
+            fill="var(--color-primary,#5b7c32)"
+            stroke="var(--color-background,#1c1917)"
             stroke-width="1.5"
           />
           <!-- Tooltip -->
@@ -177,8 +177,8 @@ const svgData = computed(() => {
               width="54"
               height="18"
               rx="3"
-              fill="#292524"
-              stroke="#44403c"
+              fill="var(--color-surface,#292524)"
+              stroke="var(--color-surface-variant,#44403c)"
               stroke-width="0.5"
             />
             <text
@@ -186,7 +186,7 @@ const svgData = computed(() => {
               :y="svgData.points[hovered].y - 7"
               text-anchor="middle"
               font-size="8"
-              fill="#d6d3d1"
+              fill="var(--color-on-surface,#d6d3d1)"
             >{{ svgData.points[hovered].year }}: {{ svgData.points[hovered].count }}</text>
           </g>
         </template>

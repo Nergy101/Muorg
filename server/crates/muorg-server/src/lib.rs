@@ -68,6 +68,9 @@ pub async fn bind_stream_listener_if_loopback(
     }
 }
 
+/// `routes::admin::clear_cache` is a deliberately-kept deprecated alias of
+/// `routes::admin::purge_deleted`; registering it here is the intended use.
+#[allow(deprecated)]
 pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router {
     let cors = build_cors(allowed_origins);
 
@@ -114,6 +117,8 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/admin/rescan", post(routes::admin::rescan))
         .route("/api/admin/remove-folder", post(routes::admin::remove_folder))
         .route("/api/admin/clear-cache", post(routes::admin::clear_cache))
+        .route("/api/admin/purge-deleted", post(routes::admin::purge_deleted))
+        .route("/api/admin/browse", get(routes::admin::browse))
         .route("/api/admin/backup-directory", get(routes::admin::get_backup_directory))
         .route("/api/admin/health", get(routes::admin::health))
         .route("/api/admin/metrics", get(routes::admin::metrics))

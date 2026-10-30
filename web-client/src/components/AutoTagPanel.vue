@@ -44,26 +44,30 @@
     </p>
 
     <ul v-else-if="candidates.length > 0" class="pb-2">
-      <li v-for="candidate in candidates" :key="candidate.mbid + (candidate.album ?? '')">
-        <button
-          type="button"
-          class="flex w-full items-start gap-3 px-6 py-3 text-left lg:hover:bg-on-surface/5"
-          @click="emit('apply', candidate)"
-        >
+      <li v-for="candidate in candidates" :key="candidate.mbid + (candidate.album ?? '')" class="px-6 py-3">
+        <div class="flex items-start gap-3">
           <span
             class="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-label-sm tabular-nums"
             :class="confidenceClass(candidate.confidence)"
           >
             {{ Math.round(candidate.confidence * 100) }}%
           </span>
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-body-lg text-on-surface">{{ candidate.title }}</span>
-            <span class="block truncate text-body-sm text-on-surface-variant">
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-body-lg text-on-surface">{{ candidate.title }}</p>
+            <p class="truncate text-body-sm text-on-surface-variant">
               {{ candidate.artist }}<template v-if="candidate.album"> · {{ candidate.album }}</template>
               <template v-if="candidate.year"> · {{ candidate.year }}</template>
-            </span>
-          </span>
-        </button>
+            </p>
+            <div class="mt-1.5 flex gap-4">
+              <button type="button" class="text-label-lg text-on-surface-variant" @click="emit('apply', candidate)">
+                Apply to form
+              </button>
+              <button type="button" class="text-label-lg text-primary" @click="emit('save-and-apply', candidate)">
+                Save &amp; apply
+              </button>
+            </div>
+          </div>
+        </div>
       </li>
     </ul>
 
@@ -105,6 +109,7 @@ const props = defineProps<{ track: CatalogTrack | null }>();
 const emit = defineEmits<{
   back: [];
   apply: [candidate: MatchCandidate];
+  "save-and-apply": [candidate: MatchCandidate];
 }>();
 
 const query = ref<Record<SearchKey, string>>({ artist: "", title: "", album: "" });

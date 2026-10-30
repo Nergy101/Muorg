@@ -63,6 +63,8 @@ export type CastStatusResponse = Schemas["CastStatusResponse"];
 // ----------------------------------------------------------------- system ---
 
 export type AdminHealthResponse = AlwaysPresent<Schemas["AdminHealthResponse"]>;
+export type BrowseEntry = AlwaysPresent<Schemas["BrowseEntry"]>;
+export type BrowseResponse = AlwaysPresent<Schemas["BrowseResponse"]>;
 export type RescanResult = AlwaysPresent<Schemas["RescanResult"]>;
 export type FetchedImage = AlwaysPresent<Schemas["FetchedImage"]>;
 export type ErrorResponse = AlwaysPresent<Schemas["ErrorResponse"]>;

@@ -35,6 +35,7 @@ impl Modify for SecurityAddon {
     }
 }
 
+#[allow(deprecated)]
 #[derive(OpenApi)]
 #[openapi(
     info(
@@ -117,6 +118,8 @@ the first page, not the catalog. Follow `X-Total-Count`.",
         crate::routes::admin::rescan,
         crate::routes::admin::remove_folder,
         crate::routes::admin::clear_cache,
+        crate::routes::admin::purge_deleted,
+        crate::routes::admin::browse,
         crate::routes::admin::get_backup_directory,
         crate::routes::admin::health,
         crate::routes::admin::metrics,

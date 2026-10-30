@@ -60,7 +60,10 @@
             :track="track"
             :is-playing="player.currentTrack?.id === track.id"
             :is-loading="player.pendingTrackId === track.id"
+            :selectable="selection.selecting"
+            :selected="selection.has(track.id)"
             @play="player.playTrack(track, tracks)"
+            @select="(mods) => onSelect(track, mods)"
             @actions="sheetTrack = track"
           />
         </div>
@@ -86,7 +89,9 @@ import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { provideVisibleIds } from "../composables/useSelectableList";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const props = defineProps<{ name: string }>();
@@ -94,6 +99,7 @@ const props = defineProps<{ name: string }>();
 const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
+const selection = useSelectionStore();
 
 const artistName = computed(() => props.name);
 const norm = computed(() => artistName.value.toLowerCase());
@@ -108,6 +114,17 @@ const tracks = computed<CatalogTrack[]>(() =>
     );
   }),
 );
+
+provideVisibleIds(() => tracks.value.map((t) => t.id));
+
+function onSelect(track: CatalogTrack, mods: { shift: boolean; ctrl: boolean }): void {
+  const consumed = selection.click(
+    track.id,
+    tracks.value.map((t) => t.id),
+    mods,
+  );
+  if (!consumed) player.playTrack(track, tracks.value);
+}
 
 /** Albums grouped with the library's own album identity (stable full-catalog
  *  keys), so splits/compilations match the main library exactly. */

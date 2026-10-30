@@ -5,11 +5,15 @@
     tabindex="0"
     @click="emit('open')"
     @keydown.enter="emit('open')"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
   >
     <!-- Cover collage card: up to 4 distinct covers squared together -->
     <div
       ref="cardEl"
       class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02]"
+      :class="dragOver ? 'ring-2 ring-primary' : ''"
     >
       <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center">
         <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/50" />
@@ -34,10 +38,26 @@
         </template>
       </div>
 
-      <!-- Actions: pin / edit / download / delete (download sits between edit and delete).
+      <!-- Actions: play / shuffle (lg quick actions) / pin / edit / export / delete.
            The server-owned Favorites playlist cannot be renamed or deleted (403),
            so those two actions are hidden for it (Q21). -->
-      <div class="absolute right-0 top-0 flex items-center gap-1 p-1.5" @click.stop>
+      <div class="absolute right-0 top-0 flex flex-wrap items-center justify-end gap-1 p-1.5" @click.stop>
+        <button
+          type="button"
+          class="glass-frost hidden h-8 w-8 items-center justify-center rounded-full lg:flex"
+          aria-label="Play playlist"
+          @click="playPlaylist"
+        >
+          <MageIcon name="play" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="glass-frost hidden h-8 w-8 items-center justify-center rounded-full lg:flex"
+          aria-label="Shuffle play playlist"
+          @click="shufflePlaylist"
+        >
+          <MageIcon name="exchange" class="h-4 w-4" />
+        </button>
         <button
           type="button"
           class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
@@ -60,9 +80,9 @@
           type="button"
           class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
           aria-label="Export playlist as M3U"
-          @click="downloadOpen = true"
+          @click="exportOpen = true"
         >
-          <MageIcon name="download" class="h-4 w-4" />
+          <MageIcon name="export-list" class="h-4 w-4" />
         </button>
         <button
           v-if="!isFavorites"
@@ -92,13 +112,10 @@
       </div>
     </div>
 
-    <ConfirmDialog
-      :open="downloadOpen"
-      title="Download as M3U?"
-      :message="`Download \u201c${playlist.name}\u201d as an .m3u playlist file? It lists the tracks as stream URLs, playable by any M3U-capable app for about 8 hours.`"
-      confirm-label="Download"
-      @confirm="onDownloadConfirm"
-      @cancel="downloadOpen = false"
+    <PlaylistExportDialog
+      :playlist="playlist"
+      :open="exportOpen"
+      @close="exportOpen = false"
     />
   </div>
 </template>
@@ -106,12 +123,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import MageIcon from "./MageIcon.vue";
-import ConfirmDialog from "./ConfirmDialog.vue";
+import PlaylistExportDialog from "./PlaylistExportDialog.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
-import { issueStreamToken } from "../api/catalog";
-import { getServerUrl, streamUrl } from "../api/client";
-import { showToast } from "../composables/useToast";
+import { usePlayerStore } from "../stores/player";
+import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
 import type { Playlist, CatalogTrack } from "../types";
 
 const props = defineProps<{ playlist: Playlist }>();
@@ -119,13 +135,15 @@ const emit = defineEmits<{ open: []; edit: []; delete: [] }>();
 
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
+const player = usePlayerStore();
 
 /** The server-owned Favorites playlist: rename/delete are hidden (Q21). */
 const isFavorites = computed(() => playlistStore.isFavoritesPlaylist(props.playlist));
 
 const cardEl = ref<HTMLElement | null>(null);
 const orderedIds = ref<number[]>([]);
-const downloadOpen = ref(false);
+const exportOpen = ref(false);
+const dragOver = ref(false);
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 
@@ -189,43 +207,45 @@ async function init(): Promise<void> {
   }
 }
 
-async function onDownloadConfirm(): Promise<void> {
-  downloadOpen.value = false;
-  await exportM3U();
-}
-
-/** Export the playlist as a client-side .m3u file (same approach as the detail view). */
-async function exportM3U(): Promise<void> {
+/** Ordered tracks for the play/shuffle quick actions — loads the order on
+ *  demand if the card hasn't scrolled into view yet (`init` is IO-gated). */
+async function resolveOrderedTracks(): Promise<CatalogTrack[]> {
   const ids = orderedIds.value.length
     ? orderedIds.value
     : await playlistStore.loadTrackOrderForPlaylist(props.playlist.id);
-  const tracks = ids
-    .map((id) => trackById.value.get(id))
-    .filter((t): t is CatalogTrack => t != null);
-  if (tracks.length === 0) return;
-  try {
-    const tokens = await Promise.all(
-      tracks.map((t) => issueStreamToken(t.id).catch(() => null)),
-    );
-    const lines: string[] = ["#EXTM3U"];
-    tracks.forEach((t, i) => {
-      const title = [t.artist, t.title].filter(Boolean).join(" - ") || `Track ${t.id}`;
-      lines.push(`#EXTINF:${t.duration_secs ?? -1},${title}`);
-      const tok = tokens[i];
-      lines.push(tok ? streamUrl(t.id, tok) : `${getServerUrl()}/stream/${t.id}`);
-    });
-    const blob = new Blob([lines.join("\n") + "\n"], { type: "audio/x-mpegurl" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const safeName =
-      (props.playlist.name || "playlist").replace(/[^\w\- ]+/g, "").trim() || "playlist";
-    a.href = url;
-    a.download = `${safeName}.m3u`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("Playlist exported");
-  } catch {
-    showToast("Export failed");
-  }
+  return ids.map((id) => trackById.value.get(id)).filter((t): t is CatalogTrack => t != null);
+}
+
+async function playPlaylist(): Promise<void> {
+  const list = await resolveOrderedTracks();
+  if (list.length) void player.playTrack(list[0], list);
+}
+
+async function shufflePlaylist(): Promise<void> {
+  const list = await resolveOrderedTracks();
+  if (!list.length) return;
+  if (!player.shuffleEnabled) player.toggleShuffle();
+  void player.playTrack(list[Math.floor(Math.random() * list.length)], list);
+}
+
+// ── Drag-and-drop: tracks dropped on the card are added to this playlist,
+//    through the same duplicate check as the picker sheet. ────────────────
+function onDragOver(e: DragEvent): void {
+  if (!isTrackDrag(e)) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  dragOver.value = true;
+}
+
+function onDragLeave(): void {
+  dragOver.value = false;
+}
+
+async function onDrop(e: DragEvent): Promise<void> {
+  dragOver.value = false;
+  const ids = readTrackDrag(e);
+  if (!ids?.length) return;
+  e.preventDefault();
+  await playlistStore.addTracksChecked(props.playlist.id, ids);
 }
 </script>

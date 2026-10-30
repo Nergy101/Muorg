@@ -528,10 +528,24 @@ export function createApi(t: Transport) {
       );
     },
 
-    async clearCache() {
+    /**
+     * List immediate sub-directories of a server-side path, or — with no
+     * `path` — the operator-permitted starting points. Used to build a
+     * folder picker for "Add folder"; the server confines this to
+     * `[library] browse_roots`.
+     */
+    async browse(path?: string) {
       return unwrap(
-        await client.POST("/api/admin/clear-cache"),
-        "/api/admin/clear-cache",
+        await client.GET("/api/admin/browse", { params: { query: { path } } }),
+        "/api/admin/browse",
+      );
+    },
+
+    /** Permanently purge soft-deleted catalog rows, bypassing the grace period. */
+    async purgeDeleted() {
+      return unwrap(
+        await client.POST("/api/admin/purge-deleted"),
+        "/api/admin/purge-deleted",
       );
     },
 
@@ -547,10 +561,16 @@ export function createApi(t: Transport) {
       );
     },
 
-    /** Unauthenticated liveness probe; throws when the server is unreachable. */
-    async health() {
-      // Answers with the plain string "Healthy", not JSON.
-      unwrap(await client.GET("/api/health", { parseAs: "text" }), "/api/health");
+    /**
+     * Unauthenticated liveness probe; throws when the server is unreachable.
+     * Returns the status text: `"Healthy"`, or `"Scanning"` while the
+     * startup library scan still runs (used to poll a rescan to completion).
+     */
+    async health(): Promise<string> {
+      return unwrap(
+        await client.GET("/api/health", { parseAs: "text" }),
+        "/api/health",
+      ) as string;
     },
   };
 

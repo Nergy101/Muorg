@@ -62,6 +62,14 @@ pub struct LibraryConfig {
     /// Objects to read tags from in parallel during a remote scan.
     #[serde(default = "default_remote_scan_concurrency")]
     pub remote_scan_concurrency: usize,
+    /// Directories `GET /api/admin/browse` may list from or descend into.
+    /// Default (empty): falls back to each configured `content_paths` entry's
+    /// parent directory (so an operator can see siblings of music already
+    /// added) plus the entry itself. The server user's home directory is
+    /// never included unless listed here explicitly — on a stock config that
+    /// would let anyone with the API key browse the whole filesystem.
+    #[serde(default)]
+    pub browse_roots: Vec<String>,
 }
 
 fn default_true() -> bool { true }

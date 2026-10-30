@@ -203,7 +203,11 @@ async fn main() {
      .with_rate_limiter(
         config.server.rate_limit_requests,
         config.server.rate_limit_window_secs,
-    );
+    )
+     .with_browse(muorg_server::state::BrowseConfig {
+        content_paths: config.library.content_paths.clone(),
+        browse_roots: config.library.browse_roots.clone(),
+    });
     let state_builder = match stream_port {
         Some(port) => state_builder.with_stream_port(port),
         None => state_builder,

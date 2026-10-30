@@ -1,6 +1,9 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { getTracks, getStats, getCoverBlob } from "../api/catalog";
+import { api } from "../api/client";
+import { recordUndoable } from "../composables/useUndo";
+import { showToast } from "../composables/useToast";
 import { useSettingsStore } from "./settings";
 import type { CatalogTrack, LibraryStats, AlbumGridItem } from "../types";
 
@@ -364,6 +367,62 @@ export const useLibraryStore = defineStore("library", () => {
     Object.assign(t, update);
   }
 
+  /**
+   * Sets (or clears, with null) the star rating of every track in `ids`, one
+   * server call each, and records ONE undo step for the whole batch (Q4).
+   * Callers confirm with the user first when `ids.length > 1`.
+   */
+  async function setRatings(ids: readonly number[], rating: number | null): Promise<void> {
+    const before = new Map<number, number | null>();
+    for (const id of ids) {
+      const t = tracks.value.find((x) => x.id === id);
+      if (t) before.set(id, t.rating ?? null);
+    }
+    const apply = async (target: (id: number) => number | null): Promise<void> => {
+      for (const id of before.keys()) {
+        const value = target(id);
+        await api.setRating(id, value);
+        applyTrackUpdate(id, { rating: value });
+      }
+    };
+    try {
+      await apply(() => rating);
+    } catch (e) {
+      showToast(`Failed to set rating: ${(e as Error).message}`);
+      return;
+    }
+    const n = before.size;
+    const what = rating === null ? "Cleared rating" : `Rated ${rating}★`;
+    recordUndoable({
+      label: n === 1 ? what : `${what} on ${n} tracks`,
+      undo: () => apply((id) => before.get(id) ?? null),
+      redo: () => apply(() => rating),
+    });
+  }
+
+  /**
+   * Deletes tracks (file + catalog row) on the server one by one and drops each
+   * from the local catalog. Permanent — callers MUST confirm first. Keeps going
+   * past a failure and reports how many succeeded and which failed, so a
+   * half-finished bulk delete is visible rather than silent.
+   */
+  async function deleteTracks(
+    ids: readonly number[],
+  ): Promise<{ deleted: number[]; failed: { id: number; message: string }[] }> {
+    const deleted: number[] = [];
+    const failed: { id: number; message: string }[] = [];
+    for (const id of ids) {
+      try {
+        await api.deleteTrack(id);
+        removeTrack(id);
+        deleted.push(id);
+      } catch (e) {
+        failed.push({ id, message: (e as Error).message });
+      }
+    }
+    return { deleted, failed };
+  }
+
   /** Drop a track from the local catalog after the server deleted it. */
   function removeTrack(trackId: number): void {
     const idx = tracks.value.findIndex((x) => x.id === trackId);
@@ -375,6 +434,22 @@ export const useLibraryStore = defineStore("library", () => {
     coverCache.value.delete(trackId);
     coverFailed.value.delete(trackId);
     coverPending.value.delete(trackId);
+  }
+
+  /**
+   * Drops cached covers for `ids` after a metadata write changes their
+   * artwork, so the next `requestCover` re-fetches instead of showing the
+   * stale blob URL. Leaves the track rows themselves alone.
+   */
+  function invalidateCover(ids: readonly number[]): void {
+    for (const id of ids) {
+      const url = coverCache.value.get(id);
+      if (url) URL.revokeObjectURL(url);
+      coverCache.value.delete(id);
+      coverFailed.value.delete(id);
+    }
+    coverCache.value = new Map(coverCache.value);
+    coverFailed.value = new Set(coverFailed.value);
   }
 
   /**
@@ -504,7 +579,10 @@ export const useLibraryStore = defineStore("library", () => {
     keyForTrack,
     tracksForAlbum,
     applyTrackUpdate,
+    setRatings,
+    deleteTracks,
     removeTrack,
+    invalidateCover,
     trackById,
     loadLibrary,
     requestCover,

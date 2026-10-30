@@ -1,6 +1,11 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+    <!-- Desktop-class library table (>=1024px, tracks layout). Mounted
+         instead of the mobile scroller so it can own its own virtualization
+         and keyboard focus; the mobile list below is unaffected. -->
+    <LibraryTrackTable v-if="showDesktopTable" />
+
+    <div v-else ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Content -->
       <div v-if="lib.loading" class="flex items-center justify-center py-12">
         <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
@@ -31,7 +36,10 @@
               :track="track"
               :is-playing="player.currentTrack?.id === track.id"
               :is-loading="player.pendingTrackId === track.id"
+              :selectable="selection.selecting"
+              :selected="selection.has(track.id)"
               @play="player.playTrack(track, lib.filteredTracks)"
+              @select="(mods) => onSelect(track, mods)"
               @actions="sheetTrack = track"
             />
           </div>
@@ -97,54 +105,35 @@
       @view-album="onViewAlbum"
     />
 
-    <AlbumActionsSheet
-      :open="albumActions !== null"
-      :item="albumActions"
-      @close="albumActions = null"
-      @play="playAlbumFromSheet"
-      @add-to-playlist="onAlbumAddToPlaylist"
-      @view-artist="onAlbumViewArtist"
-      @view-album="onAlbumViewAlbum"
-    />
-
-    <PlaylistPickerSheet
-      :open="pickerAlbum !== null"
-      :playlists="playlistStore.playlists"
-      :membership-ids="membershipIds"
-      :partial-membership-ids="partialMembershipIds"
-      @add="onPickerAdd"
-      @remove="onPickerRemove"
-      @create="onPickerCreate"
-      @close="pickerAlbum = null"
-    />
+    <AlbumActionsHost :item="albumActions" @close="albumActions = null" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
-import AlbumActionsSheet from "../components/AlbumActionsSheet.vue";
-import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
+import AlbumActionsHost from "../components/AlbumActionsHost.vue";
+import LibraryTrackTable from "../components/library/LibraryTrackTable.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
-import { usePlaylistStore } from "../stores/playlists";
+import { useSelectionStore, type SelectModifiers } from "../stores/selection";
+import { provideVisibleIds } from "../composables/useSelectableList";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useVirtualList } from "../composables/useVirtualList";
 import { useGridColumns } from "../composables/useGridColumns";
-import { showToast } from "../composables/useToast";
-import type { AlbumGridItem, CatalogTrack, Playlist } from "../types";
+import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const settings = useSettingsStore();
-const playlistStore = usePlaylistStore();
+const selection = useSelectionStore();
 
 // --- Content -----------------------------------------------------------
 
@@ -156,6 +145,39 @@ const showEmptyState = computed(() =>
 const emptyMessage = computed(() =>
   isSearching.value ? `No results for "${lib.searchQuery}"` : "No tracks in library",
 );
+
+/** The desktop-class table replaces the mobile flat list at >=1024px, only
+ *  for the "tracks" layout (grid/list keep their album views; a search still
+ *  falls back to the familiar flat list regardless of viewport). */
+const isDesktop = ref(false);
+let desktopMq: MediaQueryList | null = null;
+function onDesktopMqChange(): void {
+  isDesktop.value = desktopMq?.matches ?? false;
+}
+onMounted(() => {
+  if (typeof window.matchMedia !== "function") return;
+  desktopMq = window.matchMedia("(min-width: 64rem)");
+  onDesktopMqChange();
+  desktopMq.addEventListener("change", onDesktopMqChange);
+});
+onBeforeUnmount(() => {
+  desktopMq?.removeEventListener("change", onDesktopMqChange);
+  desktopMq = null;
+});
+const showDesktopTable = computed(() => isDesktop.value && settings.albumViewStyle === "tracks");
+
+/** Mobile/search flat list selection — Ctrl/Shift-click or an active
+ *  selection toggles; a plain tap plays as before. */
+function onSelect(track: CatalogTrack, mods: SelectModifiers): void {
+  const consumed = selection.click(
+    track.id,
+    lib.filteredTracks.map((t) => t.id),
+    mods,
+  );
+  if (!consumed) void player.playTrack(track, lib.filteredTracks);
+}
+
+provideVisibleIds(() => lib.filteredTracks.map((t) => t.id));
 
 function isAlbumActive(item: AlbumGridItem): boolean {
   return player.currentTrack != null && item.trackIds.includes(player.currentTrack.id);
@@ -182,110 +204,12 @@ function onViewAlbum(): void {
   void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
 
-// --- Album actions sheet --------------------------------------------------
+// --- Album context menu ---------------------------------------------------
+// Right-click / "more" on an album card. The menu and the add-to-playlist
+// picker live in AlbumActionsHost, shared with every other screen that shows
+// album cards.
 
 const albumActions = ref<AlbumGridItem | null>(null);
-
-function playAlbumFromSheet(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  const tracks = lib.tracksForAlbum(album.key);
-  albumActions.value = null;
-  if (tracks.length === 0) return;
-  void player.playTrack(tracks[0], tracks);
-}
-
-function onAlbumAddToPlaylist(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  albumActions.value = null;
-  void openAlbumPicker(album);
-}
-
-function onAlbumViewArtist(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  albumActions.value = null;
-  const name = album.albumArtist;
-  if (name) void router.push({ name: "artist", params: { name } });
-}
-
-function onAlbumViewAlbum(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  albumActions.value = null;
-  void router.push({ name: "album", params: { albumKey: album.key } });
-}
-
-// --- Album playlist picker -------------------------------------------------
-
-const pickerAlbum = ref<AlbumGridItem | null>(null);
-
-async function openAlbumPicker(item: AlbumGridItem): Promise<void> {
-  await playlistStore.loadAllTrackIds();
-  pickerAlbum.value = item;
-}
-
-const membershipIds = computed(() => {
-  const album = pickerAlbum.value;
-  const result = new Set<number>();
-  if (!album) return result;
-  for (const p of playlistStore.playlists) {
-    const set = playlistStore.trackIdSets.get(p.id);
-    if (set && album.trackIds.every((id) => set.has(id))) result.add(p.id);
-  }
-  return result;
-});
-
-const partialMembershipIds = computed(() => {
-  const album = pickerAlbum.value;
-  const result = new Set<number>();
-  if (!album) return result;
-  for (const p of playlistStore.playlists) {
-    const set = playlistStore.trackIdSets.get(p.id);
-    if (!set) continue;
-    const hasSome = album.trackIds.some((id) => set.has(id));
-    const hasAll = album.trackIds.every((id) => set.has(id));
-    if (hasSome && !hasAll) result.add(p.id);
-  }
-  return result;
-});
-
-async function onPickerAdd(p: Playlist): Promise<void> {
-  const album = pickerAlbum.value;
-  if (!album) return;
-  const existing = playlistStore.trackIdSets.get(p.id) ?? new Set<number>();
-  const toAdd = album.trackIds.filter((id) => !existing.has(id));
-  try {
-    if (toAdd.length > 0) await playlistStore.addTracks(p.id, toAdd);
-    showToast(`Added to ${p.name}`);
-  } catch (e) {
-    showToast(`Failed: ${(e as Error).message}`);
-  }
-}
-
-async function onPickerRemove(p: Playlist): Promise<void> {
-  const album = pickerAlbum.value;
-  if (!album) return;
-  try {
-    await playlistStore.removeTracks(p.id, album.trackIds);
-    showToast(`Removed from ${p.name}`);
-  } catch (e) {
-    showToast(`Failed: ${(e as Error).message}`);
-  }
-}
-
-async function onPickerCreate(name: string): Promise<void> {
-  const album = pickerAlbum.value;
-  if (!album) return;
-  try {
-    const p = await playlistStore.createPlaylist(name, "🎵");
-    await playlistStore.addTracks(p.id, album.trackIds);
-    showToast(`Added to ${p.name}`);
-  } catch (e) {
-    showToast(`Failed: ${(e as Error).message}`);
-  }
-}
 
 // --- Virtualized lists -----------------------------------------------------
 // 3000+ tracks / 273 albums is too many DOM rows to mount at once: each row
@@ -349,6 +273,9 @@ const visibleGridItems = computed(() =>
 // --- Scroll-to-active (re-tapping the active Library tab) ------------------
 
 watch(scrollToActiveSignal, () => {
+  // The desktop table owns its own viewport and has no scroll-to-active hook
+  // yet; nothing to drive here while it's showing.
+  if (showDesktopTable.value) return;
   const t = player.currentTrack;
   if (!t) return;
   if (showTrackList.value) {
