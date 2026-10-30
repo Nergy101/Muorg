@@ -1,6 +1,9 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { getTracks, getStats, getCoverBlob } from "../api/catalog";
+import { api } from "../api/client";
+import { recordUndoable } from "../composables/useUndo";
+import { showToast } from "../composables/useToast";
 import { useSettingsStore } from "./settings";
 import type { CatalogTrack, LibraryStats, AlbumGridItem } from "../types";
 
@@ -364,6 +367,39 @@ export const useLibraryStore = defineStore("library", () => {
     Object.assign(t, update);
   }
 
+  /**
+   * Sets (or clears, with null) the star rating of every track in `ids`, one
+   * server call each, and records ONE undo step for the whole batch (Q4).
+   * Callers confirm with the user first when `ids.length > 1`.
+   */
+  async function setRatings(ids: readonly number[], rating: number | null): Promise<void> {
+    const before = new Map<number, number | null>();
+    for (const id of ids) {
+      const t = tracks.value.find((x) => x.id === id);
+      if (t) before.set(id, t.rating ?? null);
+    }
+    const apply = async (target: (id: number) => number | null): Promise<void> => {
+      for (const id of before.keys()) {
+        const value = target(id);
+        await api.setRating(id, value);
+        applyTrackUpdate(id, { rating: value });
+      }
+    };
+    try {
+      await apply(() => rating);
+    } catch (e) {
+      showToast(`Failed to set rating: ${(e as Error).message}`);
+      return;
+    }
+    const n = before.size;
+    const what = rating === null ? "Cleared rating" : `Rated ${rating}★`;
+    recordUndoable({
+      label: n === 1 ? what : `${what} on ${n} tracks`,
+      undo: () => apply((id) => before.get(id) ?? null),
+      redo: () => apply(() => rating),
+    });
+  }
+
   /** Drop a track from the local catalog after the server deleted it. */
   function removeTrack(trackId: number): void {
     const idx = tracks.value.findIndex((x) => x.id === trackId);
@@ -504,6 +540,7 @@ export const useLibraryStore = defineStore("library", () => {
     keyForTrack,
     tracksForAlbum,
     applyTrackUpdate,
+    setRatings,
     removeTrack,
     trackById,
     loadLibrary,

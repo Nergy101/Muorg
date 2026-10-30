@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import { computed, ref, watchEffect } from "vue";
 import { loadPref, savePref } from "./prefs";
+import { DEFAULT_MISSING_METADATA_FIELDS, MISSING_METADATA_FIELDS } from "@shared/reports";
+import type { MissingMetadataField } from "@shared/reports";
 import type {
   AccentColor,
   AlbumViewStyle,
@@ -82,6 +84,21 @@ export const useSettingsStore = defineStore("settings", () => {
   /** Per-device name recorded with plays on the server (Q19). Required: an
    *  emptied field falls back to the generated default. */
   const deviceName = ref(loadPref("muorg-web-device-name", "") || defaultDeviceName());
+  /** Copy the original file before writing tags (server-side backup). Off by
+   *  default (Q1); the first-write and bulk-edit warnings are the mitigation. */
+  const backupBeforeWrite = ref(loadPref("muorg-web-backup-before-write", false));
+  /** Which fields make a track count as "missing metadata" in Reports. */
+  const missingMetadataFields = ref<MissingMetadataField[]>(
+    loadPref<string[]>("muorg-web-missing-fields", [...DEFAULT_MISSING_METADATA_FIELDS]).filter(
+      (f): f is MissingMetadataField => (MISSING_METADATA_FIELDS as readonly string[]).includes(f),
+    ),
+  );
+  /** "Apply from path" templates, e.g. `<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>`. */
+  const pathFormatTemplates = ref<string[]>(
+    loadPref("muorg-web-path-formats", ["<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>"]),
+  );
+  /** Music root used to write relative paths when exporting M3U playlists. */
+  const musicRootFolder = ref(loadPref("muorg-web-music-root", ""));
   // Sanitize once and persist the cleaned list: an older build recorded every
   // debounced keystroke fragment, and without the write-back the junk would
   // linger in storage and re-filter on every load forever.
@@ -202,6 +219,26 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-accent", a);
   }
 
+  function setBackupBeforeWrite(v: boolean): void {
+    backupBeforeWrite.value = v;
+    savePref("muorg-web-backup-before-write", v);
+  }
+
+  function setMissingMetadataFields(fields: MissingMetadataField[]): void {
+    missingMetadataFields.value = fields;
+    savePref("muorg-web-missing-fields", fields);
+  }
+
+  function setPathFormatTemplates(templates: string[]): void {
+    pathFormatTemplates.value = templates;
+    savePref("muorg-web-path-formats", templates);
+  }
+
+  function setMusicRootFolder(v: string): void {
+    musicRootFolder.value = v.trim();
+    savePref("muorg-web-music-root", musicRootFolder.value);
+  }
+
   function setReduceMotion(v: boolean): void {
     reduceMotion.value = v;
     savePref("muorg-web-reduce-motion", v);
@@ -260,6 +297,14 @@ export const useSettingsStore = defineStore("settings", () => {
     sortMode,
     sortAscending,
     playlistSortMode,
+    backupBeforeWrite,
+    missingMetadataFields,
+    pathFormatTemplates,
+    musicRootFolder,
+    setBackupBeforeWrite,
+    setMissingMetadataFields,
+    setPathFormatTemplates,
+    setMusicRootFolder,
     albumViewStyle,
     playlistViewStyle,
     miniPlayerTapOpensPlayer,
