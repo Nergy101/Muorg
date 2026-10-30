@@ -337,6 +337,9 @@ fun SearchScreen(
                             imageLoader = imageLoader,
                             isPlaying = playerState.currentTrack?.id == track.id && playerState.isPlaying,
                             isLoading = playerState.pendingTrackId == track.id,
+                            // Show the album too: an album-title match is
+                            // otherwise invisible in a title+artist row.
+                            subtitle = "${track.displayArtist} • ${track.displayAlbum}",
                             isFavorite = track.id.toString() in playerState.favorites,
                             playlists = playlists,
                             onTrackClick = {

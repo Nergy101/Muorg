@@ -60,6 +60,8 @@ fun TrackRow(
     imageLoader: ImageLoader,
     isPlaying: Boolean = false,
     isLoading: Boolean = false,
+    /** Overrides the second line (artist) — search uses it to show the album. */
+    subtitle: String? = null,
     isFavorite: Boolean = false,
     playlists: List<Playlist> = emptyList(),
     trackInPlaylistIds: Set<Int> = emptySet(),
@@ -162,7 +164,7 @@ fun TrackRow(
                             else MaterialTheme.colorScheme.onSurface,
                 )
                 MarqueeText(
-                    text = track.displayArtist,
+                    text = subtitle ?: track.displayArtist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
