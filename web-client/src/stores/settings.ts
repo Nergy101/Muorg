@@ -240,10 +240,10 @@ export const useSettingsStore = defineStore("settings", () => {
 
   /** Records a track picked from search results (dedupes, caps the list). */
   function addSearchResult(trackId: number): void {
-    const next = [trackId, ...recentSearchResultIds.value.filter((id) => id !== trackId)].slice(
-      0,
-      MAX_RECENT_SEARCH_RESULTS,
-    );
+    // Playing a track must not reorder the list: existing entries keep their
+    // position, new ones append at the end (oldest drops off past the cap).
+    if (recentSearchResultIds.value.includes(trackId)) return;
+    const next = [...recentSearchResultIds.value, trackId].slice(-MAX_RECENT_SEARCH_RESULTS);
     recentSearchResultIds.value = next;
     savePref("muorg-web-recent-search-results", next);
   }

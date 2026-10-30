@@ -18,10 +18,11 @@ data class SearchResultEntry(
 )
 
 /**
- * Track ids of the most recently selected search results, newest first — the
- * Search screen shows them as track rows when the query is empty. Ids are
- * stored, not whole tracks: the catalog is the source of truth for titles and
- * artwork, and an id that no longer exists simply drops out of the list.
+ * Track ids of selected search results in the order they were first picked —
+ * the Search screen shows them as track rows when the query is empty. Playing
+ * a track again does not move it. Ids are stored, not whole tracks: the
+ * catalog is the source of truth for titles and artwork, and an id that no
+ * longer exists simply drops out of the list.
  */
 @Singleton
 class SearchResultsHistoryManager @Inject constructor(
@@ -35,7 +36,7 @@ class SearchResultsHistoryManager @Inject constructor(
         private const val MAX_ENTRIES = 20
     }
 
-    /** Returns the recent search-result entries, newest first. */
+    /** Returns the recent search-result entries in the order they were first picked. */
     suspend fun getRecentResults(): List<SearchResultEntry> = withContext(Dispatchers.IO) {
         val json = prefs.getString(KEY_HISTORY, null) ?: return@withContext emptyList()
         try {
@@ -45,12 +46,13 @@ class SearchResultsHistoryManager @Inject constructor(
         }
     }
 
-    /** Records a track picked from search results (deduplicates, caps at MAX_ENTRIES). */
+    /** Records a track picked from search results. Re-picking keeps its position;
+     *  new entries append at the end, capped at MAX_ENTRIES (oldest drops off). */
     suspend fun addResult(trackId: Int): Unit = withContext(Dispatchers.IO) {
         val current = getRecentResults().toMutableList()
-        current.removeAll { it.trackId == trackId }
-        current.add(0, SearchResultEntry(trackId = trackId, timestamp = System.currentTimeMillis()))
-        prefs.edit().putString(KEY_HISTORY, Json.encodeToString(current.take(MAX_ENTRIES))).apply()
+        if (current.any { it.trackId == trackId }) return@withContext
+        current.add(SearchResultEntry(trackId = trackId, timestamp = System.currentTimeMillis()))
+        prefs.edit().putString(KEY_HISTORY, Json.encodeToString(current.takeLast(MAX_ENTRIES))).apply()
     }
 
     /** Clears all recorded search results. */

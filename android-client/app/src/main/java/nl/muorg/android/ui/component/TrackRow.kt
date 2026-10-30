@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
@@ -96,15 +98,13 @@ fun TrackRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center,
             ) {
-                if (isPlaying) {
-                    EqualizerBars(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(width = 20.dp, height = 14.dp),
-                    )
-                } else if (track.hasCover || track.localCoverPath != null) {
+                if (track.hasCover || track.localCoverPath != null) {
                     AsyncImage(
                         model = track.localCoverPath ?: "$baseUrl/api/tracks/${track.id}/cover",
                         contentDescription = null,
@@ -121,6 +121,19 @@ fun TrackRow(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(28.dp),
                     )
+                }
+                if (isPlaying) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.45f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        EqualizerBars(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(width = 20.dp, height = 14.dp),
+                        )
+                    }
                 }
             }
 

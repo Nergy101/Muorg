@@ -92,11 +92,14 @@ export function createTransport(credentials: Credentials): Transport {
       // ReadableStream, which some browsers silently drop on cross-origin
       // POST/PATCH/DELETE — the server then sees an empty body and rejects
       // the call. Every API body is JSON text, so reading it as text is safe.
-      const body = request.body ? await request.clone().text() : undefined;
+      // Note: `request.body` is null in Firefox even when a body is present,
+      // so the body must be read via clone().text() unconditionally — gating
+      // on request.body sends an empty body there (server: 400 EOF).
+      const bodyText = await request.clone().text();
       const next = new Request(target, {
         method: request.method,
         headers: request.headers,
-        body,
+        body: bodyText.length > 0 ? bodyText : undefined,
       });
       for (const [name, value] of Object.entries(authHeaders())) {
         next.headers.set(name, value);

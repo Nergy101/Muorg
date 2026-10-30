@@ -95,6 +95,23 @@ describe("request building", () => {
       .client.GET("/api/roots");
     expect(seen[0].headers.get("Authorization")).toBeNull();
   });
+
+  it("forwards the POST body to the server", async () => {
+    // Regression guard: the body must be read via clone().text(), not gated
+    // on request.body — Firefox's Request.body getter returns null even when
+    // a body is present, which used to send an empty body (server: 400 EOF).
+    const bodies: (string | null)[] = [];
+    const spy = vi.fn(async (input: Request | string) => {
+      bodies.push(typeof input === "string" ? null : await input.clone().text());
+      return json({ ok: true });
+    });
+    vi.stubGlobal("fetch", spy);
+    await createTransport(creds).client.POST("/api/playlists/{id}/tracks", {
+      params: { path: { id: 1 } },
+      body: { track_ids: [7] },
+    });
+    expect(bodies).toEqual(['{"track_ids":[7]}']);
+  });
 });
 
 describe("unwrap", () => {

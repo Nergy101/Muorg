@@ -57,8 +57,8 @@
           </div>
         </div>
 
-        <div v-if="recentResultTracks.length > 0" class="content-col px-4 pb-2 pt-2">
-          <div class="flex items-center justify-between py-1">
+        <div v-if="recentResultTracks.length > 0" class="content-col pb-2 pt-2">
+          <div class="flex items-center justify-between px-4 py-1">
             <div class="flex items-center gap-1.5 text-label-lg text-on-surface-variant">
               <MageIcon name="search" class="h-4 w-4" />
               <span>Recent results</span>

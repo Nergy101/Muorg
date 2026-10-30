@@ -8,10 +8,9 @@
     @contextmenu.prevent="emit('actions')"
   >
     <!-- Leading: equalizer while playing, else cover / index / placeholder -->
-    <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded">
-      <EqualizerBars v-if="isPlaying" class="text-primary" :paused="!player.isPlaying" />
+    <div class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-variant">
       <img
-        v-else-if="coverUrl"
+        v-if="coverUrl"
         :src="coverUrl"
         :alt="track.album ?? ''"
         class="h-12 w-12 rounded object-cover"
@@ -22,6 +21,12 @@
         class="text-body-md tabular-nums text-on-surface-variant"
       >{{ track.track_number ?? "·" }}</span>
       <MageIcon v-else name="music" class="h-5 w-5 text-on-surface-variant/60" />
+      <div
+        v-if="isPlaying"
+        class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
+      >
+        <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
+      </div>
     </div>
 
     <!-- Title + artist (format tag and duration sit on the artist's line so
