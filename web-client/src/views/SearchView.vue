@@ -112,6 +112,7 @@
             :track="track"
             :is-playing="player.currentTrack?.id === track.id"
             :is-loading="player.pendingTrackId === track.id"
+            :subtitle="`${track.artist ?? track.album_artist ?? '—'} • ${track.album ?? '—'}`"
             @play="playTrack(track, results)"
             @actions="sheetTrack = track"
           />
@@ -154,17 +155,37 @@ function normalize(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase();
 }
 
-/** Same matching the library's search uses: title, artist, album, album artist. */
+/**
+ * Weighted match: title hits outrank artist hits, which outrank album hits,
+ * so a keyword present in both a track and an album title puts the track on
+ * top instead of the order looking random. Exact and prefix matches score
+ * higher than mid-string contains; ties break on title for stability.
+ */
+function matchScore(t: CatalogTrack, q: string): number {
+  const fieldScore = (text: string | null | undefined): number => {
+    const v = normalize(text);
+    if (!v) return 0;
+    if (v === q) return 100;
+    if (v.startsWith(q)) return 60;
+    if (v.includes(q)) return 40;
+    return 0;
+  };
+  return (
+    fieldScore(t.title) +
+    fieldScore(t.artist ?? t.album_artist) / 2 +
+    fieldScore(t.album) / 4 +
+    fieldScore(t.album_artist) / 8
+  );
+}
+
 const results = computed(() => {
   const q = normalize(query.value);
   if (!q) return [];
-  return lib.tracks.filter(
-    (t) =>
-      normalize(t.title).includes(q) ||
-      normalize(t.artist).includes(q) ||
-      normalize(t.album).includes(q) ||
-      normalize(t.album_artist).includes(q),
-  );
+  return lib.tracks
+    .map((t) => ({ t, s: matchScore(t, q) }))
+    .filter(({ s }) => s > 0)
+    .sort((a, b) => b.s - a.s || normalize(a.t.title).localeCompare(normalize(b.t.title)))
+    .map(({ t }) => t);
 });
 
 /** Recently selected search results, resolved against the catalog and kept

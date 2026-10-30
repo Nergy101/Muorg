@@ -50,7 +50,7 @@
       <div class="flex min-w-0 items-center gap-1.5">
         <div class="min-w-0 flex-1">
           <MarqueeText
-            :text="track.artist ?? track.album_artist ?? '—'"
+            :text="subtitle ?? track.artist ?? track.album_artist ?? '—'"
             class="text-body-md"
             :class="onDark ? 'text-white/75' : 'text-on-surface-variant'"
           />
@@ -117,6 +117,8 @@ const props = withDefaults(
     isPlaying?: boolean;
     /** Spinner on the cover while this track's play request is still loading. */
     isLoading?: boolean;
+    /** Overrides the second line (artist) — search uses it to show the album. */
+    subtitle?: string | null;
     showFormatBadge?: boolean;
     showDuration?: boolean;
     /** Show a destructive "delete from server" button before the actions dot. */
