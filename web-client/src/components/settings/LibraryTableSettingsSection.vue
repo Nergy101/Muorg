@@ -35,6 +35,8 @@
         type="button"
         :class="switchClass(tableStore.defaultGroupsExpanded)"
         role="switch"
+        aria-label="Groups start expanded"
+        :data-tip="`Groups start expanded is ${tableStore.defaultGroupsExpanded ? 'on' : 'off'} — click to turn ${tableStore.defaultGroupsExpanded ? 'off' : 'on'}`"
         :aria-checked="tableStore.defaultGroupsExpanded"
         @click="tableStore.setDefaultGroupsExpanded(!tableStore.defaultGroupsExpanded)"
       >

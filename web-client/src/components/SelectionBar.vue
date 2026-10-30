@@ -27,25 +27,25 @@
             <MageIcon name="multiply" class="h-4 w-4" />
           </button>
           <span class="text-label-lg font-semibold text-on-surface">{{ selection.count }} selected</span>
-          <button type="button" class="ml-1 text-label-lg text-primary" @click="onSelectAll">
+          <button type="button" class="ml-1 text-label-lg text-primary" title="Select every track in the current list (Ctrl/⌘+A)" @click="onSelectAll">
             Select all
           </button>
         </div>
 
         <div class="-mx-1 flex items-center gap-1 overflow-x-auto px-1">
-          <button type="button" :class="ACTION_BTN" @click="openPicker">
+          <button type="button" :class="ACTION_BTN" title="Add the selected tracks to a playlist" @click="openPicker">
             <MageIcon name="playlist-add" class="h-5 w-5" />
             <span>Playlist</span>
           </button>
-          <button type="button" :class="ACTION_BTN" @click="onAddToQueue">
+          <button type="button" :class="ACTION_BTN" title="Add the selected tracks to the end of the queue" @click="onAddToQueue">
             <MageIcon name="stack" class="h-5 w-5" />
             <span>Queue</span>
           </button>
-          <button type="button" :class="ACTION_BTN" @click="onPlayNext">
+          <button type="button" :class="ACTION_BTN" title="Play the selected tracks right after the current track" @click="onPlayNext">
             <MageIcon name="arrow-up" class="h-5 w-5" />
             <span>Play next</span>
           </button>
-          <button type="button" :class="ACTION_BTN" @click="onEditMetadata">
+          <button type="button" :class="ACTION_BTN" title="Edit metadata of the selected tracks (E)" @click="onEditMetadata">
             <MageIcon name="edit" class="h-5 w-5" />
             <span>Edit</span>
           </button>
@@ -55,6 +55,7 @@
               type="button"
               :class="ACTION_BTN"
               aria-haspopup="true"
+              title="Set a star rating on the selected tracks"
               :aria-expanded="ratingMenuOpen"
               @click="toggleRatingMenu"
             >
@@ -89,7 +90,7 @@
             </div>
           </div>
 
-          <button type="button" :class="[ACTION_BTN, 'text-error']" @click="deleteConfirmOpen = true">
+          <button type="button" :class="[ACTION_BTN, 'text-error']" title="Delete the selected tracks and their files from the server" @click="deleteConfirmOpen = true">
             <MageIcon name="trash" class="h-5 w-5" />
             <span>Delete</span>
           </button>

@@ -71,6 +71,8 @@ The full-screen player shows album art with a dominant-colour backdrop, seek bar
 
 The bottom bar has four tabs — **Home**, **Library**, **Playlists** and **Settings**. The queue and full player are reached from the mini player.
 
+Hover or keyboard-focus any icon-only button to see what it does (with its keyboard shortcut where it has one); toggles also say whether they are on and what a click will do.
+
 ### Library
 
 - Album **grid**, album **list** and flat **track list** layouts, cycled from the toolbar; long lists are virtualized.

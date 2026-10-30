@@ -92,6 +92,7 @@
   <SelectionBar />
   <PlaylistDuplicateDialog />
   <KeyMapModal />
+  <AppTooltip />
   <MetadataEditorHost />
 </template>
 
@@ -109,6 +110,8 @@ import SelectionBar from "./components/SelectionBar.vue";
 import PlaylistDuplicateDialog from "./components/PlaylistDuplicateDialog.vue";
 import MetadataEditorHost from "./components/metadata/MetadataEditorHost.vue";
 import KeyMapModal from "./components/KeyMapModal.vue";
+import AppTooltip from "./components/AppTooltip.vue";
+import { installTooltips } from "./composables/useTooltips";
 import { usePlayerStore } from "./stores/player";
 import { useSettingsStore } from "./stores/settings";
 import { useSwipeNavigate } from "./composables/useSwipeNavigate";
@@ -127,6 +130,8 @@ const player = usePlayerStore();
 const settings = useSettingsStore();
 // Desktop transport keys (Space/K, ←/→, J/L, Ctrl+←/→, M).
 useKeyboardShortcuts();
+// Hover/focus descriptions for every control with an accessible name.
+installTooltips();
 
 // The scroller host is the container that every view's inner scroller lives
 // inside; scroll events bubble to it, which drives the bottom-nav auto-hide.

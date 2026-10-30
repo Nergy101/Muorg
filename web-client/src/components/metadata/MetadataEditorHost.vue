@@ -42,6 +42,7 @@
               class="group relative h-32 w-32 shrink-0 overflow-hidden rounded-xl border border-outline/20 bg-surface-variant"
               :class="coverDragOver ? 'ring-2 ring-primary' : ''"
               role="button"
+              aria-label="Cover art — drop an image here to replace it"
               tabindex="0"
               @dragenter.prevent="onCoverDragEnter"
               @dragover="onCoverDragOver"

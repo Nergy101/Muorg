@@ -16,6 +16,8 @@
         type="button"
         :class="switchClass(settings.backupBeforeWrite)"
         role="switch"
+        aria-label="Back up before writing"
+        :data-tip="`Back up before writing is ${settings.backupBeforeWrite ? 'on' : 'off'} — click to turn ${settings.backupBeforeWrite ? 'off' : 'on'}`"
         :aria-checked="settings.backupBeforeWrite"
         @click="settings.setBackupBeforeWrite(!settings.backupBeforeWrite)"
       >

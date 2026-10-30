@@ -50,6 +50,8 @@
         type="button"
         :class="switchClass(settings.replayGainPreventClipping)"
         role="switch"
+        aria-label="Prevent clipping"
+        :data-tip="`Prevent clipping is ${settings.replayGainPreventClipping ? 'on' : 'off'} — click to turn ${settings.replayGainPreventClipping ? 'off' : 'on'}`"
         :aria-checked="settings.replayGainPreventClipping"
         @click="settings.setReplayGainPreventClipping(!settings.replayGainPreventClipping)"
       >

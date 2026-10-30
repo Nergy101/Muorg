@@ -52,6 +52,8 @@
           type="button"
           :class="switchClass(settings.continuousPlayback)"
           role="switch"
+          aria-label="Continuous playback"
+          :data-tip="`Continuous playback is ${settings.continuousPlayback ? 'on' : 'off'} — click to turn ${settings.continuousPlayback ? 'off' : 'on'}`"
           :aria-checked="settings.continuousPlayback"
           @click="settings.setContinuousPlayback(!settings.continuousPlayback)"
         >
@@ -69,6 +71,8 @@
           type="button"
           :class="switchClass(settings.miniPlayerTapOpensPlayer)"
           role="switch"
+          aria-label="Tap mini player opens the full player"
+          :data-tip="settings.miniPlayerTapOpensPlayer ? 'Tapping the mini player opens the full player — click to make it play/pause instead' : 'Tapping the mini player plays/pauses — click to make it open the full player'"
           :aria-checked="settings.miniPlayerTapOpensPlayer"
           @click="settings.setMiniPlayerTapOpensPlayer(!settings.miniPlayerTapOpensPlayer)"
         >
@@ -86,6 +90,8 @@
           type="button"
           :class="switchClass(settings.offlineMode)"
           role="switch"
+          aria-label="Offline mode"
+          :data-tip="`Offline mode is ${settings.offlineMode ? 'on' : 'off'} — click to turn ${settings.offlineMode ? 'off' : 'on'}`"
           :aria-checked="settings.offlineMode"
           @click="settings.setOfflineMode(!settings.offlineMode)"
         >
@@ -158,6 +164,8 @@
           type="button"
           :class="switchClass(settings.sortAscending)"
           role="switch"
+          aria-label="Sort direction"
+          :data-tip="settings.sortAscending ? 'Ascending — click to sort descending' : 'Descending — click to sort ascending'"
           :aria-checked="settings.sortAscending"
           @click="settings.setSortAscending(!settings.sortAscending)"
         >
@@ -185,6 +193,8 @@
           type="button"
           :class="switchClass(settings.reduceMotion)"
           role="switch"
+          aria-label="Reduce motion"
+          :data-tip="`Reduce motion is ${settings.reduceMotion ? 'on' : 'off'} — click to turn ${settings.reduceMotion ? 'off' : 'on'}`"
           :aria-checked="settings.reduceMotion"
           @click="settings.setReduceMotion(!settings.reduceMotion)"
         >
@@ -202,6 +212,8 @@
           type="button"
           :class="switchClass(settings.openOnLastTab)"
           role="switch"
+          aria-label="Open on last tab"
+          :data-tip="`Reopen on the last visited tab is ${settings.openOnLastTab ? 'on' : 'off'} — click to turn ${settings.openOnLastTab ? 'off' : 'on'}`"
           :aria-checked="settings.openOnLastTab"
           @click="settings.setOpenOnLastTab(!settings.openOnLastTab)"
         >
@@ -290,6 +302,8 @@
           type="button"
           :class="switchClass(settings.trueBlack)"
           role="switch"
+          aria-label="Use true black"
+          :data-tip="`True black (OLED) background is ${settings.trueBlack ? 'on' : 'off'} — click to turn ${settings.trueBlack ? 'off' : 'on'}`"
           :aria-checked="settings.trueBlack"
           @click="settings.setTrueBlack(!settings.trueBlack)"
         >
