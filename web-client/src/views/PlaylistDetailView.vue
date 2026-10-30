@@ -97,7 +97,7 @@
             aria-label="Export playlist as M3U"
             @click="exportOpen = true"
           >
-            <MageIcon name="download" class="h-5 w-5" />
+            <MageIcon name="export-list" class="h-5 w-5" />
           </button>
 
           <button
