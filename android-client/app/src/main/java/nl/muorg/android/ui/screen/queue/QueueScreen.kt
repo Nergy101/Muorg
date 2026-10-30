@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -281,6 +282,7 @@ fun QueueScreen(
                         track = track,
                         baseUrl = baseUrl,
                         imageLoader = imageLoader,
+                        isLoading = playerState.pendingTrackId == track.id,
                         isDragged = isDragged,
                         dragTranslationY = if (isDragged) dragTranslationY else 0f,
                         onSkipTo = { if (!isDragged) playerViewModel.skipTo(track) },
@@ -383,6 +385,7 @@ private fun QueueTrackRow(
     imageLoader: ImageLoader,
     onSkipTo: () -> Unit,
     onLongPress: () -> Unit = {},
+    isLoading: Boolean = false,
     isDragged: Boolean = false,
     dragTranslationY: Float = 0f,
     onDragStart: () -> Unit = {},
@@ -451,6 +454,14 @@ private fun QueueTrackRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isDragged) MuorgGreenLight.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.width(6.dp))
             }
             track.durationSecs?.let { secs ->
                 val mins = (secs / 60).toInt()

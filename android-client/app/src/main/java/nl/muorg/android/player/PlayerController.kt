@@ -77,6 +77,12 @@ data class PlayerState(
     val isSeekBuffering: Boolean = false,
     /** Buffering has persisted long enough that the time-bar is replaced by a loading bar. */
     val isBuffering: Boolean = false,
+    /**
+     * The track a play request is still working on — stream token fetch,
+     * prepare, first buffer. Set the moment a row is tapped so the UI can
+     * show a spinner immediately, before ExoPlayer even reports BUFFERING.
+     */
+    val pendingTrackId: Int? = null,
     /** How much of the current track has buffered, 0–100. */
     val bufferedPercentage: Int = 0,
     val errorMessage: String? = null,
@@ -215,6 +221,7 @@ class PlayerController @Inject constructor(
             _state.update {
                 it.copy(
                     isPlaying = false,
+                    pendingTrackId = null,
                     errorMessage = "Playback failed: ${error.errorCodeName}",
                 )
             }
@@ -286,6 +293,13 @@ class PlayerController @Inject constructor(
             isBufferingUi = false
         }
 
+        // The pending spinner clears once the requested track is actually
+        // current and the player is READY — or if a different track is
+        // current, meaning the request was superseded.
+        val pendingId = _state.value.pendingTrackId
+        val pendingCleared = pendingId != null &&
+            (currentTrack?.id != pendingId || ctrl.playbackState == Player.STATE_READY)
+
         _state.update { state ->
             state.copy(
                 currentTrack = currentTrack ?: queue.current,
@@ -299,6 +313,7 @@ class PlayerController @Inject constructor(
                 isSeekable = ctrl.isCurrentMediaItemSeekable,
                 isSeekBuffering = flacSeekInFlight,
                 isBuffering = isBufferingUi,
+                pendingTrackId = if (pendingCleared) null else pendingId,
                 bufferedPercentage = ctrl.bufferedPercentage,
                 playbackQueue = queue,
             )
@@ -352,7 +367,9 @@ class PlayerController @Inject constructor(
         val ctrl = controller ?: return
 
         scope.launch {
-            _state.update { it.copy(errorMessage = null) }
+            // Visible from the tap itself: the token fetch and prepare below
+            // are network work the player has not even started reporting yet.
+            _state.update { it.copy(errorMessage = null, pendingTrackId = track.id) }
             mediaItems.clear()
             // Offline mode builds the queue from downloaded files only: every
             // track is pointed at its local copy, and one with no download has
@@ -642,6 +659,7 @@ class PlayerController @Inject constructor(
         val ctrl = controller ?: return
         val index = queue.entries.indexOfFirst { it.track.id == track.id }
         if (index < 0) return
+        _state.update { it.copy(pendingTrackId = track.id) }
         queue = queue.skipTo(track.id)
         ctrl.seekToDefaultPosition(index)
         ctrl.prepare()
@@ -765,6 +783,7 @@ class PlayerController @Inject constructor(
                 queue = emptyList(),
                 isSeekBuffering = false,
                 isBuffering = false,
+                pendingTrackId = null,
                 bufferedPercentage = 0,
                 playbackQueue = PlaybackQueue(),
             )

@@ -58,6 +58,7 @@ fun ReportDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentId = playerState.currentTrack?.id
+    val pendingId = playerState.pendingTrackId
 
     val tracks = remember(state.tracks, kind) { LibraryReports.run(kind, state.tracks) }
     val groups = remember(state.tracks) { LibraryReports.duplicateGroups(state.tracks) }
@@ -152,12 +153,12 @@ fun ReportDetailScreen(
                         count = group.size,
                         key = { i -> group[i].id },
                     ) { i ->
-                        ReportTrackRow(group[i], group, currentId, playerViewModel, imageLoader, baseUrl)
+                        ReportTrackRow(group[i], group, currentId, pendingId, playerViewModel, imageLoader, baseUrl)
                     }
                 }
             } else {
                 items(count = tracks.size, key = { i -> tracks[i].id }) { i ->
-                    ReportTrackRow(tracks[i], tracks, currentId, playerViewModel, imageLoader, baseUrl)
+                    ReportTrackRow(tracks[i], tracks, currentId, pendingId, playerViewModel, imageLoader, baseUrl)
                 }
             }
         }
@@ -169,6 +170,7 @@ private fun ReportTrackRow(
     track: CatalogTrack,
     queue: List<CatalogTrack>,
     currentId: Int?,
+    pendingId: Int?,
     playerViewModel: PlayerViewModel,
     imageLoader: ImageLoader,
     baseUrl: String,
@@ -178,6 +180,7 @@ private fun ReportTrackRow(
         baseUrl = baseUrl,
         imageLoader = imageLoader,
         isPlaying = track.id == currentId,
+        isLoading = track.id == pendingId,
         onTrackClick = { playerViewModel.playTrack(track, queue) },
     )
     Spacer(Modifier.width(0.dp))

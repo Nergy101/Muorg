@@ -150,6 +150,7 @@ fun LibraryContent(
                                 imageLoader = imageLoader,
                                 isPlaying = playerState.currentTrack?.id == track.id &&
                                     playerState.isPlaying,
+                                isLoading = playerState.pendingTrackId == track.id,
                                 isFavorite = track.id.toString() in playerState.favorites,
                                 playlists = uiState.playlists,
                                 trackInPlaylistIds = membership,
