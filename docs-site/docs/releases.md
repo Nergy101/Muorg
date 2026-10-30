@@ -6,6 +6,12 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v3.4.3
+
+- **Web App**: the album view now uses the dominant colour picked from the album cover — the same colour the maximized player derives when that album is playing — for the big play button and the lossless (FLAC) format badges in the album's track list.
+- **Web App**: the cover backdrop on the maximized player and the album overview is sharper (blur 40px → 24px), and on mobile the maximized player's backdrop runs edge to edge without the vignette fade.
+- **Desktop App**: internal refactor — shared utils/components live in the top-level `src/` tree (`@shared`) and the desktop client's imports were updated to match. No behaviour change.
+
 ## v3.4.2
 
 - **Server**: new `DELETE /api/tracks/{id}` endpoint — deletes the track's file (local library or S3) and its database row with cascades, and invalidates the cached cover art.

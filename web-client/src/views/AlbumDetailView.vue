@@ -13,7 +13,7 @@
 
     <template v-else>
       <!-- Same cover-derived backdrop as the maximized player, but desktop
-           only — on mobile the album list keeps the plain theme background.
+           only — on mobile the album view keeps the plain theme background.
            Only when the album actually has art, so coverless albums keep it. -->
       <CoverBackdrop v-if="backdropActive" :cover-url="coverUrl" variant="album" />
 
@@ -65,6 +65,7 @@
               <button
                 type="button"
                 class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50"
+                :style="accentCss ? { backgroundColor: accentCss, color: accentOnCss ?? undefined } : undefined"
                 :disabled="tracks.length === 0"
                 aria-label="Play album"
                 @click="playAlbum"
@@ -126,6 +127,7 @@
           :track="track"
           leading="index"
           :on-dark="backdropActive"
+          :accent-rgb="accentRgb"
           :is-playing="player.currentTrack?.id === track.id"
           @play="player.playTrack(track, tracks)"
           @actions="sheetTrack = track"
@@ -167,6 +169,7 @@ import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { isColorBland, useDominantColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
 import type { CatalogTrack, Playlist } from "../types";
 
@@ -232,7 +235,27 @@ onBeforeUnmount(() => {
   desktopMq = null;
 });
 
+/**
+ * The cover-derived backdrop is desktop-only (lg, 64rem — the same breakpoint
+ * the content-col measure uses) and only when the album has art.
+ */
 const backdropActive = computed(() => coverUrl.value != null && isDesktop.value);
+
+// The accent colour the maximized player would pick for this album: the same
+// dominant colour it derives from the playing track's cover art. Used for the
+// big play button and the lossless format badges in this album's track list.
+// Falls back to the theme primary when there is no art or the colour is bland.
+const glowRgb = useDominantColor(coverUrl);
+const accentRgb = computed(() =>
+  coverUrl.value != null && !isColorBland(glowRgb.value) ? glowRgb.value : null,
+);
+const accentCss = computed(() => (accentRgb.value ? `rgb(${accentRgb.value})` : null));
+const accentOnCss = computed(() => {
+  if (!accentRgb.value) return null;
+  const [r, g, b] = accentRgb.value.split(",").map(Number);
+  const luminance = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+  return luminance > 0.55 ? "#1c1917" : "#ffffff";
+});
 
 const metaLine = computed(() => {
   const parts: string[] = [];

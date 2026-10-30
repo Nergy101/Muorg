@@ -518,13 +518,23 @@ input[type="range"]::-moz-range-thumb {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(40px);
+  filter: blur(24px);
   inset: 0;
   /* closest-side sizing makes the gradient reach transparent exactly at the
      edge midpoints — with the default farthest-corner ellipse the side
      midpoints sat mid-fade and the cover's edge stayed visible. */
   -webkit-mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
   mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
+}
+
+/* Mobile: no vignette — the maximized player's backdrop runs edge to edge.
+   (Below lg the album view has no backdrop at all, so this only affects the
+   player.) */
+@media (max-width: 63.99rem) {
+  .edge-blur-art {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------

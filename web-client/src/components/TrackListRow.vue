@@ -53,10 +53,15 @@
           v-if="showFormatBadge !== false"
           class="ml-auto shrink-0 rounded-[3px] px-1 py-[1px] text-[10px] leading-none uppercase"
           :class="isLossless(track.format)
-            ? 'bg-primary/[0.12] text-primary'
+            ? accentRgb
+              ? ''
+              : 'bg-primary/[0.12] text-primary'
             : onDark
               ? 'bg-white/10 text-white/70'
               : 'bg-on-surface-variant/10 text-on-surface-variant'"
+          :style="isLossless(track.format) && accentRgb
+            ? { backgroundColor: `rgb(${accentRgb} / 0.12)`, color: `rgb(${accentRgb})` }
+            : undefined"
         >{{ track.format.toUpperCase() }}</span>
         <span
           v-if="showDuration !== false"
@@ -110,6 +115,11 @@ const props = withDefaults(
     showDelete?: boolean;
     /** Render for a dark cover-derived backdrop (white text instead of theme). */
     onDark?: boolean;
+    /**
+     * "r,g,b" accent colour (e.g. the album's dominant cover colour) used for
+     * the lossless format badge instead of the theme primary. Null = default.
+     */
+    accentRgb?: string | null;
   }>(),
   {
     leading: "cover",
@@ -117,6 +127,7 @@ const props = withDefaults(
     showDuration: true,
     showDelete: false,
     onDark: false,
+    accentRgb: null,
   },
 );
 

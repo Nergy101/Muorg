@@ -7,7 +7,7 @@ Every Muorg component is published from the same GitHub repository. This page is
 
 ## Desktop app
 
-Download from the [latest release](https://github.com/Nergy101/Muorg/releases/latest). Assets are named after the version, e.g. `muorg-3.4.2-macos.dmg`.
+Download from the [latest release](https://github.com/Nergy101/Muorg/releases/latest). Assets are named after the version, e.g. `muorg-3.4.3-macos.dmg`.
 
 | Platform | File | Install |
 |----------|------|---------|

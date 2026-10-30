@@ -13,8 +13,16 @@
         role="status"
       >
         <div
-          class="glass-strong max-w-full truncate rounded-full px-4 py-2 text-body-md text-on-surface shadow-xl"
-        >{{ message }}</div>
+          class="glass-strong flex max-w-full items-center gap-3 rounded-full px-4 py-2 text-body-md text-on-surface shadow-xl"
+        >
+          <span class="truncate">{{ message }}</span>
+          <button
+            v-if="action"
+            type="button"
+            class="pointer-events-auto shrink-0 font-semibold text-primary"
+            @click="runToastAction"
+          >{{ action.label }}</button>
+        </div>
       </div>
     </Transition>
   </Teleport>
@@ -23,10 +31,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useToast } from "../composables/useToast";
+import { runToastAction, useToast } from "../composables/useToast";
 import { usePlayerStore } from "../stores/player";
 
-const { message } = useToast();
+const { message, action } = useToast();
 const route = useRoute();
 const player = usePlayerStore();
 
