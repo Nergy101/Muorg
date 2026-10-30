@@ -381,7 +381,10 @@ class PlayerController @Inject constructor(
                     ?: offlineDownloadManager.getLocalFilePath(track.id)
                 if (startPath == null) {
                     _state.update {
-                        it.copy(errorMessage = "Not downloaded — download it or turn off offline mode")
+                        it.copy(
+                            pendingTrackId = null,
+                            errorMessage = "Not downloaded — download it or turn off offline mode",
+                        )
                     }
                     scope.launch { delay(4000); _state.update { it.copy(errorMessage = null) } }
                     return@launch
@@ -401,7 +404,10 @@ class PlayerController @Inject constructor(
             // over the new position — which is how tapping a second song
             // restarted the one that was already playing.
             val newQueue = this@PlayerController.queue.playContext(effectiveQueue, effectiveTrack)
-            val items = buildItems(newQueue.tracks) ?: return@launch
+            val items = buildItems(newQueue.tracks) ?: run {
+                _state.update { it.copy(pendingTrackId = null) }
+                return@launch
+            }
             this@PlayerController.queue = newQueue
             // Media3's own shuffle reorders a timeline the queue screen never
             // reads, so the list and the playback disagreed. Order is ours now.
