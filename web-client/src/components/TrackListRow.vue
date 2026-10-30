@@ -8,24 +8,27 @@
     @touchend="lp.onTouchend"
     @contextmenu.prevent="emit('actions')"
   >
-    <!-- Leading: selection checkbox, else equalizer while playing, else cover / index / placeholder -->
-    <div
-      class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded"
-      :class="onDark ? 'bg-white/10' : 'bg-surface-variant'"
-    >
-      <img
-        v-if="coverUrl"
-        :src="coverUrl"
-        :alt="track.album ?? ''"
-        class="h-12 w-12 rounded object-cover"
-        decoding="async"
-      />
+    <!-- Leading: selection checkbox, else equalizer while playing, else cover.
+         In "index" mode the track number sits beside a small cover. -->
+    <div class="flex shrink-0 items-center gap-2">
       <span
-        v-else-if="leading === 'index'"
-        class="text-body-md tabular-nums"
+        v-if="leading === 'index'"
+        class="w-5 text-right text-body-md tabular-nums"
         :class="onDark ? 'text-white/60' : 'text-on-surface-variant'"
       >{{ track.track_number ?? "·" }}</span>
-      <MageIcon v-else name="music" class="h-5 w-5" :class="onDark ? 'text-white/50' : 'text-on-surface-variant/60'" />
+      <div
+        class="relative flex shrink-0 items-center justify-center overflow-hidden rounded"
+        :class="[leading === 'index' ? 'h-10 w-10' : 'h-12 w-12', onDark ? 'bg-white/10' : 'bg-surface-variant']"
+      >
+        <img
+          v-if="coverUrl"
+          :src="coverUrl"
+          :alt="track.album ?? ''"
+          class="rounded object-cover"
+          :class="leading === 'index' ? 'h-10 w-10' : 'h-12 w-12'"
+          decoding="async"
+        />
+        <MageIcon v-else name="music" class="h-5 w-5" :class="onDark ? 'text-white/50' : 'text-on-surface-variant/60'" />
       <div
         v-if="selectable"
         class="absolute inset-0 flex items-center justify-center rounded transition-colors"
@@ -39,6 +42,7 @@
         class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
       >
         <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
+      </div>
       </div>
     </div>
 
@@ -188,7 +192,7 @@ function onRowClick(e: MouseEvent): void {
 }
 
 const coverUrl = computed(() => {
-  if (props.leading !== "cover" || !props.track.has_cover) return null;
+  if (!props.track.has_cover) return null;
   lib.requestCover(props.track.id);
   return lib.coverCache.get(props.track.id) ?? null;
 });

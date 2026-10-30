@@ -104,26 +104,7 @@
       @view-album="onViewAlbum"
     />
 
-    <AlbumActionsSheet
-      :open="albumActions !== null"
-      :item="albumActions"
-      @close="albumActions = null"
-      @play="playAlbumFromSheet"
-      @add-to-playlist="onAlbumAddToPlaylist"
-      @view-artist="onAlbumViewArtist"
-      @view-album="onAlbumViewAlbum"
-    />
-
-    <PlaylistPickerSheet
-      :open="pickerAlbum !== null"
-      :playlists="playlistStore.playlists"
-      :membership-ids="membershipIds"
-      :partial-membership-ids="partialMembershipIds"
-      @add="onPickerAdd"
-      @remove="onPickerRemove"
-      @create="onPickerCreate"
-      @close="pickerAlbum = null"
-    />
+    <AlbumActionsHost :item="albumActions" @close="albumActions = null" />
   </div>
 </template>
 
@@ -134,27 +115,23 @@ import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
-import AlbumActionsSheet from "../components/AlbumActionsSheet.vue";
-import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
+import AlbumActionsHost from "../components/AlbumActionsHost.vue";
 import LibraryTrackTable from "../components/library/LibraryTrackTable.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
-import { usePlaylistStore } from "../stores/playlists";
 import { useSelectionStore, type SelectModifiers } from "../stores/selection";
 import { provideVisibleIds } from "../composables/useSelectableList";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useVirtualList } from "../composables/useVirtualList";
 import { useGridColumns } from "../composables/useGridColumns";
-import { showToast } from "../composables/useToast";
-import type { AlbumGridItem, CatalogTrack, Playlist } from "../types";
+import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const settings = useSettingsStore();
-const playlistStore = usePlaylistStore();
 const selection = useSelectionStore();
 
 // --- Content -----------------------------------------------------------
@@ -226,110 +203,12 @@ function onViewAlbum(): void {
   void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
 
-// --- Album actions sheet --------------------------------------------------
+// --- Album context menu ---------------------------------------------------
+// Right-click / "more" on an album card. The menu and the add-to-playlist
+// picker live in AlbumActionsHost, shared with every other screen that shows
+// album cards.
 
 const albumActions = ref<AlbumGridItem | null>(null);
-
-function playAlbumFromSheet(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  const tracks = lib.tracksForAlbum(album.key);
-  albumActions.value = null;
-  if (tracks.length === 0) return;
-  void player.playTrack(tracks[0], tracks);
-}
-
-function onAlbumAddToPlaylist(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  albumActions.value = null;
-  void openAlbumPicker(album);
-}
-
-function onAlbumViewArtist(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  albumActions.value = null;
-  const name = album.albumArtist;
-  if (name) void router.push({ name: "artist", params: { name } });
-}
-
-function onAlbumViewAlbum(): void {
-  const album = albumActions.value;
-  if (!album) return;
-  albumActions.value = null;
-  void router.push({ name: "album", params: { albumKey: album.key } });
-}
-
-// --- Album playlist picker -------------------------------------------------
-
-const pickerAlbum = ref<AlbumGridItem | null>(null);
-
-async function openAlbumPicker(item: AlbumGridItem): Promise<void> {
-  await playlistStore.loadAllTrackIds();
-  pickerAlbum.value = item;
-}
-
-const membershipIds = computed(() => {
-  const album = pickerAlbum.value;
-  const result = new Set<number>();
-  if (!album) return result;
-  for (const p of playlistStore.playlists) {
-    const set = playlistStore.trackIdSets.get(p.id);
-    if (set && album.trackIds.every((id) => set.has(id))) result.add(p.id);
-  }
-  return result;
-});
-
-const partialMembershipIds = computed(() => {
-  const album = pickerAlbum.value;
-  const result = new Set<number>();
-  if (!album) return result;
-  for (const p of playlistStore.playlists) {
-    const set = playlistStore.trackIdSets.get(p.id);
-    if (!set) continue;
-    const hasSome = album.trackIds.some((id) => set.has(id));
-    const hasAll = album.trackIds.every((id) => set.has(id));
-    if (hasSome && !hasAll) result.add(p.id);
-  }
-  return result;
-});
-
-async function onPickerAdd(p: Playlist): Promise<void> {
-  const album = pickerAlbum.value;
-  if (!album) return;
-  const existing = playlistStore.trackIdSets.get(p.id) ?? new Set<number>();
-  const toAdd = album.trackIds.filter((id) => !existing.has(id));
-  try {
-    if (toAdd.length > 0) await playlistStore.addTracks(p.id, toAdd);
-    showToast(`Added to ${p.name}`);
-  } catch (e) {
-    showToast(`Failed: ${(e as Error).message}`);
-  }
-}
-
-async function onPickerRemove(p: Playlist): Promise<void> {
-  const album = pickerAlbum.value;
-  if (!album) return;
-  try {
-    await playlistStore.removeTracks(p.id, album.trackIds);
-    showToast(`Removed from ${p.name}`);
-  } catch (e) {
-    showToast(`Failed: ${(e as Error).message}`);
-  }
-}
-
-async function onPickerCreate(name: string): Promise<void> {
-  const album = pickerAlbum.value;
-  if (!album) return;
-  try {
-    const p = await playlistStore.createPlaylist(name, "🎵");
-    await playlistStore.addTracks(p.id, album.trackIds);
-    showToast(`Added to ${p.name}`);
-  } catch (e) {
-    showToast(`Failed: ${(e as Error).message}`);
-  }
-}
 
 // --- Virtualized lists -----------------------------------------------------
 // 3000+ tracks / 273 albums is too many DOM rows to mount at once: each row
