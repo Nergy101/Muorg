@@ -248,16 +248,8 @@ fun StatsScreen(
                 }
 
                 item(key = "genres-title") { SectionTitle("Genres") }
-                items(
-                    genreCounts.take(10),
-                    key = { "genre-${it.first}" },
-                ) { (genre, count) ->
-                    BarRow(
-                        label = genre,
-                        value = count.toString(),
-                        fraction = count.toFloat() / (genreCounts.firstOrNull()?.second ?: 1),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                item(key = "genres-chart") {
+                    ChartCard { DonutChart(genreCounts, centerLabel = "${tracks.size} tracks") }
                 }
 
                 item(key = "artists-title") { SectionTitle("Top artists") }
@@ -274,55 +266,25 @@ fun StatsScreen(
                 }
 
                 item(key = "years-title") { SectionTitle("Tracks per year") }
-                items(
-                    yearCounts.take(20),
-                    key = { "year-${it.first}" },
-                ) { (year, count) ->
-                    BarRow(
-                        label = year,
-                        value = count.toString(),
-                        fraction = count.toFloat() / (yearCounts.maxOfOrNull { it.second } ?: 1),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                item(key = "years-chart") {
+                    ChartCard { LineChart(yearCounts) }
                 }
 
                 item(key = "ratings-title") { SectionTitle("Ratings") }
-                items(
-                    ratingCounts,
-                    key = { "rating-${it.first}" },
-                ) { (rating, count) ->
-                    BarRow(
-                        label = "$rating star${if (rating == 1) "" else "s"}",
-                        value = count.toString(),
-                        fraction = count.toFloat() / (ratingCounts.maxOfOrNull { it.second } ?: 1),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                item(key = "ratings-chart") {
+                    ChartCard {
+                        BarChart(ratingCounts.map { (rating, count) -> "$rating★" to count })
+                    }
                 }
 
                 item(key = "formats-title") { SectionTitle("Formats") }
-                items(
-                    formatCounts,
-                    key = { "format-${it.first}" },
-                ) { (format, count) ->
-                    BarRow(
-                        label = format,
-                        value = count.toString(),
-                        fraction = count.toFloat() / (formatCounts.firstOrNull()?.second ?: 1),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                item(key = "formats-chart") {
+                    ChartCard { DonutChart(formatCounts, centerLabel = "Formats") }
                 }
 
                 item(key = "duration-title") { SectionTitle("Track length (per minute)") }
-                items(
-                    durationBuckets,
-                    key = { "duration-${it.first}" },
-                ) { (minute, count) ->
-                    BarRow(
-                        label = "$minute min",
-                        value = count.toString(),
-                        fraction = count.toFloat() / (durationBuckets.maxOfOrNull { it.second } ?: 1),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                item(key = "duration-chart") {
+                    ChartCard { BarChart(durationBuckets.map { (minute, count) -> "$minute" to count }) }
                 }
 
                 if (mostPlayed.isNotEmpty()) {
@@ -336,6 +298,19 @@ fun StatsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ChartCard(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), MuorgShapes.card)
+            .padding(16.dp),
+    ) {
+        content()
     }
 }
 
