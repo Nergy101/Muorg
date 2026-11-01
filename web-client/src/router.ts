@@ -21,6 +21,7 @@ import ReportsView from "./views/ReportsView.vue";
 import ReportDetailView from "./views/ReportDetailView.vue";
 import SmartTransformView from "./views/SmartTransformView.vue";
 import StatsView from "./views/StatsView.vue";
+import ErrorView from "./views/ErrorView.vue";
 
 /**
  * Loads the catalog + playlists exactly once per connected session.
@@ -113,7 +114,22 @@ export const router = createRouter({
       meta: { depth: 1 },
     },
     { path: "/stats", name: "stats", component: StatsView, meta: { depth: 1 } },
-    { path: "/:pathMatch(.*)*", redirect: "/library" },
+    // Error pages. 403/500/503 are addressable so the app can send people there
+    // (and so they can be previewed); anything unknown lands on the 404.
+    {
+      path: "/error/:code(403|500|503)",
+      name: "error",
+      component: ErrorView,
+      props: true,
+      meta: { depth: 1 },
+    },
+    {
+      path: "/:pathMatch(.*)*",
+      name: "not-found",
+      component: ErrorView,
+      props: { code: "404" },
+      meta: { depth: 1 },
+    },
   ],
 });
 

@@ -2,20 +2,7 @@
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-6">
       <div class="flex w-full max-w-sm flex-col items-center gap-6">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" class="h-24 w-24">
-          <defs>
-            <radialGradient id="metalCenter" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#ffffff" />
-              <stop offset="100%" stop-color="#999999" />
-            </radialGradient>
-          </defs>
-          <path d="M150,200 L450,450 L512,512 L574,450 L874,200 L750,700 L512,880 L274,700 Z" fill="#5b7c32" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" />
-          <circle cx="512" cy="512" r="300" fill="#759346" stroke="#ffffff" stroke-width="15" />
-          <circle cx="512" cy="512" r="220" fill="none" stroke="#5b7c32" stroke-width="8" opacity="0.4" />
-          <circle cx="512" cy="512" r="150" fill="none" stroke="#5b7c32" stroke-width="8" opacity="0.4" />
-          <circle cx="512" cy="512" r="75" fill="#5b7c32" />
-          <circle cx="512" cy="512" r="18" fill="url(#metalCenter)" />
-        </svg>
+        <img :src="logoUrl" alt="" class="h-24 w-24" />
 
         <div class="flex flex-col items-center gap-1 text-center">
           <h1 class="text-headline-lg text-primary">Muorg</h1>
@@ -87,6 +74,7 @@ import { ref } from "vue";
 import MageIcon from "../components/MageIcon.vue";
 import { getServerUrl, getApiKey, setServerUrl, setApiKey, testConnection } from "../api/client";
 import { router, loadData } from "../router";
+import logoUrl from "../assets/muorg-logo.svg";
 
 const url = ref(getServerUrl());
 const apiKey = ref(getApiKey());
