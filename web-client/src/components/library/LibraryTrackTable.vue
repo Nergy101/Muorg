@@ -235,7 +235,13 @@
             >
               <td :colspan="colCount" class="px-2">
                 <div class="flex items-center gap-2">
-                  <img v-if="groupCover(row.group)" :src="groupCover(row.group)!" class="h-7 w-7 shrink-0 rounded object-cover" alt="" />
+                  <img
+                    v-if="groupCover(row.group)"
+                    :src="groupCover(row.group)!"
+                    class="shrink-0 rounded object-cover"
+                    :class="tableStore.density === 'spacious' ? 'h-20 w-20' : 'h-7 w-7'"
+                    alt=""
+                  />
                   <MageIcon v-else name="music" class="h-4 w-4 shrink-0 text-on-surface-variant/50" />
                   <MageIcon
                     name="chevron-right"
@@ -473,9 +479,10 @@ const GROUP_OPTIONS: { value: TableGroupBy; label: string }[] = [
 const TRACK_ROW_HEIGHT: Record<"compact" | "comfortable" | "spacious", number> = {
   compact: 28,
   comfortable: 44,
-  spacious: 64,
+  // "Spacious" keeps the medium (comfortable) track-row spacing; the extra
+  // room goes into the group header row's cover art instead (see below).
+  spacious: 44,
 };
-const GROUP_ROW_HEIGHT = 40;
 const OVERSCAN = 10;
 
 const lib = useLibraryStore();
@@ -675,8 +682,12 @@ const scrollRef = ref<HTMLElement | null>(null);
 const scrollTop = ref(0);
 const viewportHeight = ref(0);
 
+/** Group header rows stay compact, except in "spacious" where the cover art
+ *  is rendered much larger and the row grows to fit it. */
+const groupRowHeight = computed(() => (tableStore.density === "spacious" ? 96 : 40));
+
 const rowHeights = computed(() =>
-  rows.value.map((r) => (r.type === "group" ? GROUP_ROW_HEIGHT : TRACK_ROW_HEIGHT[tableStore.density])),
+  rows.value.map((r) => (r.type === "group" ? groupRowHeight.value : TRACK_ROW_HEIGHT[tableStore.density])),
 );
 const rowOffsets = computed(() => {
   const heights = rowHeights.value;
