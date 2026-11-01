@@ -110,7 +110,7 @@
         </div>
         <div v-else class="content-col pb-4">
           <TrackListRow
-            v-for="track in results"
+            v-for="track in visibleResults"
             :key="track.id"
             :track="track"
             :is-playing="player.currentTrack?.id === track.id"
@@ -122,6 +122,15 @@
             @select="(mods) => onSelect(track, mods, results)"
             @actions="sheetTrack = track"
           />
+          <button
+            v-if="hasMore"
+            type="button"
+            class="mx-4 mt-1 flex h-11 w-full items-center justify-center gap-2 rounded-full glass-field text-label-lg text-primary"
+            @click="loadMore"
+          >
+            <MageIcon name="chevron-down" class="h-4 w-4" />
+            <span>Load more ({{ results.length - visibleCount }} remaining)</span>
+          </button>
         </div>
       </template>
     </div>
@@ -156,6 +165,10 @@ const player = usePlayerStore();
 const settings = useSettingsStore();
 const selection = useSelectionStore();
 const query = ref("");
+/** Debounced copy of `query` — the results computed reads this, so a full
+ *  catalog scan runs at most once per pause in typing, not per keystroke. */
+const debouncedQuery = ref("");
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 const inputEl = ref<HTMLInputElement | null>(null);
 
 function normalize(s: string | null | undefined): string {
@@ -185,8 +198,15 @@ function matchScore(t: CatalogTrack, q: string): number {
   );
 }
 
+watch(query, (v) => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    debouncedQuery.value = v;
+  }, 250);
+});
+
 const results = computed(() => {
-  const q = normalize(query.value);
+  const q = normalize(debouncedQuery.value);
   if (!q) return [];
   return lib.tracks
     .map((t) => ({ t, s: matchScore(t, q) }))
@@ -194,6 +214,18 @@ const results = computed(() => {
     .sort((a, b) => b.s - a.s || normalize(a.t.title).localeCompare(normalize(b.t.title)))
     .map(({ t }) => t);
 });
+
+// Only the first page of results is rendered; "Load more" reveals the next.
+const PAGE_SIZE = 10;
+const visibleCount = ref(PAGE_SIZE);
+watch(debouncedQuery, () => {
+  visibleCount.value = PAGE_SIZE;
+});
+const visibleResults = computed(() => results.value.slice(0, visibleCount.value));
+const hasMore = computed(() => results.value.length > visibleCount.value);
+function loadMore(): void {
+  visibleCount.value = Math.min(visibleCount.value + PAGE_SIZE, results.value.length);
+}
 
 /** Recently selected search results, resolved against the catalog and kept
  *  in their recorded order; ids that no longer exist drop out. */
@@ -205,7 +237,7 @@ const recentResultTracks = computed(() => {
 });
 
 provideVisibleIds(() =>
-  (query.value.trim() ? results.value : recentResultTracks.value).map((t) => t.id),
+  (debouncedQuery.value.trim() ? visibleResults.value : recentResultTracks.value).map((t) => t.id),
 );
 
 function focusInput(): void {
