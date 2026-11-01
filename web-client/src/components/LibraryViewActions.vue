@@ -20,7 +20,7 @@
   </button>
 
   <!-- Sort select in its own pill group. -->
-  <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+  <div :class="PILL">
     <!-- In the tracks layout the table toolbar has its own column sort, so
          the view-level sort hides on desktop to avoid two "Sort:" buttons;
          mobile tracks keeps it (the flat list is sorted by it). -->
@@ -28,7 +28,7 @@
       <button
         ref="sortBtnRef"
         type="button"
-        class="rounded-full px-2.5 py-1 text-label-lg text-on-surface"
+        :class="PILL_BTN"
         @click="toggleSort"
       >
         Sort: {{ sortLabel }}
@@ -65,13 +65,13 @@
   </button>
   </div>
 
-  <!-- Genre select in its own pill group. -->
-  <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+  <!-- Genre select in its own pill group, styled exactly like the sort pill. -->
+  <div :class="PILL">
   <div ref="genreMenuRef" class="relative">
     <button
       ref="genreBtnRef"
       type="button"
-      class="flex max-w-28 items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
+      :class="[PILL_BTN, 'max-w-28']"
       @click="toggleGenre"
     >
       <span class="truncate">Genre: {{ genreLabel }}</span>
@@ -135,6 +135,10 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "artist", label: "Artist" },
   { value: "year", label: "Year" },
 ];
+
+/** Shared pill styling so the sort and genre groups render identically. */
+const PILL = "glass-field flex items-center gap-0.5 rounded-full p-0.5";
+const PILL_BTN = "flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface";
 
 // --- Sort dropdown ---------------------------------------------------------
 
