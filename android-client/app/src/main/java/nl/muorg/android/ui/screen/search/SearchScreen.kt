@@ -109,7 +109,7 @@ fun SearchScreen(
                 .glassField(MuorgShapes.pill),
             placeholder = {
                 Text(
-                    "Search tracks, artists, albums…",
+                    "Search for tracks",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -267,33 +267,34 @@ fun SearchScreen(
 
                 if (uiState.recentSearches.isEmpty() && uiState.recentResultTracks.isEmpty()) {
                     item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            if (uiState.isLoading) {
+                        if (uiState.isLoading) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            } else if (uiState.error != null) {
+                            }
+                        } else if (uiState.error != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                                 Text(
                                     text = uiState.error ?: "Unknown error",
                                     color = MaterialTheme.colorScheme.error,
                                 )
-                            } else {
-                                Icon(
-                                    painter = painterResource(mageIconRes("search")),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(48.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                )
-                                Text(
-                                    text = "Type above to search your library",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                             }
+                        } else {
+                            EmptyState(
+                                title = "No searches yet",
+                                body = "Type above to search your library",
+                            )
                         }
                     }
                 }

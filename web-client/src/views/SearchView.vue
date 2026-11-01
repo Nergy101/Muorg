@@ -11,7 +11,7 @@
           ref="inputEl"
           v-model="query"
           type="text"
-          placeholder="Search tracks, artists, albums…"
+          placeholder="Search for tracks"
           class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
           @keyup.enter="onSearchEnter"
         />
