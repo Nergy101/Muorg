@@ -39,6 +39,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -93,6 +95,11 @@ fun AlbumCard(
     var showActions by remember { mutableStateOf(false) }
     var showPlaylistSheet by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
+
+    // Shared per screen: every card in a list resolves the same badge view model.
+    val badgeViewModel: AlbumDownloadBadgeViewModel = hiltViewModel()
+    val downloadedAlbums by badgeViewModel.downloadedAlbums.collectAsStateWithLifecycle()
+    val isDownloaded = album.albumName in downloadedAlbums
 
     if (displayMode == AlbumDisplayMode.LIST) {
         Box(modifier = modifier.fillMaxWidth()) {
@@ -149,6 +156,15 @@ fun AlbumCard(
                 }
                 Spacer(Modifier.width(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isDownloaded) {
+                        Icon(
+                            painter = painterResource(mageIconRes("download")),
+                            contentDescription = "Downloaded for offline",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Spacer(Modifier.width(3.dp))
+                    }
                     Icon(
                         painter = painterResource(mageIconRes("music")),
                         contentDescription = null,
@@ -259,6 +275,14 @@ fun AlbumCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(start = 2.dp),
                 ) {
+                    if (isDownloaded) {
+                        MageIcon(
+                            name = "download",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Spacer(Modifier.width(3.dp))
+                    }
                     MageIcon(
                         name = "music",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,

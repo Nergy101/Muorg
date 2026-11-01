@@ -239,6 +239,7 @@ fun PlaylistsScreen(
                                 imageLoader = imageLoader,
                                 onClick = { onPlaylistClick(playlist.id) },
                                 onLongClick = { actionsFor = playlist to covers },
+                                downloaded = playlist.id in uiState.downloadedPlaylistIds,
                             )
                         }
                     }

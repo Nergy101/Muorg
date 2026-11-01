@@ -131,6 +131,8 @@ internal fun PlaylistTile(
     onClick: () -> Unit,
     /** Long-press: opens the playlist's action sheet. */
     onLongClick: () -> Unit = {},
+    /** The playlist is downloaded for offline use: a badge shows next to the track count. */
+    downloaded: Boolean = false,
 ) {
     Box(
         modifier = Modifier
@@ -178,6 +180,15 @@ internal fun PlaylistTile(
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(10.dp))
+                if (downloaded) {
+                    Icon(
+                        painter = painterResource(mageIconRes("download")),
+                        contentDescription = "Downloaded for offline",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 if (playlist.smartRules != null) {
                     Icon(
                         painter = painterResource(mageIconRes("zap-fill")),
