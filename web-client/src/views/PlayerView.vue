@@ -27,8 +27,9 @@
         <div class="flex-1" />
         <!-- Mobile: the chrome pill lives in the top bar. On desktop (lg) it
              moves underneath the transport buttons — see below. -->
-        <div class="glass-sheer flex items-center overflow-hidden rounded-full lg:hidden">
+        <div class="flex items-center overflow-hidden rounded-full lg:hidden">
           <button
+            v-if="settings.sleepTimerEnabled"
             type="button"
             class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
             :class="player.sleepTimerActive ? 'text-primary' : ''"
@@ -250,7 +251,7 @@
           </div>
 
           <!-- Volume: all widths. Desktop (lg) pairs it with the chrome pill
-               (sleep timer / lyrics / cast / actions) in one row underneath
+               (sleep timer / lyrics / actions) in one row underneath
                the transport buttons; mobile gets its own centred row. -->
           <div class="flex shrink-0 justify-center px-6 pt-3 lg:hidden">
             <VolumeControl variant="player" />
@@ -261,6 +262,7 @@
             </div>
             <div class="glass-sheer flex items-center overflow-hidden rounded-full">
               <button
+                v-if="settings.sleepTimerEnabled"
                 type="button"
                 class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
                 :class="player.sleepTimerActive ? 'text-primary' : ''"
@@ -283,15 +285,6 @@
                 @click="showLyrics = !showLyrics"
               >
                 <MageIcon name="note-text" class="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                class="flex h-10 w-10 items-center justify-center border-l border-white/20 transition-colors hover:bg-white/10"
-                :class="cast.isCasting ? 'text-primary' : 'text-white'"
-                :aria-label="cast.isCasting ? `Casting to ${cast.deviceName ?? 'device'}` : 'Cast to device'"
-                @click="showCastSheet = true"
-              >
-                <MageIcon name="screencast" class="h-5 w-5" />
               </button>
               <button
                 type="button"
@@ -332,8 +325,6 @@
       @cancel="showSleepConfirm = false"
     />
 
-    <CastDevicePicker :open="showCastSheet" @close="showCastSheet = false" />
-
     <TrackActionsSheet
       :open="showActionsSheet"
       :initial-level="actionsInitialLevel"
@@ -358,10 +349,10 @@ import CoverBackdrop from "../components/CoverBackdrop.vue";
 import { useDominantColor } from "../composables/useDominantColor";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
+import { useSettingsStore } from "../stores/settings";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
-import CastDevicePicker from "../components/CastDevicePicker.vue";
 import VolumeControl from "../components/VolumeControl.vue";
 import type { CatalogTrack } from "../types";
 
@@ -369,6 +360,7 @@ const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 
 const router = useRouter();
 const player = usePlayerStore();
+const settings = useSettingsStore();
 const lib = useLibraryStore();
 const cast = useCastStore();
 
@@ -376,7 +368,6 @@ const cast = useCastStore();
 // While a session is live the server drives the audio, so the transport
 // controls have to act on the device rather than the (now silent) local
 // element — and the progress bar reads the device's reported position.
-const showCastSheet = ref(false);
 
 const transportPlaying = computed(() =>
   cast.isCasting ? cast.isPlaying : player.isPlaying,

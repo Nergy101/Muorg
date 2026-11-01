@@ -1,6 +1,7 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
+    <!-- Not content-col: stats read full-width on desktop, like the library grid. -->
+    <div class="flex h-14 shrink-0 items-center gap-1 px-2">
       <button
         type="button"
         class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors lg:w-auto lg:gap-1 lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
@@ -27,7 +28,7 @@
       </button>
     </div>
 
-    <div class="content-col min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 pb-[var(--bottom-inset)]">
+    <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 pb-[var(--bottom-inset)]">
       <div v-if="lib.loading && lib.tracks.length === 0" class="flex items-center justify-center py-12">
         <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>
@@ -82,6 +83,24 @@
           <p class="mb-3 text-label-lg text-on-surface-variant">User ratings</p>
           <RatingChart :tracks="lib.tracks" />
         </section>
+
+        <!-- Formats -->
+        <section class="rounded-2xl bg-surface-container p-4">
+          <p class="mb-3 text-label-lg text-on-surface-variant">Formats</p>
+          <FormatDonutChart :tracks="lib.tracks" />
+        </section>
+
+        <!-- Track lengths -->
+        <section class="rounded-2xl bg-surface-container p-4">
+          <p class="mb-3 text-label-lg text-on-surface-variant">Track length distribution</p>
+          <DurationHistogram :tracks="lib.tracks" />
+        </section>
+
+        <!-- Most played -->
+        <section class="rounded-2xl bg-surface-container p-4">
+          <p class="mb-3 text-label-lg text-on-surface-variant">Most played tracks</p>
+          <TopPlayedChart :tracks="lib.tracks" />
+        </section>
       </template>
     </div>
   </div>
@@ -97,6 +116,9 @@ import YearLineChart from "@shared/components/stats/YearLineChart.vue";
 import RatingChart from "@shared/components/stats/RatingChart.vue";
 import TopArtistsChart from "@shared/components/stats/TopArtistsChart.vue";
 import MetadataHealthChart from "@shared/components/stats/MetadataHealthChart.vue";
+import FormatDonutChart from "@shared/components/stats/FormatDonutChart.vue";
+import DurationHistogram from "@shared/components/stats/DurationHistogram.vue";
+import TopPlayedChart from "@shared/components/stats/TopPlayedChart.vue";
 import type { MissingMetadataField } from "@shared/reports";
 
 const router = useRouter();

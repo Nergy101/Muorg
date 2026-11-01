@@ -2,10 +2,11 @@
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Brand row: the Muorg mark and name on the left (as in the sidebar),
-           "Shuffle all" on the right (mirrors the Android app's HomeHeader). -->
+           "Shuffle all" on the right (mirrors the Android app's HomeHeader).
+           On desktop the navbar already shows the logo, so the mark is hidden. -->
       <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4">
-        <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />
-        <span class="text-title-md font-bold tracking-tight text-on-surface">Muorg</span>
+        <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0 lg:hidden" />
+        <span class="text-title-md font-bold tracking-tight text-on-surface lg:hidden">Muorg</span>
         <div class="flex-1" />
         <button
           type="button"
@@ -20,7 +21,7 @@
         </button>
       </div>
 
-      <!-- Recommended: 4 random albums from the catalog (refresh re-rolls). -->
+      <!-- Recommended: random albums from the catalog (5 on desktop, 4 on mobile; refresh re-rolls). -->
       <section v-if="shelfViews[0]" class="px-4 pt-6">
         <!-- Bottom spacing belongs to the row, not the heading: with `pb-2` on
              the <h2> the flex row centres the button against the padded box and
@@ -44,9 +45,10 @@
           </button>
         </div>
 
-        <div v-if="shelfViews[0].loading" class="flex justify-center py-6">
-          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
-        </div>
+        <!-- Recommended resolves synchronously from the catalog, so its own
+             loading flag never paints — also show skeletons while the catalog
+             itself is streaming in (same gate the mixes use). -->
+        <ShelfSkeleton v-if="shelfViews[0].loading || lib.loading || lib.loadingMore" :count="SHELF_CAP" :cols="gridCols" />
 
         <div v-else-if="shelfViews[0].error" class="py-4 text-body-sm text-error">
           Couldn't load {{ shelfViews[0].label.toLowerCase() }}.
@@ -73,7 +75,7 @@
         </div>
       </section>
 
-      <!-- Mixes: 8 session-stable random ~20-track playlists, never written
+      <!-- Mixes: session-stable random ~20-track playlists (10 on desktop, 8 on mobile), never written
            to the server. Opening one shows its tracks; saving goes through
            the New-playlist flow. -->
       <section class="border-t border-outline/20 px-4 pt-6">
@@ -96,20 +98,21 @@
           </button>
         </div>
 
-        <div
+        <ShelfSkeleton
           v-if="mixes.length === 0 && (lib.loading || lib.loadingMore)"
-          class="flex justify-center py-6"
-        >
-          <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
-        </div>
+          :count="isDesktop ? 10 : 8"
+          :cols="gridCols"
+        />
 
-        <!-- Preloading the cover collages for all 8 mixes; show nothing until
+        <!-- Preloading the cover collages for all mixes; show skeletons until
              every one is done so the grid appears as a complete set. Note the
              explicit `.value`: mixCoverReady is a plain object (not a store
              proxy), so its ComputedRefs do NOT auto-unwrap in templates. -->
-        <div v-else-if="!mixCoverReady.allReady.value" class="flex justify-center py-6">
-          <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
-        </div>
+        <ShelfSkeleton
+          v-else-if="!mixCoverReady.allReady.value"
+          :count="isDesktop ? 10 : 8"
+          :cols="gridCols"
+        />
 
         <div v-else-if="mixes.length === 0" class="py-4 text-body-sm text-on-surface-variant">
           Nothing here yet.
@@ -144,9 +147,7 @@
           {{ shelf.label }}
         </h2>
 
-        <div v-if="shelf.loading" class="flex justify-center py-6">
-          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
-        </div>
+        <ShelfSkeleton v-if="shelf.loading" :count="SHELF_CAP" :cols="gridCols" />
 
         <div v-else-if="shelf.error" class="py-4 text-body-sm text-error">
           Couldn't load {{ shelf.label.toLowerCase() }}.
@@ -182,12 +183,14 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import MixCard from "../components/MixCard.vue";
+import ShelfSkeleton from "../components/ShelfSkeleton.vue";
 import logoUrl from "../assets/muorg-logo.svg";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useGridColumns } from "../composables/useGridColumns";
+import { useIsDesktop } from "../composables/useIsDesktop";
 import { useMixes } from "@shared/composables/useMixes";
 import { useMixCoverReady } from "../composables/useMixCoverReady";
 import type { AlbumGridItem, CatalogTrack } from "../types";
@@ -211,11 +214,14 @@ interface Shelf {
   error: boolean;
 }
 
-/** How many album cards a home shelf shows at most (both layouts). */
-const SHELF_CAP = 4;
+const isDesktop = useIsDesktop();
 
-// "Recommended" is just 4 randomly chosen albums from the catalog, picked once
-// per session so the row stays stable while you browse (a fresh load re-rolls).
+/** How many album cards a home shelf shows at most: 5 on desktop, 4 on mobile. */
+const SHELF_CAP = computed(() => (isDesktop.value ? 5 : 4));
+
+// "Recommended" is just a few randomly chosen albums from the catalog, picked
+// once per session so the row stays stable while you browse (a fresh load
+// re-rolls).
 let recommendedTracksCache: CatalogTrack[] | null = null;
 function randomRecommendedTracks(): CatalogTrack[] {
   if (recommendedTracksCache) return recommendedTracksCache;
@@ -236,12 +242,12 @@ function randomRecommendedTracks(): CatalogTrack[] {
   const withCover = [...byKey.entries()].filter(([, g]) => g.coverId !== null);
   if (withCover.length === 0) return [];
   const picked = [...withCover];
-  const n = Math.min(4, picked.length);
+  const n = Math.min(SHELF_CAP.value, picked.length);
   for (let i = 0; i < n; i++) {
     const j = i + Math.floor(Math.random() * (picked.length - i));
     [picked[i], picked[j]] = [picked[j], picked[i]];
   }
-  const chosen = picked.slice(0, 4);
+  const chosen = picked.slice(0, SHELF_CAP.value);
   const byId = new Map(lib.tracks.map((t) => [t.id, t]));
   const tracks: CatalogTrack[] = [];
   for (const [, g] of chosen) {
@@ -335,7 +341,7 @@ const shelfViews = computed(() =>
     icon: s.icon,
     loading: s.loading,
     error: s.error,
-    items: buildShelfItems(s.tracks).slice(0, SHELF_CAP),
+    items: buildShelfItems(s.tracks).slice(0, SHELF_CAP.value),
   })),
 );
 
@@ -370,6 +376,8 @@ function openAlbum(item: AlbumGridItem): void {
 const { mixes, refresh } = useMixes({
   tracks: () => lib.tracks,
   ready: () => !lib.loading && !lib.loadingMore,
+  // 10 mixes on desktop viewports, 8 on mobile.
+  count: () => (isDesktop.value ? 10 : 8),
 });
 const mixCoverReady = useMixCoverReady(() => mixes.value);
 // Live cover-loading state, for probing from devtools while working on the

@@ -5,6 +5,10 @@
     tabindex="0"
     @click="emit('open')"
     @keydown.enter="emit('open')"
+    @contextmenu.prevent="actionsOpen = true"
+    @touchstart.passive="lp.onTouchstart"
+    @touchmove.passive="lp.onTouchmove"
+    @touchend="lp.onTouchend"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
@@ -38,79 +42,50 @@
         </template>
       </div>
 
-      <!-- Actions: play / shuffle (lg quick actions) / pin / edit / export / delete.
-           The server-owned Favorites playlist cannot be renamed or deleted (403),
-           so those two actions are hidden for it (Q21). -->
-      <div class="absolute right-0 top-0 flex flex-wrap items-center justify-end gap-1 p-1.5" @click.stop>
-        <button
-          type="button"
-          class="glass-frost hidden h-8 w-8 items-center justify-center rounded-full lg:flex"
-          aria-label="Play playlist"
-          @click="playPlaylist"
-        >
-          <MageIcon name="play" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="glass-frost hidden h-8 w-8 items-center justify-center rounded-full lg:flex"
-          aria-label="Shuffle play playlist"
-          @click="shufflePlaylist"
-        >
-          <MageIcon name="exchange" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          :class="playlistStore.isPinned(playlist.id) ? 'fill-current text-primary' : ''"
-          :aria-label="playlistStore.isPinned(playlist.id) ? 'Unpin playlist' : 'Pin playlist'"
-          @click="playlistStore.togglePin(playlist.id)"
-        >
-          <MageIcon name="pin" class="h-4 w-4" />
-        </button>
-        <button
-          v-if="!isFavorites"
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          aria-label="Edit playlist"
-          @click="emit('edit')"
-        >
-          <MageIcon name="edit" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          aria-label="Export playlist as M3U"
-          @click="exportOpen = true"
-        >
-          <MageIcon name="export-list" class="h-4 w-4" />
-        </button>
-        <button
-          v-if="!isFavorites"
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          aria-label="Delete playlist"
-          @click="emit('delete')"
-        >
-          <MageIcon name="trash" class="h-4 w-4" />
-        </button>
-      </div>
-
       <!-- Bottom frosted scrim so the title stays legible over artwork -->
       <div
         class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[52px]"
         aria-hidden="true"
       />
 
-      <!-- Title at the bottom of the glass; music icon + count on the right -->
+      <!-- Title at the bottom of the glass; music icon + count on the right.
+           A download icon appears when the playlist is cached for offline; while
+           it downloads, a ring around the icon acts as the progress bar. -->
       <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
         <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
         <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
           <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
+          <span v-if="downloadState !== 'none'" class="relative flex h-4 w-4 items-center justify-center" :title="downloadTitle">
+            <svg v-if="downloadState === 'downloading'" viewBox="0 0 16 16" class="absolute inset-0 h-4 w-4 -rotate-90">
+              <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" />
+              <circle
+                cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                :stroke-dasharray="RING_CIRC" :stroke-dashoffset="ringOffset"
+              />
+            </svg>
+            <MageIcon name="download" class="h-3 w-3" :class="downloadState === 'downloaded' ? 'text-primary' : ''" />
+          </span>
           <MageIcon name="music" class="h-3.5 w-3.5" />
           <span class="tabular-nums">{{ playlist.track_count }}</span>
         </span>
       </div>
     </div>
+
+    <!-- Actions live in a context menu (long-press / right-click), not as
+         overlayed buttons on the cover. -->
+    <PlaylistActionsSheet
+      :open="actionsOpen"
+      :playlist="playlist"
+      @close="actionsOpen = false"
+      @play="playPlaylist"
+      @shuffle="shufflePlaylist"
+      @pin="playlistStore.togglePin(playlist.id)"
+      @edit="emit('edit')"
+      @export="exportOpen = true"
+      @download="offline.downloadPlaylist(playlist.id)"
+      @undownload="offline.removePlaylistDownload(playlist.id)"
+      @delete="emit('delete')"
+    />
 
     <PlaylistExportDialog
       :playlist="playlist"
@@ -124,10 +99,13 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import MageIcon from "./MageIcon.vue";
 import PlaylistExportDialog from "./PlaylistExportDialog.vue";
+import PlaylistActionsSheet from "./PlaylistActionsSheet.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
+import { useOfflineStore } from "../stores/offline";
 import { usePlayerStore } from "../stores/player";
 import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
+import { useLongPress } from "../composables/useLongPress";
 import type { Playlist, CatalogTrack } from "../types";
 
 const props = defineProps<{ playlist: Playlist }>();
@@ -135,15 +113,41 @@ const emit = defineEmits<{ open: []; edit: []; delete: [] }>();
 
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
+const offline = useOfflineStore();
 const player = usePlayerStore();
-
-/** The server-owned Favorites playlist: rename/delete are hidden (Q21). */
-const isFavorites = computed(() => playlistStore.isFavoritesPlaylist(props.playlist));
 
 const cardEl = ref<HTMLElement | null>(null);
 const orderedIds = ref<number[]>([]);
 const exportOpen = ref(false);
+const actionsOpen = ref(false);
 const dragOver = ref(false);
+
+const lp = useLongPress(() => {
+  actionsOpen.value = true;
+});
+
+// ── Offline download badge ──────────────────────────────────────────────────
+// The ring around the download icon doubles as the progress bar while this
+// playlist is the one being downloaded.
+const RING_CIRC = 2 * Math.PI * 6.5;
+
+const downloadState = computed<"none" | "downloading" | "downloaded">(() => {
+  if (offline.activePlaylistId === props.playlist.id) return "downloading";
+  if (offline.isPlaylistDownloaded(props.playlist.id)) return "downloaded";
+  return "none";
+});
+
+const ringOffset = computed(() => {
+  const { done, total } = offline.downloadProgress;
+  const frac = total > 0 ? done / total : 0;
+  return RING_CIRC * (1 - frac);
+});
+
+const downloadTitle = computed(() =>
+  downloadState.value === "downloading"
+    ? `Downloading… ${offline.downloadProgress.done}/${offline.downloadProgress.total}`
+    : "Downloaded for offline",
+);
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 

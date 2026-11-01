@@ -30,18 +30,32 @@ const fields = computed(() => {
   ];
 });
 
+/** Score colour on a red → orange → green scale, so a good score never
+ *  renders white/neutral. Fixed hexes read well on both dark and light. */
+const SCORE_COLORS = [
+  { min: 90, text: "text-[#4ade80]", border: "border-[#4ade80]/50" }, // green
+  { min: 70, text: "text-[#a3e635]", border: "border-[#a3e635]/50" }, // lime
+  { min: 50, text: "text-[#fb923c]", border: "border-[#fb923c]/50" }, // orange
+  { min: 30, text: "text-[#f97316]", border: "border-[#f97316]/50" }, // deep orange
+  { min: 0,  text: "text-[#ef4444]", border: "border-[#ef4444]/50" }, // red
+] as const;
+
+function scoreColor(pct: number) {
+  return SCORE_COLORS.find((s) => pct >= s.min) ?? SCORE_COLORS[SCORE_COLORS.length - 1];
+}
+
+// 100% is plain green like a checkmark, not the theme's primary accent.
+const PERFECT = { text: "text-[#4ade80]", border: "border-[#4ade80]/50" };
+
 function pctColor(pct: number) {
-  if (pct >= 100) return "text-[color:var(--color-primary,#5b7c32)]";
-  if (pct >= 80)  return "text-[color:var(--color-on-surface,#e7e5e4)]";
-  if (pct >= 40)  return "text-[color:var(--color-on-surface-variant,#d6d3d1)]";
-  return "text-[color:var(--color-error,#f87171)]";
+  if (pct >= 100) return PERFECT.text;
+  return scoreColor(pct).text;
 }
 
 function cardBorder(pct: number) {
-  if (pct >= 100) return "border-[color:var(--color-primary,#5b7c32)] bg-[color:var(--color-surface,#292524)]";
-  if (pct >= 80)  return "border-[color:var(--color-outline,#57534e)] bg-[color:var(--color-surface,#292524)]/60";
-  if (pct >= 40)  return "border-[color:var(--color-outline,#57534e)] bg-[color:var(--color-surface,#292524)]/60";
-  return "border-[color:var(--color-error,#b91c1c)]/40 bg-[color:var(--color-surface,#292524)]/60";
+  const bg = "bg-[color:var(--color-surface,#292524)]";
+  if (pct >= 100) return `${PERFECT.border} ${bg}`;
+  return `${scoreColor(pct).border} ${bg}/60`;
 }
 </script>
 
@@ -66,8 +80,8 @@ function cardBorder(pct: number) {
 
       <!-- 100% state -->
       <template v-if="f.pct >= 100">
-        <FeatherIcon name="check-circle" class="mt-1 h-5 w-5 text-[color:var(--color-primary,#5b7c32)]" />
-        <span class="text-sm font-bold text-[color:var(--color-primary,#5b7c32)]">100%</span>
+        <FeatherIcon name="check-circle" class="mt-1 h-5 w-5 text-[#4ade80]" />
+        <span class="text-sm font-bold text-[#4ade80]">100%</span>
       </template>
 
       <!-- Incomplete state -->

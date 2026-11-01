@@ -1,5 +1,11 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+    <!-- Sort / genre / layout / shuffle-all live in the top bar now, not in
+         the bottom bar next to the player. In the desktop tracks layout the
+         table toolbar renders those same actions, so the top bar is skipped
+         and the library shows a single header row. -->
+    <LibraryTopBar v-if="!showDesktopTable" />
+
     <!-- Desktop-class library table (>=1024px, tracks layout). Mounted
          instead of the mobile scroller so it can own its own virtualization
          and keyboard focus; the mobile list below is unaffected. -->
@@ -41,26 +47,6 @@
               @play="player.playTrack(track, lib.filteredTracks)"
               @select="(mods) => onSelect(track, mods)"
               @actions="sheetTrack = track"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div v-else-if="settings.albumViewStyle === 'list'" class="content-col">
-        <div
-          ref="albumsListAnchor"
-          class="pb-4"
-          :style="{ height: `${albumsList.totalHeight.value + 16}px` }"
-        >
-          <div :style="{ transform: `translateY(${albumsList.offsetTop.value}px)` }">
-            <AlbumCard
-              v-for="item in visibleAlbumListItems"
-              :key="item.key"
-              :item="item"
-              mode="list"
-              :is-active="isAlbumActive(item)"
-              @open="openAlbum(item)"
-              @actions="albumActions = item"
             />
           </div>
         </div>
@@ -117,6 +103,7 @@ import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import AlbumActionsHost from "../components/AlbumActionsHost.vue";
+import LibraryTopBar from "../components/LibraryTopBar.vue";
 import LibraryTrackTable from "../components/library/LibraryTrackTable.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
@@ -218,7 +205,6 @@ const albumActions = ref<AlbumGridItem | null>(null);
 
 const scroller = ref<HTMLElement | null>(null);
 const tracksAnchor = ref<HTMLElement | null>(null);
-const albumsListAnchor = ref<HTMLElement | null>(null);
 const albumsAnchor = ref<HTMLElement | null>(null);
 
 const TRACK_ROW_HEIGHT = 56; // h-14, matches REORDER_ROW_HEIGHT
@@ -227,14 +213,6 @@ const tracksList = useVirtualList({
   scroller,
   anchor: tracksAnchor,
   count: () => lib.filteredTracks.length,
-  rowHeight: () => TRACK_ROW_HEIGHT,
-  columns: () => 1,
-});
-
-const albumsList = useVirtualList({
-  scroller,
-  anchor: albumsListAnchor,
-  count: () => lib.albumGridItems.length,
   rowHeight: () => TRACK_ROW_HEIGHT,
   columns: () => 1,
 });
@@ -263,9 +241,6 @@ const albumGrid = useVirtualList({
 const visibleTracks = computed(() =>
   lib.filteredTracks.slice(tracksList.start.value, tracksList.end.value),
 );
-const visibleAlbumListItems = computed(() =>
-  lib.albumGridItems.slice(albumsList.start.value, albumsList.end.value),
-);
 const visibleGridItems = computed(() =>
   lib.albumGridItems.slice(albumGrid.start.value, albumGrid.end.value),
 );
@@ -285,7 +260,7 @@ watch(scrollToActiveSignal, () => {
   }
   const i = lib.albumGridItems.findIndex((item) => item.key === lib.keyForTrack(t));
   if (i < 0) return;
-  (settings.albumViewStyle === "list" ? albumsList : albumGrid).scrollToIndex(i);
+  albumGrid.scrollToIndex(i);
 });
 
 // --- Scroll memory ---------------------------------------------------------

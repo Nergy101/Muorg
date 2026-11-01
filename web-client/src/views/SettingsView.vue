@@ -6,8 +6,8 @@
         <img :src="logoUrl" alt="Muorg" class="h-16 w-16" />
       </div>
 
-      <!-- ─── Muorg Info ─────────────────────────────────────────────── -->
-      <div :class="SECTION">Muorg Info</div>
+      <!-- ─── Muorg Info (the one section that starts expanded) ─────── -->
+      <SettingsSection title="Muorg Info" default-open>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Version</p>
@@ -36,11 +36,10 @@
         </button>
       </div>
 
+      </SettingsSection>
+
       <!-- ─── Playback ───────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="play" class="h-3.5 w-3.5" />
-        <span>Playback</span>
-      </div>
+      <SettingsSection title="Playback" icon="play">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Continuous playback</p>
@@ -98,14 +97,32 @@
           <span :class="knobClass(settings.offlineMode)" />
         </button>
       </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Sleep timer</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Show the sleep timer in the full player
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.sleepTimerEnabled)"
+          role="switch"
+          aria-label="Sleep timer"
+          :data-tip="`Sleep timer is ${settings.sleepTimerEnabled ? 'on' : 'off'} — click to turn ${settings.sleepTimerEnabled ? 'off' : 'on'}`"
+          :aria-checked="settings.sleepTimerEnabled"
+          @click="settings.setSleepTimerEnabled(!settings.sleepTimerEnabled)"
+        >
+          <span :class="knobClass(settings.sleepTimerEnabled)" />
+        </button>
+      </div>
       <PlaybackAudioSettingsSection />
       <div class="hidden lg:block"><KeyboardSettingsSection /></div>
 
+      </SettingsSection>
+
       <!-- ─── Library ────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="music" class="h-3.5 w-3.5" />
-        <span>Library</span>
-      </div>
+      <SettingsSection title="Library" icon="music">
       <button type="button" :class="[ROW, 'w-full text-left']" @click="router.push({ name: 'reports' })">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Reports</p>
@@ -119,39 +136,13 @@
       </button>
       <ReportsSettingsSection />
       <LibraryFoldersSection />
-      <div :class="ROW">
-        <div class="min-w-0 flex-1">
-          <p class="text-body-lg text-on-surface">Default sort order</p>
-        </div>
-        <div ref="sortMenuRef" class="relative">
-          <button
-            type="button"
-            class="flex items-center gap-1 px-2 text-label-lg text-primary"
-            @click="sortMenuOpen = !sortMenuOpen"
-          >
-            <span>{{ sortLabel }}</span>
-            <MageIcon name="chevron-down" class="h-4 w-4" />
-          </button>
-          <div
-            v-if="sortMenuOpen"
-            class="absolute right-0 top-full z-20 mt-1 min-w-[9rem] rounded-xl bg-surface-container py-1 shadow-xl"
-          >
-            <button
-              v-for="opt in SORT_OPTIONS"
-              :key="opt.value"
-              type="button"
-              class="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-body-md text-on-surface"
-              @click="selectSort(opt.value)"
-            >
-              <span>{{ opt.label }}</span>
-              <MageIcon
-                v-if="settings.sortMode === opt.value"
-                name="check"
-                class="h-4 w-4 text-primary"
-              />
-            </button>
-          </div>
-        </div>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Default sort order</p>
+        <SegmentedControl
+          :model-value="settings.sortMode"
+          :options="SORT_OPTIONS"
+          @update:model-value="settings.setSortMode($event as SortMode)"
+        />
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
@@ -177,11 +168,18 @@
         <SegmentedControl
           :model-value="settings.albumViewStyle"
           :options="LAYOUT_OPTIONS"
-          @update:model-value="settings.setAlbumViewStyle($event as AlbumViewStyle)"
+          @update:model-value="settings.setAlbumViewStyle($event as LibraryViewStyle)"
         />
       </div>
       <LibraryTableSettingsSection />
-      <WriteSettingsSection />
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Groupings default to collapsed or expanded</p>
+        <SegmentedControl
+          :model-value="tableStore.defaultGroupsExpanded ? 'expanded' : 'collapsed'"
+          :options="GROUPING_DEFAULT_OPTIONS"
+          @update:model-value="tableStore.setDefaultGroupsExpanded($event === 'expanded')"
+        />
+      </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Reduce motion</p>
@@ -223,10 +221,51 @@
 
       <ExportSettingsSection />
 
+      </SettingsSection>
+
+      <!-- ─── Metadata writing ───────────────────────────────────────── -->
+      <SettingsSection title="Metadata writing" icon="edit">
+      <WriteSettingsSection />
+      </SettingsSection>
+
       <!-- ─── Offline ────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="download" class="h-3.5 w-3.5" />
-        <span>Offline</span>
+      <SettingsSection title="Offline" icon="download">
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Automatic caching</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Automatically cache recently played tracks. Manual playlist downloads work regardless
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.autoCacheEnabled)"
+          role="switch"
+          aria-label="Automatic caching"
+          :data-tip="`Automatic caching is ${settings.autoCacheEnabled ? 'on' : 'off'} — click to turn ${settings.autoCacheEnabled ? 'off' : 'on'}`"
+          :aria-checked="settings.autoCacheEnabled"
+          @click="settings.setAutoCacheEnabled(!settings.autoCacheEnabled)"
+        >
+          <span :class="knobClass(settings.autoCacheEnabled)" />
+        </button>
+      </div>
+      <div v-if="settings.autoCacheEnabled" class="px-4 py-2">
+        <div class="flex items-center justify-between pb-2">
+          <p class="text-body-lg text-on-surface">Max automatic cache size</p>
+          <span class="text-body-sm tabular-nums text-on-surface-variant">
+            {{ formatBytes(settings.autoCacheMaxBytes) }}
+          </span>
+        </div>
+        <input
+          type="range"
+          :min="AUTO_CACHE_MIN_BYTES"
+          :max="AUTO_CACHE_MAX_BYTES"
+          :step="AUTO_CACHE_STEP_BYTES"
+          :value="settings.autoCacheMaxBytes"
+          aria-label="Max automatic cache size"
+          class="w-full"
+          @input="settings.setAutoCacheMaxBytes(($event.target as HTMLInputElement).valueAsNumber)"
+        />
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
@@ -278,11 +317,10 @@
         </button>
       </div>
 
+      </SettingsSection>
+
       <!-- ─── Theme ──────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon :name="themeIcon" class="h-3.5 w-3.5" />
-        <span>Theme</span>
-      </div>
+      <SettingsSection title="Theme" :icon="themeIcon">
       <div class="px-4 py-2">
         <p class="pb-2 text-body-lg text-on-surface">Mode</p>
         <SegmentedControl
@@ -336,11 +374,10 @@
         </div>
       </div>
 
+      </SettingsSection>
+
       <!-- ─── Server ─────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="server" class="h-3.5 w-3.5" />
-        <span>Server</span>
-      </div>
+      <SettingsSection title="Server" icon="server">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Server URL</p>
@@ -407,11 +444,10 @@
 
       <MaintenanceSection />
 
+      </SettingsSection>
+
       <!-- ─── Development ─────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="wrench" class="h-3.5 w-3.5" />
-        <span>Development</span>
-      </div>
+      <SettingsSection title="Development" icon="wrench">
       <a
         :class="ROW"
         href="https://github.com/Nergy101/Muorg"
@@ -425,6 +461,7 @@
       </a>
 
       <div class="h-6" />
+      </SettingsSection>
     </div>
 
     <ConfirmDialog
@@ -450,9 +487,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import SettingsSection from "../components/settings/SettingsSection.vue";
 import SegmentedControl from "../components/SegmentedControl.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import ReportsSettingsSection from "../components/settings/ReportsSettingsSection.vue";
@@ -469,6 +507,7 @@ import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
+import { useLibraryTableStore } from "../stores/libraryTable";
 import { useOfflineStore } from "../stores/offline";
 import { useFoldersStore } from "../stores/folders";
 import { useSelectionStore } from "../stores/selection";
@@ -477,9 +516,8 @@ import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { reportCounts } from "@shared/reports";
 import logoUrl from "../assets/muorg-logo.svg";
-import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types";
+import type { AccentColor, LibraryViewStyle, SortMode, ThemeMode } from "../types";
 
-const SECTION = "px-4 pt-5 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
 const ROW = "flex min-h-14 items-center justify-between gap-4 px-4 py-2";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
@@ -487,9 +525,12 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "artist", label: "Artist" },
   { value: "year", label: "Year" },
 ];
+const GROUPING_DEFAULT_OPTIONS = [
+  { value: "collapsed", label: "Collapsed" },
+  { value: "expanded", label: "Expanded" },
+];
 const LAYOUT_OPTIONS = [
-  { value: "grid", label: "Grid" },
-  { value: "list", label: "List" },
+  { value: "grid", label: "Album covers" },
   { value: "tracks", label: "Tracks" },
 ];
 const THEME_OPTIONS = [
@@ -520,6 +561,7 @@ const reportIssues = computed(() => {
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
+const tableStore = useLibraryTableStore();
 const offline = useOfflineStore();
 const folders = useFoldersStore();
 const selection = useSelectionStore();
@@ -544,31 +586,8 @@ function knobClass(on: boolean): string {
   }`;
 }
 
-// --- Sort dropdown ---------------------------------------------------------
-
-const sortMenuOpen = ref(false);
-const sortMenuRef = ref<HTMLElement | null>(null);
-
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
-
-const sortLabel = computed(
-  () => SORT_OPTIONS.find((o) => o.value === settings.sortMode)?.label ?? "Album",
-);
-
-function selectSort(mode: SortMode): void {
-  settings.setSortMode(mode);
-  sortMenuOpen.value = false;
-}
-
-function onDocumentClick(e: MouseEvent): void {
-  if (!sortMenuOpen.value) return;
-  const el = sortMenuRef.value;
-  if (el && !el.contains(e.target as Node)) sortMenuOpen.value = false;
-}
-
-onMounted(() => document.addEventListener("click", onDocumentClick));
-onUnmounted(() => document.removeEventListener("click", onDocumentClick));
 
 // --- Library refresh -------------------------------------------------------
 
@@ -646,6 +665,10 @@ async function onLogout(): Promise<void> {
 }
 
 // --- Offline cache ---------------------------------------------------------
+
+const AUTO_CACHE_MIN_BYTES = 256 * 1024 * 1024; // 256 MiB
+const AUTO_CACHE_MAX_BYTES = 8 * 1024 * 1024 * 1024; // 8 GiB
+const AUTO_CACHE_STEP_BYTES = 256 * 1024 * 1024; // 256 MiB
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return "0 MB";

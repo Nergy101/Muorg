@@ -98,10 +98,20 @@ export interface MixSource {
    * would otherwise freeze at zero tracks.
    */
   ready: () => boolean;
+  /**
+   * Optional: how many mixes to show. Defaults to MIX_COUNT (8); the web
+   * client passes a larger count on desktop viewports. When the count changes
+   * the session lineup is re-rolled so the new number of mixes is actually
+   * available.
+   */
+  count?: () => number;
 }
 
 // Reactive so the refresh button can re-roll the lineup mid-session.
 const sessionMixes = ref<Mix[] | null>(null);
+// Count the cached lineup was built with, so a viewport-driven count change
+// re-rolls instead of slicing a too-short lineup.
+let sessionMixCount = 0;
 
 export function useMixes(
   source: MixSource,
@@ -119,22 +129,25 @@ export function useMixes(
 
   const mixes = computed<Mix[]>(() => {
     if (!source.ready()) return sessionMixes.value ?? [];
-    if (sessionMixes.value) return sessionMixes.value;
+    const count = Math.min(source.count?.() ?? MIX_COUNT, MIX_DEFS.length);
+    if (sessionMixes.value && sessionMixCount === count) return sessionMixes.value;
+    sessionMixes.value = null;
     const tracks = source.tracks();
     if (tracks.length === 0) return [];
     // Rotate the lineup: partial shuffle of the cohorts, keep the first
-    // MIX_COUNT. Same shuffle pattern as the track sampling.
+    // `count`. Same shuffle pattern as the track sampling.
     const selected = [...MIX_DEFS];
-    for (let i = 0; i < MIX_COUNT; i++) {
+    for (let i = 0; i < count; i++) {
       const j = i + Math.floor(Math.random() * (selected.length - i));
       [selected[i], selected[j]] = [selected[j], selected[i]];
     }
-    sessionMixes.value = selected.slice(0, MIX_COUNT).map((def, i) => ({
+    sessionMixes.value = selected.slice(0, count).map((def, i) => ({
       id: i + 1,
       name: def.name,
       emoji: def.emoji,
       trackIds: sampleTrackIds(tracks, def.genres),
     }));
+    sessionMixCount = count;
     return sessionMixes.value;
   });
 

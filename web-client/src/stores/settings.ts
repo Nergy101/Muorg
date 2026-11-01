@@ -6,6 +6,7 @@ import type { MissingMetadataField } from "@shared/reports";
 import type {
   AccentColor,
   AlbumViewStyle,
+  LibraryViewStyle,
   PlaylistSortMode,
   SortMode,
   ThemeMode,
@@ -69,7 +70,12 @@ export const useSettingsStore = defineStore("settings", () => {
    * above, shared with the library and the settings screen.
    */
   const playlistSortMode = ref<PlaylistSortMode>(loadPref("muorg-web-playlist-sort", "order"));
-  const albumViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-album-view", "grid"));
+  // The library dropped its "list" layout; anyone with it stored falls back to
+  // the album-covers grid, which is also the default.
+  const storedAlbumView = loadPref<string>("muorg-web-album-view", "grid");
+  const albumViewStyle = ref<LibraryViewStyle>(
+    storedAlbumView === "list" ? "grid" : (storedAlbumView as LibraryViewStyle),
+  );
   /** Layout for the playlist/mix detail view — separate from the Library's
    *  albumViewStyle so a user can keep the library as an album grid while
    *  opening playlists as a track list. */
@@ -89,6 +95,14 @@ export const useSettingsStore = defineStore("settings", () => {
   /** Offline mode (mirrors the Android app): the player makes no network
    *  calls and only plays tracks held in the offline cache. */
   const offlineMode = ref(loadPref("muorg-web-offline-mode", false));
+  /** Show the sleep timer in the maximized player. Off by default, which
+   *  hides the moon button there entirely. */
+  const sleepTimerEnabled = ref(loadPref("muorg-web-sleep-timer", false));
+  /** Automatically cache recently played tracks for offline use. Off by
+   *  default; manual playlist downloads work regardless. */
+  const autoCacheEnabled = ref(loadPref("muorg-web-auto-cache", false));
+  /** Max total bytes the automatic recent-plays cache may hold. */
+  const autoCacheMaxBytes = ref(loadPref("muorg-web-auto-cache-max-bytes", 2 * 1024 * 1024 * 1024));
   /** Per-device name recorded with plays on the server (Q19). Required: an
    *  emptied field falls back to the generated default. */
   const deviceName = ref(loadPref("muorg-web-device-name", "") || defaultDeviceName());
@@ -186,16 +200,14 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-playlist-sort", m);
   }
 
-  function setAlbumViewStyle(s: AlbumViewStyle): void {
+  function setAlbumViewStyle(s: LibraryViewStyle): void {
     albumViewStyle.value = s;
     savePref("muorg-web-album-view", s);
   }
 
-  /** grid → list → tracks → grid, matching the Android toolbar toggle. */
+  /** grid ↔ tracks — the library's only two layouts. */
   function cycleAlbumViewStyle(): void {
-    const next: AlbumViewStyle =
-      albumViewStyle.value === "grid" ? "list" : albumViewStyle.value === "list" ? "tracks" : "grid";
-    setAlbumViewStyle(next);
+    setAlbumViewStyle(albumViewStyle.value === "grid" ? "tracks" : "grid");
   }
 
   function setPlaylistViewStyle(s: AlbumViewStyle): void {
@@ -279,6 +291,22 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-offline-mode", v);
   }
 
+  function setSleepTimerEnabled(v: boolean): void {
+    sleepTimerEnabled.value = v;
+    savePref("muorg-web-sleep-timer", v);
+  }
+
+  function setAutoCacheEnabled(v: boolean): void {
+    autoCacheEnabled.value = v;
+    savePref("muorg-web-auto-cache", v);
+  }
+
+  function setAutoCacheMaxBytes(bytes: number): void {
+    const clamped = Math.min(8 * 1024 * 1024 * 1024, Math.max(256 * 1024 * 1024, Math.round(bytes)));
+    autoCacheMaxBytes.value = clamped;
+    savePref("muorg-web-auto-cache-max-bytes", clamped);
+  }
+
   function setDeviceName(v: string): void {
     deviceName.value = v.trim() || defaultDeviceName();
     savePref("muorg-web-device-name", deviceName.value);
@@ -341,6 +369,9 @@ export const useSettingsStore = defineStore("settings", () => {
     reduceMotion,
     openOnLastTab,
     offlineMode,
+    sleepTimerEnabled,
+    autoCacheEnabled,
+    autoCacheMaxBytes,
     deviceName,
     searchHistory,
     recentSearchResultIds,
@@ -364,6 +395,9 @@ export const useSettingsStore = defineStore("settings", () => {
     setReduceMotion,
     setOpenOnLastTab,
     setOfflineMode,
+    setSleepTimerEnabled,
+    setAutoCacheEnabled,
+    setAutoCacheMaxBytes,
     setDeviceName,
     addSearch,
     clearSearchHistory,

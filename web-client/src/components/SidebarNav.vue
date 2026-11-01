@@ -14,7 +14,7 @@
     <!-- Tabs. Queue sits with them as a plain destination: it is not a tab
          (tabIndexForRoute returns -1 for it), so it lights on its own route. -->
     <nav class="flex flex-col gap-1 px-3 py-2">
-      <template v-for="(tab, i) in TABS" :key="tab.name">
+      <template v-for="(tab, i) in mainTabs" :key="tab.name">
         <RouterLink
           :to="{ name: tab.name }"
           class="flex h-11 items-center gap-3 rounded-lg px-3 text-label-lg transition-colors"
@@ -114,6 +114,18 @@
         <MageIcon name="chart-up" class="h-5 w-5 shrink-0" />
         <span class="font-medium">Statistics</span>
       </RouterLink>
+
+      <!-- Settings is pinned as the bottom-most nav item, below the rest. -->
+      <RouterLink
+        :to="{ name: 'settings' }"
+        class="flex h-11 items-center gap-3 rounded-lg px-3 text-label-lg transition-colors"
+        :class="isSettings ? 'bg-primary/[0.15] text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
+        :aria-current="isSettings ? 'page' : undefined"
+        @click="onTabClick('settings')"
+      >
+        <MageIcon :name="isSettings ? 'settings-fill' : 'settings'" class="h-5 w-5 shrink-0" />
+        <span class="font-medium">Settings</span>
+      </RouterLink>
     </nav>
 
     <div class="flex-1" />
@@ -146,6 +158,11 @@ const settings = useSettingsStore();
 
 /** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
 const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
+
+/** Settings renders separately at the bottom of the rail, so it is excluded
+ *  from the main tab loop and gets its own active state. */
+const mainTabs = computed(() => TABS.filter((t) => t.name !== "settings"));
+const isSettings = computed(() => route.name === "settings");
 
 const isQueue = computed(() => route.name === "queue" || route.name === "player-queue");
 

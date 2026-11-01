@@ -33,6 +33,10 @@ export interface AlbumGridItem {
 }
 
 export type AlbumViewStyle = "grid" | "list" | "tracks";
+/** The Library's layouts: album covers (grid) or the tracks table. The
+ *  album "list" layout was removed from the library; playlists keep it via
+ *  `AlbumViewStyle`. */
+export type LibraryViewStyle = "grid" | "tracks";
 export type SortMode = "album" | "artist" | "year";
 
 /**

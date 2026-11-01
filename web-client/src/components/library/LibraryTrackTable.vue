@@ -1,67 +1,137 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <!-- Toolbar -->
-    <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-3 py-2">
-      <div ref="groupMenuRef" class="relative">
-        <button
-          type="button"
-          class="glass-field flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
-          @click="groupMenuOpen = !groupMenuOpen"
-        >
-          <MageIcon name="stack" class="h-4 w-4" />
-          <span>Group: {{ groupByLabel }}</span>
-          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
-        </button>
-        <div
-          v-if="groupMenuOpen"
-          class="absolute left-0 top-full z-30 mt-1 w-36 rounded-xl bg-surface-container py-1 shadow-xl"
-        >
+    <!-- Toolbar: second row under the library top bar, left-aligned, with the
+         table-level controls only (the view-level sort/genre/layout/shuffle
+         live in the top bar above). -->
+    <!-- px-4 matches the top bar so the layout button doesn't shift when
+         switching layouts (the top bar is hidden in this layout). -->
+    <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-4 py-2">
+      <!-- View-level actions (layout, sort, genre, shuffle) first — the top
+           bar is not rendered in this layout, so this row is the only one. -->
+      <LibraryViewActions />
+
+      <!-- Grouping + collapse/expand pill. -->
+      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+        <div ref="groupMenuRef" class="relative">
           <button
-            v-for="opt in GROUP_OPTIONS"
-            :key="opt.value"
             type="button"
-            class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-body-md text-on-surface"
-            @click="selectGroupBy(opt.value)"
+            class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
+            @click="groupMenuOpen = !groupMenuOpen"
           >
-            <span>{{ opt.label }}</span>
-            <MageIcon v-if="tableStore.groupBy === opt.value" name="check" class="h-4 w-4 text-primary" />
+            <MageIcon name="stack" class="h-4 w-4" />
+            <span>Group: {{ groupByLabel }}</span>
+            <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
           </button>
+          <div
+            v-if="groupMenuOpen"
+            class="absolute left-0 top-full z-30 mt-1 w-36 rounded-xl bg-surface-container py-1 shadow-xl"
+          >
+            <button
+              v-for="opt in GROUP_OPTIONS"
+              :key="opt.value"
+              type="button"
+              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-body-md text-on-surface"
+              @click="selectGroupBy(opt.value)"
+            >
+              <span>{{ opt.label }}</span>
+              <MageIcon v-if="tableStore.groupBy === opt.value" name="check" class="h-4 w-4 text-primary" />
+            </button>
+          </div>
         </div>
+
+        <template v-if="tableStore.groupBy !== 'none'">
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
+            aria-label="Expand all groups"
+            title="Expand all groups"
+            @click="expandAllGroups"
+          >
+            <MageIcon name="chevron-double-down" class="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
+            aria-label="Collapse all groups"
+            title="Collapse all groups"
+            @click="collapseAllGroups"
+          >
+            <MageIcon name="chevron-double-up" class="h-4 w-4" />
+          </button>
+        </template>
       </div>
 
-      <template v-if="tableStore.groupBy !== 'none'">
+      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+      <div ref="tableSortMenuRef" class="relative">
         <button
+          ref="tableSortBtnRef"
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
-          aria-label="Expand all groups"
-          title="Expand all groups"
-          @click="expandAllGroups"
+          class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
+          @click="toggleTableSort"
         >
-          <MageIcon name="chevron-down" class="h-4 w-4" />
+          Sort: {{ tableSortLabel }}
+          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
         </button>
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
-          aria-label="Collapse all groups"
-          title="Collapse all groups"
-          @click="collapseAllGroups"
-        >
-          <MageIcon name="chevron-up" class="h-4 w-4" />
-        </button>
-      </template>
+        <Teleport to="body">
+          <div
+            v-if="tableSortMenuOpen"
+            class="glass-strong fixed z-50 w-36 rounded-xl py-1"
+            :style="tableSortMenuPos"
+          >
+            <button
+              v-for="opt in TABLE_SORT_OPTIONS"
+              :key="opt.value ?? 'none'"
+              type="button"
+              class="flex w-full items-center justify-between px-3 py-2 text-left text-label-lg text-on-surface"
+              @click="selectTableSort(opt.value)"
+            >
+              <span>{{ opt.label }}</span>
+              <MageIcon v-if="tableStore.sortColumn === opt.value" name="check" class="h-4 w-4 text-primary" />
+            </button>
+          </div>
+        </Teleport>
+      </div>
+
+      <button
+        type="button"
+        class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
+        :aria-label="tableStore.sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'"
+        @click="tableStore.setSort(tableStore.sortColumn, tableStore.sortDirection === 'asc' ? 'desc' : 'asc')"
+      >
+        <MageIcon :name="tableStore.sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
+      </button>
+      </div>
 
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+      <div ref="minRatingMenuRef" class="relative">
         <button
-          v-for="d in DENSITY_OPTIONS"
-          :key="d.value"
+          ref="minRatingBtnRef"
           type="button"
-          class="rounded-full px-2.5 py-1 text-label-sm transition-colors"
-          :class="tableStore.density === d.value ? 'bg-primary/[0.18] text-primary' : 'text-on-surface-variant'"
-          :aria-pressed="tableStore.density === d.value"
-          @click="tableStore.setDensity(d.value)"
+          class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
+          @click="toggleMinRating"
         >
-          {{ d.label }}
+          Rating: {{ minRatingLabel }}
+          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
         </button>
+        <Teleport to="body">
+          <div
+            v-if="minRatingMenuOpen"
+            class="glass-strong fixed z-50 w-28 rounded-xl py-1"
+            :style="minRatingMenuPos"
+          >
+            <button
+              v-for="opt in MIN_RATING_OPTIONS"
+              :key="opt"
+              type="button"
+              class="flex w-full items-center justify-between px-3 py-2 text-left text-label-lg text-on-surface"
+              @click="selectMinRating(opt)"
+            >
+              <span>{{ opt === 0 ? "All" : `${opt}+★` }}</span>
+              <MageIcon v-if="tableStore.minRating === opt" name="check" class="h-4 w-4 text-primary" />
+            </button>
+          </div>
+        </Teleport>
+      </div>
       </div>
 
       <div class="flex-1" />
@@ -76,7 +146,7 @@
           class="glass-field flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
           @click="colMenuOpen = !colMenuOpen"
         >
-          <MageIcon name="layout-grid" class="h-4 w-4" />
+          <MageIcon name="dash-menu" class="h-4 w-4" />
           <span>Columns</span>
         </button>
         <div
@@ -170,7 +240,13 @@
             >
               <td :colspan="colCount" class="px-2">
                 <div class="flex items-center gap-2">
-                  <img v-if="groupCover(row.group)" :src="groupCover(row.group)!" class="h-7 w-7 shrink-0 rounded object-cover" alt="" />
+                  <img
+                    v-if="groupCover(row.group)"
+                    :src="groupCover(row.group)!"
+                    class="shrink-0 rounded object-cover"
+                    :class="tableStore.density === 'spacious' ? 'h-20 w-20' : 'h-7 w-7'"
+                    alt=""
+                  />
                   <MageIcon v-else name="music" class="h-4 w-4 shrink-0 text-on-surface-variant/50" />
                   <MageIcon
                     name="chevron-right"
@@ -382,6 +458,7 @@ import { usePlayerStore } from "../../stores/player";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSelectionStore } from "../../stores/selection";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
+import LibraryViewActions from "../LibraryViewActions.vue";
 import { openMetadataEditor } from "../../composables/useMetadataEditor";
 import { showToast } from "../../composables/useToast";
 import { startTrackDrag } from "../../composables/useTrackDrag";
@@ -404,18 +481,13 @@ const GROUP_OPTIONS: { value: TableGroupBy; label: string }[] = [
   { value: "artist", label: "Artist" },
   { value: "album", label: "Album" },
 ];
-const DENSITY_OPTIONS = [
-  { value: "compact" as const, label: "Compact" },
-  { value: "comfortable" as const, label: "Comfortable" },
-  { value: "spacious" as const, label: "Spacious" },
-];
-
 const TRACK_ROW_HEIGHT: Record<"compact" | "comfortable" | "spacious", number> = {
   compact: 28,
   comfortable: 44,
-  spacious: 64,
+  // "Spacious" keeps the medium (comfortable) track-row spacing; the extra
+  // room goes into the group header row's cover art instead (see below).
+  spacious: 44,
 };
-const GROUP_ROW_HEIGHT = 40;
 const OVERSCAN = 10;
 
 const lib = useLibraryStore();
@@ -426,12 +498,69 @@ const tableStore = useLibraryTableStore();
 
 // --- Toolbar -----------------------------------------------------------
 
+/** Column sort options for the toolbar — every sortable table column, plus
+ *  "None" to clear the sort. */
+const TABLE_SORT_OPTIONS: { value: TableSortColumn | null; label: string }[] = [
+  { value: null, label: "None" },
+  ...TABLE_COLUMNS.filter((c) => c.sortable).map((c) => ({ value: c.id as TableSortColumn, label: c.label })),
+];
+
+const MIN_RATING_OPTIONS = [0, 1, 2, 3, 4, 5];
+
 const groupMenuOpen = ref(false);
 const groupMenuRef = ref<HTMLElement | null>(null);
 const colMenuOpen = ref(false);
 const colMenuRef = ref<HTMLElement | null>(null);
 
 const groupByLabel = computed(() => GROUP_OPTIONS.find((o) => o.value === tableStore.groupBy)?.label ?? "None");
+
+// --- Table sort dropdown -------------------------------------------------
+
+const tableSortMenuOpen = ref(false);
+const tableSortMenuRef = ref<HTMLElement | null>(null);
+const tableSortBtnRef = ref<HTMLElement | null>(null);
+
+const tableSortLabel = computed(
+  () => TABLE_SORT_OPTIONS.find((o) => o.value === tableStore.sortColumn)?.label ?? "None",
+);
+
+const tableSortMenuPos = computed(() => {
+  const b = tableSortBtnRef.value?.getBoundingClientRect();
+  if (!b) return {};
+  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
+});
+
+function toggleTableSort(): void {
+  tableSortMenuOpen.value = !tableSortMenuOpen.value;
+}
+
+function selectTableSort(column: TableSortColumn | null): void {
+  tableStore.setSort(column, tableStore.sortDirection);
+  tableSortMenuOpen.value = false;
+}
+
+// --- Min-rating filter dropdown ------------------------------------------
+
+const minRatingMenuOpen = ref(false);
+const minRatingMenuRef = ref<HTMLElement | null>(null);
+const minRatingBtnRef = ref<HTMLElement | null>(null);
+
+const minRatingLabel = computed(() => (tableStore.minRating > 0 ? `${tableStore.minRating}+★` : "All"));
+
+const minRatingMenuPos = computed(() => {
+  const b = minRatingBtnRef.value?.getBoundingClientRect();
+  if (!b) return {};
+  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
+});
+
+function toggleMinRating(): void {
+  minRatingMenuOpen.value = !minRatingMenuOpen.value;
+}
+
+function selectMinRating(v: number): void {
+  tableStore.setMinRating(v);
+  minRatingMenuOpen.value = false;
+}
 
 function selectGroupBy(value: TableGroupBy): void {
   tableStore.setGroupBy(value);
@@ -442,6 +571,8 @@ function onDocumentClick(e: MouseEvent): void {
   const target = e.target as Node;
   if (groupMenuOpen.value && groupMenuRef.value && !groupMenuRef.value.contains(target)) groupMenuOpen.value = false;
   if (colMenuOpen.value && colMenuRef.value && !colMenuRef.value.contains(target)) colMenuOpen.value = false;
+  if (tableSortMenuOpen.value && tableSortMenuRef.value && !tableSortMenuRef.value.contains(target)) tableSortMenuOpen.value = false;
+  if (minRatingMenuOpen.value && minRatingMenuRef.value && !minRatingMenuRef.value.contains(target)) minRatingMenuOpen.value = false;
 }
 
 // --- Columns -------------------------------------------------------------
@@ -556,8 +687,12 @@ const scrollRef = ref<HTMLElement | null>(null);
 const scrollTop = ref(0);
 const viewportHeight = ref(0);
 
+/** Group header rows stay compact, except in "spacious" where the cover art
+ *  is rendered much larger and the row grows to fit it. */
+const groupRowHeight = computed(() => (tableStore.density === "spacious" ? 96 : 40));
+
 const rowHeights = computed(() =>
-  rows.value.map((r) => (r.type === "group" ? GROUP_ROW_HEIGHT : TRACK_ROW_HEIGHT[tableStore.density])),
+  rows.value.map((r) => (r.type === "group" ? groupRowHeight.value : TRACK_ROW_HEIGHT[tableStore.density])),
 );
 const rowOffsets = computed(() => {
   const heights = rowHeights.value;
@@ -841,6 +976,16 @@ watch(contextMenu, (menu) => {
     }
   };
   nextTick(() => {
+    // Clamp the menu into the viewport: opened near the bottom (e.g. with one
+    // track selected and the selection bar up) it would otherwise extend
+    // off-screen and its lower items become unclickable.
+    const el = contextMenuRef.value;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const x = Math.max(8, Math.min(menu.x, window.innerWidth - r.width - 8));
+      const y = Math.max(8, Math.min(menu.y, window.innerHeight - r.height - 8));
+      if (x !== menu.x || y !== menu.y) contextMenu.value = { ...menu, x, y };
+    }
     setTimeout(() => {
       document.addEventListener("click", onOutside);
       document.addEventListener("keydown", onEscape);

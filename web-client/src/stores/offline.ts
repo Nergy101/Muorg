@@ -5,6 +5,7 @@ import { getServerUrl, streamUrl } from "../api/client";
 import { showToast } from "../composables/useToast";
 import { useLibraryStore } from "./library";
 import { usePlaylistStore } from "./playlists";
+import { useSettingsStore } from "./settings";
 import { loadPref, savePref } from "./prefs";
 import type { CatalogTrack } from "../types";
 
@@ -62,8 +63,14 @@ export const useOfflineStore = defineStore("offline", () => {
   const cachedBytes = ref(0);
   /** True once init() has scanned the cache. */
   const ready = ref(false);
-  /** True while a download batch is running. */
+  /** True while a manual download batch (playlist) is running. */
   const downloading = ref(false);
+  /** True while the background recent-plays auto-cache batch is running. Kept
+   *  separate from `downloading` so an invisible background refresh never
+   *  blocks — or toasts over — a manual playlist download. */
+  const bgDownloading = ref(false);
+  /** Generation counter: bumping it makes a running background batch stop. */
+  let bgRun = 0;
   /** Progress of the current batch: {done, total}. */
   const downloadProgress = ref<{ done: number; total: number }>({ done: 0, total: 0 });
   /** Playlist id currently being downloaded, or null. */
@@ -128,17 +135,19 @@ export const useOfflineStore = defineStore("offline", () => {
     }
   }
 
-  /** True when `bytes` more would fit under both the quota and the cap. */
-  async function hasRoomFor(bytes: number): Promise<boolean> {
-    if (cachedBytes.value + bytes > MAX_CACHE_BYTES) return false;
+  /** True when `bytes` more would fit under both the quota and the cap.
+   *  `cap` defaults to the hard MAX_CACHE_BYTES; the automatic recent-plays
+   *  cache passes the user-configured slider value instead. */
+  async function hasRoomFor(bytes: number, cap: number = MAX_CACHE_BYTES): Promise<boolean> {
+    if (cachedBytes.value + bytes > cap) return false;
     try {
       const est = await navigator.storage.estimate();
       const quota = est.quota ?? Number.POSITIVE_INFINITY;
       const usage = est.usage ?? 0;
-      return usage + bytes <= Math.min(quota, MAX_CACHE_BYTES);
+      return usage + bytes <= Math.min(quota, cap);
     } catch {
       // No estimate API: fall back to the local cap only.
-      return cachedBytes.value + bytes <= MAX_CACHE_BYTES;
+      return cachedBytes.value + bytes <= cap;
     }
   }
 
@@ -146,7 +155,10 @@ export const useOfflineStore = defineStore("offline", () => {
    *  Cache API cannot reliably store 206 partial responses). With `silent`,
    *  failures are not toasted — the background recent-plays refresh runs on
    *  every navigation and a stale library entry must not nag on each load. */
-  async function downloadTrack(track: CatalogTrack, opts?: { silent?: boolean }): Promise<boolean> {
+  async function downloadTrack(
+    track: CatalogTrack,
+    opts?: { silent?: boolean; cap?: number },
+  ): Promise<boolean> {
     if (!cache) return false;
     if (isCached(track.id)) return true;
     const silent = opts?.silent === true;
@@ -180,7 +192,7 @@ export const useOfflineStore = defineStore("offline", () => {
       return false;
     }
     const size = Number(res.headers.get("content-length") ?? 0);
-    if (size > 0 && !(await hasRoomFor(size))) {
+    if (size > 0 && !(await hasRoomFor(size, opts?.cap))) {
       if (!silent) showToast("Not enough storage for offline downloads");
       return false;
     }
@@ -210,13 +222,21 @@ export const useOfflineStore = defineStore("offline", () => {
   }
 
   /** Downloads tracks sequentially, stopping at the first failure or when the
-   *  storage quota is reached. */
-  async function downloadTracks(tracks: CatalogTrack[], opts?: { silent?: boolean }): Promise<void> {
-    if (downloading.value || tracks.length === 0) return;
-    downloading.value = true;
+   *  storage quota is reached. `background` batches (auto-cache) run under
+   *  their own flag and yield to manual downloads. */
+  async function downloadTracks(
+    tracks: CatalogTrack[],
+    opts?: { silent?: boolean; cap?: number; background?: boolean },
+  ): Promise<void> {
+    const background = opts?.background === true;
+    const flag = background ? bgDownloading : downloading;
+    if (flag.value || tracks.length === 0) return;
+    flag.value = true;
+    const run = ++bgRun;
     downloadProgress.value = { done: 0, total: tracks.length };
     try {
       for (const t of tracks) {
+        if (background && run !== bgRun) break; // preempted by a manual download
         const ok = await downloadTrack(t, opts);
         downloadProgress.value = {
           done: downloadProgress.value.done + 1,
@@ -225,7 +245,7 @@ export const useOfflineStore = defineStore("offline", () => {
         if (!ok) break;
       }
     } finally {
-      downloading.value = false;
+      flag.value = false;
     }
   }
 
@@ -248,6 +268,7 @@ export const useOfflineStore = defineStore("offline", () => {
       return;
     }
     activePlaylistId.value = playlistId;
+    bgRun++; // preempt any background auto-cache batch so it can't interfere
     try {
       await downloadTracks(tracks);
       // Mark downloaded only when every track made it into the cache.
@@ -267,11 +288,31 @@ export const useOfflineStore = defineStore("offline", () => {
     }
   }
 
+  /** Removes every cached track of a downloaded playlist and unmarks it (Q11). */
+  async function removePlaylistDownload(playlistId: number): Promise<void> {
+    const ids = playlistTrackIds.value[playlistId] ?? [];
+    for (const id of ids) {
+      await removeTrack(id);
+    }
+    downloadedPlaylists.value = downloadedPlaylists.value.filter((id) => id !== playlistId);
+    const tracks = { ...playlistTrackIds.value };
+    delete tracks[playlistId];
+    playlistTrackIds.value = tracks;
+    savePref(PLAYLISTS_KEY, downloadedPlaylists.value);
+    savePref(PLAYLIST_TRACKS_KEY, playlistTrackIds.value);
+    showToast("Removed offline download");
+  }
+
   /** Caches the most recent plays automatically, capped at RECENT_CACHE_LIMIT
    *  (Q11). Evicts auto-cached tracks that fell out of the recent list, but
    *  never a track a downloaded playlist needs. */
   async function refreshRecentCache(): Promise<void> {
     if (!ready.value) return;
+    // Automatic caching is a setting (off by default): when disabled, do not
+    // download or evict anything. Manually downloaded playlists are untouched
+    // either way — they are protected and reported independently.
+    const settings = useSettingsStore();
+    if (!settings.autoCacheEnabled) return;
     let recent: CatalogTrack[];
     try {
       recent = await getRecentPlayHistory(RECENT_CACHE_LIMIT);
@@ -292,7 +333,9 @@ export const useOfflineStore = defineStore("offline", () => {
     // whose file is missing on the server must not toast on each load — and
     // tracks that already failed this session are skipped outright.
     const missing = recent.filter((t) => !isCached(t.id) && !failedIds.has(t.id));
-    if (missing.length > 0) await downloadTracks(missing, { silent: true });
+    if (missing.length > 0) {
+      await downloadTracks(missing, { silent: true, cap: settings.autoCacheMaxBytes, background: true });
+    }
   }
 
   /** Removes one track from the offline cache. */
@@ -335,6 +378,7 @@ export const useOfflineStore = defineStore("offline", () => {
     cachedBytes,
     ready,
     downloading,
+    bgDownloading,
     downloadProgress,
     activePlaylistId,
     recentIds,
@@ -347,6 +391,7 @@ export const useOfflineStore = defineStore("offline", () => {
     downloadTrack,
     downloadTracks,
     downloadPlaylist,
+    removePlaylistDownload,
     refreshRecentCache,
     removeTrack,
     clearAll,
