@@ -24,6 +24,7 @@
           >{{ action.label }}</button>
         </div>
       </div>
+
     </Transition>
   </Teleport>
 </template>

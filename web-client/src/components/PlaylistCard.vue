@@ -48,11 +48,23 @@
         aria-hidden="true"
       />
 
-      <!-- Title at the bottom of the glass; music icon + count on the right -->
+      <!-- Title at the bottom of the glass; music icon + count on the right.
+           A download icon appears when the playlist is cached for offline; while
+           it downloads, a ring around the icon acts as the progress bar. -->
       <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
         <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
         <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
           <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
+          <span v-if="downloadState !== 'none'" class="relative flex h-4 w-4 items-center justify-center" :title="downloadTitle">
+            <svg v-if="downloadState === 'downloading'" viewBox="0 0 16 16" class="absolute inset-0 h-4 w-4 -rotate-90">
+              <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" />
+              <circle
+                cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                :stroke-dasharray="RING_CIRC" :stroke-dashoffset="ringOffset"
+              />
+            </svg>
+            <MageIcon name="download" class="h-3 w-3" :class="downloadState === 'downloaded' ? 'text-primary' : ''" />
+          </span>
           <MageIcon name="music" class="h-3.5 w-3.5" />
           <span class="tabular-nums">{{ playlist.track_count }}</span>
         </span>
@@ -112,6 +124,29 @@ const dragOver = ref(false);
 const lp = useLongPress(() => {
   actionsOpen.value = true;
 });
+
+// ── Offline download badge ──────────────────────────────────────────────────
+// The ring around the download icon doubles as the progress bar while this
+// playlist is the one being downloaded.
+const RING_CIRC = 2 * Math.PI * 6.5;
+
+const downloadState = computed<"none" | "downloading" | "downloaded">(() => {
+  if (offline.activePlaylistId === props.playlist.id) return "downloading";
+  if (offline.isPlaylistDownloaded(props.playlist.id)) return "downloaded";
+  return "none";
+});
+
+const ringOffset = computed(() => {
+  const { done, total } = offline.downloadProgress;
+  const frac = total > 0 ? done / total : 0;
+  return RING_CIRC * (1 - frac);
+});
+
+const downloadTitle = computed(() =>
+  downloadState.value === "downloading"
+    ? `Downloading… ${offline.downloadProgress.done}/${offline.downloadProgress.total}`
+    : "Downloaded for offline",
+);
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 
