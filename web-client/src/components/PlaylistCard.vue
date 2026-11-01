@@ -5,6 +5,10 @@
     tabindex="0"
     @click="emit('open')"
     @keydown.enter="emit('open')"
+    @contextmenu.prevent="actionsOpen = true"
+    @touchstart.passive="lp.onTouchstart"
+    @touchmove.passive="lp.onTouchmove"
+    @touchend="lp.onTouchend"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
@@ -38,63 +42,6 @@
         </template>
       </div>
 
-      <!-- Actions: play / shuffle (lg quick actions) / pin / edit / export / delete.
-           The server-owned Favorites playlist cannot be renamed or deleted (403),
-           so those two actions are hidden for it (Q21). -->
-      <div class="absolute right-0 top-0 flex flex-wrap items-center justify-end gap-1 p-1.5" @click.stop>
-        <button
-          type="button"
-          class="glass-frost hidden h-8 w-8 items-center justify-center rounded-full lg:flex"
-          aria-label="Play playlist"
-          @click="playPlaylist"
-        >
-          <MageIcon name="play" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="glass-frost hidden h-8 w-8 items-center justify-center rounded-full lg:flex"
-          aria-label="Shuffle play playlist"
-          @click="shufflePlaylist"
-        >
-          <MageIcon name="exchange" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          :class="playlistStore.isPinned(playlist.id) ? 'fill-current text-primary' : ''"
-          :aria-label="playlistStore.isPinned(playlist.id) ? 'Unpin playlist' : 'Pin playlist'"
-          @click="playlistStore.togglePin(playlist.id)"
-        >
-          <MageIcon name="pin" class="h-4 w-4" />
-        </button>
-        <button
-          v-if="!isFavorites"
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          aria-label="Edit playlist"
-          @click="emit('edit')"
-        >
-          <MageIcon name="edit" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          aria-label="Export playlist as M3U"
-          @click="exportOpen = true"
-        >
-          <MageIcon name="export-list" class="h-4 w-4" />
-        </button>
-        <button
-          v-if="!isFavorites"
-          type="button"
-          class="glass-frost flex h-8 w-8 items-center justify-center rounded-full"
-          aria-label="Delete playlist"
-          @click="emit('delete')"
-        >
-          <MageIcon name="trash" class="h-4 w-4" />
-        </button>
-      </div>
-
       <!-- Bottom frosted scrim so the title stays legible over artwork -->
       <div
         class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[52px]"
@@ -112,6 +59,20 @@
       </div>
     </div>
 
+    <!-- Actions live in a context menu (long-press / right-click), not as
+         overlayed buttons on the cover. -->
+    <PlaylistActionsSheet
+      :open="actionsOpen"
+      :playlist="playlist"
+      @close="actionsOpen = false"
+      @play="playPlaylist"
+      @shuffle="shufflePlaylist"
+      @pin="playlistStore.togglePin(playlist.id)"
+      @edit="emit('edit')"
+      @export="exportOpen = true"
+      @delete="emit('delete')"
+    />
+
     <PlaylistExportDialog
       :playlist="playlist"
       :open="exportOpen"
@@ -124,10 +85,12 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import MageIcon from "./MageIcon.vue";
 import PlaylistExportDialog from "./PlaylistExportDialog.vue";
+import PlaylistActionsSheet from "./PlaylistActionsSheet.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
 import { usePlayerStore } from "../stores/player";
 import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
+import { useLongPress } from "../composables/useLongPress";
 import type { Playlist, CatalogTrack } from "../types";
 
 const props = defineProps<{ playlist: Playlist }>();
@@ -137,13 +100,15 @@ const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
 const player = usePlayerStore();
 
-/** The server-owned Favorites playlist: rename/delete are hidden (Q21). */
-const isFavorites = computed(() => playlistStore.isFavoritesPlaylist(props.playlist));
-
 const cardEl = ref<HTMLElement | null>(null);
 const orderedIds = ref<number[]>([]);
 const exportOpen = ref(false);
+const actionsOpen = ref(false);
 const dragOver = ref(false);
+
+const lp = useLongPress(() => {
+  actionsOpen.value = true;
+});
 
 const trackById = computed(() => new Map(lib.tracks.map((t) => [t.id, t])));
 
