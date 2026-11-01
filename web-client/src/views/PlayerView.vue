@@ -29,6 +29,7 @@
              moves underneath the transport buttons — see below. -->
         <div class="glass-sheer flex items-center overflow-hidden rounded-full lg:hidden">
           <button
+            v-if="settings.sleepTimerEnabled"
             type="button"
             class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
             :class="player.sleepTimerActive ? 'text-primary' : ''"
@@ -261,6 +262,7 @@
             </div>
             <div class="glass-sheer flex items-center overflow-hidden rounded-full">
               <button
+                v-if="settings.sleepTimerEnabled"
                 type="button"
                 class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
                 :class="player.sleepTimerActive ? 'text-primary' : ''"
@@ -347,6 +349,7 @@ import CoverBackdrop from "../components/CoverBackdrop.vue";
 import { useDominantColor } from "../composables/useDominantColor";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
+import { useSettingsStore } from "../stores/settings";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
@@ -357,6 +360,7 @@ const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 
 const router = useRouter();
 const player = usePlayerStore();
+const settings = useSettingsStore();
 const lib = useLibraryStore();
 const cast = useCastStore();
 

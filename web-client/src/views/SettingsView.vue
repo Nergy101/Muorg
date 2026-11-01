@@ -97,6 +97,25 @@
           <span :class="knobClass(settings.offlineMode)" />
         </button>
       </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Sleep timer</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Show the sleep timer in the full player
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.sleepTimerEnabled)"
+          role="switch"
+          aria-label="Sleep timer"
+          :data-tip="`Sleep timer is ${settings.sleepTimerEnabled ? 'on' : 'off'} — click to turn ${settings.sleepTimerEnabled ? 'off' : 'on'}`"
+          :aria-checked="settings.sleepTimerEnabled"
+          @click="settings.setSleepTimerEnabled(!settings.sleepTimerEnabled)"
+        >
+          <span :class="knobClass(settings.sleepTimerEnabled)" />
+        </button>
+      </div>
       <PlaybackAudioSettingsSection />
       <div class="hidden lg:block"><KeyboardSettingsSection /></div>
 

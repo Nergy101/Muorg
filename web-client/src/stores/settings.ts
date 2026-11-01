@@ -95,6 +95,9 @@ export const useSettingsStore = defineStore("settings", () => {
   /** Offline mode (mirrors the Android app): the player makes no network
    *  calls and only plays tracks held in the offline cache. */
   const offlineMode = ref(loadPref("muorg-web-offline-mode", false));
+  /** Show the sleep timer in the maximized player. Off by default, which
+   *  hides the moon button there entirely. */
+  const sleepTimerEnabled = ref(loadPref("muorg-web-sleep-timer", false));
   /** Per-device name recorded with plays on the server (Q19). Required: an
    *  emptied field falls back to the generated default. */
   const deviceName = ref(loadPref("muorg-web-device-name", "") || defaultDeviceName());
@@ -283,6 +286,11 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-offline-mode", v);
   }
 
+  function setSleepTimerEnabled(v: boolean): void {
+    sleepTimerEnabled.value = v;
+    savePref("muorg-web-sleep-timer", v);
+  }
+
   function setDeviceName(v: string): void {
     deviceName.value = v.trim() || defaultDeviceName();
     savePref("muorg-web-device-name", deviceName.value);
@@ -345,6 +353,7 @@ export const useSettingsStore = defineStore("settings", () => {
     reduceMotion,
     openOnLastTab,
     offlineMode,
+    sleepTimerEnabled,
     deviceName,
     searchHistory,
     recentSearchResultIds,
@@ -368,6 +377,7 @@ export const useSettingsStore = defineStore("settings", () => {
     setReduceMotion,
     setOpenOnLastTab,
     setOfflineMode,
+    setSleepTimerEnabled,
     setDeviceName,
     addSearch,
     clearSearchHistory,
