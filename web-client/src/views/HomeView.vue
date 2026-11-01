@@ -71,6 +71,7 @@
             mode="grid"
             class="w-full"
             @open="openAlbum(item)"
+            @actions="albumActions = item"
           />
         </div>
       </section>
@@ -170,10 +171,15 @@
             mode="grid"
             class="w-full"
             @open="openAlbum(item)"
+            @actions="albumActions = item"
           />
         </div>
       </section>
     </div>
+
+    <!-- Long-press / right-click on any album card on this screen: the same
+         album context menu the Library shows (play, playlist, download…). -->
+    <AlbumActionsHost :item="albumActions" @close="albumActions = null" />
   </div>
 </template>
 
@@ -182,6 +188,7 @@ import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
+import AlbumActionsHost from "../components/AlbumActionsHost.vue";
 import MixCard from "../components/MixCard.vue";
 import ShelfSkeleton from "../components/ShelfSkeleton.vue";
 import logoUrl from "../assets/muorg-logo.svg";
@@ -372,6 +379,12 @@ onActivated(() => {
 function openAlbum(item: AlbumGridItem): void {
   void router.push({ name: "album", params: { albumKey: item.key } });
 }
+
+// --- Album context menu ----------------------------------------------------
+// Long-press / right-click ("more") on an album card. The menu itself lives
+// in AlbumActionsHost, shared with every other screen that shows album cards.
+
+const albumActions = ref<AlbumGridItem | null>(null);
 
 const { mixes, refresh } = useMixes({
   tracks: () => lib.tracks,

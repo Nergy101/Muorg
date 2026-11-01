@@ -108,6 +108,19 @@
                     <span>Add to playlist</span>
                   </button>
                   <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface disabled:opacity-50"
+                    :disabled="albumDownloading || tracks.length === 0"
+                    @click="toggleAlbumDownload"
+                  >
+                    <MageIcon
+                      :name="albumDownloading ? 'refresh' : 'download'"
+                      class="h-4 w-4 text-primary"
+                      :class="albumDownloading ? 'animate-spin' : ''"
+                    />
+                    <span>{{ albumDownloaded ? "Remove offline download" : "Download for offline" }}</span>
+                  </button>
+                  <button
                     v-if="item?.albumArtist"
                     type="button"
                     class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface"
@@ -183,6 +196,7 @@ import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
+import { useOfflineStore } from "../stores/offline";
 import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { provideVisibleIds } from "../composables/useSelectableList";
@@ -199,6 +213,7 @@ const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
+const offline = useOfflineStore();
 const selection = useSelectionStore();
 
 const albumKey = computed(() => props.albumKey);
@@ -316,6 +331,23 @@ function viewArtistFromAlbum(): void {
   const name = item.value?.albumArtist;
   menuOpen.value = false;
   if (name) void router.push({ name: "artist", params: { name } });
+}
+
+// --- Offline download ------------------------------------------------------
+
+const albumDownloading = computed(
+  () => offline.activeAlbumKey === albumKey.value,
+);
+const albumDownloaded = computed(() => offline.isAlbumDownloaded(albumKey.value));
+
+/** Same toggle the album context menu's download row performs. */
+async function toggleAlbumDownload(): Promise<void> {
+  menuOpen.value = false;
+  if (offline.isAlbumDownloaded(albumKey.value)) {
+    await offline.removeAlbumDownload(albumKey.value);
+  } else {
+    await offline.downloadAlbum(albumKey.value);
+  }
 }
 
 // --- Track actions sheet ---------------------------------------------------
