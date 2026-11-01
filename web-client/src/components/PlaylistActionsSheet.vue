@@ -27,18 +27,6 @@
 
       <div class="my-1 border-t border-outline/30" />
 
-      <button type="button" :class="ROW" @click="emit('pin'); emit('close')">
-        <MageIcon name="pin" class="h-5 w-5 shrink-0" :class="pinned ? 'text-primary' : 'text-on-surface-variant'" />
-        <span>{{ pinned ? "Unpin playlist" : "Pin playlist" }}</span>
-      </button>
-      <button v-if="!isFavorites" type="button" :class="ROW" @click="emit('edit'); emit('close')">
-        <MageIcon name="edit" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-        <span>Edit playlist</span>
-      </button>
-      <button type="button" :class="ROW" @click="emit('export'); emit('close')">
-        <MageIcon name="export-list" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-        <span>Export as M3U</span>
-      </button>
       <button
         type="button"
         :class="ROW"
@@ -51,6 +39,18 @@
           :class="downloadClass"
         />
         <span>{{ downloaded ? "Downloaded for offline" : "Download for offline" }}</span>
+      </button>
+      <button type="button" :class="ROW" @click="emit('pin'); emit('close')">
+        <MageIcon name="pin" class="h-5 w-5 shrink-0" :class="pinned ? 'text-primary' : 'text-on-surface-variant'" />
+        <span>{{ pinned ? "Unpin playlist" : "Pin playlist" }}</span>
+      </button>
+      <button v-if="!isFavorites" type="button" :class="ROW" @click="emit('edit'); emit('close')">
+        <MageIcon name="edit" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+        <span>Edit playlist</span>
+      </button>
+      <button type="button" :class="ROW" @click="emit('export'); emit('close')">
+        <MageIcon name="export-list" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+        <span>Export as M3U</span>
       </button>
       <button
         v-if="!isFavorites"
