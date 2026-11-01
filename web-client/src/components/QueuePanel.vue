@@ -23,9 +23,13 @@
       </button>
       <button
         type="button"
-        class="px-2 text-label-lg text-primary"
+        class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+        aria-label="Clear all"
+        title="Clear all"
         @click="player.clearQueue()"
-      >Clear all</button>
+      >
+        <MageIcon name="trash" class="h-5 w-5" />
+      </button>
     </div>
 
     <div
