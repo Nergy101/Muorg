@@ -40,6 +40,19 @@
         <span>Export as M3U</span>
       </button>
       <button
+        type="button"
+        :class="ROW"
+        :disabled="downloading"
+        @click="emit('download'); emit('close')"
+      >
+        <MageIcon
+          name="download"
+          class="h-5 w-5 shrink-0"
+          :class="downloadClass"
+        />
+        <span>{{ downloaded ? "Downloaded for offline" : "Download for offline" }}</span>
+      </button>
+      <button
         v-if="!isFavorites"
         type="button"
         :class="[ROW, 'text-error']"
@@ -60,6 +73,7 @@ import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { usePlaylistStore } from "../stores/playlists";
+import { useOfflineStore } from "../stores/offline";
 import type { Playlist } from "../types";
 
 const ROW = "flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface";
@@ -72,12 +86,23 @@ const emit = defineEmits<{
   pin: [];
   edit: [];
   export: [];
+  download: [];
   delete: [];
 }>();
 
 const playlistStore = usePlaylistStore();
+const offline = useOfflineStore();
 
 const pinned = computed(() => (props.playlist ? playlistStore.isPinned(props.playlist.id) : false));
+const downloading = computed(() =>
+  props.playlist ? offline.activePlaylistId === props.playlist.id : false,
+);
+const downloaded = computed(() =>
+  props.playlist ? offline.isPlaylistDownloaded(props.playlist.id) : false,
+);
+const downloadClass = computed(() =>
+  `${downloaded.value ? "text-primary" : "text-on-surface-variant"} ${downloading.value ? "animate-spin" : ""}`,
+);
 /** The server-owned Favorites playlist cannot be renamed or deleted (Q21). */
 const isFavorites = computed(() =>
   props.playlist ? playlistStore.isFavoritesPlaylist(props.playlist) : false,

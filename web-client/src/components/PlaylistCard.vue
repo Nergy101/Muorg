@@ -70,6 +70,7 @@
       @pin="playlistStore.togglePin(playlist.id)"
       @edit="emit('edit')"
       @export="exportOpen = true"
+      @download="offline.downloadPlaylist(playlist.id)"
       @delete="emit('delete')"
     />
 
@@ -88,6 +89,7 @@ import PlaylistExportDialog from "./PlaylistExportDialog.vue";
 import PlaylistActionsSheet from "./PlaylistActionsSheet.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import { usePlaylistStore } from "../stores/playlists";
+import { useOfflineStore } from "../stores/offline";
 import { usePlayerStore } from "../stores/player";
 import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
 import { useLongPress } from "../composables/useLongPress";
@@ -98,6 +100,7 @@ const emit = defineEmits<{ open: []; edit: []; delete: [] }>();
 
 const lib = useLibraryStore();
 const playlistStore = usePlaylistStore();
+const offline = useOfflineStore();
 const player = usePlayerStore();
 
 const cardEl = ref<HTMLElement | null>(null);
