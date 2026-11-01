@@ -37,6 +37,8 @@ import nl.muorg.android.ui.icon.MageIcon
 @Composable
 fun PlaylistActionsSheet(
     playlist: Playlist,
+    /** Most common release year among the playlist's tracks, if any. */
+    year: Int? = null,
     covers: List<Any>,
     imageLoader: ImageLoader,
     pinned: Boolean,
@@ -86,7 +88,10 @@ fun PlaylistActionsSheet(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 MarqueeText(
-                    "${playlist.trackCount} tracks",
+                    buildString {
+                        if (year != null) append(year).append(" · ")
+                        append(playlist.trackCount).append(if (playlist.trackCount == 1) " track" else " tracks")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

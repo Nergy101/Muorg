@@ -37,6 +37,8 @@ data class PlaylistsUiState(
     val editIcon: String = "🎵",
     /** Four DISTINCT-album track ids per playlist, for the 2x2 cover mosaic. */
     val covers: Map<Int, List<Int>> = emptyMap(),
+    /** Most common release year among each playlist's tracks, for the sheet header. */
+    val years: Map<Int, Int?> = emptyMap(),
     /**
      * Track id to on-device art file, for the local-mode mosaic. Empty in
      * server mode — server tracks have no local art — so the tiles fall back
@@ -179,15 +181,22 @@ class PlaylistsViewModel @Inject constructor(
                 val covers = playlists.map { playlist ->
                     async {
                         val tracks = offlineDownloadManager.getDownloadedTracks(playlist.id)
-                        playlist.id to pickDistinctCovers(
-                            tracks.map { it.id },
-                            tracks.associateBy { it.id },
+                        Triple(
+                            playlist.id,
+                            pickDistinctCovers(tracks.map { it.id }, tracks.associateBy { it.id }),
+                            mostCommonYear(tracks),
                         )
                     }
-                }.awaitAll().toMap()
+                }.awaitAll()
                 // Downloaded tracks carry no local art files, so there are no
                 // local cover paths to offer in offline mode either.
-                _uiState.update { it.copy(covers = covers, coverPaths = emptyMap()) }
+                _uiState.update {
+                    it.copy(
+                        covers = covers.associate { (id, coverIds, _) -> id to coverIds },
+                        years = covers.associate { (id, _, year) -> id to year },
+                        coverPaths = emptyMap(),
+                    )
+                }
                 return@launch
             }
 
@@ -208,12 +217,17 @@ class PlaylistsViewModel @Inject constructor(
                     } else {
                         repository.getTracksFor(playlist).getOrDefault(emptyList())
                     }
-                    playlist.id to pickDistinctCovers(ids, byId)
+                    Triple(
+                        playlist.id,
+                        pickDistinctCovers(ids, byId),
+                        mostCommonYear(ids.mapNotNull { byId[it] }),
+                    )
                 }
-            }.awaitAll().toMap()
+            }.awaitAll()
             _uiState.update {
                 it.copy(
-                    covers = covers,
+                    covers = covers.associate { (id, coverIds, _) -> id to coverIds },
+                    years = covers.associate { (id, _, year) -> id to year },
                     coverPaths = byId.mapNotNull { (id, track) ->
                         track.localCoverPath?.let { path -> id to path }
                     }.toMap(),
@@ -221,6 +235,14 @@ class PlaylistsViewModel @Inject constructor(
             }
         }
     }
+
+    /** The most frequent non-null release year among the given tracks. */
+    private fun mostCommonYear(tracks: List<CatalogTrack>): Int? =
+        tracks.mapNotNull { it.year }
+            .groupingBy { it }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key
 
     private fun pickDistinctCovers(
         trackIds: List<Int>,

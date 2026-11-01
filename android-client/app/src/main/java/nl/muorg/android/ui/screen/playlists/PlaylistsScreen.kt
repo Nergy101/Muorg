@@ -320,6 +320,7 @@ fun PlaylistsScreen(
         val isFavorites = uiState.isServerMode && playlist.name == FAVORITES_PLAYLIST_NAME
         PlaylistActionsSheet(
             playlist = playlist,
+            year = uiState.years[playlist.id],
             covers = covers,
             imageLoader = imageLoader,
             pinned = playlist.id in uiState.pinnedIds,
