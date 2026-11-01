@@ -80,25 +80,6 @@
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
-          <p class="text-body-lg text-on-surface">Offline mode</p>
-          <p class="text-body-sm text-on-surface-variant">
-            No network calls — only downloaded tracks are available
-          </p>
-        </div>
-        <button
-          type="button"
-          :class="switchClass(settings.offlineMode)"
-          role="switch"
-          aria-label="Offline mode"
-          :data-tip="`Offline mode is ${settings.offlineMode ? 'on' : 'off'} — click to turn ${settings.offlineMode ? 'off' : 'on'}`"
-          :aria-checked="settings.offlineMode"
-          @click="settings.setOfflineMode(!settings.offlineMode)"
-        >
-          <span :class="knobClass(settings.offlineMode)" />
-        </button>
-      </div>
-      <div :class="ROW">
-        <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Sleep timer</p>
           <p class="text-body-sm text-on-surface-variant">
             Show the sleep timer in the full player
@@ -230,6 +211,25 @@
 
       <!-- ─── Offline ────────────────────────────────────────────────── -->
       <SettingsSection title="Offline" icon="download">
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Offline mode</p>
+          <p class="text-body-sm text-on-surface-variant">
+            No network calls — only downloaded tracks are available
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.offlineMode)"
+          role="switch"
+          aria-label="Offline mode"
+          :data-tip="`Offline mode is ${settings.offlineMode ? 'on' : 'off'} — click to turn ${settings.offlineMode ? 'off' : 'on'}`"
+          :aria-checked="settings.offlineMode"
+          @click="settings.setOfflineMode(!settings.offlineMode)"
+        >
+          <span :class="knobClass(settings.offlineMode)" />
+        </button>
+      </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Automatic caching</p>
