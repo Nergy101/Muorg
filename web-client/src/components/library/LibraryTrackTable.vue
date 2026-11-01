@@ -12,32 +12,15 @@
 
       <!-- Grouping + collapse/expand pill. -->
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
-        <div ref="groupMenuRef" class="relative">
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
-            @click="groupMenuOpen = !groupMenuOpen"
-          >
-            <MageIcon name="stack" class="h-4 w-4" />
-            <span>Group: {{ groupByLabel }}</span>
-            <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
-          </button>
-          <div
-            v-if="groupMenuOpen"
-            class="absolute left-0 top-full z-30 mt-1 w-36 rounded-xl bg-surface-container py-1 shadow-xl"
-          >
-            <button
-              v-for="opt in GROUP_OPTIONS"
-              :key="opt.value"
-              type="button"
-              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-body-md text-on-surface"
-              @click="selectGroupBy(opt.value)"
-            >
-              <span>{{ opt.label }}</span>
-              <MageIcon v-if="tableStore.groupBy === opt.value" name="check" class="h-4 w-4 text-primary" />
-            </button>
-          </div>
-        </div>
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
+          @click="groupMenuOpen = true"
+        >
+          <MageIcon name="stack" class="h-4 w-4" />
+          <span>Group: {{ groupByLabel }}</span>
+          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
+        </button>
 
         <template v-if="tableStore.groupBy !== 'none'">
           <button
@@ -62,35 +45,14 @@
       </div>
 
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
-      <div ref="tableSortMenuRef" class="relative">
         <button
-          ref="tableSortBtnRef"
           type="button"
           class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
-          @click="toggleTableSort"
+          @click="tableSortMenuOpen = true"
         >
           Sort: {{ tableSortLabel }}
           <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
         </button>
-        <Teleport to="body">
-          <div
-            v-if="tableSortMenuOpen"
-            class="glass-strong fixed z-50 w-36 rounded-xl py-1"
-            :style="tableSortMenuPos"
-          >
-            <button
-              v-for="opt in TABLE_SORT_OPTIONS"
-              :key="opt.value ?? 'none'"
-              type="button"
-              class="flex w-full items-center justify-between px-3 py-2 text-left text-label-lg text-on-surface"
-              @click="selectTableSort(opt.value)"
-            >
-              <span>{{ opt.label }}</span>
-              <MageIcon v-if="tableStore.sortColumn === opt.value" name="check" class="h-4 w-4 text-primary" />
-            </button>
-          </div>
-        </Teleport>
-      </div>
 
       <button
         type="button"
@@ -103,35 +65,14 @@
       </div>
 
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
-      <div ref="minRatingMenuRef" class="relative">
         <button
-          ref="minRatingBtnRef"
           type="button"
           class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
-          @click="toggleMinRating"
+          @click="minRatingMenuOpen = true"
         >
           Rating: {{ minRatingLabel }}
           <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
         </button>
-        <Teleport to="body">
-          <div
-            v-if="minRatingMenuOpen"
-            class="glass-strong fixed z-50 w-28 rounded-xl py-1"
-            :style="minRatingMenuPos"
-          >
-            <button
-              v-for="opt in MIN_RATING_OPTIONS"
-              :key="opt"
-              type="button"
-              class="flex w-full items-center justify-between px-3 py-2 text-left text-label-lg text-on-surface"
-              @click="selectMinRating(opt)"
-            >
-              <span>{{ opt === 0 ? "All" : `${opt}+★` }}</span>
-              <MageIcon v-if="tableStore.minRating === opt" name="check" class="h-4 w-4 text-primary" />
-            </button>
-          </div>
-        </Teleport>
-      </div>
       </div>
 
       <div class="flex-1" />
@@ -140,40 +81,14 @@
         {{ selection.count }} selected
       </span>
 
-      <div ref="colMenuRef" class="relative">
-        <button
-          type="button"
-          class="glass-field flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
-          @click="colMenuOpen = !colMenuOpen"
-        >
-          <MageIcon name="dash-menu" class="h-4 w-4" />
-          <span>Columns</span>
-        </button>
-        <div
-          v-if="colMenuOpen"
-          class="absolute right-0 top-full z-30 mt-1 w-44 rounded-xl bg-surface-container py-1 shadow-xl"
-        >
-          <label
-            v-for="col in TABLE_COLUMNS"
-            :key="col.id"
-            class="flex items-center gap-2 px-3 py-1.5 text-label-lg text-on-surface"
-          >
-            <input
-              type="checkbox"
-              :checked="tableStore.visibleColumns[col.id]"
-              @change="tableStore.setColumnVisible(col.id, ($event.target as HTMLInputElement).checked)"
-            />
-            <span>{{ col.label }}</span>
-          </label>
-          <button
-            type="button"
-            class="mt-1 w-full border-t border-outline/10 px-3 pt-2 text-left text-label-lg text-primary"
-            @click="tableStore.resetColumnWidths()"
-          >
-            Reset widths
-          </button>
-        </div>
-      </div>
+      <button
+        type="button"
+        class="glass-field flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
+        @click="colMenuOpen = true"
+      >
+        <MageIcon name="dash-menu" class="h-4 w-4" />
+        <span>Columns</span>
+      </button>
     </div>
 
     <!-- Table -->
@@ -342,92 +257,80 @@
       </table>
     </div>
 
-    <!-- Context menu -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenu"
-        ref="contextMenuRef"
-        class="glass-strong fixed z-50 w-60 rounded-xl py-1 shadow-2xl"
-        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+    <!-- Context menu: a bottom sheet, same as the Android app. -->
+    <TrackContextSheet
+      :open="sheetTracks !== null"
+      :tracks="sheetTracks ?? []"
+      @close="sheetTracks = null"
+    />
+
+    <!-- Dropdown menus as bottom sheets, same as the Android app. -->
+    <BottomSheet :open="groupMenuOpen" @close="groupMenuOpen = false">
+      <div :class="SHEET_LABEL">GROUP BY</div>
+      <button
+        v-for="opt in GROUP_OPTIONS"
+        :key="opt.value"
+        type="button"
+        :class="SHEET_ROW"
+        @click="selectGroupBy(opt.value)"
       >
-        <template v-if="!infoOpen && !addToPlaylistOpen">
-          <button type="button" :class="MENU_ROW" @click="menuPlay">
-            <MageIcon name="play" class="h-4 w-4" />
-            <span>Play</span>
-          </button>
-          <button type="button" :class="MENU_ROW" @click="menuPlayNext">
-            <MageIcon name="next" class="h-4 w-4" />
-            <span>Play next</span>
-          </button>
-          <button type="button" :class="MENU_ROW" @click="menuAddToQueue">
-            <MageIcon name="playlist" class="h-4 w-4" />
-            <span>Add to queue</span>
-          </button>
-          <button type="button" :class="MENU_ROW" @click="addToPlaylistOpen = true">
-            <MageIcon name="playlist-add" class="h-4 w-4" />
-            <span>Add to playlist…</span>
-          </button>
-          <button type="button" :class="MENU_ROW" @click="menuToggleFavorite">
-            <MageIcon name="heart" class="h-4 w-4" :class="contextMenuAllFavorite ? 'text-primary' : ''" />
-            <span>{{ contextMenuAllFavorite ? "Unfavourite" : "Favourite" }}</span>
-          </button>
-          <div class="flex items-center justify-between gap-3 px-4 py-2">
-            <span class="flex items-center gap-2 text-body-lg text-on-surface">
-              <MageIcon name="star" class="hidden" />
-              Rate
-            </span>
-            <StarRatingCell :model-value="contextMenuRating" @update:model-value="menuSetRating" />
-          </div>
-          <div class="my-1 border-t border-outline/10" />
-          <button type="button" :class="MENU_ROW" @click="menuEditMetadata">
-            <MageIcon name="edit" class="h-4 w-4" />
-            <span>Edit metadata…</span>
-          </button>
-          <button v-if="contextMenu.tracks.length === 1" type="button" :class="MENU_ROW" @click="menuCopyPath">
-            <MageIcon name="note-text" class="h-4 w-4" />
-            <span>Copy path</span>
-          </button>
-          <button v-if="contextMenu.tracks.length === 1" type="button" :class="MENU_ROW" @click="infoOpen = true">
-            <MageIcon name="information-circle" class="h-4 w-4" />
-            <span>Track info</span>
-          </button>
-          <div class="my-1 border-t border-outline/10" />
-          <button type="button" :class="[MENU_ROW, 'text-error']" @click="requestDelete">
-            <MageIcon name="trash" class="h-4 w-4" />
-            <span>Delete…</span>
-          </button>
-        </template>
+        <span class="min-w-0 flex-1">{{ opt.label }}</span>
+        <MageIcon v-if="tableStore.groupBy === opt.value" name="check" class="h-5 w-5 shrink-0 text-primary" />
+      </button>
+      <div class="h-4" />
+    </BottomSheet>
 
-        <template v-else-if="addToPlaylistOpen">
-          <button type="button" class="flex w-full items-center gap-2 px-4 py-2 text-left text-label-lg text-on-surface-variant" @click="addToPlaylistOpen = false">
-            <MageIcon name="arrow-left" class="h-4 w-4" />
-            <span>Back</span>
-          </button>
-          <div class="my-1 border-t border-outline/10" />
-          <button
-            v-for="p in manualPlaylists"
-            :key="p.id"
-            type="button"
-            :class="MENU_ROW"
-            @click="menuAddToPlaylist(p.id, p.name)"
-          >
-            <span class="truncate">{{ p.icon }} {{ p.name }}</span>
-          </button>
-        </template>
+    <BottomSheet :open="tableSortMenuOpen" @close="tableSortMenuOpen = false">
+      <div :class="SHEET_LABEL">SORT BY</div>
+      <button
+        v-for="opt in TABLE_SORT_OPTIONS"
+        :key="opt.value ?? 'none'"
+        type="button"
+        :class="SHEET_ROW"
+        @click="selectTableSort(opt.value)"
+      >
+        <span class="min-w-0 flex-1">{{ opt.label }}</span>
+        <MageIcon v-if="tableStore.sortColumn === opt.value" name="check" class="h-5 w-5 shrink-0 text-primary" />
+      </button>
+      <div class="h-4" />
+    </BottomSheet>
 
-        <template v-else>
-          <button type="button" class="flex w-full items-center gap-2 px-4 py-2 text-left text-label-lg text-on-surface-variant" @click="infoOpen = false">
-            <MageIcon name="arrow-left" class="h-4 w-4" />
-            <span>Back</span>
-          </button>
-          <div class="my-1 border-t border-outline/10" />
-          <div v-for="f in infoFields" :key="f.label" class="flex items-start justify-between gap-4 px-4 py-1.5">
-            <span class="shrink-0 text-body-sm text-on-surface-variant">{{ f.label }}</span>
-            <span class="break-all text-right text-body-sm text-on-surface">{{ f.value }}</span>
-          </div>
-        </template>
-      </div>
-    </Teleport>
+    <BottomSheet :open="minRatingMenuOpen" @close="minRatingMenuOpen = false">
+      <div :class="SHEET_LABEL">MINIMUM RATING</div>
+      <button
+        v-for="opt in MIN_RATING_OPTIONS"
+        :key="opt"
+        type="button"
+        :class="SHEET_ROW"
+        @click="selectMinRating(opt)"
+      >
+        <span class="min-w-0 flex-1">{{ opt === 0 ? "All" : `${opt}+★` }}</span>
+        <MageIcon v-if="tableStore.minRating === opt" name="check" class="h-5 w-5 shrink-0 text-primary" />
+      </button>
+      <div class="h-4" />
+    </BottomSheet>
+
+    <BottomSheet :open="colMenuOpen" @close="colMenuOpen = false">
+      <div :class="SHEET_LABEL">COLUMNS</div>
+      <label
+        v-for="col in TABLE_COLUMNS"
+        :key="col.id"
+        class="flex h-12 w-full items-center gap-3 px-6 text-body-lg text-on-surface"
+      >
+        <input
+          type="checkbox"
+          class="h-4 w-4 accent-primary"
+          :checked="tableStore.visibleColumns[col.id]"
+          @change="tableStore.setColumnVisible(col.id, ($event.target as HTMLInputElement).checked)"
+        />
+        <span>{{ col.label }}</span>
+      </label>
+      <div class="my-1 border-t border-outline/30" />
+      <button type="button" :class="[SHEET_ROW, 'text-primary']" @click="tableStore.resetColumnWidths(); colMenuOpen = false">
+        <span>Reset widths</span>
+      </button>
+      <div class="h-4" />
+    </BottomSheet>
 
     <ConfirmDialog
       :open="ratingConfirm !== null"
@@ -437,15 +340,6 @@
       @confirm="confirmRating"
       @cancel="ratingConfirm = null"
     />
-    <ConfirmDialog
-      :open="deleteConfirm !== null"
-      title="Delete tracks?"
-      :message="`Permanently delete ${deleteConfirm?.length ?? 0} track${(deleteConfirm?.length ?? 0) === 1 ? '' : 's'} from the server? This cannot be undone.`"
-      confirm-label="Delete"
-      danger
-      @confirm="confirmDelete"
-      @cancel="deleteConfirm = null"
-    />
   </div>
 </template>
 
@@ -454,15 +348,15 @@ import EmptyState from "../EmptyState.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MageIcon from "../MageIcon.vue";
 import ConfirmDialog from "../ConfirmDialog.vue";
+import TrackContextSheet from "../TrackContextSheet.vue";
+import BottomSheet from "../BottomSheet.vue";
 import StarRatingCell from "./StarRatingCell.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import { useLibraryStore, formatDuration } from "../../stores/library";
 import { usePlayerStore } from "../../stores/player";
-import { usePlaylistStore } from "../../stores/playlists";
 import { useSelectionStore } from "../../stores/selection";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
 import LibraryViewActions from "../LibraryViewActions.vue";
-import { openMetadataEditor } from "../../composables/useMetadataEditor";
 import { showToast } from "../../composables/useToast";
 import { startTrackDrag } from "../../composables/useTrackDrag";
 import {
@@ -477,7 +371,8 @@ import {
 } from "./tableModel";
 import type { CatalogTrack } from "../../types";
 
-const MENU_ROW = "flex h-10 w-full items-center gap-3 px-4 text-left text-body-lg text-on-surface hover:bg-surface-container/60";
+const SHEET_ROW = "flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface";
+const SHEET_LABEL = "px-6 pt-3 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
 
 const GROUP_OPTIONS: { value: TableGroupBy; label: string }[] = [
   { value: "none", label: "None" },
@@ -495,7 +390,6 @@ const OVERSCAN = 10;
 
 const lib = useLibraryStore();
 const player = usePlayerStore();
-const playlistStore = usePlaylistStore();
 const selection = useSelectionStore();
 const tableStore = useLibraryTableStore();
 
@@ -511,31 +405,17 @@ const TABLE_SORT_OPTIONS: { value: TableSortColumn | null; label: string }[] = [
 const MIN_RATING_OPTIONS = [0, 1, 2, 3, 4, 5];
 
 const groupMenuOpen = ref(false);
-const groupMenuRef = ref<HTMLElement | null>(null);
 const colMenuOpen = ref(false);
-const colMenuRef = ref<HTMLElement | null>(null);
 
 const groupByLabel = computed(() => GROUP_OPTIONS.find((o) => o.value === tableStore.groupBy)?.label ?? "None");
 
 // --- Table sort dropdown -------------------------------------------------
 
 const tableSortMenuOpen = ref(false);
-const tableSortMenuRef = ref<HTMLElement | null>(null);
-const tableSortBtnRef = ref<HTMLElement | null>(null);
 
 const tableSortLabel = computed(
   () => TABLE_SORT_OPTIONS.find((o) => o.value === tableStore.sortColumn)?.label ?? "None",
 );
-
-const tableSortMenuPos = computed(() => {
-  const b = tableSortBtnRef.value?.getBoundingClientRect();
-  if (!b) return {};
-  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
-});
-
-function toggleTableSort(): void {
-  tableSortMenuOpen.value = !tableSortMenuOpen.value;
-}
 
 function selectTableSort(column: TableSortColumn | null): void {
   tableStore.setSort(column, tableStore.sortDirection);
@@ -545,20 +425,8 @@ function selectTableSort(column: TableSortColumn | null): void {
 // --- Min-rating filter dropdown ------------------------------------------
 
 const minRatingMenuOpen = ref(false);
-const minRatingMenuRef = ref<HTMLElement | null>(null);
-const minRatingBtnRef = ref<HTMLElement | null>(null);
 
 const minRatingLabel = computed(() => (tableStore.minRating > 0 ? `${tableStore.minRating}+★` : "All"));
-
-const minRatingMenuPos = computed(() => {
-  const b = minRatingBtnRef.value?.getBoundingClientRect();
-  if (!b) return {};
-  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
-});
-
-function toggleMinRating(): void {
-  minRatingMenuOpen.value = !minRatingMenuOpen.value;
-}
 
 function selectMinRating(v: number): void {
   tableStore.setMinRating(v);
@@ -568,14 +436,6 @@ function selectMinRating(v: number): void {
 function selectGroupBy(value: TableGroupBy): void {
   tableStore.setGroupBy(value);
   groupMenuOpen.value = false;
-}
-
-function onDocumentClick(e: MouseEvent): void {
-  const target = e.target as Node;
-  if (groupMenuOpen.value && groupMenuRef.value && !groupMenuRef.value.contains(target)) groupMenuOpen.value = false;
-  if (colMenuOpen.value && colMenuRef.value && !colMenuRef.value.contains(target)) colMenuOpen.value = false;
-  if (tableSortMenuOpen.value && tableSortMenuRef.value && !tableSortMenuRef.value.contains(target)) tableSortMenuOpen.value = false;
-  if (minRatingMenuOpen.value && minRatingMenuRef.value && !minRatingMenuRef.value.contains(target)) minRatingMenuOpen.value = false;
 }
 
 // --- Columns -------------------------------------------------------------
@@ -768,7 +628,6 @@ onMounted(() => {
   measure();
   document.addEventListener("mousemove", onResizeMove);
   document.addEventListener("mouseup", onResizeEnd);
-  document.addEventListener("click", onDocumentClick);
 });
 
 onBeforeUnmount(() => {
@@ -777,7 +636,6 @@ onBeforeUnmount(() => {
   if (frame !== 0) cancelAnimationFrame(frame);
   document.removeEventListener("mousemove", onResizeMove);
   document.removeEventListener("mouseup", onResizeEnd);
-  document.removeEventListener("click", onDocumentClick);
 });
 
 watch(() => rows.value.length, () => nextTick(measure));
@@ -922,158 +780,27 @@ function onDragStart(e: DragEvent, tracks: CatalogTrack[]): void {
   startTrackDrag(e, ids);
 }
 
-// --- Context menu -------------------------------------------------------------
+// --- Context menu (bottom sheet) ----------------------------------------------
 
-interface ContextMenuState {
-  x: number;
-  y: number;
-  tracks: CatalogTrack[];
-}
+/** Tracks the sheet acts on; null keeps it closed. */
+const sheetTracks = ref<CatalogTrack[] | null>(null);
 
-const contextMenu = ref<ContextMenuState | null>(null);
-const contextMenuRef = ref<HTMLElement | null>(null);
-const addToPlaylistOpen = ref(false);
-const infoOpen = ref(false);
-
-const manualPlaylists = computed(() => playlistStore.playlists.filter((p) => p.smart_rules == null));
-
-function openContextMenu(e: MouseEvent, tracks: CatalogTrack[]): void {
+function openContextMenu(_e: MouseEvent, tracks: CatalogTrack[]): void {
   if (!tracks.length) return;
-  addToPlaylistOpen.value = false;
-  infoOpen.value = false;
   if (tracks.length === 1) {
     const id = tracks[0].id;
     if (!selection.has(id)) {
       selection.begin(id);
-      contextMenu.value = { x: e.clientX, y: e.clientY, tracks };
+      sheetTracks.value = tracks;
       return;
     }
     if (selection.count > 1) {
       const selectedIds = new Set(selection.ids);
-      const selectedTracks = orderedTracks.value.filter((t) => selectedIds.has(t.id));
-      contextMenu.value = { x: e.clientX, y: e.clientY, tracks: selectedTracks };
+      sheetTracks.value = orderedTracks.value.filter((t) => selectedIds.has(t.id));
       return;
     }
   }
-  contextMenu.value = { x: e.clientX, y: e.clientY, tracks };
-}
-
-function closeContextMenu(): void {
-  contextMenu.value = null;
-}
-
-watch(contextMenu, (menu) => {
-  if (!menu) return;
-  const onOutside = (e: MouseEvent): void => {
-    const target = e.target as Node;
-    if (contextMenuRef.value?.contains(target)) return;
-    closeContextMenu();
-    document.removeEventListener("click", onOutside);
-    document.removeEventListener("keydown", onEscape);
-  };
-  const onEscape = (e: KeyboardEvent): void => {
-    if (e.key === "Escape") {
-      closeContextMenu();
-      document.removeEventListener("click", onOutside);
-      document.removeEventListener("keydown", onEscape);
-    }
-  };
-  nextTick(() => {
-    // Clamp the menu into the viewport: opened near the bottom (e.g. with one
-    // track selected and the selection bar up) it would otherwise extend
-    // off-screen and its lower items become unclickable.
-    const el = contextMenuRef.value;
-    if (el) {
-      const r = el.getBoundingClientRect();
-      const x = Math.max(8, Math.min(menu.x, window.innerWidth - r.width - 8));
-      const y = Math.max(8, Math.min(menu.y, window.innerHeight - r.height - 8));
-      if (x !== menu.x || y !== menu.y) contextMenu.value = { ...menu, x, y };
-    }
-    setTimeout(() => {
-      document.addEventListener("click", onOutside);
-      document.addEventListener("keydown", onEscape);
-    }, 0);
-  });
-});
-
-function menuPlay(): void {
-  const menu = contextMenu.value;
-  if (!menu?.tracks.length) return;
-  closeContextMenu();
-  void player.playTrack(menu.tracks[0], menu.tracks);
-}
-
-function menuPlayNext(): void {
-  const menu = contextMenu.value;
-  if (!menu?.tracks.length) return;
-  closeContextMenu();
-  for (const t of [...menu.tracks].reverse()) player.playNext(t);
-}
-
-function menuAddToQueue(): void {
-  const menu = contextMenu.value;
-  if (!menu?.tracks.length) return;
-  closeContextMenu();
-  player.addTracksToQueue(menu.tracks);
-}
-
-async function menuAddToPlaylist(playlistId: number, name: string): Promise<void> {
-  const menu = contextMenu.value;
-  if (!menu?.tracks.length) return;
-  const ids = menu.tracks.map((t) => t.id);
-  closeContextMenu();
-  try {
-    await playlistStore.addTracks(playlistId, ids);
-    showToast(`Added to ${name}`);
-  } catch (e) {
-    showToast(`Failed: ${(e as Error).message}`);
-  }
-}
-
-const contextMenuAllFavorite = computed(() => {
-  const tracks = contextMenu.value?.tracks ?? [];
-  return tracks.length > 0 && tracks.every((t) => player.favorites.has(t.id));
-});
-
-async function menuToggleFavorite(): Promise<void> {
-  const menu = contextMenu.value;
-  const tracks = menu?.tracks ?? [];
-  if (!tracks.length) return;
-  const makeFavorite = !contextMenuAllFavorite.value;
-  closeContextMenu();
-  for (const t of tracks) {
-    if (player.favorites.has(t.id) !== makeFavorite) await player.toggleFavorite(t);
-  }
-}
-
-const contextMenuRating = computed<number | null>(() => {
-  const tracks = contextMenu.value?.tracks ?? [];
-  if (!tracks.length) return null;
-  const first = tracks[0].rating ?? null;
-  return tracks.every((t) => (t.rating ?? null) === first) ? first : null;
-});
-
-function menuSetRating(rating: number | null): void {
-  const menu = contextMenu.value;
-  if (!menu?.tracks.length) return;
-  const ids = menu.tracks.map((t) => t.id);
-  closeContextMenu();
-  void applyRating(ids, rating);
-}
-
-function menuEditMetadata(): void {
-  const menu = contextMenu.value;
-  if (!menu?.tracks.length) return;
-  const ids = menu.tracks.map((t) => t.id);
-  closeContextMenu();
-  openMetadataEditor(ids);
-}
-
-function menuCopyPath(): void {
-  const menu = contextMenu.value;
-  if (menu?.tracks.length !== 1) return;
-  copyPath(menu.tracks[0].path);
-  closeContextMenu();
+  sheetTracks.value = tracks;
 }
 
 function copyPath(path: string): void {
@@ -1081,58 +808,4 @@ function copyPath(path: string): void {
     showToast("Couldn't copy path");
   });
 }
-
-const deleteConfirm = ref<number[] | null>(null);
-
-function requestDelete(): void {
-  const menu = contextMenu.value;
-  if (!menu?.tracks.length) return;
-  deleteConfirm.value = menu.tracks.map((t) => t.id);
-  closeContextMenu();
-}
-
-async function confirmDelete(): Promise<void> {
-  const ids = deleteConfirm.value;
-  deleteConfirm.value = null;
-  if (!ids) return;
-  const result = await lib.deleteTracks(ids);
-  selection.prune((id) => lib.trackById.has(id));
-  if (result.failed.length > 0) {
-    showToast(`Deleted ${result.deleted.length}, ${result.failed.length} failed`);
-  } else {
-    showToast(`Deleted ${result.deleted.length} track${result.deleted.length === 1 ? "" : "s"}`);
-  }
-}
-
-function formatTimestamp(secs: number): string {
-  const d = new Date(secs * 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-const infoFields = computed(() => {
-  const t = contextMenu.value?.tracks[0];
-  if (!t) return [];
-  const fields: { label: string; value: string }[] = [];
-  const push = (label: string, value: string | number | null | undefined): void => {
-    if (value === null || value === undefined || value === "") return;
-    fields.push({ label, value: String(value) });
-  };
-  push("Title", t.title);
-  push("Artist", t.artist);
-  if (t.album_artist !== t.artist) push("Album Artist", t.album_artist);
-  push("Featuring", t.featuring);
-  push("Album", t.album);
-  push("Year", t.year);
-  push("Genre", t.genre);
-  push("Track #", t.track_number);
-  push("Disc #", t.disc_number);
-  if (t.duration_secs) push("Duration", formatDuration(t.duration_secs));
-  push("Format", t.format.toUpperCase());
-  if (t.rating !== null) push("Rating", `${t.rating} / 5`);
-  if (t.play_count > 0) push("Play Count", t.play_count);
-  if (t.last_played_at !== null) push("Last Played", formatTimestamp(t.last_played_at));
-  push("File", t.path);
-  return fields;
-});
 </script>

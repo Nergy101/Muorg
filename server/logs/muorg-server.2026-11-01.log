@@ -1,0 +1,4 @@
+2026-11-01T10:51:40.351481Z  INFO muorg_server: muorg-server starting version="3.4.3" log_dir=./logs
+2026-11-01T10:51:40.367664Z  INFO muorg_server: stream listener bound for cast devices address=0.0.0.0:56716
+2026-11-01T10:51:40.367947Z  INFO muorg_server: listening address=127.0.0.1:7700
+2026-11-01T10:51:40.368370Z  INFO muorg_server: content-hash backfill complete done=1

@@ -2,8 +2,8 @@
   <!-- View-level library actions (layout, shuffle-all, genre, sort), shared
        by the library top bar (grid view / mobile) and the desktop tracks
        table toolbar. The fixed gap-1 wrapper keeps every button at the same
-       position in both rows, so nothing jitters when switching layouts. Menus
-       teleport to body and open downward from their trigger. -->
+       position in both rows, so nothing jitters when switching layouts. All
+       menus open as bottom sheets, like the Android app. -->
   <div class="flex items-center gap-1">
   <!-- Layout switcher first, on the far left in both layouts. Same icon in
        both layouts — the pane-divided window reads as "layout" — with a small
@@ -40,34 +40,13 @@
        layout (where the table toolbar has its own column sort) doesn't shift
        the buttons before it. Mobile tracks keeps it visible. -->
   <div :class="[PILL, settings.albumViewStyle === 'tracks' ? 'lg:hidden' : '']">
-    <div ref="sortMenuRef" class="relative">
-      <button
-        ref="sortBtnRef"
-        type="button"
-        :class="PILL_BTN"
-        @click="toggleSort"
-      >
-        Sort: {{ sortLabel }}
-      </button>
-    <!-- Teleported to body so the view's overflow-hidden shell can't clip it. -->
-    <Teleport to="body">
-      <div
-        v-if="sortMenuOpen"
-        class="glass-strong fixed z-50 w-32 rounded-xl py-1"
-        :style="sortMenuPos"
-      >
-        <button
-          v-for="opt in SORT_OPTIONS"
-          :key="opt.value"
-          type="button"
-          class="flex w-full items-center justify-between px-3 py-2 text-label-lg text-on-surface"
-          @click="selectSort(opt.value)"
-        >
-          <span>{{ opt.label }}</span>
-          <MageIcon v-if="settings.sortMode === opt.value" name="check" class="h-4 w-4 text-primary" />
-        </button>
-      </div>
-    </Teleport>
+    <button
+      type="button"
+      :class="PILL_BTN"
+      @click="sortMenuOpen = true"
+    >
+      Sort: {{ sortLabel }}
+    </button>
   </div>
 
   <button
@@ -79,12 +58,27 @@
     <MageIcon :name="settings.sortAscending ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
   </button>
   </div>
-  </div>
+
+  <!-- Sort options as a bottom sheet. -->
+  <BottomSheet :open="sortMenuOpen" @close="sortMenuOpen = false">
+    <div :class="SHEET_LABEL">Sort by</div>
+    <button
+      v-for="opt in SORT_OPTIONS"
+      :key="opt.value"
+      type="button"
+      :class="SHEET_ROW"
+      @click="selectSort(opt.value)"
+    >
+      <span class="flex-1">{{ opt.label }}</span>
+      <MageIcon v-if="settings.sortMode === opt.value" name="check" class="h-5 w-5 text-primary" />
+    </button>
+  </BottomSheet>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
 import MageIcon from "./MageIcon.vue";
+import BottomSheet from "./BottomSheet.vue";
 import GenreFilterMenu from "./GenreFilterMenu.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
@@ -105,40 +99,19 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
 const PILL = "glass-field flex items-center gap-0.5 rounded-full p-0.5";
 const PILL_BTN = "flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface";
 
-// --- Sort dropdown ---------------------------------------------------------
+const SHEET_ROW = "flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface";
+const SHEET_LABEL = "px-6 pt-3 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
+
+// --- Sort bottom sheet -----------------------------------------------------
 
 const sortMenuOpen = ref(false);
-const sortMenuRef = ref<HTMLElement | null>(null);
-const sortBtnRef = ref<HTMLElement | null>(null);
 
 const sortLabel = computed(
   () => SORT_OPTIONS.find((o) => o.value === settings.sortMode)?.label ?? "Album",
 );
 
-/** Position the sort menu just below its trigger (the bar sits at the top). */
-const sortMenuPos = computed(() => {
-  const b = sortBtnRef.value?.getBoundingClientRect();
-  if (!b) return {};
-  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
-});
-
-function toggleSort(): void {
-  sortMenuOpen.value = !sortMenuOpen.value;
-}
-
 function selectSort(mode: SortMode): void {
   settings.setSortMode(mode);
   sortMenuOpen.value = false;
 }
-
-function onDocumentClick(e: MouseEvent): void {
-  if (!sortMenuOpen.value) return;
-  const target = e.target as Node;
-  if (sortMenuRef.value && !sortMenuRef.value.contains(target)) {
-    sortMenuOpen.value = false;
-  }
-}
-
-onMounted(() => document.addEventListener("click", onDocumentClick));
-onUnmounted(() => document.removeEventListener("click", onDocumentClick));
 </script>

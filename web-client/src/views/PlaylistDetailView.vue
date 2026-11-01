@@ -15,7 +15,22 @@
       <div class="flex min-h-0 flex-1 items-center justify-center">
         <p class="text-body-md text-on-surface-variant">Playlist not found</p>
       </div>
-    </template>
+    
+  <!-- Sort options as a bottom sheet (like the Android app). -->
+  <BottomSheet :open="sortMenuOpen" @close="sortMenuOpen = false">
+    <div class="px-6 pt-3 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary">Sort by</div>
+    <button
+      v-for="opt in sortOptions"
+      :key="opt.value"
+      type="button"
+      class="flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface"
+      @click="selectSort(opt.value)"
+    >
+      <span class="flex-1">{{ opt.label }}</span>
+      <MageIcon v-if="sortMode === opt.value" name="check" class="h-5 w-5 text-primary" />
+    </button>
+  </BottomSheet>
+</template>
 
     <template v-else>
       <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
@@ -137,39 +152,14 @@
         v-if="tracks.length > 0"
         class="content-col flex items-center gap-1 px-4 pb-1 pt-2"
       >
-        <div ref="sortMenuRef" class="relative">
-          <button
-            ref="sortBtnRef"
-            type="button"
-            class="flex items-center gap-1 text-label-lg text-on-surface-variant"
-            @click="sortMenuOpen = !sortMenuOpen"
-          >
-            <span>Sort: {{ sortLabel }}</span>
-            <MageIcon name="chevron-down" class="h-4 w-4" />
-          </button>
-          <Teleport to="body">
-            <div
-              v-if="sortMenuOpen"
-              class="glass-strong fixed z-50 w-40 rounded-xl py-1"
-              :style="sortMenuPos"
-            >
-              <button
-                v-for="opt in sortOptions"
-                :key="opt.value"
-                type="button"
-                class="flex w-full items-center justify-between px-3 py-2 text-label-lg text-on-surface"
-                @click="selectSort(opt.value)"
-              >
-                <span>{{ opt.label }}</span>
-                <MageIcon
-                  v-if="sortMode === opt.value"
-                  name="check"
-                  class="h-4 w-4 text-primary"
-                />
-              </button>
-            </div>
-          </Teleport>
-        </div>
+        <button
+          type="button"
+          class="flex items-center gap-1 text-label-lg text-on-surface-variant"
+          @click="sortMenuOpen = true"
+        >
+          <span>Sort: {{ sortLabel }}</span>
+          <MageIcon name="chevron-down" class="h-4 w-4" />
+        </button>
 
         <button
           type="button"
@@ -319,9 +309,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onActivated, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import BottomSheet from "../components/BottomSheet.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
@@ -599,31 +590,12 @@ const sortLabel = computed(
 );
 
 const sortMenuOpen = ref(false);
-const sortMenuRef = ref<HTMLElement | null>(null);
-const sortBtnRef = ref<HTMLElement | null>(null);
-
-/** Position the sort menu just below its trigger. */
-const sortMenuPos = computed(() => {
-  const b = sortBtnRef.value?.getBoundingClientRect();
-  if (!b) return {};
-  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
-});
 
 function selectSort(mode: PlaylistSortMode): void {
   settings.setPlaylistSortMode(mode);
   sortMenuOpen.value = false;
 }
 
-function onDocumentClick(e: MouseEvent): void {
-  if (!sortMenuOpen.value) return;
-  const target = e.target as Node;
-  if (sortMenuRef.value && !sortMenuRef.value.contains(target)) {
-    sortMenuOpen.value = false;
-  }
-}
-
-onMounted(() => document.addEventListener("click", onDocumentClick));
-onUnmounted(() => document.removeEventListener("click", onDocumentClick));
 
 async function commitOrder(): Promise<void> {
   if (!hasUnsavedOrder.value) return;
