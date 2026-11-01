@@ -1,18 +1,77 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <!-- Toolbar -->
+    <!-- Toolbar: one row with the view-level actions (sort, genre, layout,
+         shuffle) followed by the table controls — the library top bar is not
+         rendered in this layout, so this is the only row. -->
     <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-3 py-2">
-      <!-- Layout switcher sits left of the grouping selection (the top bar's
-           copy is hidden on desktop in tracks view). -->
+      <LibraryViewActions />
+
+      <div ref="tableSortMenuRef" class="relative">
+        <button
+          ref="tableSortBtnRef"
+          type="button"
+          class="text-label-lg text-on-surface"
+          @click="toggleTableSort"
+        >
+          Sort: {{ tableSortLabel }}
+        </button>
+        <Teleport to="body">
+          <div
+            v-if="tableSortMenuOpen"
+            class="glass-strong fixed z-50 w-36 rounded-xl py-1"
+            :style="tableSortMenuPos"
+          >
+            <button
+              v-for="opt in TABLE_SORT_OPTIONS"
+              :key="opt.value ?? 'none'"
+              type="button"
+              class="flex w-full items-center justify-between px-3 py-2 text-left text-label-lg text-on-surface"
+              @click="selectTableSort(opt.value)"
+            >
+              <span>{{ opt.label }}</span>
+              <MageIcon v-if="tableStore.sortColumn === opt.value" name="check" class="h-4 w-4 text-primary" />
+            </button>
+          </div>
+        </Teleport>
+      </div>
+
       <button
         type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
-        aria-label="Change layout"
-        title="Change layout"
-        @click="settings.cycleAlbumViewStyle()"
+        class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+        :aria-label="tableStore.sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'"
+        @click="tableStore.setSort(tableStore.sortColumn, tableStore.sortDirection === 'asc' ? 'desc' : 'asc')"
       >
-        <MageIcon :name="viewStyleIcon" class="h-4 w-4" />
+        <MageIcon :name="tableStore.sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
       </button>
+
+      <div ref="minRatingMenuRef" class="relative">
+        <button
+          ref="minRatingBtnRef"
+          type="button"
+          class="text-label-lg text-on-surface"
+          @click="toggleMinRating"
+        >
+          Rating: {{ minRatingLabel }}
+        </button>
+        <Teleport to="body">
+          <div
+            v-if="minRatingMenuOpen"
+            class="glass-strong fixed z-50 w-28 rounded-xl py-1"
+            :style="minRatingMenuPos"
+          >
+            <button
+              v-for="opt in MIN_RATING_OPTIONS"
+              :key="opt"
+              type="button"
+              class="flex w-full items-center justify-between px-3 py-2 text-left text-label-lg text-on-surface"
+              @click="selectMinRating(opt)"
+            >
+              <span>{{ opt === 0 ? "All" : `${opt}+★` }}</span>
+              <MageIcon v-if="tableStore.minRating === opt" name="check" class="h-4 w-4 text-primary" />
+            </button>
+          </div>
+        </Teleport>
+      </div>
 
       <div ref="groupMenuRef" class="relative">
         <button
@@ -393,8 +452,8 @@ import { useLibraryStore, formatDuration } from "../../stores/library";
 import { usePlayerStore } from "../../stores/player";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSelectionStore } from "../../stores/selection";
-import { useSettingsStore } from "../../stores/settings";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
+import LibraryViewActions from "../LibraryViewActions.vue";
 import { openMetadataEditor } from "../../composables/useMetadataEditor";
 import { showToast } from "../../composables/useToast";
 import { startTrackDrag } from "../../composables/useTrackDrag";
@@ -435,14 +494,18 @@ const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const selection = useSelectionStore();
-const settings = useSettingsStore();
 const tableStore = useLibraryTableStore();
 
-const viewStyleIcon = computed(() =>
-  settings.albumViewStyle === "tracks" ? "music" : "layout-grid",
-);
-
 // --- Toolbar -----------------------------------------------------------
+
+/** Column sort options for the toolbar — every sortable table column, plus
+ *  "None" to clear the sort. */
+const TABLE_SORT_OPTIONS: { value: TableSortColumn | null; label: string }[] = [
+  { value: null, label: "None" },
+  ...TABLE_COLUMNS.filter((c) => c.sortable).map((c) => ({ value: c.id as TableSortColumn, label: c.label })),
+];
+
+const MIN_RATING_OPTIONS = [0, 1, 2, 3, 4, 5];
 
 const groupMenuOpen = ref(false);
 const groupMenuRef = ref<HTMLElement | null>(null);
@@ -450,6 +513,54 @@ const colMenuOpen = ref(false);
 const colMenuRef = ref<HTMLElement | null>(null);
 
 const groupByLabel = computed(() => GROUP_OPTIONS.find((o) => o.value === tableStore.groupBy)?.label ?? "None");
+
+// --- Table sort dropdown -------------------------------------------------
+
+const tableSortMenuOpen = ref(false);
+const tableSortMenuRef = ref<HTMLElement | null>(null);
+const tableSortBtnRef = ref<HTMLElement | null>(null);
+
+const tableSortLabel = computed(
+  () => TABLE_SORT_OPTIONS.find((o) => o.value === tableStore.sortColumn)?.label ?? "None",
+);
+
+const tableSortMenuPos = computed(() => {
+  const b = tableSortBtnRef.value?.getBoundingClientRect();
+  if (!b) return {};
+  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
+});
+
+function toggleTableSort(): void {
+  tableSortMenuOpen.value = !tableSortMenuOpen.value;
+}
+
+function selectTableSort(column: TableSortColumn | null): void {
+  tableStore.setSort(column, tableStore.sortDirection);
+  tableSortMenuOpen.value = false;
+}
+
+// --- Min-rating filter dropdown ------------------------------------------
+
+const minRatingMenuOpen = ref(false);
+const minRatingMenuRef = ref<HTMLElement | null>(null);
+const minRatingBtnRef = ref<HTMLElement | null>(null);
+
+const minRatingLabel = computed(() => (tableStore.minRating > 0 ? `${tableStore.minRating}+★` : "All"));
+
+const minRatingMenuPos = computed(() => {
+  const b = minRatingBtnRef.value?.getBoundingClientRect();
+  if (!b) return {};
+  return { top: `${b.bottom + 4}px`, left: `${b.left}px` };
+});
+
+function toggleMinRating(): void {
+  minRatingMenuOpen.value = !minRatingMenuOpen.value;
+}
+
+function selectMinRating(v: number): void {
+  tableStore.setMinRating(v);
+  minRatingMenuOpen.value = false;
+}
 
 function selectGroupBy(value: TableGroupBy): void {
   tableStore.setGroupBy(value);
@@ -460,6 +571,8 @@ function onDocumentClick(e: MouseEvent): void {
   const target = e.target as Node;
   if (groupMenuOpen.value && groupMenuRef.value && !groupMenuRef.value.contains(target)) groupMenuOpen.value = false;
   if (colMenuOpen.value && colMenuRef.value && !colMenuRef.value.contains(target)) colMenuOpen.value = false;
+  if (tableSortMenuOpen.value && tableSortMenuRef.value && !tableSortMenuRef.value.contains(target)) tableSortMenuOpen.value = false;
+  if (minRatingMenuOpen.value && minRatingMenuRef.value && !minRatingMenuRef.value.contains(target)) minRatingMenuOpen.value = false;
 }
 
 // --- Columns -------------------------------------------------------------

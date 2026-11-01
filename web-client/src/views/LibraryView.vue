@@ -1,8 +1,10 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <!-- Sort / genre / layout / shuffle-all live in the top bar now, not in
-         the bottom bar next to the player. -->
-    <LibraryTopBar />
+         the bottom bar next to the player. In the desktop tracks layout the
+         table toolbar renders those same actions, so the top bar is skipped
+         and the library shows a single row. -->
+    <LibraryTopBar v-if="!showDesktopTable" />
 
     <!-- Desktop-class library table (>=1024px, tracks layout). Mounted
          instead of the mobile scroller so it can own its own virtualization
