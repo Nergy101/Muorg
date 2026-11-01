@@ -71,6 +71,10 @@
         </Teleport>
       </div>
 
+      <!-- Genre filter lives in this second row in the tracks layout (the
+           top bar's copy hides on lg+). -->
+      <GenreFilterMenu />
+
       <!-- Grouping + collapse/expand share one pill group. -->
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
         <div ref="groupMenuRef" class="relative">
@@ -440,6 +444,7 @@ import { usePlayerStore } from "../../stores/player";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSelectionStore } from "../../stores/selection";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
+import GenreFilterMenu from "../GenreFilterMenu.vue";
 import { openMetadataEditor } from "../../composables/useMetadataEditor";
 import { showToast } from "../../composables/useToast";
 import { startTrackDrag } from "../../composables/useTrackDrag";
