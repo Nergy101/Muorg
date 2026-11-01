@@ -2,10 +2,11 @@
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Brand row: the Muorg mark and name on the left (as in the sidebar),
-           "Shuffle all" on the right (mirrors the Android app's HomeHeader). -->
+           "Shuffle all" on the right (mirrors the Android app's HomeHeader).
+           On desktop the navbar already shows the logo, so the mark is hidden. -->
       <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4">
-        <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />
-        <span class="text-title-md font-bold tracking-tight text-on-surface">Muorg</span>
+        <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0 lg:hidden" />
+        <span class="text-title-md font-bold tracking-tight text-on-surface lg:hidden">Muorg</span>
         <div class="flex-1" />
         <button
           type="button"
