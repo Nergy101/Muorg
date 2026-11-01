@@ -19,6 +19,7 @@ import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.AddConflictCheck
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.player.PlayerController
 import nl.muorg.android.player.PlayerState
@@ -92,6 +93,7 @@ class PlayerViewModelTest {
         val hydratedFavorites = mutableListOf<Set<String>>()
         val preferences = mockk<AppPreferences>()
         every { preferences.musicMode } returns flowOf("remote")
+        every { preferences.sleepTimerEnabled } returns flowOf(false)
         coEvery { preferences.setFavorites(any()) } answers {
             hydratedFavorites.add(firstArg())
             Unit
@@ -113,6 +115,7 @@ class PlayerViewModelTest {
             preferences,
             castManager,
             mockk<LibraryRepository>(relaxed = true),
+            mockk<OfflineDownloadManager>(relaxed = true),
             uiMessenger,
         )
         return Fixture(viewModel, uiMessenger, toasts, hydratedFavorites)
