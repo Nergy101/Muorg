@@ -21,8 +21,7 @@
           </div>
         </div>
 
-        <div class="flex items-center justify-between gap-4 px-6 py-2">
-          <span class="text-body-lg text-on-surface">Rating</span>
+        <div class="flex items-center justify-center px-6 py-2">
           <StarRating :model-value="track.rating" @update:model-value="onSetRating" />
         </div>
 
@@ -252,6 +251,7 @@ import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import MarqueeText from "./MarqueeText.vue";
+import StarRating from "./metadata/StarRating.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
