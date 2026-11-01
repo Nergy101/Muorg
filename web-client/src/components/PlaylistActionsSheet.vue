@@ -48,14 +48,14 @@
         type="button"
         :class="ROW"
         :disabled="downloading"
-        @click="emit('download'); emit('close')"
+        @click="downloaded ? emit('undownload') : emit('download'); emit('close')"
       >
         <MageIcon
           name="download"
           class="h-5 w-5 shrink-0"
           :class="downloadClass"
         />
-        <span>{{ downloaded ? "Downloaded for offline" : "Download for offline" }}</span>
+        <span>{{ downloaded ? "Remove offline download" : "Download for offline" }}</span>
       </button>
       <button type="button" :class="ROW" @click="emit('pin'); emit('close')">
         <MageIcon name="pin" class="h-5 w-5 shrink-0" :class="pinned ? 'text-primary' : 'text-on-surface-variant'" />
@@ -104,6 +104,7 @@ const emit = defineEmits<{
   edit: [];
   export: [];
   download: [];
+  undownload: [];
   delete: [];
 }>();
 

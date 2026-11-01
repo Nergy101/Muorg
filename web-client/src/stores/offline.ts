@@ -267,6 +267,21 @@ export const useOfflineStore = defineStore("offline", () => {
     }
   }
 
+  /** Removes every cached track of a downloaded playlist and unmarks it (Q11). */
+  async function removePlaylistDownload(playlistId: number): Promise<void> {
+    const ids = playlistTrackIds.value[playlistId] ?? [];
+    for (const id of ids) {
+      await removeTrack(id);
+    }
+    downloadedPlaylists.value = downloadedPlaylists.value.filter((id) => id !== playlistId);
+    const tracks = { ...playlistTrackIds.value };
+    delete tracks[playlistId];
+    playlistTrackIds.value = tracks;
+    savePref(PLAYLISTS_KEY, downloadedPlaylists.value);
+    savePref(PLAYLIST_TRACKS_KEY, playlistTrackIds.value);
+    showToast("Removed offline download");
+  }
+
   /** Caches the most recent plays automatically, capped at RECENT_CACHE_LIMIT
    *  (Q11). Evicts auto-cached tracks that fell out of the recent list, but
    *  never a track a downloaded playlist needs. */
@@ -347,6 +362,7 @@ export const useOfflineStore = defineStore("offline", () => {
     downloadTrack,
     downloadTracks,
     downloadPlaylist,
+    removePlaylistDownload,
     refreshRecentCache,
     removeTrack,
     clearAll,

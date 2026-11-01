@@ -83,6 +83,7 @@
       @edit="emit('edit')"
       @export="exportOpen = true"
       @download="offline.downloadPlaylist(playlist.id)"
+      @undownload="offline.removePlaylistDownload(playlist.id)"
       @delete="emit('delete')"
     />
 
