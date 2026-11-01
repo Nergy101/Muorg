@@ -112,6 +112,7 @@ globalThis.fetch = fetchMock as unknown as typeof fetch;
 const { useOfflineStore, OFFLINE_CACHE_NAME, offlineStreamUrl } = await import("./offline");
 const { useLibraryStore } = await import("./library");
 const { usePlaylistStore } = await import("./playlists");
+const { useSettingsStore } = await import("./settings");
 
 function track(p: Partial<CatalogTrack> & { id: number }): CatalogTrack {
   return {
@@ -148,6 +149,9 @@ function audioResponse(bytes: number): Response {
 beforeEach(() => {
   localStorage.clear();
   setActivePinia(createPinia());
+  // Automatic caching is a setting that defaults to off; these tests exercise
+  // the enabled behaviour.
+  useSettingsStore().setAutoCacheEnabled(true);
   vi.clearAllMocks();
   fakeCaches.opened.clear();
   issueStreamToken.mockResolvedValue("tok");
@@ -300,6 +304,25 @@ describe("refreshRecentCache", () => {
     await offline.refreshRecentCache();
 
     expect(offline.isCached(1)).toBe(true);
+    expect(offline.recentIds).toEqual([1]);
+  });
+
+  it("does nothing when automatic caching is disabled", async () => {
+    const cache = await fakeCaches.open(OFFLINE_CACHE_NAME);
+    await cache.put("http://server/stream/1", audioResponse(100));
+
+    const settings = useSettingsStore();
+    settings.setAutoCacheEnabled(false);
+    const offline = useOfflineStore();
+    await offline.init();
+    offline.recentIds = [1];
+
+    getRecentPlayHistory.mockResolvedValue([track({ id: 2 })]);
+    await offline.refreshRecentCache();
+
+    expect(getRecentPlayHistory).not.toHaveBeenCalled();
+    expect(offline.isCached(1)).toBe(true); // nothing evicted
+    expect(offline.isCached(2)).toBe(false); // nothing downloaded
     expect(offline.recentIds).toEqual([1]);
   });
 });

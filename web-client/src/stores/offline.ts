@@ -5,6 +5,7 @@ import { getServerUrl, streamUrl } from "../api/client";
 import { showToast } from "../composables/useToast";
 import { useLibraryStore } from "./library";
 import { usePlaylistStore } from "./playlists";
+import { useSettingsStore } from "./settings";
 import { loadPref, savePref } from "./prefs";
 import type { CatalogTrack } from "../types";
 
@@ -128,17 +129,19 @@ export const useOfflineStore = defineStore("offline", () => {
     }
   }
 
-  /** True when `bytes` more would fit under both the quota and the cap. */
-  async function hasRoomFor(bytes: number): Promise<boolean> {
-    if (cachedBytes.value + bytes > MAX_CACHE_BYTES) return false;
+  /** True when `bytes` more would fit under both the quota and the cap.
+   *  `cap` defaults to the hard MAX_CACHE_BYTES; the automatic recent-plays
+   *  cache passes the user-configured slider value instead. */
+  async function hasRoomFor(bytes: number, cap: number = MAX_CACHE_BYTES): Promise<boolean> {
+    if (cachedBytes.value + bytes > cap) return false;
     try {
       const est = await navigator.storage.estimate();
       const quota = est.quota ?? Number.POSITIVE_INFINITY;
       const usage = est.usage ?? 0;
-      return usage + bytes <= Math.min(quota, MAX_CACHE_BYTES);
+      return usage + bytes <= Math.min(quota, cap);
     } catch {
       // No estimate API: fall back to the local cap only.
-      return cachedBytes.value + bytes <= MAX_CACHE_BYTES;
+      return cachedBytes.value + bytes <= cap;
     }
   }
 
@@ -146,7 +149,10 @@ export const useOfflineStore = defineStore("offline", () => {
    *  Cache API cannot reliably store 206 partial responses). With `silent`,
    *  failures are not toasted — the background recent-plays refresh runs on
    *  every navigation and a stale library entry must not nag on each load. */
-  async function downloadTrack(track: CatalogTrack, opts?: { silent?: boolean }): Promise<boolean> {
+  async function downloadTrack(
+    track: CatalogTrack,
+    opts?: { silent?: boolean; cap?: number },
+  ): Promise<boolean> {
     if (!cache) return false;
     if (isCached(track.id)) return true;
     const silent = opts?.silent === true;
@@ -180,7 +186,7 @@ export const useOfflineStore = defineStore("offline", () => {
       return false;
     }
     const size = Number(res.headers.get("content-length") ?? 0);
-    if (size > 0 && !(await hasRoomFor(size))) {
+    if (size > 0 && !(await hasRoomFor(size, opts?.cap))) {
       if (!silent) showToast("Not enough storage for offline downloads");
       return false;
     }
@@ -211,7 +217,10 @@ export const useOfflineStore = defineStore("offline", () => {
 
   /** Downloads tracks sequentially, stopping at the first failure or when the
    *  storage quota is reached. */
-  async function downloadTracks(tracks: CatalogTrack[], opts?: { silent?: boolean }): Promise<void> {
+  async function downloadTracks(
+    tracks: CatalogTrack[],
+    opts?: { silent?: boolean; cap?: number },
+  ): Promise<void> {
     if (downloading.value || tracks.length === 0) return;
     downloading.value = true;
     downloadProgress.value = { done: 0, total: tracks.length };
@@ -287,6 +296,11 @@ export const useOfflineStore = defineStore("offline", () => {
    *  never a track a downloaded playlist needs. */
   async function refreshRecentCache(): Promise<void> {
     if (!ready.value) return;
+    // Automatic caching is a setting (off by default): when disabled, do not
+    // download or evict anything. Manually downloaded playlists are untouched
+    // either way — they are protected and reported independently.
+    const settings = useSettingsStore();
+    if (!settings.autoCacheEnabled) return;
     let recent: CatalogTrack[];
     try {
       recent = await getRecentPlayHistory(RECENT_CACHE_LIMIT);
@@ -307,7 +321,9 @@ export const useOfflineStore = defineStore("offline", () => {
     // whose file is missing on the server must not toast on each load — and
     // tracks that already failed this session are skipped outright.
     const missing = recent.filter((t) => !isCached(t.id) && !failedIds.has(t.id));
-    if (missing.length > 0) await downloadTracks(missing, { silent: true });
+    if (missing.length > 0) {
+      await downloadTracks(missing, { silent: true, cap: settings.autoCacheMaxBytes });
+    }
   }
 
   /** Removes one track from the offline cache. */

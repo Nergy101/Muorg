@@ -232,6 +232,43 @@
       <SettingsSection title="Offline" icon="download">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Automatic caching</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Automatically cache recently played tracks. Manual playlist downloads work regardless
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.autoCacheEnabled)"
+          role="switch"
+          aria-label="Automatic caching"
+          :data-tip="`Automatic caching is ${settings.autoCacheEnabled ? 'on' : 'off'} — click to turn ${settings.autoCacheEnabled ? 'off' : 'on'}`"
+          :aria-checked="settings.autoCacheEnabled"
+          @click="settings.setAutoCacheEnabled(!settings.autoCacheEnabled)"
+        >
+          <span :class="knobClass(settings.autoCacheEnabled)" />
+        </button>
+      </div>
+      <div v-if="settings.autoCacheEnabled" class="px-4 py-2">
+        <div class="flex items-center justify-between pb-2">
+          <p class="text-body-lg text-on-surface">Max automatic cache size</p>
+          <span class="text-body-sm tabular-nums text-on-surface-variant">
+            {{ formatBytes(settings.autoCacheMaxBytes) }}
+          </span>
+        </div>
+        <input
+          type="range"
+          :min="AUTO_CACHE_MIN_BYTES"
+          :max="AUTO_CACHE_MAX_BYTES"
+          :step="AUTO_CACHE_STEP_BYTES"
+          :value="settings.autoCacheMaxBytes"
+          aria-label="Max automatic cache size"
+          class="w-full"
+          @input="settings.setAutoCacheMaxBytes(($event.target as HTMLInputElement).valueAsNumber)"
+        />
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Cached tracks</p>
           <p class="text-body-sm text-on-surface-variant">
             Downloaded for offline playback
@@ -628,6 +665,10 @@ async function onLogout(): Promise<void> {
 }
 
 // --- Offline cache ---------------------------------------------------------
+
+const AUTO_CACHE_MIN_BYTES = 256 * 1024 * 1024; // 256 MiB
+const AUTO_CACHE_MAX_BYTES = 8 * 1024 * 1024 * 1024; // 8 GiB
+const AUTO_CACHE_STEP_BYTES = 256 * 1024 * 1024; // 256 MiB
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return "0 MB";

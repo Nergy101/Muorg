@@ -98,6 +98,11 @@ export const useSettingsStore = defineStore("settings", () => {
   /** Show the sleep timer in the maximized player. Off by default, which
    *  hides the moon button there entirely. */
   const sleepTimerEnabled = ref(loadPref("muorg-web-sleep-timer", false));
+  /** Automatically cache recently played tracks for offline use. Off by
+   *  default; manual playlist downloads work regardless. */
+  const autoCacheEnabled = ref(loadPref("muorg-web-auto-cache", false));
+  /** Max total bytes the automatic recent-plays cache may hold. */
+  const autoCacheMaxBytes = ref(loadPref("muorg-web-auto-cache-max-bytes", 2 * 1024 * 1024 * 1024));
   /** Per-device name recorded with plays on the server (Q19). Required: an
    *  emptied field falls back to the generated default. */
   const deviceName = ref(loadPref("muorg-web-device-name", "") || defaultDeviceName());
@@ -291,6 +296,17 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-sleep-timer", v);
   }
 
+  function setAutoCacheEnabled(v: boolean): void {
+    autoCacheEnabled.value = v;
+    savePref("muorg-web-auto-cache", v);
+  }
+
+  function setAutoCacheMaxBytes(bytes: number): void {
+    const clamped = Math.min(8 * 1024 * 1024 * 1024, Math.max(256 * 1024 * 1024, Math.round(bytes)));
+    autoCacheMaxBytes.value = clamped;
+    savePref("muorg-web-auto-cache-max-bytes", clamped);
+  }
+
   function setDeviceName(v: string): void {
     deviceName.value = v.trim() || defaultDeviceName();
     savePref("muorg-web-device-name", deviceName.value);
@@ -354,6 +370,8 @@ export const useSettingsStore = defineStore("settings", () => {
     openOnLastTab,
     offlineMode,
     sleepTimerEnabled,
+    autoCacheEnabled,
+    autoCacheMaxBytes,
     deviceName,
     searchHistory,
     recentSearchResultIds,
@@ -378,6 +396,8 @@ export const useSettingsStore = defineStore("settings", () => {
     setOpenOnLastTab,
     setOfflineMode,
     setSleepTimerEnabled,
+    setAutoCacheEnabled,
+    setAutoCacheMaxBytes,
     setDeviceName,
     addSearch,
     clearSearchHistory,
