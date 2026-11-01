@@ -120,36 +120,19 @@
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Default sort order</p>
+          <p class="text-body-sm text-on-surface-variant">{{ sortLabel }}</p>
         </div>
-        <div ref="sortMenuRef" class="relative">
-          <button
-            type="button"
-            class="flex items-center gap-1 px-2 text-label-lg text-primary"
-            @click="sortMenuOpen = !sortMenuOpen"
-          >
-            <span>{{ sortLabel }}</span>
-            <MageIcon name="chevron-down" class="h-4 w-4" />
-          </button>
-          <div
-            v-if="sortMenuOpen"
-            class="absolute right-0 top-full z-20 mt-1 min-w-[9rem] rounded-xl bg-surface-container py-1 shadow-xl"
-          >
-            <button
-              v-for="opt in SORT_OPTIONS"
-              :key="opt.value"
-              type="button"
-              class="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-body-md text-on-surface"
-              @click="selectSort(opt.value)"
-            >
-              <span>{{ opt.label }}</span>
-              <MageIcon
-                v-if="settings.sortMode === opt.value"
-                name="check"
-                class="h-4 w-4 text-primary"
-              />
-            </button>
-          </div>
-        </div>
+        <button
+          type="button"
+          :class="switchClass(sortSwitchOn)"
+          role="switch"
+          aria-label="Default sort order"
+          :data-tip="`Sort by ${sortLabel} — click for ${nextSortLabel}`"
+          :aria-checked="sortSwitchOn"
+          @click="cycleSort()"
+        >
+          <span :class="knobClass(sortSwitchOn)" />
+        </button>
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
@@ -445,7 +428,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import SettingsSection from "../components/settings/SettingsSection.vue";
@@ -538,31 +521,27 @@ function knobClass(on: boolean): string {
   }`;
 }
 
-// --- Sort dropdown ---------------------------------------------------------
-
-const sortMenuOpen = ref(false);
-const sortMenuRef = ref<HTMLElement | null>(null);
+// --- Sort order switch -----------------------------------------------------
 
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
 
-const sortLabel = computed(
-  () => SORT_OPTIONS.find((o) => o.value === settings.sortMode)?.label ?? "Album",
-);
+const sortIndex = computed(() => {
+  const i = SORT_OPTIONS.findIndex((o) => o.value === settings.sortMode);
+  return i === -1 ? 0 : i;
+});
 
-function selectSort(mode: SortMode): void {
-  settings.setSortMode(mode);
-  sortMenuOpen.value = false;
+const sortLabel = computed(() => SORT_OPTIONS[sortIndex.value]?.label ?? "Album");
+
+const nextSortLabel = computed(() => SORT_OPTIONS[(sortIndex.value + 1) % SORT_OPTIONS.length]?.label ?? "Album");
+
+// The switch knob reflects position in the cycle: off = first option.
+const sortSwitchOn = computed(() => sortIndex.value !== 0);
+
+function cycleSort(): void {
+  const next = SORT_OPTIONS[(sortIndex.value + 1) % SORT_OPTIONS.length];
+  if (next) settings.setSortMode(next.value);
 }
-
-function onDocumentClick(e: MouseEvent): void {
-  if (!sortMenuOpen.value) return;
-  const el = sortMenuRef.value;
-  if (el && !el.contains(e.target as Node)) sortMenuOpen.value = false;
-}
-
-onMounted(() => document.addEventListener("click", onDocumentClick));
-onUnmounted(() => document.removeEventListener("click", onDocumentClick));
 
 // --- Library refresh -------------------------------------------------------
 
