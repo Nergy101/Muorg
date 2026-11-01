@@ -1,6 +1,7 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center justify-between gap-4 px-4">
+    <!-- relative z-40 keeps the sort dropdown above the card grid below. -->
+    <div class="content-col relative z-40 flex h-14 shrink-0 items-center justify-between gap-4 px-4">
       <!-- Sort control: field pill + direction toggle, same glass style as the
            library toolbar. -->
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
@@ -16,7 +17,7 @@
           </button>
           <div
             v-if="sortMenuOpen"
-            class="absolute left-0 top-full z-30 mt-1 w-40 rounded-xl bg-surface-container py-1 shadow-xl"
+            class="absolute left-0 top-full z-50 mt-1 w-40 rounded-xl bg-surface-container py-1 shadow-xl"
           >
             <button
               v-for="opt in SORT_OPTIONS"
