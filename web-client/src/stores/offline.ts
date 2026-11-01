@@ -63,8 +63,14 @@ export const useOfflineStore = defineStore("offline", () => {
   const cachedBytes = ref(0);
   /** True once init() has scanned the cache. */
   const ready = ref(false);
-  /** True while a download batch is running. */
+  /** True while a manual download batch (playlist) is running. */
   const downloading = ref(false);
+  /** True while the background recent-plays auto-cache batch is running. Kept
+   *  separate from `downloading` so an invisible background refresh never
+   *  blocks — or toasts over — a manual playlist download. */
+  const bgDownloading = ref(false);
+  /** Generation counter: bumping it makes a running background batch stop. */
+  let bgRun = 0;
   /** Progress of the current batch: {done, total}. */
   const downloadProgress = ref<{ done: number; total: number }>({ done: 0, total: 0 });
   /** Playlist id currently being downloaded, or null. */
@@ -216,16 +222,21 @@ export const useOfflineStore = defineStore("offline", () => {
   }
 
   /** Downloads tracks sequentially, stopping at the first failure or when the
-   *  storage quota is reached. */
+   *  storage quota is reached. `background` batches (auto-cache) run under
+   *  their own flag and yield to manual downloads. */
   async function downloadTracks(
     tracks: CatalogTrack[],
-    opts?: { silent?: boolean; cap?: number },
+    opts?: { silent?: boolean; cap?: number; background?: boolean },
   ): Promise<void> {
-    if (downloading.value || tracks.length === 0) return;
-    downloading.value = true;
+    const background = opts?.background === true;
+    const flag = background ? bgDownloading : downloading;
+    if (flag.value || tracks.length === 0) return;
+    flag.value = true;
+    const run = ++bgRun;
     downloadProgress.value = { done: 0, total: tracks.length };
     try {
       for (const t of tracks) {
+        if (background && run !== bgRun) break; // preempted by a manual download
         const ok = await downloadTrack(t, opts);
         downloadProgress.value = {
           done: downloadProgress.value.done + 1,
@@ -234,7 +245,7 @@ export const useOfflineStore = defineStore("offline", () => {
         if (!ok) break;
       }
     } finally {
-      downloading.value = false;
+      flag.value = false;
     }
   }
 
@@ -257,6 +268,7 @@ export const useOfflineStore = defineStore("offline", () => {
       return;
     }
     activePlaylistId.value = playlistId;
+    bgRun++; // preempt any background auto-cache batch so it can't interfere
     try {
       await downloadTracks(tracks);
       // Mark downloaded only when every track made it into the cache.
@@ -322,7 +334,7 @@ export const useOfflineStore = defineStore("offline", () => {
     // tracks that already failed this session are skipped outright.
     const missing = recent.filter((t) => !isCached(t.id) && !failedIds.has(t.id));
     if (missing.length > 0) {
-      await downloadTracks(missing, { silent: true, cap: settings.autoCacheMaxBytes });
+      await downloadTracks(missing, { silent: true, cap: settings.autoCacheMaxBytes, background: true });
     }
   }
 
@@ -366,6 +378,7 @@ export const useOfflineStore = defineStore("offline", () => {
     cachedBytes,
     ready,
     downloading,
+    bgDownloading,
     downloadProgress,
     activePlaylistId,
     recentIds,

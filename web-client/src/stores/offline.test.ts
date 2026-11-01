@@ -347,6 +347,25 @@ describe("downloadPlaylist", () => {
     expect(offline.isPlaylistDownloaded(10)).toBe(true);
     expect(offline.playlistTrackIds[10]).toEqual([7, 8]);
   });
+
+  it("is not blocked by an invisible background auto-cache batch", async () => {
+    const playlistStore = usePlaylistStore();
+    const lib = useLibraryStore();
+    playlistStore.playlists = [
+      { id: 10, name: "Mix", icon: null, smart_rules: null, track_count: 1 },
+    ];
+    lib.tracks = [track({ id: 7 })];
+    getPlaylistTracks.mockResolvedValue([7]);
+
+    const offline = useOfflineStore();
+    await offline.init();
+    offline.bgDownloading = true; // background recent-plays refresh in flight
+
+    await offline.downloadPlaylist(10);
+
+    expect(offline.isCached(7)).toBe(true);
+    expect(offline.isPlaylistDownloaded(10)).toBe(true);
+  });
 });
 
 describe("clearAll", () => {
