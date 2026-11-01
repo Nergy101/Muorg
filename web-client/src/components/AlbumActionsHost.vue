@@ -5,6 +5,8 @@
     @close="emit('close')"
     @play="playAlbum"
     @add-to-playlist="openPicker"
+    @download="onDownload"
+    @undownload="onUndownload"
     @view-artist="viewArtist"
     @view-album="viewAlbum"
   />
@@ -42,6 +44,7 @@ import { showToast } from "../composables/useToast";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
+import { useOfflineStore } from "../stores/offline";
 import type { AlbumGridItem, Playlist } from "../types";
 
 const props = defineProps<{ item: AlbumGridItem | null }>();
@@ -51,6 +54,15 @@ const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
+const offline = useOfflineStore();
+
+function onDownload(): void {
+  if (props.item) void offline.downloadAlbum(props.item.key);
+}
+
+function onUndownload(): void {
+  if (props.item) void offline.removeAlbumDownload(props.item.key);
+}
 
 /**
  * The whole album, whatever the caller was showing. A card on the Library grid

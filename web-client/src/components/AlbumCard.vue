@@ -3,7 +3,7 @@
   <div
     v-if="mode === 'list'"
     :data-album-key="item.key"
-    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer lg:hover:bg-surface-container/70"
+    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors [-webkit-touch-callout:none] lg:cursor-pointer lg:hover:bg-surface-container/70"
     :class="isActive ? 'bg-secondary/[0.08]' : ''"
     @click="emit('open')"
     @touchstart.passive="lp.onTouchstart"
@@ -16,7 +16,8 @@
         v-if="coverUrl"
         :src="coverUrl"
         :alt="item.album"
-        class="h-full w-full object-cover"
+        class="h-full w-full object-cover [-webkit-touch-callout:none]"
+        draggable="false"
         decoding="async"
       />
       <div v-else class="flex h-full w-full items-center justify-center">
@@ -45,7 +46,7 @@
     v-else-if="ready"
     :data-album-key="item.key"
     type="button"
-    class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 text-left transition-transform duration-150 active:scale-95 lg:hover:scale-[1.03] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
+    class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 text-left transition-transform duration-150 [-webkit-touch-callout:none] active:scale-95 lg:hover:scale-[1.03] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
     :class="isActive ? 'ring-2 ring-secondary' : ''"
     :style="isActive ? { boxShadow: '0 0 20px rgba(122,170,66,0.45)' } : undefined"
     @click="emit('open')"
@@ -57,7 +58,8 @@
     <img
       :src="coverUrl!"
       :alt="item.album"
-      class="absolute inset-0 h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full object-cover [-webkit-touch-callout:none]"
+      draggable="false"
       decoding="async"
     />
 

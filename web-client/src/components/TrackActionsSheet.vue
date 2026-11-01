@@ -64,6 +64,15 @@
           <span>Add to playlist</span>
         </button>
 
+        <button type="button" :class="ROW" @click="onToggleDownload">
+          <MageIcon
+            name="download"
+            class="h-5 w-5 shrink-0"
+            :class="isCached ? 'text-primary' : 'text-on-surface-variant'"
+          />
+          <span>{{ isCached ? "Remove offline download" : "Download for offline" }}</span>
+        </button>
+
         <button
           v-if="canRemoveFromPlaylist"
           type="button"
@@ -246,6 +255,7 @@ import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
+import { useOfflineStore } from "../stores/offline";
 import { useSelectionStore } from "../stores/selection";
 import { showToast, showWarning } from "../composables/useToast";
 import { openMetadataEditor } from "../composables/useMetadataEditor";
@@ -279,7 +289,22 @@ const emit = defineEmits<{
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
+const offline = useOfflineStore();
 const selection = useSelectionStore();
+
+const isCached = computed(() => (props.track ? offline.isCached(props.track.id) : false));
+
+async function onToggleDownload(): Promise<void> {
+  const t = props.track;
+  if (!t) return;
+  if (offline.isCached(t.id)) {
+    await offline.removeTrack(t.id);
+    showToast("Removed offline download");
+  } else {
+    await offline.downloadTrack(t);
+  }
+  emit("close");
+}
 
 function onSelect(): void {
   const t = props.track;

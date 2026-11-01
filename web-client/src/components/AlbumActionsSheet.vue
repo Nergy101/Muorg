@@ -8,7 +8,8 @@
             v-if="coverUrl"
             :src="coverUrl"
             :alt="item.album"
-            class="h-full w-full object-cover"
+            class="h-full w-full object-cover [-webkit-touch-callout:none]"
+            draggable="false"
           />
           <div v-else class="flex h-full w-full items-center justify-center">
             <MageIcon name="music" class="h-4 w-4 text-on-surface-variant/60" />
@@ -31,6 +32,29 @@
       <button type="button" :class="ROW" @click="emit('add-to-playlist'); emit('close')">
         <MageIcon name="playlist-add" class="h-5 w-5 shrink-0 text-on-surface-variant" />
         <span>Add to playlist</span>
+      </button>
+
+      <button
+        type="button"
+        :class="ROW"
+        :disabled="downloading"
+        @click="downloaded ? emit('undownload') : emit('download'); emit('close')"
+      >
+        <span class="relative flex h-5 w-5 shrink-0 items-center justify-center">
+          <svg v-if="downloading" viewBox="0 0 20 20" class="absolute inset-0 h-5 w-5 -rotate-90">
+            <circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
+            <circle
+              cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+              :stroke-dasharray="RING_CIRC" :stroke-dashoffset="ringOffset"
+            />
+          </svg>
+          <MageIcon
+            name="download"
+            class="h-5 w-5"
+            :class="downloaded ? 'text-primary' : 'text-on-surface-variant'"
+          />
+        </span>
+        <span>{{ downloaded ? "Remove offline download" : "Download for offline" }}</span>
       </button>
 
       <div class="my-1 border-t border-outline/30" />
@@ -71,6 +95,7 @@ import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import MarqueeText from "./MarqueeText.vue";
 import { useLibraryStore } from "../stores/library";
+import { useOfflineStore } from "../stores/offline";
 import type { AlbumGridItem } from "../types";
 
 const ROW = "flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface";
@@ -84,11 +109,29 @@ const emit = defineEmits<{
   close: [];
   play: [];
   "add-to-playlist": [];
+  download: [];
+  undownload: [];
   "view-artist": [];
   "view-album": [];
 }>();
 
 const lib = useLibraryStore();
+const offline = useOfflineStore();
+
+const downloading = computed(() =>
+  props.item ? offline.activeAlbumKey === props.item.key : false,
+);
+const downloaded = computed(() =>
+  props.item ? offline.isAlbumDownloaded(props.item.key) : false,
+);
+
+// Circular progress ring around the download icon while this album downloads.
+const RING_CIRC = 2 * Math.PI * 8.5;
+const ringOffset = computed(() => {
+  const { done, total } = offline.downloadProgress;
+  const frac = total > 0 ? done / total : 0;
+  return RING_CIRC * (1 - frac);
+});
 
 const coverUrl = computed(() => {
   const id = props.item?.coverTrackId;

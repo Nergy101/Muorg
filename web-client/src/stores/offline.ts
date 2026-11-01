@@ -35,6 +35,8 @@ const RECENT_KEY = "muorg-offline-recent";
 const PLAYLISTS_KEY = "muorg-offline-playlists";
 /** playlistId -> track ids, persisted so eviction can protect them. */
 const PLAYLIST_TRACKS_KEY = "muorg-offline-playlist-tracks";
+/** albumKey -> track ids, persisted so eviction can protect them. */
+const ALBUMS_KEY = "muorg-offline-albums";
 
 /** Cache key for a track: the bare stream URL, no query. The SW matches with
  *  ignoreSearch, so both the tokened playback URL and the ?offline=1 marker
@@ -75,6 +77,8 @@ export const useOfflineStore = defineStore("offline", () => {
   const downloadProgress = ref<{ done: number; total: number }>({ done: 0, total: 0 });
   /** Playlist id currently being downloaded, or null. */
   const activePlaylistId = ref<number | null>(null);
+  /** Album key currently being downloaded, or null. */
+  const activeAlbumKey = ref<string | null>(null);
 
   /** Track ids cached automatically from recent plays (Q11). */
   const recentIds = ref<number[]>(loadPref<number[]>(RECENT_KEY, []));
@@ -84,6 +88,8 @@ export const useOfflineStore = defineStore("offline", () => {
   const playlistTrackIds = ref<Record<number, number[]>>(
     loadPref<Record<number, number[]>>(PLAYLIST_TRACKS_KEY, {}),
   );
+  /** albumKey -> track ids the user explicitly downloaded. */
+  const downloadedAlbums = ref<Record<string, number[]>>(loadPref<Record<string, number[]>>(ALBUMS_KEY, {}));
   /** Tracks that failed to download this session (e.g. the file is missing on
    *  the server). The background recent-plays refresh skips these so a stale
    *  library entry does not cost a token + stream request on every navigation. */
@@ -101,10 +107,18 @@ export const useOfflineStore = defineStore("offline", () => {
     return downloadedPlaylists.value.includes(playlistId);
   }
 
-  /** Ids that must not be evicted: the union of every downloaded playlist. */
+  function isAlbumDownloaded(albumKey: string): boolean {
+    return albumKey in downloadedAlbums.value;
+  }
+
+  /** Ids that must not be evicted: the union of every downloaded playlist
+   *  and album. */
   function protectedIds(): Set<number> {
     const s = new Set<number>();
     for (const ids of Object.values(playlistTrackIds.value)) {
+      for (const id of ids) s.add(id);
+    }
+    for (const ids of Object.values(downloadedAlbums.value)) {
       for (const id of ids) s.add(id);
     }
     return s;
@@ -288,6 +302,46 @@ export const useOfflineStore = defineStore("offline", () => {
     }
   }
 
+  /** Downloads every track of an album for offline use. */
+  async function downloadAlbum(albumKey: string): Promise<void> {
+    if (downloading.value) {
+      showToast("A download is already running");
+      return;
+    }
+    const lib = useLibraryStore();
+    const tracks = lib.tracksForAlbum(albumKey);
+    if (tracks.length === 0) {
+      showToast("This album has no tracks to download");
+      return;
+    }
+    activeAlbumKey.value = albumKey;
+    bgRun++; // preempt any background auto-cache batch
+    try {
+      await downloadTracks(tracks);
+      const allCached = tracks.every((t) => isCached(t.id));
+      if (allCached) {
+        downloadedAlbums.value = { ...downloadedAlbums.value, [albumKey]: tracks.map((t) => t.id) };
+        savePref(ALBUMS_KEY, downloadedAlbums.value);
+        showToast(`Downloaded ${tracks.length} track(s) for offline use`);
+      }
+    } finally {
+      activeAlbumKey.value = null;
+    }
+  }
+
+  /** Removes every cached track of a downloaded album and unmarks it. */
+  async function removeAlbumDownload(albumKey: string): Promise<void> {
+    const ids = downloadedAlbums.value[albumKey] ?? [];
+    for (const id of ids) {
+      await removeTrack(id);
+    }
+    const albums = { ...downloadedAlbums.value };
+    delete albums[albumKey];
+    downloadedAlbums.value = albums;
+    savePref(ALBUMS_KEY, downloadedAlbums.value);
+    showToast("Removed offline download");
+  }
+
   /** Removes every cached track of a downloaded playlist and unmarks it (Q11). */
   async function removePlaylistDownload(playlistId: number): Promise<void> {
     const ids = playlistTrackIds.value[playlistId] ?? [];
@@ -385,10 +439,12 @@ export const useOfflineStore = defineStore("offline", () => {
     recentIds.value = [];
     downloadedPlaylists.value = [];
     playlistTrackIds.value = {};
+    downloadedAlbums.value = {};
     try {
       localStorage.removeItem(RECENT_KEY);
       localStorage.removeItem(PLAYLISTS_KEY);
       localStorage.removeItem(PLAYLIST_TRACKS_KEY);
+      localStorage.removeItem(ALBUMS_KEY);
     } catch {
       /* ignore */
     }
@@ -402,17 +458,22 @@ export const useOfflineStore = defineStore("offline", () => {
     bgDownloading,
     downloadProgress,
     activePlaylistId,
+    activeAlbumKey,
     recentIds,
     downloadedPlaylists,
     playlistTrackIds,
+    downloadedAlbums,
     cachedTrackCount,
     isCached,
     isPlaylistDownloaded,
+    isAlbumDownloaded,
     init,
     downloadTrack,
     downloadTracks,
     downloadPlaylist,
     removePlaylistDownload,
+    downloadAlbum,
+    removeAlbumDownload,
     syncPlaylistDownload,
     refreshRecentCache,
     removeTrack,

@@ -395,6 +395,29 @@ describe("downloadPlaylist", () => {
   });
 });
 
+describe("downloadAlbum", () => {
+  it("downloads every album track and marks the album downloaded", async () => {
+    const lib = useLibraryStore();
+    const t7 = track({ id: 7, album: "A", album_artist: "X" });
+    const t8 = track({ id: 8, album: "A", album_artist: "X" });
+    lib.tracks = [t7, t8];
+    const key = lib.keyForTrack(t7);
+
+    const offline = useOfflineStore();
+    await offline.init();
+    await offline.downloadAlbum(key);
+
+    expect(offline.isCached(7)).toBe(true);
+    expect(offline.isCached(8)).toBe(true);
+    expect(offline.isAlbumDownloaded(key)).toBe(true);
+    expect(offline.downloadedAlbums[key]).toEqual([7, 8]);
+
+    await offline.removeAlbumDownload(key);
+    expect(offline.isCached(7)).toBe(false);
+    expect(offline.isAlbumDownloaded(key)).toBe(false);
+  });
+});
+
 describe("clearAll", () => {
   it("deletes the cache and its bookkeeping", async () => {
     const offline = useOfflineStore();
