@@ -65,11 +65,8 @@
   </button>
   </div>
 
-  <!-- Genre select: in the tracks layout on desktop it moves to the table
-       toolbar (second row), so it hides here on lg+ to avoid duplicates. -->
-  <div :class="settings.albumViewStyle === 'tracks' ? 'lg:hidden' : ''">
-    <GenreFilterMenu />
-  </div>
+  <!-- Genre select in its own pill, styled exactly like the sort pill. -->
+  <GenreFilterMenu />
 
   <button
     type="button"

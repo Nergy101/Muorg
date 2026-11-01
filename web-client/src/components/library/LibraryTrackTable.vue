@@ -4,7 +4,11 @@
          table-level controls only (the view-level sort/genre/layout/shuffle
          live in the top bar above). -->
     <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-3 py-2">
-      <!-- Grouping + collapse/expand on the far left of the row. -->
+      <!-- View-level actions (layout, sort, genre, shuffle) first — the top
+           bar is not rendered in this layout, so this row is the only one. -->
+      <LibraryViewActions />
+
+      <!-- Grouping + collapse/expand pill. -->
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
         <div ref="groupMenuRef" class="relative">
           <button
@@ -122,9 +126,6 @@
         </Teleport>
       </div>
 
-      <!-- Genre filter lives in this second row in the tracks layout (the
-           top bar's copy hides on lg+). -->
-      <GenreFilterMenu />
 
       <div class="flex-1" />
 
@@ -444,7 +445,7 @@ import { usePlayerStore } from "../../stores/player";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSelectionStore } from "../../stores/selection";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
-import GenreFilterMenu from "../GenreFilterMenu.vue";
+import LibraryViewActions from "../LibraryViewActions.vue";
 import { openMetadataEditor } from "../../composables/useMetadataEditor";
 import { showToast } from "../../composables/useToast";
 import { startTrackDrag } from "../../composables/useTrackDrag";

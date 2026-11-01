@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* The shared desktop-client tree (../src, aliased as @shared) is outside this
+   app's root, so Tailwind's automatic content detection misses it — without
+   this, arbitrary-value classes used by shared components (e.g. the stats
+   score colors) are never generated and fall back to inherited text color. */
+@source "../../src";
+
 /* ---------------------------------------------------------------------------
    Design tokens — ported 1:1 from android-client ui/theme/{Theme,Color}.kt.
 
