@@ -20,7 +20,7 @@
         </button>
       </div>
 
-      <!-- Recommended: 4 random albums from the catalog (refresh re-rolls). -->
+      <!-- Recommended: random albums from the catalog (5 on desktop, 4 on mobile; refresh re-rolls). -->
       <section v-if="shelfViews[0]" class="px-4 pt-6">
         <!-- Bottom spacing belongs to the row, not the heading: with `pb-2` on
              the <h2> the flex row centres the button against the padded box and
@@ -73,7 +73,7 @@
         </div>
       </section>
 
-      <!-- Mixes: 8 session-stable random ~20-track playlists, never written
+      <!-- Mixes: session-stable random ~20-track playlists (10 on desktop, 8 on mobile), never written
            to the server. Opening one shows its tracks; saving goes through
            the New-playlist flow. -->
       <section class="border-t border-outline/20 px-4 pt-6">
@@ -103,7 +103,7 @@
           <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
         </div>
 
-        <!-- Preloading the cover collages for all 8 mixes; show nothing until
+        <!-- Preloading the cover collages for all mixes; show nothing until
              every one is done so the grid appears as a complete set. Note the
              explicit `.value`: mixCoverReady is a plain object (not a store
              proxy), so its ComputedRefs do NOT auto-unwrap in templates. -->
@@ -188,6 +188,7 @@ import { usePlayerStore } from "../stores/player";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useGridColumns } from "../composables/useGridColumns";
+import { useIsDesktop } from "../composables/useIsDesktop";
 import { useMixes } from "@shared/composables/useMixes";
 import { useMixCoverReady } from "../composables/useMixCoverReady";
 import type { AlbumGridItem, CatalogTrack } from "../types";
@@ -211,11 +212,14 @@ interface Shelf {
   error: boolean;
 }
 
-/** How many album cards a home shelf shows at most (both layouts). */
-const SHELF_CAP = 4;
+const isDesktop = useIsDesktop();
 
-// "Recommended" is just 4 randomly chosen albums from the catalog, picked once
-// per session so the row stays stable while you browse (a fresh load re-rolls).
+/** How many album cards a home shelf shows at most: 5 on desktop, 4 on mobile. */
+const SHELF_CAP = computed(() => (isDesktop.value ? 5 : 4));
+
+// "Recommended" is just a few randomly chosen albums from the catalog, picked
+// once per session so the row stays stable while you browse (a fresh load
+// re-rolls).
 let recommendedTracksCache: CatalogTrack[] | null = null;
 function randomRecommendedTracks(): CatalogTrack[] {
   if (recommendedTracksCache) return recommendedTracksCache;
@@ -236,12 +240,12 @@ function randomRecommendedTracks(): CatalogTrack[] {
   const withCover = [...byKey.entries()].filter(([, g]) => g.coverId !== null);
   if (withCover.length === 0) return [];
   const picked = [...withCover];
-  const n = Math.min(4, picked.length);
+  const n = Math.min(SHELF_CAP.value, picked.length);
   for (let i = 0; i < n; i++) {
     const j = i + Math.floor(Math.random() * (picked.length - i));
     [picked[i], picked[j]] = [picked[j], picked[i]];
   }
-  const chosen = picked.slice(0, 4);
+  const chosen = picked.slice(0, SHELF_CAP.value);
   const byId = new Map(lib.tracks.map((t) => [t.id, t]));
   const tracks: CatalogTrack[] = [];
   for (const [, g] of chosen) {
@@ -335,7 +339,7 @@ const shelfViews = computed(() =>
     icon: s.icon,
     loading: s.loading,
     error: s.error,
-    items: buildShelfItems(s.tracks).slice(0, SHELF_CAP),
+    items: buildShelfItems(s.tracks).slice(0, SHELF_CAP.value),
   })),
 );
 
@@ -370,6 +374,8 @@ function openAlbum(item: AlbumGridItem): void {
 const { mixes, refresh } = useMixes({
   tracks: () => lib.tracks,
   ready: () => !lib.loading && !lib.loadingMore,
+  // 10 mixes on desktop viewports, 8 on mobile.
+  count: () => (isDesktop.value ? 10 : 8),
 });
 const mixCoverReady = useMixCoverReady(() => mixes.value);
 // Live cover-loading state, for probing from devtools while working on the
