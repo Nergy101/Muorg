@@ -26,8 +26,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LibraryToolsSection(
     onMetadataScan: () -> Unit,
-    onOpenReports: () -> Unit,
-    onOpenStats: () -> Unit = {},
 ) {
 
     Row(
@@ -40,25 +38,6 @@ fun LibraryToolsSection(
             Text("Metadata scan")
         }
         Spacer(Modifier.width(8.dp))
-        Button(onClick = { onOpenReports() }) {
-            Icon(
-                Icons.AutoMirrored.Filled.FactCheck,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text("Reports")
-        }
-        Spacer(Modifier.width(8.dp))
-        Button(onClick = { onOpenStats() }) {
-            Icon(
-                painter = painterResource(mageIconRes("chart-up")),
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text("Statistics")
-        }
     }
 
 }

@@ -23,13 +23,6 @@
       <MageIcon name="chevron-right" class="h-5 w-5 shrink-0 text-on-surface-variant" />
     </button>
 
-    <button type="button" :class="[ROW, 'w-full text-left']" @click="router.push({ name: 'stats' })">
-      <div class="min-w-0 flex-1">
-        <p class="text-body-lg text-on-surface">Library statistics</p>
-        <p class="text-body-sm text-on-surface-variant">Genres, top artists, ratings and metadata health</p>
-      </div>
-      <MageIcon name="chevron-right" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-    </button>
   </div>
 </template>
 

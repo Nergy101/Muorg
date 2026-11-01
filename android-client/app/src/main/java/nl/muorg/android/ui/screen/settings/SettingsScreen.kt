@@ -5,18 +5,25 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -35,6 +42,7 @@ import nl.muorg.android.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.muorg.android.ui.component.LocalBottomInset
+import nl.muorg.android.ui.icon.mageIconRes
 
 @Composable
 fun SettingsScreen(
@@ -87,6 +95,34 @@ fun SettingsScreen(
             )
         }
 
+        // Reports and statistics sit above the collapsible sections, like on
+        // the web client's settings page.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(onClick = onOpenReports, modifier = Modifier.weight(1f)) {
+                Icon(
+                    Icons.AutoMirrored.Filled.FactCheck,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Reports")
+            }
+            Button(onClick = onOpenStats, modifier = Modifier.weight(1f)) {
+                Icon(
+                    painter = painterResource(mageIconRes("chart-up")),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Statistics")
+            }
+        }
+
         // Sections collapse like the web client's settings page; only the
         // version/info section starts expanded.
         CollapsibleSection("Muorg Info", defaultOpen = true) {
@@ -132,8 +168,6 @@ fun SettingsScreen(
         CollapsibleSection("Library tools", icon = "wrench") {
             LibraryToolsSection(
                 onMetadataScan = { showMetadataScanSheet = true },
-                onOpenReports = onOpenReports,
-                onOpenStats = onOpenStats,
             )
         }
 
