@@ -406,10 +406,6 @@ fun NavGraph() {
                             miniPlayerSheet = false
                             playerViewModel.saveMetadata(track, title, artist, album, albumArtist, genre, year)
                         },
-                        onRenameFile = { newPath ->
-                            miniPlayerSheet = false
-                            playerViewModel.renameTrackFile(track, newPath)
-                        },
                     )
                 }
             }

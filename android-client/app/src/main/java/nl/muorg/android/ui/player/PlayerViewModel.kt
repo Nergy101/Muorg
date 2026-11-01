@@ -23,6 +23,7 @@ import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.player.PlayerController
 import nl.muorg.android.player.PlayerState
@@ -38,6 +39,7 @@ class PlayerViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val castManager: CastManager,
     private val libraryRepository: LibraryRepository,
+    private val offlineDownloadManager: OfflineDownloadManager,
     private val uiMessenger: UiMessenger,
 ) : ViewModel() {
 
@@ -46,6 +48,10 @@ class PlayerViewModel @Inject constructor(
     private var shuffleAllPool: List<CatalogTrack> = emptyList()
     // Guard: only refill when queue.size reaches this threshold, preventing double-fires.
     private var shuffleAllMinQueueSize = Int.MAX_VALUE
+
+    /** Ids of tracks fully on disk — drives the track sheet's download toggle. */
+    val downloadedTrackIds: StateFlow<Set<Int>> = offlineDownloadManager.observeDownloadedTrackIds()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     val isCasting: StateFlow<Boolean> = castManager.isCasting
     val castDeviceName: StateFlow<String?> = castManager.castDeviceName
@@ -376,6 +382,36 @@ class PlayerViewModel @Inject constructor(
     fun playNext(track: CatalogTrack) {
         playerController.playNext(track)
         uiMessenger.show("Will play next")
+    }
+
+    /** Set or clear the 1–5 star rating; tapping the current star clears it. */
+    fun setRating(track: CatalogTrack, rating: Int?) {
+        viewModelScope.launch {
+            libraryRepository.setRating(track.id, rating).fold(
+                onSuccess = { uiMessenger.show(if (rating == null) "Rating cleared" else "Rated $rating/5") },
+                onFailure = { e -> uiMessenger.show("Failed to rate: ${e.friendlyMessage()}") },
+            )
+        }
+    }
+
+    /** Permanently delete the track's file and catalog row (server mode only). */
+    fun deleteTrack(track: CatalogTrack) {
+        viewModelScope.launch {
+            libraryRepository.deleteTrack(track.id).fold(
+                onSuccess = { uiMessenger.show("Deleted") },
+                onFailure = { e -> uiMessenger.show("Failed to delete: ${e.friendlyMessage()}") },
+            )
+        }
+    }
+
+    /** Download a single track for offline, or remove its download. */
+    fun toggleTrackDownload(track: CatalogTrack, downloaded: Boolean) {
+        if (downloaded) {
+            offlineDownloadManager.removeTrack(track.id)
+            uiMessenger.show("Removed offline download")
+        } else {
+            offlineDownloadManager.downloadSingleTrack(track)
+        }
     }
 
     /** Start a context and shuffle it — the playlist screen's shuffle button. */

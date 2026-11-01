@@ -128,6 +128,26 @@ class OfflineDownloadManager @Inject constructor(
     fun observeDownloadedTrackIds(): Flow<Set<Int>> =
         offlineTrackDao.observeReadyTrackIds().map { it.toSet() }
 
+    /**
+     * Downloads a single track outside any playlist (null playlistId), e.g.
+     * from the track context menu's "Download for offline".
+     */
+    fun downloadSingleTrack(track: CatalogTrack) {
+        scope.launch {
+            downloadMutex.withLock {
+                beginProgress(null, 1)
+                if (!networkAllowsDownload()) {
+                    _downloadProgress.update {
+                        it.copy(isActive = false, errorMessage = "Downloads are limited to Wi-Fi")
+                    }
+                    return@withLock
+                }
+                downloadTracks(null, listOf(track))
+                _downloadProgress.update { it.copy(isActive = false) }
+            }
+        }
+    }
+
     fun downloadPlaylist(playlist: Playlist, tracks: List<CatalogTrack>) {
         scope.launch {
             downloadMutex.withLock {

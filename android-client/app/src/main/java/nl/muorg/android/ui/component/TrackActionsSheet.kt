@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
@@ -65,7 +67,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO, EDIT_METADATA, RENAME_FILE }
+private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO, EDIT_METADATA }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,11 +82,14 @@ fun TrackActionsSheet(
     onAddToPlaylist: (playlistId: Int) -> Unit,
     onRemoveFromPlaylist: (playlistId: Int) -> Unit = {},
     trackInPlaylistIds: Set<Int> = emptySet(),
+    /** Set when the sheet was opened from a playlist detail screen: shows
+     *  "Remove from this playlist" like the web client's sheet. */
+    currentPlaylistId: Int? = null,
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
     onRemoveFromQueue: (() -> Unit)? = null,
+    onSelect: (() -> Unit)? = null,
     onSaveMetadata: ((title: String?, artist: String?, album: String?, albumArtist: String?, genre: String?, year: Int?) -> Unit)? = null,
-    onRenameFile: ((newPath: String) -> Unit)? = null,
 ) {
     var level by remember { mutableStateOf(SheetLevel.MAIN) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -121,10 +126,10 @@ fun TrackActionsSheet(
                 onViewArtist = onViewArtist,
                 onViewAlbum = onViewAlbum,
                 onRemoveFromQueue = onRemoveFromQueue,
+                currentPlaylistId = currentPlaylistId,
+                onSelect = onSelect,
                 onGoToEditMetadata = { level = SheetLevel.EDIT_METADATA },
-                onGoToRenameFile = if (onRenameFile != null && track.id > 0) {
-                    { level = SheetLevel.RENAME_FILE }
-                } else null,
+                onRemoveFromPlaylist = onRemoveFromPlaylist,
             )
             SheetLevel.PLAYLISTS -> PlaylistsLevel(
                 playlists = playlists,
@@ -147,14 +152,6 @@ fun TrackActionsSheet(
                 },
                 onToast = playerViewModel::showToast,
             )
-            SheetLevel.RENAME_FILE -> RenameFileLevel(
-                track = track,
-                onBack = { level = SheetLevel.MAIN },
-                onRename = { newPath ->
-                    onRenameFile?.invoke(newPath)
-                    onDismiss()
-                },
-            )
         }
     }
 }
@@ -170,11 +167,16 @@ private fun MainLevel(
     onGoToPlaylists: () -> Unit,
     onGoToTrackInfo: () -> Unit,
     onGoToEditMetadata: () -> Unit,
+    onRemoveFromPlaylist: (playlistId: Int) -> Unit = {},
     onViewArtist: () -> Unit,
     onViewAlbum: () -> Unit,
     onRemoveFromQueue: (() -> Unit)? = null,
-    onGoToRenameFile: (() -> Unit)? = null,
+    currentPlaylistId: Int? = null,
+    onSelect: (() -> Unit)? = null,
 ) {
+    val downloadedTrackIds by playerViewModel.downloadedTrackIds.collectAsStateWithLifecycle()
+    val isDownloaded = track.id in downloadedTrackIds
+    var deleteConfirmOpen by remember { mutableStateOf(false) }
     // Header
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
@@ -215,6 +217,18 @@ private fun MainLevel(
             )
         }
     }
+
+    // Rating: just the 5 stars, no text — same as the web client's sheet.
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        StarRating(
+            value = track.rating,
+            onChange = { playerViewModel.setRating(track, it) },
+        )
+    }
+
     HorizontalDivider()
 
     ListItem(
@@ -236,24 +250,50 @@ private fun MainLevel(
         modifier = Modifier.clickable { playerViewModel.toggleFavorite(track); onDismiss() },
     )
     ListItem(
+        headlineContent = { Text("Play next", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("arrow-up")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        modifier = Modifier.clickable { playerViewModel.playNext(track); onDismiss() },
+    )
+    ListItem(
+        headlineContent = { Text("Add to queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("stack")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        modifier = Modifier.clickable { playerViewModel.addToQueue(track); onDismiss() },
+    )
+    ListItem(
         headlineContent = { Text("Add to playlist", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         leadingContent = { Icon(
                         painter = painterResource(mageIconRes("playlist-add")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToPlaylists() },
     )
+    ListItem(
+        headlineContent = {
+            Text(
+                if (isDownloaded) "Remove offline download" else "Download for offline",
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                color = if (isDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            )
+        },
+        leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("download")), null, modifier = Modifier.size(22.dp),
+                        tint = if (isDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+        modifier = Modifier.clickable { playerViewModel.toggleTrackDownload(track, isDownloaded); onDismiss() },
+    )
+    if (currentPlaylistId != null) {
+        ListItem(
+            headlineContent = { Text("Remove from this playlist", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.error) },
+            leadingContent = { Icon(
+                        painter = painterResource(mageIconRes("trash")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
+            modifier = Modifier.clickable { onRemoveFromPlaylist(currentPlaylistId); onDismiss() },
+        )
+    }
     if (onRemoveFromQueue != null) {
         ListItem(
             headlineContent = { Text("Remove from queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.error) },
             leadingContent = { Icon(
-                        painter = painterResource(mageIconRes("stack")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
+                        painter = painterResource(mageIconRes("trash")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
             modifier = Modifier.clickable { onRemoveFromQueue(); onDismiss() },
-        )
-    } else {
-        ListItem(
-            headlineContent = { Text("Add to queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-            leadingContent = { Icon(
-                        painter = painterResource(mageIconRes("stack")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            modifier = Modifier.clickable { playerViewModel.addToQueue(track); onDismiss() },
         )
     }
 
@@ -276,6 +316,14 @@ private fun MainLevel(
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
+    if (onSelect != null) {
+        ListItem(
+            headlineContent = { Text("Select", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+            leadingContent = { Icon(
+                            painter = painterResource(mageIconRes("check-circle")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            modifier = Modifier.clickable { onSelect(); onDismiss() },
+        )
+    }
     ListItem(
         headlineContent = { Text("Track info", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         leadingContent = { Icon(
@@ -288,17 +336,72 @@ private fun MainLevel(
                         painter = painterResource(mageIconRes("edit")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.clickable { onGoToEditMetadata() },
     )
-    // Renaming moves the file on disk — a server operation, so it is
-    // hidden for on-device tracks (negative id, no server row).
-    if (onGoToRenameFile != null) {
+    // Deleting removes the file from the server — a server operation, so it
+    // is hidden for on-device tracks (negative id, no server row).
+    if (track.id > 0) {
         ListItem(
-            headlineContent = { Text("Rename file", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+            headlineContent = { Text("Delete track", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.error) },
             leadingContent = { Icon(
-                        painter = painterResource(mageIconRes("folder")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            modifier = Modifier.clickable { onGoToRenameFile() },
+                            painter = painterResource(mageIconRes("trash")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
+            modifier = Modifier.clickable { deleteConfirmOpen = true },
         )
     }
     Spacer(Modifier.height(16.dp))
+
+    if (deleteConfirmOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteConfirmOpen = false },
+            title = { Text("Delete track") },
+            text = {
+                Text(
+                    "Delete \"${track.displayTitle}\" from the server? " +
+                        "This permanently removes the file and cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        deleteConfirmOpen = false
+                        playerViewModel.deleteTrack(track)
+                        onDismiss()
+                    },
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteConfirmOpen = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+/** 1–5 star rating control; tapping the current star clears the rating. */
+@Composable
+private fun StarRating(
+    value: Int?,
+    onChange: (Int?) -> Unit,
+) {
+    var hovered by remember { mutableStateOf<Int?>(null) }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.padding(vertical = 2.dp),
+    ) {
+        for (star in 1..5) {
+            val filled = (hovered ?: value ?: 0) >= star
+            androidx.compose.material3.IconButton(
+                onClick = { onChange(if (value == star) null else star) },
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = if (filled) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = "$star star${if (star > 1) "s" else ""} rating",
+                    tint = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -580,74 +683,6 @@ private fun MetadataEditLevel(
                 },
             ) {
                 Text("Save")
-            }
-        }
-        Spacer(Modifier.height(24.dp))
-    }
-}
-
-/**
- * Rename a track's file on the server. The field is pre-filled with the
- * current path; the rename is refused client-side when the path is
- * unchanged, and the server refuses it when the destination exists.
- */
-@Composable
-private fun RenameFileLevel(
-    track: CatalogTrack,
-    onBack: () -> Unit,
-    onRename: (newPath: String) -> Unit,
-) {
-    var newPath by remember { mutableStateOf(track.path) }
-
-    ListItem(
-        headlineContent = { Text("Back") },
-        leadingContent = { Icon(
-                        painter = painterResource(mageIconRes("chevron-left")), null, modifier = Modifier.size(18.dp)) },
-        modifier = Modifier.clickable { onBack() },
-    )
-    Text(
-        "RENAME FILE",
-        style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.8.sp,
-        ),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp).padding(bottom = 6.dp),
-    )
-
-    Column(
-        modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
-    ) {
-        Text(
-            "Moves the file on the server and updates the catalog. The new path must include the file name.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
-        androidx.compose.material3.OutlinedTextField(
-            value = newPath,
-            onValueChange = { newPath = it },
-            label = { Text("New path") },
-            singleLine = false,
-            textStyle = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            TextButton(onClick = onBack) {
-                Text("Cancel")
-            }
-            Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = { onRename(newPath) },
-                enabled = newPath.trim().isNotBlank() && newPath.trim() != track.path,
-            ) {
-                Text("Rename")
             }
         }
         Spacer(Modifier.height(24.dp))

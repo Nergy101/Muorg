@@ -17,6 +17,7 @@ import nl.muorg.android.data.api.schema.RenameBody
 import nl.muorg.android.data.api.schema.RenameCheckBody
 import nl.muorg.android.data.api.schema.RenameCheckItem
 import nl.muorg.android.data.api.schema.RenameCollision
+import nl.muorg.android.data.api.schema.RatingBody
 import nl.muorg.android.data.api.schema.SearchQuery
 import nl.muorg.android.data.api.schema.TrackBackupRecord
 import nl.muorg.android.data.api.toDomain
@@ -176,6 +177,20 @@ class LibraryRepository @Inject constructor(
         api.restoreBackup(trackId.toLong())
             .orThrow("POST /api/tracks/$trackId/restore")
         // The restored tags make the cached catalog stale.
+        cacheLock.withLock { cachedTracks = null }
+    }
+
+    /** Set or clear the 1–5 star rating (`null` clears). */
+    suspend fun setRating(trackId: Int, rating: Int?): Result<Unit> = runCatching {
+        api.setRating(trackId.toLong(), RatingBody(rating = rating?.toLong()))
+            .orThrow("POST /api/tracks/$trackId/rating")
+        cacheLock.withLock { cachedTracks = null }
+    }
+
+    /** Permanently delete the track's file and catalog row. */
+    suspend fun deleteTrack(trackId: Int): Result<Unit> = runCatching {
+        api.deleteTrack(trackId.toLong())
+            .orThrow("DELETE /api/tracks/$trackId")
         cacheLock.withLock { cachedTracks = null }
     }
 
