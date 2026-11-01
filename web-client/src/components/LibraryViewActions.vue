@@ -19,6 +19,18 @@
     >{{ settings.albumViewStyle === "tracks" ? "2" : "1" }}</span>
   </button>
 
+  <!-- Shuffle-and-play-all sits right of the layout selection. -->
+  <button
+    type="button"
+    class="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+    :class="player.shuffleAllActive ? 'text-primary' : 'text-on-surface'"
+    aria-label="Shuffle all"
+    :aria-pressed="player.shuffleAllActive"
+    @click="player.startShuffleAll(lib.filteredTracks)"
+  >
+    <MageIcon name="exchange" class="h-4 w-4" />
+  </button>
+
   <!-- Sort select in its own pill group. -->
   <div :class="PILL">
     <!-- In the tracks layout the table toolbar has its own column sort, so
@@ -67,17 +79,6 @@
 
   <!-- Genre select in its own pill, styled exactly like the sort pill. -->
   <GenreFilterMenu />
-
-  <button
-    type="button"
-    class="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
-    :class="player.shuffleAllActive ? 'text-primary' : 'text-on-surface'"
-    aria-label="Shuffle all"
-    :aria-pressed="player.shuffleAllActive"
-    @click="player.startShuffleAll(lib.filteredTracks)"
-  >
-    <MageIcon name="exchange" class="h-4 w-4" />
-  </button>
 </template>
 
 <script setup lang="ts">
