@@ -146,12 +146,26 @@ fun StatsScreen(
             .toList()
             .sortedByDescending { it.second }
     }
-    val durationBuckets = remember(tracks) {
-        tracks.mapNotNull { it.durationSecs }
-            .groupingBy { (it / 60).toInt() }
+    // Bin track lengths into at most ~12 bars: per-minute bins for short
+    // libraries, wider ranges once the span would crowd the axis with
+    // single-number labels.
+    val durationBuckets: Pair<List<Pair<Int, Int>>, Int> = remember(tracks) {
+        val durations = tracks.mapNotNull { it.durationSecs?.toInt() }
+        if (durations.isEmpty()) return@remember emptyList<Pair<Int, Int>>() to 1
+        val maxMinute = durations.max() / 60
+        var bin = 1
+        while (maxMinute / bin + 1 > 12) bin++
+        durations
+            .groupingBy { (it / 60) / bin * bin }
             .eachCount()
             .toList()
             .sortedBy { it.first }
+            .let { buckets -> buckets to bin }
+    }
+    val durationBinWidth = durationBuckets.second
+    val durationBars = durationBuckets.first.map { (start, count) ->
+        val label = if (durationBinWidth == 1) "$start" else "$start-${start + durationBinWidth - 1}"
+        label to count
     }
     val mostPlayed = remember(tracks) {
         tracks.filter { it.playCount > 0 }
@@ -282,9 +296,11 @@ fun StatsScreen(
                     ChartCard { DonutChart(formatCounts, centerLabel = "Formats") }
                 }
 
-                item(key = "duration-title") { SectionTitle("Track length (per minute)") }
+                item(key = "duration-title") {
+                    SectionTitle(if (durationBinWidth == 1) "Track length (per minute)" else "Track length (minutes)")
+                }
                 item(key = "duration-chart") {
-                    ChartCard { BarChart(durationBuckets.map { (minute, count) -> "$minute" to count }) }
+                    ChartCard { BarChart(durationBars) }
                 }
 
                 if (mostPlayed.isNotEmpty()) {
