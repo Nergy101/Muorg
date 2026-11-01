@@ -39,9 +39,11 @@
         <p class="text-body-md text-on-surface-variant">Tap + to create one.</p>
       </div>
 
-      <div v-else class="px-4 py-2">
+      <!-- Full-bleed on desktop so the 200px cards keep their size and a 5th
+           fits in the same row. -->
+      <div v-else class="px-4 py-2 lg:max-w-none">
         <div
-          class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]"
+          class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
         >
           <PlaylistCard
             v-for="p in playlistStore.sortedPlaylists"
