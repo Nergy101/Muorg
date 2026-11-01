@@ -1,6 +1,7 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2 lg:max-w-none">
+    <!-- Not content-col: stats read full-width on desktop, like the library grid. -->
+    <div class="flex h-14 shrink-0 items-center gap-1 px-2">
       <button
         type="button"
         class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors lg:w-auto lg:gap-1 lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
@@ -27,8 +28,7 @@
       </button>
     </div>
 
-    <!-- Full-bleed on desktop: stats read better across the whole shell width. -->
-    <div class="content-col min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 pb-[var(--bottom-inset)] lg:max-w-none">
+    <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 pb-[var(--bottom-inset)]">
       <div v-if="lib.loading && lib.tracks.length === 0" class="flex items-center justify-center py-12">
         <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>

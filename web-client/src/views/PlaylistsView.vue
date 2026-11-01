@@ -21,7 +21,9 @@
       </div>
     </div>
 
-    <div ref="scroller" class="content-col-children min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+    <!-- Not content-col-children: the card grid should use the whole shell on
+         desktop, like the library's album grid. -->
+    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <div v-if="playlistStore.loading" class="flex justify-center py-12">
         <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
       </div>
@@ -39,9 +41,7 @@
         <p class="text-body-md text-on-surface-variant">Tap + to create one.</p>
       </div>
 
-      <!-- Full-bleed on desktop so the 200px cards keep their size and a 5th
-           fits in the same row. -->
-      <div v-else class="px-4 py-2 lg:max-w-none">
+      <div v-else class="px-4 py-2">
         <div
           class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
         >
