@@ -28,8 +28,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -65,9 +63,8 @@ import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.PlaylistPickerSheet
+import nl.muorg.android.ui.component.TrackContextSheet
 import nl.muorg.android.ui.player.PlayerViewModel
-
-private enum class TrackMenuLevel { HIDDEN, MAIN }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -233,6 +230,8 @@ fun AlbumDetailScreen(
                         val membership = uiState.trackPlaylistMembership[track.path] ?: emptySet()
                         AlbumTrackRow(
                             track = track,
+                            baseUrl = baseUrl,
+                            imageLoader = imageLoader,
                             isPlaying = playerState.currentTrack?.id == track.id &&
                                 playerState.isPlaying,
                             isLoading = playerState.pendingTrackId == track.id,
@@ -286,6 +285,8 @@ fun AlbumDetailScreen(
 @Composable
 private fun AlbumTrackRow(
     track: CatalogTrack,
+    baseUrl: String,
+    imageLoader: ImageLoader,
     isPlaying: Boolean,
     isLoading: Boolean = false,
     isFavorite: Boolean = false,
@@ -299,7 +300,7 @@ private fun AlbumTrackRow(
     onCreatePlaylist: ((String) -> Unit)? = null,
     onViewArtist: (() -> Unit)? = null,
 ) {
-    var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
+    var showMenu by remember { mutableStateOf(false) }
     var showTrackInfo by remember { mutableStateOf(false) }
     var showPlaylistSheet by remember { mutableStateOf(false) }
 
@@ -309,7 +310,7 @@ private fun AlbumTrackRow(
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = onClick,
-                    onLongClick = { menuLevel = TrackMenuLevel.MAIN },
+                    onLongClick = { showMenu = true },
                 )
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -377,7 +378,7 @@ private fun AlbumTrackRow(
             )
 
             IconButton(
-                onClick = { menuLevel = TrackMenuLevel.MAIN },
+                onClick = { showMenu = true },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
@@ -389,70 +390,22 @@ private fun AlbumTrackRow(
             }
         }
 
-        // Level 1: main actions
-        DropdownMenu(
-            expanded = menuLevel == TrackMenuLevel.MAIN,
-            onDismissRequest = { menuLevel = TrackMenuLevel.HIDDEN },
-        ) {
-            DropdownMenuItem(
-                text = { Text("Play now") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("play")), contentDescription = null) },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    onClick()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Add to queue") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("stack")), contentDescription = null) },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    onAddToQueue?.invoke()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(if (isFavorite) "Remove from favorites" else "Add to favorites") },
-                leadingIcon = {
-                    Icon(
-                        if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = null,
-                    )
-                },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    onToggleFavorite?.invoke()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Add to playlist") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
-                onClick = { menuLevel = TrackMenuLevel.HIDDEN; showPlaylistSheet = true },
-            )
-            DropdownMenuItem(
-                text = { Text("Track info") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("information-circle")), contentDescription = null) },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    showTrackInfo = true
-                },
-            )
-            if (onViewArtist != null) {
-                DropdownMenuItem(
-                    text = { Text("View artist") },
-                    leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("user")), contentDescription = null) },
-                    onClick = {
-                        menuLevel = TrackMenuLevel.HIDDEN
-                        onViewArtist()
-                    },
-                )
-            }
-        }
+    }
 
+    if (showMenu) {
+        TrackContextSheet(
+            track = track,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            isFavorite = isFavorite,
+            onDismiss = { showMenu = false },
+            onPlayNow = onClick,
+            onAddToQueue = onAddToQueue,
+            onToggleFavorite = { onToggleFavorite?.invoke() },
+            onAddToPlaylist = { showPlaylistSheet = true },
+            onTrackInfo = { showTrackInfo = true },
+            onViewArtist = onViewArtist,
+        )
     }
 
     if (showPlaylistSheet) {

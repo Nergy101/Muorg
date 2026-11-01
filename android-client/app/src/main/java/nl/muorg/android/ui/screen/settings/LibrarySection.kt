@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -22,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import nl.muorg.android.ui.component.PickerSheet
 import nl.muorg.android.ui.screen.library.SortMode
 
 /**
@@ -48,17 +47,6 @@ fun LibrarySection(
                 .clickable(onClick = viewModel::showSortDropdown),
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
         )
-        DropdownMenu(
-            expanded = uiState.showSortDropdown,
-            onDismissRequest = viewModel::dismissSortDropdown,
-        ) {
-            SortMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = { Text(mode.label) },
-                    onClick = { viewModel.setDefaultSort(mode) },
-                )
-            }
-        }
     }
 
     ListItem(
@@ -101,6 +89,17 @@ fun LibrarySection(
                 }
             }
         }
+    }
+
+    if (uiState.showSortDropdown) {
+        PickerSheet(
+            title = "Default sort order",
+            options = SortMode.entries.toList(),
+            isSelected = { it == uiState.defaultSort },
+            label = { it.label },
+            onSelect = { viewModel.setDefaultSort(it) },
+            onDismiss = viewModel::dismissSortDropdown,
+        )
     }
 
 }

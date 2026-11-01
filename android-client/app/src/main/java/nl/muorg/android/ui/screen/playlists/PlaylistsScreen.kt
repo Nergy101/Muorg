@@ -26,9 +26,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import nl.muorg.android.ui.component.PickerSheet
 import nl.muorg.android.ui.glass.glassField
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -96,6 +95,7 @@ fun PlaylistsScreen(
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
     var actionsFor by remember { mutableStateOf<Pair<Playlist, List<Any>>?>(null) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(lifecycle) {
@@ -115,7 +115,6 @@ fun PlaylistsScreen(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            var showSortMenu by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
                     .glassField(MuorgShapes.pill)
@@ -135,25 +134,6 @@ fun PlaylistsScreen(
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                        }
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false },
-                        ) {
-                            PlaylistSortKey.entries.forEach { key ->
-                                DropdownMenuItem(
-                                    text = { Text(key.label) },
-                                    onClick = {
-                                        viewModel.setSortKey(key)
-                                        showSortMenu = false
-                                    },
-                                    trailingIcon = {
-                                        if (uiState.sortKey == key) {
-                                            Text("✓", color = MaterialTheme.colorScheme.primary)
-                                        }
-                                    },
-                                )
-                            }
                         }
                     }
                     IconButton(onClick = { viewModel.toggleSortAsc() }) {
@@ -211,6 +191,17 @@ fun PlaylistsScreen(
                     }
                 }
             }
+        }
+
+        if (showSortMenu) {
+            PickerSheet(
+                title = "Sort playlists by",
+                options = PlaylistSortKey.entries.toList(),
+                isSelected = { it == uiState.sortKey },
+                label = { it.label },
+                onSelect = { viewModel.setSortKey(it) },
+                onDismiss = { showSortMenu = false },
+            )
         }
 
         // Download status: the count while a playlist downloads. Once it is

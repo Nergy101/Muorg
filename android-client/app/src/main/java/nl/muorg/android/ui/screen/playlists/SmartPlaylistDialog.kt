@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +29,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.SmartRule
+import nl.muorg.android.ui.component.PickerSheet
 import nl.muorg.android.ui.icon.mageIconRes
 
 /**
@@ -143,30 +142,10 @@ internal fun SmartRuleRow(
                     modifier = Modifier.size(14.dp),
                 )
             }
-            DropdownMenu(expanded = fieldOpen, onDismissRequest = { fieldOpen = false }) {
-                SMART_FIELDS.forEach { (value, label) ->
-                    DropdownMenuItem(
-                        text = { Text(label) },
-                        onClick = {
-                            fieldOpen = false
-                            // Operators differ per field type, so reset to a valid one.
-                            onChange(rule.copy(field = value, op = opsForField(value).first().first))
-                        },
-                    )
-                }
-            }
         }
         Box {
             TextButton(onClick = { opOpen = true }) {
                 Text(ops.first { it.first == rule.op }.second)
-            }
-            DropdownMenu(expanded = opOpen, onDismissRequest = { opOpen = false }) {
-                ops.forEach { (value, label) ->
-                    DropdownMenuItem(
-                        text = { Text(label) },
-                        onClick = { opOpen = false; onChange(rule.copy(op = value)) },
-                    )
-                }
             }
         }
         OutlinedTextField(
@@ -185,5 +164,29 @@ internal fun SmartRuleRow(
                 )
             }
         }
+    }
+
+    if (fieldOpen) {
+        PickerSheet(
+            title = "Field",
+            options = SMART_FIELDS,
+            isSelected = { it.first == rule.field },
+            label = { it.second },
+            onSelect = { field ->
+                // Operators differ per field type, so reset to a valid one.
+                onChange(rule.copy(field = field.first, op = opsForField(field.first).first().first))
+            },
+            onDismiss = { fieldOpen = false },
+        )
+    }
+    if (opOpen) {
+        PickerSheet(
+            title = "Operator",
+            options = ops,
+            isSelected = { it.first == rule.op },
+            label = { it.second },
+            onSelect = { onChange(rule.copy(op = it.first)) },
+            onDismiss = { opOpen = false },
+        )
     }
 }

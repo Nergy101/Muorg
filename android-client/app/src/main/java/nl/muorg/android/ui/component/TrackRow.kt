@@ -25,8 +25,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,8 +47,6 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
-
-private enum class TrackMenuLevel { HIDDEN, MAIN }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -75,7 +71,7 @@ fun TrackRow(
     onViewArtist: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    var menuLevel by remember { mutableStateOf(TrackMenuLevel.HIDDEN) }
+    var showMenu by remember { mutableStateOf(false) }
     var showTrackInfo by remember { mutableStateOf(false) }
     var showPlaylistSheet by remember { mutableStateOf(false) }
 
@@ -96,7 +92,7 @@ fun TrackRow(
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = onTrackClick,
-                    onLongClick = { menuLevel = TrackMenuLevel.MAIN },
+                    onLongClick = { showMenu = true },
                 )
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -197,7 +193,7 @@ fun TrackRow(
 
             // The same menu long-press opens, reachable without the gesture.
             IconButton(
-                onClick = { menuLevel = TrackMenuLevel.MAIN },
+                onClick = { showMenu = true },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
@@ -209,82 +205,26 @@ fun TrackRow(
             }
         }
 
-        // Level 1: main actions
-        DropdownMenu(
-            expanded = menuLevel == TrackMenuLevel.MAIN,
-            onDismissRequest = { menuLevel = TrackMenuLevel.HIDDEN },
-        ) {
-            DropdownMenuItem(
-                text = { Text("Play now") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("play")), contentDescription = null) },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    onTrackClick()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Add to queue") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("stack")), contentDescription = null) },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    onAddToQueue?.invoke()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(if (localIsFavorite) "Remove from favorites" else "Add to favorites") },
-                leadingIcon = {
-                    Icon(
-                        if (localIsFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = null,
-                    )
-                },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    localIsFavorite = !localIsFavorite
-                    onToggleFavorite?.invoke()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Add to playlist") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
-                onClick = { menuLevel = TrackMenuLevel.HIDDEN; showPlaylistSheet = true },
-            )
-            DropdownMenuItem(
-                text = { Text("Track info") },
-                leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("information-circle")), contentDescription = null) },
-                onClick = {
-                    menuLevel = TrackMenuLevel.HIDDEN
-                    showTrackInfo = true
-                },
-            )
-            if (onViewAlbum != null) {
-                DropdownMenuItem(
-                    text = { Text("View album") },
-                    leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("compact-disk")), contentDescription = null) },
-                    onClick = {
-                        menuLevel = TrackMenuLevel.HIDDEN
-                        onViewAlbum()
-                    },
-                )
-            }
-            if (onViewArtist != null) {
-                DropdownMenuItem(
-                    text = { Text("View artist") },
-                    leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("user")), contentDescription = null) },
-                    onClick = {
-                        menuLevel = TrackMenuLevel.HIDDEN
-                        onViewArtist()
-                    },
-                )
-            }
-        }
+    }
 
+    if (showMenu) {
+        TrackContextSheet(
+            track = track,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            isFavorite = localIsFavorite,
+            onDismiss = { showMenu = false },
+            onPlayNow = onTrackClick,
+            onAddToQueue = onAddToQueue,
+            onToggleFavorite = {
+                localIsFavorite = !localIsFavorite
+                onToggleFavorite?.invoke()
+            },
+            onAddToPlaylist = { showPlaylistSheet = true },
+            onTrackInfo = { showTrackInfo = true },
+            onViewAlbum = onViewAlbum,
+            onViewArtist = onViewArtist,
+        )
     }
 
     if (showPlaylistSheet) {

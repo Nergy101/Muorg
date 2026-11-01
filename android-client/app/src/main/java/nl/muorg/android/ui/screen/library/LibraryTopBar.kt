@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import nl.muorg.android.ui.component.PickerSheet
 import nl.muorg.android.ui.glass.glassField
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -152,37 +151,6 @@ fun LibraryTopBar(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    DropdownMenu(
-                        expanded = showGenreMenu,
-                        onDismissRequest = { showGenreMenu = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("All genres") },
-                            onClick = {
-                                viewModel.setGenreFilter(null)
-                                showGenreMenu = false
-                            },
-                            trailingIcon = {
-                                if (uiState.genreFilter == null) {
-                                    Text("✓", color = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                        )
-                        genres.forEach { g ->
-                            DropdownMenuItem(
-                                text = { Text(g.label) },
-                                onClick = {
-                                    viewModel.setGenreFilter(g.value)
-                                    showGenreMenu = false
-                                },
-                                trailingIcon = {
-                                    if (uiState.genreFilter == g.value) {
-                                        Text("✓", color = MaterialTheme.colorScheme.primary)
-                                    }
-                                },
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -208,26 +176,6 @@ fun LibraryTopBar(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false },
-                    ) {
-                        SortMode.entries.forEach { mode ->
-                            DropdownMenuItem(
-                                text = { Text(mode.label) },
-                                onClick = {
-                                    scrollToTop()
-                                    viewModel.setSortMode(mode)
-                                    showSortMenu = false
-                                },
-                                trailingIcon = {
-                                    if (uiState.sortMode == mode) {
-                                        Text("✓", color = MaterialTheme.colorScheme.primary)
-                                    }
-                                },
-                            )
-                        }
-                    }
                 }
                 IconButton(onClick = {
                     scrollToTop()
@@ -242,5 +190,31 @@ fun LibraryTopBar(
                 }
             }
         }
+    }
+
+    if (showGenreMenu) {
+        val options = listOf(null as GenreOption?) + genres
+        PickerSheet(
+            title = "Genre",
+            options = options,
+            isSelected = { it?.value == uiState.genreFilter },
+            label = { it?.label ?: "All genres" },
+            onSelect = { viewModel.setGenreFilter(it?.value) },
+            onDismiss = { showGenreMenu = false },
+        )
+    }
+
+    if (showSortMenu) {
+        PickerSheet(
+            title = "Sort by",
+            options = SortMode.entries.toList(),
+            isSelected = { it == uiState.sortMode },
+            label = { it.label },
+            onSelect = {
+                scrollToTop()
+                viewModel.setSortMode(it)
+            },
+            onDismiss = { showSortMenu = false },
+        )
     }
 }

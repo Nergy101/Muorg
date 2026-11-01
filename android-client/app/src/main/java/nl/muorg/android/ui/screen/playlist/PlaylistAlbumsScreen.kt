@@ -34,8 +34,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import nl.muorg.android.ui.component.PickerSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Spacer
@@ -622,25 +621,6 @@ private fun PlaylistSortRow(
                     modifier = Modifier.size(18.dp),
                 )
             }
-            DropdownMenu(
-                expanded = showSortMenu,
-                onDismissRequest = { showSortMenu = false },
-            ) {
-                options.forEach { mode ->
-                    DropdownMenuItem(
-                        text = { Text(mode.label) },
-                        onClick = {
-                            onSelect(mode)
-                            showSortMenu = false
-                        },
-                        trailingIcon = {
-                            if (sortMode == mode) {
-                                Text("✓", color = MaterialTheme.colorScheme.primary)
-                            }
-                        },
-                    )
-                }
-            }
         }
         IconButton(onClick = onToggleDirection) {
             Icon(
@@ -650,5 +630,16 @@ private fun PlaylistSortRow(
                 modifier = Modifier.size(18.dp),
             )
         }
+    }
+
+    if (showSortMenu) {
+        PickerSheet(
+            title = "Sort by",
+            options = options,
+            isSelected = { it == sortMode },
+            label = { it.label },
+            onSelect = onSelect,
+            onDismiss = { showSortMenu = false },
+        )
     }
 }
