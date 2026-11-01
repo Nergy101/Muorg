@@ -19,7 +19,7 @@
     >{{ settings.albumViewStyle === "tracks" ? "2" : "1" }}</span>
   </button>
 
-  <!-- Sort + genre selects share one pill group. -->
+  <!-- Sort select in its own pill group. -->
   <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
     <!-- In the tracks layout the table toolbar has its own column sort, so
          the view-level sort hides on desktop to avoid two "Sort:" buttons;
@@ -63,12 +63,15 @@
   >
     <MageIcon :name="settings.sortAscending ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
   </button>
+  </div>
 
+  <!-- Genre select in its own pill group. -->
+  <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
   <div ref="genreMenuRef" class="relative">
     <button
       ref="genreBtnRef"
       type="button"
-      class="flex max-w-28 items-center gap-1 text-label-lg text-on-surface"
+      class="flex max-w-28 items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
       @click="toggleGenre"
     >
       <span class="truncate">Genre: {{ genreLabel }}</span>
