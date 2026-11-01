@@ -6,8 +6,8 @@
         <img :src="logoUrl" alt="Muorg" class="h-16 w-16" />
       </div>
 
-      <!-- ─── Muorg Info ─────────────────────────────────────────────── -->
-      <div :class="SECTION">Muorg Info</div>
+      <!-- ─── Muorg Info (the one section that starts expanded) ─────── -->
+      <SettingsSection title="Muorg Info" default-open>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Version</p>
@@ -36,11 +36,10 @@
         </button>
       </div>
 
+      </SettingsSection>
+
       <!-- ─── Playback ───────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="play" class="h-3.5 w-3.5" />
-        <span>Playback</span>
-      </div>
+      <SettingsSection title="Playback" icon="play">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Continuous playback</p>
@@ -101,11 +100,10 @@
       <PlaybackAudioSettingsSection />
       <div class="hidden lg:block"><KeyboardSettingsSection /></div>
 
+      </SettingsSection>
+
       <!-- ─── Library ────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="music" class="h-3.5 w-3.5" />
-        <span>Library</span>
-      </div>
+      <SettingsSection title="Library" icon="music">
       <button type="button" :class="[ROW, 'w-full text-left']" @click="router.push({ name: 'reports' })">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Reports</p>
@@ -177,7 +175,7 @@
         <SegmentedControl
           :model-value="settings.albumViewStyle"
           :options="LAYOUT_OPTIONS"
-          @update:model-value="settings.setAlbumViewStyle($event as AlbumViewStyle)"
+          @update:model-value="settings.setAlbumViewStyle($event as LibraryViewStyle)"
         />
       </div>
       <LibraryTableSettingsSection />
@@ -223,11 +221,10 @@
 
       <ExportSettingsSection />
 
+      </SettingsSection>
+
       <!-- ─── Offline ────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="download" class="h-3.5 w-3.5" />
-        <span>Offline</span>
-      </div>
+      <SettingsSection title="Offline" icon="download">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Cached tracks</p>
@@ -278,11 +275,10 @@
         </button>
       </div>
 
+      </SettingsSection>
+
       <!-- ─── Theme ──────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon :name="themeIcon" class="h-3.5 w-3.5" />
-        <span>Theme</span>
-      </div>
+      <SettingsSection title="Theme" :icon="themeIcon">
       <div class="px-4 py-2">
         <p class="pb-2 text-body-lg text-on-surface">Mode</p>
         <SegmentedControl
@@ -336,11 +332,10 @@
         </div>
       </div>
 
+      </SettingsSection>
+
       <!-- ─── Server ─────────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="server" class="h-3.5 w-3.5" />
-        <span>Server</span>
-      </div>
+      <SettingsSection title="Server" icon="server">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Server URL</p>
@@ -407,11 +402,10 @@
 
       <MaintenanceSection />
 
+      </SettingsSection>
+
       <!-- ─── Development ─────────────────────────────────────────────── -->
-      <div :class="[SECTION, 'flex items-center gap-1.5']">
-        <MageIcon name="wrench" class="h-3.5 w-3.5" />
-        <span>Development</span>
-      </div>
+      <SettingsSection title="Development" icon="wrench">
       <a
         :class="ROW"
         href="https://github.com/Nergy101/Muorg"
@@ -425,6 +419,7 @@
       </a>
 
       <div class="h-6" />
+      </SettingsSection>
     </div>
 
     <ConfirmDialog
@@ -453,6 +448,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import SettingsSection from "../components/settings/SettingsSection.vue";
 import SegmentedControl from "../components/SegmentedControl.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import ReportsSettingsSection from "../components/settings/ReportsSettingsSection.vue";
@@ -477,9 +473,8 @@ import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { reportCounts } from "@shared/reports";
 import logoUrl from "../assets/muorg-logo.svg";
-import type { AccentColor, AlbumViewStyle, SortMode, ThemeMode } from "../types";
+import type { AccentColor, LibraryViewStyle, SortMode, ThemeMode } from "../types";
 
-const SECTION = "px-4 pt-5 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
 const ROW = "flex min-h-14 items-center justify-between gap-4 px-4 py-2";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
@@ -488,8 +483,7 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "year", label: "Year" },
 ];
 const LAYOUT_OPTIONS = [
-  { value: "grid", label: "Grid" },
-  { value: "list", label: "List" },
+  { value: "grid", label: "Album covers" },
   { value: "tracks", label: "Tracks" },
 ];
 const THEME_OPTIONS = [

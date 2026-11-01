@@ -6,6 +6,7 @@ import type { MissingMetadataField } from "@shared/reports";
 import type {
   AccentColor,
   AlbumViewStyle,
+  LibraryViewStyle,
   PlaylistSortMode,
   SortMode,
   ThemeMode,
@@ -69,7 +70,12 @@ export const useSettingsStore = defineStore("settings", () => {
    * above, shared with the library and the settings screen.
    */
   const playlistSortMode = ref<PlaylistSortMode>(loadPref("muorg-web-playlist-sort", "order"));
-  const albumViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-album-view", "grid"));
+  // The library dropped its "list" layout; anyone with it stored falls back to
+  // the album-covers grid, which is also the default.
+  const storedAlbumView = loadPref<string>("muorg-web-album-view", "grid");
+  const albumViewStyle = ref<LibraryViewStyle>(
+    storedAlbumView === "list" ? "grid" : (storedAlbumView as LibraryViewStyle),
+  );
   /** Layout for the playlist/mix detail view — separate from the Library's
    *  albumViewStyle so a user can keep the library as an album grid while
    *  opening playlists as a track list. */
@@ -186,16 +192,14 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-playlist-sort", m);
   }
 
-  function setAlbumViewStyle(s: AlbumViewStyle): void {
+  function setAlbumViewStyle(s: LibraryViewStyle): void {
     albumViewStyle.value = s;
     savePref("muorg-web-album-view", s);
   }
 
-  /** grid → list → tracks → grid, matching the Android toolbar toggle. */
+  /** grid ↔ tracks — the library's only two layouts. */
   function cycleAlbumViewStyle(): void {
-    const next: AlbumViewStyle =
-      albumViewStyle.value === "grid" ? "list" : albumViewStyle.value === "list" ? "tracks" : "grid";
-    setAlbumViewStyle(next);
+    setAlbumViewStyle(albumViewStyle.value === "grid" ? "tracks" : "grid");
   }
 
   function setPlaylistViewStyle(s: AlbumViewStyle): void {

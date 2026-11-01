@@ -841,6 +841,16 @@ watch(contextMenu, (menu) => {
     }
   };
   nextTick(() => {
+    // Clamp the menu into the viewport: opened near the bottom (e.g. with one
+    // track selected and the selection bar up) it would otherwise extend
+    // off-screen and its lower items become unclickable.
+    const el = contextMenuRef.value;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const x = Math.max(8, Math.min(menu.x, window.innerWidth - r.width - 8));
+      const y = Math.max(8, Math.min(menu.y, window.innerHeight - r.height - 8));
+      if (x !== menu.x || y !== menu.y) contextMenu.value = { ...menu, x, y };
+    }
     setTimeout(() => {
       document.addEventListener("click", onOutside);
       document.addEventListener("keydown", onEscape);

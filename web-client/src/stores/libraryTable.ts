@@ -24,10 +24,10 @@ const DEFAULT_VISIBLE: Record<TableColumnId, boolean> = {
   title: true,
   artist: true,
   album: true,
-  year: false,
-  duration: false,
+  year: true,
+  duration: true,
   rating: false,
-  format: false,
+  format: true,
   path: false,
 };
 
@@ -56,9 +56,9 @@ export const useLibraryTableStore = defineStore("libraryTable", () => {
     ...loadPref<Partial<Record<TableColumnId, number>>>("muorg-web-table-widths", {}),
   });
   const density = ref<TableDensity>(loadPref<TableDensity>("muorg-web-table-density", "comfortable"));
-  const groupBy = ref<TableGroupBy>(loadPref<TableGroupBy>("muorg-web-table-group-by", "none"));
+  const groupBy = ref<TableGroupBy>(loadPref<TableGroupBy>("muorg-web-table-group-by", "artist"));
   /** Whether newly shown groups start expanded; actual per-group expand state is component-local. */
-  const defaultGroupsExpanded = ref(loadPref("muorg-web-table-groups-expanded-default", false));
+  const defaultGroupsExpanded = ref(loadPref("muorg-web-table-groups-expanded-default", true));
   const sortColumn = ref<TableSortColumn | null>(
     loadPref<TableSortColumn | null>("muorg-web-table-sort-col", null),
   );
