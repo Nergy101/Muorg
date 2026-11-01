@@ -180,6 +180,40 @@ class NavViewModel @Inject constructor(
         initialValue = "dark",
     )
 
+    val reduceMotion: StateFlow<Boolean> = preferences.reduceMotion.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
+    val openOnLastTab: StateFlow<Boolean> = preferences.openOnLastTab.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = true,
+    )
+
+    private val lastTab: StateFlow<String> = preferences.lastTab.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = "home",
+    )
+
+    /** Records the bottom-nav tab the user is on (settings excluded). */
+    fun saveLastTab(route: String) {
+        viewModelScope.launch { preferences.setLastTab(route) }
+    }
+
+    /** Where the app should land after the welcome screen: the last tab when
+     *  "open on last tab" is on, otherwise Home. */
+    fun resolveStartTab(): String {
+        val route = lastTab.value
+        return if (openOnLastTab.value && route in listOf("home", "search", "library", "playlists")) {
+            route
+        } else {
+            Screen.Home.route
+        }
+    }
+
     private val _scrollToActiveSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val scrollToActiveSignal: SharedFlow<Unit> = _scrollToActiveSignal.asSharedFlow()
 
@@ -334,6 +368,14 @@ fun NavGraph() {
 
             if (showBottomBar) {
                 val selectedTab = tabIndexForRoute(currentDestination?.route)
+                LaunchedEffect(currentDestination?.route) {
+                    val route = currentDestination?.route
+                    when {
+                        route == Screen.Home.route || route == Screen.Search.route || route == Screen.Playlists.route ->
+                            navViewModel.saveLastTab(route!!)
+                        route?.startsWith("library") == true -> navViewModel.saveLastTab("library")
+                    }
+                }
                 BottomIsland(
                     bloom = islandBloom,
                     tabs = islandTabs.map { it.second },

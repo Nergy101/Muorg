@@ -44,4 +44,14 @@ interface OfflineTrackDao {
 
     @Query("DELETE FROM offline_tracks")
     suspend fun clearAll()
+
+    @Query("SELECT COUNT(*) FROM offline_tracks WHERE status = 'ready'")
+    suspend fun countReady(): Int
+
+    @Query("SELECT COALESCE(SUM(totalBytes), 0) FROM offline_tracks WHERE status = 'ready'")
+    suspend fun sumReadyBytes(): Long
+
+    /** Bytes of tracks cached automatically (not tied to a playlist/album). */
+    @Query("SELECT COALESCE(SUM(totalBytes), 0) FROM offline_tracks WHERE status = 'ready' AND playlistId IS NULL")
+    suspend fun sumAutoCachedBytes(): Long
 }

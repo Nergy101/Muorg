@@ -7,7 +7,7 @@
   <div class="flex items-center gap-1">
   <!-- Layout switcher first, on the far left in both layouts. Same icon in
        both layouts — the pane-divided window reads as "layout" — with a small
-       badge showing which layout is active: 1 = album covers, 2 = tracks. -->
+       badge showing which layout is active: 1 = album covers, 2 = album list, 3 = tracks. -->
   <button
     type="button"
     class="relative flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
@@ -18,7 +18,7 @@
     <MageIcon name="layout-grid" class="h-4 w-4" />
     <span
       class="absolute -bottom-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold leading-none text-on-primary"
-    >{{ settings.albumViewStyle === "tracks" ? "2" : "1" }}</span>
+    >{{ settings.albumViewStyle === "list" ? "2" : settings.albumViewStyle === "tracks" ? "3" : "1" }}</span>
   </button>
 
   <!-- Shuffle-and-play-all sits right of the layout selection. -->

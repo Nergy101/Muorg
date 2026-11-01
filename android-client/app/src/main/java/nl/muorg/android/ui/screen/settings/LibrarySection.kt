@@ -19,7 +19,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.component.PickerSheet
 import nl.muorg.android.ui.screen.library.SortMode
 
@@ -90,6 +92,42 @@ fun LibrarySection(
             }
         }
     }
+
+    ListItem(
+        headlineContent = { Text("Reduce motion") },
+        supportingContent = { Text("Keep navigation, skip the slide and fade travel") },
+        leadingContent = {
+            Icon(
+                painter = painterResource(mageIconRes("zap")), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        trailingContent = {
+            Switch(
+                checked = uiState.reduceMotion,
+                onCheckedChange = viewModel::setReduceMotion,
+            )
+        },
+        modifier = Modifier.clickable { viewModel.setReduceMotion(!uiState.reduceMotion) },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+    )
+
+    ListItem(
+        headlineContent = { Text("Open on last tab") },
+        supportingContent = { Text("Restore the last visited tab after an app restart") },
+        leadingContent = {
+            Icon(
+                painter = painterResource(mageIconRes("refresh")), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        trailingContent = {
+            Switch(
+                checked = uiState.openOnLastTab,
+                onCheckedChange = viewModel::setOpenOnLastTab,
+            )
+        },
+        modifier = Modifier.clickable { viewModel.setOpenOnLastTab(!uiState.openOnLastTab) },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+    )
 
     if (uiState.showSortDropdown) {
         PickerSheet(

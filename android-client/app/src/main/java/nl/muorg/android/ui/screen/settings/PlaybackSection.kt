@@ -1,6 +1,5 @@
 package nl.muorg.android.ui.screen.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -26,8 +25,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import nl.muorg.android.ui.icon.mageIconRes
 
 /**
- * Continuous playback, mini-player tap behaviour, offline mode, and the
- * battery-optimisation exemption prompt.
+ * Continuous playback, mini-player tap behaviour, the sleep timer feature
+ * switch, and the battery-optimisation exemption prompt — matching the web
+ * client's Playback section.
  *
  * One section of [SettingsScreen], which was a single 640-line composable.
  */
@@ -73,27 +73,23 @@ fun PlaybackSection(
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
 
-    // Local folders are already on the device, so the offline toggle has no
-    // effect there — it only applies to the online server source.
-    if (uiState.sourceMode == SourceMode.ONLINE_SERVER) {
-        ListItem(
-            headlineContent = { Text("Offline mode") },
-            supportingContent = { Text("No network calls — only downloaded playlists are available") },
-            leadingContent = {
-                Icon(
-                    painter = painterResource(mageIconRes("download")), contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            trailingContent = {
-                Switch(
-                    checked = uiState.offlineMode,
-                    onCheckedChange = viewModel::setOfflineMode,
-                )
-            },
-            modifier = Modifier.clickable { viewModel.setOfflineMode(!uiState.offlineMode) },
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        )
-    }
+    ListItem(
+        headlineContent = { Text("Sleep timer") },
+        supportingContent = { Text("Show the sleep timer in the maximized player and queue") },
+        leadingContent = {
+            Icon(
+                painter = painterResource(mageIconRes("clock")), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        trailingContent = {
+            Switch(
+                checked = uiState.sleepTimerEnabled,
+                onCheckedChange = viewModel::setSleepTimerEnabled,
+            )
+        },
+        modifier = Modifier.clickable { viewModel.setSleepTimerEnabled(!uiState.sleepTimerEnabled) },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+    )
 
     // The exemption is granted (or revoked) in a system dialog outside the
     // app, so the state is re-read every time this screen resumes.

@@ -28,6 +28,28 @@
         :body="isSearching ? 'Try another spelling or fewer words.' : 'Add music to your server and rescan to see it here.'"
       />
 
+      <!-- Album list layout: one row per album (cover, title, artist, track
+           count), virtualized like the tracks list. -->
+      <div v-else-if="showAlbumList" class="content-col">
+        <div
+          ref="albumListAnchor"
+          class="pb-4"
+          :style="{ height: `${albumList.totalHeight.value + 16}px` }"
+        >
+          <div :style="{ transform: `translateY(${albumList.offsetTop.value}px)` }">
+            <AlbumCard
+              v-for="item in visibleAlbumListItems"
+              :key="item.key"
+              :item="item"
+              mode="list"
+              :is-active="isAlbumActive(item)"
+              @open="openAlbum(item)"
+              @actions="albumActions = item"
+            />
+          </div>
+        </div>
+      </div>
+
       <div v-else-if="showTrackList" class="content-col">
         <div
           ref="tracksAnchor"
@@ -126,6 +148,7 @@ const selection = useSelectionStore();
 
 const isSearching = computed(() => lib.searchQuery.trim().length > 0);
 const showTrackList = computed(() => isSearching.value || settings.albumViewStyle === "tracks");
+const showAlbumList = computed(() => !isSearching.value && settings.albumViewStyle === "list");
 const showEmptyState = computed(() =>
   showTrackList.value ? lib.filteredTracks.length === 0 : lib.albumGridItems.length === 0,
 );
@@ -206,6 +229,7 @@ const albumActions = ref<AlbumGridItem | null>(null);
 const scroller = ref<HTMLElement | null>(null);
 const tracksAnchor = ref<HTMLElement | null>(null);
 const albumsAnchor = ref<HTMLElement | null>(null);
+const albumListAnchor = ref<HTMLElement | null>(null);
 
 const TRACK_ROW_HEIGHT = 56; // h-14, matches REORDER_ROW_HEIGHT
 
@@ -213,6 +237,15 @@ const tracksList = useVirtualList({
   scroller,
   anchor: tracksAnchor,
   count: () => lib.filteredTracks.length,
+  rowHeight: () => TRACK_ROW_HEIGHT,
+  columns: () => 1,
+});
+
+/** The album list reuses the same 56px row pitch as the tracks list. */
+const albumList = useVirtualList({
+  scroller,
+  anchor: albumListAnchor,
+  count: () => lib.albumGridItems.length,
   rowHeight: () => TRACK_ROW_HEIGHT,
   columns: () => 1,
 });
@@ -244,6 +277,9 @@ const visibleTracks = computed(() =>
 const visibleGridItems = computed(() =>
   lib.albumGridItems.slice(albumGrid.start.value, albumGrid.end.value),
 );
+const visibleAlbumListItems = computed(() =>
+  lib.albumGridItems.slice(albumList.start.value, albumList.end.value),
+);
 
 // --- Scroll-to-active (re-tapping the active Library tab) ------------------
 
@@ -256,6 +292,11 @@ watch(scrollToActiveSignal, () => {
   if (showTrackList.value) {
     const i = lib.filteredTracks.findIndex((tr) => tr.id === t.id);
     if (i >= 0) tracksList.scrollToIndex(i);
+    return;
+  }
+  if (showAlbumList.value) {
+    const i = lib.albumGridItems.findIndex((item) => item.key === lib.keyForTrack(t));
+    if (i >= 0) albumList.scrollToIndex(i);
     return;
   }
   const i = lib.albumGridItems.findIndex((item) => item.key === lib.keyForTrack(t));

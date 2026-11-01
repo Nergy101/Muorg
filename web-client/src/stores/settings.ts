@@ -70,11 +70,8 @@ export const useSettingsStore = defineStore("settings", () => {
    * above, shared with the library and the settings screen.
    */
   const playlistSortMode = ref<PlaylistSortMode>(loadPref("muorg-web-playlist-sort", "order"));
-  // The library dropped its "list" layout; anyone with it stored falls back to
-  // the album-covers grid, which is also the default.
-  const storedAlbumView = loadPref<string>("muorg-web-album-view", "grid");
   const albumViewStyle = ref<LibraryViewStyle>(
-    storedAlbumView === "list" ? "grid" : (storedAlbumView as LibraryViewStyle),
+    loadPref<LibraryViewStyle>("muorg-web-album-view", "grid"),
   );
   /** Layout for the playlist/mix detail view — separate from the Library's
    *  albumViewStyle so a user can keep the library as an album grid while
@@ -205,9 +202,11 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-album-view", s);
   }
 
-  /** grid ↔ tracks — the library's only two layouts. */
+  /** grid → list → tracks — the library's three layouts, same as Android. */
   function cycleAlbumViewStyle(): void {
-    setAlbumViewStyle(albumViewStyle.value === "grid" ? "tracks" : "grid");
+    const next: LibraryViewStyle =
+      albumViewStyle.value === "grid" ? "list" : albumViewStyle.value === "list" ? "tracks" : "grid";
+    setAlbumViewStyle(next);
   }
 
   function setPlaylistViewStyle(s: AlbumViewStyle): void {

@@ -540,6 +540,7 @@ const GROUPING_DEFAULT_OPTIONS = [
 ];
 const LAYOUT_OPTIONS = [
   { value: "grid", label: "Album covers" },
+  { value: "list", label: "Album list" },
   { value: "tracks", label: "Tracks" },
 ];
 const THEME_OPTIONS = [

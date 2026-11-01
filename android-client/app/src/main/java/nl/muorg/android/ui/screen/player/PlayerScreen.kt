@@ -166,6 +166,7 @@ fun PlayerScreen(
     val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
 
     val sleepTimerActive by playerViewModel.sleepTimerActive.collectAsStateWithLifecycle()
+    val sleepTimerEnabled by playerViewModel.sleepTimerEnabled.collectAsStateWithLifecycle()
     val sleepTimerRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showSleepTimerPicker by remember { mutableStateOf(false) }
@@ -281,21 +282,23 @@ fun PlayerScreen(
                     modifier = Modifier.glassSheer(MuorgShapes.pill).height(48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(
-                        onClick = {
-                            if (sleepTimerActive) showSleepTimerDialog = true
-                            else showSleepTimerPicker = true
-                        },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(mageIconRes("clock")),
-                            contentDescription = if (sleepTimerActive) "Sleep timer active" else "Set sleep timer",
-                            tint = if (sleepTimerActive) Color.White else Color.White.copy(alpha = 0.55f),
-                            modifier = Modifier.size(19.dp),
-                        )
+                    if (sleepTimerEnabled) {
+                        IconButton(
+                            onClick = {
+                                if (sleepTimerActive) showSleepTimerDialog = true
+                                else showSleepTimerPicker = true
+                            },
+                            modifier = Modifier.size(48.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(mageIconRes("clock")),
+                                contentDescription = if (sleepTimerActive) "Sleep timer active" else "Set sleep timer",
+                                tint = if (sleepTimerActive) Color.White else Color.White.copy(alpha = 0.55f),
+                                modifier = Modifier.size(19.dp),
+                            )
+                        }
+                        VerticalHairline()
                     }
-                    VerticalHairline()
                     IconButton(
                         onClick = {
                             val themedContext = ContextThemeWrapper(context, AppCompatR.style.Theme_AppCompat_DayNight_Dialog)

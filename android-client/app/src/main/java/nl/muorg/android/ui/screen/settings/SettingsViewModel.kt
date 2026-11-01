@@ -27,6 +27,7 @@ import nl.muorg.android.data.api.toDomain
 import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
+import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.player.PlayerController
 import nl.muorg.android.ui.UiMessenger
@@ -72,6 +73,18 @@ data class SettingsUiState(
     val downloadMobileData: Boolean = false,
     val isBatteryOptimizationExempt: Boolean = false,
     val updateCheckInProgress: Boolean = false,
+    val sleepTimerEnabled: Boolean = false,
+    val reduceMotion: Boolean = false,
+    val openOnLastTab: Boolean = true,
+    val autoCacheEnabled: Boolean = false,
+    val autoCacheMaxBytes: Long = 2L * 1024 * 1024 * 1024,
+    val backupBeforeWrite: Boolean = false,
+    val applyFromPath: Boolean = false,
+    val cachedTrackCount: Int = 0,
+    val cachedBytes: Long = 0L,
+    val downloadedPlaylistNames: String = "",
+    val showClearOfflineDialog: Boolean = false,
+    val purgeStatus: RefreshStatus = RefreshStatus.IDLE,
 )
 
 @HiltViewModel
@@ -81,6 +94,7 @@ class SettingsViewModel @Inject constructor(
     private val localLibraryRepository: LocalLibraryRepository,
     private val playerController: PlayerController,
     private val libraryRepository: LibraryRepository,
+    private val offlineDownloadManager: OfflineDownloadManager,
     @ApplicationContext private val context: Context,
     private val uiMessenger: UiMessenger,
 ) : ViewModel() {
@@ -163,6 +177,42 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(downloadMobileData = enabled) }
             }
         }
+        viewModelScope.launch {
+            preferences.sleepTimerEnabled.collect { enabled ->
+                _uiState.update { it.copy(sleepTimerEnabled = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.reduceMotion.collect { enabled ->
+                _uiState.update { it.copy(reduceMotion = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.openOnLastTab.collect { enabled ->
+                _uiState.update { it.copy(openOnLastTab = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.autoCacheEnabled.collect { enabled ->
+                _uiState.update { it.copy(autoCacheEnabled = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.autoCacheMaxBytes.collect { bytes ->
+                _uiState.update { it.copy(autoCacheMaxBytes = bytes) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.backupBeforeWrite.collect { enabled ->
+                _uiState.update { it.copy(backupBeforeWrite = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            preferences.applyFromPath.collect { enabled ->
+                _uiState.update { it.copy(applyFromPath = enabled) }
+            }
+        }
+        refreshOfflineStats()
         loadStats()
         checkForUpdate()
     }
@@ -391,6 +441,86 @@ class SettingsViewModel @Inject constructor(
                 onFailure = {
                     _uiState.update { it.copy(scanStatus = ScanStatus.ERROR) }
                 },
+            )
+        }
+    }
+
+    fun setSleepTimerEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(sleepTimerEnabled = enabled) }
+        viewModelScope.launch { preferences.setSleepTimerEnabled(enabled) }
+    }
+
+    fun setReduceMotion(enabled: Boolean) {
+        _uiState.update { it.copy(reduceMotion = enabled) }
+        viewModelScope.launch { preferences.setReduceMotion(enabled) }
+    }
+
+    fun setOpenOnLastTab(enabled: Boolean) {
+        _uiState.update { it.copy(openOnLastTab = enabled) }
+        viewModelScope.launch { preferences.setOpenOnLastTab(enabled) }
+    }
+
+    fun setAutoCacheEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(autoCacheEnabled = enabled) }
+        viewModelScope.launch { preferences.setAutoCacheEnabled(enabled) }
+    }
+
+    fun setAutoCacheMaxBytes(bytes: Long) {
+        _uiState.update { it.copy(autoCacheMaxBytes = bytes) }
+        viewModelScope.launch { preferences.setAutoCacheMaxBytes(bytes) }
+    }
+
+    fun setBackupBeforeWrite(enabled: Boolean) {
+        _uiState.update { it.copy(backupBeforeWrite = enabled) }
+        viewModelScope.launch { preferences.setBackupBeforeWrite(enabled) }
+    }
+
+    fun setApplyFromPath(enabled: Boolean) {
+        _uiState.update { it.copy(applyFromPath = enabled) }
+        viewModelScope.launch { preferences.setApplyFromPath(enabled) }
+    }
+
+    /** Cached-track count, storage used and downloaded-playlist names for the
+     *  Offline section. Re-read when the screen opens and after clearing. */
+    fun refreshOfflineStats() {
+        viewModelScope.launch {
+            val count = offlineDownloadManager.cachedTrackCount()
+            val bytes = offlineDownloadManager.cachedBytes()
+            val names = offlineDownloadManager.getDownloadedPlaylists()
+                .joinToString(", ") { it.name }
+            _uiState.update {
+                it.copy(cachedTrackCount = count, cachedBytes = bytes, downloadedPlaylistNames = names)
+            }
+        }
+    }
+
+    fun requestClearOffline() {
+        _uiState.update { it.copy(showClearOfflineDialog = true) }
+    }
+
+    fun dismissClearOffline() {
+        _uiState.update { it.copy(showClearOfflineDialog = false) }
+    }
+
+    fun clearOfflineCache() {
+        _uiState.update { it.copy(showClearOfflineDialog = false) }
+        viewModelScope.launch {
+            offlineDownloadManager.clearAllOffline()
+            refreshOfflineStats()
+            uiMessenger.show("Offline cache cleared")
+        }
+    }
+
+    /** POST /api/admin/purge-deleted — drops tracks the library soft-deleted. */
+    fun purgeDeletedTracks() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(purgeStatus = RefreshStatus.LOADING) }
+            runCatching { api.purgeDeleted().bodyOrThrow("POST /api/admin/purge-deleted") }.fold(
+                onSuccess = {
+                    _uiState.update { it.copy(purgeStatus = RefreshStatus.SUCCESS) }
+                    uiMessenger.show("Removed tracks purged")
+                },
+                onFailure = { _uiState.update { it.copy(purgeStatus = RefreshStatus.ERROR) } },
             )
         }
     }

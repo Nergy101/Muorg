@@ -60,6 +60,14 @@ class PlayerViewModel @Inject constructor(
     private var sleepTimerJob: Job? = null
     private val _sleepTimerRemainingMs = MutableStateFlow(0L)
     val sleepTimerRemainingMs: StateFlow<Long> = _sleepTimerRemainingMs.asStateFlow()
+    /** Feature switch from settings (default off): hides the sleep timer in
+     *  the maximized player and the queue. */
+    val sleepTimerEnabled: StateFlow<Boolean> = preferences.sleepTimerEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
     val sleepTimerActive: StateFlow<Boolean> = _sleepTimerRemainingMs
         .map { it > 0L }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -248,6 +256,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             playerController.updateTrackCache(queue)
             playerController.playTrack(track, queue)
+            offlineDownloadManager.maybeAutoCache(track)
             if (castManager.isCasting.value) castCurrentTrack(track)
         }
     }
@@ -440,6 +449,7 @@ class PlayerViewModel @Inject constructor(
                 albumArtist = albumArtist?.takeIf { it != track.albumArtist && it.isNotBlank() },
                 genre = genre?.takeIf { it != track.genre && it.isNotBlank() },
                 year = year?.takeIf { it != track.year },
+                backupBeforeWrite = preferences.backupBeforeWrite.first(),
             )
             if (!update.hasAnyField()) {
                 uiMessenger.show("No changes to save")

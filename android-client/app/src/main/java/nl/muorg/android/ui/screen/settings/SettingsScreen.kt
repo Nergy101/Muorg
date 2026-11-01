@@ -29,6 +29,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,7 +41,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.R
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.icon.mageIconRes
 
@@ -54,6 +58,15 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showMetadataScanSheet by remember { mutableStateOf(false) }
+
+    // Re-read the offline counts every time the screen resumes, so downloads
+    // made elsewhere show up without reopening settings.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.refreshOfflineStats()
+        }
+    }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -133,12 +146,16 @@ fun SettingsScreen(
             PlaybackSection(uiState, viewModel)
         }
 
-        CollapsibleSection("Downloads", icon = "download") {
-            DownloadsSection(uiState, viewModel)
-        }
-
         CollapsibleSection("Library", icon = "music") {
             LibrarySection(uiState, viewModel)
+        }
+
+        CollapsibleSection("Metadata writing", icon = "edit") {
+            WriteSection(uiState, viewModel)
+        }
+
+        CollapsibleSection("Offline", icon = "download") {
+            OfflineSection(uiState, viewModel)
         }
 
         CollapsibleSection("Theme", icon = "color-swatch") {
@@ -171,10 +188,30 @@ fun SettingsScreen(
             )
         }
 
+        CollapsibleSection("Development", icon = "wrench") {
+            DevelopmentSection(uiState, viewModel)
+        }
+
     }
 
     if (showMetadataScanSheet) {
         MetadataScanSheet(onDismiss = { showMetadataScanSheet = false })
+    }
+
+    if (uiState.showClearOfflineDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissClearOffline,
+            title = { Text("Clear offline cache?") },
+            text = { Text("Every downloaded file is deleted, including manual playlist and album downloads.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearOfflineCache() }) {
+                    Text("Clear", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissClearOffline) { Text("Cancel") }
+            },
+        )
     }
 
     if (uiState.showSwitchConfirmDialog) {

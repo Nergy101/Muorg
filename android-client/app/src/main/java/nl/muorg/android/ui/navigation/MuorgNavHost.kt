@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable as navComposable
 import androidx.navigation.navArgument
@@ -89,22 +91,26 @@ fun MuorgNavHost(
     imageLoader: ImageLoader,
     onOpenQueue: () -> Unit,
 ) {
+    // "Reduce motion" (settings) swaps the sheet slide for instant swaps.
+    val reduceMotion by navViewModel.reduceMotion.collectAsStateWithLifecycle()
     NavHost(
         navController = navController,
         startDestination = Screen.Welcome.route,
         // One sheet-style transition for every route: the new page rises over
         // the stationary old one; back slides it down again.
-        enterTransition = { sheetEnter },
+        enterTransition = { if (reduceMotion) EnterTransition.None else sheetEnter },
         exitTransition = { ExitTransition.None },
         popEnterTransition = { EnterTransition.None },
-        popExitTransition = { sheetPopExit },
+        popExitTransition = { if (reduceMotion) ExitTransition.None else sheetPopExit },
         predictivePopEnterTransition = { EnterTransition.None },
-        predictivePopExitTransition = { sheetPopExit },
+        predictivePopExitTransition = { if (reduceMotion) ExitTransition.None else sheetPopExit },
     ) {
         composable(Screen.Welcome.route) {
             WelcomeScreen(
                 onNavigateToLibrary = {
-                    navController.navigate(Screen.Home.route) {
+                    // "Open on last tab" (settings) lands on the last visited
+                    // bottom-nav tab instead of always Home.
+                    navController.navigate(navViewModel.resolveStartTab()) {
                         popUpTo(Screen.Welcome.route) { inclusive = true }
                     }
                 },

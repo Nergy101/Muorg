@@ -6,6 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -49,6 +50,14 @@ class AppPreferences @Inject constructor(
         private val KEY_DEVICE_NAME = stringPreferencesKey("device_name")
         private val KEY_OFFLINE_MODE = booleanPreferencesKey("offline_mode")
         private val KEY_DOWNLOAD_MOBILE_DATA = booleanPreferencesKey("download_mobile_data")
+        private val KEY_SLEEP_TIMER_ENABLED = booleanPreferencesKey("sleep_timer_enabled")
+        private val KEY_REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
+        private val KEY_OPEN_ON_LAST_TAB = booleanPreferencesKey("open_on_last_tab")
+        private val KEY_AUTO_CACHE_ENABLED = booleanPreferencesKey("auto_cache_enabled")
+        private val KEY_AUTO_CACHE_MAX_BYTES = longPreferencesKey("auto_cache_max_bytes")
+        private val KEY_BACKUP_BEFORE_WRITE = booleanPreferencesKey("backup_before_write")
+        private val KEY_APPLY_FROM_PATH = booleanPreferencesKey("apply_from_path")
+        private val KEY_LAST_TAB = stringPreferencesKey("last_tab")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -83,6 +92,36 @@ class AppPreferences @Inject constructor(
     /** Allow playlist downloads over mobile data; Wi-Fi only by default. */
     val downloadMobileData: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_DOWNLOAD_MOBILE_DATA] ?: false }
+
+    /** Sleep timer feature switch (off by default): hides the sleep timer in
+     *  the maximized player and the queue. */
+    val sleepTimerEnabled: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_SLEEP_TIMER_ENABLED] ?: false }
+
+    val reduceMotion: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_REDUCE_MOTION] ?: false }
+
+    val openOnLastTab: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_OPEN_ON_LAST_TAB] ?: true }
+
+    /** Automatic offline caching of played tracks, off by default. */
+    val autoCacheEnabled: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_AUTO_CACHE_ENABLED] ?: false }
+
+    /** Storage cap for automatic caching (manual playlist/album downloads are
+     *  not counted against it). */
+    val autoCacheMaxBytes: Flow<Long> = context.dataStore.data
+        .map { it[KEY_AUTO_CACHE_MAX_BYTES] ?: (2L * 1024 * 1024 * 1024) }
+
+    val backupBeforeWrite: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_BACKUP_BEFORE_WRITE] ?: false }
+
+    val applyFromPath: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_APPLY_FROM_PATH] ?: false }
+
+    /** Last visited bottom-nav tab, for the "open on last tab" setting. */
+    val lastTab: Flow<String> = context.dataStore.data
+        .map { it[KEY_LAST_TAB] ?: "home" }
 
     val playerBarTapOpensPlayer: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] ?: true }
@@ -221,6 +260,38 @@ class AppPreferences @Inject constructor(
 
     suspend fun setDownloadMobileData(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[KEY_DOWNLOAD_MOBILE_DATA] = enabled }
+    }
+
+    suspend fun setSleepTimerEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_SLEEP_TIMER_ENABLED] = enabled }
+    }
+
+    suspend fun setReduceMotion(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_REDUCE_MOTION] = enabled }
+    }
+
+    suspend fun setOpenOnLastTab(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_OPEN_ON_LAST_TAB] = enabled }
+    }
+
+    suspend fun setAutoCacheEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_AUTO_CACHE_ENABLED] = enabled }
+    }
+
+    suspend fun setAutoCacheMaxBytes(bytes: Long) {
+        context.dataStore.edit { prefs -> prefs[KEY_AUTO_CACHE_MAX_BYTES] = bytes }
+    }
+
+    suspend fun setBackupBeforeWrite(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_BACKUP_BEFORE_WRITE] = enabled }
+    }
+
+    suspend fun setApplyFromPath(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_APPLY_FROM_PATH] = enabled }
+    }
+
+    suspend fun setLastTab(route: String) {
+        context.dataStore.edit { prefs -> prefs[KEY_LAST_TAB] = route }
     }
 
     suspend fun clearCredentials() {

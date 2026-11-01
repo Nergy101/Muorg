@@ -425,6 +425,37 @@ class OfflineDownloadManager @Inject constructor(
     }
 
     /** Playlist ids with a download, for the tile's filled download button. */
+    /** Ready-track count and total bytes, for the settings' offline section. */
+    suspend fun cachedTrackCount(): Int = offlineTrackDao.countReady()
+    suspend fun cachedBytes(): Long = offlineTrackDao.sumReadyBytes()
+
+    /** Wipes every downloaded file and row (manual and automatic alike). */
+    suspend fun clearAllOffline() = withContext(Dispatchers.IO) {
+        offlineTrackDao.getDownloadedTracks().forEach { row ->
+            runCatching { File(row.filePath).delete() }
+        }
+        offlineTrackDao.clearAll()
+        offlinePlaylistDao.getAll().forEach { offlinePlaylistDao.delete(it.playlistId) }
+        offlineDir.deleteRecursively()
+    }
+
+    /**
+     * Automatic caching: when enabled in settings, a track that starts
+     * playing is downloaded for offline use as long as the auto-cache cap
+     * has not been reached. Manual playlist/album downloads are not counted
+     * against the cap (rows with a playlistId).
+     */
+    fun maybeAutoCache(track: CatalogTrack) {
+        scope.launch {
+            if (!preferences.autoCacheEnabled.first()) return@launch
+            if (offlineTrackDao.getTrack(track.id) != null) return@launch
+            val used = offlineTrackDao.sumAutoCachedBytes()
+            val cap = preferences.autoCacheMaxBytes.first()
+            if (used >= cap) return@launch
+            downloadSingleTrack(track)
+        }
+    }
+
     fun observeDownloadedPlaylistIds(): Flow<Set<Int>> =
         offlinePlaylistDao.observeIds().map { it.toSet() }
 
