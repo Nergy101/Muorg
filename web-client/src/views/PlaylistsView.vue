@@ -41,7 +41,7 @@
 
       <div v-else class="px-4 py-2">
         <div
-          class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
+          class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]"
         >
           <PlaylistCard
             v-for="p in playlistStore.sortedPlaylists"
