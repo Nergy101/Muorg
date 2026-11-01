@@ -3,10 +3,14 @@ package nl.muorg.android.ui.screen.settings
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,8 +26,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import nl.muorg.android.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.muorg.android.ui.component.LocalBottomInset
@@ -64,6 +72,21 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = LocalBottomInset.current),
     ) {
+        // Image, not Icon: the logo carries its own colours and Icon would
+        // tint it to a single-colour silhouette.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 20.dp, bottom = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_muorg_logo),
+                contentDescription = "Muorg",
+                modifier = Modifier.size(56.dp),
+            )
+        }
+
         // Sections collapse like the web client's settings page; only the
         // version/info section starts expanded.
         CollapsibleSection("Muorg Info", defaultOpen = true) {
