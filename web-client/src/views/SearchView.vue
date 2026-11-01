@@ -85,15 +85,12 @@
           />
         </div>
 
-        <div
+        <EmptyState
           v-if="settings.searchHistory.length === 0 && recentResultTracks.length === 0 && !lib.loading"
-          class="content-col flex flex-col items-center gap-2 px-6 py-12 text-center"
-        >
-          <MageIcon name="search" class="h-12 w-12 text-on-surface-variant/40" />
-          <span class="text-body-md text-on-surface-variant">
-            Type above to search your library
-          </span>
-        </div>
+          class="content-col"
+          title="No searches yet"
+          body="Type above to search your library."
+        />
       </template>
 
       <!-- Live results as plain track rows, same as the library's search. -->
@@ -101,13 +98,12 @@
         <div v-if="lib.loading" class="flex items-center justify-center py-12">
           <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
         </div>
-        <div
+        <EmptyState
           v-else-if="results.length === 0"
-          class="content-col flex flex-col items-center gap-2 px-6 py-12 text-center"
-        >
-          <MageIcon name="music" class="h-12 w-12 text-on-surface-variant/40" />
-          <span class="text-body-md text-on-surface-variant">No results for "{{ query.trim() }}"</span>
-        </div>
+          class="content-col"
+          :title="`No results for &quot;${query.trim()}&quot;`"
+          body="Try another spelling or fewer words."
+        />
         <div v-else class="content-col pb-4">
           <TrackListRow
             v-for="track in visibleResults"
@@ -146,6 +142,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from "../components/EmptyState.vue";
 import { computed, nextTick, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";

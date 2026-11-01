@@ -332,8 +332,10 @@
             <td :colspan="colCount" class="!border-none !p-0" :style="{ height: bottomSpacer + 'px' }" />
           </tr>
           <tr v-if="rows.length === 0">
-            <td :colspan="colCount" class="px-4 py-10 text-center text-body-md text-on-surface-variant">
-              {{ tableStore.minRating > 0 ? "No tracks match the rating filter." : "No tracks to show." }}
+            <td :colspan="colCount">
+              <EmptyState
+                :title="tableStore.minRating > 0 ? 'No tracks match the rating filter.' : 'No tracks to show.'"
+              />
             </td>
           </tr>
         </tbody>
@@ -448,6 +450,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from "../EmptyState.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MageIcon from "../MageIcon.vue";
 import ConfirmDialog from "../ConfirmDialog.vue";

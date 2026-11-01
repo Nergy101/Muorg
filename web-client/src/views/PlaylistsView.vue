@@ -76,10 +76,11 @@
         <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
       </div>
 
-      <div v-else-if="playlistStore.playlists.length === 0" class="flex flex-col items-center gap-1 py-12">
-        <p class="text-body-lg text-on-surface">No playlists yet.</p>
-        <p class="text-body-md text-on-surface-variant">Tap + to create one.</p>
-      </div>
+      <EmptyState
+        v-else-if="playlistStore.playlists.length === 0"
+        title="No playlists yet."
+        body="Tap + to create one."
+      />
 
       <div v-else class="px-4 py-2">
         <div
@@ -131,6 +132,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from "../components/EmptyState.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";

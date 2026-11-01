@@ -35,6 +35,13 @@
       <circle cx="222" cy="170" r="9" fill="#e0b040" />
       <path d="M22,176 Q120,236 218,176" stroke="#8b0000" stroke-width="7" stroke-linecap="round" fill="none" />
     </g>
+    <g v-else-if="variant === 'empty'">
+      <!-- Faint notes that haven't landed yet -->
+      <use href="#orc-note" x="16" y="40" width="26" height="34" style="color: #78716c" opacity="0.35" />
+      <use href="#orc-note" x="200" y="62" width="20" height="28" style="color: #78716c" opacity="0.25" />
+      <circle cx="40" cy="190" r="3" fill="#78716c" opacity="0.4" />
+      <circle cx="206" cy="150" r="2.5" fill="#78716c" opacity="0.4" />
+    </g>
     <g v-else>
       <use href="#orc-note" x="196" y="38" width="24" height="32" style="color: #e0b040" />
       <path d="M36,124 Q29,133 36,142" stroke="#e0b040" stroke-width="3" stroke-linecap="round" fill="none" />
@@ -106,6 +113,18 @@
       <path d="M103,148 L106,134 L112,148 Z" fill="#f5f5f4" />
       <path d="M137,148 L134,134 L128,148 Z" fill="#f5f5f4" />
     </g>
+    <g v-else-if="variant === 'empty'">
+      <path d="M84,90 Q95,84 106,90" stroke="#1c1917" stroke-width="4" stroke-linecap="round" fill="none" />
+      <path d="M134,84 Q145,76 156,83" stroke="#1c1917" stroke-width="4" stroke-linecap="round" fill="none" />
+      <ellipse cx="95" cy="106" rx="10" ry="12" fill="#f5f5f4" />
+      <ellipse cx="145" cy="106" rx="10" ry="12" fill="#f5f5f4" />
+      <circle cx="99" cy="108" r="5" fill="#1c1917" />
+      <circle cx="149" cy="108" r="5" fill="#1c1917" />
+      <ellipse cx="120" cy="124" rx="7" ry="5" fill="#759346" />
+      <path d="M104,148 Q112,152 120,148 T136,148" stroke="#1c1917" stroke-width="4" stroke-linecap="round" fill="none" />
+      <path d="M104,148 L107,134 L113,150 Z" fill="#f5f5f4" />
+      <path d="M136,148 L133,134 L127,150 Z" fill="#f5f5f4" />
+    </g>
     <g v-else>
       <path d="M84,90 Q95,84 106,90" stroke="#1c1917" stroke-width="4" stroke-linecap="round" fill="none" />
       <path d="M134,90 Q145,84 156,90" stroke="#1c1917" stroke-width="4" stroke-linecap="round" fill="none" />
@@ -149,6 +168,23 @@
       <circle cx="150" cy="200" r="12" fill="#759346" />
       <circle cx="92" cy="200" r="12" fill="#759346" />
     </g>
+    <g v-else-if="variant === 'empty'">
+      <!-- An open, empty crate held at belly height -->
+      <path d="M72,200 L52,190 L64,180 L84,190 Z" fill="#a06a30" />
+      <path d="M168,200 L188,190 L176,180 L156,190 Z" fill="#a06a30" />
+      <path d="M72,200 L84,188 L156,188 L168,200 Z" fill="#3b2412" />
+      <rect x="72" y="200" width="96" height="46" rx="4" fill="#b8793a" />
+      <rect x="104" y="200" width="32" height="9" fill="#e7e5e4" opacity="0.85" />
+      <path d="M84,214 L156,214 M84,228 L156,228" stroke="#a06a30" stroke-width="2" />
+      <!-- A puff of dust where the music should be -->
+      <circle cx="112" cy="190" r="4" fill="#d6d3d1" opacity="0.7" />
+      <circle cx="122" cy="184" r="3" fill="#d6d3d1" opacity="0.5" />
+      <circle cx="130" cy="191" r="2.5" fill="#d6d3d1" opacity="0.6" />
+      <path d="M84,186 Q60,198 70,220" stroke="#759346" stroke-width="20" stroke-linecap="round" fill="none" />
+      <path d="M156,186 Q180,198 170,220" stroke="#759346" stroke-width="20" stroke-linecap="round" fill="none" />
+      <circle cx="72" cy="222" r="12" fill="#759346" />
+      <circle cx="168" cy="222" r="12" fill="#759346" />
+    </g>
     <g v-else>
       <path d="M66,80 Q120,6 174,80 Z" fill="#e0b040" />
       <rect x="56" y="76" width="128" height="11" rx="5.5" fill="#ca9a2c" />
@@ -170,7 +206,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-export type OrcVariant = "not-found" | "server-error" | "forbidden" | "maintenance";
+export type OrcVariant = "not-found" | "server-error" | "forbidden" | "maintenance" | "empty";
 
 const props = defineProps<{ variant: OrcVariant }>();
 
@@ -178,6 +214,7 @@ const LABELS: Record<OrcVariant, string> = {
   "not-found": "A small Orc scratching its head and holding an empty record sleeve",
   "server-error": "A small Orc panicking next to a guitar with a snapped string",
   forbidden: "A small Orc bouncer in sunglasses with crossed arms between two velvet ropes",
+  empty: "A small Orc shrugging while holding an empty crate",
   maintenance: "A small Orc in a hard hat holding a tuning fork and a wrench",
 };
 

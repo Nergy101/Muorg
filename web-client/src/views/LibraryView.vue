@@ -21,13 +21,12 @@
         {{ lib.error }}
       </div>
 
-      <div
+      <EmptyState
         v-else-if="showEmptyState"
-        class="content-col flex flex-col items-center gap-2 px-6 py-12 text-center"
-      >
-        <MageIcon name="music" class="h-12 w-12 text-on-surface-variant/40" />
-        <span class="text-body-md text-on-surface-variant">{{ emptyMessage }}</span>
-      </div>
+        class="content-col"
+        :title="emptyMessage"
+        :body="isSearching ? 'Try another spelling or fewer words.' : 'Add music to your server and rescan to see it here.'"
+      />
 
       <div v-else-if="showTrackList" class="content-col">
         <div
@@ -96,6 +95,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from "../components/EmptyState.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";

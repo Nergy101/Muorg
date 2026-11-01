@@ -21,6 +21,13 @@
         </button>
       </div>
 
+      <EmptyState
+        v-if="libraryEmpty"
+        class="content-col"
+        title="Your library is empty"
+        body="Add music to your server and rescan to see it here."
+      />
+      <template v-else>
       <!-- Recommended: random albums from the catalog (5 on desktop, 4 on mobile; refresh re-rolls). -->
       <section v-if="shelfViews[0]" class="px-4 pt-6">
         <!-- Bottom spacing belongs to the row, not the heading: with `pb-2` on
@@ -54,9 +61,7 @@
           Couldn't load {{ shelfViews[0].label.toLowerCase() }}.
         </div>
 
-        <div v-else-if="shelfViews[0].items.length === 0" class="py-4 text-body-sm text-on-surface-variant">
-          Nothing here yet.
-        </div>
+        <EmptyState v-else-if="shelfViews[0].items.length === 0" compact />
 
         <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
         <div
@@ -115,9 +120,7 @@
           :cols="gridCols"
         />
 
-        <div v-else-if="mixes.length === 0" class="py-4 text-body-sm text-on-surface-variant">
-          Nothing here yet.
-        </div>
+        <EmptyState v-else-if="mixes.length === 0" compact />
 
         <!-- Matches the Library's album grid: same column count (2/3/auto-fill
              200px via useGridColumns) and full-width cards, no horizontal
@@ -154,9 +157,7 @@
           Couldn't load {{ shelf.label.toLowerCase() }}.
         </div>
 
-        <div v-else-if="shelf.items.length === 0" class="py-4 text-body-sm text-on-surface-variant">
-          Nothing here yet.
-        </div>
+        <EmptyState v-else-if="shelf.items.length === 0" compact />
 
         <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
         <div
@@ -175,6 +176,7 @@
           />
         </div>
       </section>
+      </template>
     </div>
 
     <!-- Long-press / right-click on any album card on this screen: the same
@@ -184,6 +186,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from "../components/EmptyState.vue";
 import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
@@ -204,6 +207,8 @@ import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
 const lib = useLibraryStore();
+/** Nothing to browse yet: the catalog finished loading and holds no tracks. */
+const libraryEmpty = computed(() => !lib.loading && !lib.loadingMore && !lib.error && lib.tracks.length === 0);
 const player = usePlayerStore();
 
 const scroller = ref<HTMLElement | null>(null);

@@ -109,12 +109,7 @@
           </button>
         </div>
 
-        <p
-          v-if="player.upNext.length === 0"
-          class="py-12 text-center text-body-md text-on-surface-variant"
-        >
-          Queue is empty
-        </p>
+        <EmptyState v-if="player.upNext.length === 0" title="Queue is empty" body="Add something to play next." />
 
         <div v-else>
           <QueueRow
@@ -155,6 +150,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from "./EmptyState.vue";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
