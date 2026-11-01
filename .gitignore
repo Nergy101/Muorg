@@ -44,3 +44,6 @@ releasing/
 # Local agent tooling
 .claude/
 .hermes/
+server/logs/
+server/*.db-shm
+server/*.db-wal
