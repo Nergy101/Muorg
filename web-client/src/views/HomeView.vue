@@ -28,7 +28,7 @@
         body="Add music to your server and rescan to see it here."
       />
       <template v-else>
-      <!-- Recommended: random albums from the catalog (5 on desktop, 4 on mobile; refresh re-rolls). -->
+      <!-- Recommended: random albums from the catalog, one full grid row on desktop (refresh re-rolls). -->
       <section v-if="shelfViews[0]" class="px-4 pt-6">
         <!-- Bottom spacing belongs to the row, not the heading: with `pb-2` on
              the <h2> the flex row centres the button against the padded box and
@@ -81,9 +81,9 @@
         </div>
       </section>
 
-      <!-- Mixes: session-stable random ~20-track playlists (10 on desktop, 8 on mobile), never written
-           to the server. Opening one shows its tracks; saving goes through
-           the New-playlist flow. -->
+      <!-- Mixes: session-stable random ~20-track playlists (two full grid rows on desktop, 8 on
+           mobile), never written to the server. Opening one shows its tracks; saving goes
+           through the New-playlist flow. -->
       <section class="border-t border-outline/20 px-4 pt-6">
         <div class="flex items-center justify-between gap-3 pb-3">
           <h2 class="flex min-w-0 items-center gap-1.5 text-title-md font-semibold text-on-surface">
@@ -106,7 +106,7 @@
 
         <ShelfSkeleton
           v-if="mixes.length === 0 && (lib.loading || lib.loadingMore)"
-          :count="isDesktop ? 10 : 8"
+          :count="MIXES_COUNT"
           :cols="gridCols"
         />
 
@@ -116,7 +116,7 @@
              proxy), so its ComputedRefs do NOT auto-unwrap in templates. -->
         <ShelfSkeleton
           v-else-if="!mixCoverReady.allReady.value"
-          :count="isDesktop ? 10 : 8"
+          :count="MIXES_COUNT"
           :cols="gridCols"
         />
 
@@ -228,8 +228,13 @@ interface Shelf {
 
 const isDesktop = useIsDesktop();
 
-/** How many album cards a home shelf shows at most: 5 on desktop, 4 on mobile. */
-const SHELF_CAP = computed(() => (isDesktop.value ? 5 : 4));
+/** How many album cards a home shelf shows: one full grid row on desktop, so
+ *  the row exactly fills the viewport width (7 on a full-HD monitor, 5 on a
+ *  laptop), and 4 (two rows of 2) on mobile. */
+const SHELF_CAP = computed(() => (isDesktop.value ? gridCols.value : 4));
+
+/** Mixes fill two full grid rows on desktop, 8 cards on mobile. */
+const MIXES_COUNT = computed(() => (isDesktop.value ? gridCols.value * 2 : 8));
 
 // "Recommended" is just a few randomly chosen albums from the catalog, picked
 // once per session so the row stays stable while you browse (a fresh load
@@ -289,7 +294,7 @@ const shelves = reactive<Shelf[]>([
     key: "most-played",
     label: "Most Played",
     icon: "chart-up",
-    load: () => getTopPlayHistory(20, 30),
+    load: () => getTopPlayHistory(SHELF_CAP.value, 30),
     tracks: [],
     loading: false,
     error: false,
@@ -298,7 +303,7 @@ const shelves = reactive<Shelf[]>([
     key: "recently-played",
     label: "Recently Played",
     icon: "clock",
-    load: () => getRecentPlayHistory(20),
+    load: () => getRecentPlayHistory(SHELF_CAP.value),
     tracks: [],
     loading: false,
     error: false,
@@ -394,8 +399,8 @@ const albumActions = ref<AlbumGridItem | null>(null);
 const { mixes, refresh } = useMixes({
   tracks: () => lib.tracks,
   ready: () => !lib.loading && !lib.loadingMore,
-  // 10 mixes on desktop viewports, 8 on mobile.
-  count: () => (isDesktop.value ? 10 : 8),
+  // Two full grid rows on desktop viewports, 8 on mobile.
+  count: () => MIXES_COUNT.value,
 });
 const mixCoverReady = useMixCoverReady(() => mixes.value);
 // Live cover-loading state, for probing from devtools while working on the
@@ -444,6 +449,14 @@ watch(
     }
   },
 );
+
+// The shelf cap follows the viewport (one full grid row on desktop), so a
+// window resize re-fetches each shelf with the new amount. The Recommended
+// cache is re-rolled because it was sampled with the old cap.
+watch(SHELF_CAP, () => {
+  recommendedTracksCache = null;
+  for (const shelf of shelves) void loadShelf(shelf, true);
+});
 
 function openMix(id: number): void {
   void router.push({ name: "mix", params: { id: String(id) } });
