@@ -39,11 +39,20 @@
         :disabled="downloading"
         @click="downloaded ? emit('undownload') : emit('download'); emit('close')"
       >
-        <MageIcon
-          name="download"
-          class="h-5 w-5 shrink-0"
-          :class="downloadClass"
-        />
+        <span class="relative flex h-5 w-5 shrink-0 items-center justify-center">
+          <svg v-if="downloading" viewBox="0 0 20 20" class="absolute inset-0 h-5 w-5 -rotate-90">
+            <circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
+            <circle
+              cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+              :stroke-dasharray="RING_CIRC" :stroke-dashoffset="ringOffset"
+            />
+          </svg>
+          <MageIcon
+            name="download"
+            class="h-5 w-5"
+            :class="downloadClass"
+          />
+        </span>
         <span>{{ downloaded ? "Remove offline download" : "Download for offline" }}</span>
       </button>
       <button type="button" :class="ROW" @click="emit('pin'); emit('close')">
@@ -108,8 +117,16 @@ const downloaded = computed(() =>
   props.playlist ? offline.isPlaylistDownloaded(props.playlist.id) : false,
 );
 const downloadClass = computed(() =>
-  `${downloaded.value ? "text-primary" : "text-on-surface-variant"} ${downloading.value ? "animate-spin" : ""}`,
+  downloaded.value ? "text-primary" : "text-on-surface-variant",
 );
+
+// Circular progress ring around the download icon while this playlist downloads.
+const RING_CIRC = 2 * Math.PI * 8.5;
+const ringOffset = computed(() => {
+  const { done, total } = offline.downloadProgress;
+  const frac = total > 0 ? done / total : 0;
+  return RING_CIRC * (1 - frac);
+});
 /** The server-owned Favorites playlist cannot be renamed or deleted (Q21). */
 const isFavorites = computed(() =>
   props.playlist ? playlistStore.isFavoritesPlaylist(props.playlist) : false,
