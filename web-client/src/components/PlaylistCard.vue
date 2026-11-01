@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex select-none flex-col"
+    class="flex select-none flex-col [-webkit-touch-callout:none]"
     role="button"
     tabindex="0"
     @click="emit('open')"
@@ -26,7 +26,8 @@
         v-else-if="coverCount === 1"
         :src="coverUrls[0] ?? undefined"
         :alt="playlist.name"
-        class="absolute inset-0 h-full w-full object-cover"
+        class="absolute inset-0 h-full w-full object-cover [-webkit-touch-callout:none]"
+        draggable="false"
         decoding="async"
       />
       <div v-else class="grid h-full w-full grid-cols-2 grid-rows-2">
@@ -35,7 +36,8 @@
             v-if="url"
             :src="url"
             :alt="playlist.name"
-            class="h-full w-full object-cover"
+            class="h-full w-full object-cover [-webkit-touch-callout:none]"
+            draggable="false"
             decoding="async"
           />
           <div v-else class="h-full w-full bg-surface-variant/50" />
