@@ -250,7 +250,7 @@
           </div>
 
           <!-- Volume: all widths. Desktop (lg) pairs it with the chrome pill
-               (sleep timer / lyrics / cast / actions) in one row underneath
+               (sleep timer / lyrics / actions) in one row underneath
                the transport buttons; mobile gets its own centred row. -->
           <div class="flex shrink-0 justify-center px-6 pt-3 lg:hidden">
             <VolumeControl variant="player" />
@@ -283,15 +283,6 @@
                 @click="showLyrics = !showLyrics"
               >
                 <MageIcon name="note-text" class="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                class="flex h-10 w-10 items-center justify-center border-l border-white/20 transition-colors hover:bg-white/10"
-                :class="cast.isCasting ? 'text-primary' : 'text-white'"
-                :aria-label="cast.isCasting ? `Casting to ${cast.deviceName ?? 'device'}` : 'Cast to device'"
-                @click="showCastSheet = true"
-              >
-                <MageIcon name="screencast" class="h-5 w-5" />
               </button>
               <button
                 type="button"
@@ -332,8 +323,6 @@
       @cancel="showSleepConfirm = false"
     />
 
-    <CastDevicePicker :open="showCastSheet" @close="showCastSheet = false" />
-
     <TrackActionsSheet
       :open="showActionsSheet"
       :initial-level="actionsInitialLevel"
@@ -361,7 +350,6 @@ import { usePlayerStore } from "../stores/player";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
-import CastDevicePicker from "../components/CastDevicePicker.vue";
 import VolumeControl from "../components/VolumeControl.vue";
 import type { CatalogTrack } from "../types";
 
@@ -376,7 +364,6 @@ const cast = useCastStore();
 // While a session is live the server drives the audio, so the transport
 // controls have to act on the device rather than the (now silent) local
 // element — and the progress bar reads the device's reported position.
-const showCastSheet = ref(false);
 
 const transportPlaying = computed(() =>
   cast.isCasting ? cast.isPlaying : player.isPlaying,
