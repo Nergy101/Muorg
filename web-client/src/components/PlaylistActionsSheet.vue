@@ -12,6 +12,23 @@
             {{ playlist.track_count }} track{{ playlist.track_count === 1 ? "" : "s" }}
           </p>
         </div>
+        <!-- Quick play / shuffle next to the name -->
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          aria-label="Play playlist"
+          @click="emit('play'); emit('close')"
+        >
+          <MageIcon name="play" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          aria-label="Shuffle play playlist"
+          @click="emit('shuffle'); emit('close')"
+        >
+          <MageIcon name="exchange" class="h-5 w-5" />
+        </button>
       </div>
 
       <div class="my-1 border-t border-outline/30" />
