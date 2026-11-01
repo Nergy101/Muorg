@@ -4,15 +4,19 @@
        toolbar, so both surfaces offer the same controls in one row. Menus
        teleport to body and open downward from their trigger. -->
   <!-- Layout switcher first, on the far left in both layouts. Same icon in
-       both layouts — the pane-divided window reads as "layout". -->
+       both layouts — the pane-divided window reads as "layout" — with a small
+       badge showing which layout is active: 1 = album covers, 2 = tracks. -->
   <button
     type="button"
-    class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+    class="relative flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
     aria-label="Change layout"
     title="Change layout"
     @click="settings.cycleAlbumViewStyle()"
   >
     <MageIcon name="layout-grid" class="h-4 w-4" />
+    <span
+      class="absolute -bottom-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold leading-none text-on-primary"
+    >{{ settings.albumViewStyle === "tracks" ? "2" : "1" }}</span>
   </button>
 
   <div ref="sortMenuRef" class="relative">
