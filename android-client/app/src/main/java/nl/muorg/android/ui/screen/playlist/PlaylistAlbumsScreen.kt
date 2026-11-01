@@ -70,6 +70,7 @@ import kotlin.math.roundToInt
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.AlbumDisplayMode
+import nl.muorg.android.ui.component.DownloadStatusIcon
 import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.layout.rememberGridColumns
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -173,6 +174,41 @@ fun PlaylistAlbumsScreen(
                     }
                 },
                 actions = {
+                    // Download the whole playlist for offline use; left of the
+                    // reorder button. Hidden in local/offline mode.
+                    if (uiState.canDownloadPlaylist) {
+                        val downloadActive = uiState.playlistDownloading || uiState.playlistDownloaded
+                        Column(
+                            modifier = Modifier
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { viewModel.togglePlaylistDownload() },
+                                )
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .widthIn(min = 40.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            DownloadStatusIcon(
+                                downloaded = uiState.playlistDownloaded && !uiState.playlistDownloading,
+                                progress = uiState.playlistDownloadRing,
+                                size = 18.dp,
+                                tint = if (downloadActive) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = when {
+                                    uiState.playlistDownloading -> "saving"
+                                    uiState.playlistDownloaded -> "saved"
+                                    else -> "download"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (downloadActive) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
                     if (albumViewStyle == "tracks") {
                         Column(
                             modifier = Modifier

@@ -8,6 +8,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -62,6 +63,20 @@ data class PlaylistAlbumsUiState(
     val viewStyle: String = "tracks",
     val sortMode: PlaylistSortMode = PlaylistSortMode.PLAYLIST_ORDER,
     val sortAscending: Boolean = true,
+    /** Offline download state for the top-bar download button. */
+    val canDownloadPlaylist: Boolean = false,
+    val playlistDownloaded: Boolean = false,
+    val playlistDownloading: Boolean = false,
+    /** 0..1 ring progress while this playlist downloads, null otherwise. */
+    val playlistDownloadRing: Float? = null,
+)
+
+/** Snapshot of the flows behind the playlist download button. */
+private data class PlaylistDownloadState(
+    val canDownload: Boolean,
+    val downloaded: Boolean,
+    val downloading: Boolean,
+    val ring: Float?,
 )
 
 @HiltViewModel
@@ -108,7 +123,52 @@ class PlaylistAlbumsViewModel @Inject constructor(
         viewModelScope.launch {
             preferences.offlineMode.drop(1).collect { load() }
         }
+        // Offline download state for this playlist's top-bar button. Local
+        // mode has nothing to download (the files are already on the device)
+        // and offline mode has no server to ask.
+        viewModelScope.launch {
+            combine(
+                offlineDownloadManager.observeDownloadedPlaylistIds(),
+                offlineDownloadManager.downloadProgress,
+                preferences.musicMode,
+                preferences.offlineMode,
+            ) { ids, progress, mode, offlineMode ->
+                val can = mode != "local" && !offlineMode
+                val downloading = can && progress.isActive && progress.playlistId == playlistId
+                val ring = if (downloading && progress.totalTracks > 0) {
+                    progress.completedTracks.toFloat() / progress.totalTracks
+                } else null
+                PlaylistDownloadState(can, playlistId in ids, downloading, ring)
+            }.collect { d ->
+                _uiState.update {
+                    it.copy(
+                        canDownloadPlaylist = d.canDownload,
+                        playlistDownloaded = d.downloaded,
+                        playlistDownloading = d.downloading,
+                        playlistDownloadRing = d.ring,
+                    )
+                }
+            }
+        }
         load()
+    }
+
+    /**
+     * The top-bar download button: download every track of this playlist for
+     * offline use, or remove that download again when it is already on disk.
+     */
+    fun togglePlaylistDownload() {
+        val state = _uiState.value
+        if (state.isLocalMode || !state.canDownloadPlaylist) return
+        val playlist = state.playlist ?: return
+        viewModelScope.launch {
+            if (preferences.offlineMode.first()) return@launch
+            if (state.playlistDownloaded) {
+                offlineDownloadManager.removePlaylist(playlistId)
+            } else if (state.allTracks.isNotEmpty()) {
+                offlineDownloadManager.downloadPlaylist(playlist, state.allTracks)
+            }
+        }
     }
 
     fun setViewStyle(style: String) {

@@ -258,10 +258,12 @@ fun AlbumDetailScreen(
                         key = { it.id },
                     ) { track ->
                         val membership = uiState.trackPlaylistMembership[track.path] ?: emptySet()
+                        val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
                         AlbumTrackRow(
                             track = track,
                             baseUrl = baseUrl,
                             imageLoader = imageLoader,
+                            coverModel = coverModel,
                             isPlaying = playerState.currentTrack?.id == track.id &&
                                 playerState.isPlaying,
                             isLoading = playerState.pendingTrackId == track.id,
@@ -317,6 +319,7 @@ private fun AlbumTrackRow(
     track: CatalogTrack,
     baseUrl: String,
     imageLoader: ImageLoader,
+    coverModel: Any? = null,
     isPlaying: Boolean,
     isLoading: Boolean = false,
     isFavorite: Boolean = false,
@@ -367,6 +370,36 @@ private fun AlbumTrackRow(
             }
 
             Spacer(modifier = Modifier.width(4.dp))
+
+            // Small album cover between the track number and the title.
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (coverModel != null) {
+                    AsyncImage(
+                        model = coverModel,
+                        contentDescription = null,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(mageIconRes("music")),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
 
             // Title over artist, as on the web — a bare title line reads as a
             // file list, not a track list.

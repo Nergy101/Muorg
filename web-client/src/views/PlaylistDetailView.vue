@@ -124,25 +124,34 @@
             <MageIcon :name="viewIcon" class="h-5 w-5" />
           </button>
         </div>
+      </div>
 
+      <!-- Play and shuffle for the whole playlist, as two buttons above the
+           list (mirrors the Android app's PlaylistPlaybackActions). -->
+      <div
+        v-if="tracks.length > 0"
+        class="content-col flex items-center gap-3 px-4 pb-1 pt-3"
+      >
         <button
-          v-if="tracks.length > 0"
           type="button"
-          class="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full glass text-on-surface transition-colors lg:hover:bg-on-surface/10"
-          aria-label="Shuffle play"
-          @click="shufflePlaylist"
-        >
-          <MageIcon name="exchange" class="h-4 w-4" />
-        </button>
-        <button
-          v-if="tracks.length > 0"
-          type="button"
-          class="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
+          class="flex h-10 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-label-lg text-on-primary transition-transform hover:scale-[1.02]"
           aria-label="Play"
           @click="playAll"
         >
-          <MageIcon name="play" class="h-4 w-4" />
+          <MageIcon name="play" class="h-5 w-5" />
+          <span>Play</span>
         </button>
+        <button
+          type="button"
+          class="flex h-10 flex-1 items-center justify-center gap-2 rounded-full text-label-lg transition-colors"
+          :class="player.shuffleEnabled ? 'bg-primary text-on-primary' : 'glass text-on-surface'"
+          aria-label="Shuffle play"
+          @click="shufflePlaylist"
+        >
+          <MageIcon name="exchange" class="h-5 w-5" />
+          <span>Shuffle</span>
+        </button>
+        <span class="shrink-0 text-label-lg tabular-nums text-on-surface-variant">{{ tracks.length }}</span>
       </div>
 
       <!-- Order-by selection and direction switch for the playlist's tracks
