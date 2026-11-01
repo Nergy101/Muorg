@@ -3,7 +3,9 @@
     <!-- Toolbar: second row under the library top bar, left-aligned, with the
          table-level controls only (the view-level sort/genre/layout/shuffle
          live in the top bar above). -->
-    <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-3 py-2">
+    <!-- px-4 matches the top bar so the layout button doesn't shift when
+         switching layouts (the top bar is hidden in this layout). -->
+    <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-4 py-2">
       <!-- View-level actions (layout, sort, genre, shuffle) first — the top
            bar is not rendered in this layout, so this row is the only one. -->
       <LibraryViewActions />
