@@ -21,7 +21,10 @@
 
   <!-- Sort + genre selects share one pill group. -->
   <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
-    <div ref="sortMenuRef" class="relative">
+    <!-- In the tracks layout the table toolbar has its own column sort, so
+         the view-level sort hides on desktop to avoid two "Sort:" buttons;
+         mobile tracks keeps it (the flat list is sorted by it). -->
+    <div ref="sortMenuRef" class="relative" :class="settings.albumViewStyle === 'tracks' ? 'lg:hidden' : ''">
       <button
         ref="sortBtnRef"
         type="button"
@@ -54,6 +57,7 @@
   <button
     type="button"
     class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+    :class="settings.albumViewStyle === 'tracks' ? 'lg:hidden' : ''"
     :aria-label="settings.sortAscending ? 'Sort descending' : 'Sort ascending'"
     @click="settings.setSortAscending(!settings.sortAscending)"
   >
