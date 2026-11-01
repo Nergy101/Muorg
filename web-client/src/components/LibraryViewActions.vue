@@ -1,8 +1,10 @@
 <template>
-  <!-- View-level library actions (sort, genre, layout, shuffle-all), shared by
-       the library top bar (grid view / mobile) and the desktop tracks table
-       toolbar, so both surfaces offer the same controls in one row. Menus
+  <!-- View-level library actions (layout, shuffle-all, genre, sort), shared
+       by the library top bar (grid view / mobile) and the desktop tracks
+       table toolbar. The fixed gap-1 wrapper keeps every button at the same
+       position in both rows, so nothing jitters when switching layouts. Menus
        teleport to body and open downward from their trigger. -->
+  <div class="flex items-center gap-1">
   <!-- Layout switcher first, on the far left in both layouts. Same icon in
        both layouts — the pane-divided window reads as "layout" — with a small
        badge showing which layout is active: 1 = album covers, 2 = tracks. -->
@@ -31,12 +33,14 @@
     <MageIcon name="exchange" class="h-4 w-4" />
   </button>
 
-  <!-- Sort select in its own pill group. -->
-  <div :class="PILL">
-    <!-- In the tracks layout the table toolbar has its own column sort, so
-         the view-level sort hides on desktop to avoid two "Sort:" buttons;
-         mobile tracks keeps it (the flat list is sorted by it). -->
-    <div ref="sortMenuRef" class="relative" :class="settings.albumViewStyle === 'tracks' ? 'lg:hidden' : ''">
+  <!-- Genre select in its own pill, styled exactly like the sort pill. -->
+  <GenreFilterMenu />
+
+  <!-- Sort select in its own pill group, last so that hiding it in the tracks
+       layout (where the table toolbar has its own column sort) doesn't shift
+       the buttons before it. Mobile tracks keeps it visible. -->
+  <div :class="[PILL, settings.albumViewStyle === 'tracks' ? 'lg:hidden' : '']">
+    <div ref="sortMenuRef" class="relative">
       <button
         ref="sortBtnRef"
         type="button"
@@ -69,16 +73,13 @@
   <button
     type="button"
     class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
-    :class="settings.albumViewStyle === 'tracks' ? 'lg:hidden' : ''"
     :aria-label="settings.sortAscending ? 'Sort descending' : 'Sort ascending'"
     @click="settings.setSortAscending(!settings.sortAscending)"
   >
     <MageIcon :name="settings.sortAscending ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
   </button>
   </div>
-
-  <!-- Genre select in its own pill, styled exactly like the sort pill. -->
-  <GenreFilterMenu />
+  </div>
 </template>
 
 <script setup lang="ts">
