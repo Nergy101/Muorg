@@ -45,9 +45,7 @@
           </button>
         </div>
 
-        <div v-if="shelfViews[0].loading" class="flex justify-center py-6">
-          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
-        </div>
+        <ShelfSkeleton v-if="shelfViews[0].loading" :count="SHELF_CAP" :cols="gridCols" />
 
         <div v-else-if="shelfViews[0].error" class="py-4 text-body-sm text-error">
           Couldn't load {{ shelfViews[0].label.toLowerCase() }}.
@@ -97,20 +95,21 @@
           </button>
         </div>
 
-        <div
+        <ShelfSkeleton
           v-if="mixes.length === 0 && (lib.loading || lib.loadingMore)"
-          class="flex justify-center py-6"
-        >
-          <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
-        </div>
+          :count="isDesktop ? 10 : 8"
+          :cols="gridCols"
+        />
 
-        <!-- Preloading the cover collages for all mixes; show nothing until
+        <!-- Preloading the cover collages for all mixes; show skeletons until
              every one is done so the grid appears as a complete set. Note the
              explicit `.value`: mixCoverReady is a plain object (not a store
              proxy), so its ComputedRefs do NOT auto-unwrap in templates. -->
-        <div v-else-if="!mixCoverReady.allReady.value" class="flex justify-center py-6">
-          <span class="dot-loader text-on-surface-variant"><span class="dot" /><span class="dot" /><span class="dot" /></span>
-        </div>
+        <ShelfSkeleton
+          v-else-if="!mixCoverReady.allReady.value"
+          :count="isDesktop ? 10 : 8"
+          :cols="gridCols"
+        />
 
         <div v-else-if="mixes.length === 0" class="py-4 text-body-sm text-on-surface-variant">
           Nothing here yet.
@@ -145,9 +144,7 @@
           {{ shelf.label }}
         </h2>
 
-        <div v-if="shelf.loading" class="flex justify-center py-6">
-          <MageIcon name="refresh" class="h-6 w-6 animate-spin text-on-surface-variant" />
-        </div>
+        <ShelfSkeleton v-if="shelf.loading" :count="SHELF_CAP" :cols="gridCols" />
 
         <div v-else-if="shelf.error" class="py-4 text-body-sm text-error">
           Couldn't load {{ shelf.label.toLowerCase() }}.
@@ -183,6 +180,7 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import MixCard from "../components/MixCard.vue";
+import ShelfSkeleton from "../components/ShelfSkeleton.vue";
 import logoUrl from "../assets/muorg-logo.svg";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
