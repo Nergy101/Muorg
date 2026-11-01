@@ -125,7 +125,7 @@
           <button
             v-if="hasMore"
             type="button"
-            class="mx-4 mt-1 flex h-11 w-full items-center justify-center gap-2 rounded-full glass-field text-label-lg text-primary"
+            class="mx-4 mt-1 flex h-11 w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-full glass-field text-label-lg text-primary"
             @click="loadMore"
           >
             <MageIcon name="chevron-down" class="h-4 w-4" />
