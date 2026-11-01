@@ -23,18 +23,21 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import MageIcon from "../MageIcon.vue";
+import { useIsDesktop } from "../../composables/useIsDesktop";
 
 const props = withDefaults(
   defineProps<{
     title: string;
     icon?: string;
-    /** Sections start collapsed unless this is set (the version section). */
+    /** Sections start collapsed on mobile unless this is set (the version
+     *  section); on desktop viewports they start expanded. */
     defaultOpen?: boolean;
   }>(),
   { defaultOpen: false },
 );
 
-const open = ref(props.defaultOpen);
+const isDesktop = useIsDesktop();
+const open = ref(props.defaultOpen || isDesktop.value);
 
 const SECTION = "px-4 pt-5 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
 </script>
