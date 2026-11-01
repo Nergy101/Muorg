@@ -1,7 +1,9 @@
 package nl.muorg.android.ui.screen.playlists
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -123,6 +125,7 @@ internal fun PlaylistCard(
  * own covers, frosted action discs floating over the artwork, and the same
  * caption scrim the album cards use.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun PlaylistTile(
     playlist: Playlist,
@@ -134,6 +137,8 @@ internal fun PlaylistTile(
     onEdit: () -> Unit,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
+    /** Long-press: opens the playlist's action sheet. */
+    onLongClick: () -> Unit = {},
     /** The server's Favorites playlist: rename and delete are refused. */
     isFavorites: Boolean = false,
     /** The playlist has a download: the button shows filled and offers removal. */
@@ -156,7 +161,7 @@ internal fun PlaylistTile(
             .clip(MuorgShapes.card)
             .background(MaterialTheme.colorScheme.surface)
             .aspectRatio(1f)
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         CoverMosaic(
             covers = covers,

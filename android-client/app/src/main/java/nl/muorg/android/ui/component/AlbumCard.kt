@@ -31,8 +31,6 @@ import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -71,8 +69,6 @@ import nl.muorg.android.ui.theme.MuorgShapes
 
 enum class AlbumDisplayMode { GRID, LIST }
 
-private enum class AlbumMenuLevel { HIDDEN, MAIN }
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AlbumCard(
@@ -87,13 +83,14 @@ fun AlbumCard(
     albumInPlaylistIds: Set<Int> = emptySet(),
     albumPartialPlaylistIds: Set<Int> = emptySet(),
     onPlayNow: (() -> Unit)? = null,
+    onShuffle: (() -> Unit)? = null,
     onAddToQueue: (() -> Unit)? = null,
     onAddToPlaylist: ((Playlist) -> Unit)? = null,
     onRemoveFromPlaylist: ((Playlist) -> Unit)? = null,
     onCreatePlaylist: ((String) -> Unit)? = null,
     onViewArtist: (() -> Unit)? = null,
 ) {
-    var menuLevel by remember { mutableStateOf(AlbumMenuLevel.HIDDEN) }
+    var showActions by remember { mutableStateOf(false) }
     var showPlaylistSheet by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -106,7 +103,7 @@ fun AlbumCard(
                         interactionSource = interactionSource,
                         indication = null,
                         onClick = onClick,
-                        onLongClick = { menuLevel = AlbumMenuLevel.MAIN },
+                        onLongClick = { showActions = true },
                     )
                     .then(if (isActive) Modifier.background(MuorgGreenLight.copy(alpha = 0.08f)) else Modifier)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -166,18 +163,20 @@ fun AlbumCard(
                 }
             }
 
-            DropdownMenu(
-                expanded = menuLevel == AlbumMenuLevel.MAIN,
-                onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },
-            ) {
-                AlbumMenuItems(
-                    onSetLevel = { menuLevel = it },
-                    onPlayNow = onPlayNow,
-                    onAddToQueue = onAddToQueue,
-                    onViewArtist = onViewArtist,
-                    onOpenPlaylistSheet = { menuLevel = AlbumMenuLevel.HIDDEN; showPlaylistSheet = true },
-                )
-            }
+        }
+
+        if (showActions) {
+            AlbumActionsSheet(
+                album = album,
+                baseUrl = baseUrl,
+                imageLoader = imageLoader,
+                onDismiss = { showActions = false },
+                onPlayNow = onPlayNow,
+                onShuffle = onShuffle,
+                onAddToQueue = onAddToQueue,
+                onAddToPlaylist = { showActions = false; showPlaylistSheet = true },
+                onViewArtist = onViewArtist,
+            )
         }
 
         if (showPlaylistSheet) {
@@ -220,7 +219,7 @@ fun AlbumCard(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick,
-                onLongClick = { menuLevel = AlbumMenuLevel.MAIN },
+                onLongClick = { showActions = true },
             ),
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -281,18 +280,20 @@ fun AlbumCard(
         }
         }
 
-        DropdownMenu(
-            expanded = menuLevel == AlbumMenuLevel.MAIN,
-            onDismissRequest = { menuLevel = AlbumMenuLevel.HIDDEN },
-        ) {
-            AlbumMenuItems(
-                onSetLevel = { menuLevel = it },
-                onPlayNow = onPlayNow,
-                onAddToQueue = onAddToQueue,
-                onViewArtist = onViewArtist,
-                onOpenPlaylistSheet = { menuLevel = AlbumMenuLevel.HIDDEN; showPlaylistSheet = true },
-            )
-        }
+    }
+
+    if (showActions) {
+        AlbumActionsSheet(
+            album = album,
+            baseUrl = baseUrl,
+            imageLoader = imageLoader,
+            onDismiss = { showActions = false },
+            onPlayNow = onPlayNow,
+            onShuffle = onShuffle,
+            onAddToQueue = onAddToQueue,
+            onAddToPlaylist = { showActions = false; showPlaylistSheet = true },
+            onViewArtist = onViewArtist,
+        )
     }
 
     if (showPlaylistSheet) {
@@ -306,49 +307,4 @@ fun AlbumCard(
             onDismiss = { showPlaylistSheet = false },
         )
     }
-}
-
-@Composable
-private fun AlbumMenuItems(
-    onSetLevel: (AlbumMenuLevel) -> Unit,
-    onPlayNow: (() -> Unit)?,
-    onAddToQueue: (() -> Unit)?,
-    onViewArtist: (() -> Unit)?,
-    onOpenPlaylistSheet: () -> Unit,
-) {
-    DropdownMenuItem(
-        text = { Text("Play now") },
-        leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("play")), contentDescription = null) },
-        onClick = {
-            onSetLevel(AlbumMenuLevel.HIDDEN)
-            onPlayNow?.invoke()
-        },
-    )
-    DropdownMenuItem(
-        text = { Text("Add to queue") },
-        leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
-        onClick = {
-            onSetLevel(AlbumMenuLevel.HIDDEN)
-            onAddToQueue?.invoke()
-        },
-    )
-    if (onViewArtist != null) {
-        DropdownMenuItem(
-            text = { Text("View artist") },
-            leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("user")), contentDescription = null) },
-            onClick = {
-                onSetLevel(AlbumMenuLevel.HIDDEN)
-                onViewArtist()
-            },
-        )
-    }
-    DropdownMenuItem(
-        text = { Text("Add to playlist") },
-        leadingIcon = { Icon(
-                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = null) },
-        onClick = onOpenPlaylistSheet,
-    )
 }

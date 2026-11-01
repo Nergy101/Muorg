@@ -211,6 +211,12 @@ fun LibraryContent(
                                         playerViewModel.playTrack(it, tracks)
                                     }
                                 },
+                                onShuffle = {
+                                    val tracks = viewModel.getTracksForAlbum(album.albumName).shuffled()
+                                    tracks.firstOrNull()?.let {
+                                        playerViewModel.playTrack(it, tracks)
+                                    }
+                                },
                                 onAddToQueue = {
                                     playerViewModel.addTracksToQueue(
                                         viewModel.getTracksForAlbum(album.albumName)
@@ -272,6 +278,12 @@ fun LibraryContent(
                                 albumPartialPlaylistIds = albumPartialIds,
                                 onPlayNow = {
                                     val tracks = viewModel.getTracksForAlbum(album.albumName)
+                                    tracks.firstOrNull()?.let {
+                                        playerViewModel.playTrack(it, tracks)
+                                    }
+                                },
+                                onShuffle = {
+                                    val tracks = viewModel.getTracksForAlbum(album.albumName).shuffled()
                                     tracks.firstOrNull()?.let {
                                         playerViewModel.playTrack(it, tracks)
                                     }

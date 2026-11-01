@@ -57,6 +57,7 @@ import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.layout.rememberGridColumns
+import nl.muorg.android.ui.component.PlaylistActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
 
@@ -86,6 +87,7 @@ fun PlaylistsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
+    var actionsFor by remember { mutableStateOf<Pair<Playlist, List<Any>>?>(null) }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(lifecycle) {
@@ -243,6 +245,7 @@ fun PlaylistsScreen(
                                 onEdit = { viewModel.showEditDialog(playlist) },
                                 onDownload = { viewModel.onDownloadClicked(playlist) },
                                 onDelete = { pendingDelete = playlist },
+                                onLongClick = { actionsFor = playlist to covers },
                                 isFavorites = uiState.isServerMode &&
                                     playlist.name == FAVORITES_PLAYLIST_NAME,
                                 downloaded = playlist.id in uiState.downloadedPlaylistIds,
@@ -255,6 +258,35 @@ fun PlaylistsScreen(
             }
         }
 
+    }
+
+    actionsFor?.let { (playlist, covers) ->
+        val online = !uiState.isOfflineMode
+        val isFavorites = uiState.isServerMode && playlist.name == FAVORITES_PLAYLIST_NAME
+        PlaylistActionsSheet(
+            playlist = playlist,
+            covers = covers,
+            imageLoader = imageLoader,
+            pinned = playlist.id in uiState.pinnedIds,
+            downloaded = playlist.id in uiState.downloadedPlaylistIds,
+            downloadProgress = uiState.downloadProgress,
+            onDismiss = { actionsFor = null },
+            onPlay = {
+                viewModel.loadPlaylistTracks(playlist) { tracks ->
+                    if (tracks.isNotEmpty()) playerViewModel.playTrack(tracks.first(), tracks)
+                }
+            },
+            onShuffle = {
+                viewModel.loadPlaylistTracks(playlist) { tracks ->
+                    val shuffled = tracks.shuffled()
+                    if (shuffled.isNotEmpty()) playerViewModel.playTrack(shuffled.first(), shuffled)
+                }
+            },
+            onTogglePin = if (online) ({ viewModel.togglePin(playlist.id) }) else null,
+            onEdit = if (online && !isFavorites) ({ viewModel.showEditDialog(playlist) }) else null,
+            onDownload = if (uiState.isServerMode) ({ viewModel.onDownloadClicked(playlist) }) else null,
+            onDelete = if (online && !isFavorites) ({ pendingDelete = playlist }) else null,
+        )
     }
 
     if (uiState.showRemoveDownloadDialog) {

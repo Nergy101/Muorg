@@ -50,6 +50,8 @@ private const val CREDENTIALS_WAIT_MS = 5_000L
 
 data class DownloadProgress(
     val playlistId: Int? = null,
+    /** Set instead of [playlistId] while an album download runs. */
+    val albumKey: String? = null,
     val totalTracks: Int = 0,
     val completedTracks: Int = 0,
     val failedTracks: Int = 0,
@@ -84,6 +86,47 @@ class OfflineDownloadManager @Inject constructor(
     // One download at a time: a download the user started and a background
     // sync write the same progress state and the same offline folder.
     private val downloadMutex = Mutex()
+
+    /**
+     * Downloads an album's tracks outside any playlist (rows with a null
+     * playlistId). The album counts as downloaded when every one of its
+     * tracks is on disk, however it got there. [albumKey] only labels the
+     * progress so the sheet can tell its own download from another.
+     */
+    fun downloadAlbum(albumKey: String, tracks: List<CatalogTrack>) {
+        scope.launch {
+            downloadMutex.withLock {
+                beginProgress(null, tracks.size, albumKey)
+                if (!networkAllowsDownload()) {
+                    _downloadProgress.update {
+                        it.copy(isActive = false, errorMessage = "Downloads are limited to Wi-Fi")
+                    }
+                    return@withLock
+                }
+                downloadTracks(null, tracks)
+                _downloadProgress.update { it.copy(isActive = false) }
+            }
+        }
+    }
+
+    /**
+     * Removes an album's own downloads. Tracks that a downloaded playlist
+     * owns stay put — deleting them would silently hollow out that playlist.
+     */
+    fun removeAlbum(trackIds: List<Int>) {
+        scope.launch {
+            for (id in trackIds) {
+                val row = offlineTrackDao.getTrack(id) ?: continue
+                if (row.playlistId != null) continue
+                if (row.filePath.isNotBlank()) File(row.filePath).delete()
+                offlineTrackDao.delete(id)
+            }
+        }
+    }
+
+    /** Ids of every track that is fully on disk, for the album download state. */
+    fun observeDownloadedTrackIds(): Flow<Set<Int>> =
+        offlineTrackDao.observeReadyTrackIds().map { it.toSet() }
 
     fun downloadPlaylist(playlist: Playlist, tracks: List<CatalogTrack>) {
         scope.launch {
@@ -181,10 +224,11 @@ class OfflineDownloadManager @Inject constructor(
         } ?: false
     }
 
-    private fun beginProgress(playlistId: Int, total: Int) {
+    private fun beginProgress(playlistId: Int?, total: Int, albumKey: String? = null) {
         _downloadProgress.update {
             it.copy(
                 playlistId = playlistId,
+                albumKey = albumKey,
                 totalTracks = total,
                 completedTracks = 0,
                 failedTracks = 0,
@@ -199,7 +243,7 @@ class OfflineDownloadManager @Inject constructor(
         isOnWifi() || preferences.downloadMobileData.first()
 
     /** True when every one of [tracks] is on disk afterwards. */
-    private suspend fun downloadTracks(playlistId: Int, tracks: List<CatalogTrack>): Boolean {
+    private suspend fun downloadTracks(playlistId: Int?, tracks: List<CatalogTrack>): Boolean {
         var usedBytes = offlineDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
         // Online mode caches for listening without internet, so the cache
         // is capped; local mode reads the device's own storage and is not.
@@ -209,7 +253,12 @@ class OfflineDownloadManager @Inject constructor(
         for (track in tracks) {
             _downloadProgress.update { it.copy(currentTrackName = track.displayTitle) }
             val existing = offlineTrackDao.getTrack(track.id)
-            if (existing?.status == "ready") {
+            if (existing != null && existing.status == "ready") {
+                // A playlist adopts an album's ownerless file, so removing the
+                // album later cannot pull the track out from under it.
+                if (playlistId != null && existing.playlistId == null) {
+                    offlineTrackDao.upsert(existing.copy(playlistId = playlistId))
+                }
                 _downloadProgress.update { it.copy(completedTracks = it.completedTracks + 1) }
                 continue
             }
@@ -239,7 +288,7 @@ class OfflineDownloadManager @Inject constructor(
         return allReady
     }
 
-    private suspend fun markFailed(track: CatalogTrack, playlistId: Int) {
+    private suspend fun markFailed(track: CatalogTrack, playlistId: Int?) {
         offlineTrackDao.upsert(
             OfflineTrack(
                 trackId = track.id,
@@ -259,7 +308,7 @@ class OfflineDownloadManager @Inject constructor(
     }
 
     /** Bytes written, or null when the track could not be downloaded. */
-    private suspend fun downloadTrack(track: CatalogTrack, playlistId: Int): Long? {
+    private suspend fun downloadTrack(track: CatalogTrack, playlistId: Int?): Long? {
         val baseUrl = preferences.serverUrlState.value.trimEnd('/')
         val token = runCatching {
             api.issueToken(track.id.toLong())

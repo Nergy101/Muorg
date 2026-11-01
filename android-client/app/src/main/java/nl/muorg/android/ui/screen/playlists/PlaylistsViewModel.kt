@@ -336,6 +336,24 @@ class PlaylistsViewModel @Inject constructor(
         offlineDownloadManager.removePlaylist(id)
     }
 
+    /**
+     * A playlist's tracks for the action sheet's play and shuffle. Offline
+     * mode reads the downloaded copy, since the server is out of reach.
+     */
+    fun loadPlaylistTracks(playlist: Playlist, onLoaded: (List<CatalogTrack>) -> Unit) {
+        viewModelScope.launch {
+            if (isOffline()) {
+                onLoaded(offlineDownloadManager.getDownloadedTracks(playlist.id))
+                return@launch
+            }
+            val ids = repository.getTracksFor(playlist).getOrDefault(emptyList())
+            val byId = runCatching { libraryRepository.getAllTracks().getOrThrow() }
+                .getOrDefault(emptyList())
+                .associateBy { it.id }
+            onLoaded(ids.mapNotNull { byId[it] })
+        }
+    }
+
     fun downloadPlaylist(playlist: Playlist) {
         if (isOffline()) return
         if (currentMode == "local") return

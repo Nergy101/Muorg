@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OfflineTrackDao {
@@ -13,6 +14,9 @@ interface OfflineTrackDao {
 
     @Query("SELECT * FROM offline_tracks WHERE playlistId = :playlistId AND status = 'ready'")
     suspend fun getDownloadedTracksForPlaylist(playlistId: Int): List<OfflineTrack>
+
+    @Query("SELECT trackId FROM offline_tracks WHERE status = 'ready'")
+    fun observeReadyTrackIds(): Flow<List<Int>>
 
     @Query("SELECT * FROM offline_tracks WHERE trackId = :trackId")
     suspend fun getTrack(trackId: Int): OfflineTrack?
