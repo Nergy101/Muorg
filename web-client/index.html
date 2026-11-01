@@ -7,7 +7,9 @@
 
     <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- No apple-mobile-web-app-status-bar-style: black-translucent makes iOS 26+
+         draw a system blur/fade over the top edge that CSS can't disable. Without
+         it iOS shows an opaque status bar coloured from theme-color. -->
     <meta name="apple-mobile-web-app-title" content="Muorg" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
 
