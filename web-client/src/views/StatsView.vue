@@ -87,7 +87,7 @@
         <!-- Formats -->
         <section class="rounded-2xl bg-surface-container p-4">
           <p class="mb-3 text-label-lg text-on-surface-variant">Formats</p>
-          <FormatBarChart :tracks="lib.tracks" />
+          <FormatDonutChart :tracks="lib.tracks" />
         </section>
 
         <!-- Track lengths -->
@@ -116,7 +116,7 @@ import YearLineChart from "@shared/components/stats/YearLineChart.vue";
 import RatingChart from "@shared/components/stats/RatingChart.vue";
 import TopArtistsChart from "@shared/components/stats/TopArtistsChart.vue";
 import MetadataHealthChart from "@shared/components/stats/MetadataHealthChart.vue";
-import FormatBarChart from "@shared/components/stats/FormatBarChart.vue";
+import FormatDonutChart from "@shared/components/stats/FormatDonutChart.vue";
 import DurationHistogram from "@shared/components/stats/DurationHistogram.vue";
 import TopPlayedChart from "@shared/components/stats/TopPlayedChart.vue";
 import type { MissingMetadataField } from "@shared/reports";
