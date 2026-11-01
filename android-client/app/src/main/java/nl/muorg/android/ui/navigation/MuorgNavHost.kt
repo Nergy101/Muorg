@@ -34,6 +34,7 @@ import nl.muorg.android.ui.screen.playlists.PlaylistsScreen
 import nl.muorg.android.ui.screen.reports.ReportDetailScreen
 import nl.muorg.android.ui.screen.search.SearchScreen
 import nl.muorg.android.ui.screen.reports.ReportsScreen
+import nl.muorg.android.ui.screen.stats.StatsScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import nl.muorg.android.ui.screen.welcome.WelcomeScreen
 
@@ -293,6 +294,13 @@ fun MuorgNavHost(
                     }
                 },
                 onOpenReports = { navController.navigate(Screen.Reports.route) },
+                onOpenStats = { navController.navigate(Screen.Stats.route) },
+            )
+        }
+
+        composable(Screen.Stats.route) {
+            StatsScreen(
+                onBack = { navController.popBackStack() },
             )
         }
 

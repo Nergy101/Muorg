@@ -11,22 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +40,6 @@ import nl.muorg.android.ui.component.ProvideLibraryChrome
 import nl.muorg.android.data.preferences.SearchHistoryEntry
 import nl.muorg.android.ui.glass.glassField
 import nl.muorg.android.ui.icon.mageIconRes
-import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
 
 /**
@@ -70,13 +58,8 @@ fun LibraryChrome(
     searchText: String,
     onSearchTextChange: (String) -> Unit,
     chromeAccent: Color,
-    lazyListState: LazyListState,
-    lazyGridState: LazyGridState,
-    playerViewModel: PlayerViewModel,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    // Local to the chrome: the sort menu opens from here and nowhere else.
-    var showSortMenu by remember { mutableStateOf(false) }
     // Local to the chrome: nothing outside the search field reads it.
     var recentSearches by remember { mutableStateOf<List<SearchHistoryEntry>>(emptyList()) }
     LaunchedEffect(Unit) {
@@ -223,106 +206,8 @@ fun LibraryChrome(
                 }
             }
 
-            // Sort dropdown + shuffle button row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box {
-                    TextButton(
-                        onClick = { showSortMenu = true },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    ) {
-                        Text("Sort: ${uiState.sortMode.label}")
-                        Icon(
-                        painter = painterResource(mageIconRes("chevron-down")),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false },
-                    ) {
-                        SortMode.entries.forEach { mode ->
-                            DropdownMenuItem(
-                                text = { Text(mode.label) },
-                                onClick = {
-                                    coroutineScope.launch {
-                                        lazyGridState.scrollToItem(0)
-                                        lazyListState.scrollToItem(0)
-                                    }
-                                    viewModel.setSortMode(mode)
-                                    showSortMenu = false
-                                },
-                                trailingIcon = {
-                                    if (uiState.sortMode == mode) {
-                                        Text("✓", color = chromeAccent)
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-
-                IconButton(onClick = {
-                    coroutineScope.launch {
-                        lazyGridState.scrollToItem(0)
-                        lazyListState.scrollToItem(0)
-                    }
-                    viewModel.toggleSortDirection()
-                }) {
-                    Icon(
-                        imageVector = if (uiState.sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                        contentDescription = if (uiState.sortAscending) "Sort ascending" else "Sort descending",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                IconButton(onClick = {
-                    val next = when (uiState.albumViewStyle) {
-                        "grid" -> "list"
-                        "list" -> "tracks"
-                        else -> "grid"
-                    }
-                    viewModel.setAlbumViewStyle(next)
-                }) {
-                    Icon(
-                        imageVector = when (uiState.albumViewStyle) {
-                            "grid" -> Icons.Filled.GridView
-                            "list" -> Icons.AutoMirrored.Filled.ViewList
-                            else -> Icons.Filled.MusicNote
-                        },
-                        contentDescription = "Switch layout",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-
-                IconButton(
-                    onClick = {
-                        val tracks = uiState.filteredTracks.ifEmpty {
-                            uiState.filteredAlbums.flatMap { viewModel.getTracksForAlbum(it.albumName) }
-                        }
-                        playerViewModel.startShuffleAll(tracks)
-                    },
-                    modifier = Modifier.padding(end = 8.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(mageIconRes("exchange")),
-                        contentDescription = "Shuffle play",
-                        tint = chromeAccent,
-                    )
-                }
-            }
-
+            // Sort, genre, layout and shuffle-all live in the top bar now
+            // (LibraryTopBar), as on the web client — not in the island.
         }
     }
 }

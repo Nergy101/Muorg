@@ -30,7 +30,6 @@ fun InfoSection(
     viewModel: SettingsViewModel,
 ) {
     val context = LocalContext.current
-    SectionHeader("Muorg Info")
 
     ListItem(
         headlineContent = { Text("Version") },

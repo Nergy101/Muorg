@@ -37,7 +37,6 @@ fun PlaybackSection(
     viewModel: SettingsViewModel,
 ) {
     HorizontalDivider()
-    SectionHeader("Playback")
 
     ListItem(
         headlineContent = { Text("Continuous playback") },

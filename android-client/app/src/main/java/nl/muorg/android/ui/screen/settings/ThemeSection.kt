@@ -35,7 +35,6 @@ fun ThemeSection(
     viewModel: SettingsViewModel,
 ) {
     HorizontalDivider()
-    SectionHeader("Theme")
 
     Column(
         modifier = Modifier

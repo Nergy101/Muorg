@@ -25,7 +25,6 @@ fun DownloadsSection(
     viewModel: SettingsViewModel,
 ) {
     HorizontalDivider()
-    SectionHeader("Downloads")
 
     ListItem(
         headlineContent = { Text("Download over mobile data") },

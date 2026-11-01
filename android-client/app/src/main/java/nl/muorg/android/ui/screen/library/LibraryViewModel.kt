@@ -47,6 +47,8 @@ data class LibraryUiState(
     val activePlaylistTrackIds: Set<Int> = emptySet(),
     val playlists: List<Playlist> = emptyList(),
     val artistFilter: String? = null,
+    /** Normalized (lowercase) genre selected in the top-bar dropdown. */
+    val genreFilter: String? = null,
     val trackPlaylistMembership: Map<String, Set<Int>> = emptyMap(),
     val addConflict: AddConflictState? = null,
     val isInitialScanning: Boolean = false,
@@ -505,6 +507,17 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /** [genre] is the normalized (lowercase) value, or null for "All genres". */
+    fun setGenreFilter(genre: String?) {
+        _uiState.update { state ->
+            val updated = state.copy(genreFilter = genre)
+            updated.copy(
+                filteredTracks = applyFilters(state.allTracks, updated),
+                filteredAlbums = applyAlbumFilters(state.albums, updated),
+            )
+        }
+    }
+
     private fun applyFilters(tracks: List<CatalogTrack>, state: LibraryUiState): List<CatalogTrack> {
         var result = tracks
         if (state.artistFilter != null) {
@@ -513,6 +526,10 @@ class LibraryViewModel @Inject constructor(
                 track.displayArtist.lowercase() == filter ||
                     track.albumArtist?.lowercase() == filter
             }
+        }
+        if (state.genreFilter != null) {
+            val genre = state.genreFilter
+            result = result.filter { track -> track.genre?.lowercase() == genre }
         }
         if (state.activePlaylistId != null && state.activePlaylistTrackIds.isNotEmpty()) {
             result = result.filter { it.id in state.activePlaylistTrackIds }
@@ -545,6 +562,17 @@ class LibraryViewModel @Inject constructor(
         if (state.artistFilter != null) {
             val filter = state.artistFilter.lowercase()
             result = result.filter { album -> album.artist.lowercase() == filter }
+        }
+        if (state.genreFilter != null) {
+            val genre = state.genreFilter
+            // An album survives the genre filter when any of its catalog
+            // tracks carries the genre, mirroring the web's album grid,
+            // which is built from the filtered tracks.
+            val albumsWithGenre = state.allTracks
+                .filter { it.genre?.lowercase() == genre }
+                .map { it.displayAlbum }
+                .toSet()
+            result = result.filter { album -> album.albumName in albumsWithGenre }
         }
         if (state.activePlaylistId != null && state.activePlaylistTrackIds.isNotEmpty()) {
             val albumsInPlaylist = state.allTracks

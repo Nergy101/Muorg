@@ -45,7 +45,6 @@ fun LocalFoldersSection(
     onAddFolder: () -> Unit,
 ) {
     var pendingFolder by remember { mutableStateOf<String?>(null) }
-    SectionHeader("Local folders")
 
     if (uiState.localFolderUris.isEmpty()) {
         ListItem(

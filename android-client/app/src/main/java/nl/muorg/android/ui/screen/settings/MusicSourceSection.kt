@@ -39,18 +39,6 @@ fun MusicSourceSection(
     uiState: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    HorizontalDivider()
-
-    Text(
-        "MUSIC SOURCE",
-        style = MaterialTheme.typography.labelSmall.copy(
-            letterSpacing = 1.sp,
-            fontWeight = FontWeight.SemiBold,
-        ),
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
-    )
-
     Row(
         modifier = Modifier
             .fillMaxWidth()

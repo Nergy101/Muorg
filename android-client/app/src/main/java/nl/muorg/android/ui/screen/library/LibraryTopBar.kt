@@ -1,0 +1,246 @@
+package nl.muorg.android.ui.screen.library
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import nl.muorg.android.ui.glass.glassField
+import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.player.PlayerViewModel
+import nl.muorg.android.ui.theme.MuorgShapes
+
+/** A genre entry in the dropdown: normalized value plus original-casing label. */
+data class GenreOption(val value: String, val label: String)
+
+/** Distinct genres across the catalog, original casing, sorted A–Z. */
+fun genresOf(tracks: List<nl.muorg.android.data.api.CatalogTrack>): List<GenreOption> {
+    val seen = linkedMapOf<String, String>()
+    for (t in tracks) {
+        val g = t.genre?.takeIf { it.isNotBlank() } ?: continue
+        val key = g.lowercase()
+        if (!seen.containsKey(key)) seen[key] = g
+    }
+    return seen.entries
+        .sortedBy { it.value.lowercase() }
+        .map { GenreOption(it.key, it.value) }
+}
+
+/**
+ * The library's top bar, matching the web client's LibraryTopBar: layout
+ * switcher (with a badge for the active layout), shuffle-all, genre filter
+ * and sort, left-aligned in one row. The search field stays in the bottom
+ * island, as on the web.
+ */
+@Composable
+fun LibraryTopBar(
+    uiState: LibraryUiState,
+    viewModel: LibraryViewModel,
+    playerViewModel: PlayerViewModel,
+    lazyListState: androidx.compose.foundation.lazy.LazyListState,
+    lazyGridState: androidx.compose.foundation.lazy.grid.LazyGridState,
+) {
+    val coroutineScope = rememberCoroutineScope()
+    var showSortMenu by remember { mutableStateOf(false) }
+    var showGenreMenu by remember { mutableStateOf(false) }
+    val genres = remember(uiState.allTracks) { genresOf(uiState.allTracks) }
+    val genreLabel = genres.firstOrNull { it.value == uiState.genreFilter }?.label ?: "All"
+
+    fun scrollToTop() {
+        coroutineScope.launch {
+            lazyGridState.scrollToItem(0)
+            lazyListState.scrollToItem(0)
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Layout switcher, far left, with a badge showing the active layout
+        // (1 = album covers, 2 = album list, 3 = tracks).
+        Box {
+            IconButton(onClick = {
+                val next = when (uiState.albumViewStyle) {
+                    "grid" -> "list"
+                    "list" -> "tracks"
+                    else -> "grid"
+                }
+                viewModel.setAlbumViewStyle(next)
+            }) {
+                Icon(
+                    painter = painterResource(mageIconRes("layout-grid")),
+                    contentDescription = "Change layout",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            val badge = when (uiState.albumViewStyle) {
+                "grid" -> "1"
+                "list" -> "2"
+                else -> "3"
+            }
+            Text(
+                text = badge,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 6.dp, bottom = 6.dp)
+                    .background(MaterialTheme.colorScheme.primary, MuorgShapes.pill)
+                    .padding(horizontal = 3.dp),
+            )
+        }
+
+        // Shuffle-and-play-all, right of the layout selection.
+        IconButton(onClick = {
+            scrollToTop()
+            val tracks = uiState.filteredTracks.ifEmpty {
+                uiState.filteredAlbums.flatMap { viewModel.getTracksForAlbum(it.albumName) }
+            }
+            playerViewModel.startShuffleAll(tracks)
+        }) {
+            Icon(
+                painter = painterResource(mageIconRes("exchange")),
+                contentDescription = "Shuffle all",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        // Genre filter pill, styled like the sort pill.
+        Box(
+            modifier = Modifier
+                .glassField(MuorgShapes.pill)
+                .padding(2.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    androidx.compose.material3.TextButton(onClick = { showGenreMenu = true }) {
+                        Text(
+                            "Genre: $genreLabel",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Icon(
+                            painter = painterResource(mageIconRes("chevron-down")),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showGenreMenu,
+                        onDismissRequest = { showGenreMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("All genres") },
+                            onClick = {
+                                viewModel.setGenreFilter(null)
+                                showGenreMenu = false
+                            },
+                            trailingIcon = {
+                                if (uiState.genreFilter == null) {
+                                    Text("✓", color = MaterialTheme.colorScheme.primary)
+                                }
+                            },
+                        )
+                        genres.forEach { g ->
+                            DropdownMenuItem(
+                                text = { Text(g.label) },
+                                onClick = {
+                                    viewModel.setGenreFilter(g.value)
+                                    showGenreMenu = false
+                                },
+                                trailingIcon = {
+                                    if (uiState.genreFilter == g.value) {
+                                        Text("✓", color = MaterialTheme.colorScheme.primary)
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sort pill: field dropdown + direction toggle.
+        Box(
+            modifier = Modifier
+                .glassField(MuorgShapes.pill)
+                .padding(2.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    androidx.compose.material3.TextButton(onClick = { showSortMenu = true }) {
+                        Text(
+                            "Sort: ${uiState.sortMode.label}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Icon(
+                            painter = painterResource(mageIconRes("chevron-down")),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false },
+                    ) {
+                        SortMode.entries.forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(mode.label) },
+                                onClick = {
+                                    scrollToTop()
+                                    viewModel.setSortMode(mode)
+                                    showSortMenu = false
+                                },
+                                trailingIcon = {
+                                    if (uiState.sortMode == mode) {
+                                        Text("✓", color = MaterialTheme.colorScheme.primary)
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+                IconButton(onClick = {
+                    scrollToTop()
+                    viewModel.toggleSortDirection()
+                }) {
+                    Icon(
+                        imageVector = if (uiState.sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                        contentDescription = if (uiState.sortAscending) "Sort ascending" else "Sort descending",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    }
+}

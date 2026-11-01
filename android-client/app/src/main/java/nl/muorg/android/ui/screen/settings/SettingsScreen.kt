@@ -32,6 +32,7 @@ import nl.muorg.android.ui.component.LocalBottomInset
 fun SettingsScreen(
     onLoggedOut: () -> Unit,
     onOpenReports: () -> Unit,
+    onOpenStats: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -63,34 +64,55 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = LocalBottomInset.current),
     ) {
-        InfoSection(uiState, viewModel)
+        // Sections collapse like the web client's settings page; only the
+        // version/info section starts expanded.
+        CollapsibleSection("Muorg Info", defaultOpen = true) {
+            InfoSection(uiState, viewModel)
+        }
 
-        PlaybackSection(uiState, viewModel)
+        CollapsibleSection("Playback", icon = "play") {
+            PlaybackSection(uiState, viewModel)
+        }
 
-        DownloadsSection(uiState, viewModel)
+        CollapsibleSection("Downloads", icon = "download") {
+            DownloadsSection(uiState, viewModel)
+        }
 
-        LibrarySection(uiState, viewModel)
+        CollapsibleSection("Library", icon = "music") {
+            LibrarySection(uiState, viewModel)
+        }
 
-        ThemeSection(uiState, viewModel)
+        CollapsibleSection("Theme", icon = "color-swatch") {
+            ThemeSection(uiState, viewModel)
+        }
 
-        MusicSourceSection(uiState, viewModel)
+        CollapsibleSection("Music source", icon = "server") {
+            MusicSourceSection(uiState, viewModel)
+        }
 
         // The two sources configure completely different things, so each owns
         // its own section rather than one branching on the mode throughout.
         if (uiState.sourceMode == SourceMode.ONLINE_SERVER) {
-            ServerSection(uiState, viewModel)
+            CollapsibleSection("Server", icon = "server") {
+                ServerSection(uiState, viewModel)
+            }
         } else {
-            LocalFoldersSection(
-                uiState = uiState,
-                viewModel = viewModel,
-                onAddFolder = { folderPickerLauncher.launch(null) },
-            )
+            CollapsibleSection("Local folders", icon = "library-music") {
+                LocalFoldersSection(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onAddFolder = { folderPickerLauncher.launch(null) },
+                )
+            }
         }
 
-        LibraryToolsSection(
-            onMetadataScan = { showMetadataScanSheet = true },
-            onOpenReports = onOpenReports,
-        )
+        CollapsibleSection("Library tools", icon = "wrench") {
+            LibraryToolsSection(
+                onMetadataScan = { showMetadataScanSheet = true },
+                onOpenReports = onOpenReports,
+                onOpenStats = onOpenStats,
+            )
+        }
 
     }
 

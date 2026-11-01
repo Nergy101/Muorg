@@ -34,7 +34,6 @@ fun LibrarySection(
     uiState: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    SectionHeader("Library")
 
     Box {
         ListItem(

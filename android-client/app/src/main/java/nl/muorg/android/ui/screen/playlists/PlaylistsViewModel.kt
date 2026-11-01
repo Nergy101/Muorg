@@ -60,7 +60,17 @@ data class PlaylistsUiState(
     val downloadedPlaylistIds: Set<Int> = emptySet(),
     val showRemoveDownloadDialog: Boolean = false,
     val removingDownloadPlaylist: Playlist? = null,
+    /** Sort field for the grid, as on the web's playlists page. */
+    val sortKey: PlaylistSortKey = PlaylistSortKey.NAME,
+    val sortAsc: Boolean = true,
 )
+
+/** Playlist sort fields, matching the web's PlaylistsView sort control. */
+enum class PlaylistSortKey(val label: String) {
+    NAME("Name"),
+    CREATED("Creation date"),
+    SIZE("Size"),
+}
 
 /** The fields the server's rule engine accepts, in the web's order. */
 val SMART_FIELDS = listOf(
@@ -279,6 +289,14 @@ class PlaylistsViewModel @Inject constructor(
                 },
             )
         }
+    }
+
+    fun setSortKey(key: PlaylistSortKey) {
+        _uiState.update { it.copy(sortKey = key) }
+    }
+
+    fun toggleSortAsc() {
+        _uiState.update { it.copy(sortAsc = !it.sortAsc) }
     }
 
     fun togglePin(playlistId: Int) {

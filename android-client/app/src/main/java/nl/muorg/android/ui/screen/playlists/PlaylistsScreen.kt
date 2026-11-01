@@ -23,6 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import nl.muorg.android.ui.glass.glassField
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -98,18 +105,71 @@ fun PlaylistsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-        // The web floats its create control as a glass pill in the top-right
-        // corner; there is no title bar above the grid.
-        // Creating playlists is a server operation, so the pill is gone in
-        // offline mode — the list there is the downloaded playlists.
-        if (!uiState.isOfflineMode) {
-            Row(
+        // Top row: sort control on the left (as on the web's playlists page),
+        // the create pill floating on the right. Creating playlists is a
+        // server operation, so the pill is gone in offline mode — the list
+        // there is the downloaded playlists.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            var showSortMenu by remember { mutableStateOf(false) }
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .glassField(MuorgShapes.pill)
+                    .padding(2.dp),
             ) {
-                Spacer(modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box {
+                        TextButton(onClick = { showSortMenu = true }) {
+                            Text(
+                                "Sort: ${uiState.sortKey.label}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Icon(
+                                painter = painterResource(mageIconRes("chevron-down")),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                        ) {
+                            PlaylistSortKey.entries.forEach { key ->
+                                DropdownMenuItem(
+                                    text = { Text(key.label) },
+                                    onClick = {
+                                        viewModel.setSortKey(key)
+                                        showSortMenu = false
+                                    },
+                                    trailingIcon = {
+                                        if (uiState.sortKey == key) {
+                                            Text("✓", color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    IconButton(onClick = { viewModel.toggleSortAsc() }) {
+                        Icon(
+                            imageVector = if (uiState.sortAsc) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                            contentDescription = if (uiState.sortAsc) "Sort descending" else "Sort ascending",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            if (!uiState.isOfflineMode) {
                 GlassSurface(
                     material = GlassMaterial.Glass,
                     shape = MuorgShapes.pill,
@@ -203,12 +263,27 @@ fun PlaylistsScreen(
                 }
                 else -> {
                     // Pinned playlists sort to the front, in pin order, as on
-                    // the web. Hoisted out of the lazy scope: that block is
-                    // not a composable, so `remember` cannot live inside it.
-                    val ordered = remember(uiState.playlists, uiState.pinnedIds) {
+                    // the web; the rest sort by the chosen field. Hoisted out
+                    // of the lazy scope: that block is not a composable, so
+                    // `remember` cannot live inside it.
+                    val ordered = remember(
+                        uiState.playlists,
+                        uiState.pinnedIds,
+                        uiState.sortKey,
+                        uiState.sortAsc,
+                    ) {
                         val pinned = uiState.pinnedIds
+                        val dir = if (uiState.sortAsc) 1 else -1
+                        // The Playlist schema has no created_at, so id (assigned
+                        // in creation order) stands in for creation date.
+                        val byKey = when (uiState.sortKey) {
+                            PlaylistSortKey.NAME -> compareBy<Playlist> { it.name.lowercase() }
+                            PlaylistSortKey.CREATED -> compareBy { it.id }
+                            PlaylistSortKey.SIZE -> compareBy { it.trackCount }
+                        }
                         uiState.playlists.sortedWith(
-                            compareBy({ it.id !in pinned }, { pinned.indexOf(it.id) })
+                            compareBy<Playlist>({ it.id !in pinned }, { pinned.indexOf(it.id) })
+                                .thenComparator { a, b -> dir * byKey.compare(a, b) }
                         )
                     }
                     val columns = rememberGridColumns()

@@ -9,10 +9,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,9 +27,8 @@ import androidx.compose.ui.unit.dp
 fun LibraryToolsSection(
     onMetadataScan: () -> Unit,
     onOpenReports: () -> Unit,
+    onOpenStats: () -> Unit = {},
 ) {
-    HorizontalDivider()
-    SectionHeader("Library tools")
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -48,6 +48,16 @@ fun LibraryToolsSection(
             )
             Spacer(Modifier.width(6.dp))
             Text("Reports")
+        }
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = { onOpenStats() }) {
+            Icon(
+                painter = painterResource(mageIconRes("chart-up")),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("Statistics")
         }
     }
 
