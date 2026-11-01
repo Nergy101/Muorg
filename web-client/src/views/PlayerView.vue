@@ -27,7 +27,7 @@
         <div class="flex-1" />
         <!-- Mobile: the chrome pill lives in the top bar. On desktop (lg) it
              moves underneath the transport buttons — see below. -->
-        <div class="glass-sheer flex items-center overflow-hidden rounded-full lg:hidden">
+        <div class="flex items-center overflow-hidden rounded-full lg:hidden">
           <button
             v-if="settings.sleepTimerEnabled"
             type="button"
