@@ -250,12 +250,9 @@
             </button>
           </div>
 
-          <!-- Volume: all widths. Desktop (lg) pairs it with the chrome pill
-               (sleep timer / lyrics / actions) in one row underneath
-               the transport buttons; mobile gets its own centred row. -->
-          <div class="flex shrink-0 justify-center px-6 pt-3 lg:hidden">
-            <VolumeControl variant="player" />
-          </div>
+          <!-- Volume: desktop (lg) only, paired with the chrome pill (sleep
+               timer / lyrics / actions) in one row underneath the transport
+               buttons. Mobile uses the hardware volume keys. -->
           <div class="hidden shrink-0 items-center justify-center gap-3 pt-4 lg:flex">
             <div class="glass-sheer flex h-10 items-center rounded-full px-3">
               <VolumeControl variant="player" />
