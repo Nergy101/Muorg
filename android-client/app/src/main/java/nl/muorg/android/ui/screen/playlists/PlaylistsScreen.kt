@@ -236,19 +236,9 @@ fun PlaylistsScreen(
                             PlaylistTile(
                                 playlist = playlist,
                                 covers = covers,
-                                pinned = playlist.id in uiState.pinnedIds,
                                 imageLoader = imageLoader,
                                 onClick = { onPlaylistClick(playlist.id) },
-                                onTogglePin = { viewModel.togglePin(playlist.id) },
-                                onEdit = { viewModel.showEditDialog(playlist) },
-                                onDownload = { viewModel.onDownloadClicked(playlist) },
-                                onDelete = { pendingDelete = playlist },
                                 onLongClick = { actionsFor = playlist to covers },
-                                isFavorites = uiState.isServerMode &&
-                                    playlist.name == FAVORITES_PLAYLIST_NAME,
-                                downloaded = playlist.id in uiState.downloadedPlaylistIds,
-                                showOnlineActions = !uiState.isOfflineMode,
-                                showDownload = uiState.isServerMode,
                             )
                         }
                     }

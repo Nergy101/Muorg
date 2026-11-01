@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,10 +38,8 @@ import coil.ImageLoader
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.MarqueeText
-import nl.muorg.android.ui.glass.GlassFrostContent
 import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
-import nl.muorg.android.ui.glass.glassFrost
 import nl.muorg.android.ui.glass.scrimLabelStyle
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.theme.MuorgShapes
@@ -122,31 +119,18 @@ internal fun PlaylistCard(
 
 /**
  * A playlist tile, matching `PlaylistCard.vue`: a 2x2 mosaic of the playlist's
- * own covers, frosted action discs floating over the artwork, and the same
- * caption scrim the album cards use.
+ * own covers and the same caption scrim the album cards use. All actions
+ * (pin, rename, download, delete) live in the long-press action sheet.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun PlaylistTile(
     playlist: Playlist,
     covers: List<Any>,
-    pinned: Boolean,
     imageLoader: ImageLoader,
     onClick: () -> Unit,
-    onTogglePin: () -> Unit,
-    onEdit: () -> Unit,
-    onDownload: () -> Unit,
-    onDelete: () -> Unit,
     /** Long-press: opens the playlist's action sheet. */
     onLongClick: () -> Unit = {},
-    /** The server's Favorites playlist: rename and delete are refused. */
-    isFavorites: Boolean = false,
-    /** The playlist has a download: the button shows filled and offers removal. */
-    downloaded: Boolean = false,
-    /** Offline mode: pin, rename and delete are server operations, so they are hidden. */
-    showOnlineActions: Boolean = true,
-    /** Local mode: the playlist is already on the device, so there is nothing to download. */
-    showDownload: Boolean = true,
 ) {
     Box(
         modifier = Modifier
@@ -174,35 +158,6 @@ internal fun PlaylistTile(
                 fontFamily = FontFamily.Default,
                 modifier = Modifier.align(Alignment.Center),
             )
-        }
-
-        // Discs across the top, as on the web: pin, rename, download, delete.
-        // The server's Favorites playlist is managed by the server — renaming
-        // or deleting it is refused — so its tile offers neither. In offline
-        // mode the remaining three are server operations too, so only the
-        // download disc stays: filled, and offering removal when tapped. In
-        // local mode the playlist is already on the device, so the download
-        // disc is gone entirely.
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            if (showOnlineActions) {
-                FrostDisc("pin", if (pinned) "Unpin playlist" else "Pin playlist", onTogglePin, on = pinned)
-            }
-            if (showOnlineActions && !isFavorites) FrostDisc("edit", "Rename playlist", onEdit)
-            if (showDownload) {
-                FrostDisc(
-                    "download",
-                    if (downloaded) "Remove downloaded songs" else "Download playlist",
-                    onDownload,
-                    on = downloaded,
-                )
-            }
-            if (showOnlineActions && !isFavorites) FrostDisc("trash", "Delete playlist", onDelete)
         }
 
         GlassSurface(
@@ -245,38 +200,6 @@ internal fun PlaylistTile(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-    }
-}
-
-/** A 30dp frosted disc with a fixed dark glyph — legible over any sleeve — inside a 48dp tap target. */
-@Composable
-internal fun FrostDisc(
-    icon: String,
-    description: String,
-    onClick: () -> Unit,
-    on: Boolean = false,
-) {
-    val primary = MaterialTheme.colorScheme.primary
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .glassFrost(MuorgShapes.pill, on = on)
-                .clip(MuorgShapes.pill),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(mageIconRes(icon)),
-                contentDescription = description,
-                tint = if (on) primary else GlassFrostContent,
-                modifier = Modifier.size(16.dp),
-            )
         }
     }
 }
