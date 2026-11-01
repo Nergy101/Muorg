@@ -45,7 +45,10 @@
           </button>
         </div>
 
-        <ShelfSkeleton v-if="shelfViews[0].loading" :count="SHELF_CAP" :cols="gridCols" />
+        <!-- Recommended resolves synchronously from the catalog, so its own
+             loading flag never paints — also show skeletons while the catalog
+             itself is streaming in (same gate the mixes use). -->
+        <ShelfSkeleton v-if="shelfViews[0].loading || lib.loading || lib.loadingMore" :count="SHELF_CAP" :cols="gridCols" />
 
         <div v-else-if="shelfViews[0].error" class="py-4 text-body-sm text-error">
           Couldn't load {{ shelfViews[0].label.toLowerCase() }}.
