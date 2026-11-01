@@ -1,6 +1,45 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <div class="content-col flex h-14 shrink-0 items-center justify-end gap-4 px-4">
+    <div class="content-col flex h-14 shrink-0 items-center justify-between gap-4 px-4">
+      <!-- Sort control: field pill + direction toggle, same glass style as the
+           library toolbar. -->
+      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+        <div ref="sortMenuRef" class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
+            aria-label="Sort playlists"
+            @click="sortMenuOpen = !sortMenuOpen"
+          >
+            Sort: {{ sortLabel }}
+            <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
+          </button>
+          <div
+            v-if="sortMenuOpen"
+            class="absolute left-0 top-full z-30 mt-1 w-40 rounded-xl bg-surface-container py-1 shadow-xl"
+          >
+            <button
+              v-for="opt in SORT_OPTIONS"
+              :key="opt.value"
+              type="button"
+              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-body-md text-on-surface"
+              @click="selectSort(opt.value)"
+            >
+              <span>{{ opt.label }}</span>
+              <MageIcon v-if="sortKey === opt.value" name="check" class="h-4 w-4 text-primary" />
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
+          :aria-label="sortAsc ? 'Sort descending' : 'Sort ascending'"
+          @click="sortAsc = !sortAsc"
+        >
+          <MageIcon :name="sortAsc ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
+        </button>
+      </div>
+
       <div class="glass flex items-center overflow-hidden rounded-full">
         <button
           type="button"
@@ -46,7 +85,7 @@
           class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
         >
           <PlaylistCard
-            v-for="p in playlistStore.sortedPlaylists"
+            v-for="p in visiblePlaylists"
             :key="p.id"
             :playlist="p"
             @open="router.push({ name: 'playlist', params: { id: String(p.id) } })"
@@ -91,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import PlaylistFormDialog from "../components/PlaylistFormDialog.vue";
@@ -110,6 +149,56 @@ const lib = useLibraryStore();
 
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
+
+// ── Sorting ─────────────────────────────────────────────────────────────────
+// Pinned playlists always stay first (in pin order); the rest sort by the
+// chosen field. The Playlist schema has no created_at, so id (assigned in
+// creation order) stands in for creation date.
+type PlaylistSortKey = "name" | "created" | "size";
+const SORT_OPTIONS: { value: PlaylistSortKey; label: string }[] = [
+  { value: "name", label: "Name" },
+  { value: "created", label: "Creation date" },
+  { value: "size", label: "Size" },
+];
+
+const sortKey = ref<PlaylistSortKey>("name");
+const sortAsc = ref(true);
+const sortMenuOpen = ref(false);
+const sortMenuRef = ref<HTMLElement | null>(null);
+
+const sortLabel = computed(() => SORT_OPTIONS.find((o) => o.value === sortKey.value)?.label ?? "Name");
+
+function selectSort(key: PlaylistSortKey): void {
+  sortKey.value = key;
+  sortMenuOpen.value = false;
+}
+
+function onDocumentClick(e: MouseEvent): void {
+  if (!sortMenuOpen.value) return;
+  const el = sortMenuRef.value;
+  if (el && !el.contains(e.target as Node)) sortMenuOpen.value = false;
+}
+
+onMounted(() => document.addEventListener("click", onDocumentClick));
+onUnmounted(() => document.removeEventListener("click", onDocumentClick));
+
+const visiblePlaylists = computed<Playlist[]>(() => {
+  const all = playlistStore.sortedPlaylists;
+  const pinned = all.filter((p) => playlistStore.isPinned(p.id));
+  const rest = all.filter((p) => !playlistStore.isPinned(p.id));
+  const dir = sortAsc.value ? 1 : -1;
+  const byKey = (a: Playlist, b: Playlist): number => {
+    switch (sortKey.value) {
+      case "size":
+        return (a.track_count - b.track_count) * dir;
+      case "created":
+        return (a.id - b.id) * dir;
+      default:
+        return a.name.localeCompare(b.name) * dir;
+    }
+  };
+  return [...pinned, ...rest.sort(byKey)];
+});
 
 // Preload all playlists' covers and hold the grid until every one is ready.
 const playlistCoverReady = usePlaylistCoverReady(() => playlistStore.playlists);
