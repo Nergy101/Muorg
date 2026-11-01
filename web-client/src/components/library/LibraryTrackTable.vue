@@ -71,16 +71,18 @@
         </Teleport>
       </div>
 
-      <div ref="groupMenuRef" class="relative">
-        <button
-          type="button"
-          class="glass-field flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
-          @click="groupMenuOpen = !groupMenuOpen"
-        >
-          <MageIcon name="stack" class="h-4 w-4" />
-          <span>Group: {{ groupByLabel }}</span>
-          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
-        </button>
+      <!-- Grouping + collapse/expand share one pill group. -->
+      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+        <div ref="groupMenuRef" class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
+            @click="groupMenuOpen = !groupMenuOpen"
+          >
+            <MageIcon name="stack" class="h-4 w-4" />
+            <span>Group: {{ groupByLabel }}</span>
+            <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
+          </button>
         <div
           v-if="groupMenuOpen"
           class="absolute left-0 top-full z-30 mt-1 w-36 rounded-xl bg-surface-container py-1 shadow-xl"
@@ -118,19 +120,6 @@
           <MageIcon name="chevron-up" class="h-4 w-4" />
         </button>
       </template>
-
-      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
-        <button
-          v-for="d in DENSITY_OPTIONS"
-          :key="d.value"
-          type="button"
-          class="rounded-full px-2.5 py-1 text-label-sm transition-colors"
-          :class="tableStore.density === d.value ? 'bg-primary/[0.18] text-primary' : 'text-on-surface-variant'"
-          :aria-pressed="tableStore.density === d.value"
-          @click="tableStore.setDensity(d.value)"
-        >
-          {{ d.label }}
-        </button>
       </div>
 
       <div class="flex-1" />
@@ -473,12 +462,6 @@ const GROUP_OPTIONS: { value: TableGroupBy; label: string }[] = [
   { value: "artist", label: "Artist" },
   { value: "album", label: "Album" },
 ];
-const DENSITY_OPTIONS = [
-  { value: "compact" as const, label: "Compact" },
-  { value: "comfortable" as const, label: "Comfortable" },
-  { value: "spacious" as const, label: "Spacious" },
-];
-
 const TRACK_ROW_HEIGHT: Record<"compact" | "comfortable" | "spacious", number> = {
   compact: 28,
   comfortable: 44,

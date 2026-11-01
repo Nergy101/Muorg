@@ -19,15 +19,17 @@
     >{{ settings.albumViewStyle === "tracks" ? "2" : "1" }}</span>
   </button>
 
-  <div ref="sortMenuRef" class="relative">
-    <button
-      ref="sortBtnRef"
-      type="button"
-      class="text-label-lg text-on-surface"
-      @click="toggleSort"
-    >
-      Sort: {{ sortLabel }}
-    </button>
+  <!-- Sort + genre selects share one pill group. -->
+  <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+    <div ref="sortMenuRef" class="relative">
+      <button
+        ref="sortBtnRef"
+        type="button"
+        class="rounded-full px-2.5 py-1 text-label-lg text-on-surface"
+        @click="toggleSort"
+      >
+        Sort: {{ sortLabel }}
+      </button>
     <!-- Teleported to body so the view's overflow-hidden shell can't clip it. -->
     <Teleport to="body">
       <div
@@ -94,6 +96,7 @@
         </button>
       </div>
     </Teleport>
+    </div>
   </div>
 
   <button
