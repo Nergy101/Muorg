@@ -45,9 +45,14 @@ function fmtClock(secs: number): string {
         :title="`${fmtClock(i * BIN_SECS)} – ${fmtClock((i + 1) * BIN_SECS)}: ${bin.count} tracks`"
       />
     </div>
-    <div class="mt-1 flex justify-between text-[10px] tabular-nums text-[color:var(--color-on-surface-variant,#78716c)]">
-      <span>{{ bins[0]?.label }}</span>
-      <span>{{ bins[bins.length - 1]?.label }}+</span>
+    <!-- One tick per minute: bins are 30s, so every second bin is a minute mark. -->
+    <div
+      class="mt-1 grid text-[10px] tabular-nums text-[color:var(--color-on-surface-variant,#78716c)]"
+      :style="{ gridTemplateColumns: `repeat(${bins.length}, minmax(0, 1fr))` }"
+    >
+      <span v-for="(bin, i) in bins" :key="i" class="truncate text-center first:text-left last:text-right">
+        {{ i % 2 === 0 ? bin.label : "" }}
+      </span>
     </div>
   </div>
 </template>
