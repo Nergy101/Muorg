@@ -4,6 +4,7 @@
     :item="album"
     @close="emit('close')"
     @play="playAlbum"
+    @shuffle="shuffleAlbum"
     @add-to-playlist="openPicker"
     @download="onDownload"
     @undownload="onUndownload"
@@ -79,6 +80,16 @@ function playAlbum(): void {
   const tracks = lib.tracksForAlbum(album.key);
   emit("close");
   if (tracks.length > 0) void player.playTrack(tracks[0], tracks);
+}
+
+function shuffleAlbum(): void {
+  const album = props.item;
+  if (!album) return;
+  const tracks = lib.tracksForAlbum(album.key);
+  emit("close");
+  if (tracks.length === 0) return;
+  if (!player.shuffleEnabled) player.toggleShuffle();
+  void player.playTrack(tracks[Math.floor(Math.random() * tracks.length)], tracks);
 }
 
 function viewArtist(): void {

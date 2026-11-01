@@ -20,14 +20,26 @@
           <p class="truncate text-body-sm text-on-surface-variant">{{ item.albumArtist }}</p>
           <p class="text-body-sm text-on-surface-variant">{{ metaLine }}</p>
         </div>
+        <!-- Quick play / shuffle next to the title row -->
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          aria-label="Play album"
+          @click="emit('play'); emit('close')"
+        >
+          <MageIcon name="play" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          aria-label="Shuffle album"
+          @click="emit('shuffle'); emit('close')"
+        >
+          <MageIcon name="exchange" class="h-5 w-5" />
+        </button>
       </div>
 
       <div class="my-1 border-t border-outline/30" />
-
-      <button type="button" :class="ROW" @click="emit('play'); emit('close')">
-        <MageIcon name="play" class="h-5 w-5 shrink-0 text-primary" />
-        <span>Play album</span>
-      </button>
 
       <button type="button" :class="ROW" @click="emit('add-to-playlist'); emit('close')">
         <MageIcon name="playlist-add" class="h-5 w-5 shrink-0 text-on-surface-variant" />
@@ -108,6 +120,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   play: [];
+  shuffle: [];
   "add-to-playlist": [];
   download: [];
   undownload: [];
