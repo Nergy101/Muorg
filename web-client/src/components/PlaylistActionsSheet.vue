@@ -33,17 +33,6 @@
 
       <div class="my-1 border-t border-outline/30" />
 
-      <button type="button" :class="ROW" @click="emit('play'); emit('close')">
-        <MageIcon name="play" class="h-5 w-5 shrink-0 text-primary" />
-        <span>Play playlist</span>
-      </button>
-      <button type="button" :class="ROW" @click="emit('shuffle'); emit('close')">
-        <MageIcon name="exchange" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-        <span>Shuffle play</span>
-      </button>
-
-      <div class="my-1 border-t border-outline/30" />
-
       <button
         type="button"
         :class="ROW"
