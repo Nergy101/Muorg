@@ -1,11 +1,9 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <!-- Toolbar: one row with the view-level actions (sort, genre, layout,
-         shuffle) followed by the table controls — the library top bar is not
-         rendered in this layout, so this is the only row. -->
+    <!-- Toolbar: second row under the library top bar, left-aligned, with the
+         table-level controls only (the view-level sort/genre/layout/shuffle
+         live in the top bar above). -->
     <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-3 py-2">
-      <LibraryViewActions />
-
       <div ref="tableSortMenuRef" class="relative">
         <button
           ref="tableSortBtnRef"
@@ -453,7 +451,6 @@ import { usePlayerStore } from "../../stores/player";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSelectionStore } from "../../stores/selection";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
-import LibraryViewActions from "../LibraryViewActions.vue";
 import { openMetadataEditor } from "../../composables/useMetadataEditor";
 import { showToast } from "../../composables/useToast";
 import { startTrackDrag } from "../../composables/useTrackDrag";
