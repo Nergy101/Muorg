@@ -5,6 +5,7 @@
     @close="emit('close')"
     @play="playAlbum"
     @shuffle="shuffleAlbum"
+    @add-to-queue="addAlbumToQueue"
     @add-to-playlist="openPicker"
     @download="onDownload"
     @undownload="onUndownload"
@@ -90,6 +91,17 @@ function shuffleAlbum(): void {
   if (tracks.length === 0) return;
   if (!player.shuffleEnabled) player.toggleShuffle();
   void player.playTrack(tracks[Math.floor(Math.random() * tracks.length)], tracks);
+}
+
+function addAlbumToQueue(): void {
+  const album = props.item;
+  if (!album) return;
+  const tracks = lib.tracksForAlbum(album.key);
+  emit("close");
+  for (const track of tracks) player.addToQueue(track);
+  if (tracks.length > 0) {
+    showToast(`Added ${tracks.length} track${tracks.length === 1 ? "" : "s"} to the queue`);
+  }
 }
 
 function viewArtist(): void {

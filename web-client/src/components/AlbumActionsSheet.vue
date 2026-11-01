@@ -20,15 +20,8 @@
           <p class="truncate text-body-sm text-on-surface-variant">{{ item.albumArtist }}</p>
           <p class="text-body-sm text-on-surface-variant">{{ metaLine }}</p>
         </div>
-        <!-- Quick play / shuffle next to the title row -->
-        <button
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-          aria-label="Play album"
-          @click="emit('play'); emit('close')"
-        >
-          <MageIcon name="play" class="h-5 w-5" />
-        </button>
+        <!-- Quick shuffle / play on the right side of the title row; the play
+             button is a filled circle in the album cover's dominant color. -->
         <button
           type="button"
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
@@ -37,9 +30,23 @@
         >
           <MageIcon name="exchange" class="h-5 w-5" />
         </button>
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
+          :style="{ backgroundColor: `rgb(${dominantColor})` }"
+          aria-label="Play album"
+          @click="emit('play'); emit('close')"
+        >
+          <MageIcon name="play" class="h-5 w-5" />
+        </button>
       </div>
 
       <div class="my-1 border-t border-outline/30" />
+
+      <button type="button" :class="ROW" @click="emit('add-to-queue'); emit('close')">
+        <MageIcon name="stack" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+        <span>Add to queue</span>
+      </button>
 
       <button type="button" :class="ROW" @click="emit('add-to-playlist'); emit('close')">
         <MageIcon name="playlist-add" class="h-5 w-5 shrink-0 text-on-surface-variant" />
@@ -106,6 +113,7 @@ import { computed } from "vue";
 import MageIcon from "./MageIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import MarqueeText from "./MarqueeText.vue";
+import { useDominantColor } from "../composables/useDominantColor";
 import { useLibraryStore } from "../stores/library";
 import { useOfflineStore } from "../stores/offline";
 import type { AlbumGridItem } from "../types";
@@ -121,6 +129,7 @@ const emit = defineEmits<{
   close: [];
   play: [];
   shuffle: [];
+  "add-to-queue": [];
   "add-to-playlist": [];
   download: [];
   undownload: [];
@@ -152,6 +161,9 @@ const coverUrl = computed(() => {
   lib.requestCover(id);
   return lib.coverCache.get(id) ?? null;
 });
+
+// Dominant color of the album cover, used to fill the play button.
+const dominantColor = useDominantColor(coverUrl);
 
 const metaLine = computed(() => {
   const parts: string[] = [];

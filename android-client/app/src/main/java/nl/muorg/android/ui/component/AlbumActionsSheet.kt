@@ -49,6 +49,7 @@ fun AlbumActionsSheet(
     onAddToQueue: (() -> Unit)?,
     onAddToPlaylist: () -> Unit,
     onViewArtist: (() -> Unit)?,
+    onViewAlbum: (() -> Unit)? = null,
     viewModel: AlbumActionsViewModel = hiltViewModel(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -132,14 +133,25 @@ fun AlbumActionsSheet(
                 DownloadStatusIcon(downloaded = downloaded, progress = ringProgress)
             }
         }
-        if (onViewArtist != null) {
+        if (onViewArtist != null || onViewAlbum != null) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+        }
+        if (onViewArtist != null) {
             SheetActionRow(
                 "View artist",
                 subtitle = album.artist,
                 onClick = { onViewArtist(); onDismiss() },
             ) {
                 MageIcon("user", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+            }
+        }
+        if (onViewAlbum != null) {
+            SheetActionRow(
+                "View album",
+                subtitle = album.albumName,
+                onClick = { onViewAlbum(); onDismiss() },
+            ) {
+                MageIcon("compact-disk", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
             }
         }
         Spacer(Modifier.size(16.dp))

@@ -192,6 +192,7 @@ fun AlbumCard(
                 onAddToQueue = onAddToQueue,
                 onAddToPlaylist = { showActions = false; showPlaylistSheet = true },
                 onViewArtist = onViewArtist,
+                onViewAlbum = onClick,
             )
         }
 
@@ -317,6 +318,7 @@ fun AlbumCard(
             onAddToQueue = onAddToQueue,
             onAddToPlaylist = { showActions = false; showPlaylistSheet = true },
             onViewArtist = onViewArtist,
+            onViewAlbum = onClick,
         )
     }
 
