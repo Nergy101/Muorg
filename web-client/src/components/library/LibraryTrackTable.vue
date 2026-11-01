@@ -2,6 +2,18 @@
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <!-- Toolbar -->
     <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-3 py-2">
+      <!-- Layout switcher sits left of the grouping selection (the top bar's
+           copy is hidden on desktop in tracks view). -->
+      <button
+        type="button"
+        class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
+        aria-label="Change layout"
+        title="Change layout"
+        @click="settings.cycleAlbumViewStyle()"
+      >
+        <MageIcon :name="viewStyleIcon" class="h-4 w-4" />
+      </button>
+
       <div ref="groupMenuRef" class="relative">
         <button
           type="button"
@@ -381,6 +393,7 @@ import { useLibraryStore, formatDuration } from "../../stores/library";
 import { usePlayerStore } from "../../stores/player";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSelectionStore } from "../../stores/selection";
+import { useSettingsStore } from "../../stores/settings";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
 import { openMetadataEditor } from "../../composables/useMetadataEditor";
 import { showToast } from "../../composables/useToast";
@@ -422,7 +435,12 @@ const lib = useLibraryStore();
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const selection = useSelectionStore();
+const settings = useSettingsStore();
 const tableStore = useLibraryTableStore();
+
+const viewStyleIcon = computed(() =>
+  settings.albumViewStyle === "tracks" ? "music" : "layout-grid",
+);
 
 // --- Toolbar -----------------------------------------------------------
 

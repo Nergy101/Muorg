@@ -156,9 +156,12 @@
 
     <div class="flex-1" />
 
+    <!-- In tracks view on desktop the layout switcher lives in the table
+         toolbar, left of the grouping selection; below lg it stays here. -->
     <button
       type="button"
       class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+      :class="settings.albumViewStyle === 'tracks' ? 'lg:hidden' : ''"
       aria-label="Change layout"
       @click="settings.cycleAlbumViewStyle()"
     >
