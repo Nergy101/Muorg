@@ -4,6 +4,57 @@
          table-level controls only (the view-level sort/genre/layout/shuffle
          live in the top bar above). -->
     <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-3 py-2">
+      <!-- Grouping + collapse/expand on the far left of the row. -->
+      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
+        <div ref="groupMenuRef" class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
+            @click="groupMenuOpen = !groupMenuOpen"
+          >
+            <MageIcon name="stack" class="h-4 w-4" />
+            <span>Group: {{ groupByLabel }}</span>
+            <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
+          </button>
+          <div
+            v-if="groupMenuOpen"
+            class="absolute left-0 top-full z-30 mt-1 w-36 rounded-xl bg-surface-container py-1 shadow-xl"
+          >
+            <button
+              v-for="opt in GROUP_OPTIONS"
+              :key="opt.value"
+              type="button"
+              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-body-md text-on-surface"
+              @click="selectGroupBy(opt.value)"
+            >
+              <span>{{ opt.label }}</span>
+              <MageIcon v-if="tableStore.groupBy === opt.value" name="check" class="h-4 w-4 text-primary" />
+            </button>
+          </div>
+        </div>
+
+        <template v-if="tableStore.groupBy !== 'none'">
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
+            aria-label="Expand all groups"
+            title="Expand all groups"
+            @click="expandAllGroups"
+          >
+            <MageIcon name="chevron-double-down" class="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
+            aria-label="Collapse all groups"
+            title="Collapse all groups"
+            @click="collapseAllGroups"
+          >
+            <MageIcon name="chevron-double-up" class="h-4 w-4" />
+          </button>
+        </template>
+      </div>
+
       <div ref="tableSortMenuRef" class="relative">
         <button
           ref="tableSortBtnRef"
@@ -74,57 +125,6 @@
       <!-- Genre filter lives in this second row in the tracks layout (the
            top bar's copy hides on lg+). -->
       <GenreFilterMenu />
-
-      <!-- Grouping + collapse/expand share one pill group. -->
-      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
-        <div ref="groupMenuRef" class="relative">
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-lg text-on-surface"
-            @click="groupMenuOpen = !groupMenuOpen"
-          >
-            <MageIcon name="stack" class="h-4 w-4" />
-            <span>Group: {{ groupByLabel }}</span>
-            <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
-          </button>
-        <div
-          v-if="groupMenuOpen"
-          class="absolute left-0 top-full z-30 mt-1 w-36 rounded-xl bg-surface-container py-1 shadow-xl"
-        >
-          <button
-            v-for="opt in GROUP_OPTIONS"
-            :key="opt.value"
-            type="button"
-            class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-body-md text-on-surface"
-            @click="selectGroupBy(opt.value)"
-          >
-            <span>{{ opt.label }}</span>
-            <MageIcon v-if="tableStore.groupBy === opt.value" name="check" class="h-4 w-4 text-primary" />
-          </button>
-        </div>
-      </div>
-
-      <template v-if="tableStore.groupBy !== 'none'">
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
-          aria-label="Expand all groups"
-          title="Expand all groups"
-          @click="expandAllGroups"
-        >
-          <MageIcon name="chevron-down" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
-          aria-label="Collapse all groups"
-          title="Collapse all groups"
-          @click="collapseAllGroups"
-        >
-          <MageIcon name="chevron-up" class="h-4 w-4" />
-        </button>
-      </template>
-      </div>
 
       <div class="flex-1" />
 
