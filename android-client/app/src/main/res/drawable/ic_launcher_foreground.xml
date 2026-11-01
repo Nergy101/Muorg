@@ -1,55 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from the web client SVG (muorg-logo.svg); shapes are baked into paths. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="1024"
-    android:viewportHeight="1024">
-
-    <!-- Crown / M-shape — shifted 40 units lower so the design sits lower in the icon circle -->
-    <path
-        android:pathData="M241,318 L466,506 L512,552 L558,506 L784,318 L703,687 L512,818 L321,687 Z"
-        android:fillColor="#5b7c32"
-        android:strokeColor="#ffffff"
-        android:strokeWidth="18"/>
-
-    <!-- Vinyl record outer circle (r=225, center 512,552) -->
-    <path
-        android:pathData="M512,327 A225,225 0 1,0 512,777 A225,225 0 1,0 512,327 Z"
-        android:fillColor="#759346"
-        android:strokeColor="#ffffff"
-        android:strokeWidth="18"/>
-
-    <!-- Groove ring 1 (r=165) -->
-    <path
-        android:pathData="M512,387 A165,165 0 1,0 512,717 A165,165 0 1,0 512,387 Z"
-        android:fillColor="#00000000"
-        android:strokeColor="#665b7c32"
-        android:strokeWidth="10"/>
-
-    <!-- Groove ring 2 (r=113) -->
-    <path
-        android:pathData="M512,439 A113,113 0 1,0 512,665 A113,113 0 1,0 512,439 Z"
-        android:fillColor="#00000000"
-        android:strokeColor="#665b7c32"
-        android:strokeWidth="10"/>
-
-    <!-- Center label circle (r=56) -->
-    <path
-        android:pathData="M512,496 A56,56 0 1,0 512,608 A56,56 0 1,0 512,496 Z"
-        android:fillColor="#5b7c32"/>
-
-    <!-- Metallic spindle dot (r=14) -->
-    <path android:pathData="M512,538 A14,14 0 1,0 512,566 A14,14 0 1,0 512,538 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="radial"
-                android:centerX="512"
-                android:centerY="552"
-                android:gradientRadius="14"
-                android:startColor="#ffffff"
-                android:endColor="#999999"/>
-        </aapt:attr>
-    </path>
-
+    android:viewportWidth="330"
+    android:viewportHeight="330">
+    <group android:translateX="65" android:translateY="65">
+    <path android:pathData="M32,28 L84,50 L50,94 Z" android:fillColor="#5b7c32"/>
+    <path android:pathData="M168,28 L116,50 L150,94 Z" android:fillColor="#5b7c32"/>
+    <path android:pathData="M28,108 a72,72 0 1,0 144,0 a72,72 0 1,0 -144,0 Z" android:fillColor="#759346"/>
+    <path android:pathData="M38,108 a62,62 0 1,0 124,0 a62,62 0 1,0 -124,0 Z" android:strokeColor="#5b7c32" android:strokeWidth="3" android:strokeAlpha="0.45"/>
+    <path android:pathData="M48,108 a52,52 0 1,0 104,0 a52,52 0 1,0 -104,0 Z" android:strokeColor="#5b7c32" android:strokeWidth="3" android:strokeAlpha="0.45"/>
+    <path android:pathData="M60,108 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0 Z" android:fillColor="#5b7c32"/>
+    <path android:pathData="M71,106 Q82,92 93,106" android:strokeColor="#1c1917" android:strokeWidth="5" android:strokeLineCap="round"/>
+    <path android:pathData="M107,106 Q118,92 129,106" android:strokeColor="#1c1917" android:strokeWidth="5" android:strokeLineCap="round"/>
+    <path android:pathData="M95,117 a5,4 0 1,0 10,0 a5,4 0 1,0 -10,0 Z" android:fillColor="#759346"/>
+    <path android:pathData="M81,127 Q100,144 119,127" android:strokeColor="#1c1917" android:strokeWidth="5" android:strokeLineCap="round"/>
+    <path android:pathData="M84,129 L88,115 L94,135 Z" android:fillColor="#f5f5f4"/>
+    <path android:pathData="M116,129 L112,115 L106,135 Z" android:fillColor="#f5f5f4"/>
+    </group>
 </vector>

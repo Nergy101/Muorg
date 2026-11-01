@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.home
 
+import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -125,6 +126,20 @@ fun HomeScreen(
                     )
                 },
             )
+        }
+
+        // The catalog finished loading and holds nothing: one friendly state
+        // instead of four empty shelves.
+        if (!state.loading && state.error == null && !state.isOfflineMode &&
+            state.recommended.isEmpty() && state.mixes.isEmpty() &&
+            state.mostPlayed.isEmpty() && state.recentlyPlayed.isEmpty()
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EmptyState(
+                    title = "Your library is empty",
+                    body = "Add music to your server and rescan to see it here.",
+                )
+            }
         }
 
         // Offline mode is a hard divide: every shelf is a server call, so

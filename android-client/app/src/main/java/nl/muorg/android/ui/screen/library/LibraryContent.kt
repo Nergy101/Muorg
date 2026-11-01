@@ -1,5 +1,7 @@
 package nl.muorg.android.ui.screen.library
 
+import nl.muorg.android.ui.component.EmptyState
+import nl.muorg.android.ui.component.OrcVariant
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -105,33 +107,21 @@ fun LibraryContent(
                     }
                 }
                 uiState.error != null -> {
-                    Text(
-                        text = uiState.error ?: "Unknown error",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(16.dp),
+                    EmptyState(
+                        modifier = Modifier.align(Alignment.Center),
+                        title = "Something went off-key.",
+                        body = uiState.error ?: "Unknown error",
+                        illustration = OrcVariant.ServerError,
                     )
                 }
                 uiState.filteredTracks.isEmpty() && uiState.filteredAlbums.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                        painter = painterResource(mageIconRes("music")),
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                        )
-                        Text(
-                            text = if (searchText.isNotEmpty()) "No results for \"$searchText\""
-                                   else "No tracks in library",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    EmptyState(
+                        modifier = Modifier.align(Alignment.Center),
+                        title = if (searchText.isNotEmpty()) "No results for \"$searchText\""
+                                else "No tracks in library",
+                        body = if (searchText.isNotEmpty()) "Try another spelling or fewer words."
+                               else "Add music to your server and rescan to see it here.",
+                    )
                 }
                 searchText.isNotEmpty() || uiState.albumViewStyle == "tracks" -> {
                     LazyColumn(

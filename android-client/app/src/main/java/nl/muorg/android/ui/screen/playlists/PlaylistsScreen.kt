@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.playlists
 
+import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -191,17 +192,14 @@ fun PlaylistsScreen(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
                 uiState.playlists.isEmpty() -> {
-                    Text(
-                        text = if (uiState.isOfflineMode) {
-                            "No downloaded playlists.\nDownload playlists while online to use them offline."
-                        } else {
-                            "No playlists yet.\nTap + to create one."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.padding(16.dp),
-                    )
+                    if (uiState.isOfflineMode) {
+                        EmptyState(
+                            title = "No downloaded playlists.",
+                            body = "Download playlists while online to use them offline.",
+                        )
+                    } else {
+                        EmptyState(title = "No playlists yet.", body = "Tap + to create one.")
+                    }
                 }
                 else -> {
                     // Pinned playlists sort to the front, in pin order, as on

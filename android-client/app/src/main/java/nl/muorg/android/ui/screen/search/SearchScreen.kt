@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.search
 
+import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -308,23 +309,10 @@ fun SearchScreen(
                     }
                 } else if (uiState.results.isEmpty()) {
                     item {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                painter = painterResource(mageIconRes("music")),
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            )
-                            Text(
-                                text = "No results for \"$searchText\"",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        EmptyState(
+                            title = "No results for \"$searchText\"",
+                            body = "Try another spelling or fewer words.",
+                        )
                     }
                 } else {
                     items(

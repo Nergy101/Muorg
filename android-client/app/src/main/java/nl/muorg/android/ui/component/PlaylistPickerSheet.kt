@@ -72,12 +72,7 @@ fun PlaylistPickerSheet(
         )
 
         if (addable.isEmpty() && onCreatePlaylist == null) {
-            Text(
-                text = "No playlists yet",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            )
+            EmptyState(title = "No playlists yet", compact = true)
         } else {
             LazyColumn {
                 items(addable, key = { it.id }) { playlist ->

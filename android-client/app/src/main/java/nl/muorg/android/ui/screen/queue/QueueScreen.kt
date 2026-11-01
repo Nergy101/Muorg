@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.queue
 
+import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -243,16 +244,7 @@ fun QueueScreen(
 
             if (upNext.isEmpty()) {
                 item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "Queue is empty",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    EmptyState(title = "Queue is empty", body = "Add something to play next.")
                 }
             } else {
                 itemsIndexed(displayList, key = { _, entry -> entry.track.id }) { index, entry ->
