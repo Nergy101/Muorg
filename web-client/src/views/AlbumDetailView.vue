@@ -46,7 +46,7 @@
             </div>
           </div>
 
-          <div class="flex h-[120px] min-w-0 flex-1 flex-col justify-center gap-3">
+          <div class="flex min-w-0 flex-1 flex-col justify-center gap-3 py-1">
             <div class="min-w-0">
               <MarqueeText
                 :text="item.album"
@@ -56,10 +56,6 @@
               <p
                 class="truncate text-body-md"
                 :class="backdropActive ? 'text-white/75' : 'text-on-surface-variant'"
-              >{{ item.albumArtist }}</p>
-              <p
-                class="text-body-sm"
-                :class="backdropActive ? 'text-white/55' : 'text-on-surface-variant'"
               >{{ metaLine }}</p>
             </div>
 
@@ -83,54 +79,15 @@
               >
                 <MageIcon name="playlist-add" class="h-5 w-5" />
               </button>
-              <div class="relative">
-                <button
-                  type="button"
-                  class="flex h-9 w-9 items-center justify-center rounded-full"
-                  :class="backdropActive ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant'"
-                  aria-label="More album options"
-                  @click="menuOpen = !menuOpen"
-                >
-                  <MageIcon name="dots" class="h-5 w-5" />
-                </button>
-                <div v-if="menuOpen" class="fixed inset-0 z-30" @click="menuOpen = false"></div>
-                <div
-                  v-if="menuOpen"
-                  class="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl bg-surface-container py-1 shadow-xl"
-                >
-                  <button
-                    type="button"
-                    class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface disabled:opacity-50"
-                    :disabled="tracks.length === 0"
-                    @click="addToPlaylistFromMenu"
-                  >
-                    <MageIcon name="playlist-add" class="h-4 w-4 text-primary" />
-                    <span>Add to playlist</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface disabled:opacity-50"
-                    :disabled="albumDownloading || tracks.length === 0"
-                    @click="toggleAlbumDownload"
-                  >
-                    <MageIcon
-                      :name="albumDownloading ? 'refresh' : 'download'"
-                      class="h-4 w-4 text-primary"
-                      :class="albumDownloading ? 'animate-spin' : ''"
-                    />
-                    <span>{{ albumDownloaded ? "Remove offline download" : "Download for offline" }}</span>
-                  </button>
-                  <button
-                    v-if="item?.albumArtist"
-                    type="button"
-                    class="flex w-full items-center gap-2 px-3 py-2 text-label-lg text-on-surface"
-                    @click="viewArtistFromAlbum"
-                  >
-                    <MageIcon name="user" class="h-4 w-4 text-primary" />
-                    <span>View artist</span>
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                class="flex h-9 w-9 items-center justify-center rounded-full"
+                :class="backdropActive ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant'"
+                aria-label="More album options"
+                @click="menuOpen = true"
+              >
+                <MageIcon name="dots" class="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -163,6 +120,49 @@
       </div>
     </template>
 
+    <!-- Album 3-dots menu: bottom sheet with only the offline download
+         toggle and view-artist. -->
+    <BottomSheet :open="menuOpen" @close="menuOpen = false">
+      <div v-if="item" class="pb-2">
+        <div class="px-6 pb-2 pt-1">
+          <MarqueeText :text="item.album" class="text-title-md text-on-surface" />
+          <p class="truncate text-body-sm text-on-surface-variant">{{ metaLine }}</p>
+        </div>
+        <div class="my-1 border-t border-outline/30" />
+        <button
+          type="button"
+          class="flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface disabled:opacity-50"
+          :disabled="albumDownloading || tracks.length === 0"
+          @click="toggleAlbumDownload"
+        >
+          <span class="relative flex h-5 w-5 shrink-0 items-center justify-center">
+            <svg v-if="albumDownloading" viewBox="0 0 20 20" class="absolute inset-0 h-5 w-5 -rotate-90">
+              <circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
+              <circle
+                cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                :stroke-dasharray="RING_CIRC" :stroke-dashoffset="ringOffset"
+              />
+            </svg>
+            <MageIcon
+              name="download"
+              class="h-5 w-5"
+              :class="albumDownloaded ? 'text-primary' : 'text-on-surface-variant'"
+            />
+          </span>
+          <span>{{ albumDownloaded ? "Remove offline download" : "Download for offline" }}</span>
+        </button>
+        <button
+          v-if="item.albumArtist"
+          type="button"
+          class="flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface"
+          @click="viewArtistFromAlbum"
+        >
+          <MageIcon name="user" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <span>View artist</span>
+        </button>
+      </div>
+    </BottomSheet>
+
     <TrackActionsSheet
       :open="sheetTrack !== null"
       :track="sheetTrack"
@@ -192,6 +192,7 @@ import MarqueeText from "../components/MarqueeText.vue";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
+import BottomSheet from "../components/BottomSheet.vue";
 import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
@@ -303,6 +304,7 @@ const accentOnCss = computed(() => {
 
 const metaLine = computed(() => {
   const parts: string[] = [];
+  if (item.value?.albumArtist) parts.push(item.value.albumArtist);
   if (item.value?.year) parts.push(String(item.value.year));
   const n = tracks.value.length;
   parts.push(n === 1 ? "1 track" : `${n} tracks`);
@@ -320,13 +322,6 @@ function playAlbum(): void {
 
 const menuOpen = ref(false);
 
-/** Same as the header's playlist-add button: the picker adds the album's
- *  tracks to the chosen playlist. */
-async function addToPlaylistFromMenu(): Promise<void> {
-  menuOpen.value = false;
-  await openPicker();
-}
-
 function viewArtistFromAlbum(): void {
   const name = item.value?.albumArtist;
   menuOpen.value = false;
@@ -339,6 +334,14 @@ const albumDownloading = computed(
   () => offline.activeAlbumKey === albumKey.value,
 );
 const albumDownloaded = computed(() => offline.isAlbumDownloaded(albumKey.value));
+
+// Circular progress ring around the download icon while this album downloads.
+const RING_CIRC = 2 * Math.PI * 8.5;
+const ringOffset = computed(() => {
+  const { done, total } = offline.downloadProgress;
+  const frac = total > 0 ? done / total : 0;
+  return RING_CIRC * (1 - frac);
+});
 
 /** Same toggle the album context menu's download row performs. */
 async function toggleAlbumDownload(): Promise<void> {

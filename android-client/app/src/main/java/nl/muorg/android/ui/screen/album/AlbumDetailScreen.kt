@@ -3,6 +3,7 @@ package nl.muorg.android.ui.screen.album
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,15 +28,18 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import nl.muorg.android.ui.icon.MageIcon
 import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -62,7 +67,10 @@ import nl.muorg.android.ui.theme.MuorgShapes
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
+import nl.muorg.android.ui.component.AlbumActionsViewModel
+import nl.muorg.android.ui.component.DownloadStatusIcon
 import nl.muorg.android.ui.component.PlaylistPickerSheet
+import nl.muorg.android.ui.component.SheetActionRow
 import nl.muorg.android.ui.component.TrackContextSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 
@@ -115,112 +123,134 @@ fun AlbumDetailScreen(
                     contentPadding = PaddingValues(bottom = LocalBottomInset.current + 8.dp),
                 ) {
                     item {
-                        Row(
+                        var showAlbumPlaylistSheet by remember { mutableStateOf(false) }
+                        var showAlbumMenuSheet by remember { mutableStateOf(false) }
+                        val albumFullIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists) {
+                            val allPaths = uiState.tracks.map { it.path }.toSet()
+                            uiState.playlists
+                                .filter { pl -> allPaths.isNotEmpty() && allPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
+                                .map { it.id }.toSet()
+                        }
+                        val albumPartialIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists, albumFullIds) {
+                            val allPaths = uiState.tracks.map { it.path }.toSet()
+                            uiState.playlists
+                                .filter { pl -> pl.id !in albumFullIds && allPaths.any { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
+                                .map { it.id }.toSet()
+                        }
+
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            // The web puts the back affordance in the header row
-                            // itself, left of the cover — there is no app bar.
-                            IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
-                                Icon(
-                                    painter = painterResource(mageIconRes("chevron-left")),
-                                    contentDescription = "Back",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(22.dp),
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(2.dp))
-                            val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
-                            coverModel?.let {
-                                AsyncImage(
-                                    model = it,
-                                    contentDescription = "Album cover",
-                                    imageLoader = imageLoader,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(112.dp)
-                                        .clip(MuorgShapes.art),
-                                )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // The web puts the back affordance in the header row
+                                // itself, left of the cover — there is no app bar.
+                                IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                                    Icon(
+                                        painter = painterResource(mageIconRes("chevron-left")),
+                                        contentDescription = "Back",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(2.dp))
+                                val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
+                                coverModel?.let {
+                                    AsyncImage(
+                                        model = it,
+                                        contentDescription = "Album cover",
+                                        imageLoader = imageLoader,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(112.dp)
+                                            .clip(MuorgShapes.art),
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.width(14.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                MarqueeText(
-                                    text = uiState.albumName,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                MarqueeText(
-                                    text = uiState.artist,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = buildString {
-                                        uiState.year?.let { append("$it · ") }
-                                        append("${uiState.tracks.size} tracks")
-                                        val totalSecs = uiState.tracks.sumOf {
-                                            it.durationSecs?.toInt() ?: 0
-                                        }
-                                        if (totalSecs > 0) {
-                                            val mins = totalSecs / 60
-                                            append(" · ${mins}m")
+                            // Title and subtitle span the full width; the action
+                            // buttons sit below the text, not beside it.
+                            MarqueeText(
+                                text = uiState.albumName,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = buildString {
+                                    if (uiState.artist.isNotBlank()) append(uiState.artist)
+                                    uiState.year?.let {
+                                        if (isNotEmpty()) append(" · ")
+                                        append("$it")
+                                    }
+                                    if (isNotEmpty()) append(" · ")
+                                    append("${uiState.tracks.size} tracks")
+                                    val totalSecs = uiState.tracks.sumOf { it.durationSecs?.toInt() ?: 0 }
+                                    if (totalSecs > 0) append(" · ${totalSecs / 60}m")
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                androidx.compose.material3.FilledIconButton(
+                                    onClick = {
+                                        uiState.tracks.firstOrNull()?.let { first ->
+                                            playerViewModel.playTrack(first, uiState.tracks)
                                         }
                                     },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            androidx.compose.material3.FilledIconButton(
-                                onClick = {
-                                    uiState.tracks.firstOrNull()?.let { first ->
-                                        playerViewModel.playTrack(first, uiState.tracks)
-                                    }
-                                },
-                                colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            ) {
-                                Icon(
-                        painter = painterResource(mageIconRes("play")), contentDescription = "Play all")
-                            }
-
-                            var showAlbumPlaylistSheet by remember { mutableStateOf(false) }
-                            val albumFullIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists) {
-                                val allPaths = uiState.tracks.map { it.path }.toSet()
-                                uiState.playlists
-                                    .filter { pl -> allPaths.isNotEmpty() && allPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
-                                    .map { it.id }.toSet()
-                            }
-                            val albumPartialIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists, albumFullIds) {
-                                val allPaths = uiState.tracks.map { it.path }.toSet()
-                                uiState.playlists
-                                    .filter { pl -> pl.id !in albumFullIds && allPaths.any { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
-                                    .map { it.id }.toSet()
-                            }
-                            androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
-                                Icon(
-                        painter = painterResource(mageIconRes("playlist-add")), contentDescription = "Add album to playlist")
-                            }
-                            if (showAlbumPlaylistSheet) {
-                                PlaylistPickerSheet(
-                                    playlists = uiState.playlists,
-                                    membershipIds = albumFullIds,
-                                    partialMembershipIds = albumPartialIds,
-                                    onAdd = { playlist -> viewModel.requestAddTracksToPlaylist(uiState.tracks, playlist.id) },
-                                    onRemove = { playlist -> viewModel.removeAlbumFromPlaylist(playlist.id) },
-                                    onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
-                                    onDismiss = { showAlbumPlaylistSheet = false },
-                                )
+                                    colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(mageIconRes("play")),
+                                        contentDescription = "Play all",
+                                    )
+                                }
+                                androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
+                                    Icon(
+                                        painter = painterResource(mageIconRes("playlist-add")),
+                                        contentDescription = "Add album to playlist",
+                                    )
+                                }
+                                IconButton(onClick = { showAlbumMenuSheet = true }) {
+                                    Icon(
+                                        painter = painterResource(mageIconRes("dots")),
+                                        contentDescription = "More album options",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                         HorizontalDivider()
+
+                        if (showAlbumPlaylistSheet) {
+                            PlaylistPickerSheet(
+                                playlists = uiState.playlists,
+                                membershipIds = albumFullIds,
+                                partialMembershipIds = albumPartialIds,
+                                onAdd = { playlist -> viewModel.requestAddTracksToPlaylist(uiState.tracks, playlist.id) },
+                                onRemove = { playlist -> viewModel.removeAlbumFromPlaylist(playlist.id) },
+                                onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
+                                onDismiss = { showAlbumPlaylistSheet = false },
+                            )
+                        }
+                        if (showAlbumMenuSheet) {
+                            AlbumHeaderMenuSheet(
+                                albumName = uiState.albumName,
+                                artist = uiState.artist,
+                                onDismiss = { showAlbumMenuSheet = false },
+                                onViewArtist = { uiState.artist.takeIf { it.isNotBlank() }?.let(onViewArtist) },
+                            )
+                        }
                     }
 
                     items(
@@ -437,6 +467,71 @@ private fun AlbumTrackRow(
                 TextButton(onClick = { showTrackInfo = false }) { Text("Close") }
             },
         )
+    }
+}
+
+/**
+ * The album header's 3-dots menu: a bottom sheet with only the offline
+ * download toggle and view-artist.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AlbumHeaderMenuSheet(
+    albumName: String,
+    artist: String,
+    onDismiss: () -> Unit,
+    onViewArtist: () -> Unit,
+    viewModel: AlbumActionsViewModel = hiltViewModel(),
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val downloadedIds by viewModel.downloadedTrackIds.collectAsStateWithLifecycle()
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
+    val tracks by viewModel.tracks.collectAsStateWithLifecycle()
+    val canDownload by viewModel.canDownload.collectAsStateWithLifecycle()
+
+    LaunchedEffect(albumName) { viewModel.load(albumName) }
+
+    val key = "$albumName|$artist"
+    val downloading = progress.isActive && progress.albumKey == key
+    val ringProgress = if (downloading && progress.totalTracks > 0) {
+        progress.completedTracks.toFloat() / progress.totalTracks
+    } else null
+    val downloaded = tracks.isNotEmpty() && tracks.all { it.id in downloadedIds }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        if (canDownload) {
+            SheetActionRow(
+                title = when {
+                    downloading -> "Downloading…"
+                    downloaded -> "Remove offline download"
+                    else -> "Download for offline"
+                },
+                subtitle = if (downloading) "${progress.completedTracks} of ${progress.totalTracks} tracks" else null,
+                onClick = {
+                    when {
+                        downloading -> Unit
+                        downloaded -> viewModel.removeDownload()
+                        else -> viewModel.download(key)
+                    }
+                },
+            ) {
+                DownloadStatusIcon(downloaded = downloaded && !downloading, progress = ringProgress)
+            }
+        }
+        SheetActionRow(
+            "View artist",
+            subtitle = artist,
+            onClick = { onViewArtist(); onDismiss() },
+        ) {
+            MageIcon("user", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.size(16.dp))
     }
 }
 
