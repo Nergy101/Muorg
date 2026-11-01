@@ -3,6 +3,16 @@
        the library top bar (grid view / mobile) and the desktop tracks table
        toolbar, so both surfaces offer the same controls in one row. Menus
        teleport to body and open downward from their trigger. -->
+  <!-- Layout switcher first, on the far left in both layouts. -->
+  <button
+    type="button"
+    class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+    aria-label="Change layout"
+    @click="settings.cycleAlbumViewStyle()"
+  >
+    <MageIcon :name="viewStyleIcon" class="h-4 w-4" />
+  </button>
+
   <div ref="sortMenuRef" class="relative">
     <button
       ref="sortBtnRef"
@@ -79,15 +89,6 @@
       </div>
     </Teleport>
   </div>
-
-  <button
-    type="button"
-    class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
-    aria-label="Change layout"
-    @click="settings.cycleAlbumViewStyle()"
-  >
-    <MageIcon :name="viewStyleIcon" class="h-4 w-4" />
-  </button>
 
   <button
     type="button"
