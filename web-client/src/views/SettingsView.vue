@@ -117,22 +117,13 @@
       </button>
       <ReportsSettingsSection />
       <LibraryFoldersSection />
-      <div :class="ROW">
-        <div class="min-w-0 flex-1">
-          <p class="text-body-lg text-on-surface">Default sort order</p>
-          <p class="text-body-sm text-on-surface-variant">{{ sortLabel }}</p>
-        </div>
-        <button
-          type="button"
-          :class="switchClass(sortSwitchOn)"
-          role="switch"
-          aria-label="Default sort order"
-          :data-tip="`Sort by ${sortLabel} — click for ${nextSortLabel}`"
-          :aria-checked="sortSwitchOn"
-          @click="cycleSort()"
-        >
-          <span :class="knobClass(sortSwitchOn)" />
-        </button>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Default sort order</p>
+        <SegmentedControl
+          :model-value="settings.sortMode"
+          :options="SORT_OPTIONS"
+          @update:model-value="settings.setSortMode($event as SortMode)"
+        />
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
@@ -162,24 +153,13 @@
         />
       </div>
       <LibraryTableSettingsSection />
-      <div :class="ROW">
-        <div class="min-w-0 flex-1">
-          <p class="text-body-lg text-on-surface">Groupings default to collapsed or expanded</p>
-          <p class="text-body-sm text-on-surface-variant">
-            {{ tableStore.defaultGroupsExpanded ? "Expanded" : "Collapsed" }} — applies the next time a group-by is chosen
-          </p>
-        </div>
-        <button
-          type="button"
-          :class="switchClass(tableStore.defaultGroupsExpanded)"
-          role="switch"
-          aria-label="Groupings default to collapsed or expanded"
-          :data-tip="`Groupings start ${tableStore.defaultGroupsExpanded ? 'expanded' : 'collapsed'} — click to change`"
-          :aria-checked="tableStore.defaultGroupsExpanded"
-          @click="tableStore.setDefaultGroupsExpanded(!tableStore.defaultGroupsExpanded)"
-        >
-          <span :class="knobClass(tableStore.defaultGroupsExpanded)" />
-        </button>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Groupings default to collapsed or expanded</p>
+        <SegmentedControl
+          :model-value="tableStore.defaultGroupsExpanded ? 'expanded' : 'collapsed'"
+          :options="GROUPING_DEFAULT_OPTIONS"
+          @update:model-value="tableStore.setDefaultGroupsExpanded($event === 'expanded')"
+        />
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
@@ -489,6 +469,10 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "artist", label: "Artist" },
   { value: "year", label: "Year" },
 ];
+const GROUPING_DEFAULT_OPTIONS = [
+  { value: "collapsed", label: "Collapsed" },
+  { value: "expanded", label: "Expanded" },
+];
 const LAYOUT_OPTIONS = [
   { value: "grid", label: "Album covers" },
   { value: "tracks", label: "Tracks" },
@@ -546,27 +530,8 @@ function knobClass(on: boolean): string {
   }`;
 }
 
-// --- Sort order switch -----------------------------------------------------
-
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
-
-const sortIndex = computed(() => {
-  const i = SORT_OPTIONS.findIndex((o) => o.value === settings.sortMode);
-  return i === -1 ? 0 : i;
-});
-
-const sortLabel = computed(() => SORT_OPTIONS[sortIndex.value]?.label ?? "Album");
-
-const nextSortLabel = computed(() => SORT_OPTIONS[(sortIndex.value + 1) % SORT_OPTIONS.length]?.label ?? "Album");
-
-// The switch knob reflects position in the cycle: off = first option.
-const sortSwitchOn = computed(() => sortIndex.value !== 0);
-
-function cycleSort(): void {
-  const next = SORT_OPTIONS[(sortIndex.value + 1) % SORT_OPTIONS.length];
-  if (next) settings.setSortMode(next.value);
-}
 
 // --- Library refresh -------------------------------------------------------
 
