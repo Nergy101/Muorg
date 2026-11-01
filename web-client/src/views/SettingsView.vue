@@ -162,7 +162,25 @@
         />
       </div>
       <LibraryTableSettingsSection />
-      <WriteSettingsSection />
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Groupings default to collapsed or expanded</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ tableStore.defaultGroupsExpanded ? "Expanded" : "Collapsed" }} — applies the next time a group-by is chosen
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(tableStore.defaultGroupsExpanded)"
+          role="switch"
+          aria-label="Groupings default to collapsed or expanded"
+          :data-tip="`Groupings start ${tableStore.defaultGroupsExpanded ? 'expanded' : 'collapsed'} — click to change`"
+          :aria-checked="tableStore.defaultGroupsExpanded"
+          @click="tableStore.setDefaultGroupsExpanded(!tableStore.defaultGroupsExpanded)"
+        >
+          <span :class="knobClass(tableStore.defaultGroupsExpanded)" />
+        </button>
+      </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Reduce motion</p>
@@ -204,6 +222,11 @@
 
       <ExportSettingsSection />
 
+      </SettingsSection>
+
+      <!-- ─── Metadata writing ───────────────────────────────────────── -->
+      <SettingsSection title="Metadata writing" icon="edit">
+      <WriteSettingsSection />
       </SettingsSection>
 
       <!-- ─── Offline ────────────────────────────────────────────────── -->
@@ -448,6 +471,7 @@ import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
+import { useLibraryTableStore } from "../stores/libraryTable";
 import { useOfflineStore } from "../stores/offline";
 import { useFoldersStore } from "../stores/folders";
 import { useSelectionStore } from "../stores/selection";
@@ -497,6 +521,7 @@ const reportIssues = computed(() => {
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
+const tableStore = useLibraryTableStore();
 const offline = useOfflineStore();
 const folders = useFoldersStore();
 const selection = useSelectionStore();

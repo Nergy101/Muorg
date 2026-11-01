@@ -26,24 +26,6 @@
       />
     </div>
 
-    <div :class="ROW">
-      <div class="min-w-0 flex-1">
-        <p class="text-body-lg text-on-surface">Groups start expanded</p>
-        <p class="text-body-sm text-on-surface-variant">Applies the next time a group-by is chosen</p>
-      </div>
-      <button
-        type="button"
-        :class="switchClass(tableStore.defaultGroupsExpanded)"
-        role="switch"
-        aria-label="Groups start expanded"
-        :data-tip="`Groups start expanded is ${tableStore.defaultGroupsExpanded ? 'on' : 'off'} — click to turn ${tableStore.defaultGroupsExpanded ? 'off' : 'on'}`"
-        :aria-checked="tableStore.defaultGroupsExpanded"
-        @click="tableStore.setDefaultGroupsExpanded(!tableStore.defaultGroupsExpanded)"
-      >
-        <span :class="knobClass(tableStore.defaultGroupsExpanded)" />
-      </button>
-    </div>
-
     <div class="px-4 py-2">
       <p class="pb-2 text-body-lg text-on-surface">Columns</p>
       <div class="flex flex-wrap gap-2">
@@ -105,16 +87,4 @@ const GROUP_OPTIONS: { value: TableGroupBy; label: string }[] = [
 ];
 
 const tableStore = useLibraryTableStore();
-
-function switchClass(on: boolean): string {
-  return `flex h-8 w-[52px] shrink-0 items-center rounded-full px-1 transition-colors duration-200 ${
-    on ? "bg-primary" : "bg-surface-variant"
-  }`;
-}
-
-function knobClass(on: boolean): string {
-  return `block h-6 w-6 rounded-full bg-white transition-transform duration-200 ${
-    on ? "translate-x-5" : "translate-x-0"
-  }`;
-}
 </script>

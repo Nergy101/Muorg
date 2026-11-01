@@ -61,14 +61,16 @@
         </template>
       </div>
 
+      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
       <div ref="tableSortMenuRef" class="relative">
         <button
           ref="tableSortBtnRef"
           type="button"
-          class="text-label-lg text-on-surface"
+          class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
           @click="toggleTableSort"
         >
           Sort: {{ tableSortLabel }}
+          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
         </button>
         <Teleport to="body">
           <div
@@ -92,21 +94,24 @@
 
       <button
         type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
+        class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
         :aria-label="tableStore.sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'"
         @click="tableStore.setSort(tableStore.sortColumn, tableStore.sortDirection === 'asc' ? 'desc' : 'asc')"
       >
         <MageIcon :name="tableStore.sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
       </button>
+      </div>
 
+      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
       <div ref="minRatingMenuRef" class="relative">
         <button
           ref="minRatingBtnRef"
           type="button"
-          class="text-label-lg text-on-surface"
+          class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
           @click="toggleMinRating"
         >
           Rating: {{ minRatingLabel }}
+          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
         </button>
         <Teleport to="body">
           <div
@@ -127,7 +132,7 @@
           </div>
         </Teleport>
       </div>
-
+      </div>
 
       <div class="flex-1" />
 
