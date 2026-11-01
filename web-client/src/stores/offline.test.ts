@@ -366,6 +366,33 @@ describe("downloadPlaylist", () => {
     expect(offline.isCached(7)).toBe(true);
     expect(offline.isPlaylistDownloaded(10)).toBe(true);
   });
+
+  it("caches tracks added to a downloaded playlist", async () => {
+    const { addTracksToPlaylist } = await import("../api/playlists");
+    vi.mocked(addTracksToPlaylist).mockResolvedValue(undefined);
+
+    const cache = await fakeCaches.open(OFFLINE_CACHE_NAME);
+    await cache.put("http://server/stream/7", audioResponse(100));
+
+    const playlistStore = usePlaylistStore();
+    const lib = useLibraryStore();
+    playlistStore.playlists = [
+      { id: 10, name: "Mix", icon: null, smart_rules: null, track_count: 1 },
+    ];
+    lib.tracks = [track({ id: 7 }), track({ id: 8 })];
+
+    const offline = useOfflineStore();
+    await offline.init();
+    offline.downloadedPlaylists = [10];
+    offline.playlistTrackIds = { 10: [7] };
+
+    await playlistStore.addTracks(10, [7, 8]);
+
+    // syncPlaylistDownload runs in the background after the add commits.
+    await vi.waitFor(() => expect(offline.isCached(8)).toBe(true));
+    expect(offline.isCached(7)).toBe(true); // already cached, untouched
+    expect(offline.playlistTrackIds[10]).toEqual([7, 8]);
+  });
 });
 
 describe("clearAll", () => {

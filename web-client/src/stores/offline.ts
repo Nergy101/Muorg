@@ -338,6 +338,27 @@ export const useOfflineStore = defineStore("offline", () => {
     }
   }
 
+  /** Called after tracks were added to a playlist that is downloaded for
+   *  offline: extends the playlist's protected track list and caches the new
+   *  tracks so the playlist stays fully playable offline. */
+  async function syncPlaylistDownload(playlistId: number, addedIds: number[]): Promise<void> {
+    if (!downloadedPlaylists.value.includes(playlistId) || addedIds.length === 0) return;
+    const existing = playlistTrackIds.value[playlistId] ?? [];
+    playlistTrackIds.value = {
+      ...playlistTrackIds.value,
+      [playlistId]: [...new Set([...existing, ...addedIds])],
+    };
+    savePref(PLAYLIST_TRACKS_KEY, playlistTrackIds.value);
+    const lib = useLibraryStore();
+    const missing = addedIds
+      .map((id) => lib.trackById.get(id))
+      .filter((t): t is CatalogTrack => t != null && !isCached(t.id));
+    if (missing.length === 0) return;
+    await downloadTracks(missing);
+    const okCount = missing.filter((t) => isCached(t.id)).length;
+    if (okCount > 0) showToast(`Downloaded ${okCount} added track(s) for offline use`);
+  }
+
   /** Removes one track from the offline cache. */
   async function removeTrack(trackId: number): Promise<void> {
     if (!cache) return;
@@ -392,6 +413,7 @@ export const useOfflineStore = defineStore("offline", () => {
     downloadTracks,
     downloadPlaylist,
     removePlaylistDownload,
+    syncPlaylistDownload,
     refreshRecentCache,
     removeTrack,
     clearAll,

@@ -17,6 +17,7 @@ import {
   setPlaylistPins,
 } from "../api/playlists";
 import { showToast } from "../composables/useToast";
+import { useOfflineStore } from "./offline";
 import type { Playlist, SmartRule } from "../types";
 import { usePlayerStore } from "./player";
 
@@ -269,6 +270,8 @@ export const usePlaylistStore = defineStore("playlists", () => {
       for (const id of trackIds) updated.add(id);
       trackIdSets.value = new Map(trackIdSets.value).set(playlistId, updated);
     }
+    // If this playlist is downloaded for offline, cache the new tracks too.
+    void useOfflineStore().syncPlaylistDownload(playlistId, trackIds);
   }
 
   // ── Duplicate-checked add (desktop parity) ────────────────────────────
