@@ -3,14 +3,16 @@
        the library top bar (grid view / mobile) and the desktop tracks table
        toolbar, so both surfaces offer the same controls in one row. Menus
        teleport to body and open downward from their trigger. -->
-  <!-- Layout switcher first, on the far left in both layouts. -->
+  <!-- Layout switcher first, on the far left in both layouts. Same icon in
+       both layouts — the pane-divided window reads as "layout". -->
   <button
     type="button"
     class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant"
     aria-label="Change layout"
+    title="Change layout"
     @click="settings.cycleAlbumViewStyle()"
   >
-    <MageIcon :name="viewStyleIcon" class="h-4 w-4" />
+    <MageIcon name="layout-grid" class="h-4 w-4" />
   </button>
 
   <div ref="sortMenuRef" class="relative">
@@ -128,10 +130,6 @@ const sortBtnRef = ref<HTMLElement | null>(null);
 
 const sortLabel = computed(
   () => SORT_OPTIONS.find((o) => o.value === settings.sortMode)?.label ?? "Album",
-);
-
-const viewStyleIcon = computed(() =>
-  settings.albumViewStyle === "tracks" ? "music" : "layout-grid",
 );
 
 /** Position the sort menu just below its trigger (the bar sits at the top). */
