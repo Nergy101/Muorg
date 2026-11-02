@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.1"
+agp = "9.5.0"
 kotlin = "2.4.21"
 ksp = "2.3.12"
 hilt = "2.60.1"
@@ -7,9 +7,9 @@ compose-bom = "2026.09.00"
 navigation-compose = "2.10.2"
 media3 = "1.11.1"
 retrofit = "3.0.0"
-okhttp = "5.5.0"
+okhttp = "5.5.1"
 coil = "2.7.0"
-datastore = "1.2.1"
+datastore = "1.3.0"
 hilt-navigation-compose = "1.4.0"
 core-ktx = "1.19.1"
 lifecycle = "2.11.0"
@@ -70,7 +70,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 coil-okhttp = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
 
 # Palette
-androidx-palette = { group = "androidx.palette", name = "palette-ktx", version = "1.0.0" }
+androidx-palette = { group = "androidx.palette", name = "palette-ktx", version = "1.1.0" }
 
 # DataStore
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
@@ -99,7 +99,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
 # Error Prone (required by Hilt/Dagger generated code with AGP 9.x)
-errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version = "2.50.0" }
+errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version = "2.51.0" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
