@@ -1,7 +1,7 @@
 [versions]
-agp = "9.5.0"
+agp = "9.5.1"
 kotlin = "2.4.21"
-ksp = "2.3.12"
+ksp = "2.3.13"
 hilt = "2.60.1"
 compose-bom = "2026.09.00"
 navigation-compose = "2.10.2"
@@ -99,7 +99,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
 # Error Prone (required by Hilt/Dagger generated code with AGP 9.x)
-errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version = "2.51.0" }
+errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version = "2.52.0" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
