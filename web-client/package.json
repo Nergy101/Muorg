@@ -18,11 +18,11 @@
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/postcss": "^4.3.4",
     "@types/feather-icons": "^4.29.4",
     "@types/node": "^26.6.6",
     "@vitejs/plugin-vue": "^6.0.10",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/coverage-v8": "^5.1.0",
     "autoprefixer": "^10.6.2",
     "esbuild": "^0.28.2",
     "happy-dom": "^21.0.4",
@@ -32,7 +32,7 @@
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "^5.0.0",
-    "vue-tsc": "^3.3.13",
+    "vue-tsc": "^3.3.14",
     "workbox-window": "^7.4.1"
   }
 }
