@@ -298,11 +298,11 @@ body {
 
 /* The search page keeps a fixed medium measure at every width, so the column
    and its search bar stay evenly wide and centred instead of stretching with
-   the window. Narrower than the 900px content-col on purpose: a search page
-   reads better as a medium column. */
+   the window. Same 900px cap as content-col, so the search page matches the
+   settings page measure. */
 .search-col {
   width: 100%;
-  max-width: 720px;
+  max-width: 900px;
   margin-inline: auto;
 }
 
