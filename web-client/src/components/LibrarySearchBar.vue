@@ -1,5 +1,5 @@
 <template>
-  <div class="border-t border-outline/10">
+  <div :class="atTop ? 'border-b border-outline/10' : 'border-t border-outline/10'">
     <!-- Search history -->
     <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2 pt-3">
       <div class="flex items-center justify-between py-1">
@@ -90,6 +90,10 @@ const route = useRoute();
 const router = useRouter();
 const lib = useLibraryStore();
 const settings = useSettingsStore();
+
+/** True when the bar sits at the top of the library view (desktop) rather than
+ *  in the floating bottom bar (mobile): flips the divider to the bottom edge. */
+withDefaults(defineProps<{ atTop?: boolean }>(), { atTop: false });
 
 // --- Search field --------------------------------------------------------
 

@@ -1,5 +1,12 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+    <!-- Desktop (lg+): the library search/filter bar sits at the top of the
+         view instead of the floating bottom bar. Mobile keeps it in the
+         bottom island (App.vue). -->
+    <div class="hidden shrink-0 pt-3 lg:block">
+      <LibrarySearchBar at-top />
+    </div>
+
     <!-- Sort / genre / layout / shuffle-all live in the top bar now, not in
          the bottom bar next to the player. In the desktop tracks layout the
          table toolbar renders those same actions, so the top bar is skipped

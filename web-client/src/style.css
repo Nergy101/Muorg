@@ -296,6 +296,16 @@ body {
   flex-direction: column;
 }
 
+/* The search page keeps a fixed medium measure at every width, so the column
+   and its search bar stay evenly wide and centred instead of stretching with
+   the window. Narrower than the 900px content-col on purpose: a search page
+   reads better as a medium column. */
+.search-col {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
 /* Desktop reads as a wide app, but single-column content — search, sort rows,
    track lists — keeps a comfortable measure instead of stretching across a
    2400px shell. Album grids deliberately opt out and stay full-bleed.

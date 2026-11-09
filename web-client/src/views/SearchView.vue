@@ -2,7 +2,7 @@
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <!-- Search bar pinned at the TOP of the screen; results scroll between it
          and the bottom island/keyboard. -->
-    <div class="content-col shrink-0 px-4 pb-2 pt-3">
+    <div class="search-col shrink-0 px-4 pb-2 pt-3">
       <div
         class="glass-field flex h-11 items-center gap-2 rounded-full px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
       >
@@ -30,7 +30,7 @@
     <div class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Empty query: recent searches + recently selected results. -->
       <template v-if="!query.trim()">
-        <div v-if="settings.searchHistory.length > 0" class="content-col px-4 pb-2 pt-1">
+        <div v-if="settings.searchHistory.length > 0" class="search-col px-4 pb-2 pt-1">
           <div class="flex items-center justify-between py-1">
             <div class="flex items-center gap-1.5 text-label-lg text-on-surface-variant">
               <MageIcon name="clock" class="h-4 w-4" />
@@ -57,7 +57,7 @@
           </div>
         </div>
 
-        <div v-if="recentResultTracks.length > 0" class="content-col pb-2 pt-2">
+        <div v-if="recentResultTracks.length > 0" class="search-col pb-2 pt-2">
           <div class="flex items-center justify-between px-4 py-1">
             <div class="flex items-center gap-1.5 text-label-lg text-on-surface-variant">
               <MageIcon name="search" class="h-4 w-4" />
@@ -87,7 +87,7 @@
 
         <EmptyState
           v-if="settings.searchHistory.length === 0 && recentResultTracks.length === 0 && !lib.loading"
-          class="content-col"
+          class="search-col"
           title="No searches yet"
           body="Type above to search your library."
         />
@@ -100,11 +100,11 @@
         </div>
         <EmptyState
           v-else-if="results.length === 0"
-          class="content-col"
+          class="search-col"
           :title="`No results for &quot;${query.trim()}&quot;`"
           body="Try another spelling or fewer words."
         />
-        <div v-else class="content-col pb-4">
+        <div v-else class="search-col pb-4">
           <TrackListRow
             v-for="track in visibleResults"
             :key="track.id"

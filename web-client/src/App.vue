@@ -82,7 +82,10 @@
           ref="desktopBarEl"
           class="glass-deep absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-none overflow-hidden rounded-2xl lg:block"
         >
-          <LibrarySearchBar v-if="showLibrarySearch" />
+          <!-- Desktop: the library search bar lives at the top of the library
+               view instead (see LibraryView), so only the mini player floats
+               here. -->
+          <LibrarySearchBar v-if="showLibrarySearch" class="lg:hidden" />
           <MiniPlayer v-if="showMiniPlayer" />
         </div>
       </div>
