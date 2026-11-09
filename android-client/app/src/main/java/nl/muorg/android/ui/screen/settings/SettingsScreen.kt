@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -47,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.MageIcon
 
 @Composable
 fun SettingsScreen(
@@ -117,8 +116,8 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(onClick = onOpenReports, modifier = Modifier.weight(1f)) {
-                Icon(
-                    Icons.AutoMirrored.Filled.FactCheck,
+                MageIcon(
+                    "checklist-note-fill",
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                 )

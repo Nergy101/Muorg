@@ -7,12 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.MageIcon
 
 /**
  * Connection details, shown when the source is a remote server.
@@ -48,7 +43,7 @@ fun ServerSection(
             )
         },
         leadingContent = {
-            Icon(Icons.Filled.Cloud, contentDescription = null,
+            MageIcon("earth-fill", contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
@@ -63,7 +58,7 @@ fun ServerSection(
                 onValueChange = viewModel::setDeviceName,
                 label = { Text("Device name") },
                 leadingIcon = {
-                    Icon(Icons.Filled.Person, contentDescription = null,
+                    MageIcon("user-fill", contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
                 singleLine = true,
@@ -117,7 +112,7 @@ fun ServerSection(
                 containerColor = MaterialTheme.colorScheme.error,
             ),
         ) {
-            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(16.dp))
+            MageIcon("logout", contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text("Logout")
         }
@@ -150,7 +145,7 @@ fun ServerSection(
             headlineContent = { Text("Artists") },
             supportingContent = { Text("Unique artists") },
             leadingContent = {
-                Icon(Icons.Filled.People, contentDescription = null,
+                MageIcon("users-fill", contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             trailingContent = { Text("${stats.artistCount}", style = MaterialTheme.typography.titleMedium) },

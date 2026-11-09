@@ -23,13 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DragIndicator
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +64,7 @@ import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.player.QueueOrigin
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
+import nl.muorg.android.ui.icon.MageIcon
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -414,8 +408,8 @@ private fun QueueTrackRow(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Filled.DragIndicator,
+            MageIcon(
+                "dots-horizontal",
                 contentDescription = "Drag to reorder",
                 tint = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp),

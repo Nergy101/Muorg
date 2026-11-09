@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -23,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.MageIcon
 
 /**
  * Light/dark mode and the accent colour.
@@ -66,7 +65,7 @@ fun ThemeSection(
         headlineContent = { Text("Use true black") },
         supportingContent = { Text("OLED-friendly pitch-black background") },
         leadingContent = {
-            Icon(Icons.Filled.Contrast, contentDescription = null,
+            MageIcon("color-swatch-fill", contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         trailingContent = {

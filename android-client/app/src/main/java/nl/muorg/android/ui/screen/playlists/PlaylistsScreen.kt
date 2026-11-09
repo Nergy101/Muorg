@@ -20,12 +20,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.IconButton
 import nl.muorg.android.ui.component.PickerSheet
 import nl.muorg.android.ui.glass.glassField
@@ -67,6 +63,7 @@ import nl.muorg.android.ui.layout.rememberGridColumns
 import nl.muorg.android.ui.component.PlaylistActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
+import nl.muorg.android.ui.icon.MageIcon
 
 /** The server's favorites playlist — managed by the server, not editable. */
 private const val FAVORITES_PLAYLIST_NAME = "Favorites"
@@ -137,8 +134,8 @@ fun PlaylistsScreen(
                         }
                     }
                     IconButton(onClick = { viewModel.toggleSortAsc() }) {
-                        Icon(
-                            imageVector = if (uiState.sortAsc) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                        MageIcon(
+                            name = if (uiState.sortAsc) "arrow-up" else "arrow-down",
                             contentDescription = if (uiState.sortAsc) "Sort descending" else "Sort ascending",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp),

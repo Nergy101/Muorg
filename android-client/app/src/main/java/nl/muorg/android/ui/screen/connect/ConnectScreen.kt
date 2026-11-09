@@ -13,12 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import nl.muorg.android.R
+import nl.muorg.android.ui.icon.MageIcon
 
 @Composable
 fun ConnectScreen(
@@ -130,9 +127,9 @@ fun ConnectScreen(
                 ),
                 trailingIcon = {
                     IconButton(onClick = { showApiKey = !showApiKey }) {
-                        Icon(
-                            imageVector = if (showApiKey) Icons.Filled.VisibilityOff
-                            else Icons.Filled.Visibility,
+                        MageIcon(
+                            name = if (showApiKey) "eye-off-fill"
+                            else "eye-fill",
                             contentDescription = if (showApiKey) "Hide key" else "Show key",
                         )
                     }

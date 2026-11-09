@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -24,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.component.PickerSheet
 import nl.muorg.android.ui.screen.library.SortMode
+import nl.muorg.android.ui.icon.MageIcon
 
 /**
  * Scanning, caching and what the library counts.
@@ -41,7 +40,7 @@ fun LibrarySection(
             headlineContent = { Text("Default sort order") },
             supportingContent = { Text(uiState.defaultSort.label) },
             leadingContent = {
-                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null,
+                MageIcon("exchange-a", contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             modifier = Modifier
@@ -55,7 +54,7 @@ fun LibrarySection(
         headlineContent = { Text("Sort direction") },
         supportingContent = { Text(if (uiState.sortAscending) "Ascending" else "Descending") },
         leadingContent = {
-            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null,
+            MageIcon("exchange-a", contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         trailingContent = {

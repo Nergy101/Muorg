@@ -4,8 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -21,6 +19,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.ui.icon.mageIconRes
 import kotlin.math.roundToInt
+import nl.muorg.android.ui.icon.MageIcon
 
 private const val AUTO_CACHE_MIN_BYTES = 256L * 1024 * 1024 // 256 MiB
 private const val AUTO_CACHE_MAX_BYTES = 8L * 1024 * 1024 * 1024 // 8 GiB
@@ -164,7 +163,7 @@ fun OfflineSection(
         headlineContent = { Text("Download over mobile data") },
         supportingContent = { Text("Off: playlist downloads wait for Wi-Fi") },
         leadingContent = {
-            Icon(Icons.Filled.Wifi, contentDescription = null,
+            MageIcon("wifi", contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         trailingContent = {

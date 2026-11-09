@@ -492,12 +492,12 @@ async function copyPathToClipboard(path: string) {
                   <button
                     type="button"
                     class="inline-flex items-center gap-1.5 text-left underline decoration-dotted underline-offset-2 hover:text-stone-300"
-                    @click="openReleaseUrl('https://feathericons.com')"
-                    @mouseenter="showLinkTooltip('https://feathericons.com', $event)"
+                    @click="openReleaseUrl('https://mageicons.com')"
+                    @mouseenter="showLinkTooltip('https://mageicons.com', $event)"
                     @mouseleave="hideLinkTooltip"
                   >
                     <FeatherIcon name="feather" class="h-3.5 w-3.5 shrink-0" />
-                    Feather Icons
+                    Mage Icons
                   </button>
                   <button
                     type="button"

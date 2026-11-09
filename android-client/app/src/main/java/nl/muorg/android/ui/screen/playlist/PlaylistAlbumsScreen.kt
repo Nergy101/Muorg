@@ -21,16 +21,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.DragIndicator
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.LowPriority
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -75,6 +65,7 @@ import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.layout.rememberGridColumns
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgGreenLight
+import nl.muorg.android.ui.icon.MageIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -230,8 +221,8 @@ fun PlaylistAlbumsScreen(
                                 .widthIn(min = 40.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Icon(
-                                imageVector = if (hasUnsavedOrder) Icons.Filled.Save else Icons.Filled.LowPriority,
+                            MageIcon(
+                                name = if (hasUnsavedOrder) "save-floppy-fill" else "inbox-fill",
                                 contentDescription = null,
                                 tint = if (reorderMode || hasUnsavedOrder)
                                     MaterialTheme.colorScheme.primary
@@ -267,11 +258,11 @@ fun PlaylistAlbumsScreen(
                             .widthIn(min = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Icon(
-                            imageVector = when (albumViewStyle) {
-                                "grid" -> Icons.AutoMirrored.Filled.ViewList
-                                "list" -> Icons.Filled.MusicNote
-                                else -> Icons.Filled.GridView
+                        MageIcon(
+                            name = when (albumViewStyle) {
+                                "grid" -> "arrowlist"
+                                "list" -> "music-fill"
+                                else -> "layout-grid-fill"
                             },
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -553,8 +544,8 @@ private fun PlaylistDragHandle(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            Icons.Filled.DragIndicator,
+        MageIcon(
+            "dots-horizontal",
             contentDescription = "Drag",
             tint = if (isDragged) MuorgGreenLight else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
@@ -659,8 +650,8 @@ private fun PlaylistSortRow(
             }
         }
         IconButton(onClick = onToggleDirection) {
-            Icon(
-                imageVector = if (sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+            MageIcon(
+                name = if (sortAscending) "arrow-up" else "arrow-down",
                 contentDescription = if (sortAscending) "Sort ascending" else "Sort descending",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),

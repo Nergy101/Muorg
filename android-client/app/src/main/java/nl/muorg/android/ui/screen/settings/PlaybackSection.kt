@@ -3,8 +3,6 @@ package nl.muorg.android.ui.screen.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.MageIcon
 
 /**
  * Continuous playback, mini-player tap behaviour, the sleep timer feature
@@ -60,7 +59,7 @@ fun PlaybackSection(
         headlineContent = { Text("Tap mini player") },
         supportingContent = { Text(if (uiState.playerBarTapOpensPlayer) "Opens full player screen" else "Plays / pauses") },
         leadingContent = {
-            Icon(Icons.Filled.TouchApp, contentDescription = null,
+            MageIcon("focus-fill", contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         trailingContent = {

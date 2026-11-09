@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -32,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.MageIcon
 
 /**
  * The folders scanned for music, shown when the source is this device.
@@ -51,7 +49,7 @@ fun LocalFoldersSection(
             headlineContent = { Text("No folders added") },
             supportingContent = { Text("Add a folder to scan for music files") },
             leadingContent = {
-                Icon(Icons.Filled.Folder, contentDescription = null,
+                MageIcon("folder-fill", contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
@@ -64,7 +62,7 @@ fun LocalFoldersSection(
             ListItem(
                 headlineContent = { Text(displayName, maxLines = 1) },
                 leadingContent = {
-                    Icon(Icons.Filled.FolderOpen, contentDescription = null,
+                    MageIcon("folder-open-fill", contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 },
                 trailingContent = {
@@ -87,7 +85,7 @@ fun LocalFoldersSection(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Button(onClick = { onAddFolder() }) {
-            Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+            MageIcon("folder-open-fill", contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text("Add folder")
         }

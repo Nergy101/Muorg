@@ -5,11 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DataObject
-import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.painterResource
@@ -17,6 +13,7 @@ import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import nl.muorg.android.ui.icon.MageIcon
 
 /**
  * One-off jobs that act on the whole library.
@@ -33,7 +30,7 @@ fun LibraryToolsSection(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Button(onClick = { onMetadataScan() }) {
-            Icon(Icons.Filled.DataObject, contentDescription = null, modifier = Modifier.size(16.dp))
+            MageIcon("file-fill", contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text("Metadata scan")
         }

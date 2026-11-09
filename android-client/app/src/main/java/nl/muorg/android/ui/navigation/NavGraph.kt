@@ -18,11 +18,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.VolumeDown
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -82,6 +77,7 @@ import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.screen.library.LibraryScreen
 import nl.muorg.android.ui.theme.MuorgTheme
 import nl.muorg.android.ui.theme.artworkAccent
+import nl.muorg.android.ui.icon.MageIcon
 
 sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
@@ -505,12 +501,12 @@ private fun CastVolumeHud(
             ) {
                 val vol = volume ?: 0f
                 val icon = when {
-                    vol == 0f -> Icons.Filled.VolumeMute
-                    vol < 0.5f -> Icons.Filled.VolumeDown
-                    else -> Icons.Filled.VolumeUp
+                    vol == 0f -> "volume-mute-fill"
+                    vol < 0.5f -> "volume-down-fill"
+                    else -> "volume-up-fill"
                 }
-                Icon(
-                    imageVector = icon,
+                MageIcon(
+                    name = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.inverseOnSurface,
                     modifier = Modifier.size(18.dp),

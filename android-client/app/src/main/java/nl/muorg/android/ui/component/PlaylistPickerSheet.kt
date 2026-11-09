@@ -12,11 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +33,7 @@ import androidx.compose.ui.res.painterResource
 import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.data.api.Playlist
+import nl.muorg.android.ui.icon.MageIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,20 +101,20 @@ fun PlaylistPickerSheet(
                             },
                         )
                         when {
-                            isFull -> Icon(
-                                imageVector = Icons.Filled.CheckCircle,
+                            isFull -> MageIcon(
+                                name = "check-circle-fill",
                                 contentDescription = "In playlist — tap to remove",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp),
                             )
-                            isPartial -> Icon(
-                                imageVector = Icons.Outlined.CheckCircle,
+                            isPartial -> MageIcon(
+                                name = "check-circle",
                                 contentDescription = "Partially added — tap to complete",
                                 tint = MaterialTheme.colorScheme.secondary,
                                 modifier = Modifier.size(22.dp),
                             )
-                            else -> Icon(
-                                imageVector = Icons.Outlined.RadioButtonUnchecked,
+                            else -> MageIcon(
+                                name = "double-circle",
                                 contentDescription = "Not in playlist",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 modifier = Modifier.size(22.dp),

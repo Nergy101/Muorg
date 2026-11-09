@@ -13,21 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
@@ -66,6 +51,7 @@ import nl.muorg.android.ui.player.PlayerViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import nl.muorg.android.ui.icon.MageIcon
 
 private enum class SheetLevel { MAIN, PLAYLISTS, TRACK_INFO, EDIT_METADATA }
 
@@ -240,8 +226,8 @@ private fun MainLevel(
             )
         },
         leadingContent = {
-            Icon(
-                if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            MageIcon(
+                if (isFavorite) "heart-fill" else "heart",
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
                 tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -393,8 +379,8 @@ private fun StarRating(
                 onClick = { onChange(if (value == star) null else star) },
                 modifier = Modifier.size(32.dp),
             ) {
-                Icon(
-                    imageVector = if (filled) Icons.Filled.Star else Icons.Filled.StarBorder,
+                MageIcon(
+                    name = if (filled) "star-fill" else "star",
                     contentDescription = "$star star${if (star > 1) "s" else ""} rating",
                     tint = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp),

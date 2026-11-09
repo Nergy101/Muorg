@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +26,7 @@ import nl.muorg.android.ui.glass.glassField
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
+import nl.muorg.android.ui.icon.MageIcon
 
 /** A genre entry in the dropdown: normalized value plus original-casing label. */
 data class GenreOption(val value: String, val label: String)
@@ -181,8 +179,8 @@ fun LibraryTopBar(
                     scrollToTop()
                     viewModel.toggleSortDirection()
                 }) {
-                    Icon(
-                        imageVector = if (uiState.sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                    MageIcon(
+                        name = if (uiState.sortAscending) "arrow-up" else "arrow-down",
                         contentDescription = if (uiState.sortAscending) "Sort ascending" else "Sort descending",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp),

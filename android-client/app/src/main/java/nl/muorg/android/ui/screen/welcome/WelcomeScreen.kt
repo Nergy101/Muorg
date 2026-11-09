@@ -29,12 +29,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -72,6 +66,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import nl.muorg.android.R
+import nl.muorg.android.ui.icon.MageIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,7 +176,7 @@ fun WelcomeScreen(
                     enter = fadeIn(tween(500)) + slideInVertically(tween(500, easing = FastOutSlowInEasing)) { it / 2 },
                 ) {
                     ShimmerModeCard(
-                        icon = { Icon(Icons.Filled.Cloud, contentDescription = null, modifier = Modifier.size(32.dp)) },
+                        icon = { MageIcon("earth-fill", contentDescription = null, modifier = Modifier.size(32.dp)) },
                         title = "Muorg Server",
                         subtitle = "Stream from your self-hosted server",
                         onClick = viewModel::chooseRemote,
@@ -195,7 +190,7 @@ fun WelcomeScreen(
                     enter = fadeIn(tween(500)) + slideInVertically(tween(500, easing = FastOutSlowInEasing)) { it / 2 },
                 ) {
                     ShimmerModeCard(
-                        icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(32.dp)) },
+                        icon = { MageIcon("folder-open-fill", contentDescription = null, modifier = Modifier.size(32.dp)) },
                         title = "Local Library",
                         subtitle = "Play music from folders on this device",
                         onClick = viewModel::chooseLocal,
@@ -259,7 +254,7 @@ fun WelcomeScreen(
                             ListItem(
                                 headlineContent = { Text(label, style = MaterialTheme.typography.bodyMedium) },
                                 leadingContent = {
-                                    Icon(Icons.Filled.FolderOpen, contentDescription = null,
+                                    MageIcon("folder-open-fill", contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary)
                                 },
                                 trailingContent = {
@@ -381,8 +376,8 @@ private fun ShimmerModeCard(
                     Text(subtitle, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
+                MageIcon(
+                    "arrow-right",
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

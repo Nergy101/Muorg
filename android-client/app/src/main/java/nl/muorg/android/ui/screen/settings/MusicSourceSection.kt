@@ -13,11 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import nl.muorg.android.ui.icon.MageIcon
 
 /**
  * Local files or a remote server — the choice everything else follows from.
@@ -67,8 +64,8 @@ fun MusicSourceSection(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Icon(
-                    Icons.Filled.Cloud,
+                MageIcon(
+                    "earth-fill",
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
                     tint = if (onlineSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -108,8 +105,8 @@ fun MusicSourceSection(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Icon(
-                    Icons.Filled.FolderOpen,
+                MageIcon(
+                    "folder-open-fill",
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
                     tint = if (localSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
