@@ -580,8 +580,8 @@ interface MuorgApi {
     ): Response<OkResponse>
 
     /**
-     * Mint a short-lived (8h) token for the public `/stream/{id}` URL, so an
-     * `<audio src>` can play without carrying the API key.
+     * Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so
+     * an `<audio src>` can play without carrying the API key.
      *
      * `GET /api/tracks/{id}/stream-token`
      */
@@ -591,16 +591,17 @@ interface MuorgApi {
     ): Response<TokenResponse>
 
     /**
-     * Audio bytes, range-capable. Public: authorised by the `token` query
-     * parameter rather than the Bearer header, so browsers and cast receivers can
-     * fetch it directly.
+     * Audio bytes, range-capable. Public: authorised by the `token` path segment
+     * rather than the Bearer header, so browsers and cast receivers can fetch it
+     * directly. The token lives in the path — not the query string — so it stays
+     * out of reverse-proxy access logs, browser history and `Referer` headers.
      *
-     * `GET /stream/{id}`
+     * `GET /stream/{token}/{id}`
      */
-    @GET("stream/{id}")
+    @GET("stream/{token}/{id}")
     suspend fun streamAudio(
+        @Path("token") token: String,
         @Path("id") id: Long,
-        @Query("token") token: String? = null,
         @Query("start") start: Float? = null,
     ): Response<ResponseBody>
 }

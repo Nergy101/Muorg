@@ -145,9 +145,11 @@ export function createTransport(credentials: Credentials): Transport {
     },
 
     streamUrl(trackId: number, token: string, startSecs?: number): string {
-      const base = `${credentials.baseUrl()}/stream/${trackId}?token=${encodeURIComponent(token)}`;
+      // Token in the path, not the query string: query strings land in proxy
+      // access logs, browser history and Referer headers.
+      const base = `${credentials.baseUrl()}/stream/${encodeURIComponent(token)}/${trackId}`;
       return startSecs != null && startSecs > 0
-        ? `${base}&start=${startSecs.toFixed(2)}`
+        ? `${base}?start=${startSecs.toFixed(2)}`
         : base;
     },
   };

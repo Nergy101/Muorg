@@ -881,8 +881,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Mint a short-lived (8h) token for the public `/stream/{id}` URL, so an
-         *     `<audio src>` can play without carrying the API key.
+         * Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so
+         *     an `<audio src>` can play without carrying the API key.
          */
         get: operations["issue_token"];
         put?: never;
@@ -964,7 +964,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/stream/{id}": {
+    "/stream/{token}/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -972,9 +972,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Audio bytes, range-capable. Public: authorised by the `token` query
-         *     parameter rather than the Bearer header, so browsers and cast receivers can
-         *     fetch it directly.
+         * Audio bytes, range-capable. Public: authorised by the `token` path segment
+         *     rather than the Bearer header, so browsers and cast receivers can fetch it
+         *     directly. The token lives in the path — not the query string — so it stays
+         *     out of reverse-proxy access logs, browser history and `Referer` headers.
          */
         get: operations["stream_audio"];
         put?: never;
@@ -3613,13 +3614,13 @@ export interface operations {
             query?: {
                 /** @description Seek offset in seconds; the server transcodes from this point. */
                 start?: number | null;
-                /** @description Short-lived token from `/api/tracks/{id}/stream-token`. */
-                token?: string | null;
             };
             header?: never;
             path: {
                 /** @description Track id */
                 id: number;
+                /** @description Short-lived token from `/api/tracks/{id}/stream-token` */
+                token: string;
             };
             cookie?: never;
         };

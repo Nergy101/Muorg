@@ -126,7 +126,7 @@ pub struct AppState {
     pub server_port: u16,
     /// Port of the stream-only listener bound on all interfaces when the main
     /// listener is loopback-only (the desktop app's sidecar). Cast devices on
-    /// the LAN fetch `/stream/{id}` from this port; `None` when the main
+    /// the LAN fetch `/stream/{token}/{id}` from this port; `None` when the main
     /// listener is already reachable from the LAN. See `main.rs`.
     pub stream_port: Option<u16>,
     pub cast_discovery: DiscoveryState,

@@ -109,8 +109,8 @@ pub struct CastPlayResponse {
 fn cast_stream_url(state: &AppState, lan_ip: &std::net::IpAddr, track_id: i64, token: &str) -> String {
     let port = state.stream_port.unwrap_or(state.server_port);
     format!(
-        "http://{}:{}/stream/{}?token={}",
-        lan_ip, port, track_id, token
+        "http://{}:{}/stream/{}/{}",
+        lan_ip, port, token, track_id
     )
 }
 
@@ -299,7 +299,7 @@ mod tests {
         let ip: std::net::IpAddr = "192.168.1.10".parse().unwrap();
         assert_eq!(
             cast_stream_url(&state, &ip, 3, "tok"),
-            "http://192.168.1.10:7700/stream/3?token=tok"
+            "http://192.168.1.10:7700/stream/tok/3"
         );
     }
 
@@ -311,7 +311,7 @@ mod tests {
         let ip: std::net::IpAddr = "192.168.1.10".parse().unwrap();
         assert_eq!(
             cast_stream_url(&state, &ip, 3, "tok"),
-            "http://192.168.1.10:41234/stream/3?token=tok"
+            "http://192.168.1.10:41234/stream/tok/3"
         );
     }
 }

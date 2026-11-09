@@ -38,13 +38,13 @@ pub fn build_cors(allowed_origins: &[String]) -> CorsLayer {
 }
 
 /// The router for the stream-only listener: just the token-protected
-/// `/stream/{id}` route, nothing else. Used when the main listener is
+/// `/stream/{token}/{id}` route, nothing else. Used when the main listener is
 /// loopback-only — a Chromecast on the LAN must still be able to fetch the
 /// audio a cast session points it at, while `/api/*` stays loopback-only
 /// behind the API key.
 pub fn build_stream_router(state: Arc<AppState>) -> Router {
     Router::new()
-        .route("/stream/{id}", get(routes::stream::stream_audio))
+        .route("/stream/{token}/{id}", get(routes::stream::stream_audio))
         .with_state(state)
 }
 
@@ -142,7 +142,7 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
     let public = Router::new()
         .route("/", get(routes::util::home))
         .route("/api/health", get(routes::util::health))
-        .route("/stream/{id}", get(routes::stream::stream_audio));
+        .route("/stream/{token}/{id}", get(routes::stream::stream_audio));
 
     Router::new()
         .merge(public)

@@ -18,8 +18,8 @@ pub struct TokenResponse {
     pub token: String,
 }
 
-/// Mint a short-lived (8h) token for the public `/stream/{id}` URL, so an
-/// `<audio src>` can play without carrying the API key.
+/// Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so
+/// an `<audio src>` can play without carrying the API key.
 #[utoipa::path(
     get,
     path = "/api/tracks/{id}/stream-token",
@@ -48,8 +48,6 @@ pub async fn issue_token(
 
 #[derive(Deserialize, utoipa::IntoParams)]
 pub struct StreamQuery {
-    /// Short-lived token from `/api/tracks/{id}/stream-token`.
-    pub token: Option<String>,
     /// Seek offset in seconds; the server transcodes from this point.
     pub start: Option<f32>,
 }
@@ -86,15 +84,20 @@ fn remote_err(id: i64, e: object_store::Error) -> Response {
     }
 }
 
-// GET /stream/:id?token=<tok>  (no Bearer auth — uses short-lived token instead)
-/// Audio bytes, range-capable. Public: authorised by the `token` query
-/// parameter rather than the Bearer header, so browsers and cast receivers can
-/// fetch it directly.
+// GET /stream/{token}/{id}  (no Bearer auth — uses short-lived token instead)
+/// Audio bytes, range-capable. Public: authorised by the `token` path segment
+/// rather than the Bearer header, so browsers and cast receivers can fetch it
+/// directly. The token lives in the path — not the query string — so it stays
+/// out of reverse-proxy access logs, browser history and `Referer` headers.
 #[utoipa::path(
     get,
-    path = "/stream/{id}",
+    path = "/stream/{token}/{id}",
     tag = "Stream",
-    params(("id" = i64, Path, description = "Track id"), StreamQuery),
+    params(
+        ("token" = String, Path, description = "Short-lived token from `/api/tracks/{id}/stream-token`"),
+        ("id" = i64, Path, description = "Track id"),
+        StreamQuery,
+    ),
     responses(
         (status = 200, description = "Audio bytes", content_type = "audio/mpeg"),
         (status = 206, description = "Partial content for a ranged request"),
@@ -103,19 +106,11 @@ fn remote_err(id: i64, e: object_store::Error) -> Response {
     ),
 )]
 pub async fn stream_audio(
-    Path(id): Path<i64>,
+    Path((token, id)): Path<(String, i64)>,
     Query(params): Query<StreamQuery>,
     State(state): State<Arc<AppState>>,
     req_headers: HeaderMap,
 ) -> Response {
-    let token = match params.token {
-        Some(t) => t,
-        None => {
-            tracing::warn!(track_id = id, "stream: missing token");
-            return StatusCode::UNAUTHORIZED.into_response();
-        }
-    };
-
     if !state.tokens.validate(&token, id) {
         tracing::warn!(track_id = id, "stream: invalid token");
         return StatusCode::UNAUTHORIZED.into_response();

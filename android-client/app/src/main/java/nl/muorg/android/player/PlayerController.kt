@@ -437,7 +437,7 @@ class PlayerController @Inject constructor(
                         scope.launch { delay(4000); _state.update { it.copy(errorMessage = null) } }
                         return null
                     }
-                    "$baseUrl/stream/${t.id}?token=$token"
+                    "$baseUrl/stream/$token/${t.id}"
                 }
                 MediaItem.Builder()
                     .setMediaId(t.id.toString())
@@ -605,7 +605,7 @@ class PlayerController @Inject constructor(
                     return@launch
                 }
                 val targetSecs = targetMs / 1000.0
-                val uri = "$baseUrl/stream/${track.id}?token=$token&start=${"%.2f".format(targetSecs)}"
+                val uri = "$baseUrl/stream/$token/${track.id}?start=${"%.2f".format(targetSecs)}"
                 val currentIndex = ctrl.currentMediaItemIndex
                 val newItem = MediaItem.Builder()
                     .setMediaId(track.id.toString())

@@ -191,18 +191,18 @@ describe("fetchBlob", () => {
 describe("streamUrl", () => {
   const t = createTransport(creds);
 
-  it("builds an absolute, token-authorised URL", () => {
+  it("builds an absolute, token-authorised URL with the token in the path", () => {
     expect(t.streamUrl(7, "tok")).toBe(
-      "http://server.test:7700/stream/7?token=tok",
+      "http://server.test:7700/stream/tok/7",
     );
   });
 
   it("escapes a token with URL-unsafe characters", () => {
-    expect(t.streamUrl(7, "a+b/c=")).toContain("token=a%2Bb%2Fc%3D");
+    expect(t.streamUrl(7, "a+b/c=")).toContain("/stream/a%2Bb%2Fc%3D/7");
   });
 
   it("appends a seek offset only when it is past the start", () => {
     expect(t.streamUrl(7, "tok", 0)).not.toContain("start=");
-    expect(t.streamUrl(7, "tok", 12.345)).toContain("&start=12.35");
+    expect(t.streamUrl(7, "tok", 12.345)).toContain("?start=12.35");
   });
 });

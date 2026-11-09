@@ -334,7 +334,7 @@ class OfflineDownloadManager @Inject constructor(
             api.issueToken(track.id.toLong())
                 .bodyOrThrow("GET /api/tracks/${track.id}/stream-token").token
         }.getOrElse { return null }
-        val url = "$baseUrl/stream/${track.id}?token=$token"
+        val url = "$baseUrl/stream/$token/${track.id}"
 
         val request = Request.Builder().url(url).build()
         val response = okHttpClient.newCall(request).execute()

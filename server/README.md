@@ -280,7 +280,7 @@ Authorization: Bearer <api_key>
   including the cloud metadata endpoint. Widen the allowlist only to hosts you
   want the server reachable *through*: anything on it can be fetched by anyone
   holding the API key, and the bytes come back to them.
-- Stream URLs carry a short-lived token in the query string
-  (`/stream/{id}?token=…`), which means the token lands in reverse-proxy access
-  logs. The tokens expire (8 h for playback, 4 h for a cast session) and are
-  scoped to a single track id, but treat those logs as sensitive.
+- Stream URLs carry a short-lived token in the path (`/stream/{token}/{id}`),
+  so it stays out of reverse-proxy access logs, browser history and `Referer`
+  headers. The tokens expire (8 h for playback, 4 h for a cast session) and are
+  scoped to a single track id.

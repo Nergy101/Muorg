@@ -7,7 +7,7 @@ vi.mock("../api/catalog", () => ({
 }));
 vi.mock("../api/client", () => ({
   getServerUrl: () => "http://server.test:7700",
-  streamUrl: (id: number, token: string) => `http://server.test:7700/stream/${id}?token=${token}`,
+  streamUrl: (id: number, token: string) => `http://server.test:7700/stream/${token}/${id}`,
 }));
 
 // Dynamic import so the module under test resolves its ../api/catalog and
@@ -129,7 +129,7 @@ describe("buildStreamM3u", () => {
     expect(skippedCount).toBe(0);
     expect(content).toContain("#EXTM3U");
     expect(content).toContain("#EXTINF:42,A - Song");
-    expect(content).toContain("http://server.test:7700/stream/7?token=tok7");
+    expect(content).toContain("http://server.test:7700/stream/tok7/7");
   });
 
   it("falls back to an unauthenticated stream URL when token issuance fails", async () => {

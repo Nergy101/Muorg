@@ -1289,7 +1289,7 @@
     }
   },
   "info": {
-    "description": "The Muorg music server HTTP API, shared by the desktop (Tauri), web and Android clients. Everything except `GET /api/health` and `GET /stream/{id}` requires an `Authorization: Bearer <api_key>` header.\n\n`GET /api/tracks` is paginated and defaults to 500 rows — a bare call returns the first page, not the catalog. Follow `X-Total-Count`.",
+    "description": "The Muorg music server HTTP API, shared by the desktop (Tauri), web and Android clients. Everything except `GET /api/health` and `GET /stream/{token}/{id}` requires an `Authorization: Bearer <api_key>` header.\n\n`GET /api/tracks` is paginated and defaults to 500 rows — a bare call returns the first page, not the catalog. Follow `X-Total-Count`.",
     "license": {
       "name": ""
     },
@@ -4363,16 +4363,25 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Mint a short-lived (8h) token for the public `/stream/{id}` URL, so an\n`<audio src>` can play without carrying the API key.",
+        "summary": "Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so\nan `<audio src>` can play without carrying the API key.",
         "tags": [
           "Stream"
         ]
       }
     },
-    "/stream/{id}": {
+    "/stream/{token}/{id}": {
       "get": {
         "operationId": "stream_audio",
         "parameters": [
+          {
+            "description": "Short-lived token from `/api/tracks/{id}/stream-token`",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "description": "Track id",
             "in": "path",
@@ -4381,18 +4390,6 @@
             "schema": {
               "format": "int64",
               "type": "integer"
-            }
-          },
-          {
-            "description": "Short-lived token from `/api/tracks/{id}/stream-token`.",
-            "in": "query",
-            "name": "token",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           {
@@ -4426,7 +4423,7 @@
             "description": "No such track"
           }
         },
-        "summary": "Audio bytes, range-capable. Public: authorised by the `token` query\nparameter rather than the Bearer header, so browsers and cast receivers can\nfetch it directly.",
+        "summary": "Audio bytes, range-capable. Public: authorised by the `token` path segment\nrather than the Bearer header, so browsers and cast receivers can fetch it\ndirectly. The token lives in the path — not the query string — so it stays\nout of reverse-proxy access logs, browser history and `Referer` headers.",
         "tags": [
           "Stream"
         ]

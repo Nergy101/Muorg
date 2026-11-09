@@ -119,7 +119,7 @@ The full HTTP API is documented in [Server API](/docs/server/api). Highlights:
 
 - `GET /api/health` — liveness check (public)
 - `GET /api/tracks`, `GET /api/search`, `GET /api/stats` — browse and search the library
-- `GET /stream/{id}` — stream audio (public, URL contains a signed token)
+- `GET /stream/{token}/{id}` — stream audio (public, URL path contains a signed token)
 - `GET/PUT /api/tracks/{id}/metadata`, `.../rating`, `.../cover` — edit metadata
 - `GET/POST /api/playlists`, `/api/playlists/smart` — playlists and smart playlists
 - `POST /api/admin/rescan` — trigger a library rescan

@@ -34,23 +34,20 @@ polls is not available. Position comes from the device.
 The web client looks candidates up through `api.autoTagSuggestions()`
 (`69a587b`), via `useAutoTag` and `AutoTagPanel.vue`.
 
-### 3. Stream tokens travel in the query string
+### 3. ~~Stream tokens travel in the query string~~ — done: token moved to the path
 
-`streamUrl()` builds `/stream/{id}?token=…`. Query strings land in nginx and
-reverse-proxy access logs, in browser history, and in `Referer` headers on any
-outbound request from the page. The tokens are short-lived (8 h) but that is
-still long enough to matter on a shared host.
-
-Options, cheapest first:
-
-- Shorten the TTL sharply for browser playback (minutes, re-issued on demand).
-- Move the token into the path — `/stream/{token}/{id}` — so it at least stays
-  out of `Referer`.
-- Sign a URL with an expiry instead of handing out a bearer-equivalent.
+`streamUrl()` used to build `/stream/{id}?token=…`. Query strings land in nginx
+and reverse-proxy access logs, in browser history, and in `Referer` headers on
+any outbound request from the page. Decided (9 Nov 2026): the token now travels
+in the path — `GET /stream/{token}/{id}` — on the server, in the shared
+`streamUrl()` and in the Android cast/download/player URLs. The `start` seek
+offset stays a query parameter (it is not secret). Tokens remain short-lived
+(8 h playback, 4 h cast) and scoped to a single track id.
 
 Related: the API key itself sits in `localStorage`, readable by any XSS on the
-origin. For a self-hosted single-user app that is a defensible trade, but it is
-worth writing down as a deliberate choice rather than leaving it implicit.
+origin. Decided (9 Nov 2026): kept as is — a deliberate trade for a self-hosted
+single-user app, now written down in the docs (see docs-site FAQ / web-client
+page).
 
 **Size:** small. **Value:** medium.
 
@@ -149,11 +146,13 @@ All five were split (`5aa3e17`, `115b37e`, `44f2694`, `9003324`): the settings
 sections, the library and playlists screens, the player's backdrop and controls,
 and the route table out of `NavGraph`.
 
-### 9. Offline downloads are Android-only
+### 9. ~~Offline downloads are Android-only~~ — decided: deliberate platform difference
 
 `OfflineDownloadManager` has no counterpart in the web app, which already has a
-Workbox service worker and could cache audio the same way. Worth deciding
-whether that is a deliberate platform difference or a gap.
+Workbox service worker and could cache audio the same way. Decided (9 Nov 2026):
+this is a deliberate platform difference, not a gap — the web client streams
+from the server and does not cache audio offline. The Workbox worker only
+caches static assets (`globPatterns` in `web-client/vite.config.ts`).
 
 ---
 

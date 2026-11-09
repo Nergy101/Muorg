@@ -42,7 +42,7 @@ impl Modify for SecurityAddon {
         title = "Muorg Server API",
         description = "\
 The Muorg music server HTTP API, shared by the desktop (Tauri), web and Android \
-clients. Everything except `GET /api/health` and `GET /stream/{id}` requires an \
+clients. Everything except `GET /api/health` and `GET /stream/{token}/{id}` requires an \
 `Authorization: Bearer <api_key>` header.
 
 `GET /api/tracks` is paginated and defaults to 500 rows — a bare call returns \

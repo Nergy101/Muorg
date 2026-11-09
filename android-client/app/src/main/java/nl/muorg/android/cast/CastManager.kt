@@ -174,7 +174,7 @@ class CastManager @Inject constructor(
             if (!localCastServer.isAlive) localCastServer.start()
             localCastServer.register(track)
         } else {
-            "$baseUrl/stream/${track.id}?token=$token"
+            "$baseUrl/stream/$token/${track.id}"
         }
 
         val contentType = when {

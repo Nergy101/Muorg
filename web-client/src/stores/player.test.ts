@@ -43,7 +43,7 @@ vi.mock("../api/client", () => ({
     castStopDiscovery: vi.fn(),
   },
   streamUrl: (id: number, token: string, start?: number) =>
-    `http://server/stream/${id}?token=${token}${start ? `&start=${start}` : ""}`,
+    `http://server/stream/${token}/${id}${start ? `?start=${start}` : ""}`,
   getServerUrl: () => "http://server",
 }));
 

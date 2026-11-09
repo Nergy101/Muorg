@@ -26,7 +26,7 @@ vi.mock("../api/catalog", () => ({
 
 vi.mock("../api/client", () => ({
   api: {},
-  streamUrl: (id: number, token: string) => `http://server/stream/${id}?token=${token}`,
+  streamUrl: (id: number, token: string) => `http://server/stream/${token}/${id}`,
   getServerUrl: () => "http://server",
 }));
 
@@ -164,7 +164,7 @@ beforeEach(() => {
   estimateMock.mockResolvedValue({ quota: 10 * 1024 * 1024 * 1024, usage: 0 });
   fetchMock.mockImplementation(async (input: Request | string) => {
     const url = typeof input === "string" ? input : input.url;
-    if (!/\/stream\/\d+/.test(url)) throw new Error(`unexpected fetch: ${url}`);
+    if (!/\/stream\/[^/]+\/\d+/.test(url)) throw new Error(`unexpected fetch: ${url}`);
     return audioResponse(100);
   });
 });
@@ -177,7 +177,7 @@ describe("downloadTrack", () => {
     const ok = await offline.downloadTrack(track({ id: 7 }));
 
     expect(ok).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith("http://server/stream/7?token=tok");
+    expect(fetchMock).toHaveBeenCalledWith("http://server/stream/tok/7");
     const cache = await fakeCaches.open(OFFLINE_CACHE_NAME);
     const stored = await cache.match("http://server/stream/7");
     expect(stored).toBeDefined();

@@ -17,7 +17,7 @@ Base URL: `http://<host>:<port>` (default port `7700`).
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/health` | Liveness check — returns `Healthy` |
-| `GET` | `/stream/{id}` | Stream a track's audio. The `id` is the stream token issued by the tracks API. |
+| `GET` | `/stream/{token}/{id}` | Stream a track's audio. The `token` is the stream token issued by the tracks API. |
 
 ## Library & search
 
@@ -45,7 +45,7 @@ Base URL: `http://<host>:<port>` (default port `7700`).
 | `POST` | `/api/tracks/{id}/restore` | Restore from backup |
 | `POST` | `/api/tracks/{id}/rename` | Rename the file on disk |
 | `GET` | `/api/tracks/{id}/auto-tag-suggestions` | MusicBrainz tag suggestions |
-| `GET` | `/api/tracks/{id}/stream-token` | Issue a streaming token for `/stream/{id}` |
+| `GET` | `/api/tracks/{id}/stream-token` | Issue a streaming token for `/stream/{token}/{id}` |
 | `POST` | `/api/tracks/metadata/batch` | Batch metadata update |
 
 ## Playlists
@@ -93,4 +93,4 @@ Base URL: `http://<host>:<port>` (default port `7700`).
 
 ## Streaming
 
-Audio is streamed via `GET /stream/{id}`. Clients first request a stream token (`GET /api/tracks/{id}/stream-token`) and use the returned URL — this keeps the actual stream endpoint public while the token gates access. Streaming supports HTTP range requests, and transcodes on the fly when the client requests a different bitrate/format (see `[transcoding]`).
+Audio is streamed via `GET /stream/{token}/{id}`. Clients first request a stream token (`GET /api/tracks/{id}/stream-token`) and use the returned URL — this keeps the actual stream endpoint public while the token gates access. The token travels in the path, not the query string, so it stays out of proxy access logs, browser history and `Referer` headers. Streaming supports HTTP range requests, and transcodes on the fly when the client requests a different bitrate/format (see `[transcoding]`).

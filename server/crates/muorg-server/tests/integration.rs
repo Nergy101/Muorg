@@ -198,7 +198,7 @@ async fn the_health_probe_and_stream_stay_public() {
     assert_eq!(srv.get("/api/health").await.status(), 200);
     // No token, so this is a 401 from the token check — not from the API key
     // middleware, which would have rejected it before reaching the handler.
-    assert_eq!(srv.get("/stream/1").await.status(), 401);
+    assert_eq!(srv.get("/stream/anything/1").await.status(), 401);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +216,7 @@ async fn a_stream_token_cannot_be_minted_for_a_track_that_does_not_exist() {
 async fn a_forged_stream_token_is_rejected() {
     let srv = TestServer::start().await;
     let resp = srv
-        .get("/stream/1?token=00000000-0000-0000-0000-000000000000")
+        .get("/stream/00000000-0000-0000-0000-000000000000/1")
         .await;
     assert_eq!(resp.status(), 401);
 }
@@ -643,7 +643,7 @@ async fn a_loopback_bound_server_gets_a_stream_only_lan_listener() {
     // The stream route answers on the second listener, token-protected.
     let resp = srv
         .client
-        .get(format!("http://{stream_addr}/stream/{track_id}?token={token}"))
+        .get(format!("http://{stream_addr}/stream/{token}/{track_id}"))
         .send()
         .await
         .unwrap();
@@ -654,7 +654,7 @@ async fn a_loopback_bound_server_gets_a_stream_only_lan_listener() {
     // Without a token the stream route refuses.
     let resp = srv
         .client
-        .get(format!("http://{stream_addr}/stream/{track_id}"))
+        .get(format!("http://{stream_addr}/stream/missing-token/{track_id}"))
         .send()
         .await
         .unwrap();
