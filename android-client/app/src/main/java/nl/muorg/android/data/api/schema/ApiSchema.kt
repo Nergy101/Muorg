@@ -452,6 +452,20 @@ data class UpdateBody(
 )
 
 @Serializable
+data class UpdateStatusResponse(
+    @SerialName("current_version") val currentVersion: String,
+    /** `"up_to_date"`, `"update_available"`, or `"check_failed"`. */
+    val status: String,
+    /**
+     * How to apply the update. The server ships as a Docker image, so a
+     * running container cannot pull its own replacement image.
+     */
+    val instructions: String? = null,
+    @SerialName("latest_version") val latestVersion: String? = null,
+    @SerialName("release_url") val releaseUrl: String? = null
+)
+
+@Serializable
 data class VolumeBody(
     val level: Float
 )

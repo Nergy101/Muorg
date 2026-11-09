@@ -184,6 +184,105 @@ pub async fn health(
     })
 }
 
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct UpdateStatusResponse {
+    /// `"up_to_date"`, `"update_available"`, or `"check_failed"`.
+    pub status: String,
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub release_url: Option<String>,
+    /// How to apply the update. The server ships as a Docker image, so a
+    /// running container cannot pull its own replacement image.
+    pub instructions: Option<String>,
+}
+
+/// Compares two `vX.Y.Z` tags numerically. Returns true when `latest` is
+/// newer than `current`. Anything unparseable counts as not newer.
+fn is_newer_version(current: &str, latest: &str) -> bool {
+    fn parts(tag: &str) -> Option<Vec<u64>> {
+        let tag = tag.strip_prefix('v').unwrap_or(tag);
+        tag.split('.').map(|p| p.parse::<u64>().ok()).collect()
+    }
+    match (parts(current), parts(latest)) {
+        (Some(c), Some(l)) => l > c,
+        _ => false,
+    }
+}
+
+/// Checks GitHub for a newer server release. The server is distributed as a
+/// Docker image, so this reports what to pull rather than swapping binaries.
+#[utoipa::path(
+    post,
+    path = "/api/admin/update",
+    operation_id = "admin_update",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Update check result", body = UpdateStatusResponse),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
+pub async fn update() -> Result<Json<UpdateStatusResponse>, ApiError> {
+    let current = env!("CARGO_PKG_VERSION").to_string();
+    #[derive(Deserialize)]
+    struct LatestRelease {
+        tag_name: String,
+        html_url: String,
+    }
+
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("muorg-server/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| ApiError::from(format!("update check client error: {e}")))?;
+
+    // The `json` reqwest feature is off for this crate, so read the body as
+    // text and parse with serde_json instead.
+    let release: Result<LatestRelease, String> = match client
+        .get("https://api.github.com/repos/Nergy101/Muorg/releases/latest")
+        .send()
+        .await
+    {
+        Ok(response) => match response.error_for_status() {
+            Ok(response) => match response.text().await {
+                Ok(body) => serde_json::from_str::<LatestRelease>(&body)
+                    .map_err(|e| format!("bad release payload: {e}")),
+                Err(e) => Err(e.to_string()),
+            },
+            Err(e) => Err(e.to_string()),
+        },
+        Err(e) => Err(e.to_string()),
+    };
+
+    match release {
+        Ok(rel) => {
+            let latest = rel.tag_name.trim_start_matches('v').to_string();
+            let update_available = is_newer_version(&current, &rel.tag_name);
+            Ok(Json(UpdateStatusResponse {
+                status: if update_available { "update_available" } else { "up_to_date" }.to_string(),
+                current_version: current,
+                latest_version: Some(latest.clone()),
+                release_url: Some(rel.html_url),
+                instructions: update_available.then(|| {
+                    format!(
+                        "Pull the new image and recreate the container: \
+                         docker pull ghcr.io/nergy101/muorg-server:{latest} && \
+                         docker compose up -d"
+                    )
+                }),
+            }))
+        }
+        Err(e) => Ok(Json(UpdateStatusResponse {
+            status: "check_failed".to_string(),
+            current_version: current,
+            latest_version: None,
+            release_url: None,
+            instructions: Some(format!("Could not reach GitHub: {e}")),
+        })),
+    }
+}
+
 /// Prometheus exposition format.
 #[utoipa::path(
     get,
@@ -423,6 +522,15 @@ pub async fn browse(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_comparison_is_numeric_not_lexicographic() {
+        assert!(is_newer_version("4.0.5", "v4.0.10"), "10 > 5 numerically");
+        assert!(!is_newer_version("4.0.10", "v4.0.5"));
+        assert!(!is_newer_version("4.0.5", "v4.0.5"), "same version is not newer");
+        assert!(is_newer_version("4.0.5", "v4.1.0"));
+        assert!(!is_newer_version("4.0.5", "garbage"), "unparseable is not newer");
+    }
 
     fn mk(paths: &[&str]) -> Vec<String> {
         paths.iter().map(|s| s.to_string()).collect()

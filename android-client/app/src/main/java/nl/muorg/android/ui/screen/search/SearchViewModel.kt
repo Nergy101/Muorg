@@ -70,12 +70,9 @@ class SearchViewModel @Inject constructor(
                         results = filterTracks(state.allTracks, query),
                     )
                 }
-                // Record history only once typing has paused and the query is
-                // long enough to be a real search — same rule as the library.
-                if (query.trim().length >= 2) {
-                    searchHistoryManager.addSearch(query)
-                    refreshRecentSearches()
-                }
+                // History is NOT recorded here: one pill per keystroke floods
+                // the capped list. It is recorded on submit (IME Search) and
+                // when a result track is picked — see submitSearch().
             }
         }
         viewModelScope.launch { refreshRecentSearches() }
@@ -151,16 +148,36 @@ class SearchViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
+    /**
+     * Records the current query in the search history. Called when the user
+     * presses IME Search (Enter) — not on every keystroke, so typing "the
+     * quick brown fox" yields one pill, not seven.
+     */
+    fun submitSearch() {
+        val query = _searchQuery.value.trim()
+        if (query.length < 2) return
+        viewModelScope.launch {
+            searchHistoryManager.addSearch(query)
+            refreshRecentSearches()
+        }
+    }
+
     fun selectHistoryChip(query: String) {
         _searchQuery.value = query
     }
 
     /** Records a track picked from the results so it shows up as a recent
-     *  result row next time the screen opens with an empty query. */
+     *  result row next time the screen opens with an empty query. Picking a
+     *  result also counts as a search, so the query lands in the history. */
     fun recordSelectedResult(trackId: Int) {
         viewModelScope.launch {
             searchResultsHistoryManager.addResult(trackId)
             refreshRecentResults()
+            val query = _searchQuery.value.trim()
+            if (query.length >= 2) {
+                searchHistoryManager.addSearch(query)
+                refreshRecentSearches()
+            }
         }
     }
 

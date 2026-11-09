@@ -123,6 +123,7 @@ the first page, not the catalog. Follow `X-Total-Count`.",
         crate::routes::admin::get_backup_directory,
         crate::routes::admin::health,
         crate::routes::admin::metrics,
+        crate::routes::admin::update,
         // System
         crate::routes::util::health,
         crate::routes::util::fetch_image,

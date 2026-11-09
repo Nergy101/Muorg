@@ -1232,6 +1232,41 @@
         },
         "type": "object"
       },
+      "UpdateStatusResponse": {
+        "properties": {
+          "current_version": {
+            "type": "string"
+          },
+          "instructions": {
+            "description": "How to apply the update. The server ships as a Docker image, so a\nrunning container cannot pull its own replacement image.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latest_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "`\"up_to_date\"`, `\"update_available\"`, or `\"check_failed\"`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "current_version"
+        ],
+        "type": "object"
+      },
       "VolumeBody": {
         "properties": {
           "level": {
@@ -1603,6 +1638,42 @@
           }
         ],
         "summary": "Rescan one root, or every root when no body is sent.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/update": {
+      "post": {
+        "operationId": "admin_update",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatusResponse"
+                }
+              }
+            },
+            "description": "Update check result"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Checks GitHub for a newer server release. The server is distributed as a\nDocker image, so this reports what to pull rather than swapping binaries.",
         "tags": [
           "Admin"
         ]

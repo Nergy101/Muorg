@@ -122,6 +122,7 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/admin/backup-directory", get(routes::admin::get_backup_directory))
         .route("/api/admin/health", get(routes::admin::health))
         .route("/api/admin/metrics", get(routes::admin::metrics))
+        .route("/api/admin/update", post(routes::admin::update))
         .route("/api/cast/devices", get(routes::cast::get_devices))
         .route("/api/cast/discovery/start", post(routes::cast::start_discovery))
         .route("/api/cast/discovery/stop", post(routes::cast::stop_discovery))

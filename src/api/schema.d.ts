@@ -161,6 +161,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checks GitHub for a newer server release. The server is distributed as a
+         *     Docker image, so this reports what to pull rather than swapping binaries.
+         */
+        post: operations["admin_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cast/devices": {
         parameters: {
             query?: never;
@@ -1335,6 +1355,18 @@ export interface components {
             icon?: string | null;
             name?: string | null;
         };
+        UpdateStatusResponse: {
+            current_version: string;
+            /**
+             * @description How to apply the update. The server ships as a Docker image, so a
+             *     running container cannot pull its own replacement image.
+             */
+            instructions?: string | null;
+            latest_version?: string | null;
+            release_url?: string | null;
+            /** @description `"up_to_date"`, `"update_available"`, or `"check_failed"`. */
+            status: string;
+        };
         VolumeBody: {
             /** Format: float */
             level: number;
@@ -1394,6 +1426,7 @@ export type SchemaTrackIdsBody = components['schemas']['TrackIdsBody'];
 export type SchemaTrackLyrics = components['schemas']['TrackLyrics'];
 export type SchemaTrackMetadata = components['schemas']['TrackMetadata'];
 export type SchemaUpdateBody = components['schemas']['UpdateBody'];
+export type SchemaUpdateStatusResponse = components['schemas']['UpdateStatusResponse'];
 export type SchemaVolumeBody = components['schemas']['VolumeBody'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -1648,6 +1681,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RescanResult"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Update check result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatusResponse"];
                 };
             };
             /** @description Missing or invalid API key */

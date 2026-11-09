@@ -57,6 +57,47 @@ fun InfoSection(
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
 
+    // Only meaningful in server mode; in local mode there is no server.
+    if (uiState.sourceMode == SourceMode.ONLINE_SERVER) {
+        ListItem(
+            headlineContent = { Text("Server version") },
+            supportingContent = { Text(uiState.serverVersion ?: "unknown") },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(mageIconRes("server")), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
+    }
+
+    // Only meaningful in server mode; in local mode there is no server.
+    if (uiState.sourceMode == SourceMode.ONLINE_SERVER) {
+        ListItem(
+            headlineContent = { Text("Update server") },
+            supportingContent = {
+                Text(
+                    uiState.serverUpdateResult
+                        ?: "Check whether the server has a newer release"
+                )
+            },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(mageIconRes("refresh")), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                if (uiState.serverUpdateInProgress) {
+                    CircularProgressIndicator(Modifier.size(20.dp))
+                }
+            },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+            modifier = Modifier.clickable(enabled = !uiState.serverUpdateInProgress) {
+                viewModel.updateServer()
+            },
+        )
+    }
+
     ListItem(
         headlineContent = { Text("Check for updates") },
         leadingContent = {

@@ -104,6 +104,15 @@ interface MuorgApi {
     ): Response<RescanResult>
 
     /**
+     * Checks GitHub for a newer server release. The server is distributed as a
+     * Docker image, so this reports what to pull rather than swapping binaries.
+     *
+     * `POST /api/admin/update`
+     */
+    @POST("api/admin/update")
+    suspend fun adminUpdate(): Response<UpdateStatusResponse>
+
+    /**
      * Chromecast devices seen by the current mDNS sweep.
      *
      * `GET /api/cast/devices`

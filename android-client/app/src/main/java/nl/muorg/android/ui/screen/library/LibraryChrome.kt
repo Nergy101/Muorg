@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
@@ -34,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import nl.muorg.android.ui.component.ProvideLibraryChrome
@@ -73,10 +76,6 @@ fun LibraryChrome(
                 onValueChange = {
                     onSearchTextChange(it)
                     viewModel.onSearchQueryChange(it)
-                    if (it.isNotEmpty()) {
-                        // Refresh recent searches to include the new one
-                        coroutineScope.launch { recentSearches = viewModel.getRecentSearches() }
-                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -104,6 +103,11 @@ fun LibraryChrome(
                     }
                 },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    viewModel.submitSearch()
+                    coroutineScope.launch { recentSearches = viewModel.getRecentSearches() }
+                }),
                 shape = MuorgShapes.pill,
                 // The pill itself is the `glassField` material; the text field
                 // must not draw a second outline on top of it.

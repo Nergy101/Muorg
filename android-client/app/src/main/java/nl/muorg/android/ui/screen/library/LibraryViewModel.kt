@@ -422,19 +422,25 @@ class LibraryViewModel @Inject constructor(
                         filteredAlbums = applyAlbumFilters(state.albums, state.copy(searchQuery = query)),
                     )
                 }
-                // Record history only once typing has paused (debounced above)
-                // and only for queries long enough to be a real search — every
-                // keystroke used to write a SharedPreferences fragment and evict
-                // real searches from the capped history.
-                if (query.trim().length >= 2) {
-                    searchHistoryManager.addSearch(query)
-                }
+                // History is NOT recorded here: one pill per keystroke floods
+                // the capped list. It is recorded on submit (IME Search) —
+                // see submitSearch().
             }
         }
     }
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
+    }
+
+    /**
+     * Records the current query in the search history. Called when the user
+     * presses IME Search (Enter) in the library search field.
+     */
+    fun submitSearch() {
+        val query = _searchQuery.value.trim()
+        if (query.length < 2) return
+        viewModelScope.launch { searchHistoryManager.addSearch(query) }
     }
 
     /** Returns the list of recent searches (newest first). */

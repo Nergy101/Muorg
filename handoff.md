@@ -1,8 +1,26 @@
 # Muorg: handoff of audit decisions
 
+## Status (updated after implementation)
+
+**All 34 decisions below are implemented.** They landed in four commits:
+
+- `48483af` — feat(server): implement handoff audit decisions
+- `f01c77b` — feat(client): implement handoff audit decisions
+- `e8b03f7` — feat(web-client): implement handoff audit decisions
+- `3f4611b` — feat(android): implement handoff audit decisions
+
+Q12, Q22, Q28 and Q34 were "keep as is / no change" decisions and required no code. The decisions are kept below as the record of what was decided and where it landed.
+
+## Remaining open work (not from this audit)
+
+- GitHub issues #124, #125, #126 — all Android (search-history pills, server version in Muorg info, update server from the app).
+- Branch `docs-unversion-wip` — 2 unmerged commits (docs unversioning, web two-tier queue).
+- Branch `dependabot/cargo/server/server-248f4c7db5` — 2 unmerged commits (utoipa 6.0.0 bump + OpenAPI regen).
+- `improvement-plan-8-sept-2026.md` §3 (stream token in query string), §5 (Android Robolectric/instrumented tests), §6 (Int→Long ids), §9 (web offline downloads decision), §14 (per-view component tests).
+
 ## Purpose
 
-A read-only audit of Muorg (server, desktop, web and Android clients) found 34 doubtful decisions. The owner answered each one. This document lists every decision so another agent can implement them. **No code has been changed yet.** Implement only the decisions below.
+A read-only audit of Muorg (server, desktop, web and Android clients) found 34 doubtful decisions. The owner answered each one. This document lists every decision; all have since been implemented (see Status above).
 
 Items already decided in `improvement-plan-8-sept-2026.md` §1–§19 are out of scope. These include the stream token in the query string, Int vs Long IDs, Android-only offline downloads, no `/api/reports`, and client-side full-catalog load.
 

@@ -43,6 +43,9 @@ enum class SourceMode { ONLINE_SERVER, LOCAL_LIBRARY }
 
 data class SettingsUiState(
     val serverUrl: String = "",
+    val serverVersion: String? = null,
+    val serverUpdateInProgress: Boolean = false,
+    val serverUpdateResult: String? = null,
     val showLogoutDialog: Boolean = false,
     val stats: Stats? = null,
     val statsError: Boolean = false,
@@ -125,6 +128,7 @@ class SettingsViewModel @Inject constructor(
                     musicMode = mode,
                     sourceMode = if (mode == "local") SourceMode.LOCAL_LIBRARY else SourceMode.ONLINE_SERVER,
                 )}
+                if (mode != "local") fetchServerVersion()
             }
         }
         viewModelScope.launch {
@@ -223,6 +227,47 @@ class SettingsViewModel @Inject constructor(
                 onSuccess = { stats -> _uiState.update { it.copy(stats = stats, statsError = false) } },
                 onFailure = { _uiState.update { it.copy(statsError = true) } },
             )
+        }
+    }
+
+    /**
+     * Reads the server's version from the `X-Muorg-Version` header on
+     * `GET /api/health`, so the info section can show whether the server
+     * is behind the app. Fails silently — the row just shows "unknown".
+     */
+    private fun fetchServerVersion() {
+        viewModelScope.launch {
+            val version = runCatching { api.health() }
+                .getOrNull()
+                ?.takeIf { it.isSuccessful }
+                ?.headers()
+                ?.get("x-muorg-version")
+            _uiState.update { it.copy(serverVersion = version) }
+        }
+    }
+
+    /**
+     * Asks the server to check for a newer release. The server ships as a
+     * Docker image, so it cannot pull its own replacement — the result says
+     * whether an update exists and what to run.
+     */
+    fun updateServer() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(serverUpdateInProgress = true, serverUpdateResult = null) }
+            val result = runCatching { api.adminUpdate() }
+                .getOrNull()
+                ?.takeIf { it.isSuccessful }
+                ?.body()
+            _uiState.update {
+                val message = when {
+                    result == null -> "Could not reach the server"
+                    result.status == "up_to_date" -> "Server is up to date (${result.currentVersion})"
+                    result.status == "update_available" ->
+                        "Server update available: v${result.latestVersion} — ${result.instructions ?: "pull the new image and recreate the container"}"
+                    else -> result.instructions ?: "Update check failed"
+                }
+                it.copy(serverUpdateInProgress = false, serverUpdateResult = message)
+            }
         }
     }
 
