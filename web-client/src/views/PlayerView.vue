@@ -254,6 +254,36 @@
                timer / lyrics / actions) in one row underneath the transport
                buttons. Mobile uses the hardware volume keys. -->
           <div class="hidden shrink-0 items-center justify-center gap-3 pt-4 lg:flex">
+            <!-- Quick actions (queue / add to playlist / favourite), left of
+                 the sound slider — the same controls the info row shows. -->
+            <div class="glass-sheer flex items-center overflow-hidden rounded-full">
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
+                aria-label="Queue"
+                @click="router.push({ name: 'player-queue' })"
+              >
+                <MageIcon name="stack" class="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
+                aria-label="Add to playlist"
+                @click="openAddToPlaylist"
+              >
+                <MageIcon name="playlist-add" class="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                class="flex h-10 w-10 items-center justify-center border-l border-white/20 transition-colors hover:bg-white/10"
+                :class="[isFavorite ? 'text-primary' : 'text-white', heartPulse ? 'heart-pop' : '']"
+                :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+                @click="onToggleFavorite"
+                @animationend="heartPulse = false"
+              >
+                <MageIcon name="heart" class="h-5 w-5" :class="isFavorite ? 'fill-current' : ''" />
+              </button>
+            </div>
             <div class="glass-sheer flex h-10 items-center rounded-full px-3">
               <VolumeControl variant="player" />
             </div>
