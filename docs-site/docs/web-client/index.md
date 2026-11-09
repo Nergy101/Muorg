@@ -16,6 +16,10 @@ On first load the app asks for:
 
 Both are saved in your browser's local storage and can be cleared again with **Settings → Log out**.
 
+:::tip Deliberate choice: the API key lives in `localStorage`
+The API key is stored in `localStorage`, which means any script running on the web app's origin (e.g. via an XSS bug) could read it. For a self-hosted, single-user app this is a deliberate trade-off — it lets the PWA stay logged in across reloads without a backend session — but it is a real exposure: keep the web app's origin free of third-party scripts, and remember the key grants full access to your library. Stream URLs, by contrast, use short-lived per-track tokens in the URL path (`/stream/{token}/{id}`), never the API key itself.
+:::
+
 :::caution The server URL is not configured at deploy time
 There is no `VITE_API_URL` or any other environment variable that points the web app at a server. The image is a plain static build; the connection is always entered by the user in the browser.
 :::
@@ -71,13 +75,15 @@ The full-screen player shows album art with a dominant-colour backdrop, seek bar
 
 The bottom bar has four tabs — **Home**, **Library**, **Playlists** and **Settings**. The queue and full player are reached from the mini player.
 
+**Chromecast**: the player offers a cast button that discovers Cast devices through the server's cast API (the server does the casting, so it works from any browser), with a "casting to X" badge on the mini player while a session is live.
+
 Hover or keyboard-focus any icon-only button to see what it does (with its keyboard shortcut where it has one); toggles also say whether they are on and what a click will do.
 
 ### Library
 
 - Album **grid**, album **list** and flat **track list** layouts, cycled from the toolbar; long lists are virtualized.
 - On screens ≥ 1024 px the track list becomes a **desktop-style table**: sortable columns (title, artist, album, year, duration, rating, format), resizable and hideable columns, three row densities, grouping by artist or album, a minimum-rating filter, inline star ratings, keyboard navigation and a right-click menu. Configure it in Settings → Tracks table.
-- Search across albums and artists, with recent searches kept as chips you can re-run or clear.
+- Search across albums and artists, with recent searches kept as chips you can re-run or clear. On desktop, clicking **Search** in the left sidebar focuses the search bar immediately, so you can just type (`/` does the same from anywhere).
 - Sort by album, artist or year, ascending or descending, plus a **genre filter**.
 - **Shuffle all** plays everything currently filtered.
 - Tap an album for its tracks; add a whole album to a playlist in one action.
