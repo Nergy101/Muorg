@@ -4,7 +4,41 @@ sidebar_position: 8
 
 # Release Notes
 
-Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
+Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
+
+## v4.1.0
+
+- **Android**: search history is no longer written on every keystroke — a query is recorded when you press Search (Enter) or pick a result track, so typing "the quick brown fox" yields one history pill instead of seven.
+- **Android**: the Settings info section now shows the **server version** (read from the `X-Muorg-Version` header on `/api/health`), so you can see at a glance whether the server is behind the app.
+- **Android + Server**: a new **Update server** row in Settings asks the server to check GitHub for a newer release. New `POST /api/admin/update` endpoint returns `up_to_date` / `update_available` with the exact `docker pull` + `docker compose up -d` command, since the server ships as a Docker image and a running container cannot pull its own replacement.
+
+## v4.0.5
+
+- **All components**: version alignment — server, web and Android all at 4.0.5.
+- **Web + Android**: album rows show a small cover; playlist screens get a top download button and a play/shuffle row; album detail redesigned with full-width title, subtitle, action buttons and a 3-dots bottom sheet; statistics charts put the track/artist title above the bar (Android bins the track-length chart into at most ~12 bars).
+
+## v4.0.4
+
+- **Web**: all in-place context menus and dropdowns replaced with bottom sheets.
+- **Web**: home shelves fill the viewport (shelf cap = grid columns, mixes = 2 rows).
+- **Android + Web**: settings parity — Android settings match the web client; the web library regains the album-list layout.
+
+## v4.0.3
+
+- **Android**: the track sheet now matches the web track context menu — rating stars, play next, queue, download, select, delete. Album context menus get a filled play button with the cover colour, add-to-queue and view-album.
+- **Android + Web**: Reports and Statistics moved above the collapsible sections in Settings; the Android settings screen shows the Muorg logo centred at the top; Android dropdown menus replaced with bottom sheets; downloaded badge next to the track count on playlist and album cards.
+
+## v4.0.2
+
+- **Android**: web parity pass — library top bar, playlist sort, collapsible settings sections and a statistics screen with real charts.
+
+## v4.0.1
+
+- **Web**: iOS 26 top-edge blur removed (black-translucent status bar dropped); search placeholder and empty state on Android.
+
+## v4.0.0
+
+- **All components**: new vinyl-orc logo on every surface, including the docs site.
 
 ## v3.4.3
 
@@ -58,10 +92,15 @@ Muorg ships as tagged GitHub releases (`v3.x.y`). This page summarizes the notab
 
 - **All components**: coordinated release implementing the handoff-audit decisions across the server, desktop, web app and Android client.
 
-## Android 3.2.x – 3.6.x
+## Android 3.2.x – 4.1.x
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v4.1.0** — search history only records real searches (Enter / result pick); Settings shows the server version and an Update server row (see [v4.1.0](#v410)).
+- **android-v4.0.5** — album rows with small covers, playlist download button and play/shuffle row, redesigned album detail, statistics chart polish (see [v4.0.5](#v405)).
+- **android-v4.0.4** — settings parity with the web client (see [v4.0.4](#v404)).
+- **android-v4.0.3** — track sheet matches the web context menu; bottom sheets; downloaded badges (see [v4.0.3](#v403)).
+- **android-v4.0.2** — web parity: library top bar, playlist sort, collapsible settings, real statistics charts (see [v4.0.2](#v402)).
 - **android-v3.6.1** — search screen polish and the Firefox empty-body write fix (see [v3.4.1](#v341)).
 - **android-v3.6.0** — Search tab and screen (see [v3.4.0](#v340)).
 - **android-v3.5.0** — WAV support: `.wav` files play from the server and from local folders, and show the highlighted lossless format badge next to FLAC. Server streams of WAV (like FLAC) go through the MP3 transcode path, so seeking re-requests the stream at the offset and Chromecast gets the right content type. Also updates Gradle to 9.8.2, kotlinx-serialization-json to 1.12.0 and the Cast framework to 23.0.0.

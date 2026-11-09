@@ -64,15 +64,9 @@ pnpm start       # dev server with live reload
 pnpm build       # static build → build/
 ```
 
-### Versioned docs
+### Docs versioning
 
-The docs are versioned per release with Docusaurus's built-in versioning.
-
-- `docs/` holds the **current** docs (tracking the latest release)
-- `versioned_docs/version-2.33.0/` is the snapshot for the v2.33.0 release
-- `docusaurus.config.js` sets `lastVersion` and per-version labels — the sidebar shows a version picker automatically once more than one version exists
-
-**When to cut a new docs version:** run `pnpm docusaurus docs:version <version>` whenever a release ships **notable docs changes or breaking changes** — do not version on every patch release. Snapshot the docs *before* rewriting them for the next release, so the snapshot matches what users of that release actually saw. Keep the current docs describing the latest release.
+The docs are **unversioned**: `docs/` always describes the latest release. Because every component ships in lockstep from one repo, frozen per-release snapshots rot quickly — a snapshot of v2.33.0 was dropped for exactly that reason. `docusaurus.config.js` therefore sets no `lastVersion`/`versions` config, and `onBrokenLinks: "throw"` keeps the links honest at build time. If a release ever ships a breaking change that users on older versions still need documented, reintroduce versioning deliberately rather than by default.
 
 ### Search
 
