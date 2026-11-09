@@ -6,6 +6,16 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.2.0
+
+- **Server + all clients**: the stream token moved from the query string to the path — audio now streams from `GET /stream/{token}/{id}` instead of `/stream?id=…&token=…`, keeping tokens out of URLs and logs. The OpenAPI spec and all generated clients (web, desktop, Android) were regenerated to match.
+- **Web**: the search page is now a fixed, centered 900px column at every window width, so the search bar stays evenly wide instead of stretching with the window.
+- **Web**: on desktop, the library search bar moved from the floating bottom bar to the top of the Library view; mobile keeps it in the bottom bar.
+
+## v4.1.1
+
+- **Web**: clicking **Search** in the desktop sidebar auto-focuses the search input, so you can type immediately.
+
 ## v4.1.0
 
 - **Android**: search history is no longer written on every keystroke — a query is recorded when you press Search (Enter) or pick a result track, so typing "the quick brown fox" yields one history pill instead of seven.
@@ -92,10 +102,11 @@ Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notab
 
 - **All components**: coordinated release implementing the handoff-audit decisions across the server, desktop, web app and Android client.
 
-## Android 3.2.x – 4.1.x
+## Android 3.2.x – 4.2.x
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v4.2.0** — version alignment with the v4.2.0 server/web/desktop release; stream URLs use the new `/stream/{token}/{id}` path (see [v4.2.0](#v420)).
 - **android-v4.1.0** — search history only records real searches (Enter / result pick); Settings shows the server version and an Update server row (see [v4.1.0](#v410)).
 - **android-v4.0.5** — album rows with small covers, playlist download button and play/shuffle row, redesigned album detail, statistics chart polish (see [v4.0.5](#v405)).
 - **android-v4.0.4** — settings parity with the web client (see [v4.0.4](#v404)).
