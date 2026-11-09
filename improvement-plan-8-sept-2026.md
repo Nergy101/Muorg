@@ -269,6 +269,11 @@ What is still untested is each app's own `.vue` files: the desktop's
 Those need a Pinia store per test and a good deal of mocking, so they are worth
 adding view by view as each is next touched rather than in one pass.
 
+First web batch done (9 Nov 2026): `SearchView`, `StatsView`, `ReportsView` and
+`ArtistDetailView` now have component tests (stores mocked as plain reactive
+objects, child components stubbed, `RouterLink` registered as a global stub —
+`vi.mock("vue-router")` alone does not resolve the global `<RouterLink>`).
+
 One setup note for whoever does: `vue` must NOT be aliased in
 `vitest.config.mts`. `@vitejs/plugin-vue` compiles SFCs against the root's own
 `@vue/compiler-sfc`, and pointing the runtime at another copy makes template
