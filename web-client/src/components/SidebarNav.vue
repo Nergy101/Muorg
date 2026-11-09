@@ -135,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
@@ -180,10 +180,15 @@ const reportIssues = computed(() => {
   return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
 });
 
-function onTabClick(name: string): void {
+async function onTabClick(name: string): Promise<void> {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;
-  // Re-tapping Search jumps straight back into the input.
-  if (name === "search" && route.name === "search") searchFocusSignal.value++;
+  // Clicking Search always lands in the input — arriving at the tab or
+  // re-tapping it. Same pattern as the "/" shortcut in useKeyboardShortcuts.
+  if (name === "search") {
+    if (route.name !== "search") await router.push({ name: "search" });
+    await nextTick();
+    searchFocusSignal.value++;
+  }
 }
 
 /** Queue doubles as a toggle: already on a queue screen → back to the last one. */

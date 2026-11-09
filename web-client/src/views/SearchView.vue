@@ -242,8 +242,9 @@ function focusInput(): void {
   inputEl.value?.select();
 }
 
-// First arrival stays unfocused — re-tapping the Search tab focuses the
-// input so typing can start immediately.
+// The signal is bumped by the sidebar Search click and the "/" shortcut, so
+// the input is focused whenever navigation asks for it and typing can start
+// immediately.
 watch(searchFocusSignal, async () => {
   await nextTick();
   focusInput();
