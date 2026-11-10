@@ -133,6 +133,7 @@ import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import AlbumActionsHost from "../components/AlbumActionsHost.vue";
 import LibraryTopBar from "../components/LibraryTopBar.vue";
+import LibrarySearchBar from "../components/LibrarySearchBar.vue";
 import LibraryTrackTable from "../components/library/LibraryTrackTable.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
