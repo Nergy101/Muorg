@@ -67,7 +67,7 @@ data class SettingsUiState(
     val pendingSourceMode: SourceMode? = null,
     val useTrueBlack: Boolean = false,
     val playerBarTapOpensPlayer: Boolean = true,
-    val materialYou: Boolean = false,
+    val materialYou: Boolean = true,
     val themeMode: String = "dark",
     val albumViewStyle: String = "grid",
     val sortAscending: Boolean = true,

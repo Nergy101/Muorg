@@ -12,9 +12,9 @@ import androidx.core.graphics.ColorUtils
  * tints itself with the cover: the bottom island, the maximised player and the
  * queue's now-playing card. One helper so those three never drift apart.
  *
- * The raw dominant colour is NOT usable directly — it is regularly darker, or
- * greyer, than the surface it has to sit on — so it is pushed to a saturation
- * and lightness that clears that surface, in whichever direction is needed.
+ * The artwork's own hue, saturation and lightness are kept as sampled, so the
+ * accent tracks the cover literally; lightness is only clamped into a wide
+ * band so a near-black or near-white cover cannot produce an invisible accent.
  * Near-grey artwork keeps the theme accent rather than tinting everything mud.
  *
  * @param source the artwork's dominant colour
@@ -32,7 +32,6 @@ fun artworkAccent(
     val hsl = FloatArray(3)
     ColorUtils.colorToHSL(source.toArgb(), hsl)
     if (hsl[1] < 0.18f) return fallback
-    hsl[1] = hsl[1].coerceIn(0.45f, 0.85f)
-    hsl[2] = if (onDark) hsl[2].coerceIn(0.58f, 0.74f) else hsl[2].coerceIn(0.28f, 0.42f)
+    hsl[2] = if (onDark) hsl[2].coerceIn(0.30f, 0.78f) else hsl[2].coerceIn(0.22f, 0.70f)
     return Color(ColorUtils.HSLToColor(hsl))
 }
