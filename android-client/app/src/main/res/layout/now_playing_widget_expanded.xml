@@ -25,7 +25,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:src="@drawable/ic_compact_disk"
-            android:tint="#66FFFFFF"
             android:scaleType="centerInside"
             android:contentDescription="@string/widget_cover_desc" />
     </FrameLayout>

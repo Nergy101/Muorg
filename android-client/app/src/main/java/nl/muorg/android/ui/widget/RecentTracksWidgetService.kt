@@ -62,6 +62,9 @@ class RecentTracksFactory(
         val track = tracks.getOrNull(position) ?: return views
         views.setTextViewText(R.id.widget_item_title, track.displayTitle)
         views.setTextViewText(R.id.widget_item_artist, track.displayArtist)
+        // Placeholder disc tint, applied in code for the same reason as the
+        // now-playing widget (host process, no appcompat tint).
+        views.setInt(R.id.widget_item_cover_placeholder, "setColorFilter", 0x66FFFFFF.toInt())
         val cover = WidgetStateStore.peekCover(context, track.id)
         if (cover != null) {
             views.setImageViewBitmap(R.id.widget_item_cover, cover)

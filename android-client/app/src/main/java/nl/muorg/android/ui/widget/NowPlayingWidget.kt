@@ -258,6 +258,10 @@ class NowPlayingWidget : AppWidgetProvider() {
 
         val views = RemoteViews(context.packageName, layoutId)
         views.setOnClickPendingIntent(R.id.widget_root, WidgetIntents.openAppPendingIntent(context))
+        // The placeholder disc is a black-stroke vector; tint it here because the
+        // widget layout inflates in the host process, where appcompat's app:tint
+        // would not apply (and lint rejects android:tint).
+        views.setInt(R.id.widget_cover_placeholder, "setColorFilter", PLACEHOLDER_TINT)
 
         val cover = WidgetStateStore.peekCover(context, state.trackId)
         if (cover != null) {
@@ -335,6 +339,7 @@ class NowPlayingWidget : AppWidgetProvider() {
         /** Widgets at least this tall (dp) get the expanded layout; shorter ones the compact row. */
         private const val EXPANDED_MIN_HEIGHT_DP = 100
         private const val ICON_TINT = Color.WHITE
+        private const val PLACEHOLDER_TINT = 0x66FFFFFF.toInt()
         private const val FAVORITE_TINT = 0xFFEF5350.toInt()
         private const val REQUEST_PLAY_PAUSE = 1
         private const val REQUEST_NEXT = 2
