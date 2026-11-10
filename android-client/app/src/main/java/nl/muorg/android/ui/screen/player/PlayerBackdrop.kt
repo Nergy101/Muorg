@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import nl.muorg.android.ui.component.BlurredCoverArt
 import nl.muorg.android.ui.component.DominantColorState
 
 /**
@@ -63,22 +64,6 @@ fun PlayerBackdrop(
                 // colour over near-black, rather than a flat wash — it keeps
                 // the backdrop from reading as a solid colour card.
                 Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0B0A0A)))
-                if (sharp) {
-                    // FS mode: the cover itself, full-bleed and only lightly
-                    // blurred (the web drops to ~8px on mobile FS).
-                    AsyncImage(
-                        model = displayedCoverUrl,
-                        contentDescription = null,
-                        imageLoader = imageLoader,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                renderEffect = BlurEffect(12f, 12f, TileMode.Clamp)
-                                alpha = 0.9f
-                            },
-                    )
-                }
                 Box(
                     modifier = Modifier.fillMaxSize().background(
                         Brush.radialGradient(
@@ -105,6 +90,15 @@ fun PlayerBackdrop(
                             1.0f to Color.Black.copy(alpha = 0.55f),
                         )
                     )
+                )
+                // The cover itself, blurred full-bleed on top of the wash — the
+                // same backdrop the web's maximized player paints on mobile
+                // (blur 16px at 0.9 opacity; art-fullscreen drops to 6px at
+                // full opacity).
+                BlurredCoverArt(
+                    coverUrl = displayedCoverUrl,
+                    imageLoader = imageLoader,
+                    sharp = sharp,
                 )
             }
         }

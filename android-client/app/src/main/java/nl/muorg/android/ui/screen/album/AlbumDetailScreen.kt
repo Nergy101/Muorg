@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.album
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -26,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -33,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,12 +43,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import nl.muorg.android.ui.icon.MageIcon
 import nl.muorg.android.ui.icon.mageIconRes
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,6 +61,7 @@ import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import androidx.compose.foundation.layout.statusBarsPadding
 import nl.muorg.android.ui.theme.MuorgShapes
+import nl.muorg.android.ui.component.CoverBackdrop
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
@@ -93,187 +99,220 @@ fun AlbumDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
 
+    // Same cover-derived backdrop as the web album view (mobile viewport):
+    // shown only when the album actually has art, so coverless albums keep
+    // the plain theme background.
+    val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
+    val backdropActive = coverModel != null
+
+    // The backdrop runs edge to edge, so over it the system bars need
+    // dark-style icons even in the light theme.
+    val window = LocalActivity.current?.window
+    if (window != null && backdropActive) {
+        DisposableEffect(window) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            val prevLightStatus = insetsController.isAppearanceLightStatusBars
+            val prevLightNav = insetsController.isAppearanceLightNavigationBars
+            insetsController.isAppearanceLightStatusBars = false
+            insetsController.isAppearanceLightNavigationBars = false
+            onDispose {
+                insetsController.isAppearanceLightStatusBars = prevLightStatus
+                insetsController.isAppearanceLightNavigationBars = prevLightNav
+            }
+        }
+    }
+
     Scaffold(
         topBar = {},
-        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
+        containerColor = if (backdropActive) Color.Transparent else MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        when {
-            uiState.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (backdropActive) {
+                CoverBackdrop(coverUrl = coverModel, imageLoader = imageLoader)
             }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(bottom = LocalBottomInset.current + 8.dp),
-                ) {
-                    item {
-                        var showAlbumPlaylistSheet by remember { mutableStateOf(false) }
-                        var showAlbumMenuSheet by remember { mutableStateOf(false) }
-                        val albumFullIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists) {
-                            val allPaths = uiState.tracks.map { it.path }.toSet()
-                            uiState.playlists
-                                .filter { pl -> allPaths.isNotEmpty() && allPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
-                                .map { it.id }.toSet()
-                        }
-                        val albumPartialIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists, albumFullIds) {
-                            val allPaths = uiState.tracks.map { it.path }.toSet()
-                            uiState.playlists
-                                .filter { pl -> pl.id !in albumFullIds && allPaths.any { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
-                                .map { it.id }.toSet()
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                // The web puts the back affordance in the header row
-                                // itself, left of the cover — there is no app bar.
-                                IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
-                                    Icon(
-                                        painter = painterResource(mageIconRes("chevron-left")),
-                                        contentDescription = "Back",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(2.dp))
-                                val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
-                                coverModel?.let {
-                                    AsyncImage(
-                                        model = it,
-                                        contentDescription = "Album cover",
-                                        imageLoader = imageLoader,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .size(112.dp)
-                                            .clip(MuorgShapes.art),
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Title and subtitle span the full width; the action
-                            // buttons sit below the text, not beside it.
-                            MarqueeText(
-                                text = uiState.albumName,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = buildString {
-                                    if (uiState.artist.isNotBlank()) append(uiState.artist)
-                                    uiState.year?.let {
-                                        if (isNotEmpty()) append(" · ")
-                                        append("$it")
-                                    }
-                                    if (isNotEmpty()) append(" · ")
-                                    append("${uiState.tracks.size} tracks")
-                                    val totalSecs = uiState.tracks.sumOf { it.durationSecs?.toInt() ?: 0 }
-                                    if (totalSecs > 0) append(" · ${totalSecs / 60}m")
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                androidx.compose.material3.FilledIconButton(
-                                    onClick = {
-                                        uiState.tracks.firstOrNull()?.let { first ->
-                                            playerViewModel.playTrack(first, uiState.tracks)
-                                        }
-                                    },
-                                    colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                ) {
-                                    Icon(
-                                        painter = painterResource(mageIconRes("play")),
-                                        contentDescription = "Play all",
-                                    )
-                                }
-                                androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
-                                    Icon(
-                                        painter = painterResource(mageIconRes("playlist-add")),
-                                        contentDescription = "Add album to playlist",
-                                    )
-                                }
-                                IconButton(onClick = { showAlbumMenuSheet = true }) {
-                                    Icon(
-                                        painter = painterResource(mageIconRes("dots")),
-                                        contentDescription = "More album options",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                        HorizontalDivider()
-
-                        if (showAlbumPlaylistSheet) {
-                            PlaylistPickerSheet(
-                                playlists = uiState.playlists,
-                                membershipIds = albumFullIds,
-                                partialMembershipIds = albumPartialIds,
-                                onAdd = { playlist -> viewModel.requestAddTracksToPlaylist(uiState.tracks, playlist.id) },
-                                onRemove = { playlist -> viewModel.removeAlbumFromPlaylist(playlist.id) },
-                                onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
-                                onDismiss = { showAlbumPlaylistSheet = false },
-                            )
-                        }
-                        if (showAlbumMenuSheet) {
-                            AlbumHeaderMenuSheet(
-                                albumName = uiState.albumName,
-                                artist = uiState.artist,
-                                onDismiss = { showAlbumMenuSheet = false },
-                                onViewArtist = { uiState.artist.takeIf { it.isNotBlank() }?.let(onViewArtist) },
-                            )
-                        }
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(innerPadding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(innerPadding),
+                        contentPadding = PaddingValues(bottom = LocalBottomInset.current + 8.dp),
+                    ) {
+                        item {
+                            var showAlbumPlaylistSheet by remember { mutableStateOf(false) }
+                            var showAlbumMenuSheet by remember { mutableStateOf(false) }
+                            val albumFullIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists) {
+                                val allPaths = uiState.tracks.map { it.path }.toSet()
+                                uiState.playlists
+                                    .filter { pl -> allPaths.isNotEmpty() && allPaths.all { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
+                                    .map { it.id }.toSet()
+                            }
+                            val albumPartialIds = remember(uiState.trackPlaylistMembership, uiState.tracks, uiState.playlists, albumFullIds) {
+                                val allPaths = uiState.tracks.map { it.path }.toSet()
+                                uiState.playlists
+                                    .filter { pl -> pl.id !in albumFullIds && allPaths.any { path -> pl.id in (uiState.trackPlaylistMembership[path] ?: emptySet()) } }
+                                    .map { it.id }.toSet()
+                            }
 
-                    items(
-                        items = uiState.tracks,
-                        key = { it.id },
-                    ) { track ->
-                        val membership = uiState.trackPlaylistMembership[track.path] ?: emptySet()
-                        val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
-                        AlbumTrackRow(
-                            track = track,
-                            baseUrl = baseUrl,
-                            imageLoader = imageLoader,
-                            coverModel = coverModel,
-                            isPlaying = playerState.currentTrack?.id == track.id &&
-                                playerState.isPlaying,
-                            isLoading = playerState.pendingTrackId == track.id,
-                            isFavorite = track.id.toString() in playerState.favorites,
-                            playlists = uiState.playlists,
-                            trackInPlaylistIds = membership,
-                            onClick = { playerViewModel.playTrack(track, uiState.tracks) },
-                            onAddToQueue = { playerViewModel.addToQueue(track) },
-                            onToggleFavorite = { playerViewModel.toggleFavorite(track) },
-                            onAddToPlaylist = { playlist ->
-                                viewModel.requestAddTracksToPlaylist(listOf(track), playlist.id)
-                            },
-                            onRemoveFromPlaylist = { playlist ->
-                                viewModel.removeTrackFromPlaylist(track, playlist.id)
-                            },
-                            onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
-                            onViewArtist = { track.artist?.let { onViewArtist(it) } },
-                        )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // The web puts the back affordance in the header row
+                                    // itself, left of the cover — there is no app bar.
+                                    IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                                        Icon(
+                                            painter = painterResource(mageIconRes("chevron-left")),
+                                            contentDescription = "Back",
+                                            tint = if (backdropActive) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(22.dp),
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    coverModel?.let {
+                                        AsyncImage(
+                                            model = it,
+                                            contentDescription = "Album cover",
+                                            imageLoader = imageLoader,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(112.dp)
+                                                .clip(MuorgShapes.art),
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Title and subtitle span the full width; the action
+                                // buttons sit below the text, not beside it.
+                                MarqueeText(
+                                    text = uiState.albumName,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = if (backdropActive) Color.White else MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = buildString {
+                                        if (uiState.artist.isNotBlank()) append(uiState.artist)
+                                        uiState.year?.let {
+                                            if (isNotEmpty()) append(" · ")
+                                            append("$it")
+                                        }
+                                        if (isNotEmpty()) append(" · ")
+                                        append("${uiState.tracks.size} tracks")
+                                        val totalSecs = uiState.tracks.sumOf { it.durationSecs?.toInt() ?: 0 }
+                                        if (totalSecs > 0) append(" · ${totalSecs / 60}m")
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (backdropActive) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    androidx.compose.material3.FilledIconButton(
+                                        onClick = {
+                                            uiState.tracks.firstOrNull()?.let { first ->
+                                                playerViewModel.playTrack(first, uiState.tracks)
+                                            }
+                                        },
+                                        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                        ),
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(mageIconRes("play")),
+                                            contentDescription = "Play all",
+                                        )
+                                    }
+                                    androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
+                                        Icon(
+                                            painter = painterResource(mageIconRes("playlist-add")),
+                                            contentDescription = "Add album to playlist",
+                                            tint = if (backdropActive) Color.White.copy(alpha = 0.75f) else LocalContentColor.current,
+                                        )
+                                    }
+                                    IconButton(onClick = { showAlbumMenuSheet = true }) {
+                                        Icon(
+                                            painter = painterResource(mageIconRes("dots")),
+                                            contentDescription = "More album options",
+                                            tint = if (backdropActive) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                            if (backdropActive) {
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                            } else {
+                                HorizontalDivider()
+                            }
+
+                            if (showAlbumPlaylistSheet) {
+                                PlaylistPickerSheet(
+                                    playlists = uiState.playlists,
+                                    membershipIds = albumFullIds,
+                                    partialMembershipIds = albumPartialIds,
+                                    onAdd = { playlist -> viewModel.requestAddTracksToPlaylist(uiState.tracks, playlist.id) },
+                                    onRemove = { playlist -> viewModel.removeAlbumFromPlaylist(playlist.id) },
+                                    onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
+                                    onDismiss = { showAlbumPlaylistSheet = false },
+                                )
+                            }
+                            if (showAlbumMenuSheet) {
+                                AlbumHeaderMenuSheet(
+                                    albumName = uiState.albumName,
+                                    artist = uiState.artist,
+                                    onDismiss = { showAlbumMenuSheet = false },
+                                    onViewArtist = { uiState.artist.takeIf { it.isNotBlank() }?.let(onViewArtist) },
+                                )
+                            }
+                        }
+
+                        items(
+                            items = uiState.tracks,
+                            key = { it.id },
+                        ) { track ->
+                            val membership = uiState.trackPlaylistMembership[track.path] ?: emptySet()
+                            val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
+                            AlbumTrackRow(
+                                track = track,
+                                baseUrl = baseUrl,
+                                imageLoader = imageLoader,
+                                coverModel = coverModel,
+                                onDark = backdropActive,
+                                isPlaying = playerState.currentTrack?.id == track.id &&
+                                    playerState.isPlaying,
+                                isLoading = playerState.pendingTrackId == track.id,
+                                isFavorite = track.id.toString() in playerState.favorites,
+                                playlists = uiState.playlists,
+                                trackInPlaylistIds = membership,
+                                onClick = { playerViewModel.playTrack(track, uiState.tracks) },
+                                onAddToQueue = { playerViewModel.addToQueue(track) },
+                                onToggleFavorite = { playerViewModel.toggleFavorite(track) },
+                                onAddToPlaylist = { playlist ->
+                                    viewModel.requestAddTracksToPlaylist(listOf(track), playlist.id)
+                                },
+                                onRemoveFromPlaylist = { playlist ->
+                                    viewModel.removeTrackFromPlaylist(track, playlist.id)
+                                },
+                                onCreatePlaylist = { name -> viewModel.createPlaylist(name) },
+                                onViewArtist = { track.artist?.let { onViewArtist(it) } },
+                            )
+                        }
                     }
                 }
             }
@@ -312,6 +351,8 @@ private fun AlbumTrackRow(
     baseUrl: String,
     imageLoader: ImageLoader,
     coverModel: Any? = null,
+    /** Render for the dark cover-derived backdrop (white text instead of theme). */
+    onDark: Boolean = false,
     isPlaying: Boolean,
     isLoading: Boolean = false,
     isFavorite: Boolean = false,
@@ -356,7 +397,7 @@ private fun AlbumTrackRow(
                     Text(
                         text = track.trackNumber?.toString() ?: "·",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (onDark) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -368,7 +409,7 @@ private fun AlbumTrackRow(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(if (onDark) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center,
             ) {
                 if (coverModel != null) {
@@ -385,7 +426,7 @@ private fun AlbumTrackRow(
                     Icon(
                         painter = painterResource(mageIconRes("music")),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (onDark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -400,12 +441,13 @@ private fun AlbumTrackRow(
                     text = track.displayTitle,
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (isPlaying) MaterialTheme.colorScheme.primary
+                    else if (onDark) Color.White
                     else MaterialTheme.colorScheme.onSurface,
                 )
                 MarqueeText(
                     text = track.displayArtist,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (onDark) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -413,11 +455,13 @@ private fun AlbumTrackRow(
                 text = track.format.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = if (track.isLossless) MaterialTheme.colorScheme.primary
+                        else if (onDark) Color.White.copy(alpha = 0.7f)
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .background(
                         color = if (track.isLossless)
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        else if (onDark) Color.White.copy(alpha = 0.1f)
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
                         shape = MuorgShapes.chip,
                     )
@@ -429,7 +473,7 @@ private fun AlbumTrackRow(
             Text(
                 text = track.formattedDuration(),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (onDark) Color.White.copy(alpha = 0.55f) else MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             IconButton(
@@ -439,7 +483,7 @@ private fun AlbumTrackRow(
                 Icon(
                     painter = painterResource(mageIconRes("dots")),
                     contentDescription = "Track actions",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (onDark) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp),
                 )
             }
