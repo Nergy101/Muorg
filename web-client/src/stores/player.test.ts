@@ -52,6 +52,12 @@ vi.mock("../composables/useToast", () => ({
   showWarning: vi.fn(),
 }));
 
+// The player store reads the current route to keep the dynamic accent off the
+// settings page; the real router would pull in every view (and their assets).
+vi.mock("../router", () => ({
+  router: { currentRoute: { value: { name: "home" } } },
+}));
+
 // happy-dom's media elements don't really play; stub the transport so the
 // player store's event listeners fire deterministically.
 HTMLMediaElement.prototype.play = vi.fn(function (this: HTMLMediaElement) {

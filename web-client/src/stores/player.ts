@@ -9,6 +9,7 @@ import { clearPlayHistory, recordPlayHistory, stepBackPlayHistory } from "../aud
 import { showToast } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
 import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
+import { router } from "../router";
 import { useCastStore } from "./cast";
 import { useLibraryStore } from "./library";
 import { useOfflineStore, offlineStreamUrl } from "./offline";
@@ -1121,19 +1122,26 @@ export const usePlayerStore = defineStore("player", () => {
   const accentGlowRgb = useDominantColor(currentCoverUrl);
   watchEffect(() => {
     const el = document.documentElement;
-    if (settings.accent !== "dynamic") {
+    const clearInlineAccent = () => {
       el.style.removeProperty("--primary");
       el.style.removeProperty("--primary-container");
       el.style.removeProperty("--on-primary-container");
       el.style.removeProperty("--secondary");
+    };
+    if (settings.accent !== "dynamic") {
+      clearInlineAccent();
+      return;
+    }
+    // The settings page always shows the selected static accent (the default
+    // Muorg green when "dynamic" is picked) — never the artwork-derived
+    // dynamic color, so the accent controls read predictably there.
+    if (router.currentRoute.value.name === "settings") {
+      clearInlineAccent();
       return;
     }
     const accent = visibleAccentFromRgb(rawMainColor(accentGlowRgb.value));
     if (!accent) {
-      el.style.removeProperty("--primary");
-      el.style.removeProperty("--primary-container");
-      el.style.removeProperty("--on-primary-container");
-      el.style.removeProperty("--secondary");
+      clearInlineAccent();
       return;
     }
     // Container = the accent pulled ~40% toward the dark surface so fills made
