@@ -2,23 +2,35 @@
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Brand row: the Muorg mark and name on the left (as in the sidebar),
-           "Shuffle all" on the right (mirrors the Android app's HomeHeader).
-           On desktop the navbar already shows the logo, so the mark is hidden. -->
-      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4">
+           "Shuffle all" + "Play random mix" on the right (mirrors the Android
+           app's HomeHeader). On desktop the navbar already shows the logo, so
+           the mark is hidden and the button pair is centred at the top. -->
+      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4 lg:justify-center">
         <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0 lg:hidden" />
         <span class="text-title-md font-bold tracking-tight text-on-surface lg:hidden">Muorg</span>
-        <div class="flex-1" />
-        <button
-          type="button"
-          class="glass flex h-9 items-center gap-1.5 rounded-full px-3 text-label-lg transition-colors"
-          :class="player.shuffleAllActive ? 'text-primary' : 'text-on-surface'"
-          aria-label="Shuffle all"
-          :aria-pressed="player.shuffleAllActive"
-          @click="shuffleAll"
-        >
-          <MageIcon name="exchange" class="h-4 w-4" />
-          <span>Shuffle all</span>
-        </button>
+        <div class="flex-1 lg:hidden" />
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="glass flex h-9 items-center gap-1.5 rounded-full px-3 text-label-lg transition-colors"
+            :class="player.shuffleAllActive ? 'text-primary' : 'text-on-surface'"
+            aria-label="Shuffle all"
+            :aria-pressed="player.shuffleAllActive"
+            @click="shuffleAll"
+          >
+            <MageIcon name="exchange" class="h-4 w-4" />
+            <span>Shuffle all</span>
+          </button>
+          <button
+            type="button"
+            class="glass flex h-9 items-center gap-1.5 rounded-full px-3 text-label-lg text-on-surface transition-colors"
+            aria-label="Play random mix"
+            @click="playRandomMix"
+          >
+            <MageIcon name="play-circle" class="h-4 w-4" />
+            <span>Play random mix</span>
+          </button>
+        </div>
       </div>
 
       <EmptyState
@@ -468,5 +480,20 @@ function openMix(id: number): void {
  *  whole thing. */
 function shuffleAll(): void {
   player.startShuffleAll(lib.tracks);
+}
+
+/** Picks one of the session's mixes at random and starts it from a random
+ *  track, with the mix's tracks as the queue (same play pattern as the
+ *  playlist detail view's shuffle-play). */
+function playRandomMix(): void {
+  const playable = mixes.value.filter((m) => m.trackIds.length > 0);
+  if (playable.length === 0) return;
+  const mix = playable[Math.floor(Math.random() * playable.length)];
+  const byId = new Map(lib.tracks.map((t) => [t.id, t]));
+  const tracks = mix.trackIds
+    .map((id) => byId.get(id))
+    .filter((t): t is CatalogTrack => t !== undefined);
+  if (tracks.length === 0) return;
+  player.playTrack(tracks[Math.floor(Math.random() * tracks.length)], tracks);
 }
 </script>

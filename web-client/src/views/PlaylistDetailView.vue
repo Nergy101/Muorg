@@ -33,7 +33,10 @@
 </template>
 
     <template v-else>
-      <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2">
+      <!-- On desktop the row gets more height/padding and every action button
+           grows into a labelled pill (icon-only stays for mobile), so the
+           controls stop looking crammed against the truncated title. -->
+      <div class="content-col flex h-14 shrink-0 items-center gap-1 px-2 lg:h-16 lg:gap-2 lg:px-4">
         <button
           type="button"
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-surface-container"
@@ -44,46 +47,50 @@
           <span class="hidden lg:inline">Back</span>
         </button>
 
-        <span class="ml-2 min-w-0 flex-1 truncate text-title-md text-on-surface">
+        <span class="ml-2 min-w-0 flex-1 truncate text-title-md text-on-surface lg:ml-3">
           {{ playlist.icon ?? "🎵" }} {{ playlist.name }}
         </span>
 
         <!-- Every button carries the divider and `first:border-l-0` drops it on
              whichever one actually renders first — the leading buttons are all
              conditional, so a fixed "no border on the first" markup would leave
-             a stray rule down the pill's left edge. -->
-        <div class="glass ml-1 flex items-center overflow-hidden rounded-full">
+             a stray rule down the pill's left edge. On lg the buttons widen to
+             fit their text label. -->
+        <div class="glass ml-1 flex items-center overflow-hidden rounded-full lg:ml-2">
           <button
             v-if="isSmart"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:w-auto lg:px-3 lg:text-label-lg lg:hover:bg-on-surface/10"
             aria-label="Edit rules"
             @click="openSmartEditor"
           >
             <MageIcon name="zap" class="h-5 w-5" />
+            <span class="hidden lg:inline">Edit</span>
           </button>
 
           <button
             v-if="isMix"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:w-auto lg:px-3 lg:text-label-lg lg:hover:bg-on-surface/10"
             aria-label="Save mix as playlist"
             @click="saveMixOpen = true"
           >
             <MageIcon name="save-floppy" class="h-5 w-5" />
+            <span class="hidden lg:inline">Save mix</span>
           </button>
 
-          <!-- Save order: icon only, appears while there are unsaved reorder
-               changes. Sits to the LEFT of the layout button so the layout
-               button (always rightmost) never shifts position. -->
+          <!-- Save order: appears while there are unsaved reorder changes. Sits
+               to the LEFT of the layout button so the layout button (always
+               rightmost) never shifts position. -->
           <button
             v-if="hasUnsavedOrder"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:w-auto lg:px-3 lg:text-label-lg lg:hover:bg-on-surface/10"
             aria-label="Save order"
             @click="commitOrder"
           >
             <MageIcon name="save-floppy" class="h-5 w-5" />
+            <span class="hidden lg:inline">Save order</span>
           </button>
 
           <!-- Download every track for offline playback (Q11). Hidden for
@@ -91,7 +98,7 @@
           <button
             v-if="!isMix && tracks.length > 0"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:w-auto lg:px-3 lg:text-label-lg lg:hover:bg-on-surface/10"
             :class="offlineDownloaded ? 'text-primary' : ''"
             :aria-label="offlineDownloadLabel"
             @click="offline.downloadPlaylist(playlistId)"
@@ -101,6 +108,7 @@
               class="h-5 w-5"
               :class="offlineDownloading ? 'animate-spin' : ''"
             />
+            <span class="hidden lg:inline">Download</span>
           </button>
 
           <!-- Export as .m3u (Stream URLs / Relative paths). Hidden for
@@ -108,20 +116,22 @@
           <button
             v-if="!isMix && tracks.length > 0"
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:w-auto lg:px-3 lg:text-label-lg lg:hover:bg-on-surface/10"
             aria-label="Export playlist as M3U"
             @click="exportOpen = true"
           >
             <MageIcon name="export-list" class="h-5 w-5" />
+            <span class="hidden lg:inline">Export</span>
           </button>
 
           <button
             type="button"
-            class="flex h-9 w-9 shrink-0 items-center justify-center border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:hover:bg-on-surface/10"
+            class="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:w-auto lg:px-3 lg:text-label-lg lg:hover:bg-on-surface/10"
             aria-label="Change layout"
             @click="toggleViewStyle"
           >
             <MageIcon :name="viewIcon" class="h-5 w-5" />
+            <span class="hidden lg:inline">Layout</span>
           </button>
         </div>
       </div>
