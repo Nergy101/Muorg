@@ -8,7 +8,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.widget.RemoteViews
-import dagger.hilt.EntryPointAccessors
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 import nl.muorg.android.R
 

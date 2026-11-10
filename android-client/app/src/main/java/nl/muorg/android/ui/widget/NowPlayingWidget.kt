@@ -11,7 +11,7 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import dagger.hilt.EntryPointAccessors
+import dagger.hilt.android.EntryPointAccessors
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -275,6 +275,10 @@ class NowPlayingWidget : AppWidgetProvider() {
         views.setImageViewResource(
             R.id.widget_play_pause,
             if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
+        )
+        views.setContentDescription(
+            R.id.widget_play_pause,
+            context.getString(if (state.isPlaying) R.string.widget_pause else R.string.widget_play),
         )
         views.setInt(R.id.widget_play_pause, "setColorFilter", ICON_TINT)
         views.setOnClickPendingIntent(
