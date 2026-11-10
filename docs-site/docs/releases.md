@@ -6,6 +6,11 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.3.0
+
+- **All clients**: the updated **Mage icon set** everywhere — web and desktop now share one vendored set (`src/assets/mage-icons/`), the desktop client switched from Feather to Mage, and Android replaced its Material icons with Mage vector drawables generated from the same SVGs.
+- **Web**: the desktop player view shows **queue**, **add to playlist** and **favourite** controls in a pill left of the sound slider.
+
 ## v4.2.0
 
 - **Server + all clients**: the stream token moved from the query string to the path — audio now streams from `GET /stream/{token}/{id}` instead of `/stream?id=…&token=…`, keeping tokens out of URLs and logs. The OpenAPI spec and all generated clients (web, desktop, Android) were regenerated to match.
@@ -102,10 +107,11 @@ Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notab
 
 - **All components**: coordinated release implementing the handoff-audit decisions across the server, desktop, web app and Android client.
 
-## Android 3.2.x – 4.2.x
+## Android 3.2.x – 4.3.x
 
 The Android app ships on its own `android-v*` tags, published separately from the server and desktop.
 
+- **android-v4.3.0** — all Material icons replaced with the Mage set (see [v4.3.0](#v430)).
 - **android-v4.2.0** — version alignment with the v4.2.0 server/web/desktop release; stream URLs use the new `/stream/{token}/{id}` path (see [v4.2.0](#v420)).
 - **android-v4.1.0** — search history only records real searches (Enter / result pick); Settings shows the server version and an Update server row (see [v4.1.0](#v410)).
 - **android-v4.0.5** — album rows with small covers, playlist download button and play/shuffle row, redesigned album detail, statistics chart polish (see [v4.0.5](#v405)).
