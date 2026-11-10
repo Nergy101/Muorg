@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".MuorgApplication"
@@ -76,17 +77,37 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Non-exported: the system delivers APPWIDGET_UPDATE/BOOT_COMPLETED to it
+             regardless, and the app's own explicit broadcasts and widget
+             PendingIntents still reach it under the app's identity. -->
         <receiver
             android:name=".ui.widget.NowPlayingWidget"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="nl.muorg.android.UPDATE_WIDGET" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/now_playing_widget_info" />
         </receiver>
+
+        <receiver
+            android:name=".ui.widget.RecentTracksWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/recent_tracks_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".ui.widget.RecentTracksWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
     </application>
 

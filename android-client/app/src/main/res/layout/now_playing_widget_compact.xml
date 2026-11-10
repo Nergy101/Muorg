@@ -1,19 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
+    android:gravity="center_vertical"
     android:padding="8dp"
     android:background="@drawable/widget_background">
 
-    <ImageView
-        android:id="@+id/widget_cover"
+    <FrameLayout
         android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_gravity="center_vertical"
-        android:scaleType="centerCrop"
-        android:contentDescription="Album art"
-        android:visibility="gone" />
+        android:layout_height="40dp">
+
+        <ImageView
+            android:id="@+id/widget_cover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/widget_cover_desc"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/widget_cover_placeholder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_compact_disk"
+            android:scaleType="centerInside"
+            android:contentDescription="@string/widget_cover_desc" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="0dp"
@@ -30,7 +44,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textAppearance="@style/TextAppearance.Widget.Title"
-            android:text="Not playing" />
+            android:text="@string/widget_no_track" />
 
         <TextView
             android:id="@+id/widget_artist"
@@ -47,17 +61,21 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:layout_gravity="center_vertical"
-        android:src="@android:drawable/ic_media_play"
+        android:padding="8dp"
+        android:scaleType="center"
+        android:src="@drawable/ic_play"
         android:background="@android:color/transparent"
-        android:contentDescription="Play/Pause" />
+        android:contentDescription="@string/widget_play" />
 
     <ImageButton
         android:id="@+id/widget_next"
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:layout_gravity="center_vertical"
-        android:src="@android:drawable/ic_media_next"
+        android:padding="8dp"
+        android:scaleType="center"
+        android:src="@drawable/ic_next"
         android:background="@android:color/transparent"
-        android:contentDescription="Next" />
+        android:contentDescription="@string/widget_next" />
 
 </LinearLayout>

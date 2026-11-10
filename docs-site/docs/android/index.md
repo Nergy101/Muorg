@@ -1,6 +1,6 @@
 ---
 title: Android App
-description: The Muorg Android client — stream from your server or play an on-device library, with Chromecast, a home-screen widget and a sleep timer.
+description: The Muorg Android client — stream from your server or play an on-device library, with Chromecast, home-screen widgets and a sleep timer.
 ---
 
 The Muorg Android client (Kotlin + Jetpack Compose, Media3/ExoPlayer) works in two modes: streaming from a [muorg-server](/docs/server/), or playing music stored on the device itself.
@@ -69,14 +69,14 @@ From the player screen, tap the sleep-timer icon and pick a duration. Playback s
 
 Cast from the app to any Chromecast device on your network using the Cast button. Server-backed tracks are cast straight from the server's stream URL; tracks stored on the device are served to the Cast receiver by a small HTTP server that runs inside the app while casting.
 
-## Home-screen widget
+## Home-screen widgets
 
-A **Now Playing** widget shows the current track and playback controls:
+Long-press your home screen, open the widget picker, and add a **Muorg** widget. Two are available:
 
-1. Long-press your home screen and open the widget picker.
-2. Add the **Muorg** widget.
+- **Now Playing** (resizable, from a 2×1 row up to 4×2 and beyond) — cover art, track title, artist and album, and transport controls: previous, play/pause, next, and a favorite toggle. Small sizes show the compact row; taller sizes show the full layout. Tap the widget body to open the app.
+- **Recently played** (a 4×4 list) — your most recently played tracks with their covers. Tap a row to play that track, the refresh button to reload the list, or the header to open the app.
 
-The widget updates when the app updates playback state. If it looks stuck, remove and re-add it, or reopen the app.
+The widgets update whenever playback state changes in the app, and they remember the last state across reboots — after a restart the Now Playing widget still shows the last track (with its cached cover) and its buttons keep working even if the app was closed. If a widget ever looks stuck, remove and re-add it, or reopen the app.
 
 ## Settings
 

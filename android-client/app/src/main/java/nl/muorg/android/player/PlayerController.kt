@@ -33,6 +33,7 @@ import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.ui.widget.NowPlayingWidget
+import nl.muorg.android.ui.widget.RecentTracksWidget
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -59,6 +60,10 @@ private data class WidgetSnapshot(
     val artist: String?,
     val album: String?,
     val isPlaying: Boolean,
+    val trackId: Int,
+    val hasCover: Boolean,
+    val localCoverPath: String?,
+    val isFavorite: Boolean,
 )
 
 data class PlayerState(
@@ -153,12 +158,17 @@ class PlayerController @Inject constructor(
             }
         }
         scope.launch {
-            state.map {
+            state.map { s ->
+                val track = s.currentTrack
                 WidgetSnapshot(
-                    title = it.currentTrack?.displayTitle,
-                    artist = it.currentTrack?.displayArtist,
-                    album = it.currentTrack?.displayAlbum,
-                    isPlaying = it.isPlaying,
+                    title = track?.displayTitle,
+                    artist = track?.displayArtist,
+                    album = track?.displayAlbum,
+                    isPlaying = s.isPlaying,
+                    trackId = track?.id ?: 0,
+                    hasCover = track?.hasCover == true,
+                    localCoverPath = track?.localCoverPath,
+                    isFavorite = track?.id?.toString()?.let { id -> id in s.favorites } == true,
                 )
             }
                 .distinctUntilChanged()
@@ -170,6 +180,23 @@ class PlayerController @Inject constructor(
                             putExtra(NowPlayingWidget.EXTRA_ARTIST, snapshot.artist)
                             putExtra(NowPlayingWidget.EXTRA_ALBUM, snapshot.album)
                             putExtra(NowPlayingWidget.EXTRA_IS_PLAYING, snapshot.isPlaying)
+                            putExtra(NowPlayingWidget.EXTRA_TRACK_ID, snapshot.trackId)
+                            putExtra(NowPlayingWidget.EXTRA_HAS_COVER, snapshot.hasCover)
+                            putExtra(NowPlayingWidget.EXTRA_LOCAL_COVER_PATH, snapshot.localCoverPath)
+                            putExtra(NowPlayingWidget.EXTRA_IS_FAVORITE, snapshot.isFavorite)
+                        },
+                    )
+                }
+        }
+        // A new track means the recent-plays list changed too; ask the list
+        // widget to reload its rows.
+        scope.launch {
+            state.map { it.currentTrack?.id }
+                .distinctUntilChanged()
+                .collect {
+                    context.sendBroadcast(
+                        Intent(context, RecentTracksWidget::class.java).apply {
+                            action = RecentTracksWidget.ACTION_REFRESH
                         },
                     )
                 }
