@@ -382,12 +382,18 @@ const isMix = computed(() => route.name === "mix");
 const mix = computed(() => (isMix.value ? findMix(playlistId.value) : null));
 
 const playlist = computed<Playlist | null>(() => {
-  if (mix.value) {
+  if (isMix.value) {
+    // On the mix route never fall back to the server playlist list: mix ids
+    // are negative and live in their own space, so an unknown/stale mix id
+    // must render "not found" — not some unrelated playlist's title while the
+    // track list still shows the mix's tracks.
+    const m = mix.value;
+    if (!m) return null;
     return {
-      id: mix.value.id,
-      name: mix.value.name,
-      track_count: mix.value.trackIds.length,
-      icon: mix.value.emoji,
+      id: m.id,
+      name: m.name,
+      track_count: m.trackIds.length,
+      icon: m.emoji,
       smart_rules: null,
     };
   }
@@ -496,8 +502,10 @@ watch(
 );
 
 async function loadOrder(force = false): Promise<void> {
-  if (mix.value) {
-    orderedIds.value = [...mix.value.trackIds];
+  if (isMix.value) {
+    // Mix route: the order is the mix's own track ids (empty when the mix is
+    // gone) — never ask the server for a playlist order under a mix id.
+    orderedIds.value = mix.value ? [...mix.value.trackIds] : [];
     return;
   }
   orderedIds.value = await playlistStore.loadTrackOrderForPlaylist(playlistId.value, force);

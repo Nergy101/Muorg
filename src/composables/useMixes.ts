@@ -142,7 +142,10 @@ export function useMixes(
       [selected[i], selected[j]] = [selected[j], selected[i]];
     }
     sessionMixes.value = selected.slice(0, count).map((def, i) => ({
-      id: i + 1,
+      // Negative ids: mixes live in their own id space so a mix id can never
+      // collide with a server playlist id (the detail view's fallback lookup
+      // once showed an unrelated playlist's title for a stale mix id).
+      id: -(i + 1),
       name: def.name,
       emoji: def.emoji,
       trackIds: sampleTrackIds(tracks, def.genres),
