@@ -24,10 +24,20 @@
         >
           <MageIcon name="multiply" class="h-4 w-4" />
         </button>
+        <!-- Layout toggle: flat track list ↔ album cover grid. -->
+        <button
+          type="button"
+          class="shrink-0 text-on-surface-variant"
+          :aria-label="layout === 'grid' ? 'Show results as a list' : 'Show results as album covers'"
+          :title="layout === 'grid' ? 'Show results as a list' : 'Show results as album covers'"
+          @click="toggleLayout"
+        >
+          <MageIcon :name="layout === 'grid' ? 'arrowlist' : 'layout-grid'" class="h-4 w-4" />
+        </button>
       </div>
     </div>
 
-    <div class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+    <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Empty query: recent searches + recently selected results. -->
       <template v-if="!query.trim()">
         <div v-if="settings.searchHistory.length > 0" class="search-col px-4 pb-2 pt-1">
@@ -104,6 +114,55 @@
           :title="`No results for &quot;${query.trim()}&quot;`"
           body="Try another spelling or fewer words."
         />
+        <!-- Artist matches first: a 4-block cover collage per artist with the
+             name underneath, above the normal track/album results. -->
+        <div v-if="artistHits.length > 0" class="search-col px-4 pb-3 pt-1">
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <button
+              v-for="hit in artistHits"
+              :key="hit.name"
+              type="button"
+              class="flex flex-col gap-1.5 text-left"
+              :aria-label="`Browse artist ${hit.name}`"
+              @click="openArtist(hit.name)"
+            >
+              <div class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant ring-1 ring-white/10">
+                <div v-if="coverUrlsFor(hit).length === 0" class="absolute inset-0 flex items-center justify-center">
+                  <MageIcon name="user" class="h-10 w-10 text-on-surface-variant/50" />
+                </div>
+                <img
+                  v-else-if="coverUrlsFor(hit).length === 1"
+                  :src="coverUrlsFor(hit)[0] ?? undefined"
+                  :alt="hit.name"
+                  class="absolute inset-0 h-full w-full object-cover"
+                />
+                <div v-else class="grid h-full w-full grid-cols-2 grid-rows-2">
+                  <template v-for="(url, i) in coverUrlsFor(hit)" :key="i">
+                    <img v-if="url" :src="url" :alt="hit.name" class="h-full w-full object-cover" />
+                    <div v-else class="h-full w-full bg-surface-variant/50" />
+                  </template>
+                </div>
+              </div>
+              <span class="truncate px-0.5 text-label-lg font-semibold text-on-surface">{{ hit.name }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Album-cover layout: matching tracks grouped into album cards. -->
+        <div v-if="layout === 'grid'" class="search-col pb-4 pt-1">
+          <div
+            class="grid gap-3"
+            :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
+          >
+            <AlbumCard
+              v-for="item in resultAlbums"
+              :key="item.key"
+              :item="item"
+              mode="grid"
+              @open="openAlbum(item)"
+            />
+          </div>
+        </div>
         <div v-else class="search-col pb-4">
           <TrackListRow
             v-for="track in visibleResults"
@@ -146,15 +205,18 @@ import EmptyState from "../components/EmptyState.vue";
 import { computed, nextTick, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useSelectionStore } from "../stores/selection";
+import { loadPref, savePref } from "../stores/prefs";
 import { searchFocusSignal } from "../composables/useSearchFocus";
 import { provideVisibleIds } from "../composables/useSelectableList";
-import type { CatalogTrack } from "../types";
+import { useGridColumns } from "../composables/useGridColumns";
+import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
 const lib = useLibraryStore();
@@ -162,6 +224,14 @@ const player = usePlayerStore();
 const settings = useSettingsStore();
 const selection = useSelectionStore();
 const query = ref("");
+/** Result layout: flat track list or album-cover grid, persisted. */
+const layout = ref<"list" | "grid">(loadPref("muorg-web-search-layout", "list"));
+watch(layout, (v) => savePref("muorg-web-search-layout", v));
+function toggleLayout(): void {
+  layout.value = layout.value === "grid" ? "list" : "grid";
+}
+const scroller = ref<HTMLElement | null>(null);
+const gridCols = useGridColumns(scroller);
 /** Debounced copy of `query` — the results computed reads this, so a full
  *  catalog scan runs at most once per pause in typing, not per keystroke. */
 const debouncedQuery = ref("");
@@ -211,6 +281,107 @@ const results = computed(() => {
     .sort((a, b) => b.s - a.s || normalize(a.t.title).localeCompare(normalize(b.t.title)))
     .map(({ t }) => t);
 });
+
+// --- Artist matches --------------------------------------------------------
+
+interface ArtistHit {
+  name: string;
+  /** Up to 4 distinct album-cover track ids for the collage. */
+  coverCandidateIds: number[];
+}
+
+/** Artists whose name matches the query (exact > prefix > contains), capped
+ *  at 4 so the section stays a single row. */
+const artistHits = computed<ArtistHit[]>(() => {
+  const q = normalize(debouncedQuery.value);
+  if (!q) return [];
+  const score = (name: string): number => {
+    const v = normalize(name);
+    if (!v) return 0;
+    if (v === q) return 100;
+    if (v.startsWith(q)) return 60;
+    if (v.includes(q)) return 40;
+    return 0;
+  };
+  const byArtist = new Map<string, { score: number; tracks: CatalogTrack[] }>();
+  for (const t of lib.tracks) {
+    const name = t.artist ?? t.album_artist;
+    if (!name) continue;
+    const s = score(name);
+    if (s === 0) continue;
+    const entry = byArtist.get(name) ?? { score: s, tracks: [] };
+    entry.score = Math.max(entry.score, s);
+    entry.tracks.push(t);
+    byArtist.set(name, entry);
+  }
+  return [...byArtist.entries()]
+    .sort((a, b) => b[1].score - a[1].score || a[0].localeCompare(b[0]))
+    .slice(0, 4)
+    .map(([name, entry]) => {
+      // First 4 distinct albums that have artwork, in catalog order.
+      const seenAlbums = new Set<string>();
+      const coverCandidateIds: number[] = [];
+      for (const t of entry.tracks) {
+        if (!t.has_cover) continue;
+        const key = lib.keyForTrack(t);
+        if (seenAlbums.has(key)) continue;
+        seenAlbums.add(key);
+        coverCandidateIds.push(t.id);
+        if (coverCandidateIds.length === 4) break;
+      }
+      return { name, coverCandidateIds };
+    });
+});
+
+// Warm the cover cache for the collage tiles (requestCover is idempotent).
+watch(artistHits, (hits) => {
+  for (const h of hits) for (const id of h.coverCandidateIds) lib.requestCover(id);
+}, { immediate: true });
+
+/** Loaded cover URLs for an artist's collage, in candidate order. */
+function coverUrlsFor(hit: ArtistHit): (string | null)[] {
+  return hit.coverCandidateIds.map((id) => lib.coverCache.get(id) ?? null);
+}
+
+function openArtist(name: string): void {
+  void router.push({ name: "artist", params: { name } });
+}
+
+/** Matching tracks grouped into album cards for the grid layout (same item
+ *  shape the library's album grid renders). */
+const resultAlbums = computed<AlbumGridItem[]>(() => {
+  const map = new Map<string, AlbumGridItem>();
+  for (const t of results.value) {
+    const key = lib.keyForTrack(t);
+    let item = map.get(key);
+    if (!item) {
+      item = {
+        key,
+        album: t.album ?? "Unknown album",
+        albumArtist: t.album_artist ?? t.artist ?? "—",
+        year: t.year ?? null,
+        trackCount: 0,
+        totalDurationSecs: 0,
+        coverTrackId: null,
+        hasCover: false,
+        trackIds: [],
+      };
+      map.set(key, item);
+    }
+    item.trackCount++;
+    item.totalDurationSecs += t.duration_secs ?? 0;
+    item.trackIds.push(t.id);
+    if (t.has_cover && !item.hasCover) {
+      item.hasCover = true;
+      item.coverTrackId = t.id;
+    }
+  }
+  return [...map.values()];
+});
+
+function openAlbum(item: AlbumGridItem): void {
+  void router.push({ name: "album", params: { albumKey: item.key } });
+}
 
 // Only the first page of results is rendered; "Load more" reveals the next.
 const PAGE_SIZE = 10;

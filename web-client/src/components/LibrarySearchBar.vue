@@ -1,35 +1,11 @@
 <template>
-  <div :class="atTop ? 'border-b border-outline/10' : 'border-t border-outline/10'">
-    <!-- Search history -->
-    <div v-if="!query && settings.searchHistory.length > 0" class="content-col px-4 pb-2 pt-3">
-      <div class="flex items-center justify-between py-1">
-        <div class="flex items-center gap-1.5 text-label-lg text-on-surface-variant">
-          <MageIcon name="clock" class="h-4 w-4" />
-          <span>Recent</span>
-        </div>
-        <button
-          type="button"
-          class="text-label-lg text-primary"
-          @click="settings.clearSearchHistory()"
-        >
-          Clear all
-        </button>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="h in settings.searchHistory"
-          :key="h"
-          type="button"
-          class="glass-field rounded-full px-3 py-1.5 text-label-lg text-on-surface"
-          @click="selectHistoryChip(h)"
-        >
-          {{ h }}
-        </button>
-      </div>
-    </div>
-
+  <!-- atTop (desktop library): renders inline as a flex child of the top row,
+       next to the filter controls. Otherwise (mobile bottom island) it stacks
+       its own rows above the tab bar. Recent-search tags are deliberately not
+       shown here — they live on the Search screen only. -->
+  <div :class="atTop ? 'flex min-w-0 flex-1 items-center gap-2' : 'border-t border-outline/10'">
     <!-- Search field: frosted, same layer as the sort/genre controls -->
-    <div class="content-col px-4 pb-2 pt-3">
+    <div :class="atTop ? 'min-w-0 flex-1' : 'content-col px-4 pb-2 pt-3'">
       <div
         class="glass-field flex h-11 items-center gap-2 rounded-full px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
       >
@@ -54,7 +30,7 @@
     </div>
 
     <!-- Artist filter chip -->
-    <div v-if="artistLabel" class="content-col px-4 pb-2 pt-2">
+    <div v-if="artistLabel" :class="atTop ? 'shrink-0' : 'content-col px-4 pb-2 pt-2'">
       <div class="glass-field inline-flex items-center gap-1 rounded-full px-2 py-1.5">
         <button
           type="button"
@@ -105,9 +81,8 @@ function commitSearch(value: string): void {
   lib.searchQuery = value;
 }
 
-/** Records a committed search in the history — Enter or tapping a history
- *  chip only, never intermediate keystrokes (the debounced watcher just
- *  filters live). */
+/** Records a committed search in the history — Enter only, never
+ *  intermediate keystrokes (the debounced watcher just filters live). */
 function recordSearch(value: string): void {
   const trimmed = value.trim();
   if (trimmed.length > 0) settings.addSearch(trimmed);
@@ -128,13 +103,6 @@ function clearSearch(): void {
   clearTimeout(debounceTimer);
   query.value = "";
   commitSearch("");
-}
-
-function selectHistoryChip(entry: string): void {
-  clearTimeout(debounceTimer);
-  query.value = entry;
-  commitSearch(entry);
-  recordSearch(entry);
 }
 
 onUnmounted(() => clearTimeout(debounceTimer));

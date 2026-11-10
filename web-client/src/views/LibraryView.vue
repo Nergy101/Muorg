@@ -1,17 +1,16 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <!-- Desktop (lg+): the library search/filter bar sits at the top of the
-         view instead of the floating bottom bar. Mobile keeps it in the
-         bottom island (App.vue). -->
+    <!-- Desktop (lg+): the search field shares one row with the filter
+         controls (layout / shuffle / genre / sort) instead of sitting in its
+         own bar above them. In the desktop tracks layout the table toolbar
+         renders those actions, so only the search field shows here. Mobile
+         keeps the search bar in the bottom island (App.vue). -->
     <div class="hidden shrink-0 pt-3 lg:block">
-      <LibrarySearchBar at-top />
+      <div class="flex items-center gap-2 border-b border-outline/10 px-4 pb-2">
+        <LibrarySearchBar at-top />
+        <LibraryViewActions v-if="!showDesktopTable" />
+      </div>
     </div>
-
-    <!-- Sort / genre / layout / shuffle-all live in the top bar now, not in
-         the bottom bar next to the player. In the desktop tracks layout the
-         table toolbar renders those same actions, so the top bar is skipped
-         and the library shows a single header row. -->
-    <LibraryTopBar v-if="!showDesktopTable" />
 
     <!-- Desktop-class library table (>=1024px, tracks layout). Mounted
          instead of the mobile scroller so it can own its own virtualization
@@ -132,7 +131,7 @@ import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import AlbumActionsHost from "../components/AlbumActionsHost.vue";
-import LibraryTopBar from "../components/LibraryTopBar.vue";
+import LibraryViewActions from "../components/LibraryViewActions.vue";
 import LibrarySearchBar from "../components/LibrarySearchBar.vue";
 import LibraryTrackTable from "../components/library/LibraryTrackTable.vue";
 import { useLibraryStore } from "../stores/library";
