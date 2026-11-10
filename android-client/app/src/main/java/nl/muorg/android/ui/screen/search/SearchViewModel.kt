@@ -22,9 +22,17 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import javax.inject.Inject
 
+/** An artist whose name matches the query, with up to 4 distinct album
+ *  tracks that have artwork for the 2x2 cover collage. */
+data class ArtistMatch(
+    val name: String,
+    val coverTracks: List<CatalogTrack>,
+)
+
 data class SearchUiState(
     val allTracks: List<CatalogTrack> = emptyList(),
     val results: List<CatalogTrack> = emptyList(),
+    val artistMatches: List<ArtistMatch> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -68,6 +76,7 @@ class SearchViewModel @Inject constructor(
                     state.copy(
                         searchQuery = query,
                         results = filterTracks(state.allTracks, query),
+                        artistMatches = artistMatches(state.allTracks, query),
                     )
                 }
                 // History is NOT recorded here: one pill per keystroke floods
@@ -97,6 +106,7 @@ class SearchViewModel @Inject constructor(
                     isLoading = false,
                     allTracks = tracks,
                     results = filterTracks(tracks, state.searchQuery),
+                    artistMatches = artistMatches(tracks, state.searchQuery),
                 )
             }
             refreshRecentResults()
@@ -142,6 +152,53 @@ class SearchViewModel @Inject constructor(
         score += fieldScore(track.displayAlbum) / 4
         score += fieldScore(track.albumArtist) / 8
         return score.takeIf { it > 0 }
+    }
+
+    /**
+     * Artists whose name matches the query (exact > prefix > contains on
+     * `artist ?? album_artist`), capped at 4. Each match carries up to 4
+     * distinct albums that have artwork, in catalog order, for the 2x2
+     * cover collage — same distinct-album rule the playlist tiles use.
+     */
+    private fun artistMatches(tracks: List<CatalogTrack>, query: String): List<ArtistMatch> {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return emptyList()
+        fun nameScore(name: String?): Int {
+            val v = name?.lowercase() ?: return 0
+            return when {
+                v == q -> 100
+                v.startsWith(q) -> 60
+                v.contains(q) -> 40
+                else -> 0
+            }
+        }
+        val byArtist = linkedMapOf<String, MutableList<CatalogTrack>>()
+        val scores = mutableMapOf<String, Int>()
+        for (track in tracks) {
+            val name = track.artist ?: track.albumArtist ?: continue
+            val s = nameScore(name)
+            if (s == 0) continue
+            byArtist.getOrPut(name) { mutableListOf() }.add(track)
+            scores[name] = maxOf(scores[name] ?: 0, s)
+        }
+        return byArtist.entries
+            .sortedWith(
+                compareByDescending<Map.Entry<String, MutableList<CatalogTrack>>> { scores[it.key] ?: 0 }
+                    .thenBy { it.key.lowercase() },
+            )
+            .take(4)
+            .map { (name, artistTracks) ->
+                val seenAlbums = mutableSetOf<String>()
+                val coverTracks = mutableListOf<CatalogTrack>()
+                for (t in artistTracks) {
+                    if (!t.hasCover) continue
+                    val key = t.displayAlbum + "|" + t.displayArtist
+                    if (!seenAlbums.add(key)) continue
+                    coverTracks += t
+                    if (coverTracks.size == 4) break
+                }
+                ArtistMatch(name, coverTracks)
+            }
     }
 
     fun onSearchQueryChange(query: String) {

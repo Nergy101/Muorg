@@ -2,17 +2,22 @@ package nl.muorg.android.ui.screen.search
 
 import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,8 +52,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import kotlinx.coroutines.flow.Flow
+import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.TrackRow
+import nl.muorg.android.ui.component.coverModelFor
 import nl.muorg.android.ui.glass.glassField
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
@@ -304,6 +312,31 @@ fun SearchScreen(
                     }
                 }
             } else {
+                // Artist matches first: a 2x2 cover collage per artist with
+                // the name underneath, above the normal track results.
+                if (uiState.artistMatches.isNotEmpty()) {
+                    item {
+                        FlowRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            maxItemsInEachRow = 2,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            uiState.artistMatches.forEach { hit ->
+                                ArtistSearchCard(
+                                    name = hit.name,
+                                    coverTracks = hit.coverTracks,
+                                    baseUrl = baseUrl,
+                                    imageLoader = imageLoader,
+                                    onClick = { onViewArtist(hit.name) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
                 if (uiState.isLoading && uiState.allTracks.isEmpty()) {
                     item {
                         Column(
@@ -349,5 +382,55 @@ fun SearchScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * One artist match in the search results: a square 2x2 cover collage of up
+ * to 4 distinct albums (single cover when only one has artwork, a user icon
+ * when none do — [CoverMosaic] handles both fallbacks) with the artist name
+ * underneath. Tapping opens the artist's library view.
+ */
+@Composable
+private fun ArtistSearchCard(
+    name: String,
+    coverTracks: List<CatalogTrack>,
+    baseUrl: String,
+    imageLoader: ImageLoader,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.clickable(onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(MuorgShapes.card)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            CoverMosaic(
+                covers = coverTracks.map { coverModelFor(it.localCoverPath, it.id, baseUrl) },
+                imageLoader = imageLoader,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Icon(
+                    painter = painterResource(mageIconRes("user")),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                )
+            }
+        }
+        Spacer(Modifier.size(6.dp))
+        Text(
+            text = name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
