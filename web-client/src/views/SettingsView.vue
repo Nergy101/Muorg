@@ -550,13 +550,13 @@ const THEME_OPTIONS = [
 ];
 /** Swatch colors mirror the accent palettes in style.css. */
 const ACCENT_OPTIONS: { value: AccentColor; label: string; color?: string }[] = [
+  { value: "dynamic", label: "Dynamic — follows album art" },
   { value: "green", label: "Green", color: "#5b7c32" },
   { value: "blue", label: "Blue", color: "#4a7fc1" },
   { value: "purple", label: "Purple", color: "#7d63b8" },
   { value: "orange", label: "Orange", color: "#b97a2a" },
   { value: "red", label: "Red", color: "#b84a4a" },
   { value: "teal", label: "Teal", color: "#3d8f85" },
-  { value: "dynamic", label: "Dynamic — follows album art" },
 ];
 
 const router = useRouter();

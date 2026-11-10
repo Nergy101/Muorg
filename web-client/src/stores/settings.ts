@@ -86,7 +86,7 @@ export const useSettingsStore = defineStore("settings", () => {
   /** dB applied on top of the tag's gain, positive or negative. */
   const replayGainPreampDb = ref(loadPref("muorg-web-replaygain-preamp", 0));
   const replayGainPreventClipping = ref(loadPref("muorg-web-replaygain-prevent-clipping", true));
-  const accent = ref<AccentColor>(loadPref("muorg-web-accent", "green"));
+  const accent = ref<AccentColor>(loadPref("muorg-web-accent", "dynamic"));
   const reduceMotion = ref(loadPref("muorg-web-reduce-motion", false));
   const openOnLastTab = ref(loadPref("muorg-web-open-last-tab", true));
   /** Offline mode (mirrors the Android app): the player makes no network
@@ -149,9 +149,9 @@ export const useSettingsStore = defineStore("settings", () => {
       resolvedTheme.value === "dark" && trueBlack.value ? "black" : resolvedTheme.value;
   });
 
-  // Accent palettes are keyed on data-accent in style.css; green is the default
-  // (the values in the theme blocks), so no attribute means green. "dynamic"
-  // is resolved by the player store from the current album art, so this effect
+  // Accent palettes are keyed on data-accent in style.css; the theme blocks
+  // define green, so no attribute means green. "dynamic" is the default and is
+  // resolved by the player store from the current album art, so this effect
   // deliberately leaves the attribute alone for it.
   watchEffect(() => {
     const el = document.documentElement;
