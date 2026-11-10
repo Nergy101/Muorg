@@ -255,7 +255,7 @@
 <script setup lang="ts">
 import EmptyState from "../components/EmptyState.vue";
 import { computed, nextTick, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import AlbumCard from "../components/AlbumCard.vue";
@@ -271,11 +271,13 @@ import { provideVisibleIds } from "../composables/useSelectableList";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
+const route = useRoute();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const settings = useSettingsStore();
 const selection = useSelectionStore();
-const query = ref("");
+// Pre-filled when arriving from the home page's search bar (`/search?q=…`).
+const query = ref(typeof route.query.q === "string" ? route.query.q : "");
 /** Result layout: flat track list or album-cover grid, persisted. */
 const layout = ref<"list" | "grid">(loadPref("muorg-web-search-layout", "list"));
 watch(layout, (v) => savePref("muorg-web-search-layout", v));
@@ -284,9 +286,17 @@ function toggleLayout(): void {
 }
 /** Debounced copy of `query` — the results computed reads this, so a full
  *  catalog scan runs at most once per pause in typing, not per keystroke. */
-const debouncedQuery = ref("");
+const debouncedQuery = ref(query.value);
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 const inputEl = ref<HTMLInputElement | null>(null);
+
+// Repeat visits from the home search bar carry a new `q` — adopt it.
+watch(
+  () => route.query.q,
+  (q) => {
+    if (typeof q === "string") query.value = q;
+  },
+);
 
 function normalize(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase();

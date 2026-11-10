@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push: mocks.push }),
+  useRoute: () => ({ query: {} }),
 }));
 vi.mock("../stores/library", () => ({ useLibraryStore: () => reactive(mocks.lib) }));
 vi.mock("../stores/player", () => ({

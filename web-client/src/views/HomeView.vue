@@ -1,11 +1,37 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+      <!-- Centered search bar (same glass pill as the library's top field):
+           Enter jumps to the search screen with the query pre-filled. -->
+      <div class="content-col px-4 pt-4">
+        <div
+          class="glass-field mx-auto flex h-11 w-full max-w-md items-center gap-2 rounded-full px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
+        >
+          <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+          <input
+            v-model="homeQuery"
+            type="text"
+            placeholder="Search tracks"
+            class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
+            @keyup.enter="goToSearch"
+          />
+          <button
+            v-if="homeQuery"
+            type="button"
+            class="shrink-0 text-on-surface-variant"
+            aria-label="Clear search"
+            @click="homeQuery = ''"
+          >
+            <MageIcon name="multiply" class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
       <!-- Brand row: the Muorg mark and name on the left (as in the sidebar),
            "Shuffle all" + "Play random mix" on the right (mirrors the Android
            app's HomeHeader). On desktop the navbar already shows the logo, so
            the mark is hidden and the button pair is centred at the top. -->
-      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4 lg:justify-center">
+      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-2 lg:justify-center">
         <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0 lg:hidden" />
         <span class="text-title-md font-bold tracking-tight text-on-surface lg:hidden">Muorg</span>
         <div class="flex-1 lg:hidden" />
@@ -472,6 +498,15 @@ watch(SHELF_CAP, () => {
 
 function openMix(id: number): void {
   void router.push({ name: "mix", params: { id: String(id) } });
+}
+
+/** The centered search bar above the brand row: Enter opens the search
+ *  screen with the query pre-filled (SearchView reads the `q` param). */
+const homeQuery = ref("");
+function goToSearch(): void {
+  const q = homeQuery.value.trim();
+  if (!q) return;
+  void router.push({ name: "search", query: { q } });
 }
 
 /** The header's "Shuffle all" (mirrors the Android app's HomeHeader): seeds
