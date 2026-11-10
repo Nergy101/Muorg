@@ -21,12 +21,15 @@ const icons = import.meta.glob("../assets/mage-icons/*.svg", {
 const svgContent = computed(() => {
   const raw = icons[`../assets/mage-icons/${props.name}.svg`];
   if (!raw) return "";
-  // Mage ships stroke="black"; inherit the surrounding text colour instead.
+  // Mage ships stroke="black" on outline glyphs and fill="black" on the
+  // -fill variants; inherit the surrounding text colour for both. The root
+  // <svg> carries fill="none", so only the black path fills are rewritten.
   // The caller's classes land on the <svg> itself (they beat the 24×24
   // width/height attributes).
   return raw
     .replace("<svg", `<svg class="${props.class ?? ""}"`)
-    .replace(/stroke="black"/g, 'stroke="currentColor"');
+    .replace(/stroke="black"/g, 'stroke="currentColor"')
+    .replace(/fill="black"/g, 'fill="currentColor"');
 });
 </script>
 
