@@ -14,11 +14,13 @@
     <div
       class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto md:max-w-[640px] lg:max-w-5xl"
     >
-      <!-- Top row -->
-      <div class="flex h-14 shrink-0 items-center px-2">
+      <!-- Top row. On desktop the back chevron is centred in the middle of the
+           row (the chrome pill is hidden at lg, so left-aligned would look
+           orphaned); on mobile it stays at the left edge. -->
+      <div class="relative flex h-14 shrink-0 items-center px-2">
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-white/75"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-white/75 lg:absolute lg:left-1/2 lg:-translate-x-1/2"
           aria-label="Back"
           @click="router.back()"
         >
@@ -221,7 +223,7 @@
             </button>
             <button
               type="button"
-              class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
+              class="glass-sheer flex h-[72px] w-[72px] items-center justify-center rounded-full text-white transition-transform hover:scale-105"
               :aria-label="transportPlaying ? 'Pause' : 'Play'"
               @click="togglePlay"
             >
