@@ -38,10 +38,11 @@ fun coverModelFor(localCoverPath: String?, trackId: Int, baseUrl: String): Any =
  * four covers actually decode; the moment one fails — a 404, a cover the
  * catalog claims exists but the server will not serve, a request dropped
  * because a screenful of tiles asked for twenty images at once — the tile
- * drops to a single full-bleed cover, exactly like an album card. That was the
- * black-square bug: a quarter that never loaded left bare background behind
- * it, and on a real device enough of them failed to make whole tiles look
- * empty.
+ * drops to a vertical split of the covers that did load (2 or 3 panels,
+ * each center-cropped), and to a single full-bleed cover when only one
+ * remains, exactly like an album card. That was the black-square bug: a
+ * quarter that never loaded left bare background behind it, and on a real
+ * device enough of them failed to make whole tiles look empty.
  *
  * One shared implementation because it was previously copied into three
  * screens, and a fix in one of them fixed only that screen.
@@ -80,6 +81,21 @@ fun CoverMosaic(
                             )
                         }
                     }
+                }
+            }
+
+            // 2 or 3 covers: a vertical split, each cover height-filling and
+            // center-cropped in its own panel (same as the web's split).
+            usable.size >= 2 -> Row(Modifier.fillMaxSize()) {
+                for (model in usable) {
+                    AsyncImage(
+                        model = model,
+                        contentDescription = null,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        onError = { failed = failed + model },
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                    )
                 }
             }
 
