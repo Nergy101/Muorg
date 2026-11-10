@@ -37,7 +37,7 @@
       </div>
     </div>
 
-    <div ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+    <div class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
       <!-- Empty query: recent searches + recently selected results. -->
       <template v-if="!query.trim()">
         <div v-if="settings.searchHistory.length > 0" class="search-col px-4 pb-2 pt-1">
@@ -164,14 +164,12 @@
           </div>
         </div>
 
-        <!-- Album-cover layout: one album card PER matching track, full-bleed
-             like the homepage grid so the cards get the same normal size. -->
-        <div v-if="layout === 'grid'" class="px-4 pb-4 pt-1">
-          <div
-            class="grid gap-3"
-            :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
-          >
-            <template v-for="card in resultCards" :key="card.item.key">
+        <!-- Album-cover layout: one album card PER matching track, in the
+             centered measure at 4 columns (normal cover size), paged 20 at
+             a time so a big result set doesn't load every cover at once. -->
+        <div v-if="layout === 'grid'" class="search-col px-4 pb-4 pt-1">
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <template v-for="card in visibleResultCards" :key="card.item.key">
               <AlbumCard
                 v-if="card.item.hasCover"
                 :item="card.item"
@@ -207,6 +205,15 @@
               </button>
             </template>
           </div>
+          <button
+            v-if="hasMoreGrid"
+            type="button"
+            class="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full glass-field text-label-lg text-primary"
+            @click="showMoreGrid"
+          >
+            <MageIcon name="chevron-down" class="h-4 w-4" />
+            <span>Show more ({{ resultCards.length - visibleGridCount }} remaining)</span>
+          </button>
         </div>
         <div v-else class="search-col pb-4">
           <TrackListRow
@@ -261,7 +268,6 @@ import { useSelectionStore } from "../stores/selection";
 import { loadPref, savePref } from "../stores/prefs";
 import { searchFocusSignal } from "../composables/useSearchFocus";
 import { provideVisibleIds } from "../composables/useSelectableList";
-import { useGridColumns } from "../composables/useGridColumns";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
 const router = useRouter();
@@ -276,8 +282,6 @@ watch(layout, (v) => savePref("muorg-web-search-layout", v));
 function toggleLayout(): void {
   layout.value = layout.value === "grid" ? "list" : "grid";
 }
-const scroller = ref<HTMLElement | null>(null);
-const gridCols = useGridColumns(scroller);
 /** Debounced copy of `query` — the results computed reads this, so a full
  *  catalog scan runs at most once per pause in typing, not per keystroke. */
 const debouncedQuery = ref("");
@@ -425,16 +429,26 @@ function openTrackAlbum(track: CatalogTrack): void {
   void router.push({ name: "album", params: { albumKey: lib.keyForTrack(track) } });
 }
 
-// Only the first page of results is rendered; "Load more" reveals the next.
+// Only the first page of results is rendered; "Load more"/"Show more" reveals
+// the next. The cover grid pages 20 at a time — rendering every card at once
+// makes the browser fetch every cover in one go and the page lags.
 const PAGE_SIZE = 10;
+const GRID_PAGE_SIZE = 20;
 const visibleCount = ref(PAGE_SIZE);
+const visibleGridCount = ref(GRID_PAGE_SIZE);
 watch(debouncedQuery, () => {
   visibleCount.value = PAGE_SIZE;
+  visibleGridCount.value = GRID_PAGE_SIZE;
 });
 const visibleResults = computed(() => results.value.slice(0, visibleCount.value));
 const hasMore = computed(() => results.value.length > visibleCount.value);
 function loadMore(): void {
   visibleCount.value = Math.min(visibleCount.value + PAGE_SIZE, results.value.length);
+}
+const visibleResultCards = computed(() => resultCards.value.slice(0, visibleGridCount.value));
+const hasMoreGrid = computed(() => resultCards.value.length > visibleGridCount.value);
+function showMoreGrid(): void {
+  visibleGridCount.value = Math.min(visibleGridCount.value + GRID_PAGE_SIZE, resultCards.value.length);
 }
 
 /** Recently selected search results, resolved against the catalog and kept
