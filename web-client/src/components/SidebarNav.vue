@@ -3,17 +3,28 @@
        hidden below lg. Mirrors BottomNav's active-state vocabulary: the lit tab
        is the filled glyph on a translucent primary pill. -->
   <aside
-    class="glass hidden m-4 w-60 shrink-0 flex-col self-start rounded-2xl lg:flex"
+    class="glass hidden m-4 shrink-0 flex-col self-start rounded-2xl transition-[width] lg:flex"
+    :class="collapsed ? 'w-auto' : 'w-60'"
   >
-    <!-- Brand -->
+    <!-- Brand. In collapsed mode (maximized player with fullscreen art) the
+         rail shrinks to just this row; the chevron re-expands the full nav. -->
     <div class="flex h-14 shrink-0 items-center gap-2.5 px-5">
       <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />
       <span class="text-title-md font-bold tracking-tight text-on-surface">Muorg</span>
+      <button
+        type="button"
+        class="ml-auto rounded p-0.5 text-on-surface-variant/70 hover:text-on-surface"
+        :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        :aria-expanded="!collapsed"
+        @click="collapsed = !collapsed"
+      >
+        <MageIcon :name="collapsed ? 'chevron-down' : 'chevron-up'" class="h-4 w-4" />
+      </button>
     </div>
 
     <!-- Tabs. Queue sits with them as a plain destination: it is not a tab
          (tabIndexForRoute returns -1 for it), so it lights on its own route. -->
-    <nav class="flex flex-col gap-1 px-3 py-2">
+    <nav v-if="!collapsed" class="flex flex-col gap-1 px-3 py-2">
       <template v-for="(tab, i) in mainTabs" :key="tab.name">
         <RouterLink
           :to="{ name: tab.name }"
@@ -128,9 +139,14 @@
       </RouterLink>
     </nav>
 
-    <div class="flex-1" />
+    <template v-if="!collapsed">
+      <div class="flex-1" />
 
-    <p class="px-5 pb-4 text-label-sm text-on-surface-variant/70">Muorg Web</p>
+      <!-- Volume lives in the rail (desktop); the player has no volume bar. -->
+      <div class="mx-3 border-t border-on-surface/10 px-2 py-3">
+        <VolumeControl />
+      </div>
+    </template>
   </aside>
 </template>
 
@@ -138,12 +154,14 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
+import VolumeControl from "./VolumeControl.vue";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { searchFocusSignal } from "../composables/useSearchFocus";
 import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
 import { useDragReorder } from "../composables/useDragReorder";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
 import { useLibraryStore } from "../stores/library";
+import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { loadPref, savePref } from "../stores/prefs";
 import { useSettingsStore } from "../stores/settings";
@@ -153,8 +171,17 @@ import logoUrl from "../assets/muorg-logo.svg";
 const route = useRoute();
 const router = useRouter();
 const lib = useLibraryStore();
+const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
+
+// Collapsed rail: while the maximized player runs in art-fullscreen mode the
+// sidebar shrinks to the brand row; the chevron in that row expands it again.
+// Leaving the player or turning fullscreen off restores the full rail.
+const collapsed = ref(false);
+watch([() => route.name, () => player.artFullscreen], ([name, fullscreen]) => {
+  collapsed.value = name === "player" && fullscreen;
+});
 
 /** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
 const activeIndex = computed(() => tabIndexForRoute(String(route.name)));

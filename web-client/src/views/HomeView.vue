@@ -45,7 +45,8 @@
             @click="shuffleAll"
           >
             <MageIcon name="exchange" class="h-4 w-4" />
-            <span>Shuffle all</span>
+            <span class="lg:hidden">Shuffle</span>
+            <span class="hidden lg:inline">Shuffle all</span>
           </button>
           <button
             type="button"
@@ -54,7 +55,8 @@
             @click="playRandomMix"
           >
             <MageIcon name="play-circle" class="h-4 w-4" />
-            <span>Play random mix</span>
+            <span class="lg:hidden">Random mix</span>
+            <span class="hidden lg:inline">Play random mix</span>
           </button>
         </div>
       </div>

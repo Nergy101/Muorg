@@ -54,7 +54,7 @@
 
       <button
         type="button"
-        :class="ROW"
+        :class="[ROW, downloaded ? 'text-error hover:bg-error/10' : '']"
         :disabled="downloading"
         @click="downloaded ? emit('undownload') : emit('download'); emit('close')"
       >
@@ -69,7 +69,7 @@
           <MageIcon
             name="download"
             class="h-5 w-5"
-            :class="downloadClass"
+            :class="downloaded ? 'text-error' : downloadClass"
           />
         </span>
         <span>{{ downloaded ? "Remove offline download" : "Download for offline" }}</span>
@@ -89,10 +89,10 @@
       <button
         v-if="!isFavorites"
         type="button"
-        :class="[ROW, 'text-error']"
+        :class="[ROW, 'text-error hover:bg-error/10']"
         @click="emit('delete'); emit('close')"
       >
-        <MageIcon name="trash" class="h-5 w-5 shrink-0" />
+        <MageIcon name="trash" class="h-5 w-5 shrink-0 text-error" />
         <span>Delete playlist</span>
       </button>
 

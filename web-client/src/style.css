@@ -348,6 +348,12 @@ body {
     inset 0 1px 0 0 color-mix(in srgb, white 14%, transparent);
 }
 
+/* In the light theme the base glass can read a shade grey over cover art;
+   let more of the near-white surface through so the island stays light. */
+[data-theme="light"] .glass {
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+}
+
 .glass-strong {
   background: color-mix(in srgb, var(--surface) 78%, transparent);
   -webkit-backdrop-filter: blur(30px) saturate(180%);
@@ -550,6 +556,19 @@ input[type="range"]::-moz-range-thumb {
   .edge-blur-art {
     -webkit-mask-image: none;
     mask-image: none;
+    filter: blur(16px);
+  }
+}
+/* Art-fullscreen mode (maximized player): the backdrop art fills the pane with
+   only a minimal blur — the black edge vignette (radial mask) stays, so the
+   art still fades into the dark base at the borders. */
+.edge-blur-art.edge-art-sharp {
+  filter: blur(12px);
+}
+/* Mobile art-fullscreen: a touch sharper than desktop's 12px. */
+@media (max-width: 63.99rem) {
+  .edge-blur-art.edge-art-sharp {
+    filter: blur(6px);
   }
 }
 

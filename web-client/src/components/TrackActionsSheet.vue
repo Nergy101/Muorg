@@ -63,11 +63,15 @@
           <span>Add to playlist</span>
         </button>
 
-        <button type="button" :class="ROW" @click="onToggleDownload">
+        <button
+          type="button"
+          :class="[ROW, isCached ? 'text-error hover:bg-error/10' : '']"
+          @click="onToggleDownload"
+        >
           <MageIcon
             name="download"
             class="h-5 w-5 shrink-0"
-            :class="isCached ? 'text-primary' : 'text-on-surface-variant'"
+            :class="isCached ? 'text-error' : 'text-on-surface-variant'"
           />
           <span>{{ isCached ? "Remove offline download" : "Download for offline" }}</span>
         </button>
@@ -144,8 +148,8 @@
           <MageIcon name="edit" class="h-5 w-5 shrink-0 text-on-surface-variant" />
           <span>Edit metadata</span>
         </button>
-        <button type="button" :class="[ROW, 'text-error']" @click="deleteConfirmOpen = true">
-          <MageIcon name="trash" class="h-5 w-5 shrink-0" />
+        <button type="button" :class="[ROW, 'text-error hover:bg-error/10']" @click="deleteConfirmOpen = true">
+          <MageIcon name="trash" class="h-5 w-5 shrink-0 text-error" />
           <span>Delete track</span>
         </button>
         <div class="h-4" />

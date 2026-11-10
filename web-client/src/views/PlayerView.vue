@@ -5,8 +5,9 @@
     :style="rootStyle"
     @pointerdown="onPlayerPointerdown"
   >
-    <!-- Dominant-colour backdrop (shared with the album view) -->
-    <CoverBackdrop :cover-url="coverUrl" />
+    <!-- Dominant-colour backdrop (shared with the album view). In art-fullscreen
+         mode the blurred art becomes the sharp full-bleed background. -->
+    <CoverBackdrop :cover-url="coverUrl" :sharp="artFullscreen" />
 
     <!-- The glow backdrop above still spans the full shell; only the controls
          column is centred, so seek and transport stay near the art on desktop
@@ -16,11 +17,12 @@
     >
       <!-- Top row. On desktop the back chevron is centred in the middle of the
            row (the chrome pill is hidden at lg, so left-aligned would look
-           orphaned); on mobile it stays at the left edge. -->
-      <div class="relative flex h-14 shrink-0 items-center px-2">
+           orphaned); on mobile it stays at the left edge. Hidden entirely in
+           art-fullscreen mode, which keeps only the bottom bar. -->
+      <div v-if="!artFullscreen" class="relative flex h-14 shrink-0 items-center px-2">
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-white/75 lg:absolute lg:left-1/2 lg:-translate-x-1/2"
+          class="hidden h-10 w-10 items-center justify-center rounded-full text-white/75 lg:absolute lg:flex lg:left-1/2 lg:-translate-x-1/2"
           aria-label="Back"
           @click="router.back()"
         >
@@ -48,37 +50,30 @@
           <button
             v-if="hasLyrics"
             type="button"
-            class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
+            class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
             :class="showLyrics ? 'text-primary' : ''"
             :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
             @click="showLyrics = !showLyrics"
           >
             <MageIcon name="note-text" class="h-5 w-5" />
           </button>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
-            aria-label="Track actions"
-            @click="openTrackActions"
-          >
-            <MageIcon name="dots" class="h-5 w-5" />
-          </button>
         </div>
       </div>
 
-      <!-- Desktop (lg) is a two-pane layout: art left, info + controls right.
-           Mobile keeps the stacked column — art centred, controls below. -->
+      <!-- Stacked at every size: art centred on top, glass controls panel
+           below it. On desktop the panel keeps a comfortable measure instead
+           of stretching across the wide shell. -->
       <div
-        class="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-center lg:gap-12 lg:px-10 lg:pb-6"
+        class="relative flex min-h-0 flex-1 flex-col lg:gap-8 lg:px-10 lg:pb-6"
       >
         <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
              short viewport; object-cover absorbs the crop if it ever clamps. -->
         <!-- Lyrics pane (replaces cover art when toggled on) -->
         <div
           v-if="showLyrics && hasLyrics"
-          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:w-[44%] lg:flex-none lg:px-0"
+          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:absolute lg:inset-x-0 lg:-top-14 lg:bottom-0 lg:px-0 lg:pointer-events-none"
         >
-          <div class="max-h-full w-full overflow-y-auto py-4 text-center">
+          <div class="max-h-full w-full overflow-y-auto py-4 text-center lg:pointer-events-auto">
             <template v-if="isSynced">
               <p
                 v-for="(l, i) in lrcLines"
@@ -101,12 +96,20 @@
 
         <div
           v-else
-          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:w-[44%] lg:flex-none lg:px-0"
+          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:absolute lg:inset-x-0 lg:-top-14 lg:bottom-0 lg:px-0 lg:pointer-events-none"
+          @click="onCoverAreaClick"
         >
           <!-- 50vh cap: on a wide shell 86% would be taller than the centre column,
-               so the art would clamp to a cropped rectangle. Never binds on phones. -->
+               so the art would clamp to a cropped rectangle. Never binds on phones.
+               On desktop the pane is absolute over the full player height
+               (-top-14 reaches behind the top bar), so the art sits exactly at
+               the screen's centre; the controls panel stays in flow below. -->
           <div
-            class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center lg:w-full lg:max-w-[420px]"
+            class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center transition-all duration-300 lg:w-full lg:max-w-[420px] lg:pointer-events-auto lg:cursor-pointer"
+            :class="artFullscreen ? 'pointer-events-none scale-90 opacity-0' : ''"
+            role="button"
+            aria-label="Toggle fullscreen artwork"
+            @click.stop="toggleArtFullscreen"
           >
             <div
               class="absolute inset-0 rounded-full"
@@ -127,72 +130,145 @@
           </div>
         </div>
 
-        <!-- Info + controls -->
-        <div class="flex shrink-0 flex-col lg:w-[56%] lg:shrink lg:gap-4">
-          <!-- Track info bottom-left, quick actions opposite, both above the seek bar -->
-          <div class="flex shrink-0 items-end gap-3 px-6 pb-3 lg:items-center lg:px-0 lg:pb-0">
-            <div class="min-w-0 flex-1">
-              <MarqueeText
-                :text="player.currentTrack.title ?? '—'"
-                class="text-title-lg text-white lg:text-headline-sm"
-              />
-              <p class="truncate text-body-md text-white/75">
-                {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
-              </p>
-              <p class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
+        <!-- Info + controls on one glass backpanel below the cover. On desktop
+             the panel keeps a centred measure rather than full width. -->
+        <div
+          class="controls-panel relative z-10 flex shrink-0 glass"
+          :class="artFullscreen
+            ? 'm-0 mt-auto w-full flex-row items-center gap-4 rounded-b-none rounded-t-3xl py-3 pl-6 pr-3 lg:px-6'
+            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[560px] lg:gap-2 lg:p-4'"
+        >
+          <!-- Track info bottom-left, quick actions opposite, both above the seek bar.
+               In art-fullscreen mode the panel is a single bottom row: cover +
+               titles on the left, seek bar in the middle. On mobile the title
+               takes the full top row and the action buttons share the second
+               row with the artist/album line. -->
+          <div
+            class="flex shrink-0 min-w-0"
+            :class="artFullscreen
+              ? 'flex-1 flex-nowrap items-center gap-3 px-0 pb-0'
+              : 'flex-wrap items-end gap-x-3 gap-y-2 px-6 pb-3 lg:gap-3 lg:px-0 lg:pb-0'"
+          >
+            <!-- In fullscreen-art mode the big cover is hidden, so a small art
+                 square sits left of the title to keep the track identifiable;
+                 tapping it exits fullscreen (mirrors tapping the big cover). -->
+            <img
+              v-if="artFullscreen && coverUrl"
+              :src="coverUrl"
+              :alt="player.currentTrack.album ?? ''"
+              class="h-12 w-12 shrink-0 cursor-pointer rounded-lg object-cover shadow"
+              role="button"
+              aria-label="Show album cover"
+              @click="toggleArtFullscreen"
+            />
+            <!-- This wrapper dissolves (contents) so the title and the
+                 artist/album line join the outer wrapping row: title takes the
+                 full top row, artist/album share the second row with the
+                 action buttons. In fs mode it stacks as one column instead. -->
+            <div
+              class="min-w-0 flex-1"
+              :class="artFullscreen ? 'flex flex-col' : 'contents'"
+            >
+              <div
+                class="min-w-0 basis-full"
+                :class="artFullscreen ? '' : 'lg:text-center'"
+              >
+                <MarqueeText
+                  :text="player.currentTrack.title ?? '—'"
+                  class="text-title-lg text-white lg:text-headline-sm"
+                  :class="artFullscreen ? 'lg:text-title-md' : ''"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-body-md text-white/75">
+                  {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
+                </p>
+                <p v-if="!artFullscreen" class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
+              </div>
             </div>
-            <div class="flex shrink-0 items-center gap-1">
+            <!-- Favorite sits right of the track title (non-fs; in fs it moves
+                 next to the progress ring at the right end of the bottom row) -->
+            <button
+              v-if="!artFullscreen"
+              type="button"
+              class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+              :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+              @click="onToggleFavorite"
+              @animationend="heartPulse = false"
+            >
+              <!-- CSS `fill` beats the presentation attribute feather emits, so the
+                   heart reads as solid once favourited. -->
+              <MageIcon name="heart" class="h-5 w-5" :class="isFavorite ? 'fill-current' : ''" />
+            </button>
+            <div v-if="!artFullscreen" class="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                class="flex h-10 w-10 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Queue"
                 @click="router.push({ name: 'player-queue' })"
               >
-                <MageIcon name="stack" class="h-6 w-6" />
+                <MageIcon name="stack" class="h-5 w-5" />
               </button>
               <button
                 type="button"
-                class="flex h-10 w-10 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Add to playlist"
                 @click="openAddToPlaylist"
               >
-                <MageIcon name="playlist-add" class="h-6 w-6" />
+                <MageIcon name="playlist-add" class="h-5 w-5" />
               </button>
+              <!-- 3-dots, left of the fullscreen toggle (non-fs view) -->
               <button
                 type="button"
-                class="glass-sheer flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-                :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
-                :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-                @click="onToggleFavorite"
-                @animationend="heartPulse = false"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Track actions"
+                @click="openTrackActions"
               >
-                <!-- CSS `fill` beats the presentation attribute feather emits, so the
-                     heart reads as solid once favourited. -->
-                <MageIcon name="heart" class="h-6 w-6" :class="isFavorite ? 'fill-current' : ''" />
+                <MageIcon name="dots" class="h-5 w-5" />
+              </button>
+              <!-- Fullscreen toggle, right of add-to-playlist (non-fs view) -->
+              <button
+                type="button"
+                class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex"
+                :class="artFullscreen ? 'text-primary hover:text-primary' : 'text-white/75 hover:text-white'"
+                :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
+                @click="toggleArtFullscreen"
+              >
+                <MageIcon name="maximize" class="h-5 w-5" />
               </button>
             </div>
           </div>
 
-          <!-- Seek row -->
-          <div class="shrink-0 px-6 lg:px-0">
-            <div
-              ref="seekTrack"
-              data-no-dismiss
-              class="relative h-4 flex items-center"
-              @pointerdown="onSeekPointerdown"
-            >
-              <div class="h-1 w-full rounded-full bg-white/25">
+          <!-- Seek row (in fullscreen it shares the single bottom row). On
+               desktop non-fs the volume slider sits right of the progress bar. -->
+          <div
+            class="shrink-0"
+            :class="artFullscreen ? 'flex-none px-0' : 'px-6 lg:px-0'"
+          >
+            <div class="lg:flex lg:items-center lg:gap-4">
+              <!-- In fs mode the linear bar is replaced by the circular ring
+                   at the right end of the bottom row (next to maximize). -->
+              <div
+                v-if="!artFullscreen"
+                ref="seekTrack"
+                data-no-dismiss
+                class="relative h-4 flex flex-1 items-center"
+                @pointerdown="onSeekPointerdown"
+              >
+                <div class="h-1 w-full rounded-full bg-white/25">
+                  <div
+                    class="h-full rounded-full bg-primary"
+                    :style="{ width: `${displayedFraction * 100}%` }"
+                  />
+                </div>
                 <div
-                  class="h-full rounded-full bg-primary"
-                  :style="{ width: `${displayedFraction * 100}%` }"
+                  class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-primary shadow"
+                  :style="{ left: `${displayedFraction * 100}%` }"
                 />
               </div>
-              <div
-                class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-primary shadow"
-                :style="{ left: `${displayedFraction * 100}%` }"
-              />
             </div>
-            <div class="flex items-center justify-between pt-1">
+            <div v-if="!artFullscreen" class="flex items-center justify-between pt-1">
               <span class="text-label-md tabular-nums text-white/55">{{ formatDuration(displayedSecs) }}</span>
               <span class="text-label-md tabular-nums text-white/55">
                 -{{ formatDuration(Math.max(0, player.durationSecs - displayedSecs)) }}
@@ -200,9 +276,10 @@
             </div>
           </div>
 
-          <!-- Transport row -->
+          <!-- Transport row (hidden in art-fullscreen mode) -->
           <div
-            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-5 lg:px-0 lg:pb-0"
+            v-if="!artFullscreen"
+            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-5 lg:px-0 lg:pb-0"
           >
             <button
               type="button"
@@ -223,7 +300,7 @@
             </button>
             <button
               type="button"
-              class="glass-sheer flex h-[72px] w-[72px] items-center justify-center rounded-full text-white transition-transform hover:scale-105"
+              class="chrome-glass glass-sheer flex h-[72px] w-[72px] items-center justify-center rounded-full text-white transition-transform hover:scale-105"
               :aria-label="transportPlaying ? 'Pause' : 'Play'"
               @click="togglePlay"
             >
@@ -254,33 +331,57 @@
 
           <!-- Volume: desktop (lg) only, paired with the chrome pill (sleep
                timer / lyrics / actions) in one row underneath the transport
-               buttons. Mobile uses the hardware volume keys. -->
-          <div class="hidden shrink-0 items-center justify-center gap-3 pt-4 lg:flex">
-            <!-- Quick actions (queue / add to playlist), left of the sound
-                 slider. Favourite stays on the mobile info row only — the
-                 desktop pill keeps just these two. -->
-            <div class="glass-sheer flex items-center overflow-hidden rounded-full">
-              <button
-                type="button"
-                class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
-                aria-label="Queue"
-                @click="router.push({ name: 'player-queue' })"
-              >
-                <MageIcon name="stack" class="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
-                aria-label="Add to playlist"
-                @click="openAddToPlaylist"
-              >
-                <MageIcon name="playlist-add" class="h-5 w-5" />
-              </button>
-            </div>
-            <div class="glass-sheer flex h-10 items-center rounded-full px-3">
-              <VolumeControl variant="player" />
-            </div>
-            <div class="glass-sheer flex items-center overflow-hidden rounded-full">
+               buttons. Mobile uses the hardware volume keys. In art-fullscreen
+               mode only the volume pill remains. -->
+          <div
+            class="shrink-0 items-center justify-center gap-2 lg:gap-3"
+            :class="artFullscreen ? 'flex justify-end pt-0' : 'hidden pt-2 lg:flex'"
+          >
+            <!-- Quick actions (queue / add to playlist) live in the info row
+                 above, next to the favourite button — no separate pill here. -->
+            <!-- Favorite, just left of the progress ring (fs view only) -->
+            <button
+              v-if="artFullscreen"
+              type="button"
+              class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
+              :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+              @click="onToggleFavorite"
+              @animationend="heartPulse = false"
+            >
+              <MageIcon name="heart" class="h-5 w-5 lg:h-6 lg:w-6" :class="isFavorite ? 'fill-current' : ''" />
+            </button>
+            <!-- Circular progress ring (fs view only), left of the maximize icon -->
+            <svg v-if="artFullscreen" viewBox="0 0 20 20" class="h-5 w-5 shrink-0 -rotate-90 lg:h-6 lg:w-6" aria-hidden="true">
+              <circle cx="10" cy="10" r="8" fill="none" class="text-white" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
+              <circle
+                cx="10" cy="10" r="8" fill="none" class="text-primary" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                :stroke-dasharray="PROGRESS_RING_C" :stroke-dashoffset="PROGRESS_RING_C * (1 - displayedFraction)"
+              />
+            </svg>
+            <!-- Fullscreen toggle: at the end of this row in the fs view only
+                 (in the non-fs view it sits right of add-to-playlist above) -->
+            <button
+              v-if="artFullscreen"
+              type="button"
+              class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex lg:h-10 lg:w-10"
+              :class="artFullscreen ? 'text-primary hover:text-primary' : 'text-white/75 hover:text-white'"
+              :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
+              @click="toggleArtFullscreen"
+            >
+              <MageIcon name="maximize" class="h-5 w-5 lg:h-6 lg:w-6" />
+            </button>
+            <!-- 3-dots track menu, rightmost in the fs view -->
+            <button
+              v-if="artFullscreen"
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white lg:h-10 lg:w-10"
+              aria-label="Track actions"
+              @click="openTrackActions"
+            >
+              <MageIcon name="dots" class="h-5 w-5 lg:h-6 lg:w-6" />
+            </button>
+            <div v-if="!artFullscreen" class="chrome-glass glass-sheer flex items-center overflow-hidden rounded-full">
               <button
                 v-if="settings.sleepTimerEnabled"
                 type="button"
@@ -299,20 +400,12 @@
               <button
                 v-if="hasLyrics"
                 type="button"
-                class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
+                class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
                 :class="showLyrics ? 'text-primary' : ''"
                 :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
                 @click="showLyrics = !showLyrics"
               >
                 <MageIcon name="note-text" class="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                class="flex h-10 w-10 items-center justify-center border-l border-white/20 text-white transition-colors hover:bg-white/10"
-                aria-label="Track actions"
-                @click="openTrackActions"
-              >
-                <MageIcon name="dots" class="h-5 w-5" />
               </button>
             </div>
           </div>
@@ -373,7 +466,6 @@ import { useSettingsStore } from "../stores/settings";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
-import VolumeControl from "../components/VolumeControl.vue";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
@@ -452,6 +544,22 @@ onMounted(() => {
 const coverUrl = computed(() => player.currentCoverUrl);
 const glowRgb = useDominantColor(coverUrl);
 
+// --- Art-fullscreen mode (desktop): clicking the cover hides it and unblurs
+// the backdrop art into a sharp full-bleed background. The flag lives in the
+// player store so the sidebar can collapse while this mode is on. ---
+const artFullscreen = computed(() => player.artFullscreen);
+function toggleArtFullscreen(): void {
+  player.toggleArtFullscreen();
+}
+
+// Mobile art-fullscreen: tapping the backdrop (the hidden cover's area)
+// exits fullscreen — the maximize button is desktop-only there.
+function onCoverAreaClick(): void {
+  if (artFullscreen.value && !window.matchMedia("(min-width: 1024px)").matches) {
+    player.toggleArtFullscreen();
+  }
+}
+
 // --- Swipe down to dismiss ---
 // The sheet is a modal; the shell's edge-back gesture deliberately skips it,
 // so the dismiss gesture lives here. The inline transform is only applied
@@ -487,6 +595,9 @@ const currentProgress = computed(() =>
 );
 
 const displayedFraction = computed(() => seekPreview.value ?? currentProgress.value);
+
+/** Circumference of the fs-mode circular progress ring (svg r=8). */
+const PROGRESS_RING_C = 2 * Math.PI * 8;
 const displayedSecs = computed(() => displayedFraction.value * player.durationSecs);
 
 function fractionFromEvent(e: PointerEvent): number {
@@ -604,3 +715,16 @@ function onViewAlbum(): void {
   void router.push({ name: "album", params: { albumKey: lib.keyForTrack(t) } });
 }
 </script>
+
+<style scoped>
+/* The controls column sits on the glass backpanel at every size, so the
+   individual chrome pills (play, favourite, volume, actions) drop their own
+   glass and stay flat — glass-on-glass just muddies the panel. */
+.chrome-glass {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+</style>

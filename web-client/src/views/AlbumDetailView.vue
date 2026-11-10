@@ -12,9 +12,9 @@
     </template>
 
     <template v-else>
-      <!-- Same cover-derived backdrop as the maximized player, but desktop
-           only — on mobile the album view keeps the plain theme background.
-           Only when the album actually has art, so coverless albums keep it. -->
+      <!-- Same cover-derived backdrop as the maximized player, at every
+           viewport size. Only when the album actually has art, so coverless
+           albums keep the plain theme background. -->
       <CoverBackdrop v-if="backdropActive" :cover-url="coverUrl" variant="album" />
 
       <!-- z-20 so the header's dropdown menu paints above the track list
@@ -102,21 +102,26 @@
         ref="scroller"
         class="content-col-children relative z-10 min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]"
       >
-        <TrackListRow
-          v-for="track in tracks"
-          :key="track.id"
-          :track="track"
-          leading="index"
-          :is-loading="player.pendingTrackId === track.id"
-          :on-dark="backdropActive"
-          :accent-rgb="accentRgb"
-          :is-playing="player.currentTrack?.id === track.id"
-          :selectable="selection.selecting"
-          :selected="selection.has(track.id)"
-          @play="player.playTrack(track, tracks)"
-          @select="(mods) => onSelect(track, mods)"
-          @actions="sheetTrack = track"
-        />
+        <!-- The track list is a plain transparent surface over the cover
+             backdrop; only the currently playing row carries the glass
+             highlight (see TrackListRow). -->
+        <div class="tracks-panel m-3 rounded-2xl p-2">
+          <TrackListRow
+            v-for="track in tracks"
+            :key="track.id"
+            :track="track"
+            leading="index"
+            :is-loading="player.pendingTrackId === track.id"
+            :on-dark="backdropActive"
+            :accent-rgb="accentRgb"
+            :is-playing="player.currentTrack?.id === track.id"
+            :selectable="selection.selecting"
+            :selected="selection.has(track.id)"
+            @play="player.playTrack(track, tracks)"
+            @select="(mods) => onSelect(track, mods)"
+            @actions="sheetTrack = track"
+          />
+        </div>
       </div>
     </template>
 
@@ -131,7 +136,8 @@
         <div class="my-1 border-t border-outline/30" />
         <button
           type="button"
-          class="flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface disabled:opacity-50"
+          class="flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg disabled:opacity-50"
+          :class="albumDownloaded ? 'text-error hover:bg-error/10' : 'text-on-surface'"
           :disabled="albumDownloading || tracks.length === 0"
           @click="toggleAlbumDownload"
         >
@@ -146,7 +152,7 @@
             <MageIcon
               name="download"
               class="h-5 w-5"
-              :class="albumDownloaded ? 'text-primary' : 'text-on-surface-variant'"
+              :class="albumDownloaded ? 'text-error' : 'text-on-surface-variant'"
             />
           </span>
           <span>{{ albumDownloaded ? "Remove offline download" : "Download for offline" }}</span>
@@ -185,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
@@ -261,30 +267,10 @@ const coverUrl = computed(() => {
 });
 
 /**
- * The cover-derived backdrop is desktop-only (lg, 64rem — the same breakpoint
- * the content-col measure uses) and only when the album has art.
+ * The cover-derived backdrop shows at every viewport size, but only when the
+ * album actually has art — coverless albums keep the plain theme background.
  */
-const isDesktop = ref(false);
-let desktopMq: MediaQueryList | null = null;
-function onDesktopMqChange(): void {
-  isDesktop.value = desktopMq?.matches ?? false;
-}
-onMounted(() => {
-  if (typeof window.matchMedia !== "function") return;
-  desktopMq = window.matchMedia("(min-width: 64rem)");
-  onDesktopMqChange();
-  desktopMq.addEventListener("change", onDesktopMqChange);
-});
-onBeforeUnmount(() => {
-  desktopMq?.removeEventListener("change", onDesktopMqChange);
-  desktopMq = null;
-});
-
-/**
- * The cover-derived backdrop is desktop-only (lg, 64rem — the same breakpoint
- * the content-col measure uses) and only when the album has art.
- */
-const backdropActive = computed(() => coverUrl.value != null && isDesktop.value);
+const backdropActive = computed(() => coverUrl.value != null);
 
 // The accent colour the maximized player would pick for this album: the same
 // dominant colour it derives from the playing track's cover art. Used for the
@@ -444,3 +430,21 @@ async function onPickerCreate(name: string): Promise<void> {
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
 </script>
+
+<style scoped>
+/* The row highlight (hover / selected / playing tint) follows the glass
+   panel's rounded island instead of running edge-to-edge as a square. */
+.tracks-panel :deep(.track-row) {
+  border-radius: 0.75rem;
+}
+
+/* On mobile the global rule drops the backdrop's edge mask so the player's
+   art runs full-bleed; the album view keeps the same radial fade as desktop
+   so the background behind the track list is evenly dark at every width. */
+@media (max-width: 63.99rem) {
+  :deep(.edge-blur-art) {
+    -webkit-mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
+    mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
+  }
+}
+</style>

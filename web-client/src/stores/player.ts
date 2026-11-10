@@ -763,6 +763,13 @@ export const usePlayerStore = defineStore("player", () => {
     rebuildPlayOrder(currentIndex.value);
   }
 
+  /** Maximized player's art-fullscreen mode (desktop): shared with the
+   *  sidebar so it can collapse while the player is full-bleed. */
+  const artFullscreen = ref(false);
+  function toggleArtFullscreen(): void {
+    artFullscreen.value = !artFullscreen.value;
+  }
+
   function cycleRepeatMode(): void {
     repeatMode.value =
       repeatMode.value === "off" ? "all" : repeatMode.value === "all" ? "one" : "off";
@@ -1518,6 +1525,8 @@ export const usePlayerStore = defineStore("player", () => {
     skipPrevious,
     seekTo,
     toggleShuffle,
+    artFullscreen,
+    toggleArtFullscreen,
     cycleRepeatMode,
     skipTo,
     addToQueue,

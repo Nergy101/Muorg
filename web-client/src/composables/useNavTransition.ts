@@ -55,15 +55,18 @@ export function resolveNavTransition(
   // Cold boot / deep link: there is no outgoing view to animate against.
   if (from.matched.length === 0) return "";
 
+  const toDepth = depthOf(to);
+  const fromDepth = depthOf(from);
+
   // A pop animates nothing at all. The platform already runs its own page
   // transition for a back navigation — conspicuously so in an installed iOS
   // PWA — so anything of ours plays *on top of* that one and reads as a double
   // animation. And there is nothing to animate in regardless: the view being
-  // returned to was already there and belongs exactly where it is.
-  if (isBack) return "";
-
-  const toDepth = depthOf(to);
-  const fromDepth = depthOf(from);
+  // returned to was already there and belongs exactly where it is. The one
+  // exception is leaving the full-screen player: closing it is a back
+  // navigation, but the sheet should fall back down to mirror the rise on
+  // open, so it gets the modal-out transition.
+  if (isBack) return fromDepth === "modal" ? "modal-out" : "";
 
   // Depth cannot order the player sheet against the queue pages ("modal" vs a
   // plain number), so that one pair is named explicitly: the queue is a page

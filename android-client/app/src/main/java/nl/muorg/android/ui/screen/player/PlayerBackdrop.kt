@@ -31,6 +31,8 @@ fun PlayerBackdrop(
     dominantColor: DominantColorState,
     imageLoader: ImageLoader,
     accentColor: Color,
+    /** Art-fullscreen mode: the cover reads much sharper behind the FS bar. */
+    sharp: Boolean = false,
 ) {
     // ── Backdrop ──────────────────────────────────────────────────────
     if (displayedCoverUrl != null) {
@@ -48,10 +50,10 @@ fun PlayerBackdrop(
                             .fillMaxWidth(0.9f)
                             .aspectRatio(1f)
                             .graphicsLayer {
-                                renderEffect = BlurEffect(72f, 72f, TileMode.Clamp)
+                                renderEffect = BlurEffect(if (sharp) 20f else 72f, if (sharp) 20f else 72f, TileMode.Clamp)
                                 scaleX = 1.9f
                                 scaleY = 1.9f
-                                alpha = 0.55f
+                                alpha = if (sharp) 0.85f else 0.55f
                             },
                     )
                 }
@@ -61,6 +63,22 @@ fun PlayerBackdrop(
                 // colour over near-black, rather than a flat wash — it keeps
                 // the backdrop from reading as a solid colour card.
                 Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0B0A0A)))
+                if (sharp) {
+                    // FS mode: the cover itself, full-bleed and only lightly
+                    // blurred (the web drops to ~8px on mobile FS).
+                    AsyncImage(
+                        model = displayedCoverUrl,
+                        contentDescription = null,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                renderEffect = BlurEffect(12f, 12f, TileMode.Clamp)
+                                alpha = 0.9f
+                            },
+                    )
+                }
                 Box(
                     modifier = Modifier.fillMaxSize().background(
                         Brush.radialGradient(

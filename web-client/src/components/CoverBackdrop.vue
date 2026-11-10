@@ -12,7 +12,8 @@
     <div
       v-if="coverUrl"
       class="edge-blur-art absolute"
-      :style="{ backgroundImage: `url(${coverUrl})`, opacity: 0.9 }"
+      :class="{ 'edge-art-sharp': sharp }"
+      :style="{ backgroundImage: `url(${coverUrl})`, opacity: sharp ? 1 : 0.9 }"
     />
   </div>
 </template>
@@ -31,8 +32,10 @@ const props = withDefaults(
      * hard seam at the pane's left edge on desktop.
      */
     variant?: "player" | "album";
+    /** Unblur the art and drop the edge mask so it fills the pane sharply. */
+    sharp?: boolean;
   }>(),
-  { variant: "player" },
+  { variant: "player", sharp: false },
 );
 
 const coverUrlRef = computed(() => props.coverUrl);

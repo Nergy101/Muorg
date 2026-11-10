@@ -12,8 +12,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -55,6 +58,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -171,6 +176,11 @@ fun PlayerScreen(
 
     var sheetOpen by remember { mutableStateOf(false) }
     var showPlaylistPicker by remember { mutableStateOf(false) }
+
+    // Art-fullscreen ("FS") mode, mirroring the web player: tapping the cover
+    // enters it, tapping the backdrop exits it. The FS layout is a single
+    // bottom bar over the sharpened backdrop — no top bar, no transport row.
+    var artFullscreen by remember { mutableStateOf(false) }
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     val currentTrackMembership by playerViewModel.currentTrackMembership.collectAsStateWithLifecycle()
     val favorites = playerState.favorites
@@ -248,6 +258,7 @@ fun PlayerScreen(
             dominantColor = dominantColor,
             imageLoader = imageLoader,
             accentColor = accentColor,
+            sharp = artFullscreen,
         )
 
 
@@ -258,23 +269,17 @@ fun PlayerScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
-            // Top row: a bare dismiss chevron on the left, and every secondary
-            // control gathered into ONE sheer glass pill on the right — the web
-            // groups them, it does not scatter round buttons across the bar.
+            if (!artFullscreen) {
+            // Top row: every secondary control gathered into ONE sheer glass
+            // pill on the right — the web groups them, it does not scatter round
+            // buttons across the bar. No dismiss chevron on mobile: swipe down
+            // or the back gesture leaves the player.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 6.dp, end = 16.dp, top = 4.dp),
+                    .padding(end = 16.dp, top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        painter = painterResource(mageIconRes("chevron-down")),
-                        contentDescription = "Minimize",
-                        tint = Color.White,
-                        modifier = Modifier.size(26.dp),
-                    )
-                }
                 Spacer(modifier = Modifier.weight(1f))
                 Row(
                     modifier = Modifier.glassSheer(MuorgShapes.pill).height(48.dp),
@@ -317,15 +322,6 @@ fun PlayerScreen(
                             modifier = Modifier.size(19.dp),
                         )
                     }
-                    VerticalHairline()
-                    IconButton(onClick = { sheetOpen = true }, modifier = Modifier.size(48.dp)) {
-                        Icon(
-                            painter = painterResource(mageIconRes("dots")),
-                            contentDescription = "More",
-                            tint = Color.White,
-                            modifier = Modifier.size(19.dp),
-                        )
-                    }
                 }
             }
 
@@ -335,6 +331,7 @@ fun PlayerScreen(
                         PlayerArtwork(
                             displayedCoverUrl = displayedCoverUrl,
                             imageLoader = imageLoader,
+                            onClick = { artFullscreen = true },
                             modifier = Modifier
                                 .padding(start = 24.dp)
                                 .align(Alignment.CenterVertically)
@@ -355,6 +352,7 @@ fun PlayerScreen(
                                 onOpenQueue = onOpenQueue,
                                 onAddToPlaylist = { showPlaylistPicker = true },
                                 onToggleFavorite = { currentTrack?.let(playerViewModel::toggleFavorite) },
+                                onOpenActions = { sheetOpen = true },
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             PlayerControls(
@@ -377,6 +375,7 @@ fun PlayerScreen(
                         PlayerArtwork(
                             displayedCoverUrl = displayedCoverUrl,
                             imageLoader = imageLoader,
+                            onClick = { artFullscreen = true },
                             modifier = Modifier
                                 .align(Alignment.CenterHorizontally)
                                 .fillMaxWidth(0.76f)
@@ -395,6 +394,7 @@ fun PlayerScreen(
                             onOpenQueue = onOpenQueue,
                             onAddToPlaylist = { showPlaylistPicker = true },
                             onToggleFavorite = { currentTrack?.let(playerViewModel::toggleFavorite) },
+                            onOpenActions = { sheetOpen = true },
                         )
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -412,6 +412,29 @@ fun PlayerScreen(
                         )
                     }
                 }
+            }
+            } else {
+                // FS mode: the whole backdrop is the exit — tap it to leave
+                // art-fullscreen (the web hides the maximize button on mobile).
+                Spacer(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { artFullscreen = false },
+                )
+                FsBottomBar(
+                    currentTrack = currentTrack,
+                    displayedCoverUrl = displayedCoverUrl,
+                    imageLoader = imageLoader,
+                    favorites = favorites,
+                    accent = accent,
+                    progress = displayProgress,
+                    onToggleFavorite = { currentTrack?.let(playerViewModel::toggleFavorite) },
+                    onOpenActions = { sheetOpen = true },
+                )
             }
 
         }
@@ -523,10 +546,16 @@ fun PlayerScreen(
 private fun PlayerArtwork(
     displayedCoverUrl: Any?,
     imageLoader: ImageLoader,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
             .shadow(
                 elevation = 30.dp,
                 shape = MuorgShapes.art,
@@ -568,6 +597,7 @@ private fun PlayerTrackHeader(
     onOpenQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onOpenActions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -596,36 +626,127 @@ private fun PlayerTrackHeader(
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
-            IconButton(onClick = onOpenQueue, modifier = Modifier.size(48.dp)) {
-                Icon(
-                    painter = painterResource(mageIconRes("stack")),
-                    contentDescription = "Open queue",
-                    tint = Color.White,
-                    modifier = Modifier.size(21.dp),
-                )
-            }
-            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(48.dp)) {
-                Icon(
-                    painter = painterResource(mageIconRes("playlist-add")),
-                    contentDescription = "Add to playlist",
-                    tint = Color.White,
-                    modifier = Modifier.size(21.dp),
-                )
-            }
-            IconButton(
-                onClick = onToggleFavorite,
-                modifier = Modifier.size(48.dp),
-            ) {
-                val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
+            // Same order and compact size as the web player's info row:
+            // favourite, queue, add-to-playlist, track menu.
+            val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
+            IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
                 Icon(
                     // Same glyph as the web player: outline until favorited,
                     // filled once it is.
                     painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
                     contentDescription = "Favourite",
                     tint = if (isFavorite) accent else Color.White,
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
+            IconButton(onClick = onOpenQueue, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    painter = painterResource(mageIconRes("stack")),
+                    contentDescription = "Open queue",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    painter = painterResource(mageIconRes("playlist-add")),
+                    contentDescription = "Add to playlist",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            IconButton(onClick = onOpenActions, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    painter = painterResource(mageIconRes("dots")),
+                    contentDescription = "More",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The art-fullscreen bottom bar (mobile FS mode), mirroring the web player's
+ * FS row: small cover + title/artist on the left, then favourite, a circular
+ * progress ring and the track menu on the right. No maximize button on
+ * mobile — tapping the backdrop exits FS.
+ */
+@Composable
+private fun FsBottomBar(
+    currentTrack: CatalogTrack?,
+    displayedCoverUrl: Any?,
+    imageLoader: ImageLoader,
+    favorites: Set<String>,
+    accent: Color,
+    progress: Float,
+    onToggleFavorite: () -> Unit,
+    onOpenActions: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSheer(MuorgShapes.island)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(MuorgShapes.artSmall)
+                .background(Color.Black.copy(alpha = 0.35f)),
+        ) {
+            if (displayedCoverUrl != null) {
+                AsyncImage(
+                    model = displayedCoverUrl,
+                    contentDescription = null,
+                    imageLoader = imageLoader,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            MarqueeText(
+                text = currentTrack?.displayTitle ?: "Nothing playing",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White,
+            )
+            MarqueeText(
+                text = currentTrack?.displayArtist ?: "",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.70f),
+            )
+        }
+        val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
+        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
+            Icon(
+                painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
+                contentDescription = "Favourite",
+                tint = if (isFavorite) accent else Color.White,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Canvas(modifier = Modifier.size(24.dp)) {
+            val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            drawCircle(color = Color.White.copy(alpha = 0.25f), style = stroke)
+            drawArc(
+                color = accent,
+                startAngle = -90f,
+                sweepAngle = 360f * progress.coerceIn(0f, 1f),
+                useCenter = false,
+                style = stroke,
+            )
+        }
+        IconButton(onClick = onOpenActions, modifier = Modifier.size(32.dp)) {
+            Icon(
+                painter = painterResource(mageIconRes("dots")),
+                contentDescription = "More",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }

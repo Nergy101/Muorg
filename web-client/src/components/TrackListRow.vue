@@ -1,7 +1,8 @@
 <template>
   <div
-    class="flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer"
+    class="track-row flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer"
     :class="rowStateClass"
+    :style="rowStyle"
     @click="onRowClick"
     @touchstart.passive="lp.onTouchstart"
     @touchmove.passive="lp.onTouchmove"
@@ -173,7 +174,7 @@ const emit = defineEmits<{
 
 const titleClass = computed(() =>
   props.isPlaying
-    ? "text-body-lg text-primary"
+    ? "text-body-lg text-white"
     : props.onDark
       ? "text-body-lg text-white"
       : "text-body-lg text-on-surface",
@@ -189,7 +190,25 @@ const lp = useLongPress(() => selection.begin(props.track.id));
 const rowStateClass = computed(() => {
   const hover = props.onDark ? "lg:hover:bg-white/10" : "lg:hover:bg-surface-container/50";
   const tint = props.selected ? (props.onDark ? "bg-white/15" : "bg-primary/10") : "";
-  return [hover, tint].filter(Boolean).join(" ");
+  // The current track gets a glass background as its highlight.
+  const playing = props.isPlaying ? "glass" : "";
+  return [hover, tint, playing].filter(Boolean).join(" ");
+});
+
+// The playing row's glass is tinted from the accent colour, pushed to the
+// opposite lightness so the accent-coloured title/bars keep enough contrast:
+// a light accent sits on a darkened glass, a dark accent on a lightened one.
+const rowStyle = computed(() => {
+  if (!props.isPlaying || !props.accentRgb) return undefined;
+  const parts = props.accentRgb.split(",").map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return undefined;
+  const [r, g, b] = parts;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const bg =
+    lum > 140
+      ? `rgb(${Math.round(r * 0.22)} ${Math.round(g * 0.22)} ${Math.round(b * 0.22)} / 0.55)`
+      : `rgb(${Math.round(r * 0.55 + 115)} ${Math.round(g * 0.55 + 115)} ${Math.round(b * 0.55 + 115)} / 0.55)`;
+  return { background: bg };
 });
 
 function onRowClick(e: MouseEvent): void {
