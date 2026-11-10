@@ -137,14 +137,16 @@
       </div>
 
       <!-- Play and shuffle for the whole playlist, as two buttons above the
-           list (mirrors the Android app's PlaylistPlaybackActions). -->
+           list (mirrors the Android app's PlaylistPlaybackActions). On mobile
+           they split the row 50/50; on desktop they stay pill-sized instead of
+           stretching across the whole 900px column. -->
       <div
         v-if="tracks.length > 0"
         class="content-col flex items-center gap-3 px-4 pb-1 pt-3"
       >
         <button
           type="button"
-          class="flex h-10 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-label-lg text-on-primary transition-transform hover:scale-[1.02]"
+          class="flex h-10 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-label-lg text-on-primary transition-transform hover:scale-[1.02] lg:h-11 lg:flex-none lg:px-8"
           aria-label="Play"
           @click="playAll"
         >
@@ -153,7 +155,7 @@
         </button>
         <button
           type="button"
-          class="flex h-10 flex-1 items-center justify-center gap-2 rounded-full text-label-lg transition-colors"
+          class="flex h-10 flex-1 items-center justify-center gap-2 rounded-full text-label-lg transition-colors lg:h-11 lg:flex-none lg:px-8"
           :class="player.shuffleEnabled ? 'bg-primary text-on-primary' : 'glass text-on-surface'"
           aria-label="Shuffle play"
           @click="shufflePlaylist"
