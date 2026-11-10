@@ -72,19 +72,18 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 }
 
 /**
- * Turn the album-art main color into an accent usable for UI controls.
- * The glow average is often too dark/desaturated to read against the dark
- * player background, so the hue is kept but lightness is lifted into a band
- * and saturation floored — close enough to the art to feel "from the cover",
- * distinct enough to stay well visible. Returns null when the color is too
- * gray to tint from (caller falls back to the theme default).
+ * Turn the album-art main color into an accent for UI controls. Tracks the
+ * artwork literally: hue, saturation and lightness are kept as sampled, with
+ * only a wide lightness clamp so a near-black or near-white cover cannot
+ * produce an invisible accent. Returns null when the color is too gray to
+ * tint from (caller falls back to the theme default).
  */
 export function visibleAccentFromRgb(rgb: string): string | null {
   const parsed = parseRgb(rgb);
   if (!parsed) return null;
   const [h, s, l] = rgbToHsl(parsed[0], parsed[1], parsed[2]);
   if (s < 0.12) return null;
-  const out = hslToRgb(h, Math.max(s, 0.45), Math.min(0.72, Math.max(0.55, l < 0.55 ? l + 0.25 : l)));
+  const out = hslToRgb(h, s, Math.min(0.78, Math.max(0.3, l)));
   return `rgb(${out[0]},${out[1]},${out[2]})`;
 }
 

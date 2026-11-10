@@ -1113,9 +1113,9 @@ export const usePlayerStore = defineStore("player", () => {
 
   // Dynamic accent: when the user picked "dynamic" in Settings, tint the app's
   // accent from the current track's album-art main color (the same
-  // saturation-weighted average that drives the player glow). The color is
-  // adjusted to stay legible for controls (see visibleAccentFromRgb); when no
-  // usable color exists (no cover, gray art, or an edge-blur background) the
+  // saturation-weighted average that drives the player glow). The color tracks
+  // the artwork's own hue/saturation/lightness (see visibleAccentFromRgb); when
+  // no usable color exists (no cover, gray art, or an edge-blur background) the
   // inline vars are dropped and the theme default shows.
   const accentGlowRgb = useDominantColor(currentCoverUrl);
   watchEffect(() => {
