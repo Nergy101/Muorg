@@ -126,7 +126,7 @@ const hovered = ref<number | null>(null);
   <div v-else class="flex flex-col items-center gap-3">
     <!-- SVG donut chart -->
     <div class="relative shrink-0">
-      <svg viewBox="0 0 200 200" class="h-44 w-44 drop-shadow-sm">
+      <svg viewBox="0 0 200 200" class="h-56 w-56 drop-shadow-sm">
         <g>
           <path
             v-for="(s, i) in svgSlices"
@@ -167,8 +167,8 @@ const hovered = ref<number | null>(null);
       </svg>
     </div>
 
-    <!-- Legend -->
-    <div class="w-full flex flex-col gap-1">
+    <!-- Legend: capped width, tight rows -->
+    <div class="mx-auto flex w-full max-w-xs flex-col gap-0.5">
       <div
         v-for="(s, i) in svgSlices"
         :key="s.label"

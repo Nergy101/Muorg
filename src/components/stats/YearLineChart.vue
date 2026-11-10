@@ -91,7 +91,7 @@ const svgData = computed(() => {
 
     <svg
       :viewBox="`0 0 ${W} ${H}`"
-      class="w-full"
+      class="mx-auto w-full max-w-md"
       @mouseleave="hovered = null"
     >
       <defs>
