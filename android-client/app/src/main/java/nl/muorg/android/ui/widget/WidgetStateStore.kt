@@ -135,7 +135,7 @@ object WidgetStateStore {
             hasCover && trackId > 0 -> fetchRemoteCover(context, trackId, maxPx)
             else -> null
         }
-        if (bytes.isNullOrEmpty()) {
+        if (bytes == null || bytes.isEmpty()) {
             noCoverIds.add(trackId)
             return null
         }

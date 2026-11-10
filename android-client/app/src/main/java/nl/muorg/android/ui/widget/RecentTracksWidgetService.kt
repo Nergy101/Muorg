@@ -71,7 +71,7 @@ class RecentTracksFactory(
             views.setViewVisibility(R.id.widget_item_cover, View.GONE)
             views.setViewVisibility(R.id.widget_item_cover_placeholder, View.VISIBLE)
         }
-        views.setOnItemClickFillInIntent(
+        views.setOnClickFillInIntent(
             R.id.widget_item_root,
             Intent().putExtra(RecentTracksWidget.EXTRA_TRACK_ID, track.id),
         )
