@@ -8,7 +8,7 @@ import { computeReplayGainVolume } from "../audio/replayGain";
 import { clearPlayHistory, recordPlayHistory, stepBackPlayHistory } from "../audio/playHistory";
 import { showToast } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
-import { useDominantColor } from "../composables/useDominantColor";
+import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { useCastStore } from "./cast";
 import { useLibraryStore } from "./library";
 import { useOfflineStore, offlineStreamUrl } from "./offline";
@@ -1113,7 +1113,8 @@ export const usePlayerStore = defineStore("player", () => {
 
   // Dynamic accent: when the user picked "dynamic" in Settings, tint the app's
   // accent from the current track's album-art main color (the same
-  // saturation-weighted average that drives the player glow). The color tracks
+  // saturation-weighted average that drives the player glow, un-darkened via
+  // rawMainColor so the accent matches the artwork exactly). The color tracks
   // the artwork's own hue/saturation/lightness (see visibleAccentFromRgb); when
   // no usable color exists (no cover, gray art, or an edge-blur background) the
   // inline vars are dropped and the theme default shows.
@@ -1127,7 +1128,7 @@ export const usePlayerStore = defineStore("player", () => {
       el.style.removeProperty("--secondary");
       return;
     }
-    const accent = visibleAccentFromRgb(accentGlowRgb.value);
+    const accent = visibleAccentFromRgb(rawMainColor(accentGlowRgb.value));
     if (!accent) {
       el.style.removeProperty("--primary");
       el.style.removeProperty("--primary-container");

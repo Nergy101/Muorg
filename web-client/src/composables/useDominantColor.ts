@@ -2,9 +2,18 @@ import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
 const SAMPLE_SIZE = 32;
-const DARKEN = 0.88;
+/** Glow-only darkening; the dynamic accent uses the raw average (rawMainColor). */
+export const GLOW_DARKEN = 0.88;
 const EDGE_DARKEN = 0.95;
 const FALLBACK_RGB = "28,25,23";
+
+/** Inverse of the glow darkening: the artwork's main color as sampled. */
+export function rawMainColor(glowRgb: string): string {
+  return glowRgb
+    .split(",")
+    .map((n) => Math.min(255, Math.round(Number(n) / GLOW_DARKEN)))
+    .join(",");
+}
 
 export interface GlowBlob {
   cx: number;
@@ -175,7 +184,7 @@ export function useDominantColor(imageUrl: Ref<string | null>) {
             }
           }
           if (wTotal === 0) return;
-          glowRgb.value = `${Math.round((wr / wTotal) * DARKEN)},${Math.round((wg / wTotal) * DARKEN)},${Math.round((wb / wTotal) * DARKEN)}`;
+          glowRgb.value = `${Math.round((wr / wTotal) * GLOW_DARKEN)},${Math.round((wg / wTotal) * GLOW_DARKEN)},${Math.round((wb / wTotal) * GLOW_DARKEN)}`;
         } catch { glowRgb.value = FALLBACK_RGB; }
       };
       img.onerror = () => { glowRgb.value = FALLBACK_RGB; };
