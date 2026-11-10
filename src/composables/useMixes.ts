@@ -112,10 +112,15 @@ const sessionMixes = ref<Mix[] | null>(null);
 // Count the cached lineup was built with, so a viewport-driven count change
 // re-rolls instead of slicing a too-short lineup.
 let sessionMixCount = 0;
+// The most recent source, so findMix can resolve a mix even when the lineup
+// has re-rolled (catalog growth, viewport-driven count, refresh) and no
+// longer contains it.
+let lastSource: MixSource | null = null;
 
 export function useMixes(
   source: MixSource,
 ): { mixes: ComputedRef<Mix[]>; refresh: () => void } {
+  lastSource = source;
   // Safety net: whenever the catalog grows (pages still streaming in after a
   // build), drop the cached lineup so it regenerates from the fuller catalog.
   // Together with the load gate below, this guarantees a mix is never frozen
@@ -141,11 +146,13 @@ export function useMixes(
       const j = i + Math.floor(Math.random() * (selected.length - i));
       [selected[i], selected[j]] = [selected[j], selected[i]];
     }
-    sessionMixes.value = selected.slice(0, count).map((def, i) => ({
-      // Negative ids: mixes live in their own id space so a mix id can never
-      // collide with a server playlist id (the detail view's fallback lookup
-      // once showed an unrelated playlist's title for a stale mix id).
-      id: -(i + 1),
+    sessionMixes.value = selected.slice(0, count).map((def) => ({
+      // Negative, STABLE per cohort: the id comes from the def's position in
+      // MIX_DEFS, not the lineup position, so a re-roll (catalog growth,
+      // viewport-driven count change, refresh) keeps every mix's id — and
+      // therefore its title — intact. Negative also keeps mix ids out of the
+      // server playlist id space entirely.
+      id: -(MIX_DEFS.indexOf(def) + 1),
       name: def.name,
       emoji: def.emoji,
       trackIds: sampleTrackIds(tracks, def.genres),
@@ -162,7 +169,21 @@ export function useMixes(
   return { mixes, refresh };
 }
 
-/** The session mix with this id, or null (e.g. a deep link after a reload). */
+/** The mix with this id, or null (e.g. a deep link after a reload).
+ *
+ *  Mix ids are negative and stable per cohort def, so a re-rolled lineup
+ *  still resolves the same mix; if the lineup no longer contains it (the
+ *  viewport-driven count shrank), the def is resolved directly and its
+ *  tracks re-sampled from the current catalog. Positive ids are server
+ *  playlists and never resolve here. */
 export function findMix(id: number): Mix | null {
-  return sessionMixes.value?.find((m) => m.id === id) ?? null;
+  if (id >= 0) return null;
+  const fromLineup = sessionMixes.value?.find((m) => m.id === id);
+  if (fromLineup) return fromLineup;
+  const def = MIX_DEFS[-id - 1];
+  const source = lastSource;
+  if (!def || !source || !source.ready()) return null;
+  const tracks = source.tracks();
+  if (tracks.length === 0) return null;
+  return { id, name: def.name, emoji: def.emoji, trackIds: sampleTrackIds(tracks, def.genres) };
 }

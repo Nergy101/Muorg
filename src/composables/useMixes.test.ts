@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ref, type Ref } from "vue";
+import { nextTick, ref, type Ref } from "vue";
 import {
   findMix,
   normalizeGenre,
@@ -125,6 +125,39 @@ describe("useMixes", () => {
     const first: Mix = useMixes(source(tracks, ready)).mixes.value[0];
     expect(findMix(first.id)?.name).toBe(first.name);
     expect(findMix(9999)).toBeNull();
+  });
+
+  it("keeps mix ids and titles stable across a lineup re-roll", async () => {
+    tracks.value = Array.from({ length: 50 }, (_, i) => track(i, "Metal"));
+    const { mixes } = useMixes(source(tracks, ready));
+    const before = new Map(mixes.value.map((m) => [m.id, m.name]));
+    // Catalog grows mid-session: the safety-net watcher clears the lineup and
+    // the next read re-rolls it — an id must still map to the same mix title,
+    // or a mix opened from home would show another mix's title (or "not
+    // found"). The re-roll may pick a different subset of cohorts, so compare
+    // the id→name mapping, not the array order.
+    tracks.value = [...tracks.value, track(999, "Metal")];
+    await nextTick();
+    const after = new Map(mixes.value.map((m) => [m.id, m.name]));
+    for (const [id, name] of after) {
+      expect(findMix(id)?.name).toBe(name);
+      if (before.has(id)) expect(name).toBe(before.get(id));
+    }
+  });
+
+  it("findMix resolves a cohort missing from the current lineup, and rejects positive ids", () => {
+    tracks.value = Array.from({ length: 50 }, (_, i) => track(i, "Metal"));
+    const { mixes } = useMixes(source(tracks, ready));
+    // The lineup shows 8 of the 16 cohorts, so some def ids are not in it.
+    const inLineup = new Set(mixes.value.map((m) => m.id));
+    const missingId = Array.from({ length: 16 }, (_, i) => -(i + 1)).find((id) => !inLineup.has(id));
+    expect(missingId).toBeDefined();
+    const resolved = findMix(missingId!);
+    expect(resolved).not.toBeNull();
+    expect(resolved!.id).toBe(missingId);
+    expect(resolved!.name).toBeTruthy();
+    // Positive ids are server playlists and must never resolve to a mix.
+    expect(findMix(3)).toBeNull();
   });
 });
 
