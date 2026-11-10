@@ -98,7 +98,9 @@
         </button>
       </div>
 
-      <div class="hidden shrink-0 items-center pr-1 lg:flex">
+      <!-- Volume only when the sidebar rail is collapsed — expanded, it lives
+           in the nav's footer instead. -->
+      <div v-if="sidebarCollapsed" class="hidden shrink-0 items-center pr-1 lg:flex">
         <VolumeControl />
       </div>
 
@@ -157,6 +159,7 @@ import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import VolumeControl from "./VolumeControl.vue";
+import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";

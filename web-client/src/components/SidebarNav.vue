@@ -4,7 +4,7 @@
        is the filled glyph on a translucent primary pill. -->
   <aside
     class="glass hidden m-4 shrink-0 flex-col self-start rounded-2xl transition-[width] lg:flex"
-    :class="collapsed ? 'w-auto' : 'w-60'"
+    :class="'w-60'"
   >
     <!-- Brand. In collapsed mode (maximized player with fullscreen art) the
          rail shrinks to just this row; the chevron re-expands the full nav. -->
@@ -155,6 +155,7 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import VolumeControl from "./VolumeControl.vue";
+import { sidebarCollapsed as collapsed } from "../composables/sidebarCollapsed";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { searchFocusSignal } from "../composables/useSearchFocus";
 import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
@@ -176,9 +177,9 @@ const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
 
 // Collapsed rail: while the maximized player runs in art-fullscreen mode the
-// sidebar shrinks to the brand row; the chevron in that row expands it again.
-// Leaving the player or turning fullscreen off restores the full rail.
-const collapsed = ref(false);
+// sidebar hides everything but the brand row; the chevron in that row expands
+// it again. Leaving the player or turning fullscreen off restores the full
+// rail. The rail keeps its full width either way (see the aside's w-60).
 watch([() => route.name, () => player.artFullscreen], ([name, fullscreen]) => {
   collapsed.value = name === "player" && fullscreen;
 });
