@@ -1,18 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
+    android:gravity="center_vertical"
     android:padding="12dp"
     android:background="@drawable/widget_background">
 
-    <ImageView
-        android:id="@+id/widget_cover"
+    <FrameLayout
         android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:layout_gravity="center_vertical"
-        android:scaleType="centerCrop"
-        android:contentDescription="Album art" />
+        android:layout_height="72dp">
+
+        <ImageView
+            android:id="@+id/widget_cover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/widget_cover_desc"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/widget_cover_placeholder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_compact_disk"
+            android:tint="#66FFFFFF"
+            android:scaleType="centerInside"
+            android:contentDescription="@string/widget_cover_desc" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="0dp"
@@ -29,7 +45,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textAppearance="@style/TextAppearance.Widget.Title"
-            android:text="Not playing" />
+            android:text="@string/widget_no_track" />
 
         <TextView
             android:id="@+id/widget_artist"
@@ -56,28 +72,44 @@
             android:layout_marginTop="8dp">
 
             <ImageButton
-                android:id="@+id/widget_play_pause"
+                android:id="@+id/widget_previous"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:src="@android:drawable/ic_media_play"
+                android:padding="8dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_previous"
                 android:background="@android:color/transparent"
-                android:contentDescription="Play/Pause" />
+                android:contentDescription="@string/widget_previous" />
+
+            <ImageButton
+                android:id="@+id/widget_play_pause"
+                android:layout_width="44dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_play"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/widget_play" />
 
             <ImageButton
                 android:id="@+id/widget_next"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:src="@android:drawable/ic_media_next"
+                android:padding="8dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_next"
                 android:background="@android:color/transparent"
-                android:contentDescription="Next" />
+                android:contentDescription="@string/widget_next" />
 
             <ImageButton
-                android:id="@+id/widget_previous"
+                android:id="@+id/widget_favorite"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:src="@android:drawable/ic_media_previous"
+                android:padding="8dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_heart"
                 android:background="@android:color/transparent"
-                android:contentDescription="Previous" />
+                android:contentDescription="@string/widget_toggle_favorite" />
 
         </LinearLayout>
     </LinearLayout>
