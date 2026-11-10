@@ -30,6 +30,24 @@
         draggable="false"
         decoding="async"
       />
+      <!-- 2 or 3 covers: vertical split, each cover centered in its own
+           panel instead of a 2x2 grid with empty cells. -->
+      <div v-else-if="coverCount < 4" class="flex h-full w-full">
+        <div
+          v-for="(url, i) in coverUrls"
+          :key="i"
+          class="relative h-full flex-1 bg-surface-variant/50"
+        >
+          <img
+            v-if="url"
+            :src="url"
+            :alt="playlist.name"
+            class="absolute inset-0 h-full w-full object-contain [-webkit-touch-callout:none]"
+            draggable="false"
+            decoding="async"
+          />
+        </div>
+      </div>
       <div v-else class="grid h-full w-full grid-cols-2 grid-rows-2">
         <template v-for="(url, i) in coverUrls" :key="i">
           <img

@@ -136,6 +136,22 @@
                   :alt="hit.name"
                   class="absolute inset-0 h-full w-full object-cover"
                 />
+                <!-- 2 or 3 covers: vertical split, each cover centered in its
+                     own panel instead of a 2x2 grid with empty cells. -->
+                <div v-else-if="coverUrlsFor(hit).length < 4" class="flex h-full w-full">
+                  <div
+                    v-for="(url, i) in coverUrlsFor(hit)"
+                    :key="i"
+                    class="relative h-full flex-1 bg-surface-variant/50"
+                  >
+                    <img
+                      v-if="url"
+                      :src="url"
+                      :alt="hit.name"
+                      class="absolute inset-0 h-full w-full object-contain"
+                    />
+                  </div>
+                </div>
                 <div v-else class="grid h-full w-full grid-cols-2 grid-rows-2">
                   <template v-for="(url, i) in coverUrlsFor(hit)" :key="i">
                     <img v-if="url" :src="url" :alt="hit.name" class="h-full w-full object-cover" />
@@ -148,19 +164,48 @@
           </div>
         </div>
 
-        <!-- Album-cover layout: matching tracks grouped into album cards. -->
-        <div v-if="layout === 'grid'" class="search-col pb-4 pt-1">
+        <!-- Album-cover layout: one album card PER matching track, full-bleed
+             like the homepage grid so the cards get the same normal size. -->
+        <div v-if="layout === 'grid'" class="px-4 pb-4 pt-1">
           <div
             class="grid gap-3"
             :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
           >
-            <AlbumCard
-              v-for="item in resultAlbums"
-              :key="item.key"
-              :item="item"
-              mode="grid"
-              @open="openAlbum(item)"
-            />
+            <template v-for="card in resultCards" :key="card.item.key">
+              <AlbumCard
+                v-if="card.item.hasCover"
+                :item="card.item"
+                mode="grid"
+                @open="openTrackAlbum(card.track)"
+              />
+              <!-- Tracks without artwork still get a card, with a placeholder
+                   sleeve instead of the cover. -->
+              <button
+                v-else
+                type="button"
+                class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant ring-1 ring-white/10 text-left"
+                @click="openTrackAlbum(card.track)"
+              >
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/60" />
+                </div>
+                <div
+                  class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[44px]"
+                  aria-hidden="true"
+                />
+                <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[44px] items-center px-2.5">
+                  <div class="min-w-0 flex-1">
+                    <MarqueeText
+                      :text="card.item.album"
+                      class="text-label-lg font-semibold text-on-surface"
+                    />
+                    <div class="truncate text-label-sm text-on-surface-variant">
+                      {{ card.item.albumArtist }}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </template>
           </div>
         </div>
         <div v-else class="search-col pb-4">
@@ -205,6 +250,7 @@ import EmptyState from "../components/EmptyState.vue";
 import { computed, nextTick, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import MarqueeText from "../components/MarqueeText.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
@@ -347,40 +393,36 @@ function openArtist(name: string): void {
   void router.push({ name: "artist", params: { name } });
 }
 
-/** Matching tracks grouped into album cards for the grid layout (same item
- *  shape the library's album grid renders). */
-const resultAlbums = computed<AlbumGridItem[]>(() => {
-  const map = new Map<string, AlbumGridItem>();
-  for (const t of results.value) {
-    const key = lib.keyForTrack(t);
-    let item = map.get(key);
-    if (!item) {
-      item = {
-        key,
-        album: t.album ?? "Unknown album",
-        albumArtist: t.album_artist ?? t.artist ?? "—",
-        year: t.year ?? null,
-        trackCount: 0,
-        totalDurationSecs: 0,
-        coverTrackId: null,
-        hasCover: false,
-        trackIds: [],
-      };
-      map.set(key, item);
-    }
-    item.trackCount++;
-    item.totalDurationSecs += t.duration_secs ?? 0;
-    item.trackIds.push(t.id);
-    if (t.has_cover && !item.hasCover) {
-      item.hasCover = true;
-      item.coverTrackId = t.id;
-    }
-  }
-  return [...map.values()];
-});
+interface SearchResultCard {
+  item: AlbumGridItem;
+  track: CatalogTrack;
+}
 
-function openAlbum(item: AlbumGridItem): void {
-  void router.push({ name: "album", params: { albumKey: item.key } });
+/** One album card PER matching track — not grouped by album — so every song
+ *  in the results gets its own cover card, labelled with the track title and
+ *  artist. Same item shape the library's album grid renders. */
+const resultCards = computed<SearchResultCard[]>(() =>
+  results.value.map((t) => {
+    const fileName = t.path.split("/").pop() ?? t.path;
+    return {
+      track: t,
+      item: {
+        key: `track-${t.id}`,
+        album: t.title ?? fileName.replace(/\.[^.]+$/, ""),
+        albumArtist: t.artist ?? t.album_artist ?? "—",
+        year: t.year ?? null,
+        trackCount: 1,
+        totalDurationSecs: t.duration_secs ?? 0,
+        coverTrackId: t.has_cover ? t.id : null,
+        hasCover: t.has_cover,
+        trackIds: [t.id],
+      },
+    };
+  }),
+);
+
+function openTrackAlbum(track: CatalogTrack): void {
+  void router.push({ name: "album", params: { albumKey: lib.keyForTrack(track) } });
 }
 
 // Only the first page of results is rendered; "Load more" reveals the next.
