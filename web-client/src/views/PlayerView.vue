@@ -160,7 +160,7 @@
               </button>
               <button
                 type="button"
-                class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+                class="glass-sheer flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/10"
                 :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
                 :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
                 @click="onToggleFavorite"

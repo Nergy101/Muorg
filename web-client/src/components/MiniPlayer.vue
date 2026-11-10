@@ -24,6 +24,7 @@
          unlayered .content-col rule would beat the lg:max-w-none utility. -->
     <div
       class="mx-auto flex h-16 w-full max-w-[600px] items-center md:max-w-[900px] lg:h-[72px] lg:max-w-none lg:px-6"
+      @contextmenu.prevent="menuOpen = true"
     >
       <!-- Tap body -->
       <div class="flex min-w-0 flex-1 items-center self-stretch" @click="onBodyTap">
