@@ -148,7 +148,7 @@
                       v-if="url"
                       :src="url"
                       :alt="hit.name"
-                      class="absolute inset-0 h-full w-full object-contain"
+                      class="absolute inset-0 h-full w-full object-cover"
                     />
                   </div>
                 </div>

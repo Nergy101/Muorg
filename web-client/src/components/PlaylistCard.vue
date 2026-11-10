@@ -42,7 +42,7 @@
             v-if="url"
             :src="url"
             :alt="playlist.name"
-            class="absolute inset-0 h-full w-full object-contain [-webkit-touch-callout:none]"
+            class="absolute inset-0 h-full w-full object-cover [-webkit-touch-callout:none]"
             draggable="false"
             decoding="async"
           />
