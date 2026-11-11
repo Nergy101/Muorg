@@ -50,7 +50,7 @@
           <MageIcon
             name="heart"
             class="h-5 w-5 shrink-0"
-            :class="allFavorite ? 'text-primary' : 'text-on-surface-variant'"
+            :class="allFavorite ? 'text-primary fill-current' : 'text-on-surface-variant'"
           />
           <span :class="allFavorite ? 'text-primary' : ''">
             {{ allFavorite ? "Unfavourite" : "Favourite" }}

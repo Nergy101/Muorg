@@ -31,7 +31,7 @@
           <MageIcon
             name="heart"
             class="h-5 w-5 shrink-0"
-            :class="isFavorite ? 'text-primary' : 'text-on-surface-variant'"
+            :class="isFavorite ? 'text-primary fill-current' : 'text-on-surface-variant'"
           />
           <span :class="isFavorite ? 'text-primary' : ''">
             {{ isFavorite ? "Remove from favorites" : "Add to favorites" }}
