@@ -766,8 +766,15 @@ export const usePlayerStore = defineStore("player", () => {
   /** Maximized player's art-fullscreen mode (desktop): shared with the
    *  sidebar so it can collapse while the player is full-bleed. */
   const artFullscreen = ref(false);
+  /** FS-mode sub-state: big cover shown in the middle while the FS bottom
+   *  bar stays ("2nd FS" display). Reset when leaving art-fullscreen. */
+  const fsShowCover = ref(false);
   function toggleArtFullscreen(): void {
     artFullscreen.value = !artFullscreen.value;
+    if (!artFullscreen.value) fsShowCover.value = false;
+  }
+  function toggleFsShowCover(): void {
+    fsShowCover.value = !fsShowCover.value;
   }
 
   function cycleRepeatMode(): void {
@@ -1528,6 +1535,8 @@ export const usePlayerStore = defineStore("player", () => {
     toggleShuffle,
     artFullscreen,
     toggleArtFullscreen,
+    fsShowCover,
+    toggleFsShowCover,
     cycleRepeatMode,
     skipTo,
     addToQueue,

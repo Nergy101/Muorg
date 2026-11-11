@@ -70,7 +70,8 @@
            below it. On desktop the panel keeps a comfortable measure instead
            of stretching across the wide shell. -->
       <div
-        class="relative flex min-h-0 flex-1 flex-col lg:gap-8 lg:px-10 lg:pb-6"
+        class="relative flex min-h-0 flex-1 flex-col lg:gap-8 lg:px-10"
+        :class="artFullscreen ? '' : 'lg:pb-6'"
       >
         <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
              short viewport; object-cover absorbs the crop if it ever clamps. -->
@@ -113,10 +114,10 @@
                the cover can no longer slide behind the glass controls. -->
           <div
             class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center transition-all duration-300 lg:w-full lg:max-w-[420px] lg:pointer-events-auto lg:cursor-pointer"
-            :class="artFullscreen ? 'pointer-events-none scale-90 opacity-0' : ''"
+            :class="artFullscreen && !player.fsShowCover ? 'pointer-events-none scale-90 opacity-0' : ''"
             role="button"
             aria-label="Toggle fullscreen artwork"
-            @click.stop="toggleArtFullscreen"
+            @click.stop="onCoverClick"
           >
             <div
               class="absolute inset-0 rounded-full"
@@ -360,6 +361,18 @@
           >
             <!-- Quick actions (queue / add to playlist) live in the info row
                  above, next to the favourite button — no separate pill here. -->
+            <!-- Show album in the middle: keeps the FS bottom bar but brings
+                 the big cover back into the centre (fs view only) -->
+            <button
+              v-if="artFullscreen"
+              type="button"
+              class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
+              :class="player.fsShowCover ? 'text-primary' : 'text-white/75 hover:text-white'"
+              :aria-label="player.fsShowCover ? 'Hide album art' : 'Show album in middle'"
+              @click="player.toggleFsShowCover()"
+            >
+              <MageIcon name="image" class="h-5 w-5 lg:h-6 lg:w-6" />
+            </button>
             <!-- Favorite, just left of the progress ring (fs view only) -->
             <button
               v-if="artFullscreen"
@@ -583,6 +596,13 @@ const glowRgb = useDominantColor(coverUrl);
 const artFullscreen = computed(() => player.artFullscreen);
 function toggleArtFullscreen(): void {
   player.toggleArtFullscreen();
+}
+
+/** In the FS "show album in middle" sub-state, clicking the cover hides it
+ *  again (stays in FS); otherwise it toggles art-fullscreen as before. */
+function onCoverClick(): void {
+  if (artFullscreen.value && player.fsShowCover) player.toggleFsShowCover();
+  else toggleArtFullscreen();
 }
 
 // Mobile art-fullscreen: tapping the backdrop (the hidden cover's area)
