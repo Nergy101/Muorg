@@ -2,7 +2,8 @@
   <!-- pt keeps the header/top bar clear of the notch and status bar. On desktop
        the layout widens into a sidebar + content pane (lg). -->
   <div
-    class="flex h-full w-full max-w-[600px] flex-col overflow-hidden pt-[env(safe-area-inset-top)] md:max-w-[900px] lg:max-w-none lg:flex-row lg:pt-0"
+    class="flex h-full w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] lg:flex-row lg:pt-0"
+    :class="isBareless ? 'max-w-none' : 'max-w-[600px] md:max-w-[900px] lg:max-w-none'"
   >
     <!-- Desktop navigation rail; mobile keeps the bottom nav. -->
     <SidebarNav v-if="showSidebar" />
@@ -141,6 +142,10 @@ const scrollerHost = ref<HTMLElement | null>(null);
 const navHidden = useScrollNavHide(scrollerHost);
 
 const BARELESS = ["connect", "player", "player-queue"];
+// Bareless routes (player, connect, player-queue) are full-bleed sheets: the
+// shell must not keep the 600/900px column cap below lg, or the backdrop stops
+// at the cap and the window's right side shows flat body background.
+const isBareless = computed(() => BARELESS.includes(String(route.name)));
 
 // The connect screen is a full-pane onboarding flow — no nav rail beside it.
 // Everything else (including the player sheet) keeps the rail on desktop so
