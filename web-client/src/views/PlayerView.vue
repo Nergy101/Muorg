@@ -188,7 +188,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-body-md text-white/75">
-                  {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
+                  {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}<template v-if="artFullscreen && player.currentTrack.album"> · {{ player.currentTrack.album }}</template>
                 </p>
                 <p v-if="!artFullscreen" class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
               </div>
