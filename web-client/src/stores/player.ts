@@ -36,7 +36,7 @@ const PLAY_COUNT_THRESHOLD_SECS = 30;
 const METADATA_CACHE_LIMIT = 50;
 
 interface PlayerStateSnapshot {
-  v: 2;
+  v: 3;
   queue: CatalogTrack[];
   playOrder: number[];
   playOrderPos: number;
@@ -46,6 +46,9 @@ interface PlayerStateSnapshot {
   userQueuePos: number;
   shuffleEnabled: boolean;
   repeatMode: RepeatMode;
+  /** FS-mode "show album in the middle" preference (added in v3; v2 snapshots
+   *  predate it and default to true). */
+  fsShowCover: boolean;
   /** Last known playback position; null once the queue was replaced. */
   position: { trackId: number; secs: number } | null;
 }
@@ -58,8 +61,9 @@ function readPlayerSnapshot(): PlayerStateSnapshot | null {
   try {
     const raw = localStorage.getItem(PLAYER_STATE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as Partial<PlayerStateSnapshot>;
-    if (data.v !== 2) return null;
+    const data = JSON.parse(raw) as Partial<Omit<PlayerStateSnapshot, "v">> & { v?: number };
+    // v2 snapshots predate fsShowCover; they restore with the default (true).
+    if (data.v !== 2 && data.v !== 3) return null;
     const queue = Array.isArray(data.queue) ? (data.queue as CatalogTrack[]) : [];
     const userQueue = Array.isArray(data.userQueue) ? (data.userQueue as CatalogTrack[]) : [];
     const queueLen = queue.length;
@@ -94,7 +98,7 @@ function readPlayerSnapshot(): PlayerStateSnapshot | null {
         ? { trackId: data.position.trackId, secs: Math.max(0, data.position.secs ?? 0) }
         : null;
     return {
-      v: 2,
+      v: 3,
       queue,
       playOrder,
       playOrderPos,
@@ -102,6 +106,7 @@ function readPlayerSnapshot(): PlayerStateSnapshot | null {
       userQueuePos,
       shuffleEnabled: !!data.shuffleEnabled,
       repeatMode,
+      fsShowCover: typeof data.fsShowCover === "boolean" ? data.fsShowCover : true,
       position,
     };
   } catch {
@@ -767,11 +772,11 @@ export const usePlayerStore = defineStore("player", () => {
    *  sidebar so it can collapse while the player is full-bleed. */
   const artFullscreen = ref(false);
   /** FS-mode sub-state: big cover shown in the middle while the FS bottom
-   *  bar stays ("2nd FS" display). Reset when leaving art-fullscreen. */
-  const fsShowCover = ref(false);
+   *  bar stays ("2nd FS" display). Defaults on; the user's choice is
+   *  persisted in the session snapshot and survives leaving art-fullscreen. */
+  const fsShowCover = ref(true);
   function toggleArtFullscreen(): void {
     artFullscreen.value = !artFullscreen.value;
-    if (!artFullscreen.value) fsShowCover.value = false;
   }
   function toggleFsShowCover(): void {
     fsShowCover.value = !fsShowCover.value;
@@ -1315,7 +1320,7 @@ export const usePlayerStore = defineStore("player", () => {
   function writeSnapshot(position: { trackId: number; secs: number } | null): void {
     try {
       const snapshot: PlayerStateSnapshot = {
-        v: 2,
+        v: 3,
         queue: queue.value,
         playOrder: playOrder.value,
         playOrderPos: playOrderPos.value,
@@ -1323,6 +1328,7 @@ export const usePlayerStore = defineStore("player", () => {
         userQueuePos: userQueuePos.value,
         shuffleEnabled: shuffleEnabled.value,
         repeatMode: repeatMode.value,
+        fsShowCover: fsShowCover.value,
         position,
       };
       localStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(snapshot));
@@ -1339,7 +1345,7 @@ export const usePlayerStore = defineStore("player", () => {
   // Queue/mode changes are debounced; a full reload can only ever restore what
   // was last written, so there is no point writing on every single mutation.
   watch(
-    [queue, playOrder, playOrderPos, userQueue, userQueuePos, shuffleEnabled, repeatMode],
+    [queue, playOrder, playOrderPos, userQueue, userQueuePos, shuffleEnabled, repeatMode, fsShowCover],
     () => {
       scheduleSnapshot();
     },
@@ -1406,6 +1412,7 @@ export const usePlayerStore = defineStore("player", () => {
     userQueuePos.value = filteredUserQueuePos;
     shuffleEnabled.value = snapshot.shuffleEnabled;
     repeatMode.value = snapshot.repeatMode;
+    fsShowCover.value = snapshot.fsShowCover;
 
     const resumed = currentTrack.value;
     if (

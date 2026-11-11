@@ -1,25 +1,45 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <!-- Desktop (lg+): the search field shares one row with the filter
-         controls (layout / shuffle / genre / sort) instead of sitting in its
-         own bar above them. In the desktop tracks layout the table toolbar
-         renders those actions, so only the search field shows here. Mobile
-         keeps the search bar in the bottom island (App.vue). -->
+         controls (layout / shuffle / genre / sort) in every layout,
+         including the tracks table — the table toolbar below only carries
+         the table-specific controls (grouping, column sort, rating,
+         columns). The search field is capped so it doesn't balloon to the
+         full row width on wide screens. Mobile keeps the search bar in the
+         bottom island (App.vue). -->
     <div class="hidden shrink-0 pt-3 lg:block">
       <div class="flex items-center gap-2 border-b border-outline/10 px-4 pb-2">
-        <LibrarySearchBar at-top />
-        <LibraryViewActions v-if="!showDesktopTable" />
+        <div class="min-w-0 max-w-md flex-1">
+          <LibrarySearchBar
+            ref="searchBar"
+            at-top
+            @focus="onSearchFocus"
+            @blur="onSearchBlur"
+          />
+        </div>
+        <LibraryViewActions />
       </div>
     </div>
 
     <!-- Desktop-class library table (>=1024px, tracks layout). Mounted
          instead of the mobile scroller so it can own its own virtualization
-         and keyboard focus; the mobile list below is unaffected. -->
+         and keyboard focus; the mobile list below is unaffected. While the
+         top search is focused, the search results take over instead. -->
     <LibraryTrackTable v-if="showDesktopTable" />
 
     <div v-else ref="scroller" class="scrollbar-overlay min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+      <!-- Focused top search: the album grid/rows disappear and the search
+           results appear, same as the Search screen. -->
+      <SearchResultsPanel
+        v-if="searchFocused"
+        ref="searchPanel"
+        :query="lib.searchQuery"
+        :layout="settings.albumViewStyle === 'grid' ? 'grid' : 'list'"
+        @update:query="(v) => (lib.searchQuery = v)"
+      />
+
       <!-- Content -->
-      <div v-if="lib.loading" class="flex items-center justify-center py-12">
+      <div v-else-if="lib.loading" class="flex items-center justify-center py-12">
         <MageIcon name="refresh" class="h-7 w-7 animate-spin text-on-surface-variant" />
       </div>
 
@@ -133,6 +153,7 @@ import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import AlbumActionsHost from "../components/AlbumActionsHost.vue";
 import LibraryViewActions from "../components/LibraryViewActions.vue";
 import LibrarySearchBar from "../components/LibrarySearchBar.vue";
+import SearchResultsPanel from "../components/SearchResultsPanel.vue";
 import LibraryTrackTable from "../components/library/LibraryTrackTable.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
@@ -152,6 +173,33 @@ const settings = useSettingsStore();
 const selection = useSelectionStore();
 
 // --- Content -----------------------------------------------------------
+
+// --- Focused top search ----------------------------------------------------
+// While the desktop top search bar is focused, the album grid/rows are
+// replaced by the search results (same panel as the Search screen). On blur
+// the query is cleared and the normal library view reappears.
+
+const searchFocused = ref(false);
+const searchBar = ref<InstanceType<typeof LibrarySearchBar> | null>(null);
+const searchPanel = ref<InstanceType<typeof SearchResultsPanel> | null>(null);
+let searchBlurTimer: ReturnType<typeof setTimeout> | undefined;
+
+function onSearchFocus(): void {
+  clearTimeout(searchBlurTimer);
+  searchFocused.value = true;
+}
+
+function onSearchBlur(): void {
+  // Defer so a click on a result row (which blurs the input on mousedown)
+  // still lands before the panel unmounts.
+  clearTimeout(searchBlurTimer);
+  searchBlurTimer = setTimeout(() => {
+    searchFocused.value = false;
+    searchBar.value?.clearSearch();
+  }, 150);
+}
+
+onBeforeUnmount(() => clearTimeout(searchBlurTimer));
 
 const isSearching = computed(() => lib.searchQuery.trim().length > 0);
 const showTrackList = computed(() => isSearching.value || settings.albumViewStyle === "tracks");
@@ -181,7 +229,9 @@ onBeforeUnmount(() => {
   desktopMq?.removeEventListener("change", onDesktopMqChange);
   desktopMq = null;
 });
-const showDesktopTable = computed(() => isDesktop.value && settings.albumViewStyle === "tracks");
+const showDesktopTable = computed(
+  () => isDesktop.value && settings.albumViewStyle === "tracks" && !searchFocused.value,
+);
 
 /** Mobile/search flat list selection — Ctrl/Shift-click or an active
  *  selection toggles; a plain tap plays as before. */
@@ -194,7 +244,11 @@ function onSelect(track: CatalogTrack, mods: SelectModifiers): void {
   if (!consumed) void player.playTrack(track, lib.filteredTracks);
 }
 
-provideVisibleIds(() => lib.filteredTracks.map((t) => t.id));
+provideVisibleIds(() =>
+  searchFocused.value && searchPanel.value
+    ? searchPanel.value.visibleIds
+    : lib.filteredTracks.map((t) => t.id),
+);
 
 function isAlbumActive(item: AlbumGridItem): boolean {
   return player.currentTrack != null && item.trackIds.includes(player.currentTrack.id);

@@ -1,15 +1,9 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <!-- Toolbar: second row under the library top bar, left-aligned, with the
-         table-level controls only (the view-level sort/genre/layout/shuffle
-         live in the top bar above). -->
-    <!-- px-4 matches the top bar so the layout button doesn't shift when
-         switching layouts (the top bar is hidden in this layout). -->
+         table-level controls only (the view-level layout/shuffle/genre/sort
+         live in the top bar above, shared with the other layouts). -->
     <div class="flex flex-wrap items-center gap-2 border-b border-outline/10 px-4 py-2">
-      <!-- View-level actions (layout, sort, genre, shuffle) first — the top
-           bar is not rendered in this layout, so this row is the only one. -->
-      <LibraryViewActions />
-
       <!-- Grouping + collapse/expand pill. -->
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
         <button
@@ -44,26 +38,9 @@
         </template>
       </div>
 
-      <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
-        <button
-          type="button"
-          class="flex items-center gap-1 rounded-full px-2.5 py-1 text-label-lg text-on-surface"
-          @click="tableSortMenuOpen = true"
-        >
-          Sort: {{ tableSortLabel }}
-          <MageIcon name="chevron-down" class="h-3.5 w-3.5" />
-        </button>
-
-      <button
-        type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container/60"
-        :aria-label="tableStore.sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'"
-        @click="tableStore.setSort(tableStore.sortColumn, tableStore.sortDirection === 'asc' ? 'desc' : 'asc')"
-      >
-        <MageIcon :name="tableStore.sortDirection === 'asc' ? 'arrow-up' : 'arrow-down'" class="h-4 w-4" />
-      </button>
-      </div>
-
+      <!-- No sort pill here: the view-level sort lives in the top bar (next
+           to the search field); in the table itself, click a column header
+           to sort by it. -->
       <div class="glass-field flex items-center gap-0.5 rounded-full p-0.5">
         <button
           type="button"
@@ -280,21 +257,6 @@
       <div class="h-4" />
     </BottomSheet>
 
-    <BottomSheet :open="tableSortMenuOpen" @close="tableSortMenuOpen = false">
-      <div :class="SHEET_LABEL">SORT BY</div>
-      <button
-        v-for="opt in TABLE_SORT_OPTIONS"
-        :key="opt.value ?? 'none'"
-        type="button"
-        :class="SHEET_ROW"
-        @click="selectTableSort(opt.value)"
-      >
-        <span class="min-w-0 flex-1">{{ opt.label }}</span>
-        <MageIcon v-if="tableStore.sortColumn === opt.value" name="check" class="h-5 w-5 shrink-0 text-primary" />
-      </button>
-      <div class="h-4" />
-    </BottomSheet>
-
     <BottomSheet :open="minRatingMenuOpen" @close="minRatingMenuOpen = false">
       <div :class="SHEET_LABEL">MINIMUM RATING</div>
       <button
@@ -356,7 +318,6 @@ import { useLibraryStore, formatDuration } from "../../stores/library";
 import { usePlayerStore } from "../../stores/player";
 import { useSelectionStore } from "../../stores/selection";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
-import LibraryViewActions from "../LibraryViewActions.vue";
 import { showToast } from "../../composables/useToast";
 import { startTrackDrag } from "../../composables/useTrackDrag";
 import {
@@ -395,32 +356,12 @@ const tableStore = useLibraryTableStore();
 
 // --- Toolbar -----------------------------------------------------------
 
-/** Column sort options for the toolbar — every sortable table column, plus
- *  "None" to clear the sort. */
-const TABLE_SORT_OPTIONS: { value: TableSortColumn | null; label: string }[] = [
-  { value: null, label: "None" },
-  ...TABLE_COLUMNS.filter((c) => c.sortable).map((c) => ({ value: c.id as TableSortColumn, label: c.label })),
-];
-
 const MIN_RATING_OPTIONS = [0, 1, 2, 3, 4, 5];
 
 const groupMenuOpen = ref(false);
 const colMenuOpen = ref(false);
 
 const groupByLabel = computed(() => GROUP_OPTIONS.find((o) => o.value === tableStore.groupBy)?.label ?? "None");
-
-// --- Table sort dropdown -------------------------------------------------
-
-const tableSortMenuOpen = ref(false);
-
-const tableSortLabel = computed(
-  () => TABLE_SORT_OPTIONS.find((o) => o.value === tableStore.sortColumn)?.label ?? "None",
-);
-
-function selectTableSort(column: TableSortColumn | null): void {
-  tableStore.setSort(column, tableStore.sortDirection);
-  tableSortMenuOpen.value = false;
-}
 
 // --- Min-rating filter dropdown ------------------------------------------
 

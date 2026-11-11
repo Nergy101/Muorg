@@ -1,37 +1,11 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
-      <!-- Centered search bar (same glass pill as the library's top field):
-           Enter jumps to the search screen with the query pre-filled. -->
-      <div class="content-col px-4 pt-4">
-        <div
-          class="glass-field mx-auto flex h-11 w-full max-w-md items-center gap-2 rounded-full px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
-        >
-          <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
-          <input
-            v-model="homeQuery"
-            type="text"
-            placeholder="Search tracks"
-            class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
-            @keyup.enter="goToSearch"
-          />
-          <button
-            v-if="homeQuery"
-            type="button"
-            class="shrink-0 text-on-surface-variant"
-            aria-label="Clear search"
-            @click="homeQuery = ''"
-          >
-            <MageIcon name="multiply" class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
       <!-- Brand row: the Muorg mark and name on the left (as in the sidebar),
            "Shuffle all" + "Play random mix" on the right (mirrors the Android
            app's HomeHeader). On desktop the navbar already shows the logo, so
            the mark is hidden and the button pair is centred at the top. -->
-      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-2 lg:justify-center">
+      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4 lg:justify-center">
         <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0 lg:hidden" />
         <span class="text-title-md font-bold tracking-tight text-on-surface lg:hidden">Muorg</span>
         <div class="flex-1 lg:hidden" />
@@ -68,8 +42,9 @@
         body="Add music to your server and rescan to see it here."
       />
       <template v-else>
-      <!-- Recommended: random albums from the catalog, one full grid row on desktop (refresh re-rolls). -->
-      <section v-if="shelfViews[0]" class="px-4 pt-6">
+      <!-- Recommended: random albums from the catalog, two grid rows with a
+           "Load more" (refresh re-rolls the pool). -->
+      <section v-if="shelfViews[0]" class="px-4 pb-4 pt-6">
         <!-- Bottom spacing belongs to the row, not the heading: with `pb-2` on
              the <h2> the flex row centres the button against the padded box and
              it lands a few px below the heading's own centre line. -->
@@ -95,7 +70,7 @@
         <!-- Recommended resolves synchronously from the catalog, so its own
              loading flag never paints — also show skeletons while the catalog
              itself is streaming in (same gate the mixes use). -->
-        <ShelfSkeleton v-if="shelfViews[0].loading || lib.loading || lib.loadingMore" :count="SHELF_CAP" :cols="gridCols" />
+        <ShelfSkeleton v-if="shelfViews[0].loading || lib.loading || lib.loadingMore" :count="shelfViews[0].skeletonCount" :cols="gridCols" />
 
         <div v-else-if="shelfViews[0].error" class="py-4 text-body-sm text-error">
           Couldn't load {{ shelfViews[0].label.toLowerCase() }}.
@@ -103,22 +78,34 @@
 
         <EmptyState v-else-if="shelfViews[0].items.length === 0" compact />
 
-        <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
-        <div
-          v-else
-          class="grid gap-3 pb-4"
-          :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
-        >
-          <AlbumCard
-            v-for="item in shelfViews[0].items"
-            :key="item.key"
-            :item="item"
-            mode="grid"
-            class="w-full"
-            @open="openAlbum(item)"
-            @actions="albumActions = item"
-          />
-        </div>
+        <template v-else>
+          <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
+          <div
+            class="grid gap-3"
+            :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
+          >
+            <AlbumCard
+              v-for="item in shelfViews[0].items"
+              :key="item.key"
+              :item="item"
+              mode="grid"
+              class="w-full"
+              @open="openAlbum(item)"
+              @actions="albumActions = item"
+            />
+          </div>
+
+          <div v-if="shelfViews[0].hasMore" class="flex justify-center pt-3">
+            <button
+              type="button"
+              class="glass flex h-9 items-center gap-1.5 rounded-full px-4 text-label-lg text-on-surface transition-colors lg:hover:bg-surface-container"
+              @click="shelfViews[0].loadMore()"
+            >
+              <MageIcon name="chevron-down" class="h-4 w-4" />
+              Load more
+            </button>
+          </div>
+        </template>
       </section>
 
       <!-- Mixes: session-stable random ~20-track playlists (two full grid rows on desktop, 8 on
@@ -184,14 +171,14 @@
       <section
         v-for="shelf in shelfViews.slice(1)"
         :key="shelf.key"
-        class="border-t border-outline/20 px-4 pt-6"
+        class="border-t border-outline/20 px-4 pb-4 pt-6"
       >
         <h2 class="flex items-center gap-1.5 pb-3 text-title-md font-semibold text-on-surface">
           <MageIcon :name="shelf.icon" class="h-5 w-5 text-primary" />
           {{ shelf.label }}
         </h2>
 
-        <ShelfSkeleton v-if="shelf.loading" :count="SHELF_CAP" :cols="gridCols" />
+        <ShelfSkeleton v-if="shelf.loading" :count="shelf.skeletonCount" :cols="gridCols" />
 
         <div v-else-if="shelf.error" class="py-4 text-body-sm text-error">
           Couldn't load {{ shelf.label.toLowerCase() }}.
@@ -199,22 +186,35 @@
 
         <EmptyState v-else-if="shelf.items.length === 0" compact />
 
-        <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
-        <div
-          v-else
-          class="grid gap-3 pb-4"
-          :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
-        >
-          <AlbumCard
-            v-for="item in shelf.items"
-            :key="item.key"
-            :item="item"
-            mode="grid"
-            class="w-full"
-            @open="openAlbum(item)"
-            @actions="albumActions = item"
-          />
-        </div>
+        <template v-else>
+          <!-- Same library-style grid, full-width cards, no horizontal scroll. -->
+          <div
+            class="grid gap-3"
+            :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
+          >
+            <AlbumCard
+              v-for="item in shelf.items"
+              :key="item.key"
+              :item="item"
+              mode="grid"
+              class="w-full"
+              @open="openAlbum(item)"
+              @actions="albumActions = item"
+            />
+          </div>
+
+          <!-- Shelves start at two rows; this reveals one more row. -->
+          <div v-if="shelf.hasMore" class="flex justify-center pt-3">
+            <button
+              type="button"
+              class="glass flex h-9 items-center gap-1.5 rounded-full px-4 text-label-lg text-on-surface transition-colors lg:hover:bg-surface-container"
+              @click="shelf.loadMore()"
+            >
+              <MageIcon name="chevron-down" class="h-4 w-4" />
+              Load more
+            </button>
+          </div>
+        </template>
       </section>
       </template>
     </div>
@@ -264,17 +264,21 @@ interface Shelf {
   tracks: CatalogTrack[];
   loading: boolean;
   error: boolean;
+  /** Visible grid rows; grows via "Load more" (starts at 2). */
+  shownRows: number;
 }
 
 const isDesktop = useIsDesktop();
 
-/** How many album cards a home shelf shows: one full grid row on desktop, so
- *  the row exactly fills the viewport width (7 on a full-HD monitor, 5 on a
- *  laptop), and 4 (two rows of 2) on mobile. */
-const SHELF_CAP = computed(() => (isDesktop.value ? gridCols.value : 4));
-
 /** Mixes fill two full grid rows on desktop, 8 cards on mobile. */
 const MIXES_COUNT = computed(() => (isDesktop.value ? gridCols.value * 2 : 8));
+
+/** Home shelves (Recommended / Most Played / Recently Played) fetch or pick
+ *  a larger pool but show only two grid rows at first (gridCols * 2 — 6 on a
+ *  3-column desktop, 4 on mobile); "Load more" reveals one more row per press
+ *  until the pool is exhausted. */
+const SHELF_POOL = 30;
+const SHELF_ROWS_INITIAL = 2;
 
 // "Recommended" is just a few randomly chosen albums from the catalog, picked
 // once per session so the row stays stable while you browse (a fresh load
@@ -282,8 +286,8 @@ const MIXES_COUNT = computed(() => (isDesktop.value ? gridCols.value * 2 : 8));
 let recommendedTracksCache: CatalogTrack[] | null = null;
 function randomRecommendedTracks(): CatalogTrack[] {
   if (recommendedTracksCache) return recommendedTracksCache;
-  // Group the FULL (unfiltered) catalog into albums and pick 4 that have
-  // artwork, so the row renders regardless of the Library's search/genre
+  // Group the FULL (unfiltered) catalog into albums and pick a pool that have
+  // artwork, so the shelf renders regardless of the Library's search/genre
   // filters. Request their covers up front so the cards appear whole.
   const byKey = new Map<string, { coverId: number | null; trackIds: number[] }>();
   for (const t of lib.tracks) {
@@ -299,12 +303,12 @@ function randomRecommendedTracks(): CatalogTrack[] {
   const withCover = [...byKey.entries()].filter(([, g]) => g.coverId !== null);
   if (withCover.length === 0) return [];
   const picked = [...withCover];
-  const n = Math.min(SHELF_CAP.value, picked.length);
+  const n = Math.min(SHELF_POOL, picked.length);
   for (let i = 0; i < n; i++) {
     const j = i + Math.floor(Math.random() * (picked.length - i));
     [picked[i], picked[j]] = [picked[j], picked[i]];
   }
-  const chosen = picked.slice(0, SHELF_CAP.value);
+  const chosen = picked.slice(0, n);
   const byId = new Map(lib.tracks.map((t) => [t.id, t]));
   const tracks: CatalogTrack[] = [];
   for (const [, g] of chosen) {
@@ -329,24 +333,27 @@ const shelves = reactive<Shelf[]>([
     tracks: [],
     loading: false,
     error: false,
+    shownRows: SHELF_ROWS_INITIAL,
   },
   {
     key: "most-played",
     label: "Most Played",
     icon: "chart-up",
-    load: () => getTopPlayHistory(SHELF_CAP.value, 30),
+    load: () => getTopPlayHistory(SHELF_POOL, 30),
     tracks: [],
     loading: false,
     error: false,
+    shownRows: SHELF_ROWS_INITIAL,
   },
   {
     key: "recently-played",
     label: "Recently Played",
     icon: "clock",
-    load: () => getRecentPlayHistory(SHELF_CAP.value),
+    load: () => getRecentPlayHistory(SHELF_POOL),
     tracks: [],
     loading: false,
     error: false,
+    shownRows: SHELF_ROWS_INITIAL,
   },
 ]);
 
@@ -392,14 +399,23 @@ function buildShelfItems(source: CatalogTrack[]): AlbumGridItem[] {
  *  whenever tracks arrive (or the library's grouping settles, so a shelf
  *  rendered before the catalog finished loading still resolves stable keys). */
 const shelfViews = computed(() =>
-  shelves.map((s) => ({
-    key: s.key,
-    label: s.label,
-    icon: s.icon,
-    loading: s.loading,
-    error: s.error,
-    items: buildShelfItems(s.tracks).slice(0, SHELF_CAP.value),
-  })),
+  shelves.map((s) => {
+    const grouped = buildShelfItems(s.tracks);
+    const cap = s.shownRows * gridCols.value;
+    return {
+      key: s.key,
+      label: s.label,
+      icon: s.icon,
+      loading: s.loading,
+      error: s.error,
+      skeletonCount: cap,
+      items: grouped.slice(0, cap),
+      hasMore: grouped.length > cap,
+      loadMore: () => {
+        s.shownRows += 1;
+      },
+    };
+  }),
 );
 
 async function loadShelf(shelf: Shelf, background = false): Promise<void> {
@@ -409,6 +425,8 @@ async function loadShelf(shelf: Shelf, background = false): Promise<void> {
   try {
     shelf.tracks = await shelf.load();
     shelf.error = false;
+    // Shelves re-collapse to the initial two rows on every refresh.
+    shelf.shownRows = SHELF_ROWS_INITIAL;
   } catch {
     shelf.error = true;
   } finally {
@@ -490,25 +508,8 @@ watch(
   },
 );
 
-// The shelf cap follows the viewport (one full grid row on desktop), so a
-// window resize re-fetches each shelf with the new amount. The Recommended
-// cache is re-rolled because it was sampled with the old cap.
-watch(SHELF_CAP, () => {
-  recommendedTracksCache = null;
-  for (const shelf of shelves) void loadShelf(shelf, true);
-});
-
 function openMix(id: number): void {
   void router.push({ name: "mix", params: { id: String(id) } });
-}
-
-/** The centered search bar above the brand row: Enter opens the search
- *  screen with the query pre-filled (SearchView reads the `q` param). */
-const homeQuery = ref("");
-function goToSearch(): void {
-  const q = homeQuery.value.trim();
-  if (!q) return;
-  void router.push({ name: "search", query: { q } });
 }
 
 /** The header's "Shuffle all" (mirrors the Android app's HomeHeader): seeds

@@ -36,10 +36,10 @@
   <!-- Genre select in its own pill, styled exactly like the sort pill. -->
   <GenreFilterMenu />
 
-  <!-- Sort select in its own pill group, last so that hiding it in the tracks
-       layout (where the table toolbar has its own column sort) doesn't shift
-       the buttons before it. Mobile tracks keeps it visible. -->
-  <div :class="[PILL, settings.albumViewStyle === 'tracks' ? 'lg:hidden' : '']">
+  <!-- Sort select in its own pill group, last in the row. The tracks table
+       keeps its own column sort in its toolbar below; this view-level sort
+       (album/artist/year) stays visible in the top row in every layout. -->
+  <div :class="PILL">
     <button
       type="button"
       :class="PILL_BTN"

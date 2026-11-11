@@ -32,7 +32,7 @@ const props = withDefaults(
     coverUrl: string | null;
     /**
      * "player" (default) keeps a dark dominant-colour wash in the centre.
-     * Both variants fade to the theme background (#1C1917) at the edges, so
+     * Both variants fade to the theme background (var(--background)) at the edges, so
      * the masked art blends into the sidebar/background instead of showing a
      * hard seam at the pane's left edge on desktop.
      */
@@ -56,20 +56,21 @@ const artStyle = computed(() => ({
 }));
 
 const baseStyle = computed(() => {
-  // Both variants end at the theme background (#1C1917) at the edges, so the
-  // masked art fades into the sidebar/background colour — on desktop the
-  // player sheet sits beside the sidebar, and a near-black base there showed
-  // as a hard vertical seam on its left edge. The player keeps a dark
-  // dominant-colour wash in the centre; the album stays flat #1C1917.
-  if (props.variant === "album") return { backgroundColor: "#1C1917" };
+  // Both variants end at the theme background at the edges, so the masked
+  // art fades into the sidebar/background colour — on desktop the player
+  // sheet sits beside the sidebar, and a near-black base there showed as a
+  // hard vertical seam on its left edge. var(--background) is #1c1917 in the
+  // dark theme and pure #000 in true-black mode. The player keeps a dark
+  // dominant-colour wash in the centre; the album stays flat.
+  if (props.variant === "album") return { backgroundColor: "var(--background)" };
   const parts = glowRgb.value.split(",").map(Number);
   const dark =
     parts.length !== 3 || isColorBland(glowRgb.value)
-      ? "#0c0a09"
+      ? "var(--backdrop-core)"
       : `rgb(${Math.round(parts[0] * 0.08)},${Math.round(parts[1] * 0.08)},${Math.round(parts[2] * 0.08)})`;
   return {
-    backgroundColor: "#1C1917",
-    backgroundImage: `radial-gradient(closest-side at center, ${dark} 30%, #1C1917 100%)`,
+    backgroundColor: "var(--background)",
+    backgroundImage: `radial-gradient(closest-side at center, ${dark} 30%, var(--background) 100%)`,
   };
 });
 </script>

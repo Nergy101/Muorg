@@ -4,6 +4,8 @@
  * working; a field renamed on the server now breaks this app's build instead of
  * failing silently at runtime.
  */
+import type { CatalogTrack } from "@shared/api";
+
 export type {
   CatalogTrack,
   LibraryStats,
@@ -32,6 +34,13 @@ export interface AlbumGridItem {
   trackIds: number[];
 }
 
+/** One search-result card: an album-grid item built from a single track,
+ *  plus the track itself for opening/playing. */
+export interface SearchResultCard {
+  item: AlbumGridItem;
+  track: CatalogTrack;
+}
+
 export type AlbumViewStyle = "grid" | "list" | "tracks";
 /** The Library's layouts: album covers (grid), the album list, or the
  *  tracks table — same three as the Android app. */
@@ -47,3 +56,9 @@ export type PlaylistSortMode = "order" | "added" | "title" | "artist";
 export type ThemeMode = "dark" | "light" | "system";
 export type AccentColor = "green" | "blue" | "purple" | "orange" | "red" | "teal" | "dynamic";
 export type RepeatMode = "off" | "all" | "one";
+
+/** One recent-search entry: a typed query (shown as a chip) or an artist
+ *  picked from the artist matches (shown as a large artist card). */
+export type SearchHistoryEntry =
+  | { type: "query"; value: string }
+  | { type: "artist"; value: string };

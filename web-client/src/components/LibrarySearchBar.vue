@@ -16,6 +16,8 @@
           placeholder="Search albums, artists…"
           class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
           @keyup.enter="onSearchEnter"
+          @focus="emit('focus')"
+          @blur="emit('blur')"
         />
         <button
           v-if="query"
@@ -71,6 +73,10 @@ const settings = useSettingsStore();
  *  in the floating bottom bar (mobile): flips the divider to the bottom edge. */
 withDefaults(defineProps<{ atTop?: boolean }>(), { atTop: false });
 
+/** Focus tracking lets the host swap the content under a focused top bar
+ *  (desktop library shows search results while the field is focused). */
+const emit = defineEmits<{ focus: []; blur: [] }>();
+
 // --- Search field --------------------------------------------------------
 
 const query = ref(lib.searchQuery);
@@ -104,6 +110,10 @@ function clearSearch(): void {
   query.value = "";
   commitSearch("");
 }
+
+// The host clears the field when the top bar loses focus, so the normal
+// library view reappears unfiltered.
+defineExpose({ clearSearch });
 
 onUnmounted(() => clearTimeout(debounceTimer));
 

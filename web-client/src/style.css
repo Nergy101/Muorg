@@ -150,6 +150,11 @@ html {
   --on-error: #370b1e;
   --error-container: #44201f;
   --on-error-container: #f9dedc;
+  /* Colour the album-cover scrim fades into; true black mode overrides it. */
+  --scrim: var(--surface);
+  /* Near-black core of the cover backdrop wash (bland/missing art); true
+     black mode overrides it so the centre is pure black too. */
+  --backdrop-core: #0c0a09;
 }
 
 [data-theme="black"] {
@@ -173,6 +178,9 @@ html {
   --on-error: #370b1e;
   --error-container: #44201f;
   --on-error-container: #f9dedc;
+  /* True black mode: cover scrims fade into pure black, not the toned gray. */
+  --scrim: #000000;
+  --backdrop-core: #000000;
 }
 
 [data-theme="light"] {
@@ -196,6 +204,7 @@ html {
   --on-error: #ffffff;
   --error-container: #f9dedc;
   --on-error-container: #370b1e;
+  --scrim: var(--surface);
 }
 
 /* Accent presets, selected by `data-accent` on <html> (Settings → Theme).
@@ -437,9 +446,9 @@ body {
 .glass-scrim {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--surface) 8%, transparent) 0%,
-    color-mix(in srgb, var(--surface) 55%, transparent) 50%,
-    color-mix(in srgb, var(--surface) 78%, transparent) 100%
+    color-mix(in srgb, var(--scrim) 8%, transparent) 0%,
+    color-mix(in srgb, var(--scrim) 55%, transparent) 50%,
+    color-mix(in srgb, var(--scrim) 78%, transparent) 100%
   );
   -webkit-backdrop-filter: blur(26px) saturate(160%);
   backdrop-filter: blur(26px) saturate(160%);
@@ -448,15 +457,14 @@ body {
   mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
 }
 
-/* Captions sitting on `.glass-scrim`. The halo is drawn in `--surface`, which
-   is by definition the backdrop colour for `--on-surface` text, so it darkens
-   behind light text in the dark themes and lightens behind dark text in the
-   light one — one rule, correct in all three. Two stacked shadows: a tight one
+/* Captions sitting on `.glass-scrim`. The halo is drawn in `--scrim` (the
+   scrim's own fade colour), so it matches the panel behind the text in every
+   theme — pure black in true black mode. Two stacked shadows: a tight one
    for edge definition and a wide soft one to knock back busy artwork. */
 .scrim-label {
   text-shadow:
-    0 1px 2px color-mix(in srgb, var(--surface) 90%, transparent),
-    0 0 12px color-mix(in srgb, var(--surface) 75%, transparent);
+    0 1px 2px color-mix(in srgb, var(--scrim) 90%, transparent),
+    0 0 12px color-mix(in srgb, var(--scrim) 75%, transparent);
 }
 
 /* Focus ring */

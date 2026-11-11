@@ -2,16 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, nextTick, reactive } from "vue";
 import SearchView from "./SearchView.vue";
 import { searchFocusSignal } from "../composables/useSearchFocus";
-import type { CatalogTrack } from "../types";
+import type { CatalogTrack, SearchHistoryEntry } from "../types";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   playTrack: vi.fn(),
   provideVisibleIds: vi.fn(),
   settings: {
-    searchHistory: [] as string[],
+    searchHistory: [] as SearchHistoryEntry[],
     recentSearchResultIds: [] as number[],
     addSearch: vi.fn(),
+    addArtistSearch: vi.fn(),
     addSearchResult: vi.fn(),
     clearSearchHistory: vi.fn(),
     clearSearchResults: vi.fn(),
@@ -54,9 +55,16 @@ vi.mock("../components/TrackListRow.vue", () => ({
 vi.mock("../components/TrackActionsSheet.vue", () => ({
   default: { props: ["open", "track"], emits: ["close"], template: "<div v-if=\"open\" class=\"sheet\"></div>" },
 }));
+vi.mock("../components/SearchResultCardGrid.vue", () => ({
+  default: {
+    props: ["cards"],
+    emits: ["open"],
+    template: '<div class="card-grid">{{ cards.length }}</div>',
+  },
+}));
 
 function track(id: number, title: string, artist: string | null = null, album: string | null = null): CatalogTrack {
-  return { id, title, artist, album, album_artist: null } as CatalogTrack;
+  return { id, title, artist, album, album_artist: null, path: `/music/${title}.flac` } as CatalogTrack;
 }
 
 async function flushDebounce(): Promise<void> {
@@ -101,7 +109,10 @@ async function type(view: ReturnType<typeof renderSearchView>, text: string): Pr
 
 describe("SearchView", () => {
   it("shows recent search chips when the query is empty and re-runs a chip on click", async () => {
-    mocks.settings.searchHistory = ["miles", "blue"];
+    mocks.settings.searchHistory = [
+      { type: "query", value: "miles" },
+      { type: "query", value: "blue" },
+    ];
     const view = renderSearchView();
     await nextTick();
 
@@ -168,6 +179,88 @@ describe("SearchView", () => {
     expect(mocks.playTrack).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), expect.any(Array));
     expect(mocks.settings.addSearchResult).toHaveBeenCalledWith(1);
     expect(mocks.settings.addSearch).toHaveBeenCalledWith("blue");
+    view.unmount();
+  });
+
+  it("records a selected artist as a recent search and navigates to it", async () => {
+    const view = renderSearchView();
+    await type(view, "miles");
+
+    const card = view.root.querySelector<HTMLElement>('[aria-label="Browse artist Miles Davis"]');
+    expect(card).not.toBeNull();
+    card!.click();
+    await nextTick();
+
+    expect(mocks.settings.addArtistSearch).toHaveBeenCalledWith("Miles Davis");
+    expect(mocks.push).toHaveBeenCalledWith({ name: "artist", params: { name: "Miles Davis" } });
+    view.unmount();
+  });
+
+  it("renders a recent artist entry as a large artist card when the query is empty", async () => {
+    mocks.settings.searchHistory = [{ type: "artist", value: "Miles Davis" }];
+    const view = renderSearchView();
+    await nextTick();
+
+    const card = view.root.querySelector('[aria-label="Browse artist Miles Davis"]');
+    expect(card).not.toBeNull();
+    // Title inside the card on the scrim, plus the artist's total song count.
+    expect(card!.textContent).toContain("Miles Davis");
+    expect(card!.querySelector(".scrim-label")?.textContent).toContain("2");
+    view.unmount();
+  });
+
+  it("combines recent searches and recent results into one section with a single Clear all", async () => {
+    mocks.settings.searchHistory = [
+      { type: "artist", value: "Miles Davis" },
+      { type: "query", value: "blue" },
+    ];
+    mocks.settings.recentSearchResultIds = [1];
+    const view = renderSearchView();
+    await nextTick();
+
+    // One section header, one Clear all covering both stores.
+    const clearButtons = [...view.root.querySelectorAll("button")].filter(
+      (b) => b.textContent?.trim() === "Clear all",
+    );
+    expect(clearButtons.length).toBe(1);
+    // Artist card, query chip, and recent track row all present together.
+    expect(view.root.querySelector('[aria-label="Browse artist Miles Davis"]')).not.toBeNull();
+    expect([...view.root.querySelectorAll("button")].some((b) => b.textContent?.trim() === "blue")).toBe(true);
+    expect(view.root.querySelectorAll(".row").length).toBe(1);
+
+    clearButtons[0].click();
+    await nextTick();
+    expect(mocks.settings.clearSearchHistory).toHaveBeenCalled();
+    expect(mocks.settings.clearSearchResults).toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it("reacts to the layout toggle: recent results and live results switch between rows and cards", async () => {
+    mocks.settings.recentSearchResultIds = [1, 2];
+    const view = renderSearchView();
+    await nextTick();
+
+    // List layout (default): recent results render as track rows.
+    expect(view.root.querySelectorAll(".row").length).toBe(2);
+    expect(view.root.querySelector(".card-grid")).toBeNull();
+
+    // Toggle to grid: recent results render as cards instead.
+    const toggle = view.root.querySelector<HTMLButtonElement>('[aria-label="Show results as album covers"]')!;
+    toggle.click();
+    await nextTick();
+    expect(view.root.querySelector(".card-grid")).not.toBeNull();
+    expect(view.root.querySelectorAll(".row").length).toBe(0);
+
+    // Live results follow the same layout.
+    await type(view, "blue");
+    expect(view.root.querySelector(".card-grid")).not.toBeNull();
+    expect(view.root.querySelectorAll(".row").length).toBe(0);
+
+    // Back to list: live results render as rows again.
+    view.root.querySelector<HTMLButtonElement>('[aria-label="Show results as a list"]')!.click();
+    await nextTick();
+    expect(view.root.querySelector(".card-grid")).toBeNull();
+    expect(view.root.querySelectorAll(".row").length).toBeGreaterThan(0);
     view.unmount();
   });
 });

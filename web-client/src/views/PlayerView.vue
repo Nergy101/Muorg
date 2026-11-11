@@ -114,9 +114,9 @@
                the cover can no longer slide behind the glass controls. -->
           <div
             class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center transition-all duration-300 lg:w-full lg:max-w-[420px] lg:pointer-events-auto lg:cursor-pointer"
-            :class="artFullscreen && !player.fsShowCover ? 'pointer-events-none scale-90 opacity-0' : ''"
+            :class="artFullscreen && !player.fsShowCover ? 'scale-90 opacity-0' : ''"
             role="button"
-            aria-label="Toggle fullscreen artwork"
+            aria-label="Cycle player display"
             @click.stop="onCoverClick"
           >
             <div
@@ -360,19 +360,9 @@
             :class="artFullscreen ? 'flex justify-end pt-0' : 'hidden pt-2 lg:flex lg:pt-0'"
           >
             <!-- Quick actions (queue / add to playlist) live in the info row
-                 above, next to the favourite button — no separate pill here. -->
-            <!-- Show album in the middle: keeps the FS bottom bar but brings
-                 the big cover back into the centre (fs view only) -->
-            <button
-              v-if="artFullscreen"
-              type="button"
-              class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
-              :class="player.fsShowCover ? 'text-primary' : 'text-white/75 hover:text-white'"
-              :aria-label="player.fsShowCover ? 'Hide album art' : 'Show album in middle'"
-              @click="player.toggleFsShowCover()"
-            >
-              <MageIcon name="image" class="h-5 w-5 lg:h-6 lg:w-6" />
-            </button>
+                 above, next to the favourite button — no separate pill here.
+                 The middle-cover toggle is gone too: pressing the album art
+                 itself cycles the display variants. -->
             <!-- Favorite, just left of the progress ring (fs view only) -->
             <button
               v-if="artFullscreen"
@@ -385,14 +375,25 @@
             >
               <MageIcon name="heart" class="h-5 w-5 lg:h-6 lg:w-6" :class="isFavorite ? 'fill-current' : ''" />
             </button>
-            <!-- Circular progress ring (fs view only), left of the maximize icon -->
-            <svg v-if="artFullscreen" viewBox="0 0 20 20" class="h-5 w-5 shrink-0 -rotate-90 lg:h-6 lg:w-6" aria-hidden="true">
-              <circle cx="10" cy="10" r="8" fill="none" class="text-white" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
-              <circle
-                cx="10" cy="10" r="8" fill="none" class="text-primary" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                :stroke-dasharray="PROGRESS_RING_C" :stroke-dashoffset="PROGRESS_RING_C * (1 - displayedFraction)"
-              />
-            </svg>
+            <!-- Circular progress ring with a play/pause button inside (fs view
+                 only), left of the maximize icon. Pressing the ring or the icon
+                 toggles playback. -->
+            <button
+              v-if="artFullscreen"
+              type="button"
+              class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white lg:h-10 lg:w-10"
+              :aria-label="transportPlaying ? 'Pause' : 'Play'"
+              @click="togglePlay"
+            >
+              <svg viewBox="0 0 20 20" class="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
+                <circle cx="10" cy="10" r="8" fill="none" class="text-white" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
+                <circle
+                  cx="10" cy="10" r="8" fill="none" class="text-primary" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                  :stroke-dasharray="PROGRESS_RING_C" :stroke-dashoffset="PROGRESS_RING_C * (1 - displayedFraction)"
+                />
+              </svg>
+              <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-3 w-3 lg:h-4 lg:w-4" />
+            </button>
             <!-- Next track, just right of the progress ring (fs view only) -->
             <button
               v-if="artFullscreen"
@@ -598,11 +599,22 @@ function toggleArtFullscreen(): void {
   player.toggleArtFullscreen();
 }
 
-/** In the FS "show album in middle" sub-state, clicking the cover hides it
- *  again (stays in FS); otherwise it toggles art-fullscreen as before. */
+/** Pressing the album art in the middle cycles through all three display
+ *  variants: normal → FS with cover in the middle → FS with cover hidden
+ *  (full-bleed backdrop) → back to normal. The cover stays clickable while
+ *  hidden so the cycle can complete from the middle area. */
 function onCoverClick(): void {
-  if (artFullscreen.value && player.fsShowCover) player.toggleFsShowCover();
-  else toggleArtFullscreen();
+  // Deterministic 3-state cycle regardless of the persisted fsShowCover
+  // (that value only decides the entry state via the maximize button):
+  // normal → FS with cover → FS without cover → normal.
+  if (!artFullscreen.value) {
+    player.fsShowCover = true;
+    player.toggleArtFullscreen();
+  } else if (player.fsShowCover) {
+    player.toggleFsShowCover();
+  } else {
+    player.toggleArtFullscreen();
+  }
 }
 
 // Mobile art-fullscreen: tapping the backdrop (the hidden cover's area)

@@ -8,6 +8,7 @@ import type {
   AlbumViewStyle,
   LibraryViewStyle,
   PlaylistSortMode,
+  SearchHistoryEntry,
   SortMode,
   ThemeMode,
 } from "../types";
@@ -49,12 +50,31 @@ function defaultDeviceName(): string {
 }
 
 /**
- * Drops keystroke-fragment artifacts recorded by an older build that added
- * every debounced fragment to history: any entry that is a proper prefix of a
- * longer entry (typing "metallica" used to record "m", "me", "met", …).
+ * Normalizes the persisted history into typed entries: an older build stored
+ * plain strings (all queries), so those migrate to `{ type: "query" }`.
+ * Also drops keystroke-fragment artifacts recorded by an even older build
+ * that added every debounced fragment: any entry whose value is a proper
+ * prefix of a longer entry's value (typing "metallica" used to record
+ * "m", "me", "met", …).
  */
-function sanitizeSearchHistory(history: string[]): string[] {
-  return history.filter((h) => !history.some((other) => other.length > h.length && other.startsWith(h)));
+function sanitizeSearchHistory(raw: unknown[]): SearchHistoryEntry[] {
+  const entries: SearchHistoryEntry[] = [];
+  for (const item of raw) {
+    if (typeof item === "string") {
+      entries.push({ type: "query", value: item });
+    } else if (
+      item != null &&
+      typeof item === "object" &&
+      typeof (item as { value?: unknown }).value === "string"
+    ) {
+      const type = (item as { type?: unknown }).type === "artist" ? "artist" : "query";
+      entries.push({ type, value: (item as { value: string }).value });
+    }
+  }
+  const values = entries.map((e) => e.value);
+  return entries.filter(
+    (e) => !values.some((other) => other.length > e.value.length && other.startsWith(e.value)),
+  );
 }
 
 /** Mirrors the Android app's AppPreferences. */
@@ -120,12 +140,15 @@ export const useSettingsStore = defineStore("settings", () => {
   );
   /** Music root used to write relative paths when exporting M3U playlists. */
   const musicRootFolder = ref(loadPref("muorg-web-music-root", ""));
-  // Sanitize once and persist the cleaned list: an older build recorded every
-  // debounced keystroke fragment, and without the write-back the junk would
-  // linger in storage and re-filter on every load forever.
-  const rawHistory = loadPref<string[]>("muorg-web-search-history", []);
-  const searchHistory = ref<string[]>(sanitizeSearchHistory(rawHistory));
-  if (searchHistory.value.length !== rawHistory.length) {
+  // Sanitize once and persist the cleaned/migrated list: an older build
+  // recorded every debounced keystroke fragment (and plain strings), and
+  // without the write-back the junk would linger in storage forever.
+  const rawHistory = loadPref<unknown[]>("muorg-web-search-history", []);
+  const searchHistory = ref<SearchHistoryEntry[]>(sanitizeSearchHistory(rawHistory));
+  if (
+    searchHistory.value.length !== rawHistory.length ||
+    rawHistory.some((h) => typeof h === "string")
+  ) {
     savePref("muorg-web-search-history", searchHistory.value);
   }
   /** Track ids of the most recently selected search results, newest first —
@@ -318,15 +341,27 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-device-name", deviceName.value);
   }
 
-  function addSearch(q: string): void {
-    const trimmed = q.trim();
-    if (!trimmed) return;
-    const next = [trimmed, ...searchHistory.value.filter((h) => h !== trimmed)].slice(
-      0,
-      MAX_SEARCH_HISTORY,
-    );
+  /** Adds a history entry to the front, deduping on type+value and capping
+   *  the list; shared by query and artist entries. */
+  function addHistoryEntry(entry: SearchHistoryEntry): void {
+    const value = entry.value.trim();
+    if (!value) return;
+    const next = [
+      { type: entry.type, value },
+      ...searchHistory.value.filter((h) => !(h.type === entry.type && h.value === value)),
+    ].slice(0, MAX_SEARCH_HISTORY);
     searchHistory.value = next;
     savePref("muorg-web-search-history", next);
+  }
+
+  function addSearch(q: string): void {
+    addHistoryEntry({ type: "query", value: q });
+  }
+
+  /** Records an artist picked from the search results' artist matches, so it
+   *  shows up as a recent search (a large artist card on the Search screen). */
+  function addArtistSearch(name: string): void {
+    addHistoryEntry({ type: "artist", value: name });
   }
 
   function clearSearchHistory(): void {
@@ -408,6 +443,7 @@ export const useSettingsStore = defineStore("settings", () => {
     setAutoCacheMaxBytes,
     setDeviceName,
     addSearch,
+    addArtistSearch,
     clearSearchHistory,
     addSearchResult,
     clearSearchResults,
