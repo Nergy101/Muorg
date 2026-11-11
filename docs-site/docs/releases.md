@@ -6,6 +6,36 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.4.6
+
+- **Web**: the heart icon in the track bottom sheets (track actions / context menu) is now **filled** when the track is favorited, matching the player view.
+
+## v4.4.5
+
+- **Web**: player action buttons reordered to **favorite → add to playlist → queue**.
+- **Android**: the album backdrop gets the same sideways linear edge fade as the web mobile album view.
+
+## v4.4.4
+
+- **Web**: fullscreen player polish — full-bleed backdrop with the sidebar floating above it as frosted glass, sidenav auto-collapses in the maximized player and FS mode, album title shown after the artist in FS mode, next-track button right of the progress ring, the whole collapsed sidebar is clickable to expand, and album track-list play buttons / format pills use the album's own art colour.
+
+## v4.4.3
+
+- **Web**: FS player refinements — fullscreen backdrop at lg, floating Muorg brand top-left with expandable menu, sideways fade kept in FS mode, album view backdrop vignette becomes a sideways fade, and the phone-only bottom padding is dropped from the desktop transport row.
+
+## v4.4.2
+
+- **Android**: home-screen widgets fully implemented; blurred cover backdrop for the album screen and maximized player, matching web mobile; widget tint and PendingIntent fixes.
+- **Web**: player backdrop fixes — restored the radial/soft edge fade, bareless routes (player / connect / player-queue) run full-bleed below lg, and the backdrop fills the pane on wide desktop without the cover sliding behind the controls on short viewports.
+
+## v4.4.1
+
+- **Web**: the collapsed sidebar keeps its full width, and the mini-player volume control only appears when the sidebar is collapsed.
+
+## v4.4.0
+
+- **Web + Android**: player UI parity — mobile fullscreen mode and layout parity across web and Android.
+
 ## v4.3.0
 
 - **All clients**: the updated **Mage icon set** everywhere — web and desktop now share one vendored set (`src/assets/mage-icons/`), the desktop client switched from Feather to Mage, and Android replaced its Material icons with Mage vector drawables generated from the same SVGs.
