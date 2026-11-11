@@ -17,14 +17,16 @@
         'edge-blur-art-player': variant === 'player',
         'edge-blur-art-album': variant === 'album',
       }"
-      :style="{ backgroundImage: `url(${coverUrl})`, opacity: sharp ? 1 : 0.9 }"
+      :style="artStyle"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { isColorBland, useDominantColor } from "../composables/useDominantColor";
+import { useImageSize } from "../composables/useImageSize";
+import { useSettingsStore } from "../stores/settings";
 
 const props = withDefaults(
   defineProps<{
@@ -44,6 +46,48 @@ const props = withDefaults(
 
 const coverUrlRef = computed(() => props.coverUrl);
 const glowRgb = useDominantColor(coverUrlRef);
+const coverSize = useImageSize(coverUrlRef);
+const settings = useSettingsStore();
+
+// lg breakpoint matches the CSS media queries that set the FS blur (12px at
+// lg+, 6px below) — the resolution-based blur is capped at those amounts.
+const lgQuery = window.matchMedia("(min-width: 64rem)");
+const isLg = ref(lgQuery.matches);
+const onLgChange = (e: MediaQueryListEvent) => { isLg.value = e.matches; };
+lgQuery.addEventListener("change", onLgChange);
+onBeforeUnmount(() => lgQuery.removeEventListener("change", onLgChange));
+
+/**
+ * FS-mode blur scaled by the cover's resolution: high-res art gets less blur
+ * (down to MIN_BLUR), low-res art gets the full current amount (12px at lg,
+ * 6px below), interpolated logarithmically on total megapixels between
+ * LOW_MP and HIGH_MP. Calibrated against Harakiri for the Sky's "Arson"
+ * cover (1200x1200 = 1.44MP), which reads best at 6px: with LOW=0.25MP and
+ * HIGH=2.6MP that lands at t=0.75 → 6px on desktop. Unknown resolution falls
+ * back to the CSS default (no override).
+ */
+const MIN_BLUR = 4;
+const LOW_MP = 0.25;
+const HIGH_MP = 2.6;
+const sharpBlurPx = computed(() => {
+  // Explicit user override (sidebar blur slider) wins over the
+  // resolution-based default.
+  if (settings.fsBackdropBlur !== null) return settings.fsBackdropBlur;
+  const s = coverSize.value;
+  if (!s || s.width <= 0 || s.height <= 0) return null;
+  const mp = (s.width * s.height) / 1_000_000;
+  const maxBlur = isLg.value ? 12 : 6;
+  const t = Math.min(1, Math.max(0, (Math.log(mp) - Math.log(LOW_MP)) / (Math.log(HIGH_MP) - Math.log(LOW_MP))));
+  return Math.round(maxBlur - t * (maxBlur - MIN_BLUR));
+});
+
+const artStyle = computed(() => ({
+  backgroundImage: `url(${props.coverUrl})`,
+  opacity: props.sharp ? 1 : 0.9,
+  ...(props.sharp && sharpBlurPx.value !== null
+    ? { filter: `blur(${sharpBlurPx.value}px)` }
+    : {}),
+}));
 
 const baseStyle = computed(() => {
   // Both variants end at the theme background (#1C1917) at the edges, so the

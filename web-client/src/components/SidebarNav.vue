@@ -155,6 +155,25 @@
       <!-- Volume lives in the rail (desktop); the player has no volume bar. -->
       <div class="mx-3 border-t border-on-surface/10 px-2 py-3">
         <VolumeControl />
+        <!-- FS-mode backdrop blur, underneath the volume bar. Slider shows the
+             explicit override, or the FS default when still on auto. -->
+        <div v-if="player.artFullscreen" class="mt-3">
+          <div class="flex items-center gap-2 text-label-sm text-on-surface-variant">
+            <MageIcon name="image" class="h-4 w-4 shrink-0" />
+            <span>Backdrop blur</span>
+            <span class="ml-auto tabular-nums">{{ settings.fsBackdropBlur ?? 12 }}px</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="24"
+            step="1"
+            :value="settings.fsBackdropBlur ?? 12"
+            class="h-1 w-full cursor-pointer"
+            aria-label="Backdrop blur"
+            @input="onFsBlurInput"
+          />
+        </div>
       </div>
     </template>
   </aside>
@@ -223,6 +242,12 @@ const reportIssues = computed(() => {
   const counts = reportCounts(lib.tracks, settings.missingMetadataFields);
   return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
 });
+
+function onFsBlurInput(e: Event): void {
+  const raw = (e.target as HTMLInputElement).valueAsNumber;
+  if (!Number.isFinite(raw)) return;
+  settings.setFsBackdropBlur(Math.min(24, Math.max(0, Math.round(raw))));
+}
 
 async function onTabClick(name: string): Promise<void> {
   if (name === "library" && route.name === "library") scrollToActiveSignal.value++;

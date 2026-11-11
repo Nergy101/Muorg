@@ -78,6 +78,8 @@ export const useSettingsStore = defineStore("settings", () => {
    *  opening playlists as a track list. */
   const playlistViewStyle = ref<AlbumViewStyle>(loadPref("muorg-web-playlist-view", "tracks"));
   const miniPlayerTapOpensPlayer = ref(loadPref("muorg-web-miniplayer-tap", true));
+  /** FS-mode backdrop blur in px; null = auto (scaled by cover resolution). */
+  const fsBackdropBlur = ref<number | null>(loadPref("muorg-web-fs-blur", null));
   const volume = ref(loadPref("muorg-web-volume", 1));
   /** ReplayGain mode: off (ignore tags), track (each track's own gain — best
    *  for mixed playlists/shuffle), or album (preserve loudness differences
@@ -227,6 +229,11 @@ export const useSettingsStore = defineStore("settings", () => {
     savePref("muorg-web-miniplayer-tap", v);
   }
 
+  function setFsBackdropBlur(v: number | null): void {
+    fsBackdropBlur.value = v;
+    savePref("muorg-web-fs-blur", v);
+  }
+
   function setVolume(v: number): void {
     const clamped = Math.min(1, Math.max(0, v));
     volume.value = clamped;
@@ -360,6 +367,8 @@ export const useSettingsStore = defineStore("settings", () => {
     albumViewStyle,
     playlistViewStyle,
     miniPlayerTapOpensPlayer,
+    fsBackdropBlur,
+    setFsBackdropBlur,
     volume,
     replayGainMode,
     replayGainPreampDb,
