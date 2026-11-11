@@ -7,8 +7,18 @@
     :class="'w-60'"
   >
     <!-- Brand. In collapsed mode (maximized player / fullscreen art) the
-         rail shrinks to just this row; the chevron re-expands the full nav. -->
-    <div class="flex h-14 shrink-0 items-center gap-2.5 px-5">
+         rail shrinks to just this row; clicking anywhere on it (or the
+         chevron) re-expands the full nav. -->
+    <div
+      class="flex h-14 shrink-0 items-center gap-2.5 px-5"
+      :class="collapsed ? 'cursor-pointer' : ''"
+      role="button"
+      :tabindex="collapsed ? 0 : -1"
+      :aria-label="collapsed ? 'Expand sidebar' : undefined"
+      @click="onBrandClick"
+      @keydown.enter.prevent="onBrandClick"
+      @keydown.space.prevent="onBrandClick"
+    >
       <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />
       <span class="text-title-md font-bold tracking-tight text-on-surface">Muorg</span>
       <button
@@ -16,7 +26,7 @@
         class="ml-auto rounded p-0.5 text-on-surface-variant/70 hover:text-on-surface"
         :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         :aria-expanded="!collapsed"
-        @click="collapsed = !collapsed"
+        @click.stop="collapsed = !collapsed"
       >
         <MageIcon :name="collapsed ? 'chevron-down' : 'chevron-up'" class="h-4 w-4" />
       </button>
@@ -183,6 +193,12 @@ const settings = useSettingsStore();
 watch([() => route.name, () => player.artFullscreen], ([name, fullscreen]) => {
   collapsed.value = name === "player" || fullscreen;
 });
+
+/** Clicking the collapsed brand row expands the rail; when expanded the row
+ *  is inert and only the chevron toggles. */
+function onBrandClick(): void {
+  if (collapsed.value) collapsed.value = false;
+}
 
 /** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
 const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
