@@ -9,6 +9,20 @@
          mode the blurred art becomes the sharp full-bleed background. -->
     <CoverBackdrop :cover-url="coverUrl" :sharp="artFullscreen" />
 
+    <!-- In art-fullscreen mode the top bar is hidden; keep the brand floating
+         top-left above the fullscreen background. At lg the collapsed sidebar
+         already shows it, so only render below lg. -->
+    <button
+      v-if="artFullscreen"
+      type="button"
+      class="glass absolute left-4 top-4 z-20 flex items-center gap-2.5 rounded-full px-4 py-2 lg:hidden"
+      aria-label="Muorg home"
+      @click="router.push({ name: 'home' })"
+    >
+      <img :src="logoUrl" alt="" class="h-7 w-7" />
+      <span class="text-title-md font-bold tracking-tight text-white">Muorg</span>
+    </button>
+
     <!-- The glow backdrop above still spans the full shell; only the controls
          column is centred, so seek and transport stay near the art on desktop
          instead of stretching to the edges. Uncapped below md — and uncapped
@@ -466,6 +480,7 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
+import logoUrl from "../assets/muorg-logo.svg";
 import { useDominantColor } from "../composables/useDominantColor";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
