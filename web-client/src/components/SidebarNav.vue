@@ -6,8 +6,8 @@
     class="glass z-40 hidden m-4 shrink-0 flex-col self-start rounded-2xl transition-[width] lg:flex"
     :class="'w-60'"
   >
-    <!-- Brand. In collapsed mode the rail shrinks to just this row; the
-         chevron re-expands the full nav. -->
+    <!-- Brand. In collapsed mode (maximized player / fullscreen art) the
+         rail shrinks to just this row; the chevron re-expands the full nav. -->
     <div class="flex h-14 shrink-0 items-center gap-2.5 px-5">
       <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0" />
       <span class="text-title-md font-bold tracking-tight text-on-surface">Muorg</span>
@@ -162,7 +162,7 @@ import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
 import { useDragReorder } from "../composables/useDragReorder";
 import { NAV_TABS as TABS, tabIndexForRoute } from "../nav-tabs";
 import { useLibraryStore } from "../stores/library";
-
+import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { loadPref, savePref } from "../stores/prefs";
 import { useSettingsStore } from "../stores/settings";
@@ -172,12 +172,17 @@ import logoUrl from "../assets/muorg-logo.svg";
 const route = useRoute();
 const router = useRouter();
 const lib = useLibraryStore();
+const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
 
-// Collapsed rail: toggled manually via the brand-row chevron only — the rail
-// stays exactly the same in art-fullscreen player mode as everywhere else.
-// The rail keeps its full width either way (see the aside's w-60).
+// Collapsed rail: the maximized player (player route) and art-fullscreen mode
+// collapse the sidebar automatically so the backdrop gets the room; the
+// brand-row chevron expands it again, and leaving those modes restores the
+// full rail. The rail keeps its full width either way (see the aside's w-60).
+watch([() => route.name, () => player.artFullscreen], ([name, fullscreen]) => {
+  collapsed.value = name === "player" || fullscreen;
+});
 
 /** Album and playlist detail keep their parent tab lit; -1 when off-tab. */
 const activeIndex = computed(() => tabIndexForRoute(String(route.name)));
