@@ -207,7 +207,7 @@ import { useOfflineStore } from "../stores/offline";
 import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { provideVisibleIds } from "../composables/useSelectableList";
-import { isColorBland, useDominantColor } from "../composables/useDominantColor";
+import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
 import type { CatalogTrack, Playlist } from "../types";
 
@@ -272,13 +272,14 @@ const coverUrl = computed(() => {
  */
 const backdropActive = computed(() => coverUrl.value != null);
 
-// The accent colour the maximized player would pick for this album: the same
-// dominant colour it derives from the playing track's cover art. Used for the
-// big play button and the lossless format badges in this album's track list.
-// Falls back to the theme primary when there is no art or the colour is bland.
+// The accent colour for this album's big play button and lossless format
+// badges: the dominant colour of the album's OWN cover art (un-darkened, so
+// it matches what the player's dynamic accent would pick for this artwork) —
+// never the currently playing track's colour. Null only when the album has
+// no art at all, in which case the theme primary is the fallback.
 const glowRgb = useDominantColor(coverUrl);
 const accentRgb = computed(() =>
-  coverUrl.value != null && !isColorBland(glowRgb.value) ? glowRgb.value : null,
+  coverUrl.value != null ? rawMainColor(glowRgb.value) : null,
 );
 const accentCss = computed(() => (accentRgb.value ? `rgb(${accentRgb.value})` : null));
 const accentOnCss = computed(() => {
