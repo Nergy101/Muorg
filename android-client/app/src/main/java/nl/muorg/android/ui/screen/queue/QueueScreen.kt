@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.queue
 
+import nl.muorg.android.ui.component.OrcSpinner
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -697,11 +697,7 @@ private fun QueueTrackRow(
                 )
             }
             if (isLoading) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                )
+                OrcSpinner(size = 24.dp)
                 Spacer(Modifier.width(6.dp))
             }
             track.durationSecs?.let { secs ->

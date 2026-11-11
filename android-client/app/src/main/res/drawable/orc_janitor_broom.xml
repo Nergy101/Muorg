@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from orc-janitor-broom.svg; shapes are baked into paths. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="270dp"
+    android:viewportWidth="240"
+    android:viewportHeight="270">
+    <path android:pathData="M168,140 L52,246" android:fillColor="#000000" android:strokeColor="#8A5A2B" android:strokeWidth="7" android:strokeLineCap="round"/>
+    <path android:pathData="M34,234 L70,246 L60,268 L12,256 Z" android:fillColor="#D9B45A"/>
+    <path android:pathData="M30,244 L22,262 M42,247 L36,266 M54,250 L49,267" android:fillColor="#000000" android:strokeColor="#B8923A" android:strokeWidth="2.5" android:strokeLineCap="round"/>
+    <path android:pathData="M44,238 L68,246" android:fillColor="#000000" android:strokeColor="#8B0000" android:strokeWidth="4"/>
+    <path android:pathData="M156,184 Q150,172 139,166" android:strokeColor="#759346" android:strokeWidth="20" android:strokeLineCap="round"/>
+    <path android:pathData="M84,186 Q90,200 104,198" android:strokeColor="#759346" android:strokeWidth="20" android:strokeLineCap="round"/>
+    <path android:pathData="M127,166 A12,12 0 1,0 151,166 A12,12 0 1,0 127,166 Z" android:fillColor="#759346"/>
+    <path android:pathData="M92,198 A12,12 0 1,0 116,198 A12,12 0 1,0 92,198 Z" android:fillColor="#759346"/>
+</vector>

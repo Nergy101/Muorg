@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.search
 
+import nl.muorg.android.ui.component.OrcLoading
 import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -328,7 +329,7 @@ fun SearchScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                OrcLoading()
                             }
                         } else if (uiState.error != null) {
                             Column(
@@ -387,7 +388,7 @@ fun SearchScreen(
                             modifier = Modifier.fillMaxWidth().padding(32.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            OrcLoading()
                         }
                     }
                 } else if (uiState.results.isEmpty()) {

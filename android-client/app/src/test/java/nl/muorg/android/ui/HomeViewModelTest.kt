@@ -14,6 +14,8 @@ import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.MixRepository
+import nl.muorg.android.ui.UiMessenger
+import nl.muorg.android.ui.easteregg.JanitorEasterEgg
 import nl.muorg.android.ui.screen.home.HomeViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -83,7 +85,7 @@ class HomeViewModelTest {
         every { preferences.musicMode } returns flowOf(mode)
         every { preferences.offlineMode } returns flowOf(false)
         every { preferences.localFolderUris } returns flowOf(folderUris)
-        return HomeViewModel(repository, localRepo, preferences, MixRepository())
+        return HomeViewModel(repository, localRepo, preferences, MixRepository(), JanitorEasterEgg(UiMessenger()))
     }
 
     @Test

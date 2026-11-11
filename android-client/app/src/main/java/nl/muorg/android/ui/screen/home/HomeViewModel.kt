@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.home
 
+import nl.muorg.android.ui.easteregg.JanitorEasterEgg
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,10 +50,15 @@ class HomeViewModel @Inject constructor(
     private val localRepository: LocalLibraryRepository,
     private val preferences: AppPreferences,
     private val mixRepository: MixRepository,
+    private val janitorEasterEgg: JanitorEasterEgg,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    val janitorAwake: StateFlow<Boolean> = janitorEasterEgg.awake
+
+    fun onLogoTapped() = janitorEasterEgg.onLogoTapped()
 
     private var tracks: List<CatalogTrack> = emptyList()
     private var albums: List<AlbumGroup> = emptyList()

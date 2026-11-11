@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.settings
 
+import nl.muorg.android.ui.component.OrcSpinner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -78,11 +78,7 @@ fun ServerSection(
             enabled = uiState.refreshStatus != RefreshStatus.LOADING,
         ) {
             if (uiState.refreshStatus == RefreshStatus.LOADING) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
+                OrcSpinner(size = 28.dp)
             } else {
                 Icon(
                 painter = painterResource(mageIconRes("refresh")), contentDescription = null, modifier = Modifier.size(16.dp))

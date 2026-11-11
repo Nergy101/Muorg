@@ -208,7 +208,7 @@ class AlbumDetailViewModel @Inject constructor(
                     check.alreadyPresentCount == 0 -> {
                         playlistRepository.addTracks(playlist, tracks.map { it.id })
                             .onFailure { e ->
-                                uiMessenger.show(e.friendlyMessage())
+                                uiMessenger.showError(e)
                             }
                         loadPlaylists()
                     }
@@ -239,7 +239,7 @@ class AlbumDetailViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.newTracks.map { it.id })
                         .onFailure { e ->
-                            uiMessenger.show(e.friendlyMessage())
+                            uiMessenger.showError(e)
                         }
                     loadPlaylists()
                 }
@@ -261,7 +261,7 @@ class AlbumDetailViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.allTracks.map { it.id })
                         .onFailure { e ->
-                            uiMessenger.show(e.friendlyMessage())
+                            uiMessenger.showError(e)
                         }
                     loadPlaylists()
                 }

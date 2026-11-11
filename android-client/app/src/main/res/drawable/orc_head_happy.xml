@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from orc-head-happy.svg; shapes are baked into paths. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="232dp"
+    android:height="164dp"
+    android:viewportWidth="232"
+    android:viewportHeight="164">
+    <group android:translateX="-4" android:translateY="-20">
+        <path android:pathData="M60,104 L8,66 L66,138 Z" android:fillColor="#5B7C32"/>
+        <path android:pathData="M180,104 L232,66 L174,138 Z" android:fillColor="#5B7C32"/>
+        <path android:pathData="M92,60 L98,32 L110,54 L120,24 L130,54 L142,32 L148,60 Z" android:fillColor="#E0B040"/>
+        <path android:pathData="M52,112 A68,68 0 1,0 188,112 A68,68 0 1,0 52,112 Z" android:fillColor="#759346"/>
+        <path android:pathData="M61,112 A59,59 0 1,0 179,112 A59,59 0 1,0 61,112 Z" android:strokeColor="#5B7C32" android:strokeWidth="3" android:strokeAlpha="0.45"/>
+        <path android:pathData="M71,112 A49,49 0 1,0 169,112 A49,49 0 1,0 71,112 Z" android:strokeColor="#5B7C32" android:strokeWidth="3" android:strokeAlpha="0.45"/>
+        <path android:pathData="M66,92 A58,58 0 0,1 100,56" android:strokeColor="#A3C46E" android:strokeWidth="6" android:strokeLineCap="round"/>
+        <path android:pathData="M174,132 A58,58 0 0,1 140,168" android:strokeColor="#8FB35A" android:strokeWidth="5" android:strokeLineCap="round"/>
+        <path android:pathData="M80,112 A40,40 0 1,0 160,112 A40,40 0 1,0 80,112 Z" android:fillColor="#5B7C32"/>
+        <path android:pathData="M64,128 A10,6 0 1,0 84,128 A10,6 0 1,0 64,128 Z" android:fillColor="#E07A5F" android:fillAlpha="0.5"/>
+        <path android:pathData="M156,128 A10,6 0 1,0 176,128 A10,6 0 1,0 156,128 Z" android:fillColor="#E07A5F" android:fillAlpha="0.5"/>
+        <path android:pathData="M84,106 Q95,94 106,106" android:strokeColor="#1C1917" android:strokeWidth="4.5" android:strokeLineCap="round"/>
+        <path android:pathData="M134,106 Q145,94 156,106" android:strokeColor="#1C1917" android:strokeWidth="4.5" android:strokeLineCap="round"/>
+        <path android:pathData="M113,122 A7,5 0 1,0 127,122 A7,5 0 1,0 113,122 Z" android:fillColor="#759346"/>
+        <path android:pathData="M100,140 Q120,158 140,140" android:strokeColor="#1C1917" android:strokeWidth="4" android:strokeLineCap="round"/>
+        <path android:pathData="M103,143 L106,130 L111,147 Z" android:fillColor="#F5F5F4"/>
+        <path android:pathData="M137,143 L134,130 L129,147 Z" android:fillColor="#F5F5F4"/>
+    </group>
+</vector>

@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.settings
 
+import nl.muorg.android.ui.component.OrcMunchingMeter
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -122,33 +123,18 @@ fun LocalFoldersSection(
     }
 
     if (uiState.scanStatus == ScanStatus.SCANNING) {
-        Column(
+        OrcMunchingMeter(
+            title = "Munching on metadata…",
+            detail = if (uiState.scanTotal > 0)
+                "${uiState.scanProgress} / ${uiState.scanTotal} files scanned"
+            else "Counting files…",
+            progress = {
+                if (uiState.scanTotal > 0)
+                    uiState.scanProgress.toFloat() / uiState.scanTotal
+                else null
+            },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        ) {
-            val progress = if (uiState.scanTotal > 0)
-                uiState.scanProgress.toFloat() / uiState.scanTotal
-            else 0f
-            if (uiState.scanTotal > 0) {
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.size(4.dp))
-                Text(
-                    "${uiState.scanProgress} / ${uiState.scanTotal} files scanned",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.size(4.dp))
-                Text(
-                    "Counting files…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        )
     }
 
     pendingFolder?.let { uriString ->

@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.reports
 
+import nl.muorg.android.ui.component.OrcLoading
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -103,7 +104,7 @@ fun ReportsScreen(
         when {
             state.isLoading && state.tracks.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    OrcLoading()
                 }
             }
 

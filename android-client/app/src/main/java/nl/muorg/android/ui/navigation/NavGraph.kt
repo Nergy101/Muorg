@@ -71,6 +71,8 @@ import nl.muorg.android.ui.component.IslandTab
 import nl.muorg.android.ui.component.LibraryChromeHost
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.LocalIslandAccent
+import nl.muorg.android.ui.component.MuorgSnackbar
+import nl.muorg.android.ui.component.MuorgSnackbarVisuals
 import nl.muorg.android.ui.component.LocalLibraryChromeHost
 import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.rememberDominantColor
@@ -258,10 +260,13 @@ fun NavGraph() {
     LaunchedEffect(Unit) {
         navViewModel.messages.collect { msg ->
             val result = snackbarHostState.showSnackbar(
-                message = msg.text,
-                actionLabel = msg.actionLabel,
-                withDismissAction = false,
-                duration = if (msg.actionLabel == null) SnackbarDuration.Short else SnackbarDuration.Long,
+                MuorgSnackbarVisuals(
+                    message = msg.text,
+                    actionLabel = msg.actionLabel,
+                    withDismissAction = false,
+                    duration = if (msg.actionLabel == null) SnackbarDuration.Short else SnackbarDuration.Long,
+                    mood = msg.mood,
+                ),
             )
             if (result == SnackbarResult.ActionPerformed) msg.onAction?.invoke()
         }
@@ -481,6 +486,7 @@ fun NavGraph() {
 
             SnackbarHost(
                 hostState = snackbarHostState,
+                snackbar = { MuorgSnackbar(it) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = islandHeight + 12.dp),

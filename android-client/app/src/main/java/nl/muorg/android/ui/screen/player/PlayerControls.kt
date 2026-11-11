@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.player
 
+import nl.muorg.android.ui.component.OrcSpinner
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -164,12 +164,9 @@ fun ColumnScope.PlayerControls(
         )
         // Buffering while a FLAC seek's replacement stream loads.
         if (playerState.isSeekBuffering) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(16.dp),
-                strokeWidth = 2.dp,
-                color = primary,
+            OrcSpinner(
+                size = 16.dp,
+                modifier = Modifier.align(Alignment.Center),
             )
         }
     }

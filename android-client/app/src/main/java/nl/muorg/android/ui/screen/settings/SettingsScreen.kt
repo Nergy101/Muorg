@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.settings
 
+import nl.muorg.android.ui.easteregg.TappableLogo
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -100,10 +101,10 @@ fun SettingsScreen(
                 .padding(top = 20.dp, bottom = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_muorg_logo),
+            TappableLogo(
+                size = 56.dp,
                 contentDescription = "Muorg",
-                modifier = Modifier.size(56.dp),
+                onTap = viewModel::onLogoTapped,
             )
         }
 

@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.component
 
+import nl.muorg.android.ui.component.OrcSpinner
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -120,11 +120,7 @@ fun TrackRow(
                             .background(Color.Black.copy(alpha = 0.45f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.5.dp,
-                        )
+                        OrcSpinner(size = 28.dp)
                     }
                 } else if (isPlaying) {
                     Box(

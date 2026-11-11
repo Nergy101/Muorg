@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.player
 
+import nl.muorg.android.ui.OrcMood
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -197,7 +198,7 @@ class PlayerViewModel @Inject constructor(
                     return@launch
                 }
                 playlistRepository.addTracks(playlist, listOf(track.id))
-                    .onFailure { uiMessenger.show(it.friendlyMessage()) }
+                    .onFailure { uiMessenger.showError(it) }
             }
         }
     }
@@ -223,7 +224,7 @@ class PlayerViewModel @Inject constructor(
                 refreshPlaylists()
             } else {
                 playlistRepository.createPlaylist(name, "🎵")
-                    .onFailure { uiMessenger.show(it.friendlyMessage()) }
+                    .onFailure { uiMessenger.showError(it) }
                 refreshPlaylists()
             }
         }
@@ -383,16 +384,16 @@ class PlayerViewModel @Inject constructor(
         playerController.reorderQueue(fromIndex, toIndex, intoSection)
     fun addToQueue(track: CatalogTrack) {
         playerController.addToQueue(track)
-        uiMessenger.show("Added to queue")
+        uiMessenger.show("Added to queue", OrcMood.Happy)
     }
     fun addTracksToQueue(tracks: List<CatalogTrack>) {
         if (tracks.isEmpty()) return
         playerController.addTracksToQueue(tracks)
-        uiMessenger.show("Added to queue")
+        uiMessenger.show("Added to queue", OrcMood.Happy)
     }
     fun playNext(track: CatalogTrack) {
         playerController.playNext(track)
-        uiMessenger.show("Will play next")
+        uiMessenger.show("Will play next", OrcMood.Happy)
     }
 
     /** Set or clear the 1–5 star rating; tapping the current star clears it. */
@@ -400,7 +401,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             libraryRepository.setRating(track.id, rating).fold(
                 onSuccess = { uiMessenger.show(if (rating == null) "Rating cleared" else "Rated $rating/5") },
-                onFailure = { e -> uiMessenger.show("Failed to rate: ${e.friendlyMessage()}") },
+                onFailure = { e -> uiMessenger.show("Failed to rate: ${e.friendlyMessage()}", OrcMood.Worried) },
             )
         }
     }
@@ -409,8 +410,8 @@ class PlayerViewModel @Inject constructor(
     fun deleteTrack(track: CatalogTrack) {
         viewModelScope.launch {
             libraryRepository.deleteTrack(track.id).fold(
-                onSuccess = { uiMessenger.show("Deleted") },
-                onFailure = { e -> uiMessenger.show("Failed to delete: ${e.friendlyMessage()}") },
+                onSuccess = { uiMessenger.show("Deleted", OrcMood.Happy) },
+                onFailure = { e -> uiMessenger.show("Failed to delete: ${e.friendlyMessage()}", OrcMood.Worried) },
             )
         }
     }
@@ -461,11 +462,11 @@ class PlayerViewModel @Inject constructor(
                 runCatching {
                     localRepository.updateTrackMetadata(-track.id, update)
                 }.onFailure { e ->
-                    uiMessenger.show("Failed to save: ${e.friendlyMessage()}")
+                    uiMessenger.show("Failed to save: ${e.friendlyMessage()}", OrcMood.Worried)
                 }
             } else {
                 libraryRepository.patchTrackMetadata(track.id, update).onFailure { e ->
-                    uiMessenger.show("Failed to save: ${e.friendlyMessage()}")
+                    uiMessenger.show("Failed to save: ${e.friendlyMessage()}", OrcMood.Worried)
                 }
             }
         }
@@ -494,8 +495,8 @@ class PlayerViewModel @Inject constructor(
                 return@launch
             }
             libraryRepository.renameTrackFile(track.id, trimmed).fold(
-                onSuccess = { uiMessenger.show("File renamed") },
-                onFailure = { e -> uiMessenger.show("Rename failed: ${e.friendlyMessage()}") },
+                onSuccess = { uiMessenger.show("File renamed", OrcMood.Happy) },
+                onFailure = { e -> uiMessenger.show("Rename failed: ${e.friendlyMessage()}", OrcMood.Worried) },
             )
         }
     }
@@ -525,10 +526,10 @@ class PlayerViewModel @Inject constructor(
                             return@launch
                         }
                         playlistRepository.addTracks(playlist, listOf(track.id))
-                            .onFailure { uiMessenger.show(it.friendlyMessage()) }
+                            .onFailure { uiMessenger.showError(it) }
                     } else {
                         playlistRepository.addTracks(playlistId, listOf(track.id))
-                            .onFailure { uiMessenger.show(it.friendlyMessage()) }
+                            .onFailure { uiMessenger.showError(it) }
                     }
                 }
             }

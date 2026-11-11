@@ -1,5 +1,9 @@
 package nl.muorg.android.ui.screen.playlists
 
+import nl.muorg.android.ui.easteregg.DustReportBuilder
+import nl.muorg.android.ui.easteregg.DustStat
+import nl.muorg.android.ui.easteregg.JanitorEasterEgg
+import nl.muorg.android.ui.OrcMood
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -65,6 +69,10 @@ data class PlaylistsUiState(
     /** Sort field for the grid, as on the web's playlists page. */
     val sortKey: PlaylistSortKey = PlaylistSortKey.NAME,
     val sortAsc: Boolean = true,
+    /** Janitor easter egg: dust report lines built from real library data. */
+    val dustStats: List<DustStat> = emptyList(),
+    val dustReportOpen: Boolean = false,
+    val dustIndex: Int = 0,
 )
 
 /** Playlist sort fields, matching the web's PlaylistsView sort control. */
@@ -111,10 +119,52 @@ class PlaylistsViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val offlineDownloadManager: OfflineDownloadManager,
     private val uiMessenger: UiMessenger,
+    private val janitorEasterEgg: JanitorEasterEgg,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlaylistsUiState())
     val uiState: StateFlow<PlaylistsUiState> = _uiState.asStateFlow()
+
+    val janitorAwake: StateFlow<Boolean> = janitorEasterEgg.awake
+
+    fun onLogoTapped() = janitorEasterEgg.onLogoTapped()
+
+    /** Tapping the Janitor toggles the dust report; stats load on first open. */
+    fun onJanitorTapped() {
+        val open = !_uiState.value.dustReportOpen
+        if (open && _uiState.value.dustStats.isEmpty()) loadDustStats()
+        _uiState.update { it.copy(dustReportOpen = open) }
+    }
+
+    fun closeDustReport() {
+        _uiState.update { it.copy(dustReportOpen = false) }
+    }
+
+    /** Advances to a stat not shown yet this session; reshuffles once all have been. */
+    fun nextDustStat() {
+        _uiState.update { state ->
+            val stats = state.dustStats
+            if (stats.isEmpty()) return@update state
+            state.copy(dustIndex = (state.dustIndex + 1) % stats.size)
+        }
+    }
+
+    private fun loadDustStats() {
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            val result = runCatching {
+                if (mode == "local") localRepository.getAllTracks()
+                else libraryRepository.getAllTracks().getOrThrow()
+            }
+            val stats = result.fold(
+                onSuccess = { tracks ->
+                    DustReportBuilder.build(DustReportBuilder.inputFrom(tracks, _uiState.value.playlists))
+                },
+                onFailure = { listOf(DustStat("Nothing to report.", "Just dust. Lots of dust.")) },
+            )
+            _uiState.update { it.copy(dustStats = stats, dustIndex = stats.indices.random()) }
+        }
+    }
 
     private var currentMode: String = "remote"
 
@@ -307,7 +357,7 @@ class PlaylistsViewModel @Inject constructor(
                 },
                 onFailure = { e ->
                     _uiState.update { it.copy(smartSaving = false) }
-                    uiMessenger.show("Couldn't create smart playlist: ${e.friendlyMessage()}")
+                    uiMessenger.show("Couldn't create smart playlist: ${e.friendlyMessage()}", OrcMood.Worried)
                 },
             )
         }
@@ -428,7 +478,7 @@ class PlaylistsViewModel @Inject constructor(
                     },
                     onFailure = { error ->
                         _uiState.update { it.copy(isLoading = false) }
-                        uiMessenger.show("Couldn't load playlists: ${error.friendlyMessage()}")
+                        uiMessenger.show("Couldn't load playlists: ${error.friendlyMessage()}", OrcMood.Worried)
                     }
                 )
                 _uiState.update { it.copy(pinnedIds = preferences.pinnedPlaylists.first().toList()) }
@@ -452,7 +502,7 @@ class PlaylistsViewModel @Inject constructor(
                     },
                     onFailure = { error ->
                         _uiState.update { it.copy(isLoading = false) }
-                        uiMessenger.show("Couldn't load playlists: ${error.friendlyMessage()}")
+                        uiMessenger.show("Couldn't load playlists: ${error.friendlyMessage()}", OrcMood.Worried)
                     }
                 )
                 // Server pins replace the local set for this screen; the two
@@ -495,7 +545,7 @@ class PlaylistsViewModel @Inject constructor(
                     )
                 }.fold(
                     onSuccess = { loadPlaylists() },
-                    onFailure = { error -> uiMessenger.show("Couldn't create playlist: ${error.friendlyMessage()}") }
+                    onFailure = { error -> uiMessenger.show("Couldn't create playlist: ${error.friendlyMessage()}", OrcMood.Worried) }
                 )
             } else {
                 repository.createPlaylist(
@@ -504,7 +554,7 @@ class PlaylistsViewModel @Inject constructor(
                 ).fold(
                     onSuccess = { loadPlaylists() },
                     onFailure = { error ->
-                        uiMessenger.show("Couldn't create playlist: ${error.friendlyMessage()}")
+                        uiMessenger.show("Couldn't create playlist: ${error.friendlyMessage()}", OrcMood.Worried)
                     }
                 )
             }
@@ -551,7 +601,7 @@ class PlaylistsViewModel @Inject constructor(
                     )
                 }.fold(
                     onSuccess = { loadPlaylists() },
-                    onFailure = { error -> uiMessenger.show("Couldn't update playlist: ${error.friendlyMessage()}") }
+                    onFailure = { error -> uiMessenger.show("Couldn't update playlist: ${error.friendlyMessage()}", OrcMood.Worried) }
                 )
                 return@launch
             } else {
@@ -574,7 +624,7 @@ class PlaylistsViewModel @Inject constructor(
                         loadPlaylists() // background refresh for full accuracy
                     },
                     onFailure = { error ->
-                        uiMessenger.show("Couldn't update playlist: ${error.friendlyMessage()}")
+                        uiMessenger.show("Couldn't update playlist: ${error.friendlyMessage()}", OrcMood.Worried)
                         loadPlaylists()
                     }
                 )
@@ -588,7 +638,7 @@ class PlaylistsViewModel @Inject constructor(
             if (currentMode == "local") {
                 runCatching { localRepository.deletePlaylist(id) }.fold(
                     onSuccess = { loadPlaylists() },
-                    onFailure = { error -> uiMessenger.show("Couldn't delete playlist: ${error.friendlyMessage()}") }
+                    onFailure = { error -> uiMessenger.show("Couldn't delete playlist: ${error.friendlyMessage()}", OrcMood.Worried) }
                 )
             } else {
                 repository.deletePlaylist(id).fold(
@@ -600,7 +650,7 @@ class PlaylistsViewModel @Inject constructor(
                         loadPlaylists()
                     },
                     onFailure = { error ->
-                        uiMessenger.show("Couldn't delete playlist: ${error.friendlyMessage()}")
+                        uiMessenger.show("Couldn't delete playlist: ${error.friendlyMessage()}", OrcMood.Worried)
                     }
                 )
             }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from orc-janitor-note.svg; shapes are baked into paths. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="270dp"
+    android:viewportWidth="240"
+    android:viewportHeight="270">
+    <group android:translateX="200" android:translateY="40">
+        <group android:rotation="-20">
+            <path android:pathData="M-8,0 A8,6 0 1,0 8,0 A8,6 0 1,0 -8,0 Z" android:fillColor="#4FD6EE"/>
+        </group>
+        <path android:pathData="M5,-28 H8.5 V0 H5 Z" android:fillColor="#4FD6EE"/>
+        <path android:pathData="M8.5,-28 Q20,-22 18,-9 Q15,-18 8.5,-19 Z" android:fillColor="#4FD6EE"/>
+    </group>
+</vector>

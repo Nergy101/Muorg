@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.welcome
 
+import nl.muorg.android.ui.component.OrcLoading
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -120,7 +121,7 @@ fun WelcomeScreen(
         WelcomeStep.CHECKING -> {
             OnboardingScreen {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = OnboardingBrand.Moss)
+                    OrcLoading()
                 }
             }
         }

@@ -1,11 +1,13 @@
 package nl.muorg.android.ui.screen.settings
 
+import nl.muorg.android.ui.easteregg.JanitorEasterEgg
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import nl.muorg.android.ui.OrcMood
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -100,10 +102,15 @@ class SettingsViewModel @Inject constructor(
     private val offlineDownloadManager: OfflineDownloadManager,
     @ApplicationContext private val context: Context,
     private val uiMessenger: UiMessenger,
+    private val janitorEasterEgg: JanitorEasterEgg,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    val janitorAwake: StateFlow<Boolean> = janitorEasterEgg.awake
+
+    fun onLogoTapped() = janitorEasterEgg.onLogoTapped()
 
     private val githubJson = Json { ignoreUnknownKeys = true }
 
@@ -563,7 +570,7 @@ class SettingsViewModel @Inject constructor(
             runCatching { api.purgeDeleted().bodyOrThrow("POST /api/admin/purge-deleted") }.fold(
                 onSuccess = {
                     _uiState.update { it.copy(purgeStatus = RefreshStatus.SUCCESS) }
-                    uiMessenger.show("Removed tracks purged")
+                    uiMessenger.show("Removed tracks purged", OrcMood.Happy)
                 },
                 onFailure = { _uiState.update { it.copy(purgeStatus = RefreshStatus.ERROR) } },
             )

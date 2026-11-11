@@ -19,6 +19,7 @@ import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.data.repository.PlaylistTrackEntry
 import nl.muorg.android.ui.UiMessenger
+import nl.muorg.android.ui.easteregg.JanitorEasterEgg
 import nl.muorg.android.ui.screen.playlists.PlaylistsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -85,6 +86,7 @@ class PlaylistsViewModelTest {
             library,
             downloads,
             UiMessenger(),
+            JanitorEasterEgg(UiMessenger()),
         )
     }
 

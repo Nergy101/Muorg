@@ -8,10 +8,14 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** The Orc face shown on a snackbar: happy for wins, worried for errors. */
+enum class OrcMood { Happy, Worried }
+
 data class UiMessage(
     val text: String,
     val actionLabel: String? = null,
     val onAction: (suspend () -> Unit)? = null,
+    val mood: OrcMood? = null,
 )
 
 /**
@@ -29,8 +33,17 @@ class UiMessenger @Inject constructor() {
         _messages.tryEmit(UiMessage(text))
     }
 
+    fun show(text: String, mood: OrcMood) {
+        _messages.tryEmit(UiMessage(text, mood = mood))
+    }
+
     fun showWithAction(text: String, actionLabel: String, onAction: suspend () -> Unit) {
         _messages.tryEmit(UiMessage(text, actionLabel, onAction))
+    }
+
+    /** A failure shown with the worried face; text comes from [friendlyMessage]. */
+    fun showError(error: Throwable) {
+        _messages.tryEmit(UiMessage(error.friendlyMessage(), mood = OrcMood.Worried))
     }
 }
 

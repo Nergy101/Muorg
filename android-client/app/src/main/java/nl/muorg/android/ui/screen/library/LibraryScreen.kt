@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.library
 
+import nl.muorg.android.ui.component.OrcPullToRefreshBox
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -120,7 +121,9 @@ fun LibraryScreen(
             lazyGridState = lazyGridState,
         )
 
-        androidx.compose.foundation.layout.Box(
+        OrcPullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = viewModel::loadTracks,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),

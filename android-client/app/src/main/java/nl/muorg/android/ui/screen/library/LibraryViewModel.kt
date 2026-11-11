@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.library
 
+import nl.muorg.android.ui.OrcMood
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -283,7 +284,7 @@ class LibraryViewModel @Inject constructor(
                     check.alreadyPresentCount == 0 -> {
                         playlistRepository.addTracks(playlist, tracks.map { it.id })
                             .onFailure { e ->
-                                uiMessenger.show(e.friendlyMessage())
+                                uiMessenger.showError(e)
                             }
                         loadPlaylists()
                     }
@@ -313,7 +314,7 @@ class LibraryViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.newTracks.map { it.id })
                         .onFailure { e ->
-                            uiMessenger.show(e.friendlyMessage())
+                            uiMessenger.showError(e)
                         }
                     loadPlaylists()
                 }
@@ -334,7 +335,7 @@ class LibraryViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addTracks(playlist, conflict.allTracks.map { it.id })
                         .onFailure { e ->
-                            uiMessenger.show(e.friendlyMessage())
+                            uiMessenger.showError(e)
                         }
                     loadPlaylists()
                 }
@@ -350,10 +351,10 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             if (currentMode == "local") {
                 runCatching { localRepository.createPlaylist(name) }
-                    .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}") }
+                    .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}", OrcMood.Worried) }
             } else {
                 playlistRepository.createPlaylist(name, "🎵")
-                    .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}") }
+                    .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}", OrcMood.Worried) }
             }
             loadPlaylists()
         }
@@ -380,7 +381,7 @@ class LibraryViewModel @Inject constructor(
                             loadPlaylists()
                         }
                     },
-                    onFailure = { uiMessenger.show("Couldn't remove: ${it.friendlyMessage()}") },
+                    onFailure = { uiMessenger.show("Couldn't remove: ${it.friendlyMessage()}", OrcMood.Worried) },
                 )
             }
         }
@@ -406,7 +407,7 @@ class LibraryViewModel @Inject constructor(
                             loadPlaylists()
                         }
                     },
-                    onFailure = { uiMessenger.show("Couldn't remove: ${it.friendlyMessage()}") },
+                    onFailure = { uiMessenger.show("Couldn't remove: ${it.friendlyMessage()}", OrcMood.Worried) },
                 )
             }
         }

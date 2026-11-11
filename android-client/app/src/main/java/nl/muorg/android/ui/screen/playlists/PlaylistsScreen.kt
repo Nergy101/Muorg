@@ -1,5 +1,13 @@
 package nl.muorg.android.ui.screen.playlists
 
+import nl.muorg.android.ui.component.bottomInset
+import nl.muorg.android.ui.easteregg.DustReportBubble
+import nl.muorg.android.ui.easteregg.JanitorFigure
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import nl.muorg.android.ui.component.OrcPullToRefreshBox
+import nl.muorg.android.ui.component.OrcLoading
 import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,7 +49,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -89,6 +99,7 @@ fun PlaylistsScreen(
     viewModel: PlaylistsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val janitorAwake by viewModel.janitorAwake.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
     var actionsFor by remember { mutableStateOf<Pair<Playlist, List<Any>>?>(null) }
@@ -234,10 +245,15 @@ fun PlaylistsScreen(
             }
         }
 
-        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        OrcPullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = viewModel::loadPlaylists,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    OrcLoading()
                 }
                 uiState.playlists.isEmpty() -> {
                     if (uiState.isOfflineMode) {
@@ -282,7 +298,7 @@ fun PlaylistsScreen(
                             start = 16.dp,
                             end = 16.dp,
                             top = 4.dp,
-                            bottom = LocalBottomInset.current + 16.dp,
+                            bottom = LocalBottomInset.current + 16.dp + if (janitorAwake) 110.dp else 0.dp,
                         ),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -307,6 +323,42 @@ fun PlaylistsScreen(
                         }
                     }
                 }
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+            if (janitorAwake) {
+                val dustOpen = uiState.dustReportOpen
+                BackHandler(enabled = dustOpen) { viewModel.closeDustReport() }
+                val bubbleVisible = dustOpen && uiState.dustStats.isNotEmpty()
+                val bubbleAnim by animateFloatAsState(
+                    targetValue = if (bubbleVisible) 1f else 0f,
+                    animationSpec = tween(180),
+                )
+                if (bubbleVisible) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 16.dp, bottom = bottomInset() + 124.dp)
+                            .alpha(bubbleAnim)
+                            .scale(0.96f + 0.04f * bubbleAnim),
+                    ) {
+                        DustReportBubble(
+                            stats = uiState.dustStats,
+                            index = uiState.dustIndex,
+                            onNext = viewModel::nextDustStat,
+                            onClose = viewModel::closeDustReport,
+                        )
+                    }
+                }
+                JanitorFigure(
+                    bubbleOpen = dustOpen,
+                    onTap = viewModel::onJanitorTapped,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 10.dp, bottom = bottomInset() + 12.dp),
+                )
+            }
+            }
             }
         }
 

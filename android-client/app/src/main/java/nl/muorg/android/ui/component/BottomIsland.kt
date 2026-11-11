@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.component
 
+import nl.muorg.android.ui.component.OrcSpinner
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -25,7 +26,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -296,11 +296,7 @@ private fun MiniPlayerRow(
                 (playerState.pendingTrackId != null && playerState.pendingTrackId == track.id)
             IconButton(onClick = onPlayPause, modifier = Modifier.size(48.dp)) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        color = onSurface,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.5.dp,
-                    )
+                    OrcSpinner(size = 28.dp)
                 } else {
                     MageIcon(
                         if (playerState.isPlaying) "pause" else "play",

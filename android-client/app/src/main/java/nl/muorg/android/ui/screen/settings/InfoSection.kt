@@ -1,11 +1,11 @@
 package nl.muorg.android.ui.screen.settings
 
+import nl.muorg.android.ui.component.OrcSpinner
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -88,7 +88,7 @@ fun InfoSection(
             },
             trailingContent = {
                 if (uiState.serverUpdateInProgress) {
-                    CircularProgressIndicator(Modifier.size(20.dp))
+                    OrcSpinner(size = 28.dp)
                 }
             },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
@@ -107,7 +107,7 @@ fun InfoSection(
         },
         trailingContent = {
             if (uiState.updateCheckInProgress) {
-                CircularProgressIndicator(Modifier.size(20.dp))
+                OrcSpinner(size = 28.dp)
             }
         },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),

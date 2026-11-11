@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.stats
 
+import nl.muorg.android.ui.component.OrcLoading
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -217,7 +218,7 @@ fun StatsScreen(
         when {
             state.isLoading && tracks.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    OrcLoading()
                 }
             }
 

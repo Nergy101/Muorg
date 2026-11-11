@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.playlist
 
+import nl.muorg.android.ui.component.OrcLoading
 import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -306,7 +307,7 @@ fun PlaylistAlbumsScreen(
         when {
             uiState.isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    OrcLoading()
                 }
             }
             uiState.error != null -> {

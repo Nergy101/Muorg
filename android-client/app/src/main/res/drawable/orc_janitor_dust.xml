@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from orc-janitor-dust.svg; shapes are baked into paths. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="270dp"
+    android:viewportWidth="240"
+    android:viewportHeight="270">
+    <path android:pathData="M13,244 A9,9 0 1,0 31,244 A9,9 0 1,0 13,244 Z" android:fillColor="#9FB3B8" android:fillAlpha="0.35"/>
+    <path android:pathData="M2,232 A6,6 0 1,0 14,232 A6,6 0 1,0 2,232 Z" android:fillColor="#9FB3B8" android:fillAlpha="0.25"/>
+    <path android:pathData="M26,226 A4,4 0 1,0 34,226 A4,4 0 1,0 26,226 Z" android:fillColor="#9FB3B8" android:fillAlpha="0.3"/>
+</vector>

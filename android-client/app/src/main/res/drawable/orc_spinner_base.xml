@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from orc-spinner-base.svg; shapes are baked into paths. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="168dp"
+    android:height="162dp"
+    android:viewportWidth="168"
+    android:viewportHeight="162">
+    <group android:translateX="-16" android:translateY="-22">
+        <path android:pathData="M32,28 L84,50 L50,94 Z" android:fillColor="#5B7C32"/>
+        <path android:pathData="M168,28 L116,50 L150,94 Z" android:fillColor="#5B7C32"/>
+        <path android:pathData="M28,108 A72,72 0 1,0 172,108 A72,72 0 1,0 28,108 Z" android:fillColor="#759346"/>
+        <path android:pathData="M38,108 A62,62 0 1,0 162,108 A62,62 0 1,0 38,108 Z" android:strokeColor="#5B7C32" android:strokeWidth="3" android:strokeAlpha="0.45"/>
+        <path android:pathData="M48,108 A52,52 0 1,0 152,108 A52,52 0 1,0 48,108 Z" android:strokeColor="#5B7C32" android:strokeWidth="3" android:strokeAlpha="0.45"/>
+    </group>
+</vector>

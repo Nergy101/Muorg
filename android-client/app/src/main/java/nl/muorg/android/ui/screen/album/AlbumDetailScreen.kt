@@ -1,5 +1,7 @@
 package nl.muorg.android.ui.screen.album
 
+import nl.muorg.android.ui.component.OrcSpinner
+import nl.muorg.android.ui.component.OrcLoading
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -146,7 +148,7 @@ fun AlbumDetailScreen(
                         modifier = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        OrcLoading()
                     }
                 }
                 else -> {
@@ -393,11 +395,7 @@ private fun AlbumTrackRow(
         ) {
             Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.5.dp,
-                    )
+                    OrcSpinner(size = 20.dp)
                 } else if (isPlaying) {
                     EqualizerBars(
                         color = MaterialTheme.colorScheme.primary,

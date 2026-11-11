@@ -1,5 +1,7 @@
 package nl.muorg.android.ui.screen.library
 
+import nl.muorg.android.ui.component.OrcMunchingMeter
+import nl.muorg.android.ui.component.OrcLoading
 import nl.muorg.android.ui.component.EmptyState
 import nl.muorg.android.ui.component.OrcVariant
 import androidx.compose.foundation.background
@@ -76,33 +78,24 @@ fun LibraryContent(
                 // in page by page, so later pages must grow the list in place
                 // instead of replacing it with a spinner.
                 uiState.isLoading && uiState.allTracks.isEmpty() -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                    OrcLoading(modifier = Modifier.align(Alignment.Center))
                 }
                 uiState.isInitialScanning -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            text = if (uiState.initialScanTotal > 0)
-                                "Scanning library… ${uiState.initialScanProgress} / ${uiState.initialScanTotal}"
-                            else "Scanning library…",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (uiState.initialScanTotal > 0) {
-                            LinearProgressIndicator(
-                                progress = { uiState.initialScanProgress.toFloat() / uiState.initialScanTotal },
-                                modifier = Modifier.fillMaxWidth(0.6f),
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
+                    OrcMunchingMeter(
+                        title = "Munching on metadata…",
+                        detail = if (uiState.initialScanTotal > 0)
+                            "Scanning library… ${uiState.initialScanProgress} / ${uiState.initialScanTotal}"
+                        else "Scanning library…",
+                        progress = {
+                            if (uiState.initialScanTotal > 0)
+                                uiState.initialScanProgress.toFloat() / uiState.initialScanTotal
+                            else null
+                        },
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(32.dp)
+                            .fillMaxWidth(0.8f),
+                    )
                 }
                 uiState.error != null -> {
                     EmptyState(

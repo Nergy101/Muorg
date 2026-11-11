@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.settings
 
+import nl.muorg.android.ui.component.OrcMunchingMeter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -366,26 +367,12 @@ private fun ScanningContent(done: Int, total: Int) {
             .padding(bottom = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            "Updating metadata…",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+        OrcMunchingMeter(
+            title = "Munching on metadata…",
+            detail = if (total > 0) "$done / $total tracks updated" else "Updating metadata…",
+            progress = { if (total > 0) done.toFloat() / total else null },
+            modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(20.dp))
-        if (total > 0) {
-            LinearProgressIndicator(
-                progress = { done.toFloat() / total },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "$done / $total tracks updated",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
     }
 }
 

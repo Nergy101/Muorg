@@ -1,5 +1,7 @@
 package nl.muorg.android.ui.screen.home
 
+import nl.muorg.android.ui.easteregg.TappableLogo
+import nl.muorg.android.ui.component.OrcMunchingMeter
 import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -120,6 +122,7 @@ fun HomeScreen(
         item(span = { GridItemSpan(maxLineSpan) }) {
             HomeHeader(
                 shuffleEnabled = !state.isOfflineMode,
+                onLogoTapped = viewModel::onLogoTapped,
                 onShuffleAll = {
                     playerViewModel.startShuffleAll(
                         viewModel.allTracks().shuffled().take(SHUFFLE_ALL_COUNT)
@@ -292,6 +295,7 @@ private fun ShelfSkeletonCard(modifier: Modifier = Modifier) {
 private fun HomeHeader(
     shuffleEnabled: Boolean,
     onShuffleAll: () -> Unit,
+    onLogoTapped: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -302,10 +306,10 @@ private fun HomeHeader(
     ) {
         // Image, not Icon: Icon tints to a single colour and flattens the mark
         // to a silhouette; the logo carries its own colours.
-        Image(
-            painter = painterResource(R.drawable.ic_muorg_logo),
+        TappableLogo(
+            size = 30.dp,
             contentDescription = null,
-            modifier = Modifier.size(30.dp),
+            onTap = onLogoTapped,
         )
         Spacer(Modifier.width(8.dp))
         Text(
@@ -366,44 +370,12 @@ private fun ScanningPlaceholder(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        MageIcon(
-            name = "music",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(40.dp),
+        OrcMunchingMeter(
+            title = "Munching on metadata…",
+            detail = if (total > 0) "$progress / $total files scanned" else "Counting files…",
+            progress = { if (total > 0) progress.toFloat() / total else null },
+            modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "Scanning library…",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(20.dp))
-        if (total > 0) {
-            LinearProgressIndicator(
-                progress = { progress.toFloat() / total },
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "$progress / $total files scanned",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            // The scan's first phase only counts the files, so the total —
-            // and with it the bar's fraction — is not known yet.
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Counting files…",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
