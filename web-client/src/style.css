@@ -564,8 +564,8 @@ input[type="range"]::-moz-range-thumb {
    edge top and bottom. The album variant keeps the radial mask. */
 @media (min-width: 64rem) {
   .edge-blur-art.edge-blur-art-player {
-    -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
-    mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
   }
 }
 /* Art-fullscreen mode (maximized player): the backdrop art fills the pane with
