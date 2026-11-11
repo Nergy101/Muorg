@@ -369,6 +369,16 @@
                 :stroke-dasharray="PROGRESS_RING_C" :stroke-dashoffset="PROGRESS_RING_C * (1 - displayedFraction)"
               />
             </svg>
+            <!-- Next track, just right of the progress ring (fs view only) -->
+            <button
+              v-if="artFullscreen"
+              type="button"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white lg:h-10 lg:w-10"
+              aria-label="Next track"
+              @click="player.skipNext()"
+            >
+              <MageIcon name="next" class="h-5 w-5 lg:h-6 lg:w-6" />
+            </button>
             <!-- Fullscreen toggle: at the end of this row in the fs view only
                  (in the non-fs view it sits right of add-to-playlist above) -->
             <button
