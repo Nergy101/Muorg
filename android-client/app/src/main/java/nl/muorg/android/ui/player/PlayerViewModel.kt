@@ -512,27 +512,22 @@ class PlayerViewModel @Inject constructor(
             } else {
                 if (mode == "local") {
                     localRepository.addTracksToPlaylist(playlistId, listOf(track))
-                    uiMessenger.show("Added to favorites")
                 } else {
                     // Defensive: the local favorites set may be out of sync
                     // with the server playlist (added on another device), so
-                    // check before adding to avoid a duplicate row. The heart
-                    // was just toggled on, so the end state is "favorited"
-                    // either way — say "Added", not "Already".
+                    // check before adding to avoid a duplicate row. Success is
+                    // silent — the heart already shows it; only failures speak.
                     val playlist = _playlists.value.find { it.id == playlistId }
                     if (playlist != null) {
                         val check = playlistRepository.checkAddConflict(playlist, listOf(track))
                         if (check.alreadyPresentCount > 0) {
-                            uiMessenger.show("Added to favorites")
                             refreshPlaylists()
                             return@launch
                         }
                         playlistRepository.addTracks(playlist, listOf(track.id))
-                            .onSuccess { uiMessenger.show("Added to favorites") }
                             .onFailure { uiMessenger.show(it.friendlyMessage()) }
                     } else {
                         playlistRepository.addTracks(playlistId, listOf(track.id))
-                            .onSuccess { uiMessenger.show("Added to favorites") }
                             .onFailure { uiMessenger.show(it.friendlyMessage()) }
                     }
                 }

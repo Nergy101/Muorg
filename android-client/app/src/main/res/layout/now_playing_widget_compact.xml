@@ -1,89 +1,125 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  One-row Now Playing layout: cover | title+artist | [like] | play/pause | next.
+  The blurred, dimmed album art fills the whole widget (widget_backdrop); the
+  plain dark widget_background shows through when there is no cover. The cover
+  is pre-rounded in code and sized by the row's height (adjustViewBounds), so it
+  is as large as the row allows. The like button is shown from code only when
+  the widget is wide enough for it.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:padding="8dp"
     android:background="@drawable/widget_background">
 
-    <FrameLayout
-        android:layout_width="40dp"
-        android:layout_height="40dp">
-
-        <ImageView
-            android:id="@+id/widget_cover"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:contentDescription="@string/widget_cover_desc"
-            android:visibility="gone" />
-
-        <ImageView
-            android:id="@+id/widget_cover_placeholder"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:src="@drawable/ic_compact_disk"
-            android:scaleType="centerInside"
-            android:contentDescription="@string/widget_cover_desc" />
-
-        <!-- Tiny Muorg mark in the widget's top-left corner. -->
-        <ImageView
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:layout_gravity="top|start"
-            android:src="@drawable/widget_logo"
-            android:importantForAccessibility="no" />
-    </FrameLayout>
+    <ImageView
+        android:id="@+id/widget_backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
 
     <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_gravity="center_vertical"
-        android:orientation="vertical"
-        android:layout_marginStart="8dp">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="8dp">
 
-        <TextView
-            android:id="@+id/widget_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.Widget.Title"
-            android:text="@string/widget_no_track" />
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/widget_artist"
-            android:layout_width="match_parent"
+            <ImageView
+                android:id="@+id/widget_cover"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:contentDescription="@string/widget_cover_desc"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/widget_cover_placeholder"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:adjustViewBounds="true"
+                android:src="@drawable/ic_compact_disk"
+                android:scaleType="centerInside"
+                android:contentDescription="@string/widget_cover_desc" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.Widget.Artist"
-            android:text="" />
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical"
+            android:orientation="vertical"
+            android:layout_marginStart="8dp">
+
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="@style/TextAppearance.Widget.Title"
+                android:text="@string/widget_no_track" />
+
+            <TextView
+                android:id="@+id/widget_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="@style/TextAppearance.Widget.Artist"
+                android:text="" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/widget_favorite"
+            android:layout_width="36dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_vertical"
+            android:padding="8dp"
+            android:scaleType="center"
+            android:src="@drawable/ic_heart"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/widget_toggle_favorite"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/widget_play_pause"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_vertical"
+            android:padding="8dp"
+            android:scaleType="center"
+            android:src="@drawable/ic_play"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/widget_play" />
+
+        <ImageButton
+            android:id="@+id/widget_next"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_vertical"
+            android:padding="8dp"
+            android:scaleType="center"
+            android:src="@drawable/ic_next"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/widget_next" />
     </LinearLayout>
 
-    <ImageButton
-        android:id="@+id/widget_play_pause"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_gravity="center_vertical"
-        android:padding="8dp"
-        android:scaleType="center"
-        android:src="@drawable/ic_play"
-        android:background="@android:color/transparent"
-        android:contentDescription="@string/widget_play" />
+    <!-- Tiny Muorg mark in the widget's top-left corner. -->
+    <ImageView
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="5dp"
+        android:src="@drawable/widget_logo"
+        android:importantForAccessibility="no" />
 
-    <ImageButton
-        android:id="@+id/widget_next"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_gravity="center_vertical"
-        android:padding="8dp"
-        android:scaleType="center"
-        android:src="@drawable/ic_next"
-        android:background="@android:color/transparent"
-        android:contentDescription="@string/widget_next" />
-
-</LinearLayout>
+</FrameLayout>

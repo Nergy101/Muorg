@@ -122,7 +122,7 @@ class PlayerViewModelTest {
     }
 
     @Test
-    fun `favoriting a track already in the server playlist says Added, not Already`() = runTest {
+    fun `favoriting a track already in the server playlist shows no toast`() = runTest {
         // The desync: the track is in the server's Favorites playlist (added
         // on another device) but the local favorites set — what the heart
         // shows — does not have it, so the heart was empty when pressed.
@@ -134,11 +134,11 @@ class PlayerViewModelTest {
         advanceUntilIdle()
         collector.cancelAndJoin()
 
-        assertEquals(listOf("Added to favorites"), f.toasts)
+        assertEquals(emptyList<String>(), f.toasts)
     }
 
     @Test
-    fun `favoriting a new track adds it and says Added`() = runTest {
+    fun `favoriting a new track adds it without a toast`() = runTest {
         val f = fixture(serverFavorites = emptyList(), localFavorites = emptySet())
         val collector = launch { f.uiMessenger.messages.collect { f.toasts.add(it.text) } }
         advanceUntilIdle()
@@ -147,7 +147,7 @@ class PlayerViewModelTest {
         advanceUntilIdle()
         collector.cancelAndJoin()
 
-        assertEquals(listOf("Added to favorites"), f.toasts)
+        assertEquals(emptyList<String>(), f.toasts)
     }
 
     @Test

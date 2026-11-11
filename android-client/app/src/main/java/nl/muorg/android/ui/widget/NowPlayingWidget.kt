@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 import androidx.media3.session.MediaController
+import kotlin.math.roundToInt
 import androidx.core.content.ContextCompat
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -273,12 +274,11 @@ class NowPlayingWidget : AppWidgetProvider() {
     ) {
         val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
         val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+            .takeIf { it > 0 } ?: DEFAULT_HEIGHT_DP
         val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
-        // The full layout (previous, play, next, like) needs a bit over two rows
-        // of height and enough width for the transport row; anything smaller
-        // gets the one-line compact layout (play + next, no like button).
-        val expanded = heightDp >= EXPANDED_MIN_HEIGHT_DP && widthDp >= FULL_MIN_WIDTH_DP
-        val layoutId = if (expanded) R.layout.now_playing_widget_expanded
+            .takeIf { it > 0 } ?: DEFAULT_WIDTH_DP
+        val stacked = heightDp >= COLUMN_MIN_HEIGHT_DP
+        val layoutId = if (stacked) R.layout.now_playing_widget_column
         else R.layout.now_playing_widget_compact
 
         val views = RemoteViews(context.packageName, layoutId)
@@ -290,16 +290,42 @@ class NowPlayingWidget : AppWidgetProvider() {
 
         val cover = WidgetStateStore.peekCover(context, state.trackId)
         if (cover != null) {
-            views.setImageViewBitmap(R.id.widget_cover, cover)
+            // The art fills the whole widget as a blurred, dimmed backdrop, and
+            // sits on top of it as a slightly rounded cover.
+            val density = context.resources.displayMetrics.density
+            val backdrop = WidgetArt.blurredBackdrop(
+                cover,
+                widthPx = (widthDp * density / 2).roundToInt().coerceAtLeast(8),
+                heightPx = (heightDp * density / 2).roundToInt().coerceAtLeast(8),
+                cornerPx = WIDGET_CORNER_DP * density / 2,
+            )
+            views.setImageViewBitmap(R.id.widget_backdrop, backdrop)
+            views.setViewVisibility(R.id.widget_backdrop, View.VISIBLE)
+            views.setImageViewBitmap(R.id.widget_cover, WidgetArt.roundedCover(cover, COVER_BITMAP_PX))
             views.setViewVisibility(R.id.widget_cover, View.VISIBLE)
             views.setViewVisibility(R.id.widget_cover_placeholder, View.GONE)
         } else {
+            views.setViewVisibility(R.id.widget_backdrop, View.GONE)
             views.setViewVisibility(R.id.widget_cover, View.GONE)
             views.setViewVisibility(R.id.widget_cover_placeholder, View.VISIBLE)
         }
 
-        views.setTextViewText(R.id.widget_title, state.title ?: context.getString(R.string.widget_no_track))
-        views.setTextViewText(R.id.widget_artist, state.artist.orEmpty())
+        val title = state.title ?: context.getString(R.string.widget_no_track)
+        val artist = state.artist.orEmpty()
+        if (stacked && heightDp < TWO_TEXT_LINES_MIN_HEIGHT_DP) {
+            // Two rows is too short for two text lines under the cover.
+            views.setTextViewText(R.id.widget_title, listOf(title, artist).filter { it.isNotBlank() }.joinToString(" · "))
+            views.setViewVisibility(R.id.widget_artist, View.GONE)
+        } else {
+            views.setTextViewText(R.id.widget_title, title)
+            views.setTextViewText(R.id.widget_artist, artist)
+            views.setViewVisibility(R.id.widget_artist, View.VISIBLE)
+        }
+        if (stacked) {
+            val showAlbum = heightDp >= ALBUM_LINE_MIN_HEIGHT_DP && !state.album.isNullOrBlank()
+            views.setTextViewText(R.id.widget_album, state.album.orEmpty())
+            views.setViewVisibility(R.id.widget_album, if (showAlbum) View.VISIBLE else View.GONE)
+        }
 
         views.setImageViewResource(
             R.id.widget_play_pause,
@@ -320,38 +346,26 @@ class NowPlayingWidget : AppWidgetProvider() {
             WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_NEXT, REQUEST_NEXT),
         )
 
-        if (expanded) {
-            // Two rows is only ~110dp: the album line would not fit under the
-            // controls, so it folds into the artist line until there is room.
-            if (heightDp >= ALBUM_LINE_MIN_HEIGHT_DP) {
-                views.setTextViewText(R.id.widget_album, state.album.orEmpty())
-                views.setViewVisibility(R.id.widget_album, View.VISIBLE)
-            } else {
-                views.setViewVisibility(R.id.widget_album, View.GONE)
-                views.setTextViewText(
-                    R.id.widget_artist,
-                    listOfNotNull(state.artist, state.album).filter { it.isNotBlank() }.joinToString(" · "),
-                )
-            }
+        if (stacked) {
             views.setInt(R.id.widget_previous, "setColorFilter", ICON_TINT)
             views.setOnClickPendingIntent(
                 R.id.widget_previous,
                 WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_PREVIOUS, REQUEST_PREVIOUS),
             )
-            // The like button goes in the transport row if that fits, else next
-            // to the title/artist text; the compact layout has no room for it.
-            val inControls = widthDp >= HEART_IN_CONTROLS_MIN_WIDTH_DP
-            val heart = if (inControls) R.id.widget_favorite else R.id.widget_favorite_inline
-            val unused = if (inControls) R.id.widget_favorite_inline else R.id.widget_favorite
-            views.setViewVisibility(unused, View.GONE)
-            views.setViewVisibility(heart, View.VISIBLE)
+        }
+
+        // The like button: always in the stacked controls unless the widget is
+        // too narrow, and in the one-row layout only when it is wide enough.
+        val showHeart = widthDp >= if (stacked) COLUMN_HEART_MIN_WIDTH_DP else ROW_HEART_MIN_WIDTH_DP
+        views.setViewVisibility(R.id.widget_favorite, if (showHeart) View.VISIBLE else View.GONE)
+        if (showHeart) {
             views.setImageViewResource(
-                heart,
+                R.id.widget_favorite,
                 if (state.isFavorite) R.drawable.ic_heart_fill else R.drawable.ic_heart,
             )
-            views.setInt(heart, "setColorFilter", if (state.isFavorite) FAVORITE_TINT else ICON_TINT)
+            views.setInt(R.id.widget_favorite, "setColorFilter", if (state.isFavorite) FAVORITE_TINT else ICON_TINT)
             views.setOnClickPendingIntent(
-                heart,
+                R.id.widget_favorite,
                 WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_TOGGLE_FAVORITE, REQUEST_FAVORITE),
             )
         }
@@ -375,14 +389,27 @@ class NowPlayingWidget : AppWidgetProvider() {
         const val EXTRA_LOCAL_COVER_PATH = "local_cover_path"
         const val EXTRA_IS_FAVORITE = "is_favorite"
 
-        /** Widgets at least this tall (dp) can show the full layout — two rows is ~110dp — shorter ones get the compact row. */
-        private const val EXPANDED_MIN_HEIGHT_DP = 90
-        /** Narrower than this the transport row does not fit beside the cover: compact layout, no like button. */
-        private const val FULL_MIN_WIDTH_DP = 205
-        /** From this width the like button sits in the transport row; below it, beside the text. */
-        private const val HEART_IN_CONTROLS_MIN_WIDTH_DP = 240
-        /** Tall enough to also show the album on its own line. */
-        private const val ALBUM_LINE_MIN_HEIGHT_DP = 130
+        /**
+         * Heights (dp) of the widget's size classes, from the launcher's
+         * min-height option: one row is ~40-73dp, two ~110-146dp, three ~180+.
+         * A single row gets the horizontal layout; two or more get the stacked one.
+         */
+        private const val COLUMN_MIN_HEIGHT_DP = 90
+        /** Below this the stacked layout is too short for two text lines: title and artist share one line. */
+        private const val TWO_TEXT_LINES_MIN_HEIGHT_DP = 150
+        /** From this height the stacked layout also shows the album line. */
+        private const val ALBUM_LINE_MIN_HEIGHT_DP = 170
+        /** The one-row layout shows the like button from this width (about four cells); below it only play and next. */
+        private const val ROW_HEART_MIN_WIDTH_DP = 245
+        /** The stacked layout's four buttons need this width; narrower hides the like button. */
+        private const val COLUMN_HEART_MIN_WIDTH_DP = 150
+        /** Pixel size of the rounded cover bitmap handed to the widget (the view scales it to fit). */
+        private const val COVER_BITMAP_PX = 384
+        /** Widget size assumed when the launcher reports none. */
+        private const val DEFAULT_WIDTH_DP = 250
+        private const val DEFAULT_HEIGHT_DP = 110
+        /** Matches the corner radius of drawable/widget_background. */
+        private const val WIDGET_CORNER_DP = 12f
         /** How long a tap waits for the playback service before giving up (goAsync() allows ~10s). */
         private const val CONNECT_TIMEOUT_MS = 5_000L
         private const val ICON_TINT = Color.WHITE

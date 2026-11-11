@@ -10,6 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -69,6 +71,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -587,6 +590,54 @@ private fun PlayerArtwork(
  * Title, then artist + album on the left with the queue/playlist/favourite
  * actions on the same row — shared by both [PlayerScreen] layout branches.
  */
+/**
+ * Favourite heart with a pop animation on toggle: quick grow, then a bouncy
+ * settle back. The tint crossfades between white and the accent.
+ */
+@Composable
+private fun FavoriteHeartButton(
+    isFavorite: Boolean,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    buttonSize: Dp = 32.dp,
+    iconSize: Dp = 20.dp,
+) {
+    val scale = remember { Animatable(1f) }
+    var initial by remember { mutableStateOf(true) }
+    LaunchedEffect(isFavorite) {
+        if (initial) {
+            initial = false
+            return@LaunchedEffect
+        }
+        scale.snapTo(1f)
+        scale.animateTo(1.35f, animationSpec = tween(110, easing = FastOutSlowInEasing))
+        scale.animateTo(
+            1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        )
+    }
+    val tint by animateColorAsState(
+        targetValue = if (isFavorite) accent else Color.White,
+        label = "heartTint",
+    )
+    IconButton(onClick = onClick, modifier = modifier.size(buttonSize)) {
+        Icon(
+            // Same glyph as the web player: outline until favorited,
+            // filled once it is.
+            painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
+            contentDescription = "Favourite",
+            tint = tint,
+            modifier = Modifier
+                .size(iconSize)
+                .graphicsLayer { scaleX = scale.value; scaleY = scale.value },
+        )
+    }
+}
+
 @Composable
 private fun PlayerTrackHeader(
     currentTrack: CatalogTrack?,
@@ -624,16 +675,20 @@ private fun PlayerTrackHeader(
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
-            // Same order and compact size as the web player's info row:
-            // favourite, queue, add-to-playlist, track menu.
+            // Favourite, add-to-playlist, queue, track menu.
             val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
-            IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
+            FavoriteHeartButton(
+                isFavorite = isFavorite,
+                accent = accent,
+                onClick = onToggleFavorite,
+                buttonSize = 32.dp,
+                iconSize = 20.dp,
+            )
+            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(32.dp)) {
                 Icon(
-                    // Same glyph as the web player: outline until favorited,
-                    // filled once it is.
-                    painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
-                    contentDescription = "Favourite",
-                    tint = if (isFavorite) accent else Color.White,
+                    painter = painterResource(mageIconRes("playlist-add")),
+                    contentDescription = "Add to playlist",
+                    tint = Color.White,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -641,14 +696,6 @@ private fun PlayerTrackHeader(
                 Icon(
                     painter = painterResource(mageIconRes("stack")),
                     contentDescription = "Open queue",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    painter = painterResource(mageIconRes("playlist-add")),
-                    contentDescription = "Add to playlist",
                     tint = Color.White,
                     modifier = Modifier.size(20.dp),
                 )
@@ -723,14 +770,13 @@ private fun FsBottomBar(
             )
         }
         val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
-        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(44.dp)) {
-            Icon(
-                painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
-                contentDescription = "Favourite",
-                tint = if (isFavorite) accent else Color.White,
-                modifier = Modifier.size(28.dp),
-            )
-        }
+        FavoriteHeartButton(
+            isFavorite = isFavorite,
+            accent = accent,
+            onClick = onToggleFavorite,
+            buttonSize = 44.dp,
+            iconSize = 28.dp,
+        )
         // The progress ring doubles as the play/pause button.
         Box(
             modifier = Modifier
