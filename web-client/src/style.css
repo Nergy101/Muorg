@@ -559,9 +559,18 @@ input[type="range"]::-moz-range-thumb {
     filter: blur(16px);
   }
 }
+/* Player backdrop on desktop: instead of the circular closest-side vignette,
+   fade only the left and right edges (a sideways fade) — the art runs edge to
+   edge top and bottom. The album variant keeps the radial mask. */
+@media (min-width: 64rem) {
+  .edge-blur-art.edge-blur-art-player {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  }
+}
 /* Art-fullscreen mode (maximized player): the backdrop art fills the pane with
-   only a minimal blur — the black edge vignette (radial mask) stays, so the
-   art still fades into the dark base at the borders. */
+   only a minimal blur — the edge mask stays, so the art still fades into the
+   dark base at the borders. */
 .edge-blur-art.edge-art-sharp {
   filter: blur(12px);
 }
