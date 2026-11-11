@@ -155,20 +155,27 @@
       <!-- Volume lives in the rail (desktop); the player has no volume bar. -->
       <div class="mx-3 border-t border-on-surface/10 px-2 py-3">
         <VolumeControl />
-        <!-- FS-mode backdrop blur, underneath the volume bar. Slider shows the
-             explicit override, or the FS default when still on auto. -->
+        <!-- FS-mode backdrop blur, underneath the volume bar. The slider shows
+             the effective value (auto per cover, or the override); "Auto"
+             clears a saved override and returns to per-cover auto. -->
         <div v-if="player.artFullscreen" class="mt-3">
           <div class="flex items-center gap-2 text-label-sm text-on-surface-variant">
             <MageIcon name="image" class="h-4 w-4 shrink-0" />
             <span>Backdrop blur</span>
-            <span class="ml-auto tabular-nums">{{ settings.fsBackdropBlur ?? 12 }}px</span>
+            <button
+              v-if="settings.fsBackdropBlur !== null"
+              type="button"
+              class="rounded px-1.5 py-0.5 text-label-sm text-primary hover:bg-surface-container"
+              @click="settings.setFsBackdropBlur(null)"
+            >Auto</button>
+            <span class="ml-auto tabular-nums">{{ fsBlurDisplay }}px</span>
           </div>
           <input
             type="range"
             min="0"
             max="24"
             step="1"
-            :value="settings.fsBackdropBlur ?? 12"
+            :value="fsBlurDisplay"
             class="h-1 w-full cursor-pointer"
             aria-label="Backdrop blur"
             @input="onFsBlurInput"
@@ -185,6 +192,7 @@ import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import VolumeControl from "./VolumeControl.vue";
 import { sidebarCollapsed as collapsed } from "../composables/sidebarCollapsed";
+import { useFsBackdropBlur } from "../composables/useFsBackdropBlur";
 import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { searchFocusSignal } from "../composables/useSearchFocus";
 import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
@@ -242,6 +250,10 @@ const reportIssues = computed(() => {
   const counts = reportCounts(lib.tracks, settings.missingMetadataFields);
   return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
 });
+
+const { blurPx: fsBlurPx } = useFsBackdropBlur(computed(() => player.currentCoverUrl));
+/** Effective blur for the slider: override if set, else the per-cover auto. */
+const fsBlurDisplay = computed(() => fsBlurPx.value ?? 12);
 
 function onFsBlurInput(e: Event): void {
   const raw = (e.target as HTMLInputElement).valueAsNumber;
