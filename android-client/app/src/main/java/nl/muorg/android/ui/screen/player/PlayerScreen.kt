@@ -104,7 +104,7 @@ fun PlayerScreen(
     val currentTrack = playerState.currentTrack
     val coverUrl: Any? = when {
         currentTrack?.localCoverPath != null -> java.io.File(currentTrack.localCoverPath)
-        currentTrack?.hasCover == true -> "$baseUrl/api/tracks/${currentTrack.id}/cover"
+        currentTrack?.hasCover == true -> "$baseUrl/api/tracks/${currentTrack.id}/cover?size=1200"
         else -> null
     }
 

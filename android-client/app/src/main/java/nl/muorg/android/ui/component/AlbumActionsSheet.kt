@@ -79,7 +79,7 @@ fun AlbumActionsSheet(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
-                model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover",
+                model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover?size=1200",
                 contentDescription = null,
                 imageLoader = imageLoader,
                 contentScale = ContentScale.Crop,

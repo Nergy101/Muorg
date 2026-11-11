@@ -26,7 +26,7 @@ import coil.compose.AsyncImage
  * every mosaic works in local mode, where there is no server to ask.
  */
 fun coverModelFor(localCoverPath: String?, trackId: Int, baseUrl: String): Any =
-    localCoverPath ?: "$baseUrl/api/tracks/$trackId/cover"
+    localCoverPath ?: "$baseUrl/api/tracks/$trackId/cover?size=1200"
 
 /**
  * The 2x2 cover collage used by playlist tiles, mix tiles and the mix header.

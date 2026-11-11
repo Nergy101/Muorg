@@ -132,7 +132,7 @@ fun QueueScreen(
             url = currentTrack?.let { t ->
                 when {
                     t.localCoverPath != null -> java.io.File(t.localCoverPath!!)
-                    t.hasCover -> "$baseUrl/api/tracks/${t.id}/cover"
+                    t.hasCover -> "$baseUrl/api/tracks/${t.id}/cover?size=1200"
                     else -> null
                 }
             },
@@ -330,7 +330,7 @@ private fun CoverArt(
 ) {
     val coverModel: Any? = when {
         track.localCoverPath != null -> java.io.File(track.localCoverPath)
-        track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover"
+        track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover?size=1200"
         else -> null
     }
     Box(

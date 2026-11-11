@@ -96,7 +96,7 @@ fun TrackRow(
             ) {
                 if (track.hasCover || track.localCoverPath != null) {
                     AsyncImage(
-                        model = track.localCoverPath ?: "$baseUrl/api/tracks/${track.id}/cover",
+                        model = track.localCoverPath ?: "$baseUrl/api/tracks/${track.id}/cover?size=1200",
                         contentDescription = null,
                         imageLoader = imageLoader,
                         contentScale = ContentScale.Crop,

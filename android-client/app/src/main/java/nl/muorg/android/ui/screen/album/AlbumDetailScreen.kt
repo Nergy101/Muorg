@@ -102,7 +102,7 @@ fun AlbumDetailScreen(
     // Same cover-derived backdrop as the web album view (mobile viewport):
     // shown only when the album actually has art, so coverless albums keep
     // the plain theme background.
-    val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
+    val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover?size=1200" }
     val backdropActive = coverModel != null
 
     // The backdrop runs edge to edge, so over it the system bars need
@@ -287,7 +287,7 @@ fun AlbumDetailScreen(
                             key = { it.id },
                         ) { track ->
                             val membership = uiState.trackPlaylistMembership[track.path] ?: emptySet()
-                            val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover" }
+                            val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover?size=1200" }
                             AlbumTrackRow(
                                 track = track,
                                 baseUrl = baseUrl,

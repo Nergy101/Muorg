@@ -322,7 +322,7 @@ fun NavGraph() {
     val bloomTrack = playerState.currentTrack
     val bloomModel: Any? = when {
         bloomTrack?.localCoverPath != null -> java.io.File(bloomTrack.localCoverPath!!)
-        bloomTrack?.hasCover == true -> "$baseUrl/api/tracks/${bloomTrack.id}/cover"
+        bloomTrack?.hasCover == true -> "$baseUrl/api/tracks/${bloomTrack.id}/cover?size=1200"
         else -> null
     }
     val islandBloom = rememberDominantColor(

@@ -123,7 +123,7 @@ fun AlbumCard(
                         modifier = Modifier.size(28.dp),
                     )
                     AsyncImage(
-                        model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover",
+                        model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover?size=1200",
                         contentDescription = null,
                         imageLoader = imageLoader,
                         contentScale = ContentScale.Crop,
@@ -239,7 +239,7 @@ fun AlbumCard(
                 modifier = Modifier.fillMaxSize().padding(32.dp),
             )
             AsyncImage(
-                model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover",
+                model = album.coverArtUri ?: "$baseUrl/api/tracks/${album.coverTrackId}/cover?size=1200",
                 contentDescription = "Cover for ${album.albumName}",
                 imageLoader = imageLoader,
                 contentScale = ContentScale.Crop,

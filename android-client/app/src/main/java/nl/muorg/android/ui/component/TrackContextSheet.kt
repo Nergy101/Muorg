@@ -64,7 +64,7 @@ fun TrackContextSheet(
         ) {
             val coverUrl: Any? = when {
                 track.localCoverPath != null -> java.io.File(track.localCoverPath)
-                track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover"
+                track.hasCover -> "$baseUrl/api/tracks/${track.id}/cover?size=1200"
                 else -> null
             }
             if (coverUrl != null) {
