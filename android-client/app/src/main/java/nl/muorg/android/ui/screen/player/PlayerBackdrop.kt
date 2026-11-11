@@ -9,16 +9,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlurEffect
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import coil.ImageLoader
 import coil.compose.AsyncImage
-import nl.muorg.android.ui.component.BlurredCoverArt
+import nl.muorg.android.ui.component.CoverBackdrop
 import nl.muorg.android.ui.component.DominantColorState
 
 /**
@@ -31,7 +29,6 @@ fun PlayerBackdrop(
     displayedCoverUrl: Any?,
     dominantColor: DominantColorState,
     imageLoader: ImageLoader,
-    accentColor: Color,
     /** Art-fullscreen mode: the cover reads much sharper behind the FS bar. */
     sharp: Boolean = false,
 ) {
@@ -60,42 +57,11 @@ fun PlayerBackdrop(
                 }
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.70f)))
             } else {
-                // The web paints soft radial blobs of the cover's dominant
-                // colour over near-black, rather than a flat wash — it keeps
-                // the backdrop from reading as a solid colour card.
-                Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0B0A0A)))
-                Box(
-                    modifier = Modifier.fillMaxSize().background(
-                        Brush.radialGradient(
-                            colors = listOf(accentColor.copy(alpha = 0.55f), Color.Transparent),
-                            center = Offset(280f, 700f),
-                            radius = 1400f,
-                        )
-                    )
-                )
-                Box(
-                    modifier = Modifier.fillMaxSize().background(
-                        Brush.radialGradient(
-                            colors = listOf(accentColor.copy(alpha = 0.38f), Color.Transparent),
-                            center = Offset(900f, 1900f),
-                            radius = 1200f,
-                        )
-                    )
-                )
-                Box(
-                    modifier = Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            0.0f to Color.Black.copy(alpha = 0.35f),
-                            0.5f to Color.Transparent,
-                            1.0f to Color.Black.copy(alpha = 0.55f),
-                        )
-                    )
-                )
-                // The cover itself, blurred full-bleed on top of the wash — the
-                // same backdrop the web's maximized player paints on mobile
-                // (blur 16px at 0.9 opacity; art-fullscreen drops to 6px at
-                // full opacity).
-                BlurredCoverArt(
+                // Same backdrop as the album screen: a flat Stone900 base with
+                // the cover blurred across it, faded into the base only at the
+                // left/right edges. No dark scrim over the art — the album
+                // track list reads perfectly this way, so the player should too.
+                CoverBackdrop(
                     coverUrl = displayedCoverUrl,
                     imageLoader = imageLoader,
                     sharp = sharp,

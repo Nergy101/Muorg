@@ -128,12 +128,6 @@ fun PlayerScreen(
         )
         if (result is SuccessResult) displayedCoverUrl = coverUrl
     }
-    val accentColor by animateColorAsState(
-        targetValue = dominantColor.color,
-        animationSpec = tween(durationMillis = 800),
-        label = "accentColor",
-    )
-
     // Every primary on this screen comes from the artwork, matching the island
     // and the queue's now-playing card. The backdrop here is always near-black
     // whatever the theme is, so the accent is resolved for a dark surface.
@@ -257,7 +251,6 @@ fun PlayerScreen(
             displayedCoverUrl = displayedCoverUrl,
             dominantColor = dominantColor,
             imageLoader = imageLoader,
-            accentColor = accentColor,
             sharp = artFullscreen,
         )
 

@@ -58,9 +58,10 @@ fun CoverBackdrop(
     coverUrl: Any?,
     imageLoader: ImageLoader,
     modifier: Modifier = Modifier,
+    sharp: Boolean = false,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Stone900)) {
-        BlurredCoverArt(coverUrl, imageLoader)
+        BlurredCoverArt(coverUrl, imageLoader, sharp = sharp)
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.horizontalGradient(
