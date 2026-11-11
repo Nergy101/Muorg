@@ -332,6 +332,24 @@ class PlaybackQueueTest {
     }
 
     @Test
+    fun `an explicit section overrides where the boundary drop would land`() {
+        // Dropped on the boundary the track would keep its up-next origin; the
+        // caller says the finger was above the divider, so it joins your queue.
+        val q = album().addToUserQueue(tracks(9)).move(3, 2, QueueOrigin.USER)
+        assertEquals(listOf(9, 3), q.userUpNext.map { it.track.id })
+        assertEquals(listOf(2, 4, 5), q.systemUpNext.map { it.track.id })
+    }
+
+    @Test
+    fun `a track can change section without changing index`() {
+        // The only queued track, dropped just below the divider: same slot,
+        // other section.
+        val q = album().addToUserQueue(tracks(9)).move(1, 1, QueueOrigin.SYSTEM)
+        assertTrue(q.userUpNext.isEmpty())
+        assertEquals(listOf(9, 2, 3, 4, 5), q.systemUpNext.map { it.track.id })
+    }
+
+    @Test
     fun `the two sections never interleave after a cross-boundary drag`() {
         val q = album().addToUserQueue(tracks(9, 8)).move(4, 2)
         val origins = q.upNext.map { it.origin }

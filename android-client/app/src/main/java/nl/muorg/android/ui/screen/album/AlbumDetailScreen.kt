@@ -3,6 +3,7 @@ package nl.muorg.android.ui.screen.album
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,6 +62,9 @@ import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
 import androidx.compose.foundation.layout.statusBarsPadding
 import nl.muorg.android.ui.theme.MuorgShapes
+import nl.muorg.android.ui.theme.artworkAccent
+import nl.muorg.android.ui.theme.themePrimary
+import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.component.CoverBackdrop
 import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.EqualizerBars
@@ -80,7 +84,6 @@ fun AlbumDetailScreen(
     playerViewModel: PlayerViewModel,
     imageLoader: ImageLoader,
     baseUrl: String,
-    onBack: () -> Unit,
     onOpenQueue: () -> Unit = {},
     onViewArtist: (String) -> Unit = {},
     viewModel: AlbumDetailViewModel = hiltViewModel(),
@@ -104,6 +107,13 @@ fun AlbumDetailScreen(
     // the plain theme background.
     val coverModel: Any? = uiState.coverArtUri ?: uiState.coverTrackId?.let { "$baseUrl/api/tracks/$it/cover?size=1200" }
     val backdropActive = coverModel != null
+    // The play button wears the accent the player will show for this album,
+    // so pressing it does not change colour on arrival. Bland artwork falls
+    // back to the theme primary, as in the player.
+    val playAccent = artworkAccent(
+        rememberDominantColor(url = coverModel, imageLoader = imageLoader, fallback = Color.Unspecified).color,
+        onDark = true,
+    )
 
     // The backdrop runs edge to edge, so over it the system bars need
     // dark-style icons even in the light theme.
@@ -163,23 +173,19 @@ fun AlbumDetailScreen(
                                     .map { it.id }.toSet()
                             }
 
+                            val onHeader = if (backdropActive) Color.White else MaterialTheme.colorScheme.onSurface
+                            val onHeaderMuted = if (backdropActive) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+                                    .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    // The web puts the back affordance in the header row
-                                    // itself, left of the cover — there is no app bar.
-                                    IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
-                                        Icon(
-                                            painter = painterResource(mageIconRes("chevron-left")),
-                                            contentDescription = "Back",
-                                            tint = if (backdropActive) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.size(22.dp),
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(2.dp))
+                                // Cover on the left, vertically centred against the
+                                // text block: title, artist · year, then the actions.
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
                                     coverModel?.let {
                                         AsyncImage(
                                             model = it,
@@ -187,71 +193,75 @@ fun AlbumDetailScreen(
                                             imageLoader = imageLoader,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier
-                                                .size(112.dp)
+                                                .size(136.dp)
                                                 .clip(MuorgShapes.art),
                                         )
+                                        Spacer(modifier = Modifier.width(16.dp))
                                     }
-                                }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = uiState.albumName,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = onHeader,
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = buildString {
+                                                if (uiState.artist.isNotBlank()) append(uiState.artist)
+                                                uiState.year?.let {
+                                                    if (isNotEmpty()) append(" · ")
+                                                    append("$it")
+                                                }
+                                                if (isNotEmpty()) append(" · ")
+                                                append("${uiState.tracks.size} tracks")
+                                                val totalSecs = uiState.tracks.sumOf { it.durationSecs?.toInt() ?: 0 }
+                                                if (totalSecs > 0) append(" · ${totalSecs / 60}m")
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = onHeaderMuted,
+                                            maxLines = 3,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
 
-                                // Title and subtitle span the full width; the action
-                                // buttons sit below the text, not beside it.
-                                MarqueeText(
-                                    text = uiState.albumName,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = if (backdropActive) Color.White else MaterialTheme.colorScheme.onSurface,
-                                )
-                                Text(
-                                    text = buildString {
-                                        if (uiState.artist.isNotBlank()) append(uiState.artist)
-                                        uiState.year?.let {
-                                            if (isNotEmpty()) append(" · ")
-                                            append("$it")
-                                        }
-                                        if (isNotEmpty()) append(" · ")
-                                        append("${uiState.tracks.size} tracks")
-                                        val totalSecs = uiState.tracks.sumOf { it.durationSecs?.toInt() ?: 0 }
-                                        if (totalSecs > 0) append(" · ${totalSecs / 60}m")
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (backdropActive) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    androidx.compose.material3.FilledIconButton(
-                                        onClick = {
-                                            uiState.tracks.firstOrNull()?.let { first ->
-                                                playerViewModel.playTrack(first, uiState.tracks)
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            androidx.compose.material3.FilledIconButton(
+                                                onClick = {
+                                                    uiState.tracks.firstOrNull()?.let { first ->
+                                                        playerViewModel.playTrack(first, uiState.tracks)
+                                                    }
+                                                },
+                                                colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
+                                                    containerColor = playAccent,
+                                                    contentColor = Color.White,
+                                                ),
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(mageIconRes("play")),
+                                                    contentDescription = "Play all",
+                                                )
                                             }
-                                        },
-                                        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                        ),
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(mageIconRes("play")),
-                                            contentDescription = "Play all",
-                                        )
-                                    }
-                                    androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
-                                        Icon(
-                                            painter = painterResource(mageIconRes("playlist-add")),
-                                            contentDescription = "Add album to playlist",
-                                            tint = if (backdropActive) Color.White.copy(alpha = 0.75f) else LocalContentColor.current,
-                                        )
-                                    }
-                                    IconButton(onClick = { showAlbumMenuSheet = true }) {
-                                        Icon(
-                                            painter = painterResource(mageIconRes("dots")),
-                                            contentDescription = "More album options",
-                                            tint = if (backdropActive) Color.White.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
+                                            androidx.compose.material3.IconButton(onClick = { showAlbumPlaylistSheet = true }) {
+                                                Icon(
+                                                    painter = painterResource(mageIconRes("playlist-add")),
+                                                    contentDescription = "Add album to playlist",
+                                                    tint = if (backdropActive) Color.White.copy(alpha = 0.75f) else LocalContentColor.current,
+                                                )
+                                            }
+                                            IconButton(onClick = { showAlbumMenuSheet = true }) {
+                                                Icon(
+                                                    painter = painterResource(mageIconRes("dots")),
+                                                    contentDescription = "More album options",
+                                                    tint = onHeaderMuted,
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -454,13 +464,13 @@ private fun AlbumTrackRow(
             Text(
                 text = track.format.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (track.isLossless) MaterialTheme.colorScheme.primary
+                color = if (track.isLossless) themePrimary()
                         else if (onDark) Color.White.copy(alpha = 0.7f)
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .background(
                         color = if (track.isLossless)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            themePrimary().copy(alpha = 0.12f)
                         else if (onDark) Color.White.copy(alpha = 0.1f)
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
                         shape = MuorgShapes.chip,

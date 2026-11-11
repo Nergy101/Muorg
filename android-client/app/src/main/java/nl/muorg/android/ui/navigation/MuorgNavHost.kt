@@ -37,6 +37,7 @@ import nl.muorg.android.ui.screen.reports.ReportDetailScreen
 import nl.muorg.android.ui.screen.search.SearchScreen
 import nl.muorg.android.ui.screen.reports.ReportsScreen
 import nl.muorg.android.ui.screen.stats.StatsScreen
+import nl.muorg.android.ui.screen.scanning.ScanningScreen
 import nl.muorg.android.ui.screen.settings.SettingsScreen
 import nl.muorg.android.ui.screen.welcome.WelcomeScreen
 
@@ -117,6 +118,11 @@ fun MuorgNavHost(
                 onNavigateToRemoteSetup = {
                     navController.navigate(Screen.Connect.route)
                 },
+                onNavigateToScanning = {
+                    navController.navigate(Screen.Scanning.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                },
             )
         }
 
@@ -171,10 +177,23 @@ fun MuorgNavHost(
         composable(Screen.Connect.route) {
             ConnectScreen(
                 onConnected = {
-                    navController.navigate(Screen.Home.route) {
+                    // First-time source: scan / wait for the server before
+                    // the app opens, instead of landing on a half-empty Home.
+                    navController.navigate(Screen.Scanning.route) {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(Screen.Scanning.route) {
+            ScanningScreen(
+                onFinished = {
+                    navController.navigate(navViewModel.resolveStartTab()) {
+                        popUpTo(Screen.Scanning.route) { inclusive = true }
+                    }
+                },
             )
         }
 
@@ -219,7 +238,6 @@ fun MuorgNavHost(
                 playerViewModel = playerViewModel,
                 imageLoader = imageLoader,
                 baseUrl = baseUrl,
-                onBack = { navController.popBackStack() },
                 onOpenQueue = onOpenQueue,
                 onViewArtist = { artistName ->
                     navController.navigate(Screen.Library.createRoute(artistFilter = artistName))

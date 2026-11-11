@@ -26,6 +26,7 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.player.PlayerController
+import nl.muorg.android.player.QueueOrigin
 import nl.muorg.android.player.PlayerState
 import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.friendlyMessage
@@ -378,7 +379,8 @@ class PlayerViewModel @Inject constructor(
         }
     }
     fun clearUserQueue() = playerController.clearUserQueue()
-    fun reorderQueue(fromIndex: Int, toIndex: Int) = playerController.reorderQueue(fromIndex, toIndex)
+    fun reorderQueue(fromIndex: Int, toIndex: Int, intoSection: QueueOrigin? = null) =
+        playerController.reorderQueue(fromIndex, toIndex, intoSection)
     fun addToQueue(track: CatalogTrack) {
         playerController.addToQueue(track)
         uiMessenger.show("Added to queue")

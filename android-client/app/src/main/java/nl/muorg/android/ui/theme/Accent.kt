@@ -1,11 +1,29 @@
 package nl.muorg.android.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
+
+/**
+ * The theme's own primary, before the app recolours `colorScheme.primary` with
+ * the playing album's accent. Artwork with no usable colour falls back to this,
+ * not to whatever album happens to be playing.
+ */
+val LocalBasePrimary = compositionLocalOf<Color?> { null }
+
+/**
+ * Set when "Override dynamic colors with Material You" is on: artwork accents
+ * are ignored and every surface uses the theme (Material You) colour instead.
+ */
+val LocalOverrideArtworkAccent = compositionLocalOf { false }
+
+/** The theme's own primary — Muorg green, or the Material You colour — never the playing album's. */
+@Composable
+fun themePrimary(): Color = LocalBasePrimary.current ?: MaterialTheme.colorScheme.primary
 
 /**
  * The accent pulled out of the current artwork, shared by every surface that
@@ -26,8 +44,9 @@ import androidx.core.graphics.ColorUtils
 fun artworkAccent(
     source: Color,
     onDark: Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5f,
-    fallback: Color = MaterialTheme.colorScheme.primary,
+    fallback: Color = LocalBasePrimary.current ?: MaterialTheme.colorScheme.primary,
 ): Color {
+    if (LocalOverrideArtworkAccent.current) return fallback
     if (source == Color.Unspecified || source.alpha < 0.05f) return fallback
     val hsl = FloatArray(3)
     ColorUtils.colorToHSL(source.toArgb(), hsl)

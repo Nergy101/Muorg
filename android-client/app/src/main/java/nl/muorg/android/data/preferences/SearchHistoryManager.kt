@@ -13,8 +13,11 @@ import javax.inject.Singleton
 
 @Serializable
 data class SearchHistoryEntry(
+    /** The query text, or — when [artist] — the artist's name. */
     val query: String,
     val timestamp: Long,
+    /** An artist picked from the results, shown as an artist card, not a chip. */
+    val artist: Boolean = false,
 )
 
 @Singleton
@@ -40,14 +43,17 @@ class SearchHistoryManager @Inject constructor(
     }
 
     /** Adds a query to the history (deduplicates, caps at MAX_ENTRIES). */
-    suspend fun addSearch(query: String): Unit = withContext(Dispatchers.IO) {
-        if (query.isBlank()) return@withContext
+    suspend fun addSearch(query: String): Unit = add(query, artist = false)
+
+    /** Records an artist picked from the results (same dedupe and cap). */
+    suspend fun addArtist(name: String): Unit = add(name, artist = true)
+
+    private suspend fun add(text: String, artist: Boolean): Unit = withContext(Dispatchers.IO) {
+        if (text.isBlank()) return@withContext
         val current = getRecentSearches().toMutableList()
-        // Remove duplicate if exists
-        current.removeAll { it.query.equals(query, ignoreCase = true) }
-        // Add to front
-        current.add(0, SearchHistoryEntry(query = query, timestamp = System.currentTimeMillis()))
-        // Trim
+        // A repeat moves to the front; a query and an artist of the same name are different entries.
+        current.removeAll { it.artist == artist && it.query.equals(text, ignoreCase = true) }
+        current.add(0, SearchHistoryEntry(query = text, timestamp = System.currentTimeMillis(), artist = artist))
         val trimmed = current.take(MAX_ENTRIES)
         prefs.edit().putString(KEY_HISTORY, Json.encodeToString(trimmed)).apply()
     }

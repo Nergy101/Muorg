@@ -24,6 +24,8 @@ enum class OrcVariant(@DrawableRes val drawable: Int, val description: String) {
     Forbidden(R.drawable.orc_forbidden, "A small Orc bouncer in sunglasses with crossed arms between two velvet ropes"),
     Maintenance(R.drawable.orc_maintenance, "A small Orc in a hard hat holding a tuning fork and a wrench"),
     Empty(R.drawable.orc_empty, "A small Orc shrugging while holding an empty crate"),
+    ServerTinker(R.drawable.orc_server_tinker, "A small Orc in a hard hat tinkering inside a computer with a screwdriver"),
+    RecordSnack(R.drawable.orc_record_snack, "A small Orc taking a bite out of a record above a crate full of records"),
 }
 
 @Composable

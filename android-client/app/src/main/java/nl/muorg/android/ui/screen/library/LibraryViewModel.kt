@@ -443,8 +443,9 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch { searchHistoryManager.addSearch(query) }
     }
 
-    /** Returns the list of recent searches (newest first). */
-    suspend fun getRecentSearches(): List<SearchHistoryEntry> = searchHistoryManager.getRecentSearches()
+    /** Returns the recent search queries (newest first); artists picked on the Search screen are not chips. */
+    suspend fun getRecentSearches(): List<SearchHistoryEntry> =
+        searchHistoryManager.getRecentSearches().filter { !it.artist }
 
     /** Clears all search history. */
     fun clearSearchHistory() = searchHistoryManager.clearAll()

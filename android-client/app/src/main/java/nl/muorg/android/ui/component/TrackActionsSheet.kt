@@ -278,7 +278,7 @@ private fun MainLevel(
         ListItem(
             headlineContent = { Text("Remove from queue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.error) },
             leadingContent = { Icon(
-                        painter = painterResource(mageIconRes("trash")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
+                        painter = painterResource(mageIconRes("multiply")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.error) },
             modifier = Modifier.clickable { onRemoveFromQueue(); onDismiss() },
         )
     }

@@ -38,6 +38,7 @@ data class SearchUiState(
     val error: String? = null,
     val recentSearches: List<SearchHistoryEntry> = emptyList(),
     val recentResultTracks: List<CatalogTrack> = emptyList(),
+    val recentArtists: List<ArtistMatch> = emptyList(),
 )
 
 /**
@@ -110,6 +111,7 @@ class SearchViewModel @Inject constructor(
                 )
             }
             refreshRecentResults()
+            refreshRecentSearches()
         }
     }
 
@@ -238,8 +240,41 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    /** Records an artist opened from the results (or from the recents) so its
+     *  card shows in the empty-query view next time, newest first. */
+    fun recordSelectedArtist(name: String) {
+        viewModelScope.launch {
+            searchHistoryManager.addArtist(name)
+            refreshRecentSearches()
+        }
+    }
+
+    /**
+     * Artists picked from the results, newest first, as the same cards the live
+     * matches use: up to 4 distinct album covers, from the catalog as loaded.
+     */
+    private fun recentArtistCards(entries: List<SearchHistoryEntry>, tracks: List<CatalogTrack>): List<ArtistMatch> {
+        val names = entries.filter { it.artist }.map { it.query }
+        if (names.isEmpty()) return emptyList()
+        val byArtist = tracks.groupBy { it.artist ?: it.albumArtist }
+        return names.mapNotNull { name ->
+            val artistTracks = byArtist[name] ?: return@mapNotNull null
+            val seenAlbums = mutableSetOf<String>()
+            val covers = artistTracks
+                .filter { it.hasCover && seenAlbums.add(it.displayAlbum + "|" + it.displayArtist) }
+                .take(4)
+            ArtistMatch(name, covers)
+        }
+    }
+
     private suspend fun refreshRecentSearches() {
-        _uiState.update { it.copy(recentSearches = searchHistoryManager.getRecentSearches()) }
+        val entries = searchHistoryManager.getRecentSearches()
+        _uiState.update { state ->
+            state.copy(
+                recentSearches = entries.filter { !it.artist },
+                recentArtists = recentArtistCards(entries, state.allTracks),
+            )
+        }
     }
 
     private suspend fun refreshRecentResults() {

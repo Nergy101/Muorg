@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
+import nl.muorg.android.ui.theme.themePrimary
 import coil.compose.AsyncImage
 import nl.muorg.android.data.api.CatalogTrack
 import nl.muorg.android.data.api.Playlist
@@ -161,12 +162,12 @@ fun TrackRow(
             Text(
                 text = track.format.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (track.isLossless) MaterialTheme.colorScheme.primary
+                color = if (track.isLossless) themePrimary()
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .background(
                         color = if (track.isLossless)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            themePrimary().copy(alpha = 0.12f)
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
                         shape = RoundedCornerShape(3.dp),
                     )

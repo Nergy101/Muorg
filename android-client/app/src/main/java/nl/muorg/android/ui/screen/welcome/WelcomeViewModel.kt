@@ -15,8 +15,12 @@ import nl.muorg.android.data.repository.LocalLibraryRepository
 import javax.inject.Inject
 
 sealed class WelcomeDestination {
+    /** An already-configured source was found on launch: straight to the app. */
     object Library : WelcomeDestination()
     object RemoteSetup : WelcomeDestination()
+
+    /** The user just finished picking local folders: scan them before the app opens. */
+    object Scanning : WelcomeDestination()
 }
 
 enum class WelcomeStep { CHECKING, MODE_SELECT, LOCAL_SETUP }
@@ -70,7 +74,13 @@ class WelcomeViewModel @Inject constructor(
     }
 
     fun chooseRemote() {
-        _uiState.update { it.copy(destination = WelcomeDestination.RemoteSetup) }
+        viewModelScope.launch {
+            // Mirrors chooseLocal: picking a source also makes it the active
+            // one, so choosing the server after having tried local setup does
+            // not leave the app reading the device's folders.
+            preferences.setMusicMode("remote")
+            _uiState.update { it.copy(destination = WelcomeDestination.RemoteSetup) }
+        }
     }
 
     fun chooseLocal() {
@@ -99,7 +109,7 @@ class WelcomeViewModel @Inject constructor(
     }
 
     fun finishLocalSetup() {
-        _uiState.update { it.copy(destination = WelcomeDestination.Library) }
+        _uiState.update { it.copy(destination = WelcomeDestination.Scanning) }
     }
 
     fun consumeDestination() {

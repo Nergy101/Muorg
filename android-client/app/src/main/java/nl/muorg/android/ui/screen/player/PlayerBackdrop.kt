@@ -1,72 +1,64 @@
 package nl.muorg.android.ui.screen.player
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import coil.ImageLoader
-import coil.compose.AsyncImage
-import nl.muorg.android.ui.component.CoverBackdrop
-import nl.muorg.android.ui.component.DominantColorState
+import nl.muorg.android.ui.component.BlurredCoverArt
+import nl.muorg.android.ui.theme.Stone900
 
 /**
  * The blurred album art behind the player.
+ *
+ * The cover is shown edge to edge at its own brightness. It is never dimmed as
+ * a whole: light covers used to sit under a 70% black scrim (and the album
+ * look faded the sides into Stone900), which turned a white sleeve into a
+ * grey-black wash. The player's text and controls are white, so the only
+ * darkening left is a soft gradient exactly where they sit.
  *
  * Split out of [PlayerScreen], which was a single 574-line composable.
  */
 @Composable
 fun PlayerBackdrop(
     displayedCoverUrl: Any?,
-    dominantColor: DominantColorState,
     imageLoader: ImageLoader,
-    /** Art-fullscreen mode: the cover reads much sharper behind the FS bar. */
+    /** Art-fullscreen mode: sharper cover, and only the bottom bar needs a floor. */
     sharp: Boolean = false,
 ) {
-    // ── Backdrop ──────────────────────────────────────────────────────
-    if (displayedCoverUrl != null) {
-        Crossfade(targetState = dominantColor.isBland, label = "bgMode") { isBland ->
-            if (isBland) {
-                // Bland / white / black cover: a blown-up blur of the sleeve
-                // is the only thing left to pull colour from.
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    AsyncImage(
-                        model = displayedCoverUrl,
-                        contentDescription = null,
-                        imageLoader = imageLoader,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .aspectRatio(1f)
-                            .graphicsLayer {
-                                renderEffect = BlurEffect(if (sharp) 20f else 72f, if (sharp) 20f else 72f, TileMode.Clamp)
-                                scaleX = 1.9f
-                                scaleY = 1.9f
-                                alpha = if (sharp) 0.85f else 0.55f
-                            },
-                    )
-                }
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.70f)))
-            } else {
-                // Same backdrop as the album screen: a flat Stone900 base with
-                // the cover blurred across it, faded into the base only at the
-                // left/right edges. No dark scrim over the art — the album
-                // track list reads perfectly this way, so the player should too.
-                CoverBackdrop(
-                    coverUrl = displayedCoverUrl,
-                    imageLoader = imageLoader,
-                    sharp = sharp,
-                )
-            }
-        }
+    if (displayedCoverUrl == null) return
+    Box(modifier = Modifier.fillMaxSize().background(Stone900)) {
+        BlurredCoverArt(coverUrl = displayedCoverUrl, imageLoader = imageLoader, sharp = sharp)
+
+        // Under the status bar and the cast button.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(120.dp)
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent))),
+        )
+
+        // Under the title, seek bar and transport row (or, in art-fullscreen,
+        // just the bottom bar).
+        val floor = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .then(if (sharp) Modifier.height(240.dp) else Modifier.fillMaxHeight(0.5f))
+        Box(
+            modifier = floor.background(
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)),
+                ),
+            ),
+        )
     }
 }

@@ -88,8 +88,6 @@ data class PlayerState(
      * show a spinner immediately, before ExoPlayer even reports BUFFERING.
      */
     val pendingTrackId: Int? = null,
-    /** How much of the current track has buffered, 0–100. */
-    val bufferedPercentage: Int = 0,
     val errorMessage: String? = null,
     /**
      * The play order, each entry tagged with whether the listener queued it or
@@ -341,7 +339,6 @@ class PlayerController @Inject constructor(
                 isSeekBuffering = flacSeekInFlight,
                 isBuffering = isBufferingUi,
                 pendingTrackId = if (pendingCleared) null else pendingId,
-                bufferedPercentage = ctrl.bufferedPercentage,
                 playbackQueue = queue,
             )
         }
@@ -725,11 +722,11 @@ class PlayerController @Inject constructor(
     fun clearUserQueue() = editQueue { it.clearUserQueue() }
 
     /** Reorder by index into the whole queue, history included. */
-    fun reorderQueue(fromIndex: Int, toIndex: Int) {
+    fun reorderQueue(fromIndex: Int, toIndex: Int, intoSection: QueueOrigin? = null) {
         val ctrl = controller ?: return
         if (fromIndex !in queue.entries.indices || toIndex !in queue.entries.indices) return
-        queue = queue.move(fromIndex, toIndex)
-        mutateTimeline { ctrl.moveMediaItem(fromIndex, toIndex) }
+        queue = queue.move(fromIndex, toIndex, intoSection)
+        if (fromIndex != toIndex) mutateTimeline { ctrl.moveMediaItem(fromIndex, toIndex) }
         syncState()
     }
 
@@ -817,7 +814,6 @@ class PlayerController @Inject constructor(
                 isSeekBuffering = false,
                 isBuffering = false,
                 pendingTrackId = null,
-                bufferedPercentage = 0,
                 playbackQueue = PlaybackQueue(),
             )
         }

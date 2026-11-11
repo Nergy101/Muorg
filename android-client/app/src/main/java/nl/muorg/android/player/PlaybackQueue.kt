@@ -221,14 +221,20 @@ data class PlaybackQueue(
      * own origin (reordering within a section never ejects it), and dropping
      * at the very top starts your queue — the track becomes its first entry,
      * even when nothing is queued yet.
+     *
+     * [intoSection] overrides that inference when the caller knows which
+     * section the track was dropped in (the queue screen reads it off where
+     * the finger is); it also lets a track change section without changing
+     * index, e.g. the last of your queue dropped just below the divider.
      */
-    fun move(from: Int, to: Int): PlaybackQueue {
-        if (from !in entries.indices || to !in entries.indices || from == to) return this
+    fun move(from: Int, to: Int, intoSection: QueueOrigin? = null): PlaybackQueue {
+        if (from !in entries.indices || to !in entries.indices) return this
+        if (from == to && (intoSection == null || intoSection == entries[from].origin)) return this
         val moved = entries[from]
         val rest = entries.toMutableList().apply { removeAt(from) }
         val before = rest.getOrNull(to - 1)?.takeIf { to - 1 > position }
         val after = rest.getOrNull(to)
-        val origin = when {
+        val origin = intoSection ?: when {
             // Above the list there is no section to join, so the top of the
             // queue is always "your queue" territory.
             to == position + 1 -> QueueOrigin.USER

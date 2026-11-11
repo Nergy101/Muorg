@@ -45,6 +45,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -58,6 +62,10 @@ import nl.muorg.android.ui.component.LocalBottomInset
 import nl.muorg.android.ui.component.TrackRow
 import nl.muorg.android.ui.component.coverModelFor
 import nl.muorg.android.ui.glass.glassField
+import nl.muorg.android.ui.glass.GlassMaterial
+import nl.muorg.android.ui.glass.GlassSurface
+import nl.muorg.android.ui.glass.scrimLabelStyle
+import androidx.compose.ui.graphics.RectangleShape
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
@@ -88,6 +96,7 @@ fun SearchScreen(
     var searchText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     fun focusSearch() {
         focusRequester.requestFocus()
@@ -143,7 +152,13 @@ fun SearchScreen(
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { viewModel.submitSearch() }),
+            keyboardActions = KeyboardActions(onSearch = {
+                viewModel.submitSearch()
+                // Searching is done typing: drop the keyboard (it slides
+                // down) so the results get the whole screen.
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            }),
             shape = MuorgShapes.pill,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.Transparent,
@@ -159,7 +174,7 @@ fun SearchScreen(
             contentPadding = PaddingValues(top = 4.dp, bottom = LocalBottomInset.current + 4.dp),
         ) {
             if (searchText.isBlank()) {
-                if (uiState.recentSearches.isNotEmpty()) {
+                if (uiState.recentSearches.isNotEmpty() || uiState.recentArtists.isNotEmpty()) {
                     item {
                         Row(
                             modifier = Modifier
@@ -185,6 +200,31 @@ fun SearchScreen(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             ) {
                                 Text("Clear all", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        // Artists opened from the results come back as the same
+                        // cards, ahead of the plain query chips.
+                        if (uiState.recentArtists.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                uiState.recentArtists.forEach { hit ->
+                                    ArtistSearchCard(
+                                        name = hit.name,
+                                        coverTracks = hit.coverTracks,
+                                        baseUrl = baseUrl,
+                                        imageLoader = imageLoader,
+                                        onClick = {
+                                            viewModel.recordSelectedArtist(hit.name)
+                                            onViewArtist(hit.name)
+                                        },
+                                        modifier = Modifier.width(104.dp),
+                                    )
+                                }
                             }
                         }
                         FlowRow(
@@ -278,7 +318,7 @@ fun SearchScreen(
                     }
                 }
 
-                if (uiState.recentSearches.isEmpty() && uiState.recentResultTracks.isEmpty()) {
+                if (uiState.recentSearches.isEmpty() && uiState.recentArtists.isEmpty() && uiState.recentResultTracks.isEmpty()) {
                     item {
                         if (uiState.isLoading) {
                             Column(
@@ -316,13 +356,14 @@ fun SearchScreen(
                 // the name underneath, above the normal track results.
                 if (uiState.artistMatches.isNotEmpty()) {
                     item {
-                        FlowRow(
+                        // Compact cards in a sideways strip, not two big squares
+                        // that push the tracks off the screen.
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
                                 .padding(horizontal = 16.dp, vertical = 4.dp),
-                            maxItemsInEachRow = 2,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             uiState.artistMatches.forEach { hit ->
                                 ArtistSearchCard(
@@ -330,8 +371,11 @@ fun SearchScreen(
                                     coverTracks = hit.coverTracks,
                                     baseUrl = baseUrl,
                                     imageLoader = imageLoader,
-                                    onClick = { onViewArtist(hit.name) },
-                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        viewModel.recordSelectedArtist(hit.name)
+                                        onViewArtist(hit.name)
+                                    },
+                                    modifier = Modifier.width(104.dp),
                                 )
                             }
                         }
@@ -400,37 +444,41 @@ private fun ArtistSearchCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.clickable(onClick = onClick),
+    // Same treatment as an album in the grid: the name sits on the cover, on
+    // the bottom scrim, rather than underneath it.
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(MuorgShapes.card)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(MuorgShapes.card)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
+        CoverMosaic(
+            covers = coverTracks.map { coverModelFor(it.localCoverPath, it.id, baseUrl) },
+            imageLoader = imageLoader,
+            modifier = Modifier.fillMaxSize(),
         ) {
-            CoverMosaic(
-                covers = coverTracks.map { coverModelFor(it.localCoverPath, it.id, baseUrl) },
-                imageLoader = imageLoader,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Icon(
-                    painter = painterResource(mageIconRes("user")),
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                )
-            }
+            Icon(
+                painter = painterResource(mageIconRes("user")),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            )
         }
-        Spacer(Modifier.size(6.dp))
-        Text(
-            text = name,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        GlassSurface(
+            material = GlassMaterial.Scrim,
+            shape = RectangleShape,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+        ) {
+            Text(
+                text = name,
+                style = scrimLabelStyle(MaterialTheme.typography.titleSmall),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 6.dp),
+            )
+        }
     }
 }

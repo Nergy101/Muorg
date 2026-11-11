@@ -196,21 +196,44 @@ fun MixDetailScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-                    if (isPlaying) {
-                        EqualizerBars(
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(width = 20.dp, height = 14.dp),
+                // A mix has no meaningful order, so no index: the track's own
+                // cover, with the equalizer over it while it plays.
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(MuorgShapes.artSmall)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (track.hasCover || track.localCoverPath != null) {
+                        AsyncImage(
+                            model = track.localCoverPath ?: "$baseUrl/api/tracks/${track.id}/cover?size=1200",
+                            contentDescription = null,
+                            imageLoader = imageLoader,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
                         )
                     } else {
-                        Text(
-                            text = "${index + 1}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Icon(
+                            painter = painterResource(mageIconRes("music")),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
                         )
                     }
+                    if (isPlaying) {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            EqualizerBars(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(width = 20.dp, height = 14.dp),
+                            )
+                        }
+                    }
                 }
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     MarqueeText(
                         text = track.displayTitle,

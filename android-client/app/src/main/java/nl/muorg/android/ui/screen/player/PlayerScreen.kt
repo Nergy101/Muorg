@@ -15,6 +15,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +60,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -249,7 +252,6 @@ fun PlayerScreen(
     ) {
         PlayerBackdrop(
             displayedCoverUrl = displayedCoverUrl,
-            dominantColor = dominantColor,
             imageLoader = imageLoader,
             sharp = artFullscreen,
         )
@@ -425,8 +427,11 @@ fun PlayerScreen(
                     favorites = favorites,
                     accent = accent,
                     progress = displayProgress,
+                    isPlaying = playerState.isPlaying,
+                    onPlayPause = playerViewModel::playPause,
                     onToggleFavorite = { currentTrack?.let(playerViewModel::toggleFavorite) },
                     onOpenActions = { sheetOpen = true },
+                    onNext = playerViewModel::skipNext,
                 )
             }
 
@@ -661,10 +666,10 @@ private fun PlayerTrackHeader(
 }
 
 /**
- * The art-fullscreen bottom bar (mobile FS mode), mirroring the web player's
- * FS row: small cover + title/artist on the left, then favourite, a circular
- * progress ring and the track menu on the right. No maximize button on
- * mobile — tapping the backdrop exits FS.
+ * The art-fullscreen bottom bar (mobile FS mode): small cover + title/artist
+ * on the left, then favourite, the track menu, a circular progress ring and
+ * next on the right. No maximize button on mobile — tapping the backdrop
+ * exits FS.
  */
 @Composable
 private fun FsBottomBar(
@@ -676,10 +681,14 @@ private fun FsBottomBar(
     progress: Float,
     onToggleFavorite: () -> Unit,
     onOpenActions: () -> Unit,
+    onNext: () -> Unit,
+    isPlaying: Boolean,
+    onPlayPause: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.8f), MuorgShapes.island)
             .glassSheer(MuorgShapes.island)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -714,23 +723,58 @@ private fun FsBottomBar(
             )
         }
         val isFavorite = currentTrack != null && currentTrack.id.toString() in favorites
-        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
+        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(44.dp)) {
             Icon(
                 painter = painterResource(mageIconRes(if (isFavorite) "heart-fill" else "heart")),
                 contentDescription = "Favourite",
                 tint = if (isFavorite) accent else Color.White,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(28.dp),
             )
         }
-        Canvas(modifier = Modifier.size(24.dp)) {
-            val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
-            drawCircle(color = Color.White.copy(alpha = 0.25f), style = stroke)
-            drawArc(
-                color = accent,
-                startAngle = -90f,
-                sweepAngle = 360f * progress.coerceIn(0f, 1f),
-                useCenter = false,
-                style = stroke,
+        // The progress ring doubles as the play/pause button.
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onPlayPause),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.size(32.dp)) {
+                val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+                val inset = stroke.width / 2
+                val arcSize = Size(size.width - stroke.width, size.height - stroke.width)
+                drawArc(
+                    color = Color.White.copy(alpha = 0.25f),
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = Offset(inset, inset),
+                    size = arcSize,
+                    style = stroke,
+                )
+                drawArc(
+                    color = accent,
+                    startAngle = -90f,
+                    sweepAngle = 360f * progress.coerceIn(0f, 1f),
+                    useCenter = false,
+                    topLeft = Offset(inset, inset),
+                    size = arcSize,
+                    style = stroke,
+                )
+            }
+            Icon(
+                painter = painterResource(mageIconRes(if (isPlaying) "pause" else "play")),
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = Color.White,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
+            Icon(
+                painter = painterResource(mageIconRes("next")),
+                contentDescription = "Next",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp),
             )
         }
         IconButton(onClick = onOpenActions, modifier = Modifier.size(32.dp)) {

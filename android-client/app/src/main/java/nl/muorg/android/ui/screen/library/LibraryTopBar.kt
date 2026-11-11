@@ -1,6 +1,9 @@
 package nl.muorg.android.ui.screen.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,10 +74,14 @@ fun LibraryTopBar(
         }
     }
 
+    // Spaced rather than butted together, and scrollable so a narrow screen
+    // (or a long genre name) never pushes the sort control off the edge.
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Layout switcher, far left, with a badge showing the active layout

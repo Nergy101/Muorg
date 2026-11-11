@@ -2,18 +2,12 @@ package nl.muorg.android.ui.screen.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +18,7 @@ import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.icon.MageIcon
 
 /**
- * Light/dark mode and the accent colour.
+ * True black and the Material You accent. The app is dark only.
  *
  * One section of [SettingsScreen], which was a single 640-line composable.
  */
@@ -34,33 +28,6 @@ fun ThemeSection(
     viewModel: SettingsViewModel,
 ) {
     HorizontalDivider()
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        Text(
-            text = "Mode",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-        val themeModes = listOf("dark", "light", "auto")
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            themeModes.forEachIndexed { index, mode ->
-                SegmentedButton(
-                    selected = uiState.themeMode == mode,
-                    onClick = { viewModel.setThemeMode(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = themeModes.size),
-                    icon = {},
-                ) {
-                    Text(mode.replaceFirstChar { it.uppercase() })
-                }
-            }
-        }
-    }
-
     ListItem(
         headlineContent = { Text("Use true black") },
         supportingContent = { Text("OLED-friendly pitch-black background") },
@@ -95,5 +62,27 @@ fun ThemeSection(
         modifier = Modifier.clickable { viewModel.setMaterialYou(!uiState.materialYou) },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
+
+    // Material You normally yields to the colours taken from the playing
+    // album; this makes it the other way round.
+    if (uiState.materialYou) {
+        ListItem(
+            headlineContent = { Text("Override dynamic colors") },
+            supportingContent = { Text("Use Material You everywhere, including the player sheet, instead of colors taken from album covers") },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(mageIconRes("color-swatch")), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(
+                    checked = uiState.materialYouOverride,
+                    onCheckedChange = viewModel::setMaterialYouOverride,
+                )
+            },
+            modifier = Modifier.clickable { viewModel.setMaterialYouOverride(!uiState.materialYouOverride) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        )
+    }
 
 }

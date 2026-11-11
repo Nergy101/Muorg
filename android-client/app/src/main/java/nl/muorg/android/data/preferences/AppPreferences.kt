@@ -46,7 +46,7 @@ class AppPreferences @Inject constructor(
         private val KEY_PLAYLIST_SORT = stringPreferencesKey("playlist_sort")
         private val KEY_SORT_ASCENDING = booleanPreferencesKey("sort_ascending")
         private val KEY_MATERIAL_YOU = booleanPreferencesKey("material_you")
-        private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        private val KEY_MATERIAL_YOU_OVERRIDE = booleanPreferencesKey("material_you_override")
         private val KEY_DEVICE_NAME = stringPreferencesKey("device_name")
         private val KEY_OFFLINE_MODE = booleanPreferencesKey("offline_mode")
         private val KEY_DOWNLOAD_MOBILE_DATA = booleanPreferencesKey("download_mobile_data")
@@ -142,8 +142,9 @@ class AppPreferences @Inject constructor(
     val materialYou: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_MATERIAL_YOU] ?: false }
 
-    val themeMode: Flow<String> = context.dataStore.data
-        .map { it[KEY_THEME_MODE] ?: "dark" }
+    /** Material You wins over the colours taken from album covers. Only meaningful with [materialYou] on. */
+    val materialYouOverride: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_MATERIAL_YOU_OVERRIDE] ?: false }
 
     val continuousPlayback: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_CONTINUOUS_PLAYBACK] ?: true }
@@ -242,8 +243,8 @@ class AppPreferences @Inject constructor(
         context.dataStore.edit { it[KEY_MATERIAL_YOU] = enabled }
     }
 
-    suspend fun setThemeMode(mode: String) {
-        context.dataStore.edit { it[KEY_THEME_MODE] = mode }
+    suspend fun setMaterialYouOverride(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_MATERIAL_YOU_OVERRIDE] = enabled }
     }
 
     suspend fun setDeviceName(name: String) {

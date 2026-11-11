@@ -61,6 +61,8 @@ fun LibraryChrome(
     chromeAccent: Color,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     // Local to the chrome: nothing outside the search field reads it.
     var recentSearches by remember { mutableStateOf<List<SearchHistoryEntry>>(emptyList()) }
     LaunchedEffect(Unit) {
@@ -105,6 +107,8 @@ fun LibraryChrome(
                 keyboardActions = KeyboardActions(onSearch = {
                     viewModel.submitSearch()
                     coroutineScope.launch { recentSearches = viewModel.getRecentSearches() }
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
                 }),
                 shape = MuorgShapes.pill,
                 // The pill itself is the `glassField` material; the text field

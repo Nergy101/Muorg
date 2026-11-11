@@ -26,9 +26,10 @@ fun BlurredCoverArt(
     imageLoader: ImageLoader,
     sharp: Boolean = false,
     modifier: Modifier = Modifier,
+    blurRadius: Float = if (sharp) 6f else 16f,
 ) {
     if (coverUrl == null) return
-    val blur = if (sharp) 6f else 16f
+    val blur = blurRadius
     Box(modifier = modifier.fillMaxSize()) {
         AsyncImage(
             model = coverUrl,
@@ -58,10 +59,10 @@ fun CoverBackdrop(
     coverUrl: Any?,
     imageLoader: ImageLoader,
     modifier: Modifier = Modifier,
-    sharp: Boolean = false,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Stone900)) {
-        BlurredCoverArt(coverUrl, imageLoader, sharp = sharp)
+        // Heavier than the web's 16px: the track list sits right on it.
+        BlurredCoverArt(coverUrl, imageLoader, blurRadius = 48f)
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.horizontalGradient(

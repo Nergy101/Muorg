@@ -2,6 +2,7 @@ package nl.muorg.android.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -77,6 +78,9 @@ import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.screen.library.LibraryScreen
 import nl.muorg.android.ui.theme.MuorgTheme
 import nl.muorg.android.ui.theme.artworkAccent
+import nl.muorg.android.ui.theme.LocalBasePrimary
+import nl.muorg.android.ui.theme.LocalOverrideArtworkAccent
+import androidx.compose.ui.graphics.luminance
 import nl.muorg.android.ui.icon.MageIcon
 
 sealed class Screen(val route: String) {
@@ -87,6 +91,7 @@ sealed class Screen(val route: String) {
         fun createRoute(mixId: Int) = "mix/$mixId"
     }
     object Connect : Screen("connect")
+    object Scanning : Screen("scanning")
     object Library : Screen("library?artistFilter={artistFilter}") {
         fun createRoute(artistFilter: String? = null) =
             if (artistFilter == null) "library"
@@ -170,10 +175,10 @@ class NavViewModel @Inject constructor(
         initialValue = false,
     )
 
-    val themeMode: StateFlow<String> = preferences.themeMode.stateIn(
+    val materialYouOverride: StateFlow<Boolean> = preferences.materialYouOverride.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = "dark",
+        initialValue = false,
     )
 
     val reduceMotion: StateFlow<Boolean> = preferences.reduceMotion.stateIn(
@@ -242,6 +247,7 @@ fun NavGraph() {
     val showBottomBar = currentDestination?.route?.let { route ->
         route != Screen.Connect.route &&
             route != Screen.Welcome.route &&
+            route != Screen.Scanning.route &&
             route != Screen.Player.route
     } ?: false
 
@@ -264,7 +270,7 @@ fun NavGraph() {
     val baseUrl by navViewModel.serverUrl.collectAsStateWithLifecycle()
     val useTrueBlack by navViewModel.useTrueBlack.collectAsStateWithLifecycle()
     val materialYou by navViewModel.materialYou.collectAsStateWithLifecycle()
-    val themeMode by navViewModel.themeMode.collectAsStateWithLifecycle()
+    val materialYouOverride by navViewModel.materialYouOverride.collectAsStateWithLifecycle()
     val playerBarTapOpensPlayer by navViewModel.playerBarTapOpensPlayer.collectAsStateWithLifecycle()
     val imageLoader = navViewModel.imageLoader
     val castVolume by playerViewModel.castVolume.collectAsStateWithLifecycle()
@@ -331,11 +337,14 @@ fun NavGraph() {
         fallback = Color.Transparent,
     ).color
 
-    MuorgTheme(themeMode = themeMode, useTrueBlack = useTrueBlack, useMaterialYou = materialYou) {
+    MuorgTheme(useTrueBlack = useTrueBlack, useMaterialYou = materialYou) {
     // INSIDE the theme: artworkAccent falls back to `colorScheme.primary` and
     // reads `surface` to decide which way to push lightness. Called outside,
     // both resolve against Material's default purple scheme.
-    val islandAccent = artworkAccent(islandBloom)
+    val overrideAccent = materialYou && materialYouOverride
+    val islandAccent = if (overrideAccent) MaterialTheme.colorScheme.primary else artworkAccent(islandBloom)
+    val basePrimary = MaterialTheme.colorScheme.primary
+    val appPrimary by animateColorAsState(islandAccent, tween(600), label = "appPrimary")
     val chromeHost = remember { LibraryChromeHost() }
     val density = LocalDensity.current
     var islandHeight by remember { mutableStateOf(0.dp) }
@@ -343,8 +352,22 @@ fun NavGraph() {
     CompositionLocalProvider(
         LocalLibraryChromeHost provides chromeHost,
         LocalIslandAccent provides islandAccent,
+        LocalOverrideArtworkAccent provides overrideAccent,
+        LocalBasePrimary provides basePrimary,
         LocalBottomInset provides islandHeight,
     ) {
+        // Everything that paints with the theme's primary — buttons, the FLAC
+        // chips, switches, the playing row — takes the accent of the playing
+        // album. Surfaces that already wear their own album's accent (the
+        // player, the queue, an album's play button) compute it themselves and
+        // are unaffected; with nothing playing, or bland artwork, primary
+        // stays the theme's own.
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme.copy(
+                primary = appPrimary,
+                onPrimary = if (appPrimary.luminance() > 0.6f) Color(0xFF1C1917) else Color.White,
+            ),
+        ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -373,7 +396,8 @@ fun NavGraph() {
                     }
                 }
                 BottomIsland(
-                    bloom = islandBloom,
+                    // Override on: the sheet's wash is the Material You colour, not the cover's.
+                    bloom = if (overrideAccent) MaterialTheme.colorScheme.primary else islandBloom,
                     tabs = islandTabs.map { it.second },
                     selectedIndex = selectedTab.coerceAtLeast(0),
                     onSelectTab = { index ->
@@ -460,6 +484,7 @@ fun NavGraph() {
                     .padding(bottom = islandHeight + 12.dp),
             )
         }
+            }
     }
     } // MuorgTheme
 }

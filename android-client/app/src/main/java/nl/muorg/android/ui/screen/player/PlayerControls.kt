@@ -12,14 +12,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -51,6 +49,7 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
@@ -92,52 +91,28 @@ fun ColumnScope.PlayerControls(
     // replaced rather than recoloured.
     val primary = accent
     if (playerState.isBuffering) {
-        // The track is still streaming in: the time-bar becomes a loading bar
-        // in the same hairline track the seek slider uses, so the swap is
-        // seamless. The dim fill is the buffered amount (0–100); a bright
-        // segment slides across it as the indeterminate loading motion.
-        val slideTransition = rememberInfiniteTransition(label = "buffering")
-        val slide by slideTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1200, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-            label = "bufferingSlide",
-        )
-        BoxWithConstraints(
+        // The track is still streaming in: the time-bar becomes an
+        // indeterminate loading bar in the same hairline track the seek slider
+        // uses, so the swap is seamless. Material's two-segment sweep, mirrored
+        // so it runs right to left. There is no buffered-amount fill: how much
+        // has arrived says little about when playback can start.
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .height(16.dp),
             contentAlignment = Alignment.Center,
         ) {
-            val segmentWidth = maxWidth * 0.3f
-            val slideOffset = (maxWidth + segmentWidth) * slide - segmentWidth
-            Box(
+            LinearProgressIndicator(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.22f)),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(playerState.bufferedPercentage.coerceIn(0, 100) / 100f)
-                        .fillMaxHeight()
-                        .clip(CircleShape)
-                        .background(primary.copy(alpha = 0.45f)),
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.3f)
-                        .fillMaxHeight()
-                        .clip(CircleShape)
-                        .background(primary)
-                        .offset(x = slideOffset),
-                )
-            }
+                    .graphicsLayer { scaleX = -1f },
+                color = primary,
+                trackColor = Color.White.copy(alpha = 0.22f),
+                strokeCap = StrokeCap.Round,
+                gapSize = 0.dp,
+            )
         }
     } else {
     // The visible line is 16dp, but the touch target is 40dp tall: a finger
