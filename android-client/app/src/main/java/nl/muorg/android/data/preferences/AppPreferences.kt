@@ -140,7 +140,7 @@ class AppPreferences @Inject constructor(
         .map { prefs -> prefs[KEY_PLAYLIST_SORT] ?: "PLAYLIST_ORDER" }
 
     val materialYou: Flow<Boolean> = context.dataStore.data
-        .map { it[KEY_MATERIAL_YOU] ?: true }
+        .map { it[KEY_MATERIAL_YOU] ?: false }
 
     val themeMode: Flow<String> = context.dataStore.data
         .map { it[KEY_THEME_MODE] ?: "dark" }
