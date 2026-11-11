@@ -3,7 +3,7 @@
        hidden below lg. Mirrors BottomNav's active-state vocabulary: the lit tab
        is the filled glyph on a translucent primary pill. -->
   <aside
-    class="glass hidden m-4 shrink-0 flex-col self-start rounded-2xl transition-[width] lg:flex"
+    class="glass z-40 hidden m-4 shrink-0 flex-col self-start rounded-2xl transition-[width] lg:flex"
     :class="'w-60'"
   >
     <!-- Brand. In collapsed mode (maximized player with fullscreen art) the

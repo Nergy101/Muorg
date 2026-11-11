@@ -1,7 +1,10 @@
 <template>
+  <!-- Fixed to the viewport (not just the content column) so the blurred
+       backdrop runs full-screen behind the floating frosted sidebar at lg,
+       in art-fullscreen mode and in the normal player alike. -->
   <div
     v-if="player.currentTrack"
-    class="absolute inset-x-0 bottom-0 -top-[env(safe-area-inset-top)] flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]"
+    class="fixed inset-0 z-30 flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]"
     :style="rootStyle"
     @pointerdown="onPlayerPointerdown"
   >
