@@ -12,11 +12,9 @@
     <div
       v-if="coverUrl"
       class="edge-blur-art absolute"
-      :class="{ 'edge-art-sharp': sharp, 'edge-blur-art-fill': variant === 'player' }"
+      :class="{ 'edge-art-sharp': sharp }"
       :style="{ backgroundImage: `url(${coverUrl})`, opacity: sharp ? 1 : 0.9 }"
     />
-    <!-- Player only: soft edge fade over the full-bleed art (see style.css). -->
-    <div v-if="variant === 'player'" class="edge-fade absolute inset-0" aria-hidden="true" />
   </div>
 </template>
 
