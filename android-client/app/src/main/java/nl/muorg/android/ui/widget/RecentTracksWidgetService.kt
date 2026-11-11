@@ -44,10 +44,16 @@ class RecentTracksFactory(
 
     override fun onDataSetChanged() {
         runBlocking(Dispatchers.IO) {
-            val repository = EntryPointAccessors
+            val entryPoint = EntryPointAccessors
                 .fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-                .libraryRepository()
-            tracks = repository.getRecentPlayHistory(RECENT_LIMIT).getOrElse { emptyList() }
+            // The track playing right now leads the list: the server only logs a
+            // play after 30 s, and a local library has no server history at all.
+            val current = entryPoint.playerController().state.value.currentTrack
+            // If the history cannot be fetched (offline, local library) keep the
+            // last list instead of emptying the widget.
+            val history = entryPoint.libraryRepository().getRecentPlayHistory(RECENT_LIMIT)
+                .getOrElse { WidgetStateStore.loadRecentTracks(context) }
+            tracks = (listOfNotNull(current) + history).distinctBy { it.id }.take(RECENT_LIMIT)
             // Stashed so a row tap can resolve the track id back to a full track.
             WidgetStateStore.saveRecentTracks(context, tracks)
             // Warm the disk cover cache so getViewAt never does network work.

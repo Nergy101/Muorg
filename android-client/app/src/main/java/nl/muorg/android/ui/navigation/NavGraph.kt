@@ -293,10 +293,11 @@ fun NavGraph() {
     val playlists by playerViewModel.playlists.collectAsStateWithLifecycle()
     var miniPlayerSheet by remember { mutableStateOf(false) }
 
-    // Scrolling into a page collapses the island down to just the mini player
-    // and hands the freed height back to the content; scrolling back up
-    // restores it. LocalBottomInset is measured from the island, so every
-    // scroller follows without knowing anything about this.
+    // Scrolling into a page folds the island's chrome (the library's search and
+    // filters) away and hands that height back to the content; scrolling back
+    // up restores it. The mini player and the tab row always stay.
+    // LocalBottomInset is measured from the island, so every scroller follows
+    // without knowing anything about this.
     //
     // Keyed off what the child actually CONSUMED, not off the raw gesture: a
     // page whose content fits on screen consumes nothing, so it never hides
@@ -425,7 +426,8 @@ fun NavGraph() {
                     onOpenQueue = onOpenQueue,
                     onTrackMenu = { miniPlayerSheet = true },
                     queueActive = currentDestination?.route == Screen.Queue.route,
-                    showTabs = selectedTab >= 0 && !barsCollapsed,
+                    // The tab row stays; only the chrome (search, filters) folds away.
+                    showTabs = selectedTab >= 0,
                     // Driven by the destination, not by LibraryScreen's disposal:
                     // the outgoing route stays composed for the whole 320ms exit
                     // transition, so keying off disposal leaves the search bar

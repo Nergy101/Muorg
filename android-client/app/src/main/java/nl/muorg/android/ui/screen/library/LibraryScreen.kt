@@ -70,7 +70,7 @@ fun LibraryScreen(
     val filteredTracksRef = rememberUpdatedState(uiState.filteredTracks)
     val albumViewStyleRef = rememberUpdatedState(uiState.albumViewStyle)
     // Matches the branch LibraryContent uses to decide what's on screen.
-    val trackViewActiveRef = rememberUpdatedState(searchText.isNotEmpty() || uiState.albumViewStyle == "tracks")
+    val trackViewActiveRef = rememberUpdatedState(searchText.isNotEmpty())
     LaunchedEffect(scrollToActiveSignal) {
         scrollToActiveSignal?.collect {
             if (trackViewActiveRef.value) {

@@ -79,11 +79,11 @@ fun LibrarySection(
             modifier = Modifier.padding(bottom = 8.dp),
         )
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            listOf("grid", "list", "tracks").forEachIndexed { index, style ->
+            listOf("grid", "list").forEachIndexed { index, style ->
                 SegmentedButton(
                     selected = uiState.albumViewStyle == style,
                     onClick = { viewModel.setAlbumViewStyle(style) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
                     icon = {},
                 ) {
                     Text(style.replaceFirstChar { it.uppercase() })

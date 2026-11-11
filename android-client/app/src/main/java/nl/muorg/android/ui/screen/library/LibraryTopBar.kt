@@ -84,38 +84,14 @@ fun LibraryTopBar(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Layout switcher, far left, with a badge showing the active layout
-        // (1 = album covers, 2 = album list, 3 = tracks).
-        Box {
-            IconButton(onClick = {
-                val next = when (uiState.albumViewStyle) {
-                    "grid" -> "list"
-                    "list" -> "tracks"
-                    else -> "grid"
-                }
-                viewModel.setAlbumViewStyle(next)
-            }) {
-                Icon(
-                    painter = painterResource(mageIconRes("layout-grid")),
-                    contentDescription = "Change layout",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            val badge = when (uiState.albumViewStyle) {
-                "grid" -> "1"
-                "list" -> "2"
-                else -> "3"
-            }
-            Text(
-                text = badge,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 6.dp, bottom = 6.dp)
-                    .background(MaterialTheme.colorScheme.primary, MuorgShapes.pill)
-                    .padding(horizontal = 3.dp),
+        // Layout switcher, far left: toggles album covers and the album list.
+        val isGrid = uiState.albumViewStyle != "list"
+        IconButton(onClick = { viewModel.setAlbumViewStyle(if (isGrid) "list" else "grid") }) {
+            Icon(
+                painter = painterResource(mageIconRes("layout-grid")),
+                contentDescription = if (isGrid) "Show as list" else "Show as covers",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
             )
         }
 

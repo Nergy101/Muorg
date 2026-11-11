@@ -10,9 +10,14 @@ import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 import androidx.media3.session.MediaController
+import androidx.core.content.ContextCompat
+import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 import androidx.media3.session.SessionToken
 import dagger.hilt.android.EntryPointAccessors
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -120,76 +125,92 @@ class NowPlayingWidget : AppWidgetProvider() {
      * issues the command, and re-renders the widget from the controller's own
      * state, because in the cold-start case no [nl.muorg.android.player.PlayerController]
      * exists to send [ACTION_UPDATE_WIDGET].
+     *
+     * All of it runs on the MAIN thread: a MediaController is bound to the
+     * looper it was built on (main, for a receiver) and throws
+     * IllegalStateException when a command arrives from any other thread —
+     * which is what the old IO-thread version did on every tap. Waiting for
+     * the connection suspends instead of blocking, so the main thread is
+     * never held.
      */
     private fun handleTransport(context: Context, transport: Transport) {
         val pendingResult = goAsync()
         ioScope.launch {
             try {
-                val future = MediaController.Builder(
-                    context,
-                    SessionToken(context, ComponentName(context, PlaybackService::class.java)),
-                ).buildAsync()
-                try {
-                    val controller = try {
-                        future.get(5, TimeUnit.SECONDS)
-                    } catch (e: Exception) {
-                        null
-                    }
-                    if (controller == null) {
-                        if (transport == Transport.PLAY_PAUSE) WidgetIntents.openApp(context)
-                        return@launch
-                    }
-                    when (transport) {
-                        Transport.PLAY_PAUSE -> {
-                            if (controller.mediaItemCount == 0) {
-                                // Nothing queued (fresh process): play opens the app.
-                                WidgetIntents.openApp(context)
-                            } else if (controller.isPlaying) {
-                                controller.pause()
-                            } else {
-                                controller.play()
-                            }
-                        }
-                        Transport.NEXT -> controller.seekToNextMediaItem()
-                        Transport.PREVIOUS -> {
-                            if (controller.currentPosition > 3000) controller.seekTo(0L)
-                            else controller.seekToPreviousMediaItem()
-                        }
-                    }
-                    val prev = WidgetStateStore.loadNowPlaying(context)
-                    val item = controller.currentMediaItem
-                    val metadata = item?.mediaMetadata
-                    val trackId = item?.mediaId?.toIntOrNull() ?: 0
-                    val favorites = EntryPointAccessors
-                        .fromApplication(context, WidgetEntryPoint::class.java)
-                        .preferences()
-                        .favorites
-                        .first()
-                    val state = WidgetStateStore.NowPlayingState(
-                        title = metadata?.title?.toString(),
-                        artist = metadata?.artist?.toString(),
-                        album = metadata?.albumTitle?.toString(),
-                        isPlaying = controller.isPlaying,
-                        trackId = trackId,
-                        hasCover = if (trackId == prev.trackId) prev.hasCover else trackId > 0,
-                        localCoverPath = if (trackId == prev.trackId) prev.localCoverPath else null,
-                        isFavorite = trackId != 0 && trackId.toString() in favorites,
-                    )
-                    WidgetStateStore.saveNowPlaying(context, state)
-                    val manager = AppWidgetManager.getInstance(context)
-                    val ids = manager.getAppWidgetIds(ComponentName(context, NowPlayingWidget::class.java))
-                    for (appWidgetId in ids) {
-                        render(context, manager, appWidgetId, state)
-                    }
-                    maybeFetchCover(context)
-                } finally {
-                    MediaController.releaseFuture(future)
-                }
+                withContext(Dispatchers.Main) { runTransport(context, transport) }
             } finally {
                 pendingResult.finish()
             }
         }
     }
+
+    private suspend fun runTransport(context: Context, transport: Transport) {
+        val future = MediaController.Builder(
+            context,
+            SessionToken(context, ComponentName(context, PlaybackService::class.java)),
+        ).buildAsync()
+        try {
+            val controller = withTimeoutOrNull(CONNECT_TIMEOUT_MS) { future.awaitResult(context) }
+            if (controller == null) {
+                if (transport == Transport.PLAY_PAUSE) WidgetIntents.openApp(context)
+                return
+            }
+            when (transport) {
+                Transport.PLAY_PAUSE -> {
+                    if (controller.mediaItemCount == 0) {
+                        // Nothing queued (fresh process): play opens the app.
+                        WidgetIntents.openApp(context)
+                    } else if (controller.isPlaying) {
+                        controller.pause()
+                    } else {
+                        controller.play()
+                    }
+                }
+                Transport.NEXT -> controller.seekToNextMediaItem()
+                Transport.PREVIOUS -> {
+                    if (controller.currentPosition > 3000) controller.seekTo(0L)
+                    else controller.seekToPreviousMediaItem()
+                }
+            }
+            val prev = WidgetStateStore.loadNowPlaying(context)
+            val item = controller.currentMediaItem
+            val metadata = item?.mediaMetadata
+            val trackId = item?.mediaId?.toIntOrNull() ?: 0
+            val favorites = EntryPointAccessors
+                .fromApplication(context, WidgetEntryPoint::class.java)
+                .preferences()
+                .favorites
+                .first()
+            val state = WidgetStateStore.NowPlayingState(
+                title = metadata?.title?.toString(),
+                artist = metadata?.artist?.toString(),
+                album = metadata?.albumTitle?.toString(),
+                isPlaying = controller.isPlaying,
+                trackId = trackId,
+                hasCover = if (trackId == prev.trackId) prev.hasCover else trackId > 0,
+                localCoverPath = if (trackId == prev.trackId) prev.localCoverPath else null,
+                isFavorite = trackId != 0 && trackId.toString() in favorites,
+            )
+            WidgetStateStore.saveNowPlaying(context, state)
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, NowPlayingWidget::class.java))
+            for (appWidgetId in ids) {
+                render(context, manager, appWidgetId, state)
+            }
+            maybeFetchCover(context)
+        } finally {
+            MediaController.releaseFuture(future)
+        }
+    }
+
+    /** The controller once it has connected, or null if the connection failed. Never blocks. */
+    private suspend fun ListenableFuture<MediaController>.awaitResult(context: Context): MediaController? =
+        suspendCancellableCoroutine { cont ->
+            addListener(
+                { cont.resume(try { get() } catch (e: Exception) { null }) },
+                ContextCompat.getMainExecutor(context),
+            )
+        }
 
     private fun handleFavorite(context: Context) {
         val pendingResult = goAsync()
@@ -252,7 +273,11 @@ class NowPlayingWidget : AppWidgetProvider() {
     ) {
         val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
         val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        val expanded = heightDp >= EXPANDED_MIN_HEIGHT_DP
+        val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        // The full layout (previous, play, next, like) needs a bit over two rows
+        // of height and enough width for the transport row; anything smaller
+        // gets the one-line compact layout (play + next, no like button).
+        val expanded = heightDp >= EXPANDED_MIN_HEIGHT_DP && widthDp >= FULL_MIN_WIDTH_DP
         val layoutId = if (expanded) R.layout.now_playing_widget_expanded
         else R.layout.now_playing_widget_compact
 
@@ -296,23 +321,37 @@ class NowPlayingWidget : AppWidgetProvider() {
         )
 
         if (expanded) {
-            views.setTextViewText(R.id.widget_album, state.album.orEmpty())
+            // Two rows is only ~110dp: the album line would not fit under the
+            // controls, so it folds into the artist line until there is room.
+            if (heightDp >= ALBUM_LINE_MIN_HEIGHT_DP) {
+                views.setTextViewText(R.id.widget_album, state.album.orEmpty())
+                views.setViewVisibility(R.id.widget_album, View.VISIBLE)
+            } else {
+                views.setViewVisibility(R.id.widget_album, View.GONE)
+                views.setTextViewText(
+                    R.id.widget_artist,
+                    listOfNotNull(state.artist, state.album).filter { it.isNotBlank() }.joinToString(" · "),
+                )
+            }
             views.setInt(R.id.widget_previous, "setColorFilter", ICON_TINT)
             views.setOnClickPendingIntent(
                 R.id.widget_previous,
                 WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_PREVIOUS, REQUEST_PREVIOUS),
             )
+            // The like button goes in the transport row if that fits, else next
+            // to the title/artist text; the compact layout has no room for it.
+            val inControls = widthDp >= HEART_IN_CONTROLS_MIN_WIDTH_DP
+            val heart = if (inControls) R.id.widget_favorite else R.id.widget_favorite_inline
+            val unused = if (inControls) R.id.widget_favorite_inline else R.id.widget_favorite
+            views.setViewVisibility(unused, View.GONE)
+            views.setViewVisibility(heart, View.VISIBLE)
             views.setImageViewResource(
-                R.id.widget_favorite,
+                heart,
                 if (state.isFavorite) R.drawable.ic_heart_fill else R.drawable.ic_heart,
             )
-            views.setInt(
-                R.id.widget_favorite,
-                "setColorFilter",
-                if (state.isFavorite) FAVORITE_TINT else ICON_TINT,
-            )
+            views.setInt(heart, "setColorFilter", if (state.isFavorite) FAVORITE_TINT else ICON_TINT)
             views.setOnClickPendingIntent(
-                R.id.widget_favorite,
+                heart,
                 WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_TOGGLE_FAVORITE, REQUEST_FAVORITE),
             )
         }
@@ -336,8 +375,16 @@ class NowPlayingWidget : AppWidgetProvider() {
         const val EXTRA_LOCAL_COVER_PATH = "local_cover_path"
         const val EXTRA_IS_FAVORITE = "is_favorite"
 
-        /** Widgets at least this tall (dp) get the expanded layout; shorter ones the compact row. */
-        private const val EXPANDED_MIN_HEIGHT_DP = 100
+        /** Widgets at least this tall (dp) can show the full layout — two rows is ~110dp — shorter ones get the compact row. */
+        private const val EXPANDED_MIN_HEIGHT_DP = 90
+        /** Narrower than this the transport row does not fit beside the cover: compact layout, no like button. */
+        private const val FULL_MIN_WIDTH_DP = 205
+        /** From this width the like button sits in the transport row; below it, beside the text. */
+        private const val HEART_IN_CONTROLS_MIN_WIDTH_DP = 240
+        /** Tall enough to also show the album on its own line. */
+        private const val ALBUM_LINE_MIN_HEIGHT_DP = 130
+        /** How long a tap waits for the playback service before giving up (goAsync() allows ~10s). */
+        private const val CONNECT_TIMEOUT_MS = 5_000L
         private const val ICON_TINT = Color.WHITE
         private const val PLACEHOLDER_TINT = 0x66FFFFFF.toInt()
         private const val FAVORITE_TINT = 0xFFEF5350.toInt()

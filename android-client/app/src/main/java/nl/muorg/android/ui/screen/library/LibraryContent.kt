@@ -121,7 +121,7 @@ fun LibraryContent(
                                else "Add music to your server and rescan to see it here.",
                     )
                 }
-                searchText.isNotEmpty() || uiState.albumViewStyle == "tracks" -> {
+                searchText.isNotEmpty() -> {
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(),

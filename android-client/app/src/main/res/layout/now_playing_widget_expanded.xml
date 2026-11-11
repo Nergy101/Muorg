@@ -1,16 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The full Now Playing layout: cover, title/artist(/album) and the whole
+  transport row, sized to fit a two-row widget (~110dp). The favorite button has
+  two homes, chosen in code from the widget's width: in the transport row when
+  there is room, otherwise beside the text (widget_favorite_inline), otherwise
+  neither is shown.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:padding="12dp"
+    android:padding="8dp"
     android:background="@drawable/widget_background">
 
     <FrameLayout
-        android:layout_width="72dp"
-        android:layout_height="72dp">
+        android:layout_width="64dp"
+        android:layout_height="64dp">
 
         <ImageView
             android:id="@+id/widget_cover"
@@ -27,6 +34,14 @@
             android:src="@drawable/ic_compact_disk"
             android:scaleType="centerInside"
             android:contentDescription="@string/widget_cover_desc" />
+
+        <!-- Tiny Muorg mark in the widget's top-left corner. -->
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_gravity="top|start"
+            android:src="@drawable/widget_logo"
+            android:importantForAccessibility="no" />
     </FrameLayout>
 
     <LinearLayout
@@ -35,45 +50,70 @@
         android:layout_weight="1"
         android:layout_gravity="center_vertical"
         android:orientation="vertical"
-        android:layout_marginStart="12dp">
-
-        <TextView
-            android:id="@+id/widget_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.Widget.Title"
-            android:text="@string/widget_no_track" />
-
-        <TextView
-            android:id="@+id/widget_artist"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.Widget.Artist"
-            android:text="" />
-
-        <TextView
-            android:id="@+id/widget_album"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.Widget.Album"
-            android:text="" />
+        android:layout_marginStart="10dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/TextAppearance.Widget.Title"
+                    android:text="@string/widget_no_track" />
+
+                <TextView
+                    android:id="@+id/widget_artist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/TextAppearance.Widget.Artist"
+                    android:text="" />
+
+                <TextView
+                    android:id="@+id/widget_album"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/TextAppearance.Widget.Album"
+                    android:text="" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/widget_favorite_inline"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:padding="8dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_heart"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/widget_toggle_favorite"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="2dp">
 
             <ImageButton
                 android:id="@+id/widget_previous"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:padding="8dp"
                 android:scaleType="center"
                 android:src="@drawable/ic_previous"
@@ -82,8 +122,8 @@
 
             <ImageButton
                 android:id="@+id/widget_play_pause"
-                android:layout_width="44dp"
-                android:layout_height="40dp"
+                android:layout_width="40dp"
+                android:layout_height="36dp"
                 android:padding="8dp"
                 android:scaleType="center"
                 android:src="@drawable/ic_play"
@@ -92,8 +132,8 @@
 
             <ImageButton
                 android:id="@+id/widget_next"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:padding="8dp"
                 android:scaleType="center"
                 android:src="@drawable/ic_next"
@@ -102,8 +142,8 @@
 
             <ImageButton
                 android:id="@+id/widget_favorite"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
                 android:padding="8dp"
                 android:scaleType="center"
                 android:src="@drawable/ic_heart"

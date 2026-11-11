@@ -192,13 +192,17 @@ class PlayerController @Inject constructor(
             state.map { it.currentTrack?.id }
                 .distinctUntilChanged()
                 .collect {
-                    context.sendBroadcast(
-                        Intent(context, RecentTracksWidget::class.java).apply {
-                            action = RecentTracksWidget.ACTION_REFRESH
-                        },
-                    )
+                    refreshRecentWidget()
                 }
         }
+    }
+
+    private fun refreshRecentWidget() {
+        context.sendBroadcast(
+            Intent(context, RecentTracksWidget::class.java).apply {
+                action = RecentTracksWidget.ACTION_REFRESH
+            },
+        )
     }
 
     private fun connect() {
@@ -300,6 +304,9 @@ class PlayerController @Inject constructor(
             playCountedTrackId = currentTrack.id
             scope.launch {
                 libraryRepository.recordPlay(currentTrack.id, preferences.deviceNameState.value)
+                // The server's recent list only gains this play now, so the
+                // refresh sent when the track changed was too early to show it.
+                refreshRecentWidget()
             }
         }
 

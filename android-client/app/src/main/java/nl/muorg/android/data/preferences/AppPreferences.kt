@@ -126,8 +126,9 @@ class AppPreferences @Inject constructor(
     val playerBarTapOpensPlayer: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] ?: true }
 
+    /** "grid" or "list". A saved "tracks" (a layout that no longer exists) reads as the covers grid. */
     val albumViewStyle: Flow<String> = context.dataStore.data
-        .map { it[KEY_ALBUM_VIEW_STYLE] ?: "grid" }
+        .map { if (it[KEY_ALBUM_VIEW_STYLE] == "list") "list" else "grid" }
 
     val playlistViewStyle: Flow<String> = context.dataStore.data
         .map { it[KEY_PLAYLIST_VIEW_STYLE] ?: "tracks" }

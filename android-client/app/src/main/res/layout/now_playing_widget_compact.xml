@@ -27,6 +27,14 @@
             android:src="@drawable/ic_compact_disk"
             android:scaleType="centerInside"
             android:contentDescription="@string/widget_cover_desc" />
+
+        <!-- Tiny Muorg mark in the widget's top-left corner. -->
+        <ImageView
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_gravity="top|start"
+            android:src="@drawable/widget_logo"
+            android:importantForAccessibility="no" />
     </FrameLayout>
 
     <LinearLayout
