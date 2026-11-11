@@ -439,12 +439,13 @@ useScrollMemory(scroller);
 }
 
 /* On mobile the global rule drops the backdrop's edge mask so the player's
-   art runs full-bleed; the album view keeps the same radial fade as desktop
-   so the background behind the track list is evenly dark at every width. */
+   art runs full-bleed; the album view keeps an edge fade so the background
+   behind the track list is evenly dark at every width — same sideways
+   (non-rounded) linear fade as desktop, not the circular vignette. */
 @media (max-width: 63.99rem) {
   :deep(.edge-blur-art) {
-    -webkit-mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
-    mask-image: radial-gradient(closest-side at center, black 30%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
   }
 }
 </style>

@@ -568,6 +568,14 @@ input[type="range"]::-moz-range-thumb {
     mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
   }
 }
+/* Album backdrop on desktop: same sideways (non-rounded) fade as the player —
+   a horizontal linear mask instead of the circular closest-side vignette. */
+@media (min-width: 64rem) {
+  .edge-blur-art.edge-blur-art-album {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
+  }
+}
 /* Art-fullscreen mode (maximized player): the backdrop art fills the pane with
    only a minimal blur — the edge mask stays, so the art still fades into the
    dark base at the borders. */
