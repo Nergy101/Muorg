@@ -148,16 +148,10 @@ const BARELESS = ["connect", "player", "player-queue"];
 const isBareless = computed(() => BARELESS.includes(String(route.name)));
 
 // The connect screen is a full-pane onboarding flow — no nav rail beside it.
-// Everything else (including the player sheet) keeps the rail on desktop so
-// navigation stays one click away; mobile hides the rail via CSS regardless.
-// Exception: the player in art-fullscreen mode hides the rail entirely so the
-// backdrop covers the whole window width — PlayerView floats the brand menu
-// top-left instead.
-const showSidebar = computed(
-  () =>
-    String(route.name) !== "connect" &&
-    !(String(route.name) === "player" && player.artFullscreen),
-);
+// Everything else (including the player sheet, also in art-fullscreen mode)
+// keeps the rail on desktop so navigation stays one click away; mobile hides
+// the rail via CSS regardless.
+const showSidebar = computed(() => String(route.name) !== "connect");
 
 const showMiniPlayer = computed(
   () =>

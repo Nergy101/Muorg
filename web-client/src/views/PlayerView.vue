@@ -12,38 +12,6 @@
          mode the blurred art becomes the sharp full-bleed background. -->
     <CoverBackdrop :cover-url="coverUrl" :sharp="artFullscreen" />
 
-    <!-- In art-fullscreen mode the top bar (and the desktop rail) is hidden;
-         keep the brand floating top-left above the fullscreen background, with
-         an expandable nav menu behind the chevron. -->
-    <div v-if="artFullscreen" class="absolute left-4 top-4 z-20 flex flex-col items-start gap-2">
-      <div class="glass flex items-center gap-2.5 rounded-full px-4 py-2">
-        <img :src="logoUrl" alt="Muorg" class="h-7 w-7" />
-        <span class="text-title-md font-bold tracking-tight text-white">Muorg</span>
-        <button
-          type="button"
-          class="ml-1 rounded p-0.5 text-white/70 transition-colors hover:text-white"
-          :aria-label="fsMenuOpen ? 'Close menu' : 'Open menu'"
-          :aria-expanded="fsMenuOpen"
-          @click="fsMenuOpen = !fsMenuOpen"
-        >
-          <MageIcon :name="fsMenuOpen ? 'chevron-up' : 'chevron-down'" class="h-4 w-4" />
-        </button>
-      </div>
-      <nav v-if="fsMenuOpen" class="glass flex w-44 flex-col gap-1 rounded-2xl p-2">
-        <RouterLink
-          v-for="(tab, i) in NAV_TABS"
-          :key="tab.name"
-          :to="{ name: tab.name }"
-          class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-body-md hover:bg-white/10"
-          :class="tabIndexForRoute(String(route.name)) === i ? 'text-primary' : 'text-white/80 hover:text-white'"
-          @click="fsMenuOpen = false"
-        >
-          <MageIcon :name="tab.icon" class="h-5 w-5" />
-          {{ tab.label }}
-        </RouterLink>
-      </nav>
-    </div>
-
     <!-- The glow backdrop above still spans the full shell; only the controls
          column is centred, so seek and transport stay near the art on desktop
          instead of stretching to the edges. Uncapped below md — and uncapped
@@ -493,7 +461,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import BottomSheet from "../components/BottomSheet.vue";
@@ -501,7 +469,6 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
-import logoUrl from "../assets/muorg-logo.svg";
 import { useDominantColor } from "../composables/useDominantColor";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
@@ -509,13 +476,11 @@ import { useSettingsStore } from "../stores/settings";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
-import { NAV_TABS, tabIndexForRoute } from "../nav-tabs";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 
 const router = useRouter();
-const route = useRoute();
 const player = usePlayerStore();
 const settings = useSettingsStore();
 const lib = useLibraryStore();
@@ -596,9 +561,6 @@ const artFullscreen = computed(() => player.artFullscreen);
 function toggleArtFullscreen(): void {
   player.toggleArtFullscreen();
 }
-
-/** Expandable nav menu behind the floating brand pill in art-fullscreen mode. */
-const fsMenuOpen = ref(false);
 
 // Mobile art-fullscreen: tapping the backdrop (the hidden cover's area)
 // exits fullscreen — the maximize button is desktop-only there.
