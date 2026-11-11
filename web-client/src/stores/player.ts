@@ -1512,6 +1512,7 @@ export const usePlayerStore = defineStore("player", () => {
     currentIndex,
     currentTrack,
     currentCoverUrl,
+    audioEl,
     progress,
     sleepTimerActive,
     upNext,

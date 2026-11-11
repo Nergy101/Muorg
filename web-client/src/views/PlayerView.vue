@@ -21,14 +21,14 @@
       class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto"
       :class="artFullscreen ? 'md:max-w-none lg:max-w-none' : 'md:max-w-[640px] lg:max-w-5xl'"
     >
-      <!-- Top row. On desktop the back chevron is centred in the middle of the
-           row (the chrome pill is hidden at lg, so left-aligned would look
-           orphaned); on mobile it stays at the left edge. Hidden entirely in
-           art-fullscreen mode, which keeps only the bottom bar. -->
+      <!-- Top row. The back chevron is centred in the middle of the row at
+           every size (the chrome pill is hidden at lg, so left-aligned would
+           look orphaned). Hidden entirely in art-fullscreen mode, which keeps
+           only the bottom bar. -->
       <div v-if="!artFullscreen" class="relative flex h-14 shrink-0 items-center px-2">
         <button
           type="button"
-          class="hidden h-10 w-10 items-center justify-center rounded-full text-white/75 lg:absolute lg:flex lg:left-1/2 lg:-translate-x-1/2"
+          class="absolute left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full text-white/75"
           aria-label="Back"
           @click="router.back()"
         >
@@ -143,7 +143,7 @@
           class="controls-panel relative z-10 flex shrink-0 glass"
           :class="artFullscreen
             ? 'm-0 mt-auto w-full flex-row items-center gap-4 rounded-b-none rounded-t-3xl py-3 pl-6 pr-3 lg:px-6'
-            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[560px] lg:gap-2 lg:p-4'"
+            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2'"
         >
           <!-- Track info bottom-left, quick actions opposite, both above the seek bar.
                In art-fullscreen mode the panel is a single bottom row: cover +
@@ -178,7 +178,7 @@
             >
               <div
                 class="min-w-0 basis-full"
-                :class="artFullscreen ? '' : 'lg:text-center'"
+                :class="artFullscreen ? '' : 'text-center'"
               >
                 <MarqueeText
                   :text="player.currentTrack.title ?? '—'"
@@ -244,6 +244,17 @@
               >
                 <MageIcon name="maximize" class="h-5 w-5" />
               </button>
+              <!-- Popout (PiP) mini player, right of the fullscreen toggle -->
+              <button
+                v-if="popoutSupported"
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+                :class="pipActive ? 'text-primary' : 'text-white/75 hover:text-white'"
+                :aria-label="pipActive ? 'Close popout player' : 'Pop out player'"
+                @click="void togglePopout()"
+              >
+                <MageIcon name="arrow-up-right" class="h-5 w-5" />
+              </button>
             </div>
           </div>
 
@@ -289,49 +300,49 @@
                flush against the panel's own padding. -->
           <div
             v-if="!artFullscreen"
-            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[env(safe-area-inset-bottom)] max-md:pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-5 lg:px-0 lg:pb-0"
+            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[env(safe-area-inset-bottom)] max-md:pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-2 lg:px-0 lg:pt-0 lg:pb-0"
           >
             <button
               type="button"
-              class="flex h-10 w-10 items-center justify-center transition-colors hover:text-white"
+              class="flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
               :class="player.shuffleEnabled ? 'text-primary' : 'text-white/75'"
               aria-label="Shuffle"
               @click="player.toggleShuffle()"
             >
-              <MageIcon name="exchange" class="h-7 w-7" />
+              <MageIcon name="exchange" class="h-6 w-6" />
             </button>
             <button
               type="button"
-              class="flex h-14 w-14 items-center justify-center text-white transition-transform hover:scale-110"
+              class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
               aria-label="Previous track"
               @click="player.skipPrevious()"
             >
-              <MageIcon name="previous" class="h-7 w-7" />
+              <MageIcon name="previous" class="h-6 w-6" />
             </button>
             <button
               type="button"
-              class="chrome-glass glass-sheer flex h-[72px] w-[72px] items-center justify-center rounded-full text-white transition-transform hover:scale-105"
+              class="chrome-glass glass-sheer flex h-16 w-16 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
               :aria-label="transportPlaying ? 'Pause' : 'Play'"
               @click="togglePlay"
             >
-              <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-8 w-8" />
+              <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-7 w-7" />
             </button>
             <button
               type="button"
-              class="flex h-14 w-14 items-center justify-center text-white transition-transform hover:scale-110"
+              class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
               aria-label="Next track"
               @click="player.skipNext()"
             >
-              <MageIcon name="next" class="h-7 w-7" />
+              <MageIcon name="next" class="h-6 w-6" />
             </button>
             <button
               type="button"
-              class="relative flex h-10 w-10 items-center justify-center transition-colors hover:text-white"
+              class="relative flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
               :class="player.repeatMode !== 'off' ? 'text-primary' : 'text-white/75'"
               aria-label="Repeat mode"
               @click="player.cycleRepeatMode()"
             >
-              <MageIcon name="reload" class="h-7 w-7" />
+              <MageIcon name="reload" class="h-6 w-6" />
               <span
                 v-if="player.repeatMode === 'one'"
                 class="absolute bottom-0.5 right-0.5 text-label-sm font-bold leading-none"
@@ -344,8 +355,8 @@
                buttons. Mobile uses the hardware volume keys. In art-fullscreen
                mode only the volume pill remains. -->
           <div
-            class="shrink-0 items-center justify-center gap-2 lg:gap-3"
-            :class="artFullscreen ? 'flex justify-end pt-0' : 'hidden pt-2 lg:flex'"
+            class="shrink-0 items-center justify-center gap-2 lg:gap-2"
+            :class="artFullscreen ? 'flex justify-end pt-0' : 'hidden pt-2 lg:flex lg:pt-0'"
           >
             <!-- Quick actions (queue / add to playlist) live in the info row
                  above, next to the favourite button — no separate pill here. -->
@@ -480,6 +491,7 @@ import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import { useDominantColor } from "../composables/useDominantColor";
+import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
@@ -492,6 +504,7 @@ const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 
 const router = useRouter();
 const player = usePlayerStore();
+const { pipActive, supported: popoutSupported, togglePopout } = usePopoutPlayer();
 const settings = useSettingsStore();
 const lib = useLibraryStore();
 const cast = useCastStore();

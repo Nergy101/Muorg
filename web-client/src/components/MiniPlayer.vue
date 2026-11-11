@@ -108,11 +108,38 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
+          :class="isFavorite ? 'text-primary' : 'text-on-surface-variant'"
+          :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+          @click="onToggleFavorite"
+        >
+          <MageIcon name="heart" class="h-5 w-5" :class="isFavorite ? 'fill-current' : ''" />
+        </button>
+        <button
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+          aria-label="Add to playlist"
+          @click="openAddToPlaylist"
+        >
+          <MageIcon name="playlist-add" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
           :class="route.name === 'queue' ? 'text-primary' : 'text-on-surface-variant'"
           aria-label="Queue"
           @click="onQueueClick"
         >
           <MageIcon name="stack" class="h-5 w-5" />
+        </button>
+        <button
+          v-if="popoutSupported"
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
+          :class="pipActive ? 'text-primary' : 'text-on-surface-variant'"
+          :aria-label="pipActive ? 'Close popout player' : 'Pop out player'"
+          @click="void togglePopout()"
+        >
+          <MageIcon name="arrow-up-right" class="h-5 w-5" />
         </button>
         <button
           type="button"
@@ -145,6 +172,7 @@
 
   <TrackActionsSheet
     :open="menuOpen"
+    :initial-level="actionsInitialLevel"
     :track="player.currentTrack"
     @close="menuOpen = false"
     @view-artist="onViewArtist"
@@ -160,6 +188,7 @@ import MarqueeText from "./MarqueeText.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import VolumeControl from "./VolumeControl.vue";
 import { sidebarCollapsed } from "../composables/sidebarCollapsed";
+import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
@@ -194,6 +223,24 @@ const settings = useSettingsStore();
 const lib = useLibraryStore();
 
 const menuOpen = ref(false);
+const actionsInitialLevel = ref<"main" | "playlists">("main");
+const { pipActive, supported: popoutSupported, togglePopout } = usePopoutPlayer();
+
+/** The "+" jumps straight to the sheet's playlist picker. */
+function openAddToPlaylist(): void {
+  actionsInitialLevel.value = "playlists";
+  menuOpen.value = true;
+}
+
+const isFavorite = computed(() =>
+  player.currentTrack ? player.favorites.has(player.currentTrack.id) : false,
+);
+
+function onToggleFavorite(): void {
+  const t = player.currentTrack;
+  if (!t) return;
+  void player.toggleFavorite(t);
+}
 
 function onViewArtist(): void {
   const t = player.currentTrack;
