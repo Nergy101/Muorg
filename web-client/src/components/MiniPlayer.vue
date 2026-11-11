@@ -107,7 +107,7 @@
       <div class="flex shrink-0 items-center gap-0.5 pr-2">
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
+          class="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container lg:flex"
           :class="isFavorite ? 'text-primary' : 'text-on-surface-variant'"
           :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
           @click="onToggleFavorite"
@@ -116,11 +116,19 @@
         </button>
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+          class="hidden h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container lg:flex"
           aria-label="Add to playlist"
           @click="openAddToPlaylist"
         >
           <MageIcon name="playlist-add" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+          aria-label="Track actions"
+          @click="menuOpen = true"
+        >
+          <MageIcon name="dots" class="h-5 w-5" />
         </button>
         <button
           type="button"
@@ -134,20 +142,12 @@
         <button
           v-if="popoutSupported"
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
+          class="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container lg:flex"
           :class="pipActive ? 'text-primary' : 'text-on-surface-variant'"
           :aria-label="pipActive ? 'Close popout player' : 'Pop out player'"
           @click="void togglePopout()"
         >
           <MageIcon name="arrow-up-right" class="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
-          aria-label="Track actions"
-          @click="menuOpen = true"
-        >
-          <MageIcon name="dots" class="h-5 w-5" />
         </button>
         <button
           type="button"
