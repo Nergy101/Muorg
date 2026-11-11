@@ -559,6 +559,16 @@ input[type="range"]::-moz-range-thumb {
     filter: blur(16px);
   }
 }
+/* Player backdrop at every width: the closest-side mask above is sized to the
+   pane's shorter axis, so on a wide desktop window it faded the art out well
+   before the left/right edges and the background read as not filling the pane.
+   The player variant drops the mask entirely (like mobile) and overscans by
+   one blur radius so the blur never samples past the image edge. */
+.edge-blur-art.edge-blur-art-fill {
+  inset: -24px;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
 /* Art-fullscreen mode (maximized player): the backdrop art fills the pane with
    only a minimal blur — the black edge vignette (radial mask) stays, so the
    art still fades into the dark base at the borders. */

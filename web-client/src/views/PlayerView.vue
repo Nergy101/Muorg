@@ -68,10 +68,11 @@
       >
         <!-- Centre: cover only. `max-h-full` keeps the square from overflowing a
              short viewport; object-cover absorbs the crop if it ever clamps. -->
-        <!-- Lyrics pane (replaces cover art when toggled on) -->
+        <!-- Lyrics pane (replaces cover art when toggled on). In flow at every
+             size so it only ever occupies the space above the controls panel. -->
         <div
           v-if="showLyrics && hasLyrics"
-          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:absolute lg:inset-x-0 lg:-top-14 lg:bottom-0 lg:px-0 lg:pointer-events-none"
+          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:px-0 lg:pointer-events-none"
         >
           <div class="max-h-full w-full overflow-y-auto py-4 text-center lg:pointer-events-auto">
             <template v-if="isSynced">
@@ -96,14 +97,14 @@
 
         <div
           v-else
-          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:absolute lg:inset-x-0 lg:-top-14 lg:bottom-0 lg:px-0 lg:pointer-events-none"
+          class="flex min-h-0 flex-1 items-center justify-center px-6 lg:px-0 lg:pointer-events-none"
           @click="onCoverAreaClick"
         >
           <!-- 50vh cap: on a wide shell 86% would be taller than the centre column,
                so the art would clamp to a cropped rectangle. Never binds on phones.
-               On desktop the pane is absolute over the full player height
-               (-top-14 reaches behind the top bar), so the art sits exactly at
-               the screen's centre; the controls panel stays in flow below. -->
+               The pane stays in flow at every size, so `max-h-full` clamps the art
+               to the space above the controls panel — on short desktop viewports
+               the cover can no longer slide behind the glass controls. -->
           <div
             class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center transition-all duration-300 lg:w-full lg:max-w-[420px] lg:pointer-events-auto lg:cursor-pointer"
             :class="artFullscreen ? 'pointer-events-none scale-90 opacity-0' : ''"

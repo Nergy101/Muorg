@@ -12,7 +12,7 @@
     <div
       v-if="coverUrl"
       class="edge-blur-art absolute"
-      :class="{ 'edge-art-sharp': sharp }"
+      :class="{ 'edge-art-sharp': sharp, 'edge-blur-art-fill': variant === 'player' }"
       :style="{ backgroundImage: `url(${coverUrl})`, opacity: sharp ? 1 : 0.9 }"
     />
   </div>
