@@ -212,18 +212,18 @@
               <button
                 type="button"
                 class="flex h-8 w-8 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Queue"
-                @click="router.push({ name: 'player-queue' })"
-              >
-                <MageIcon name="stack" class="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                class="flex h-8 w-8 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Add to playlist"
                 @click="openAddToPlaylist"
               >
                 <MageIcon name="playlist-add" class="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Queue"
+                @click="router.push({ name: 'player-queue' })"
+              >
+                <MageIcon name="stack" class="h-5 w-5" />
               </button>
               <!-- 3-dots, left of the fullscreen toggle (non-fs view) -->
               <button
