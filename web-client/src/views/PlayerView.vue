@@ -11,9 +11,12 @@
 
     <!-- The glow backdrop above still spans the full shell; only the controls
          column is centred, so seek and transport stay near the art on desktop
-         instead of stretching to the edges. Uncapped below md. -->
+         instead of stretching to the edges. Uncapped below md — and uncapped
+         in art-fullscreen mode, where the bottom bar spans the whole screen
+         width. -->
     <div
-      class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto md:max-w-[640px] lg:max-w-5xl"
+      class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto"
+      :class="artFullscreen ? 'md:max-w-none lg:max-w-none' : 'md:max-w-[640px] lg:max-w-5xl'"
     >
       <!-- Top row. On desktop the back chevron is centred in the middle of the
            row (the chrome pill is hidden at lg, so left-aligned would look

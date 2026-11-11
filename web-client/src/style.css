@@ -568,6 +568,14 @@ input[type="range"]::-moz-range-thumb {
     mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
   }
 }
+/* Art-fullscreen (sharp) player mode: the art stretches across the whole pane
+   width — no side fade, edge to edge. */
+@media (min-width: 64rem) {
+  .edge-blur-art.edge-art-sharp.edge-blur-art-player {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
 /* Album backdrop on desktop: same sideways (non-rounded) fade as the player —
    a horizontal linear mask instead of the circular closest-side vignette. */
 @media (min-width: 64rem) {
