@@ -18,12 +18,6 @@ internal object WidgetIntents {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    fun openApp(context: Context) {
-        context.startActivity(
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }
-
     /**
      * Template for the Recently Played rows: opens [MainActivity] with
      * [RecentTracksWidget.ACTION_PLAY_TRACK]; each row's fill-in adds its track
@@ -41,6 +35,27 @@ internal object WidgetIntents {
                     Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        )
+
+    /**
+     * A transport button on the Now Playing widget: opens the app and hands
+     * [nl.muorg.android.ui.widget.NowPlayingWidget.EXTRA_TRANSPORT] to
+     * MainActivity, which performs the command through PlayerController. A
+     * receiver cannot bind to the playback service itself
+     * (ReceiverCallNotAllowedException), so the action always goes via the app.
+     */
+    fun transportPendingIntent(context: Context, transport: String, requestCode: Int): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            requestCode,
+            Intent(context, MainActivity::class.java).apply {
+                action = nl.muorg.android.ui.widget.NowPlayingWidget.ACTION_TRANSPORT
+                putExtra(nl.muorg.android.ui.widget.NowPlayingWidget.EXTRA_TRANSPORT, transport)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
     /**

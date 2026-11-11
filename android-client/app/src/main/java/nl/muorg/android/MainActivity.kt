@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import nl.muorg.android.cast.CastManager
 import nl.muorg.android.player.PlayerController
 import nl.muorg.android.ui.navigation.NavGraph
+import nl.muorg.android.ui.widget.NowPlayingWidget
 import nl.muorg.android.ui.widget.RecentTracksWidget
 import nl.muorg.android.ui.widget.WidgetStateStore
 import javax.inject.Inject
@@ -51,18 +52,29 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * A Recently Played row was tapped: queue the whole recent list as the
-     * widget last showed it, starting at the tapped track. A track missing
-     * from the stash (stale list) just leaves the app open.
+     * A widget intent was tapped. A Recently Played row queues the whole
+     * recent list as the widget last showed it, starting at the tapped
+     * track; a track missing from the stash (stale list) just leaves the app
+     * open. A Now Playing transport button (play/pause, next, previous) is
+     * performed here — the widget receiver cannot bind to the playback
+     * service itself, so it always opens the app and hands the action over.
      */
     private fun handleWidgetIntent(intent: Intent) {
-        if (intent.action != RecentTracksWidget.ACTION_PLAY_TRACK) return
-        // Consumed: a later redelivery of this intent must not restart playback.
-        intent.action = Intent.ACTION_MAIN
-        val trackId = intent.getIntExtra(RecentTracksWidget.EXTRA_TRACK_ID, 0)
-        val recent = WidgetStateStore.loadRecentTracks(this)
-        val track = recent.firstOrNull { it.id == trackId } ?: return
-        lifecycleScope.launch { playerController.playTrack(track, recent) }
+        when (intent.action) {
+            RecentTracksWidget.ACTION_PLAY_TRACK -> {
+                // Consumed: a later redelivery of this intent must not restart playback.
+                intent.action = Intent.ACTION_MAIN
+                val trackId = intent.getIntExtra(RecentTracksWidget.EXTRA_TRACK_ID, 0)
+                val recent = WidgetStateStore.loadRecentTracks(this)
+                val track = recent.firstOrNull { it.id == trackId } ?: return
+                lifecycleScope.launch { playerController.playTrack(track, recent) }
+            }
+            NowPlayingWidget.ACTION_TRANSPORT -> {
+                intent.action = Intent.ACTION_MAIN
+                val transport = intent.getStringExtra(NowPlayingWidget.EXTRA_TRANSPORT) ?: return
+                lifecycleScope.launch { playerController.handleWidgetTransport(transport) }
+            }
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

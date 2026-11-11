@@ -601,6 +601,29 @@ class PlayerController @Inject constructor(
         if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
     }
 
+    /**
+     * A Now Playing widget transport button. The widget cannot drive the
+     * player itself — a BroadcastReceiver's context may not bind to the
+     * playback service (ReceiverCallNotAllowedException) — so it opens the
+     * app with [NowPlayingWidget.ACTION_TRANSPORT] and the command lands here,
+     * where a properly connected controller exists. Waits for the connection
+     * so a tap with the app cold-started still works. Play with an empty
+     * queue just leaves the app open.
+     */
+    suspend fun handleWidgetTransport(transport: String) {
+        val ctrl = awaitController() ?: return
+        when (transport) {
+            NowPlayingWidget.TRANSPORT_PLAY_PAUSE ->
+                if (ctrl.mediaItemCount > 0) {
+                    if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
+                }
+            NowPlayingWidget.TRANSPORT_NEXT -> ctrl.seekToNextMediaItem()
+            NowPlayingWidget.TRANSPORT_PREVIOUS ->
+                if (ctrl.currentPosition > 3000) ctrl.seekTo(0L)
+                else ctrl.seekToPreviousMediaItem()
+        }
+    }
+
     fun skipNext() {
         controller?.seekToNextMediaItem()
     }

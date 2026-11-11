@@ -9,15 +9,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
-import androidx.media3.session.MediaController
 import kotlin.math.roundToInt
-import androidx.core.content.ContextCompat
-import com.google.common.util.concurrent.ListenableFuture
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.coroutines.resume
-import androidx.media3.session.SessionToken
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +17,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import nl.muorg.android.R
-import nl.muorg.android.player.PlaybackService
 
 /**
  * The resizable Now Playing widget.
@@ -39,10 +30,16 @@ import nl.muorg.android.player.PlaybackService
  * All state comes from [WidgetStateStore], which the app keeps up to date via
  * [ACTION_UPDATE_WIDGET]; that is also what lets the widget render correctly
  * when the system cold-starts this receiver after a reboot ([BOOT_COMPLETED])
- * or while the app process was dead. Transport and favorite buttons are
- * handled here too: they connect a short-lived [MediaController] to
- * [PlaybackService], so the buttons work even when the app itself was not
- * running — and when there is nothing queued at all, play opens the app.
+ * or while the app process was dead.
+ *
+ * The transport buttons (play/pause, next, previous) do NOT act from here: a
+ * BroadcastReceiver's context is not allowed to bind to services, so a
+ * [MediaController] built in a receiver crashes with
+ * ReceiverCallNotAllowedException. Instead they open the app with
+ * [ACTION_TRANSPORT], and [nl.muorg.android.MainActivity] performs the action
+ * through [nl.muorg.android.player.PlayerController], which owns a properly
+ * connected controller. The favorite button needs no service, so it stays a
+ * broadcast handled here.
  */
 class NowPlayingWidget : AppWidgetProvider() {
 
@@ -68,9 +65,6 @@ class NowPlayingWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             ACTION_UPDATE_WIDGET -> handleUpdate(context, intent)
-            ACTION_PLAY_PAUSE -> handleTransport(context, Transport.PLAY_PAUSE)
-            ACTION_NEXT -> handleTransport(context, Transport.NEXT)
-            ACTION_PREVIOUS -> handleTransport(context, Transport.PREVIOUS)
             ACTION_TOGGLE_FAVORITE -> handleFavorite(context)
             Intent.ACTION_BOOT_COMPLETED -> updateAll(context)
             else -> super.onReceive(context, intent)
@@ -117,101 +111,6 @@ class NowPlayingWidget : AppWidgetProvider() {
         }
         maybeFetchCover(context)
     }
-
-    private enum class Transport { PLAY_PAUSE, NEXT, PREVIOUS }
-
-    /**
-     * A transport button was tapped. Connects a [MediaController] to the
-     * playback service — which starts the service if the app process was dead —
-     * issues the command, and re-renders the widget from the controller's own
-     * state, because in the cold-start case no [nl.muorg.android.player.PlayerController]
-     * exists to send [ACTION_UPDATE_WIDGET].
-     *
-     * All of it runs on the MAIN thread: a MediaController is bound to the
-     * looper it was built on (main, for a receiver) and throws
-     * IllegalStateException when a command arrives from any other thread —
-     * which is what the old IO-thread version did on every tap. Waiting for
-     * the connection suspends instead of blocking, so the main thread is
-     * never held.
-     */
-    private fun handleTransport(context: Context, transport: Transport) {
-        val pendingResult = goAsync()
-        ioScope.launch {
-            try {
-                withContext(Dispatchers.Main) { runTransport(context, transport) }
-            } finally {
-                pendingResult.finish()
-            }
-        }
-    }
-
-    private suspend fun runTransport(context: Context, transport: Transport) {
-        val future = MediaController.Builder(
-            context,
-            SessionToken(context, ComponentName(context, PlaybackService::class.java)),
-        ).buildAsync()
-        try {
-            val controller = withTimeoutOrNull(CONNECT_TIMEOUT_MS) { future.awaitResult(context) }
-            if (controller == null) {
-                if (transport == Transport.PLAY_PAUSE) WidgetIntents.openApp(context)
-                return
-            }
-            when (transport) {
-                Transport.PLAY_PAUSE -> {
-                    if (controller.mediaItemCount == 0) {
-                        // Nothing queued (fresh process): play opens the app.
-                        WidgetIntents.openApp(context)
-                    } else if (controller.isPlaying) {
-                        controller.pause()
-                    } else {
-                        controller.play()
-                    }
-                }
-                Transport.NEXT -> controller.seekToNextMediaItem()
-                Transport.PREVIOUS -> {
-                    if (controller.currentPosition > 3000) controller.seekTo(0L)
-                    else controller.seekToPreviousMediaItem()
-                }
-            }
-            val prev = WidgetStateStore.loadNowPlaying(context)
-            val item = controller.currentMediaItem
-            val metadata = item?.mediaMetadata
-            val trackId = item?.mediaId?.toIntOrNull() ?: 0
-            val favorites = EntryPointAccessors
-                .fromApplication(context, WidgetEntryPoint::class.java)
-                .preferences()
-                .favorites
-                .first()
-            val state = WidgetStateStore.NowPlayingState(
-                title = metadata?.title?.toString(),
-                artist = metadata?.artist?.toString(),
-                album = metadata?.albumTitle?.toString(),
-                isPlaying = controller.isPlaying,
-                trackId = trackId,
-                hasCover = if (trackId == prev.trackId) prev.hasCover else trackId > 0,
-                localCoverPath = if (trackId == prev.trackId) prev.localCoverPath else null,
-                isFavorite = trackId != 0 && trackId.toString() in favorites,
-            )
-            WidgetStateStore.saveNowPlaying(context, state)
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, NowPlayingWidget::class.java))
-            for (appWidgetId in ids) {
-                render(context, manager, appWidgetId, state)
-            }
-            maybeFetchCover(context)
-        } finally {
-            MediaController.releaseFuture(future)
-        }
-    }
-
-    /** The controller once it has connected, or null if the connection failed. Never blocks. */
-    private suspend fun ListenableFuture<MediaController>.awaitResult(context: Context): MediaController? =
-        suspendCancellableCoroutine { cont ->
-            addListener(
-                { cont.resume(try { get() } catch (e: Exception) { null }) },
-                ContextCompat.getMainExecutor(context),
-            )
-        }
 
     private fun handleFavorite(context: Context) {
         val pendingResult = goAsync()
@@ -338,19 +237,19 @@ class NowPlayingWidget : AppWidgetProvider() {
         views.setInt(R.id.widget_play_pause, "setColorFilter", ICON_TINT)
         views.setOnClickPendingIntent(
             R.id.widget_play_pause,
-            WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_PLAY_PAUSE, REQUEST_PLAY_PAUSE),
+            WidgetIntents.transportPendingIntent(context, TRANSPORT_PLAY_PAUSE, REQUEST_PLAY_PAUSE),
         )
         views.setInt(R.id.widget_next, "setColorFilter", ICON_TINT)
         views.setOnClickPendingIntent(
             R.id.widget_next,
-            WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_NEXT, REQUEST_NEXT),
+            WidgetIntents.transportPendingIntent(context, TRANSPORT_NEXT, REQUEST_NEXT),
         )
 
         if (stacked) {
             views.setInt(R.id.widget_previous, "setColorFilter", ICON_TINT)
             views.setOnClickPendingIntent(
                 R.id.widget_previous,
-                WidgetIntents.actionPendingIntent(context, NowPlayingWidget::class.java, ACTION_PREVIOUS, REQUEST_PREVIOUS),
+                WidgetIntents.transportPendingIntent(context, TRANSPORT_PREVIOUS, REQUEST_PREVIOUS),
             )
         }
 
@@ -375,10 +274,13 @@ class NowPlayingWidget : AppWidgetProvider() {
 
     companion object {
         const val ACTION_UPDATE_WIDGET = "nl.muorg.android.UPDATE_WIDGET"
-        const val ACTION_PLAY_PAUSE = "nl.muorg.android.WIDGET_PLAY_PAUSE"
-        const val ACTION_NEXT = "nl.muorg.android.WIDGET_NEXT"
-        const val ACTION_PREVIOUS = "nl.muorg.android.WIDGET_PREVIOUS"
         const val ACTION_TOGGLE_FAVORITE = "nl.muorg.android.WIDGET_TOGGLE_FAVORITE"
+        /** MainActivity action: perform a widget transport command once the app is up. */
+        const val ACTION_TRANSPORT = "nl.muorg.android.WIDGET_TRANSPORT"
+        const val EXTRA_TRANSPORT = "transport"
+        const val TRANSPORT_PLAY_PAUSE = "play_pause"
+        const val TRANSPORT_NEXT = "next"
+        const val TRANSPORT_PREVIOUS = "previous"
 
         const val EXTRA_TITLE = "title"
         const val EXTRA_ARTIST = "artist"
@@ -410,8 +312,6 @@ class NowPlayingWidget : AppWidgetProvider() {
         private const val DEFAULT_HEIGHT_DP = 110
         /** Matches the corner radius of drawable/widget_background. */
         private const val WIDGET_CORNER_DP = 12f
-        /** How long a tap waits for the playback service before giving up (goAsync() allows ~10s). */
-        private const val CONNECT_TIMEOUT_MS = 5_000L
         private const val ICON_TINT = Color.WHITE
         private const val PLACEHOLDER_TINT = 0x66FFFFFF.toInt()
         private const val FAVORITE_TINT = 0xFFEF5350.toInt()
