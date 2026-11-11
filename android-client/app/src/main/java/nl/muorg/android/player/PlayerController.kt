@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,9 @@ import javax.inject.Singleton
 
 /** A play counts once the listener has heard this much of the track. */
 private const val PLAY_COUNT_THRESHOLD_MS = 30_000L
+
+/** How long a first play waits for the playback service connection. */
+private const val CONNECT_TIMEOUT_MS = 5_000L
 
 /**
  * How long the player must stay in STATE_BUFFERING before the UI swaps the
@@ -394,8 +398,7 @@ class PlayerController @Inject constructor(
      * queued against the context being left behind.
      */
     suspend fun playTrack(track: CatalogTrack, queue: List<CatalogTrack>) {
-        ensureConnected()
-        val ctrl = controller ?: return
+        val ctrl = awaitController() ?: return
 
         scope.launch {
             // Visible from the tap itself: the token fetch and prepare below
@@ -788,10 +791,19 @@ class PlayerController @Inject constructor(
     // persistent URI permissions. Converting to file:// breaks on scoped storage (Android 10+).
     private fun resolveLocalUri(localFilePath: String): String = localFilePath
 
-    private fun ensureConnected() {
-        if (controller == null || controllerFuture?.isDone == false) {
-            connect()
-        }
+    /**
+     * The connected controller, waiting for the connection if it is still being
+     * made. A cold-started process (a widget row tapped with the app dead) has
+     * no controller yet when the first play arrives; returning null there made
+     * that tap silently do nothing.
+     */
+    private suspend fun awaitController(): MediaController? {
+        controller?.let { return it }
+        // Reconnect only when nothing is in flight; a second connect() would
+        // race the first and leave two controllers.
+        if (controllerFuture?.isDone != false) connect()
+        withTimeoutOrNull(CONNECT_TIMEOUT_MS) { state.first { it.isConnected } }
+        return controller
     }
 
     /**

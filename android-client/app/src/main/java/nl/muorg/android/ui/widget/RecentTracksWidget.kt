@@ -8,8 +8,6 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.widget.RemoteViews
-import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.launch
 import nl.muorg.android.R
 
 /**
@@ -17,8 +15,9 @@ import nl.muorg.android.R
  *
  * Rows are rendered by [RecentTracksWidgetService]; each row carries a
  * fill-in intent with its track id, delivered through the list's PendingIntent
- * template to [ACTION_PLAY_TRACK], which resolves the id against the stashed
- * recent list and starts playback through the app's [nl.muorg.android.player.PlayerController].
+ * template to [nl.muorg.android.MainActivity] as [ACTION_PLAY_TRACK]. The
+ * activity plays the stashed recent list starting at that track, so the app
+ * opens and the whole list is queued.
  */
 class RecentTracksWidget : AppWidgetProvider() {
 
@@ -32,7 +31,6 @@ class RecentTracksWidget : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            ACTION_PLAY_TRACK -> handlePlayTrack(context, intent)
             ACTION_REFRESH -> {
                 val manager = AppWidgetManager.getInstance(context)
                 manager.notifyAppWidgetViewDataChanged(
@@ -67,40 +65,12 @@ class RecentTracksWidget : AppWidgetProvider() {
                 // Mutable so each row's fill-in intent can add its track id.
                 setPendingIntentTemplate(
                     R.id.widget_recent_list,
-                    WidgetIntents.actionPendingIntent(
-                        context,
-                        RecentTracksWidget::class.java,
-                        ACTION_PLAY_TRACK,
-                        REQUEST_TEMPLATE,
-                        mutable = true,
-                    ),
+                    WidgetIntents.playTrackTemplate(context, REQUEST_TEMPLATE),
                 )
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
         appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_recent_list)
-    }
-
-    private fun handlePlayTrack(context: Context, intent: Intent) {
-        val trackId = intent.getIntExtra(EXTRA_TRACK_ID, 0)
-        if (trackId == 0) return
-        val pendingResult = goAsync()
-        NowPlayingWidget.ioScope.launch {
-            try {
-                val track = WidgetStateStore.loadRecentTracks(context).firstOrNull { it.id == trackId }
-                if (track != null) {
-                    EntryPointAccessors
-                        .fromApplication(context, WidgetEntryPoint::class.java)
-                        .playerController()
-                        .playTrack(track, listOf(track))
-                } else {
-                    // The stash is stale (track no longer in recent history): just open the app.
-                    WidgetIntents.openApp(context)
-                }
-            } finally {
-                pendingResult.finish()
-            }
-        }
     }
 
     companion object {

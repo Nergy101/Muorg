@@ -25,6 +25,25 @@ internal object WidgetIntents {
     }
 
     /**
+     * Template for the Recently Played rows: opens [MainActivity] with
+     * [RecentTracksWidget.ACTION_PLAY_TRACK]; each row's fill-in adds its track
+     * id. SINGLE_TOP + CLEAR_TOP deliver it to a running activity through
+     * onNewIntent instead of recreating (and so resetting) the UI.
+     */
+    fun playTrackTemplate(context: Context, requestCode: Int): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            requestCode,
+            Intent(context, MainActivity::class.java).apply {
+                action = RecentTracksWidget.ACTION_PLAY_TRACK
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        )
+
+    /**
      * A broadcast PendingIntent aimed at one of the widget receivers. The
      * component is explicit and the package pinned, so the receivers can stay
      * non-exported — a PendingIntent fires under the creating app's identity,
