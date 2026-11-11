@@ -277,10 +277,13 @@
             </div>
           </div>
 
-          <!-- Transport row (hidden in art-fullscreen mode) -->
+          <!-- Transport row (hidden in art-fullscreen mode). The 1rem bottom
+               floor is for phones (home-indicator clearance); on desktop
+               viewports — including the md range below lg — the row sits
+               flush against the panel's own padding. -->
           <div
             v-if="!artFullscreen"
-            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-5 lg:px-0 lg:pb-0"
+            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[env(safe-area-inset-bottom)] max-md:pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-5 lg:px-0 lg:pb-0"
           >
             <button
               type="button"
