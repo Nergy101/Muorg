@@ -515,7 +515,12 @@ export const useLibraryStore = defineStore("library", () => {
         continue;
       }
       inFlight++;
-      getCoverBlob(id)
+      // Cap at 1200px max edge: the server downscales to JPEG on demand.
+      // Full-resolution embedded art (some covers are multi-megapixel PNGs)
+      // can fail to decode as a full-screen blurred backdrop on Android,
+      // leaving the FS background black. Every consumer (list thumbnails,
+      // player cover, 480px popout canvas, blurred backdrop) is fine at 1200.
+      getCoverBlob(id, 1200)
         .then((blob) => {
           if (blob) {
             coverCache.value.set(id, URL.createObjectURL(blob));

@@ -44,9 +44,9 @@ export function getTopPlayHistory(limit = 20, days = 30): Promise<CatalogTrack[]
   return api.getMostPlayed(limit, days);
 }
 
-export async function getCoverBlob(trackId: number): Promise<Blob | null> {
+export async function getCoverBlob(trackId: number, size?: number): Promise<Blob | null> {
   try {
-    return await api.getCoverBlob(trackId);
+    return await api.getCoverBlob(trackId, size);
   } catch {
     return null;
   }
