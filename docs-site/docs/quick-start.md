@@ -61,6 +61,8 @@ That's it — the same library, playlists, ratings and play counts on every devi
 
 ## Run locally
 
+**Android app, local folders** — no server needed: install the APK, pick **Local Library** on the welcome screen, and point it at the folders on your device that hold your music. The app scans them into an on-device catalogue and plays them fully offline. See [Android App](/docs/android/).
+
 :::warning Legacy
 The desktop app is **legacy** — it is no longer the focus of development. For new setups, [self-host](#self-host) and use the web or Android client instead.
 :::
