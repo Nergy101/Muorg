@@ -6,6 +6,10 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.6.2
+
+- **Web**: the queue side panel's collapse chevron in the maximized player now sits small in the glass card's top-right corner — pointing right to expand, left to collapse — and the queue track count moved next to the "Queue" label as "N tracks".
+
 ## v4.6.1
 
 - **Web**: the queue side panel in the maximized player (desktop, wide windows) now has a small chevron tab on the glass card's right edge to collapse and re-expand it; collapsing frees the reserved space so the controls panel returns to its normal width.
