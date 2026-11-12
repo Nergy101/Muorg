@@ -18,9 +18,9 @@ module.exports = {
       label: "Apps",
       collapsed: false,
       items: [
-        { type: "doc", id: "desktop/index", label: "Desktop App" },
         { type: "doc", id: "web-client/index", label: "Web App" },
         { type: "doc", id: "android/index", label: "Android App" },
+        { type: "doc", id: "desktop/index", label: "Desktop App" },
       ],
     },
     {
