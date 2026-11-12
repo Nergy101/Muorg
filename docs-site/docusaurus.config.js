@@ -61,7 +61,7 @@ module.exports = {
         { to: "/docs/web-client/", position: "left", label: "Web" },
         { to: "/docs/android/", position: "left", label: "Android" },
         { to: "/docs/server/", position: "left", label: "Server" },
-        { to: "/docs/desktop/", position: "left", label: "Desktop" },
+        { to: "/docs/desktop/", position: "left", label: "Desktop (Legacy)" },
         { to: "/docs/releases", position: "left", label: "Releases" },
         {
           href: "https://github.com/Nergy101/Muorg",
@@ -84,7 +84,7 @@ module.exports = {
         {
           title: "Components",
           items: [
-            { label: "Desktop App", to: "/docs/desktop/" },
+            { label: "Desktop App (Legacy)", to: "/docs/desktop/" },
             { label: "Web App", to: "/docs/web-client/" },
             { label: "Android App", to: "/docs/android/" },
             { label: "Server", to: "/docs/server/" },

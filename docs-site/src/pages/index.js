@@ -57,9 +57,9 @@ function IconServer() {
 
 const components = [
   {
-    title: "Desktop App",
+    title: "Desktop App (Legacy)",
     description:
-      "The full editing experience on macOS, Windows and Linux. Track table, album grid, metadata editor with MusicBrainz auto-tagging, smart playlists and library reports.",
+      "Legacy client for macOS, Windows and Linux — the full editing experience with track table, album grid, metadata editor, smart playlists and reports. New setups should use the Web or Android app.",
     to: "/docs/desktop/",
     Icon: IconScreencast,
   },

@@ -1,7 +1,11 @@
 ---
-title: Desktop App
-description: The Muorg desktop client for macOS, Windows and Linux — library views, metadata editing, smart playlists, reports and playback.
+title: Desktop App (Legacy)
+description: The legacy Muorg desktop client for macOS, Windows and Linux — library views, metadata editing, smart playlists, reports and playback.
 ---
+
+:::warning Legacy
+The desktop app is **legacy** — it still works and receives fixes, but new development focuses on the [web app](/docs/web-client/) and [Android app](/docs/android/) against a self-hosted [server](/docs/server/). For new setups, self-host instead.
+:::
 
 The Muorg desktop client is built with **Tauri 2 + Vue 3** and runs on macOS, Windows and Linux. It is the most complete Muorg client: everything the metadata editor, reports and playlist tooling can do, it does here.
 

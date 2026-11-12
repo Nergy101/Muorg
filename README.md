@@ -14,7 +14,7 @@
 
 ---
 
-A music library organizer with a dense, library-style UI — a cross-platform desktop app, plus a web app and an Android app that connect to the same server. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+A music library organizer with a dense, library-style UI — a web app and an Android app that connect to the same self-hosted server, plus a legacy cross-platform desktop app. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
 
 Muorg works in two modes:
 - **Local** — music files live on your own machine; no remote server needed.
@@ -43,7 +43,7 @@ Full user and developer documentation — quick start, installation, configurati
 
 ## ⬇️ Download & install
 
-Grab the latest build for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
+Grab the latest build for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest). The desktop app below is **legacy** — for new setups, self-host the server and use the web or Android client instead (see [Quick Start](https://docs.muorg.nergy.space/docs/quick-start)):
 
 | Platform | File |
 |----------|------|
@@ -84,7 +84,7 @@ share:
 
 ```
 Muorg/
-├── client/          # Desktop app (Tauri 2 + Vue 3 + Rust)
+├── client/          # Desktop app — legacy (Tauri 2 + Vue 3 + Rust)
 │   └── README.md    # Developer setup, build, and release docs
 ├── web-client/      # Browser-based UI (Vue 3 + Vite, served via nginx)
 ├── android-client/  # Android app (Kotlin + Jetpack Compose + Media3)
@@ -100,7 +100,7 @@ Muorg/
 
 | Component | What it does | When you need it |
 |-----------|-------------|-----------------|
-| `client/` | Cross-platform desktop app | Always — this is the main app |
+| `client/` | Cross-platform desktop app (**legacy**) | Legacy — kept for existing users; new development targets web / Android / server |
 | `web-client/` | Browser UI connecting to muorg-server | When you want web access alongside or instead of the desktop app |
 | `android-client/` | Android app connecting to muorg-server | On a phone or tablet |
 | `server/` | HTTP backend for remote/NAS use | Only for home-server / multi-device setups |
@@ -123,9 +123,9 @@ For full developer and configuration details see **[client/README.md](client/REA
 
 ## 🐳 Self-hosting with Docker
 
-### Server only (desktop app in Online mode)
+### Server only (legacy desktop app in Online mode)
 
-Run muorg-server on a NAS or home server and connect to it from the desktop app in **Online** mode.
+Run muorg-server on a NAS or home server and connect to it from the legacy desktop app in **Online** mode.
 
 ```bash
 # 1. Grab the compose file
@@ -200,7 +200,7 @@ See the [server README](server/README.md) for the full configuration reference a
 - [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/) for your OS
 - For the Android app only: JDK 17 and the Android SDK
 
-### Desktop app
+### Desktop app (legacy)
 
 ```bash
 cd client
