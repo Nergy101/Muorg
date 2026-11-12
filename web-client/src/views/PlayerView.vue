@@ -12,13 +12,38 @@
          mode the blurred art becomes the sharp full-bleed background. -->
     <CoverBackdrop :cover-url="coverUrl" :sharp="artFullscreen" />
 
+    <!-- Art-fullscreen: the top bar is hidden, so the queue gets a collapsed
+         menu in the top right — the same expand pattern as the Muorg nav rail.
+         Expanded, it drops a glass panel listing the current queue. -->
+    <div v-if="artFullscreen" class="absolute right-3 top-3 z-20 flex flex-col items-end">
+      <button
+        type="button"
+        class="glass flex h-10 items-center gap-1.5 rounded-full px-3.5 transition-colors hover:bg-white/10"
+        :class="queueMenuOpen ? 'text-primary' : 'text-white/75 hover:text-white'"
+        aria-label="Queue"
+        :aria-expanded="queueMenuOpen"
+        @click="queueMenuOpen = !queueMenuOpen"
+      >
+        <MageIcon name="stack" class="h-5 w-5" />
+        <span class="text-label-lg">Queue</span>
+      </button>
+      <div
+        v-if="queueMenuOpen"
+        class="glass mt-2 flex max-h-[60vh] w-[320px] flex-col overflow-hidden rounded-2xl"
+      >
+        <QueueMiniList />
+      </div>
+    </div>
+
     <!-- The glow backdrop above still spans the full shell; only the controls
          column is centred, so seek and transport stay near the art on desktop
          instead of stretching to the edges. Uncapped below md — and uncapped
          in art-fullscreen mode, where the bottom bar spans the whole screen
          width. -->
+    <!-- @container: the side queue panel below keys off this column's actual
+         width ("show it as long as it fits"), not the viewport breakpoint. -->
     <div
-      class="relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto"
+      class="@container relative z-10 flex min-h-0 w-full flex-1 flex-col md:mx-auto"
       :class="artFullscreen ? 'md:max-w-none lg:max-w-none' : 'md:max-w-[640px] lg:max-w-5xl'"
     >
       <!-- Top row. The back chevron is centred in the middle of the row at
@@ -144,7 +169,7 @@
           class="controls-panel relative z-10 flex shrink-0 glass"
           :class="artFullscreen
             ? 'm-0 mt-auto w-full flex-row items-center gap-4 rounded-b-none rounded-t-3xl py-3 pl-6 pr-3 lg:px-6'
-            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2'"
+            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2 @min-[820px]:max-w-[820px] @min-[820px]:pr-[316px]'"
         >
           <!-- Track info bottom-left, quick actions opposite, both above the seek bar.
                In art-fullscreen mode the panel is a single bottom row: cover +
@@ -454,6 +479,23 @@
               </button>
             </div>
           </div>
+
+          <!-- Shown whenever the content column is at least 820px wide (the
+               width the widened panel needs), not just at the xl viewport:
+               the queue rides the glass panel's right edge. Absolutely
+               positioned so it matches the panel's exact height and scrolls
+               internally without ever stretching the panel; the panel's
+               matching right padding keeps the controls clear of it. It adds
+               NO material of its own — no fill, no backdrop blur — so the
+               card's glass shows through it exactly like the rest of the
+               card; only the hairline separator marks the split. Hidden in
+               art-fullscreen, where the panel is a single bottom bar. -->
+          <div
+            v-if="!artFullscreen"
+            class="absolute inset-y-0 right-0 hidden w-[300px] flex-col overflow-hidden rounded-r-3xl border-l border-white/10 @min-[820px]:flex"
+          >
+            <QueueMiniList />
+          </div>
         </div>
       </div>
     </div>
@@ -504,6 +546,7 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
+import QueueMiniList from "../components/QueueMiniList.vue";
 import { useDominantColor } from "../composables/useDominantColor";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { useSwipeDown } from "../composables/useSwipeDown";
@@ -605,6 +648,13 @@ const artFullscreen = computed(() => player.artFullscreen);
 function toggleArtFullscreen(): void {
   player.toggleArtFullscreen();
 }
+
+// Collapsed queue menu in the art-fullscreen top right; closed again when FS
+// mode ends so it never leaks into the normal player.
+const queueMenuOpen = ref(false);
+watch(artFullscreen, (v) => {
+  if (!v) queueMenuOpen.value = false;
+});
 
 /** Pressing the album art in the middle cycles through all three display
  *  variants: normal → FS with cover in the middle → FS with cover hidden

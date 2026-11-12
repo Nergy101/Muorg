@@ -23,6 +23,10 @@ let video: HTMLVideoElement | null = null;
 let canvas: HTMLCanvasElement | null = null;
 let coverImg: HTMLImageElement | null = null;
 let drawTimer = 0;
+// The popout video's stream and its audio track, kept so the audio track can
+// be swapped when the store replaces the active <audio> element mid-session.
+let popoutStream: MediaStream | null = null;
+let popoutAudioTrack: MediaStreamTrack | null = null;
 
 function drawFrame(player: ReturnType<typeof usePlayerStore>): void {
   if (!canvas) return;
@@ -127,6 +131,8 @@ function ensureVideo(player: ReturnType<typeof usePlayerStore>): HTMLVideoElemen
     if (player.audioEl) player.audioEl.muted = false;
     window.clearInterval(drawTimer);
     drawTimer = 0;
+    popoutStream = null;
+    popoutAudioTrack = null;
   });
   document.body.appendChild(video);
   return video;
@@ -145,13 +151,18 @@ export function usePopoutPlayer() {
     if (!canvas) return;
 
     const stream = new MediaStream();
+    popoutStream = stream;
+    popoutAudioTrack = null;
     const videoTrack = canvas.captureStream(30).getVideoTracks()[0];
     if (videoTrack) stream.addTrack(videoTrack);
     // captureStream() on media elements is missing from this TS DOM lib.
     const el = player.audioEl as (HTMLAudioElement & { captureStream?: () => MediaStream }) | null;
     if (el?.captureStream) {
       try {
-        for (const t of el.captureStream().getAudioTracks()) stream.addTrack(t);
+        for (const t of el.captureStream().getAudioTracks()) {
+          stream.addTrack(t);
+          popoutAudioTrack = t;
+        }
       } catch {
         // Audio capture unsupported: fall back to a silent video-only popout.
       }
@@ -186,6 +197,32 @@ export function usePopoutPlayer() {
       updateMediaSession(player);
     },
     { immediate: true },
+  );
+
+  // The store swaps the active <audio> element on every track handoff, so the
+  // popout's mute and captured audio track must follow the SESSION, not the
+  // element that happened to be active when PiP opened. Otherwise the muted
+  // flag sticks to a swapped-out element (page goes silent) and the popout's
+  // captured track dies with the detached element's removed src.
+  watch(
+    () => player.audioEl,
+    (el) => {
+      if (!el) return;
+      el.muted = pipActive.value;
+      if (!pipActive.value || !video) return;
+      video.volume = el.volume;
+      const cap = (el as HTMLAudioElement & { captureStream?: () => MediaStream }).captureStream;
+      if (!cap || !popoutStream) return;
+      try {
+        const next = cap.call(el).getAudioTracks()[0];
+        if (!next) return;
+        if (popoutAudioTrack) popoutStream.removeTrack(popoutAudioTrack);
+        popoutStream.addTrack(next);
+        popoutAudioTrack = next;
+      } catch {
+        // Audio capture unsupported on the new element: keep the old track.
+      }
+    },
   );
 
   if ("mediaSession" in navigator) {

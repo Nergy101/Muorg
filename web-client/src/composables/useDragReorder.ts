@@ -5,6 +5,11 @@ import type { Ref } from "vue";
 export const REORDER_ROW_HEIGHT = 56;
 
 const LONG_PRESS_MS = 500;
+/** Auto-scroll tuning: pointer within EDGE px of the container's top/bottom
+ *  scrolls by STEP px every TICK ms while the drag is armed. */
+const AUTO_SCROLL_EDGE = 56;
+const AUTO_SCROLL_STEP = 16;
+const AUTO_SCROLL_TICK_MS = 50;
 
 export interface DragReorderOptions {
   itemCount: () => number;
@@ -15,6 +20,10 @@ export interface DragReorderOptions {
   onCommit: (from: number, to: number, offsetY?: number) => void;
   /** true = press and drag straight away; false = long-press to arm first. */
   immediate?: boolean;
+  /** Optional scroller that auto-scrolls while the pointer rests near its
+   *  top/bottom edge mid-drag. The scroll delta also feeds the drop index, so
+   *  the dragged row can be placed beyond the currently visible area. */
+  autoScrollContainer?: () => HTMLElement | null;
 }
 
 export interface DragReorderState {
@@ -34,8 +43,41 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
   const offsetY = ref(0);
 
   let armTimer: ReturnType<typeof setTimeout> | undefined;
+  let autoScrollTimer: ReturnType<typeof setInterval> | undefined;
   let startY = 0;
   let pointerId: number | null = null;
+  /** Last seen pointer Y and the accumulated auto-scroll compensation, so the
+   *  drop index keeps advancing while the list scrolls under a held pointer. */
+  let lastPointerY = 0;
+  let scrollDelta = 0;
+
+  function stopAutoScroll(): void {
+    if (autoScrollTimer !== undefined) {
+      clearInterval(autoScrollTimer);
+      autoScrollTimer = undefined;
+    }
+  }
+
+  function beginAutoScroll(): void {
+    stopAutoScroll();
+    const container = opts.autoScrollContainer?.();
+    if (!container) return;
+    autoScrollTimer = setInterval(() => {
+      const from = draggingIndex.value;
+      if (from === null) return;
+      const rect = container.getBoundingClientRect();
+      let step = 0;
+      if (lastPointerY < rect.top + AUTO_SCROLL_EDGE) step = -AUTO_SCROLL_STEP;
+      else if (lastPointerY > rect.bottom - AUTO_SCROLL_EDGE) step = AUTO_SCROLL_STEP;
+      if (step === 0) return;
+      container.scrollBy({ top: step });
+      // Treat the scroll as virtual pointer movement so the dragged row can be
+      // placed past the visible edge instead of clamping at the pointer.
+      scrollDelta += step;
+      offsetY.value = lastPointerY - startY + scrollDelta;
+      dropIndex.value = rowsMoved(from);
+    }, AUTO_SCROLL_TICK_MS);
+  }
 
   /** Clamped destination row for a drag that started at `from`. */
   function rowsMoved(from: number): number {
@@ -53,7 +95,8 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
       return;
     }
     e.preventDefault();
-    offsetY.value = e.clientY - startY;
+    lastPointerY = e.clientY;
+    offsetY.value = e.clientY - startY + scrollDelta;
     dropIndex.value = rowsMoved(from);
   }
 
@@ -73,10 +116,12 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
   function cleanup(): void {
     clearTimeout(armTimer);
     armTimer = undefined;
+    stopAutoScroll();
     draggingIndex.value = null;
     dropIndex.value = null;
     offsetY.value = 0;
     pointerId = null;
+    scrollDelta = 0;
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onUp);
@@ -86,6 +131,7 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
     cleanup();
     pointerId = e.pointerId;
     startY = e.clientY;
+    lastPointerY = e.clientY;
     window.addEventListener("pointermove", onMove, { passive: false });
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
@@ -96,6 +142,7 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
       e.preventDefault();
       draggingIndex.value = index;
       dropIndex.value = index;
+      beginAutoScroll();
       return;
     }
     armTimer = setTimeout(() => {
@@ -103,6 +150,7 @@ export function useDragReorder(opts: DragReorderOptions): DragReorderState {
       navigator.vibrate?.(20);
       draggingIndex.value = index;
       dropIndex.value = index;
+      beginAutoScroll();
     }, LONG_PRESS_MS);
   }
 

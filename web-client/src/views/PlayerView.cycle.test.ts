@@ -58,6 +58,7 @@ function makePlayer() {
     fsShowCover: false, // persisted "hidden" — the case that used to collapse the cycle
     currentTrack: { id: 1, title: "So What", artist: "Miles Davis", album: "Kind of Blue" },
     currentCoverUrl: "http://x/cover.jpg",
+    upNext: [] as { track: { id: number; title?: string; artist?: string; album_artist?: string; album?: string; has_cover?: boolean } }[],
     isPlaying: true,
     progress: 0.5,
     positionSecs: 100,
@@ -69,7 +70,7 @@ function makePlayer() {
     favorites: new Set<number>(),
     toggleArtFullscreen() { this.artFullscreen = !this.artFullscreen; },
     toggleFsShowCover() { this.fsShowCover = !this.fsShowCover; },
-    playPause: vi.fn(), seekTo: vi.fn(), skipNext: vi.fn(), skipPrevious: vi.fn(),
+    playPause: vi.fn(), seekTo: vi.fn(), skipNext: vi.fn(), skipPrevious: vi.fn(), skipTo: vi.fn(),
     cycleRepeatMode: vi.fn(), toggleShuffle: vi.fn(), toggleFavorite: vi.fn(),
     cancelSleepTimer: vi.fn(), startSleepTimer: vi.fn(),
   });
