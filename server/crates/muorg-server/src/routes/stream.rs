@@ -75,6 +75,21 @@ fn parse_range(range: &str, total: u64) -> Option<ByteRange> {
     Some(ByteRange { start, end: end.min(total - 1) })
 }
 
+/// True for user agents whose `<audio>` element cannot decode FLAC: Safari on
+/// macOS, and every browser on iOS (all WebKit, so Chrome/Firefox on iOS are
+/// covered by the iPhone/iPad/iPod tokens). Desktop Chrome/Edge also carry a
+/// "Safari" token in their UA, so they are excluded explicitly.
+fn ua_cannot_decode_flac(ua: &str) -> bool {
+    if ua.contains("iPhone") || ua.contains("iPad") || ua.contains("iPod") {
+        return true;
+    }
+    ua.contains("Safari/")
+        && !ua.contains("Chrome/")
+        && !ua.contains("Chromium/")
+        && !ua.contains("Edg/")
+        && !ua.contains("Android")
+}
+
 /// Distinguishes a deleted object from a broken bucket or credential, so a
 /// misconfigured remote does not masquerade as a missing track.
 fn remote_err(id: i64, e: object_store::Error) -> Response {
@@ -223,7 +238,9 @@ pub async fn stream_audio(
 /// ranges, so clients get the lossless file and can seek natively. Only
 /// available when `[feature-flags] true_flac` is enabled and the track is a
 /// FLAC — otherwise 404, and clients fall back to the transcoded
-/// `/stream/{token}/{id}`.
+/// `/stream/{token}/{id}`. Requestors whose user agent cannot decode FLAC
+/// (Safari, and every iOS browser since they are all WebKit) are transparently
+/// served the MP3 transcode instead.
 #[utoipa::path(
     get,
     path = "/stream/flac/{token}/{id}",
@@ -273,6 +290,23 @@ pub async fn stream_audio_flac(
         return StatusCode::NOT_FOUND.into_response();
     }
 
+    // Safari and all iOS browsers cannot decode FLAC in an <audio> element —
+    // serve them the MP3 transcode instead of bytes they cannot play.
+    let ua = req_headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if ua_cannot_decode_flac(ua) {
+        tracing::info!(track_id = id, ua, "stream/flac: user agent cannot decode FLAC, serving MP3 transcode");
+        return stream_audio(
+            Path((token, id)),
+            Query(StreamQuery { start: None }),
+            State(state),
+            req_headers,
+        )
+        .await;
+    }
+
     if let Some((remote, key)) = state.remotes.resolve(&track_path) {
         return stream_flac_remote(id, remote, key, &req_headers).await;
     }
@@ -299,7 +333,7 @@ pub async fn stream_audio_flac(
             headers.insert("Content-Type", "audio/flac".parse().unwrap());
             headers.insert("Accept-Ranges", "bytes".parse().unwrap());
             headers.insert("Cache-Control", "no-cache".parse().unwrap());
-            headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+            headers.insert("Vary", "Accept-Encoding, User-Agent".parse().unwrap());
             headers.insert("ETag", etag.parse().unwrap());
             if let Some(m) = mtime {
                 headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
@@ -344,7 +378,7 @@ async fn stream_flac_remote(
     let mut headers = HeaderMap::new();
     headers.insert("Content-Type", "audio/flac".parse().unwrap());
     headers.insert("Cache-Control", "no-cache".parse().unwrap());
-    headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+    headers.insert("Vary", "Accept-Encoding, User-Agent".parse().unwrap());
     headers.insert("ETag", etag.parse().unwrap());
     headers.insert("Accept-Ranges", "bytes".parse().unwrap());
     if let Some(m) = mtime {
@@ -558,5 +592,41 @@ async fn stream_remote(
             headers.insert("Content-Length", total.to_string().parse().unwrap());
             (StatusCode::OK, headers, Body::from_stream(res.into_stream())).into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ua_cannot_decode_flac;
+
+    #[test]
+    fn safari_and_ios_user_agents_cannot_decode_flac() {
+        assert!(ua_cannot_decode_flac(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+        ));
+        assert!(ua_cannot_decode_flac(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+        ));
+        // Chrome on iOS is still WebKit — no FLAC decode.
+        assert!(ua_cannot_decode_flac(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0.6778.73 Mobile/15E148 Safari/604.1"
+        ));
+    }
+
+    #[test]
+    fn chrome_edge_firefox_and_android_can_decode_flac() {
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        ));
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+        ));
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"
+        ));
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+        ));
+        assert!(!ua_cannot_decode_flac(""));
     }
 }

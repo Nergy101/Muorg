@@ -1190,3 +1190,78 @@ async fn flac_stream_endpoint_rejects_a_forged_token() {
         .unwrap();
     assert_eq!(resp.status(), 401);
 }
+
+/// Generate a 1-second sine FLAC via ffmpeg (None when ffmpeg is unavailable,
+/// in which case the caller skips).
+fn generate_test_flac() -> Option<Vec<u8>> {
+    let dir = tempfile::tempdir().ok()?;
+    let src = dir.path().join("in.wav");
+    let out = dir.path().join("out.flac");
+    let run = |args: &[&str]| {
+        std::process::Command::new("ffmpeg")
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .ok()
+            .filter(|s| s.success())
+    };
+    run(&[
+        "-y", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
+        &src.to_string_lossy().into_owned(),
+    ])?;
+    run(&["-y", "-i", &src.to_string_lossy().into_owned(), &out.to_string_lossy().into_owned()])?;
+    std::fs::read(&out).ok()
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_serves_mp3_to_user_agents_that_cannot_decode_flac() {
+    let Some(flac_bytes) = generate_test_flac() else {
+        eprintln!("skipping: ffmpeg not available");
+        return;
+    };
+
+    let srv = TestServer::start_with(|state| {
+        state.feature_flags.true_flac = true;
+    })
+    .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    std::fs::write(&song, &flac_bytes).unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["flac"], true);
+    let token = body["token"].as_str().unwrap().to_string();
+    let url = srv.url(&format!("/stream/flac/{token}/{track_id}"));
+
+    async fn content_type_for(srv: &TestServer, url: &str, ua: &str) -> String {
+        let resp = srv
+            .client
+            .get(url)
+            .header("user-agent", ua)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 200);
+        resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string()
+    }
+
+    // Safari on macOS and any browser on iOS get the MP3 transcode.
+    let safari = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+    let iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0.6778.73 Mobile/15E148 Safari/604.1";
+    assert_eq!(content_type_for(&srv, &url, safari).await, "audio/mpeg");
+    assert_eq!(content_type_for(&srv, &url, iphone).await, "audio/mpeg");
+
+    // Chrome (which also carries a "Safari" token) still gets the real FLAC.
+    let chrome = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    assert_eq!(content_type_for(&srv, &url, chrome).await, "audio/flac");
+}
