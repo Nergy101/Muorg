@@ -3,7 +3,10 @@
        the layout widens into a sidebar + content pane (lg). -->
   <div
     class="flex h-full w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] lg:flex-row lg:pt-0"
-    :class="isBareless ? 'max-w-none' : 'max-w-[600px] md:max-w-[900px] lg:max-w-none'"
+    :class="[
+      isBareless ? 'max-w-none' : 'max-w-[600px] md:max-w-[900px] lg:max-w-none',
+      { 'ios-pwa': isIosPwa },
+    ]"
   >
     <!-- Desktop navigation rail; mobile keeps the bottom nav. -->
     <SidebarNav v-if="showSidebar" />
@@ -118,6 +121,7 @@ import { installTooltips } from "./composables/useTooltips";
 import { usePlayerStore } from "./stores/player";
 import { useSettingsStore } from "./stores/settings";
 import { useSwipeNavigate } from "./composables/useSwipeNavigate";
+import { useIosPwa } from "./composables/useIosPwa";
 import { useSwipeBack } from "./composables/useSwipeBack";
 import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
 import { useScrollNavHide } from "./composables/useScrollNavHide";
@@ -146,6 +150,9 @@ const BARELESS = ["connect", "player", "player-queue"];
 // shell must not keep the 600/900px column cap below lg, or the backdrop stops
 // at the cap and the window's right side shows flat body background.
 const isBareless = computed(() => BARELESS.includes(String(route.name)));
+// iOS PWA: extra top padding so the iOS 26+ system top fade doesn't sit under
+// the header glass (see the .ios-pwa rule in style.css).
+const isIosPwa = useIosPwa();
 
 // The connect screen is a full-pane onboarding flow — no nav rail beside it.
 // Everything else (including the player sheet, also in art-fullscreen mode)

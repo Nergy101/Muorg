@@ -299,6 +299,17 @@ body {
   }
 }
 
+/* iOS 26+ in an installed PWA draws a system blur/fade over the top edge that
+   CSS cannot disable (see index.html). The .ios-pwa class is set from JS only
+   on iOS/WebKit in standalone mode; the extra padding pushes the shell below
+   the fade so the header glass doesn't blur it into fuzz. Mobile only — the
+   lg layout has no top bar (lg:pt-0 on the shell). */
+@media (display-mode: standalone) and (max-width: 1023px) {
+  .ios-pwa {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 2rem);
+  }
+}
+
 #app {
   height: 100%;
   display: flex;
