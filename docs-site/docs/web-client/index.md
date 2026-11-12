@@ -85,6 +85,10 @@ The full-screen player shows album art with a dominant-colour backdrop, seek bar
 
 ![Web app maximized player](/img/screenshots/web-app-player-max.jpg)
 
+Tap the artwork to switch to the full-screen art view — cover art edge to edge with a compact bottom bar:
+
+![Web app full-screen art player](/img/screenshots/web-app-player-fs.jpg)
+
 While a track plays, the mini player bar sits at the bottom — tap it to expand to the full-screen player:
 
 ![Web app mini player](/img/screenshots/web-app-mini-player.jpg)
