@@ -6,6 +6,10 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.5.1
+
+- **Web**: leaving the maximized player while in art-fullscreen (FS) mode now disables FS mode, so the normal sidenav is shown again instead of staying collapsed.
+
 ## v4.4.6
 
 - **Web**: the heart icon in the track bottom sheets (track actions / context menu) is now **filled** when the track is favorited, matching the player view.
