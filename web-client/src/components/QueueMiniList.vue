@@ -5,8 +5,9 @@
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex h-11 shrink-0 items-center gap-2 border-b border-white/10 px-4">
       <MageIcon name="stack" class="h-4 w-4 text-primary" />
-      <span class="flex-1 text-label-lg text-white">Queue</span>
-      <span class="text-label-sm tabular-nums text-white/50">{{ player.upNext.length }}</span>
+      <span class="text-label-lg text-white">Queue</span>
+      <span class="text-label-sm tabular-nums text-white/50">{{ player.upNext.length }} track{{ player.upNext.length === 1 ? "" : "s" }}</span>
+      <span class="flex-1"></span>
     </div>
     <div ref="scroller" class="queue-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
       <div

@@ -497,20 +497,19 @@
             <QueueMiniList />
           </div>
 
-          <!-- Chevron tab on the panel's right edge: collapses the side queue
-               panel and re-expands it. Rides the queue panel's left edge while
-               open, the panel's own edge once collapsed. Desktop-width only,
-               hidden in art-fullscreen where the panel is a single bottom bar. -->
+          <!-- Chevron in the panel's top-right corner: expands the side queue
+               (pointing right) and collapses it again (pointing left, landing
+               where the queue header's track count used to sit). Desktop-width
+               only, hidden in art-fullscreen where the panel is a bottom bar. -->
           <button
             v-if="!artFullscreen"
             type="button"
-            class="glass absolute top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-white/75 transition-all hover:bg-white/10 hover:text-white @min-[820px]:flex"
-            :class="queuePanelOpen ? 'right-[300px]' : 'right-2'"
+            class="glass absolute right-2 top-2 z-20 hidden h-7 w-7 items-center justify-center rounded-full text-white/75 transition-all hover:bg-white/10 hover:text-white @min-[820px]:flex"
             :aria-label="queuePanelOpen ? 'Collapse queue panel' : 'Expand queue panel'"
             :aria-expanded="queuePanelOpen"
             @click="queuePanelOpen = !queuePanelOpen"
           >
-            <MageIcon :name="queuePanelOpen ? 'chevron-right' : 'chevron-left'" class="h-4 w-4" />
+            <MageIcon :name="queuePanelOpen ? 'chevron-left' : 'chevron-right'" class="h-4 w-4" />
           </button>
         </div>
       </div>
