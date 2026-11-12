@@ -57,13 +57,6 @@ function IconServer() {
 
 const components = [
   {
-    title: "Desktop App (Legacy)",
-    description:
-      "Legacy client for macOS, Windows and Linux — the full editing experience with track table, album grid, metadata editor, smart playlists and reports. New setups should use the Web or Android app.",
-    to: "/docs/desktop/",
-    Icon: IconScreencast,
-  },
-  {
     title: "Web App",
     description:
       "The easiest client to use Muorg, from any device, built for every viewport.",
@@ -85,6 +78,14 @@ const components = [
     Icon: IconServer,
   },
 ];
+
+const legacy = {
+  title: "Desktop App (Legacy)",
+  description:
+    "The legacy macOS / Windows / Linux client — full editing experience, kept for existing users. New setups should use the Web or Android app.",
+  to: "/docs/desktop/",
+  Icon: IconScreencast,
+};
 
 function Hero() {
   const { siteConfig } = useDocusaurusContext();
@@ -123,7 +124,7 @@ function FeatureCards() {
       <div className="container">
         <div className="row">
           {components.map((c) => (
-            <div className={clsx("col col--3", styles.featureCol)} key={c.title}>
+            <div className={clsx("col col--4", styles.featureCol)} key={c.title}>
               <Link className={styles.featureCard} to={c.to}>
                 <div className={styles.featureIcon}>
                   <c.Icon />
@@ -133,6 +134,14 @@ function FeatureCards() {
               </Link>
             </div>
           ))}
+        </div>
+        <div className={styles.legacyRow}>
+          <Link className={styles.legacyLink} to={legacy.to}>
+            <legacy.Icon />
+            <span>
+              <strong>{legacy.title}</strong> — {legacy.description}
+            </span>
+          </Link>
         </div>
       </div>
     </section>
