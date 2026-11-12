@@ -63,12 +63,12 @@
   color: var(--ifm-color-primary);
 }
 
-:global([data-theme="dark"]) .featureIcon {
-  color: #fff;
+.featureIcon svg {
+  display: block;
 }
 
-.featureIcon img {
-  display: block;
+:global([data-theme="dark"]) .featureIcon {
+  color: #fff;
 }
 
 .featureCard h3 {
