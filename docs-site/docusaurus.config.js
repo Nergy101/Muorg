@@ -54,13 +54,12 @@ module.exports = {
         alt: "Muorg Logo",
         src: "img/logo.svg",
       },
-      // Same order as the sidebar: apps first, then the server behind them.
       items: [
         { type: "doc", docId: "intro", position: "left", label: "Docs" },
-        { type: "doc", docId: "desktop/index", position: "left", label: "Desktop" },
         { type: "doc", docId: "web-client/index", position: "left", label: "Web" },
         { type: "doc", docId: "android/index", position: "left", label: "Android" },
         { type: "doc", docId: "server/index", position: "left", label: "Server" },
+        { type: "doc", docId: "desktop/index", position: "left", label: "Desktop" },
         { type: "doc", docId: "releases", position: "left", label: "Releases" },
         {
           href: "https://github.com/Nergy101/Muorg",
