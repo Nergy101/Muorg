@@ -22,18 +22,12 @@ pub struct Config {
 /// Experimental switches. Everything here defaults to `false` so stock
 /// behaviour is unchanged; a flag that proves out can later become the
 /// default and be removed from this section.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct FeatureFlagsConfig {
     /// Serve FLAC tracks 1:1 from `GET /stream/flac/{token}/{id}` instead of
     /// transcoding them to MP3 (default: false).
     #[serde(default)]
     pub true_flac: bool,
-}
-
-impl Default for FeatureFlagsConfig {
-    fn default() -> Self {
-        Self { true_flac: false }
-    }
 }
 
 #[derive(Debug, Deserialize)]
