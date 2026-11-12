@@ -55,12 +55,14 @@ module.exports = {
         src: "img/logo.svg",
       },
       items: [
-        { type: "doc", docId: "intro", position: "left", label: "Docs" },
-        { type: "doc", docId: "web-client/index", position: "left", label: "Web" },
-        { type: "doc", docId: "android/index", position: "left", label: "Android" },
-        { type: "doc", docId: "server/index", position: "left", label: "Server" },
-        { type: "doc", docId: "desktop/index", position: "left", label: "Desktop" },
-        { type: "doc", docId: "releases", position: "left", label: "Releases" },
+        // Plain `to:` links, not type:"doc" — every doc lives under /docs/,
+        // so type:"doc" would mark ALL items active on every docs page.
+        { to: "/docs/intro", position: "left", label: "Docs" },
+        { to: "/docs/web-client/", position: "left", label: "Web" },
+        { to: "/docs/android/", position: "left", label: "Android" },
+        { to: "/docs/server/", position: "left", label: "Server" },
+        { to: "/docs/desktop/", position: "left", label: "Desktop" },
+        { to: "/docs/releases", position: "left", label: "Releases" },
         {
           href: "https://github.com/Nergy101/Muorg",
           label: "GitHub",
