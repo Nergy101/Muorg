@@ -67,7 +67,7 @@ The app uses hash-based routing, so no server-side rewrite rules are required.
 
 ## Feature tour
 
-![Web app album detail](/img/screenshots/web-app-album.png)
+![Web app album detail](/img/screenshots/web-app-album.jpg)
 
 The full-screen player shows album art with a dominant-colour backdrop, seek bar and transport controls, and can toggle to synced lyrics when a track has them.
 

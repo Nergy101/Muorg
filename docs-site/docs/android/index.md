@@ -5,6 +5,8 @@ description: The Muorg Android client — stream from your server or play an on-
 
 The Muorg Android client (Kotlin + Jetpack Compose, Media3/ExoPlayer) works in two modes: streaming from a [muorg-server](/docs/server/), or playing music stored on the device itself.
 
+![Android app home screen](/img/screenshots/android-home.jpg)
+
 ## Install
 
 The app is distributed as an APK from GitHub Releases — it is not on Google Play. It has its **own release tag**, separate from the desktop and server releases.
@@ -35,8 +37,16 @@ If a server connection fails, check that the server is up (`/api/health`), that 
 
 - **Home** — shelves for Recommended, Mixes, Most Played and Recently Played, plus a **Shuffle all** button in the header that shuffles your whole library and keeps topping the queue up as it plays.
 - **Library** — album grid, album list or flat track list, with live search and recent-search chips.
+
+![Android app library](/img/screenshots/android-library.jpg)
+
 - **Album view** — tap an album to browse and play its tracks.
+
+![Android app album detail](/img/screenshots/android-album.jpg)
+
 - **Player** — artwork, seek bar, shuffle, repeat and queue. Swipe down to close it.
+
+![Android app player](/img/screenshots/android-player.jpg)
 - **Playlists** — create and manage regular playlists. Smart playlists defined on the server are shown and playable, but their rules are edited on [desktop](/docs/desktop/) or in the [web app](/docs/web-client/).
 - **Metadata** — edit a single track's title, artist, album, album artist, genre and year from its actions sheet. The **metadata scan** tool under Settings → Library tools finds tracks that still need tags.
 
