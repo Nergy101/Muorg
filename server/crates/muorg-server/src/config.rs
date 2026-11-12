@@ -15,7 +15,7 @@ pub struct Config {
     pub transcoding: TranscodingConfig,
     #[serde(default)]
     pub images: ImageFetchConfig,
-    #[serde(default)]
+    #[serde(default, rename = "feature-flags")]
     pub feature_flags: FeatureFlagsConfig,
 }
 
