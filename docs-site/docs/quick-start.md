@@ -48,10 +48,12 @@ Pick the path that matches what you want:
    # → Healthy
    ```
 
-5. **Connect a client.** Open `http://<host>:7800` in a browser, or launch the Android app, and enter:
+5. **Connect a client.**
 
-   - **Server URL** — e.g. `http://192.168.1.50:7700`
-   - **API key** — the `api_key` from your config
+   - **Web app, running locally** — open `http://localhost:7800` in a browser on the same machine and enter:
+     - **Server URL** — `http://localhost:7700`
+     - **API key** — the `api_key` from your config
+   - **Android app** — launch it and enter the server's address directly, e.g. `http://<nas-or-vps-ip>:7700` (use your configured port if you changed it from `7700`), plus the **API key** from your config. When the phone is on the same network as the server, the LAN IP works; from outside, use your VPS/domain and make sure the port is reachable.
 
 That's it — the same library, playlists, ratings and play counts on every device.
 
