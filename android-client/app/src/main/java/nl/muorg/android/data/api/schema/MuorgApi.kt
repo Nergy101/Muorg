@@ -595,7 +595,9 @@ interface MuorgApi {
      * ranges, so clients get the lossless file and can seek natively. Only
      * available when `[feature-flags] true_flac` is enabled and the track is a
      * FLAC — otherwise 404, and clients fall back to the transcoded
-     * `/stream/{token}/{id}`.
+     * `/stream/{token}/{id}`. Requestors whose user agent cannot decode FLAC
+     * (Safari, and every iOS browser since they are all WebKit) are transparently
+     * served the MP3 transcode instead.
      *
      * `GET /stream/flac/{token}/{id}`
      */
