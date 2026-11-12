@@ -1,13 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CatalogTrack } from "../types";
 
-const issueStreamToken = vi.fn();
+const issueStreamTokenInfo = vi.fn();
 vi.mock("../api/catalog", () => ({
-  issueStreamToken: (id: number) => issueStreamToken(id),
+  issueStreamTokenInfo: (id: number) => issueStreamTokenInfo(id),
 }));
 vi.mock("../api/client", () => ({
   getServerUrl: () => "http://server.test:7700",
-  streamUrl: (id: number, token: string) => `http://server.test:7700/stream/${token}/${id}`,
+  api: {
+    streamUrlForTrack: (t: { id: number; format: string }, info: { token: string; flac: boolean }) =>
+      info.flac && t.format.toLowerCase() === "flac"
+        ? `http://server.test:7700/stream/flac/${info.token}/${t.id}`
+        : `http://server.test:7700/stream/${info.token}/${t.id}`,
+  },
 }));
 
 // Dynamic import so the module under test resolves its ../api/catalog and
@@ -123,7 +128,7 @@ describe("previewRelativePath", () => {
 
 describe("buildStreamM3u", () => {
   it("issues a token per track and writes an authorised stream URL", async () => {
-    issueStreamToken.mockImplementation((id: number) => Promise.resolve(`tok${id}`));
+    issueStreamTokenInfo.mockImplementation((id: number) => Promise.resolve({ token: `tok${id}`, flac: false }));
     const tracks = [track({ id: 7, path: "/m/Music/A/Song.mp3", artist: "A", title: "Song", duration_secs: 42 })];
     const { content, skippedCount } = await buildStreamM3u(tracks);
     expect(skippedCount).toBe(0);
@@ -133,7 +138,7 @@ describe("buildStreamM3u", () => {
   });
 
   it("falls back to an unauthenticated stream URL when token issuance fails", async () => {
-    issueStreamToken.mockRejectedValue(new Error("offline"));
+    issueStreamTokenInfo.mockRejectedValue(new Error("offline"));
     const tracks = [track({ id: 9, path: "/m/Music/B/Other.mp3" })];
     const { content } = await buildStreamM3u(tracks);
     expect(content).toContain("http://server.test:7700/stream/9");

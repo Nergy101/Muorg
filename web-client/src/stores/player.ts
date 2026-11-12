@@ -1,8 +1,9 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch, watchEffect } from "vue";
-import { getMetadata, issueStreamToken, recordPlay } from "../api/catalog";
+import { getMetadata, issueStreamTokenInfo, recordPlay } from "../api/catalog";
 import type { TrackMetadata } from "../api/catalog";
-import { streamUrl } from "../api/client";
+import { api, streamUrl } from "../api/client";
+import type { StreamTokenInfo } from "@shared/api";
 import { needsTranscode } from "@shared/formats";
 import { computeReplayGainVolume } from "../audio/replayGain";
 import { clearPlayHistory, recordPlayHistory, stepBackPlayHistory } from "../audio/playHistory";
@@ -16,6 +17,12 @@ import { useOfflineStore, offlineStreamUrl } from "./offline";
 import { usePlaylistStore } from "./playlists";
 import { useSettingsStore } from "./settings";
 import type { CatalogTrack, RepeatMode } from "../types";
+
+/** True when the server will serve this track's original FLAC 1:1
+ *  (`[feature-flags] true_flac` on, FLAC track) instead of a transcoded MP3. */
+function isTrueFlac(track: CatalogTrack, info: StreamTokenInfo): boolean {
+  return info.flac && track.format.toLowerCase() === "flac";
+}
 
 /** How many tracks "Shuffle all" queues up front and tops up with. */
 const SHUFFLE_ALL_BATCH = 20;
@@ -422,24 +429,30 @@ export const usePlayerStore = defineStore("player", () => {
    *  server is unreachable the offline copy is used (Q11). Offline mode (the
    *  settings toggle, mirroring the Android app) makes no network calls at
    *  all: cached tracks play from the cache, anything else is an error. */
-  async function resolveStreamSrc(track: CatalogTrack, startSecs: number): Promise<string> {
+  async function resolveStreamSrc(
+    track: CatalogTrack,
+    startSecs: number,
+  ): Promise<{ src: string; trueFlac: boolean }> {
     const offline = useOfflineStore();
     if (useSettingsStore().offlineMode) {
       if (!offline.isCached(track.id)) {
         throw new Error("Not downloaded — download it or turn off offline mode");
       }
-      return offlineStreamUrl(track.id);
+      return { src: offlineStreamUrl(track.id), trueFlac: false };
     }
     if (offline.isCached(track.id)) {
       try {
-        const token = await issueStreamToken(track.id);
-        return streamUrl(track.id, token);
+        const info = await issueStreamTokenInfo(track.id);
+        return { src: api.streamUrlForTrack(track, info), trueFlac: isTrueFlac(track, info) };
       } catch {
-        return offlineStreamUrl(track.id);
+        return { src: offlineStreamUrl(track.id), trueFlac: false };
       }
     }
-    const token = await issueStreamToken(track.id);
-    return streamUrl(track.id, token, startSecs);
+    const info = await issueStreamTokenInfo(track.id);
+    return {
+      src: api.streamUrlForTrack(track, info, startSecs),
+      trueFlac: isTrueFlac(track, info),
+    };
   }
 
   async function playCurrent(startSecs = 0): Promise<void> {
@@ -448,16 +461,16 @@ export const usePlayerStore = defineStore("player", () => {
     const seq = ++_seekSeq;
     const cached = useOfflineStore().isCached(track.id);
     try {
-      const [src, tags] = await Promise.all([
+      const [{ src, trueFlac }, tags] = await Promise.all([
         resolveStreamSrc(track, startSecs),
         fetchMetadataCached(track.id),
       ]);
       if (seq !== _seekSeq) return;
       replayGainTags.value = tags;
       const el = initAudio();
-      // A cached file is complete, so even FLAC/WAV seeks natively — no
-      // transcode offset to track.
-      flacSeekOffset = !cached && needsTranscode(track.format) ? startSecs : 0;
+      // A cached file or a true-FLAC stream is complete, so even FLAC/WAV
+      // seeks natively — no transcode offset to track.
+      flacSeekOffset = !cached && !trueFlac && needsTranscode(track.format) ? startSecs : 0;
       el.src = src;
       applyEffectiveVolume();
       positionSecs.value = startSecs;
@@ -558,7 +571,7 @@ export const usePlayerStore = defineStore("player", () => {
     if (preloadedTrack?.id === next.id && buf.src) return; // already buffering it
     const seq = ++preloadSeq;
     try {
-      const [src, tags] = await Promise.all([
+      const [{ src }, tags] = await Promise.all([
         resolveStreamSrc(next, 0),
         fetchMetadataCached(next.id),
       ]);
@@ -718,7 +731,18 @@ export const usePlayerStore = defineStore("player", () => {
     const wasPlaying = !el.paused;
     const cached = useOfflineStore().isCached(track.id);
 
+    // A true-FLAC stream (feature flag on) is the complete file, so it seeks
+    // natively like an MP3 — only a transcoded stream needs the ?start= reload.
+    let trueFlac = false;
     if (needsTranscode(track.format) && !cached) {
+      try {
+        trueFlac = isTrueFlac(track, await issueStreamTokenInfo(track.id));
+      } catch {
+        trueFlac = false;
+      }
+    }
+
+    if (needsTranscode(track.format) && !cached && !trueFlac) {
       // Streamed FLAC/WAV: the server transcodes from ?start=, so the stream
       // must reload. Issue a fresh token — the original expires 60s after track
       // start. A cached file is complete and seeks natively below.
@@ -726,9 +750,9 @@ export const usePlayerStore = defineStore("player", () => {
       flacSeekOffset = secs;
       el.src = "";
       try {
-        const token = await issueStreamToken(track.id);
+        const info = await issueStreamTokenInfo(track.id);
         if (seq !== _seekSeq) return;
-        el.src = streamUrl(track.id, token, secs);
+        el.src = streamUrl(track.id, info.token, secs);
         el.load();
         positionSecs.value = secs;
         if (wasPlaying) {

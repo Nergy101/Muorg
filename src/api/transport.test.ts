@@ -206,3 +206,17 @@ describe("streamUrl", () => {
     expect(t.streamUrl(7, "tok", 12.345)).toContain("?start=12.35");
   });
 });
+
+describe("flacStreamUrl", () => {
+  const t = createTransport(creds);
+
+  it("builds the original-FLAC URL with the token in the path", () => {
+    expect(t.flacStreamUrl(7, "tok")).toBe(
+      "http://server.test:7700/stream/flac/tok/7",
+    );
+  });
+
+  it("escapes a token with URL-unsafe characters", () => {
+    expect(t.flacStreamUrl(7, "a+b/c=")).toContain("/stream/flac/a%2Bb%2Fc%3D/7");
+  });
+});

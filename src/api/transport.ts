@@ -71,6 +71,13 @@ export interface Transport {
   fetchBlob(path: string): Promise<Blob>;
   /** Absolute, token-authorised `<audio src>` URL. */
   streamUrl(trackId: number, token: string, startSecs?: number): string;
+  /**
+   * Absolute, token-authorised URL for the track's original FLAC bytes
+   * (`/stream/flac/{token}/{id}`). Only served when the server has
+   * `[feature-flags] true_flac` enabled; no `?start=` — FLAC seeks natively
+   * via byte ranges.
+   */
+  flacStreamUrl(trackId: number, token: string): string;
   baseUrl(): string;
 }
 
@@ -151,6 +158,10 @@ export function createTransport(credentials: Credentials): Transport {
       return startSecs != null && startSecs > 0
         ? `${base}?start=${startSecs.toFixed(2)}`
         : base;
+    },
+
+    flacStreamUrl(trackId: number, token: string): string {
+      return `${credentials.baseUrl()}/stream/flac/${encodeURIComponent(token)}/${trackId}`;
     },
   };
 }

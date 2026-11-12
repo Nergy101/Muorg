@@ -9,7 +9,7 @@ import type { CatalogTrack } from "../types";
  * the download, quota, eviction and clear behaviour against an in-memory fake.
  */
 
-const issueStreamToken = vi.fn();
+const issueStreamTokenInfo = vi.fn();
 const getRecentPlayHistory = vi.fn();
 const getPlaylists = vi.fn();
 const getPlaylistPins = vi.fn();
@@ -20,13 +20,17 @@ const toastShow = vi.fn();
 const fetchMock = vi.fn();
 
 vi.mock("../api/catalog", () => ({
-  issueStreamToken: (...a: unknown[]) => issueStreamToken(...a),
+  issueStreamTokenInfo: (...a: unknown[]) => issueStreamTokenInfo(...a),
   getRecentPlayHistory: (...a: unknown[]) => getRecentPlayHistory(...a),
 }));
 
 vi.mock("../api/client", () => ({
-  api: {},
-  streamUrl: (id: number, token: string) => `http://server/stream/${token}/${id}`,
+  api: {
+    streamUrlForTrack: (t: { id: number; format: string }, info: { token: string; flac: boolean }) =>
+      info.flac && t.format.toLowerCase() === "flac"
+        ? `http://server/stream/flac/${info.token}/${t.id}`
+        : `http://server/stream/${info.token}/${t.id}`,
+  },
   getServerUrl: () => "http://server",
 }));
 
@@ -154,7 +158,7 @@ beforeEach(() => {
   useSettingsStore().setAutoCacheEnabled(true);
   vi.clearAllMocks();
   fakeCaches.opened.clear();
-  issueStreamToken.mockResolvedValue("tok");
+  issueStreamTokenInfo.mockResolvedValue({ token: "tok", flac: false });
   getRecentPlayHistory.mockResolvedValue([]);
   getPlaylists.mockResolvedValue([]);
   getPlaylistPins.mockResolvedValue([]);

@@ -1010,12 +1010,17 @@
       },
       "TokenResponse": {
         "properties": {
+          "flac": {
+            "description": "Whether the server has `[feature-flags] true_flac` enabled, i.e. whether\n`GET /stream/flac/{token}/{id}` will serve this track's original FLAC.",
+            "type": "boolean"
+          },
           "token": {
             "type": "string"
           }
         },
         "required": [
-          "token"
+          "token",
+          "flac"
         ],
         "type": "object"
       },
@@ -4364,6 +4369,53 @@
           }
         ],
         "summary": "Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so\nan `<audio src>` can play without carrying the API key.",
+        "tags": [
+          "Stream"
+        ]
+      }
+    },
+    "/stream/flac/{token}/{id}": {
+      "get": {
+        "operationId": "stream_audio_flac",
+        "parameters": [
+          {
+            "description": "Short-lived token from `/api/tracks/{id}/stream-token`",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Track id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/flac": {}
+            },
+            "description": "Original FLAC bytes"
+          },
+          "206": {
+            "description": "Partial content for a ranged request"
+          },
+          "401": {
+            "description": "Missing, expired or wrong token"
+          },
+          "404": {
+            "description": "Feature disabled or track is not a FLAC"
+          }
+        },
+        "summary": "The track's original FLAC bytes, served 1:1 with `audio/flac` and byte\nranges, so clients get the lossless file and can seek natively. Only\navailable when `[feature-flags] true_flac` is enabled and the track is a\nFLAC — otherwise 404, and clients fall back to the transcoded\n`/stream/{token}/{id}`.",
         "tags": [
           "Stream"
         ]

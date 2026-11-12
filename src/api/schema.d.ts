@@ -986,6 +986,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stream/flac/{token}/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The track's original FLAC bytes, served 1:1 with `audio/flac` and byte
+         *     ranges, so clients get the lossless file and can seek natively. Only
+         *     available when `[feature-flags] true_flac` is enabled and the track is a
+         *     FLAC — otherwise 404, and clients fall back to the transcoded
+         *     `/stream/{token}/{id}`.
+         */
+        get: operations["stream_audio_flac"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1297,6 +1320,11 @@ export interface components {
             rules_json: string;
         };
         TokenResponse: {
+            /**
+             * @description Whether the server has `[feature-flags] true_flac` enabled, i.e. whether
+             *     `GET /stream/flac/{token}/{id}` will serve this track's original FLAC.
+             */
+            flac: boolean;
             token: string;
         };
         TrackBackupRecord: {
@@ -3650,6 +3678,52 @@ export interface operations {
                 content?: never;
             };
             /** @description No such track */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    stream_audio_flac: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Track id */
+                id: number;
+                /** @description Short-lived token from `/api/tracks/{id}/stream-token` */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original FLAC bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/flac": unknown;
+                };
+            };
+            /** @description Partial content for a ranged request */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired or wrong token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Feature disabled or track is not a FLAC */
             404: {
                 headers: {
                     [name: string]: unknown;

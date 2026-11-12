@@ -69,6 +69,7 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
   ["getLyrics", (a) => a.getLyrics(3), "GET", "/api/tracks/3/lyrics"],
   ["getLatestBackup", (a) => a.getLatestBackup(3), "GET", "/api/tracks/3/backup"],
   ["getStreamToken", (a) => a.getStreamToken(3), "GET", "/api/tracks/3/stream-token"],
+  ["getStreamTokenInfo", (a) => a.getStreamTokenInfo(3), "GET", "/api/tracks/3/stream-token"],
   ["recordPlay", (a) => a.recordPlay(3), "POST", "/api/tracks/3/play"],
   [
     "recordPlay (device name)",
@@ -291,7 +292,7 @@ describe("call surface", () => {
     const exercised = new Set(
       CALLS.map(([name]) => name.replace(/ \(.*\)$/, "")),
     );
-    const notHttp = new Set(["streamTracks", "fetchAllTracks", "getTracksPage", "getCoverBlob", "streamUrl"]);
+    const notHttp = new Set(["streamTracks", "fetchAllTracks", "getTracksPage", "getCoverBlob", "streamUrl", "flacStreamUrl", "streamUrlForTrack"]);
     const missing = Object.keys(api()).filter(
       (k) => !exercised.has(k) && !notHttp.has(k),
     );

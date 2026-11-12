@@ -188,3 +188,25 @@ describe("endpoints that reshape the response", () => {
     expect(await api().getLyrics(1)).toBeNull();
   });
 });
+
+describe("streamUrlForTrack", () => {
+  const track = (format: string) => ({ id: 7, format }) as never;
+
+  it("uses the FLAC passthrough URL when the server flag is on and the track is FLAC", () => {
+    expect(api().streamUrlForTrack(track("flac"), { token: "tok", flac: true })).toBe(
+      "http://s.test/stream/flac/tok/7",
+    );
+  });
+
+  it("ignores the flag for non-FLAC tracks", () => {
+    expect(api().streamUrlForTrack(track("mp3"), { token: "tok", flac: true })).toBe(
+      "http://s.test/stream/tok/7",
+    );
+  });
+
+  it("falls back to the transcoded URL when the flag is off, keeping ?start=", () => {
+    expect(api().streamUrlForTrack(track("flac"), { token: "tok", flac: false }, 12.5)).toBe(
+      "http://s.test/stream/tok/7?start=12.50",
+    );
+  });
+});

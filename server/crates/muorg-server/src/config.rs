@@ -15,6 +15,25 @@ pub struct Config {
     pub transcoding: TranscodingConfig,
     #[serde(default)]
     pub images: ImageFetchConfig,
+    #[serde(default)]
+    pub feature_flags: FeatureFlagsConfig,
+}
+
+/// Experimental switches. Everything here defaults to `false` so stock
+/// behaviour is unchanged; a flag that proves out can later become the
+/// default and be removed from this section.
+#[derive(Debug, Deserialize, Clone)]
+pub struct FeatureFlagsConfig {
+    /// Serve FLAC tracks 1:1 from `GET /stream/flac/{token}/{id}` instead of
+    /// transcoding them to MP3 (default: false).
+    #[serde(default)]
+    pub true_flac: bool,
+}
+
+impl Default for FeatureFlagsConfig {
+    fn default() -> Self {
+        Self { true_flac: false }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,27 +171,27 @@ impl Default for CorsConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct TranscodingConfig {
-    /// Audio bitrate in kbps (default: 128)
+    /// Audio bitrate in kbps (default: 320)
     #[serde(default = "default_transcode_bitrate")]
     pub bitrate: u32,
     /// Output format: "mp3" only for now (default: "mp3")
     #[serde(default = "default_transcode_format")]
     pub format: String,
-    /// Output sample rate in Hz (default: 44100)
+    /// Output sample rate in Hz (default: 48000)
     #[serde(default = "default_transcode_sample_rate")]
     pub sample_rate: u32,
 }
 
-fn default_transcode_bitrate() -> u32 { 128 }
+fn default_transcode_bitrate() -> u32 { 320 }
 fn default_transcode_format() -> String { "mp3".to_string() }
-fn default_transcode_sample_rate() -> u32 { 44100 }
+fn default_transcode_sample_rate() -> u32 { 48000 }
 
 impl Default for TranscodingConfig {
     fn default() -> Self {
         Self {
-            bitrate: 128,
+            bitrate: 320,
             format: "mp3".to_string(),
-            sample_rate: 44100,
+            sample_rate: 48000,
         }
     }
 }

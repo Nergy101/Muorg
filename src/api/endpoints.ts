@@ -24,6 +24,13 @@ import type {
 } from "./types";
 import { TRACKS_PAGE_SIZE } from "./types";
 
+/** Response of `GET /api/tracks/{id}/stream-token`. */
+export interface StreamTokenInfo {
+  token: string;
+  /** Server has `[feature-flags] true_flac` enabled. */
+  flac: boolean;
+}
+
 export function createApi(t: Transport) {
   const { client, unwrap } = t;
 
@@ -296,7 +303,37 @@ export function createApi(t: Transport) {
       return unwrap(result, "/api/tracks/{id}/stream-token").token;
     },
 
+    /**
+     * The stream token plus the server's `flac` capability flag: when `flac`
+     * is true the server serves original FLAC bytes from
+     * `/stream/flac/{token}/{id}` (see {@link streamUrlForTrack}).
+     */
+    async getStreamTokenInfo(trackId: number): Promise<StreamTokenInfo> {
+      const result = await client.GET("/api/tracks/{id}/stream-token", {
+        params: { path: { id: trackId } },
+      });
+      return unwrap(result, "/api/tracks/{id}/stream-token");
+    },
+
     streamUrl: t.streamUrl,
+    flacStreamUrl: t.flacStreamUrl,
+
+    /**
+     * Picks the playback URL for a track: the original FLAC when the server
+     * advertised `flac: true` and the track is a FLAC, otherwise the
+     * (possibly transcoded) `/stream/{token}/{id}` URL. `startSecs` only
+     * applies to the transcoded URL — FLAC seeks natively via byte ranges.
+     */
+    streamUrlForTrack(
+      track: CatalogTrack,
+      tokenInfo: StreamTokenInfo,
+      startSecs?: number,
+    ): string {
+      if (tokenInfo.flac && track.format.toLowerCase() === "flac") {
+        return t.flacStreamUrl(track.id, tokenInfo.token);
+      }
+      return t.streamUrl(track.id, tokenInfo.token, startSecs);
+    },
 
     // ---------------------------------------------------------- playlists ---
 

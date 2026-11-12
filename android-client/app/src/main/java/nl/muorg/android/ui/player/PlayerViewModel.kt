@@ -281,8 +281,8 @@ class PlayerViewModel @Inject constructor(
             // Local file — no stream token needed; LocalCastServer serves it over WiFi
             castManager.castTrack(track, baseUrl, "")
         } else {
-            libraryRepository.getStreamToken(track.id).onSuccess { token ->
-                castManager.castTrack(track, baseUrl, token)
+            libraryRepository.getStreamTokenInfo(track.id).onSuccess { info ->
+                castManager.castTrack(track, baseUrl, info.token, serverFlac = info.flac)
             }
         }
     }

@@ -45,6 +45,7 @@ pub fn build_cors(allowed_origins: &[String]) -> CorsLayer {
 pub fn build_stream_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/stream/{token}/{id}", get(routes::stream::stream_audio))
+        .route("/stream/flac/{token}/{id}", get(routes::stream::stream_audio_flac))
         .with_state(state)
 }
 
@@ -142,7 +143,8 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
     let public = Router::new()
         .route("/", get(routes::util::home))
         .route("/api/health", get(routes::util::health))
-        .route("/stream/{token}/{id}", get(routes::stream::stream_audio));
+        .route("/stream/{token}/{id}", get(routes::stream::stream_audio))
+        .route("/stream/flac/{token}/{id}", get(routes::stream::stream_audio_flac));
 
     Router::new()
         .merge(public)

@@ -521,6 +521,11 @@ async fn a_429_carries_retry_after() {
 
 /// Insert a root and one track directly into the catalog, returning the track id.
 fn seed_track(srv: &TestServer, path: &str) -> i64 {
+    seed_track_format(srv, path, "mp3")
+}
+
+/// Like [`seed_track`], but with an explicit format (e.g. "flac").
+fn seed_track_format(srv: &TestServer, path: &str, format: &str) -> i64 {
     let conn = srv.catalog.db.lock().unwrap();
     conn.execute("INSERT OR IGNORE INTO roots (path, added_at) VALUES ('/music', 0)", [])
         .unwrap();
@@ -528,8 +533,8 @@ fn seed_track(srv: &TestServer, path: &str) -> i64 {
         .query_row("SELECT id FROM roots WHERE path = '/music'", [], |r| r.get(0))
         .unwrap();
     conn.execute(
-        "INSERT INTO tracks (root_id, path, format, mtime_secs) VALUES (?1, ?2, 'mp3', 0)",
-        rusqlite::params![root_id, path],
+        "INSERT INTO tracks (root_id, path, format, mtime_secs) VALUES (?1, ?2, ?3, 0)",
+        rusqlite::params![root_id, path, format],
     )
     .unwrap();
     conn.query_row("SELECT id FROM tracks WHERE path = ?1", [path], |r| r.get(0))
@@ -1048,4 +1053,140 @@ async fn browse_reports_truncation_past_the_entry_cap() {
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["entries"].as_array().unwrap().len(), 500);
     assert_eq!(body["truncated"], true);
+}
+
+// ---------------------------------------------------------------------------
+// True-FLAC streaming: GET /stream/flac/{token}/{id} ([feature-flags] true_flac)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn flac_stream_endpoint_is_404_and_token_says_flac_false_when_the_flag_is_off() {
+    let srv = TestServer::start().await; // default: true_flac = false
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    std::fs::write(&song, b"fake flac bytes").unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["flac"], false, "token response must advertise the flag");
+    let token = body["token"].as_str().unwrap().to_string();
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "flac endpoint must be off by default");
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_serves_the_original_bytes_1_to_1_when_enabled() {
+    let srv = TestServer::start_with(|state| {
+        state.feature_flags.true_flac = true;
+    })
+    .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    let original = b"fake flac bytes, lossless and complete";
+    std::fs::write(&song, original).unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["flac"], true);
+    let token = body["token"].as_str().unwrap().to_string();
+
+    // Full body: byte-identical to the file on disk, served as audio/flac.
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("content-type").and_then(|v| v.to_str().ok()),
+        Some("audio/flac")
+    );
+    assert_eq!(
+        resp.headers().get("accept-ranges").and_then(|v| v.to_str().ok()),
+        Some("bytes")
+    );
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(&body[..], &original[..]);
+
+    // A ranged request returns the requested slice with 206 + Content-Range.
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .header("range", "bytes=5-9")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 206);
+    assert_eq!(
+        resp.headers().get("content-range").and_then(|v| v.to_str().ok()),
+        Some(format!("bytes 5-9/{}", original.len()).as_str())
+    );
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(&body[..], &original[5..=9]);
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_404s_for_non_flac_tracks_even_when_enabled() {
+    let srv = TestServer::start_with(|state| {
+        state.feature_flags.true_flac = true;
+    })
+    .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.mp3");
+    std::fs::write(&song, b"fake mp3 bytes").unwrap();
+    let track_id = seed_track(&srv, song.to_str().unwrap());
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let token = body["token"].as_str().unwrap().to_string();
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "only FLAC tracks get the passthrough endpoint");
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_rejects_a_forged_token() {
+    let srv = TestServer::start_with(|state| {
+        state.feature_flags.true_flac = true;
+    })
+    .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    std::fs::write(&song, b"fake flac bytes").unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!(
+            "/stream/flac/00000000-0000-0000-0000-000000000000/{track_id}"
+        )))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
 }

@@ -16,6 +16,9 @@ use crate::transcode;
 #[derive(Serialize, utoipa::ToSchema)]
 pub struct TokenResponse {
     pub token: String,
+    /// Whether the server has `[feature-flags] true_flac` enabled, i.e. whether
+    /// `GET /stream/flac/{token}/{id}` will serve this track's original FLAC.
+    pub flac: bool,
 }
 
 /// Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so
@@ -43,7 +46,10 @@ pub async fn issue_token(
             .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))?;
     }
     let token = state.tokens.issue(id, 28800);
-    Ok(Json(TokenResponse { token }))
+    Ok(Json(TokenResponse {
+        token,
+        flac: state.feature_flags.true_flac,
+    }))
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -208,6 +214,171 @@ pub async fn stream_audio(
                 }
             }
             Err(_) => StatusCode::NOT_FOUND.into_response(),
+        }
+    }
+}
+
+// GET /stream/flac/{token}/{id}  (no Bearer auth — same short-lived token as /stream)
+/// The track's original FLAC bytes, served 1:1 with `audio/flac` and byte
+/// ranges, so clients get the lossless file and can seek natively. Only
+/// available when `[feature-flags] true_flac` is enabled and the track is a
+/// FLAC — otherwise 404, and clients fall back to the transcoded
+/// `/stream/{token}/{id}`.
+#[utoipa::path(
+    get,
+    path = "/stream/flac/{token}/{id}",
+    tag = "Stream",
+    params(
+        ("token" = String, Path, description = "Short-lived token from `/api/tracks/{id}/stream-token`"),
+        ("id" = i64, Path, description = "Track id"),
+    ),
+    responses(
+        (status = 200, description = "Original FLAC bytes", content_type = "audio/flac"),
+        (status = 206, description = "Partial content for a ranged request"),
+        (status = 401, description = "Missing, expired or wrong token"),
+        (status = 404, description = "Feature disabled or track is not a FLAC"),
+    ),
+)]
+pub async fn stream_audio_flac(
+    Path((token, id)): Path<(String, i64)>,
+    State(state): State<Arc<AppState>>,
+    req_headers: HeaderMap,
+) -> Response {
+    if !state.tokens.validate(&token, id) {
+        tracing::warn!(track_id = id, "stream/flac: invalid token");
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    if !state.feature_flags.true_flac {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    let track_path = match (|| -> Result<String, ApiError> {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        muorg_core::catalog::get_track_path_by_id(&conn, id)?
+            .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))
+    })() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(track_id = id, "stream/flac: track not found");
+            return e.into_response();
+        }
+    };
+
+    let is_flac = std::path::Path::new(&track_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("flac"))
+        .unwrap_or(false);
+    if !is_flac {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    if let Some((remote, key)) = state.remotes.resolve(&track_path) {
+        return stream_flac_remote(id, remote, key, &req_headers).await;
+    }
+
+    let mtime = crate::routes::util::file_mtime(std::path::Path::new(&track_path));
+    let etag = format!(
+        "\"flac-{id}-{}\"",
+        mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
+    );
+    if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
+        return resp;
+    }
+
+    let range_header = req_headers.get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
+    tracing::info!(track_id = id, path = %track_path, range = ?range_header, "stream-flac-passthrough");
+    match tokio::fs::read(&track_path).await {
+        Ok(data) => {
+            let total = data.len() as u64;
+            let range = range_header
+                .as_deref()
+                .and_then(|r| parse_range(r, total));
+
+            let mut headers = HeaderMap::new();
+            headers.insert("Content-Type", "audio/flac".parse().unwrap());
+            headers.insert("Accept-Ranges", "bytes".parse().unwrap());
+            headers.insert("Cache-Control", "no-cache".parse().unwrap());
+            headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+            headers.insert("ETag", etag.parse().unwrap());
+            if let Some(m) = mtime {
+                headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+            }
+
+            if let Some(r) = range {
+                let body = data[r.start as usize..=r.end as usize].to_vec();
+                headers.insert("Content-Range", format!("bytes {}-{}/{}", r.start, r.end, total).parse().unwrap());
+                headers.insert("Content-Length", body.len().to_string().parse().unwrap());
+                (StatusCode::PARTIAL_CONTENT, headers, body).into_response()
+            } else {
+                headers.insert("Content-Length", total.to_string().parse().unwrap());
+                (StatusCode::OK, headers, data).into_response()
+            }
+        }
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// Streams a FLAC object from object storage 1:1: a client `Range` becomes a
+/// ranged GET and the byte stream is piped straight through.
+async fn stream_flac_remote(
+    id: i64,
+    remote: Arc<crate::storage::RemoteStore>,
+    key: object_store::path::Path,
+    req_headers: &HeaderMap,
+) -> Response {
+    use object_store::{GetOptions, GetRange, ObjectStore, ObjectStoreExt};
+
+    let head = match remote.store.head(&key).await {
+        Ok(m) => m,
+        Err(e) => return remote_err(id, e),
+    };
+
+    let secs = head.last_modified.timestamp().max(0) as u64;
+    let mtime = Some(std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs));
+    let etag = format!("\"flac-{id}-{secs}\"");
+    if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, req_headers) {
+        return resp;
+    }
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", "audio/flac".parse().unwrap());
+    headers.insert("Cache-Control", "no-cache".parse().unwrap());
+    headers.insert("Vary", "Accept-Encoding".parse().unwrap());
+    headers.insert("ETag", etag.parse().unwrap());
+    headers.insert("Accept-Ranges", "bytes".parse().unwrap());
+    if let Some(m) = mtime {
+        headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+    }
+
+    let total = head.size;
+    let range = req_headers
+        .get("range")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|r| parse_range(r, total));
+    tracing::info!(track_id = id, key = %key, total, range = ?range.as_ref().map(|r| (r.start, r.end)), "stream-remote-flac-passthrough");
+
+    let opts = GetOptions {
+        range: range.as_ref().map(|r| GetRange::Bounded(r.start..r.end + 1)),
+        ..Default::default()
+    };
+    let res = match remote.store.get_opts(&key, opts).await {
+        Ok(r) => r,
+        Err(e) => return remote_err(id, e),
+    };
+
+    match range {
+        Some(r) => {
+            headers.insert(
+                "Content-Range",
+                format!("bytes {}-{}/{}", r.start, r.end, total).parse().unwrap(),
+            );
+            headers.insert("Content-Length", (r.end - r.start + 1).to_string().parse().unwrap());
+            (StatusCode::PARTIAL_CONTENT, headers, Body::from_stream(res.into_stream())).into_response()
+        }
+        None => {
+            headers.insert("Content-Length", total.to_string().parse().unwrap());
+            (StatusCode::OK, headers, Body::from_stream(res.into_stream())).into_response()
         }
     }
 }

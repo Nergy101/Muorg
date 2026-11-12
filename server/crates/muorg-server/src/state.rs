@@ -1,5 +1,5 @@
 use crate::cast::{CastState, DiscoveryState};
-use crate::config::{ImageFetchConfig, TranscodingConfig};
+use crate::config::{FeatureFlagsConfig, ImageFetchConfig, TranscodingConfig};
 use crate::musicbrainz::AutoTagService;
 use crate::ratelimit::RateLimiter;
 use muorg_core::catalog::Catalog;
@@ -123,6 +123,9 @@ pub struct AppState {
     pub tokens: StreamTokens,
     pub transcoding_config: TranscodingConfig,
     pub transcode_cache: TranscodeCache,
+    /// Experimental switches from `[feature-flags]`. Set with
+    /// [`AppState::with_feature_flags`]; defaults to all-off.
+    pub feature_flags: FeatureFlagsConfig,
     pub server_port: u16,
     /// Port of the stream-only listener bound on all interfaces when the main
     /// listener is loopback-only (the desktop app's sidecar). Cast devices on
@@ -173,6 +176,7 @@ impl AppState {
             tokens: StreamTokens::new(),
             transcoding_config,
             transcode_cache: TranscodeCache::new(24),
+            feature_flags: FeatureFlagsConfig::default(),
             server_port,
             stream_port: None,
             // Discovery is started by the caller (main), not here: a test
@@ -213,6 +217,12 @@ impl AppState {
     /// Set the stream-only listener's port (see [`AppState::stream_port`]).
     pub fn with_stream_port(mut self, port: u16) -> Self {
         self.stream_port = Some(port);
+        self
+    }
+
+    /// Override the feature flags. Defaults to all-off (stock behaviour).
+    pub fn with_feature_flags(mut self, feature_flags: FeatureFlagsConfig) -> Self {
+        self.feature_flags = feature_flags;
         self
     }
 }

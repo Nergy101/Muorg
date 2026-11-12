@@ -14,6 +14,7 @@ import nl.muorg.android.data.api.schema.MatchCandidate
 import nl.muorg.android.data.api.schema.PatchMetadataBody
 import nl.muorg.android.data.api.schema.RecordPlayBody
 import nl.muorg.android.data.api.schema.RenameBody
+import nl.muorg.android.data.api.schema.TokenResponse
 import nl.muorg.android.data.api.schema.RenameCheckBody
 import nl.muorg.android.data.api.schema.RenameCheckItem
 import nl.muorg.android.data.api.schema.RenameCollision
@@ -133,9 +134,17 @@ class LibraryRepository @Inject constructor(
         cachedAtMs = 0L
     }
 
-    suspend fun getStreamToken(trackId: Int): Result<String> = runCatching {
+    suspend fun getStreamToken(trackId: Int): Result<String> =
+        getStreamTokenInfo(trackId).map { it.token }
+
+    /**
+     * The stream token plus the server's `flac` capability flag: when `flac`
+     * is true the server serves original FLAC bytes from
+     * `/stream/flac/{token}/{id}` for FLAC tracks.
+     */
+    suspend fun getStreamTokenInfo(trackId: Int): Result<TokenResponse> = runCatching {
         api.issueToken(trackId.toLong())
-            .bodyOrThrow("GET /api/tracks/$trackId/stream-token").token
+            .bodyOrThrow("GET /api/tracks/$trackId/stream-token")
     }
 
     suspend fun patchTrackMetadata(trackId: Int, update: MetadataUpdateRequest): Result<Unit> = runCatching {

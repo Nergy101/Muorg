@@ -8,7 +8,7 @@
 
 import { api } from "./client";
 import type { CatalogTrack, LibraryStats } from "../types";
-import type { MetadataUpdate, TracksPage, TrackLyrics, TrackMetadata } from "@shared/api";
+import type { MetadataUpdate, StreamTokenInfo, TracksPage, TrackLyrics, TrackMetadata } from "@shared/api";
 
 export type { TracksPage, TrackLyrics, MetadataUpdate, TrackMetadata };
 
@@ -54,6 +54,15 @@ export async function getCoverBlob(trackId: number, size?: number): Promise<Blob
 
 export function issueStreamToken(trackId: number): Promise<string> {
   return api.getStreamToken(trackId);
+}
+
+/**
+ * Stream token plus the server's `flac` capability flag — use this (with
+ * `api.streamUrlForTrack`) when the caller needs to know whether the server
+ * can serve the track's original FLAC.
+ */
+export function issueStreamTokenInfo(trackId: number): Promise<StreamTokenInfo> {
+  return api.getStreamTokenInfo(trackId);
 }
 
 /** Embedded lyrics for a track, or null when it has none (404). */
