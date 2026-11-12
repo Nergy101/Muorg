@@ -15,19 +15,6 @@ pub struct Config {
     pub transcoding: TranscodingConfig,
     #[serde(default)]
     pub images: ImageFetchConfig,
-    #[serde(default, rename = "feature-flags")]
-    pub feature_flags: FeatureFlagsConfig,
-}
-
-/// Experimental switches. Everything here defaults to `false` so stock
-/// behaviour is unchanged; a flag that proves out can later become the
-/// default and be removed from this section.
-#[derive(Debug, Default, Deserialize, Clone)]
-pub struct FeatureFlagsConfig {
-    /// Serve FLAC tracks 1:1 from `GET /stream/flac/{token}/{id}` instead of
-    /// transcoding them to MP3 (default: false).
-    #[serde(default)]
-    pub true_flac: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -174,6 +161,12 @@ pub struct TranscodingConfig {
     /// Output sample rate in Hz (default: 48000)
     #[serde(default = "default_transcode_sample_rate")]
     pub sample_rate: u32,
+    /// Downgrade FLAC tracks to the MP3 transcode instead of serving the
+    /// original file 1:1 from `GET /stream/flac/{token}/{id}` (default:
+    /// false — FLAC is served as-is, with an automatic MP3 fallback for
+    /// user agents that cannot decode FLAC, e.g. Safari).
+    #[serde(default)]
+    pub downgrade_flac_to_mp3: bool,
 }
 
 fn default_transcode_bitrate() -> u32 { 320 }
@@ -186,6 +179,7 @@ impl Default for TranscodingConfig {
             bitrate: 320,
             format: "mp3".to_string(),
             sample_rate: 48000,
+            downgrade_flac_to_mp3: false,
         }
     }
 }

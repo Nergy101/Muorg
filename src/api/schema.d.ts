@@ -996,8 +996,8 @@ export interface paths {
         /**
          * The track's original FLAC bytes, served 1:1 with `audio/flac` and byte
          *     ranges, so clients get the lossless file and can seek natively. Only
-         *     available when `[feature-flags] true_flac` is enabled and the track is a
-         *     FLAC — otherwise 404, and clients fall back to the transcoded
+         *     available when the track is a FLAC and `[transcoding] downgrade_flac_to_mp3`
+         *     is not set — otherwise 404, and clients fall back to the transcoded
          *     `/stream/{token}/{id}`. Requestors whose user agent cannot decode FLAC
          *     (Safari, and every iOS browser since they are all WebKit) are transparently
          *     served the MP3 transcode instead.
@@ -1323,8 +1323,8 @@ export interface components {
         };
         TokenResponse: {
             /**
-             * @description Whether the server has `[feature-flags] true_flac` enabled, i.e. whether
-             *     `GET /stream/flac/{token}/{id}` will serve this track's original FLAC.
+             * @description Whether `GET /stream/flac/{token}/{id}` will serve this track's original
+             *     FLAC — false when `[transcoding] downgrade_flac_to_mp3 = true`.
              */
             flac: boolean;
             token: string;
@@ -3725,7 +3725,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Feature disabled or track is not a FLAC */
+            /** @description Downgrade enabled or track is not a FLAC */
             404: {
                 headers: {
                     [name: string]: unknown;

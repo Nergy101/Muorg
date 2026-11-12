@@ -16,8 +16,8 @@ use crate::transcode;
 #[derive(Serialize, utoipa::ToSchema)]
 pub struct TokenResponse {
     pub token: String,
-    /// Whether the server has `[feature-flags] true_flac` enabled, i.e. whether
-    /// `GET /stream/flac/{token}/{id}` will serve this track's original FLAC.
+    /// Whether `GET /stream/flac/{token}/{id}` will serve this track's original
+    /// FLAC — false when `[transcoding] downgrade_flac_to_mp3 = true`.
     pub flac: bool,
 }
 
@@ -48,7 +48,7 @@ pub async fn issue_token(
     let token = state.tokens.issue(id, 28800);
     Ok(Json(TokenResponse {
         token,
-        flac: state.feature_flags.true_flac,
+        flac: !state.transcoding_config.downgrade_flac_to_mp3,
     }))
 }
 
@@ -236,8 +236,8 @@ pub async fn stream_audio(
 // GET /stream/flac/{token}/{id}  (no Bearer auth — same short-lived token as /stream)
 /// The track's original FLAC bytes, served 1:1 with `audio/flac` and byte
 /// ranges, so clients get the lossless file and can seek natively. Only
-/// available when `[feature-flags] true_flac` is enabled and the track is a
-/// FLAC — otherwise 404, and clients fall back to the transcoded
+/// available when the track is a FLAC and `[transcoding] downgrade_flac_to_mp3`
+/// is not set — otherwise 404, and clients fall back to the transcoded
 /// `/stream/{token}/{id}`. Requestors whose user agent cannot decode FLAC
 /// (Safari, and every iOS browser since they are all WebKit) are transparently
 /// served the MP3 transcode instead.
@@ -253,7 +253,7 @@ pub async fn stream_audio(
         (status = 200, description = "Original FLAC bytes", content_type = "audio/flac"),
         (status = 206, description = "Partial content for a ranged request"),
         (status = 401, description = "Missing, expired or wrong token"),
-        (status = 404, description = "Feature disabled or track is not a FLAC"),
+        (status = 404, description = "Downgrade enabled or track is not a FLAC"),
     ),
 )]
 pub async fn stream_audio_flac(
@@ -265,7 +265,7 @@ pub async fn stream_audio_flac(
         tracing::warn!(track_id = id, "stream/flac: invalid token");
         return StatusCode::UNAUTHORIZED.into_response();
     }
-    if !state.feature_flags.true_flac {
+    if state.transcoding_config.downgrade_flac_to_mp3 {
         return StatusCode::NOT_FOUND.into_response();
     }
 

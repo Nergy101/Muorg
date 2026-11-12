@@ -1056,12 +1056,16 @@ async fn browse_reports_truncation_past_the_entry_cap() {
 }
 
 // ---------------------------------------------------------------------------
-// True-FLAC streaming: GET /stream/flac/{token}/{id} ([feature-flags] true_flac)
+// True-FLAC streaming: GET /stream/flac/{token}/{id} (default on; disabled by
+// [transcoding] downgrade_flac_to_mp3 = true)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn flac_stream_endpoint_is_404_and_token_says_flac_false_when_the_flag_is_off() {
-    let srv = TestServer::start().await; // default: true_flac = false
+async fn flac_stream_endpoint_is_404_and_token_says_flac_false_when_downgrade_is_on() {
+    let srv = TestServer::start_with(|state| {
+        state.transcoding_config.downgrade_flac_to_mp3 = true;
+    })
+    .await;
 
     let dir = tempfile::tempdir().unwrap();
     let song = dir.path().join("song.flac");
@@ -1073,7 +1077,7 @@ async fn flac_stream_endpoint_is_404_and_token_says_flac_false_when_the_flag_is_
         .await;
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
-    assert_eq!(body["flac"], false, "token response must advertise the flag");
+    assert_eq!(body["flac"], false, "token response must advertise the downgrade");
     let token = body["token"].as_str().unwrap().to_string();
 
     let resp = srv
@@ -1082,15 +1086,12 @@ async fn flac_stream_endpoint_is_404_and_token_says_flac_false_when_the_flag_is_
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 404, "flac endpoint must be off by default");
+    assert_eq!(resp.status(), 404, "flac endpoint must be off when downgrade is on");
 }
 
 #[tokio::test]
 async fn flac_stream_endpoint_serves_the_original_bytes_1_to_1_when_enabled() {
-    let srv = TestServer::start_with(|state| {
-        state.feature_flags.true_flac = true;
-    })
-    .await;
+    let srv = TestServer::start().await; // FLAC passthrough is the default
 
     let dir = tempfile::tempdir().unwrap();
     let song = dir.path().join("song.flac");
@@ -1143,10 +1144,7 @@ async fn flac_stream_endpoint_serves_the_original_bytes_1_to_1_when_enabled() {
 
 #[tokio::test]
 async fn flac_stream_endpoint_404s_for_non_flac_tracks_even_when_enabled() {
-    let srv = TestServer::start_with(|state| {
-        state.feature_flags.true_flac = true;
-    })
-    .await;
+    let srv = TestServer::start().await; // FLAC passthrough is the default
 
     let dir = tempfile::tempdir().unwrap();
     let song = dir.path().join("song.mp3");
@@ -1170,10 +1168,7 @@ async fn flac_stream_endpoint_404s_for_non_flac_tracks_even_when_enabled() {
 
 #[tokio::test]
 async fn flac_stream_endpoint_rejects_a_forged_token() {
-    let srv = TestServer::start_with(|state| {
-        state.feature_flags.true_flac = true;
-    })
-    .await;
+    let srv = TestServer::start().await; // FLAC passthrough is the default
 
     let dir = tempfile::tempdir().unwrap();
     let song = dir.path().join("song.flac");
@@ -1221,10 +1216,7 @@ async fn flac_stream_endpoint_serves_mp3_to_user_agents_that_cannot_decode_flac(
         return;
     };
 
-    let srv = TestServer::start_with(|state| {
-        state.feature_flags.true_flac = true;
-    })
-    .await;
+    let srv = TestServer::start().await; // FLAC passthrough is the default
 
     let dir = tempfile::tempdir().unwrap();
     let song = dir.path().join("song.flac");

@@ -200,7 +200,6 @@ async fn main() {
         )),
         config.library.remote_scan_concurrency,
     ).with_image_fetch(config.images.clone())
-     .with_feature_flags(config.feature_flags.clone())
      .with_rate_limiter(
         config.server.rate_limit_requests,
         config.server.rate_limit_window_secs,
