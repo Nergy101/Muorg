@@ -1,6 +1,5 @@
 package nl.muorg.android.ui.screen.library
 
-import nl.muorg.android.ui.component.OrcPullToRefreshBox
 import nl.muorg.android.ui.component.bottomInset
 import nl.muorg.android.ui.easteregg.DustReportBubble
 import nl.muorg.android.ui.easteregg.JanitorFigure
@@ -23,6 +22,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -135,7 +135,7 @@ fun LibraryScreen(
                 lazyGridState = lazyGridState,
             )
 
-            OrcPullToRefreshBox(
+            PullToRefreshBox(
                 isRefreshing = uiState.isLoading,
                 onRefresh = viewModel::loadTracks,
                 modifier = Modifier

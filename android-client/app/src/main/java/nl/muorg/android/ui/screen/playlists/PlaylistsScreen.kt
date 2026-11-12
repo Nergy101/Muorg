@@ -6,7 +6,6 @@ import nl.muorg.android.ui.easteregg.JanitorFigure
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import nl.muorg.android.ui.component.OrcPullToRefreshBox
 import nl.muorg.android.ui.component.OrcLoading
 import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.background
@@ -41,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -245,7 +245,7 @@ fun PlaylistsScreen(
             }
         }
 
-        OrcPullToRefreshBox(
+        PullToRefreshBox(
             isRefreshing = uiState.isLoading,
             onRefresh = viewModel::loadPlaylists,
             modifier = Modifier.weight(1f).fillMaxWidth(),
