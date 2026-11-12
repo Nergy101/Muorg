@@ -30,7 +30,7 @@ object OnboardingBrand {
     val Mist = Color(0xFF9FB3B8) // secondary text, icons
     val Moss = MuorgGreenLight // primary button, local accent
     val MossLip = Color(0xFF3E6A1C) // primary button lip
-    val Spotlight = Color(0xFF4FD6EE) // server accent, focus ring
+    val Spotlight = MuorgGreenLight // server accent, focus ring
     val Fang = Color(0xFFF4F1E6) // speech bubble
     val ServerStage = Color(0xFF10303A) // panel behind the server Orc
     val LocalStage = Color(0xFF1B2E19) // panel behind the local Orc

@@ -182,6 +182,8 @@ fun WelcomeScreen(
                         stageColor = OnboardingBrand.ServerStage,
                         orc = OrcVariant.ServerTinker,
                         onClick = viewModel::chooseRemote,
+                        arrowColor = OnboardingBrand.ServerStage,
+                        arrowTint = OnboardingBrand.Text,
                         modifier = Modifier.entrance(showCard1, durationMillis = 500, slideFraction = 0.5f),
                     )
 

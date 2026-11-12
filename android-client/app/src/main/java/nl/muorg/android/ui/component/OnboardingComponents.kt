@@ -572,6 +572,8 @@ fun ChoiceCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     hopDelayMillis: Int = 0,
+    arrowColor: Color = accent,
+    arrowTint: Color = OnboardingBrand.Ink,
 ) {
     val source = remember { MutableInteractionSource() }
     Row(
@@ -612,10 +614,10 @@ fun ChoiceCard(
                 modifier = Modifier
                     .align(Alignment.End)
                     .size(44.dp)
-                    .background(accent, CircleShape),
+                    .background(arrowColor, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                MageIcon("arrow-right", Modifier.size(22.dp), tint = OnboardingBrand.Ink)
+                MageIcon("arrow-right", Modifier.size(22.dp), tint = arrowTint)
             }
         }
     }
