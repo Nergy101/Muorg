@@ -4,6 +4,7 @@ import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
 import useBaseUrl from "@docusaurus/useBaseUrl";
+import OrcIllustration from "@site/src/components/OrcIllustration";
 import styles from "./index.module.css";
 
 // Inline SVG icons (Mage, Apache-2.0) so stroke="currentColor" inherits the
@@ -153,6 +154,9 @@ function GitHubLinks() {
     <section className={styles.github}>
       <div className="container">
         <h2>Open source, self-hosted</h2>
+        <div className={styles.githubOrc}>
+          <OrcIllustration variant="maintenance" />
+        </div>
         <p>
           Muorg is built in the open. Report a bug, request a feature, or browse the
           source on GitHub.

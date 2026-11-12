@@ -3,6 +3,8 @@ title: Web App
 description: The Muorg browser client — a mobile-first, installable PWA that connects to your muorg-server.
 ---
 
+import OrcIllustration from "@site/src/components/OrcIllustration";
+
 The Muorg web app is a browser UI (Vue 3 + Vite) that connects to a [muorg-server](/docs/server/). It is mobile-first, installable as a PWA, and mirrors the Android app's experience without an app store.
 
 ![Web app home](/img/screenshots/web-app-home.jpg)
@@ -28,6 +30,10 @@ There is no `VITE_API_URL` or any other environment variable that points the web
 
 :::caution CORS
 The server's default `allowed_origins` only permits the desktop app. Before a browser can talk to your server, set `allowed_origins` in `[cors]` to include the web app's exact origin (e.g. `http://<host>:7800`). Avoid `["*"]` on public deployments. See [Configuration](/docs/server/configuration#cors).
+
+<div style={{ maxWidth: 200, margin: "0.5rem auto 0" }}>
+  <OrcIllustration variant="forbidden" />
+</div>
 :::
 
 ## Deploying

@@ -43,6 +43,8 @@ module.exports = {
     ],
   ],
 
+  clientModules: [require.resolve("./src/clientModules/orcLoader.js")],
+
   themeConfig: {
     colorMode: {
       defaultMode: "dark",

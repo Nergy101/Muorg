@@ -2,9 +2,15 @@
 sidebar_position: 1
 ---
 
+import OrcIllustration from "@site/src/components/OrcIllustration";
+
 # Server
 
 The Muorg server is a standalone REST API (Rust + Axum) that serves your music library to the desktop app, web client, and Android app. It scans folders (or S3-compatible cloud buckets) into a SQLite database and streams audio with optional transcoding.
+
+<div style={{ maxWidth: 220, margin: "0 auto 1rem" }}>
+  <OrcIllustration variant="maintenance" />
+</div>
 
 ## Quick Start with Docker
 

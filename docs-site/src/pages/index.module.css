@@ -133,3 +133,8 @@
   margin: 0 auto 1.5rem;
   color: var(--ifm-color-emphasis-700);
 }
+
+.githubOrc {
+  max-width: 180px;
+  margin: 0 auto 1rem;
+}
