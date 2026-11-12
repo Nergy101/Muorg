@@ -5,7 +5,20 @@ description: The Muorg Android client — stream from your server or play an on-
 
 The Muorg Android client (Kotlin + Jetpack Compose, Media3/ExoPlayer) works in two modes: streaming from a [muorg-server](/docs/server/), or playing music stored on the device itself.
 
-![Android app home screen](/img/screenshots/android-home.jpg)
+<div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+  <figure style={{ flex: "1 1 200px", margin: 0 }}>
+    <img src="/img/screenshots/android-home.jpg" alt="Android app home screen" />
+    <figcaption style={{ fontSize: "0.85rem", textAlign: "center", opacity: 0.7 }}>Home</figcaption>
+  </figure>
+  <figure style={{ flex: "1 1 200px", margin: 0 }}>
+    <img src="/img/screenshots/android-album.jpg" alt="Android app album track list" />
+    <figcaption style={{ fontSize: "0.85rem", textAlign: "center", opacity: 0.7 }}>Album track list</figcaption>
+  </figure>
+  <figure style={{ flex: "1 1 200px", margin: 0 }}>
+    <img src="/img/screenshots/android-player.jpg" alt="Android app maximized player" />
+    <figcaption style={{ fontSize: "0.85rem", textAlign: "center", opacity: 0.7 }}>Maximized player</figcaption>
+  </figure>
+</div>
 
 ## Install
 
