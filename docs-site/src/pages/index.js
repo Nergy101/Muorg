@@ -12,28 +12,28 @@ const components = [
     description:
       "The full editing experience on macOS, Windows and Linux. Track table, album grid, metadata editor with MusicBrainz auto-tagging, smart playlists and library reports.",
     to: "/docs/desktop/",
-    icon: "🖥️",
+    icon: "img/icons/screencast.svg",
   },
   {
     title: "Web App",
     description:
       "A mobile-first browser UI (Vue 3 + Vite) that connects to your server. Installable as a PWA, no app store, works on every device with a browser.",
     to: "/docs/web-client/",
-    icon: "🌐",
+    icon: "img/icons/globe.svg",
   },
   {
     title: "Android App",
     description:
       "A native app (Kotlin + Jetpack Compose) that streams from your server or plays an on-device library. Home-screen widget, Chromecast and a sleep timer.",
     to: "/docs/android/",
-    icon: "📱",
+    icon: "img/icons/robot.svg",
   },
   {
     title: "Server",
     description:
       "A standalone REST API (Rust + Axum) that serves your library to every client. Docker-friendly, streams from local folders or S3-compatible cloud storage.",
     to: "/docs/server/",
-    icon: "🗄️",
+    icon: "img/icons/server.svg",
   },
 ];
 
@@ -76,7 +76,9 @@ function FeatureCards() {
           {components.map((c) => (
             <div className={clsx("col col--3", styles.featureCol)} key={c.title}>
               <Link className={styles.featureCard} to={c.to}>
-                <div className={styles.featureIcon}>{c.icon}</div>
+                <div className={styles.featureIcon}>
+                  <img src={useBaseUrl(c.icon)} alt="" width="36" height="36" />
+                </div>
                 <h3>{c.title}</h3>
                 <p>{c.description}</p>
               </Link>

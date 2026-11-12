@@ -59,8 +59,12 @@
 }
 
 .featureIcon {
-  font-size: 2.2rem;
   margin-bottom: 0.8rem;
+  color: var(--ifm-color-primary);
+}
+
+.featureIcon img {
+  display: block;
 }
 
 .featureCard h3 {
