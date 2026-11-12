@@ -1117,12 +1117,9 @@ export const usePlayerStore = defineStore("player", () => {
     navigator.mediaSession.setActionHandler("seekto", (d) => {
       if (d.seekTime != null) void seekTo(Math.floor(d.seekTime));
     });
-    navigator.mediaSession.setActionHandler("seekbackward", (d) => {
-      void seekTo(Math.max(0, Math.floor(positionSecs.value - (d.seekOffset ?? 10))));
-    });
-    navigator.mediaSession.setActionHandler("seekforward", (d) => {
-      void seekTo(Math.min(durationSecs.value, Math.floor(positionSecs.value + (d.seekOffset ?? 10))));
-    });
+    // No seekbackward/seekforward handlers: some mice route their back/forward
+    // buttons to those media actions, which made them skip 10s per click.
+    // Keyboard seeking stays available via ← / → / J / L.
   }
 
   const currentCoverUrl = computed(() => {

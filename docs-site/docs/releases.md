@@ -6,6 +6,10 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.6.3
+
+- **Web**: removed the Media Session `seekbackward`/`seekforward` handlers — mice whose back/forward buttons map to those media actions no longer skip the music 10s per click. Keyboard seeking (← / → / J / L) is unchanged.
+
 ## v4.6.2
 
 - **Web**: the queue side panel's collapse chevron in the maximized player now sits small in the glass card's top-right corner — pointing right to expand, left to collapse — and the queue track count moved next to the "Queue" label as "N tracks".
