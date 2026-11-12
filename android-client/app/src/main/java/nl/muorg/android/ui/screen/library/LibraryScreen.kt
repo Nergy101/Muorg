@@ -1,10 +1,18 @@
 package nl.muorg.android.ui.screen.library
 
 import nl.muorg.android.ui.component.OrcPullToRefreshBox
+import nl.muorg.android.ui.component.bottomInset
+import nl.muorg.android.ui.easteregg.DustReportBubble
+import nl.muorg.android.ui.easteregg.JanitorFigure
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -22,8 +30,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -48,6 +60,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val janitorAwake by viewModel.janitorAwake.collectAsStateWithLifecycle()
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentAlbum = playerState.currentTrack?.displayAlbum
     var searchText by remember { mutableStateOf(viewModel.rawSearchQuery) }
@@ -108,38 +121,77 @@ fun LibraryScreen(
         chromeAccent = chromeAccent,
     )
 
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-    ) {
-        LibraryTopBar(
-            uiState = uiState,
-            viewModel = viewModel,
-            playerViewModel = playerViewModel,
-            lazyListState = lazyListState,
-            lazyGridState = lazyGridState,
-        )
-
-        OrcPullToRefreshBox(
-            isRefreshing = uiState.isLoading,
-            onRefresh = viewModel::loadTracks,
+    Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.foundation.layout.Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxSize()
+                .statusBarsPadding(),
         ) {
-            LibraryContent(
+            LibraryTopBar(
                 uiState = uiState,
                 viewModel = viewModel,
                 playerViewModel = playerViewModel,
-                playerState = playerState,
-                searchText = searchText,
-                baseUrl = baseUrl,
-                imageLoader = imageLoader,
                 lazyListState = lazyListState,
                 lazyGridState = lazyGridState,
-                onAlbumClick = onAlbumClick,
-                onViewArtist = onViewArtist,
+            )
+
+            OrcPullToRefreshBox(
+                isRefreshing = uiState.isLoading,
+                onRefresh = viewModel::loadTracks,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    // Room for the Janitor when he's awake, as on Playlists.
+                    .padding(bottom = if (janitorAwake) 110.dp else 0.dp),
+            ) {
+                LibraryContent(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    playerViewModel = playerViewModel,
+                    playerState = playerState,
+                    searchText = searchText,
+                    baseUrl = baseUrl,
+                    imageLoader = imageLoader,
+                    lazyListState = lazyListState,
+                    lazyGridState = lazyGridState,
+                    onAlbumClick = onAlbumClick,
+                    onViewArtist = onViewArtist,
+                )
+            }
+        }
+
+        // The awakened Janitor sweeps the library too, with library-specific
+        // dust report lines — same overlay pattern as the Playlists screen.
+        if (janitorAwake) {
+            val dustOpen = uiState.dustReportOpen
+            BackHandler(enabled = dustOpen) { viewModel.closeDustReport() }
+            val bubbleVisible = dustOpen && uiState.dustStats.isNotEmpty()
+            val bubbleAnim by animateFloatAsState(
+                targetValue = if (bubbleVisible) 1f else 0f,
+                animationSpec = tween(180),
+            )
+            if (bubbleVisible) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = bottomInset() + 124.dp)
+                        .alpha(bubbleAnim)
+                        .scale(0.96f + 0.04f * bubbleAnim),
+                ) {
+                    DustReportBubble(
+                        stats = uiState.dustStats,
+                        index = uiState.dustIndex,
+                        onNext = viewModel::nextDustStat,
+                        onClose = viewModel::closeDustReport,
+                    )
+                }
+            }
+            JanitorFigure(
+                bubbleOpen = dustOpen,
+                onTap = viewModel::onJanitorTapped,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 10.dp, bottom = bottomInset() + 12.dp),
             )
         }
     }

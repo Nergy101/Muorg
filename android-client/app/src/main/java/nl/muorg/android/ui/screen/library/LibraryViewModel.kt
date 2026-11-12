@@ -23,6 +23,10 @@ import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.LocalLibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
 import nl.muorg.android.data.repository.PlaylistRepository
+import nl.muorg.android.ui.easteregg.DustContext
+import nl.muorg.android.ui.easteregg.DustReportBuilder
+import nl.muorg.android.ui.easteregg.DustStat
+import nl.muorg.android.ui.easteregg.JanitorEasterEgg
 import nl.muorg.android.ui.screen.playlist.AddConflictState
 import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.friendlyMessage
@@ -57,6 +61,10 @@ data class LibraryUiState(
     val initialScanTotal: Int = 0,
     val initialScanCompleted: Boolean = false,
     val albumViewStyle: String = "grid",
+    /** Janitor easter egg: dust report lines built from real library data. */
+    val dustStats: List<DustStat> = emptyList(),
+    val dustReportOpen: Boolean = false,
+    val dustIndex: Int = 0,
 )
 
 @OptIn(FlowPreview::class)
@@ -69,10 +77,46 @@ class LibraryViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val searchHistoryManager: SearchHistoryManager,
     private val uiMessenger: UiMessenger,
+    private val janitorEasterEgg: JanitorEasterEgg,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
+
+    val janitorAwake: StateFlow<Boolean> = janitorEasterEgg.awake
+
+    /** Tapping the Janitor toggles the dust report; stats load on first open. */
+    fun onJanitorTapped() {
+        val open = !_uiState.value.dustReportOpen
+        if (open && _uiState.value.dustStats.isEmpty()) loadDustStats()
+        _uiState.update { it.copy(dustReportOpen = open) }
+    }
+
+    fun closeDustReport() {
+        _uiState.update { it.copy(dustReportOpen = false) }
+    }
+
+    /** Advances to the next stat; wraps around once all have been shown. */
+    fun nextDustStat() {
+        _uiState.update { state ->
+            val stats = state.dustStats
+            if (stats.isEmpty()) return@update state
+            state.copy(dustIndex = (state.dustIndex + 1) % stats.size)
+        }
+    }
+
+    /**
+     * The library page's dust report draws on the catalog already in state,
+     * so no fetch is needed — the shelves above have loaded it.
+     */
+    private fun loadDustStats() {
+        val state = _uiState.value
+        val stats = DustReportBuilder.build(
+            DustReportBuilder.inputFrom(state.allTracks, state.playlists),
+            DustContext.LIBRARY,
+        )
+        _uiState.update { it.copy(dustStats = stats, dustIndex = stats.indices.random()) }
+    }
 
     private val _searchQuery = MutableStateFlow("")
     val rawSearchQuery: String get() = _searchQuery.value

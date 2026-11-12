@@ -51,6 +51,54 @@ class DustReportBuilderTest {
     }
 
     @Test
+    fun `library context reports albums and artists`() {
+        val stats = DustReportBuilder.build(
+            DustInput(trackCount = 3, albumCount = 2, artistCount = 2),
+            DustContext.LIBRARY,
+        )
+
+        assertTrue(stats.any { it.stat.contains("2 albums") })
+        assertTrue(stats.any { it.stat.contains("2 artists") })
+        assertTrue(stats.none { it.stat.contains("playlist") })
+    }
+
+    @Test
+    fun `default context is the library report`() {
+        val input = DustInput(trackCount = 3, playlists = listOf("Mix" to 10))
+
+        val default = DustReportBuilder.build(input)
+        val library = DustReportBuilder.build(input, DustContext.LIBRARY)
+
+        assertEquals(library, default)
+    }
+
+    @Test
+    fun `playlist context gives playlist-specific lines`() {
+        val stats = DustReportBuilder.build(
+            DustInput(
+                trackCount = 100,
+                playlists = listOf("Big" to 42, "Tiny" to 2, "Empty" to 0),
+            ),
+            DustContext.PLAYLISTS,
+        )
+
+        assertTrue(stats.any { it.stat.contains("3 playlists") })
+        assertTrue(stats.any { it.stat.contains("“Big” is your biggest playlist: 42 tracks.") })
+        assertTrue(stats.any { it.stat.contains("1 playlist is empty.") })
+        assertTrue(stats.any { it.stat.contains("“Tiny” has only 2 tracks.") })
+        assertTrue(stats.any { it.stat.contains("44 tracks are filed across your playlists.") })
+        assertTrue(stats.none { it.stat.startsWith("You've got") })
+    }
+
+    @Test
+    fun `playlist context with no playlists falls back to the dust-only line`() {
+        val stats = DustReportBuilder.build(DustInput(trackCount = 5), DustContext.PLAYLISTS)
+
+        assertEquals(1, stats.size)
+        assertEquals("Nothing to report.", stats[0].stat)
+    }
+
+    @Test
     fun `inputFrom maps catalog tracks and playlists onto dust input`() {
         val now = 1_700_000_000L
         val tracks = listOf(

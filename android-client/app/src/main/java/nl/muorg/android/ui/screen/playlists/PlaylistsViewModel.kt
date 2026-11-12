@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.playlists
 
+import nl.muorg.android.ui.easteregg.DustContext
 import nl.muorg.android.ui.easteregg.DustReportBuilder
 import nl.muorg.android.ui.easteregg.DustStat
 import nl.muorg.android.ui.easteregg.JanitorEasterEgg
@@ -69,7 +70,7 @@ data class PlaylistsUiState(
     /** Sort field for the grid, as on the web's playlists page. */
     val sortKey: PlaylistSortKey = PlaylistSortKey.NAME,
     val sortAsc: Boolean = true,
-    /** Janitor easter egg: dust report lines built from real library data. */
+    /** Janitor easter egg: playlist-specific dust report lines. */
     val dustStats: List<DustStat> = emptyList(),
     val dustReportOpen: Boolean = false,
     val dustIndex: Int = 0,
@@ -158,7 +159,10 @@ class PlaylistsViewModel @Inject constructor(
             }
             val stats = result.fold(
                 onSuccess = { tracks ->
-                    DustReportBuilder.build(DustReportBuilder.inputFrom(tracks, _uiState.value.playlists))
+                    DustReportBuilder.build(
+                        DustReportBuilder.inputFrom(tracks, _uiState.value.playlists),
+                        DustContext.PLAYLISTS,
+                    )
                 },
                 onFailure = { listOf(DustStat("Nothing to report.", "Just dust. Lots of dust.")) },
             )

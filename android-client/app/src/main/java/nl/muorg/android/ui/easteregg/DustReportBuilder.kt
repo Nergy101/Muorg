@@ -8,10 +8,20 @@ import java.util.concurrent.TimeUnit
 /** One dust-report line: the stat and the Janitor's quip under it. */
 data class DustStat(val stat: String, val quip: String)
 
+/** Which page the Janitor is sweeping: picks the report's lines. */
+enum class DustContext {
+    /** The Library page: catalog-wide stats. */
+    LIBRARY,
+    /** The Playlists page: playlist-shaped stats. */
+    PLAYLISTS,
+}
+
 /** Everything the dust report can draw on. Zero/empty means "no data". */
 data class DustInput(
     val trackCount: Int = 0,
     val totalDurationSecs: Long = 0,
+    val albumCount: Int = 0,
+    val artistCount: Int = 0,
     /** Playlist name to track count. */
     val playlists: List<Pair<String, Int>> = emptyList(),
     val neverPlayedCount: Int = 0,
@@ -26,7 +36,14 @@ data class DustInput(
  */
 object DustReportBuilder {
 
-    fun build(input: DustInput): List<DustStat> {
+    fun build(input: DustInput, context: DustContext = DustContext.LIBRARY): List<DustStat> =
+        when (context) {
+            DustContext.LIBRARY -> buildLibrary(input)
+            DustContext.PLAYLISTS -> buildPlaylists(input)
+        }
+
+    /** Library-page lines: the catalog itself — tracks, albums, artists, habits. */
+    private fun buildLibrary(input: DustInput): List<DustStat> {
         val stats = mutableListOf<DustStat>()
         if (input.trackCount > 0) {
             stats += DustStat(
@@ -34,24 +51,22 @@ object DustReportBuilder {
                 quip = "That's ${durationText(input.totalDurationSecs)} of music. I counted. Twice.",
             )
         }
-        input.playlists.maxByOrNull { it.second }?.let { (name, count) ->
-            if (count > 0) {
-                stats += DustStat(
-                    stat = "“$name” is your biggest playlist: ${fmt(count)} ${plural(count, "track", "tracks")}.",
-                    quip = "Do you ever sleep? Asking for a friend. The friend is me.",
-                )
-            }
+        if (input.albumCount > 0) {
+            stats += DustStat(
+                stat = "Across ${fmt(input.albumCount)} ${plural(input.albumCount, "album", "albums")}.",
+                quip = "Every shelf dusted. Every spine read.",
+            )
+        }
+        if (input.artistCount > 0) {
+            stats += DustStat(
+                stat = "From ${fmt(input.artistCount)} ${plural(input.artistCount, "artist", "artists")}.",
+                quip = "A whole choir in there. I checked the harmonies.",
+            )
         }
         if (input.neverPlayedCount > 0) {
             stats += DustStat(
                 stat = "${fmt(input.neverPlayedCount)} ${plural(input.neverPlayedCount, "track has", "tracks have")} never been played.",
                 quip = "They're lonely in there. I can hear them.",
-            )
-        }
-        input.playlists.filter { it.second in 1..5 }.minByOrNull { it.second }?.let { (name, count) ->
-            stats += DustStat(
-                stat = "“$name” has only $count ${plural(count, "track", "tracks")}.",
-                quip = "Bold. Minimalist. Slightly sad.",
             )
         }
         if (!input.topArtistThisMonth.isNullOrBlank()) {
@@ -72,6 +87,50 @@ object DustReportBuilder {
         return stats
     }
 
+    /** Playlists-page lines: the playlists themselves — sizes, empties, totals. */
+    private fun buildPlaylists(input: DustInput): List<DustStat> {
+        val stats = mutableListOf<DustStat>()
+        val playlists = input.playlists
+        if (playlists.isNotEmpty()) {
+            stats += DustStat(
+                stat = "You keep ${fmt(playlists.size)} ${plural(playlists.size, "playlist", "playlists")}.",
+                quip = "Organized. I approve. I sweep organized places best.",
+            )
+        }
+        playlists.maxByOrNull { it.second }?.let { (name, count) ->
+            if (count > 0) {
+                stats += DustStat(
+                    stat = "“$name” is your biggest playlist: ${fmt(count)} ${plural(count, "track", "tracks")}.",
+                    quip = "Do you ever sleep? Asking for a friend. The friend is me.",
+                )
+            }
+        }
+        val emptyCount = playlists.count { it.second == 0 }
+        if (emptyCount > 0) {
+            stats += DustStat(
+                stat = "$emptyCount ${plural(emptyCount, "playlist is", "playlists are")} empty.",
+                quip = "I swept them. Nothing but echoes in there.",
+            )
+        }
+        playlists.filter { it.second in 1..5 }.minByOrNull { it.second }?.let { (name, count) ->
+            stats += DustStat(
+                stat = "“$name” has only $count ${plural(count, "track", "tracks")}.",
+                quip = "Bold. Minimalist. Slightly sad.",
+            )
+        }
+        val total = playlists.sumOf { it.second }
+        if (total > 0) {
+            stats += DustStat(
+                stat = "${fmt(total)} ${plural(total, "track is", "tracks are")} filed across your playlists.",
+                quip = "Some of them twice, I'd wager. I don't judge. Much.",
+            )
+        }
+        if (stats.isEmpty()) {
+            stats += DustStat(stat = "Nothing to report.", quip = "Just dust. Lots of dust.")
+        }
+        return stats
+    }
+
     /** Maps the raw catalog and playlist list onto [DustInput]. */
     fun inputFrom(tracks: List<CatalogTrack>, playlists: List<Playlist>, nowSecs: Long = System.currentTimeMillis() / 1000): DustInput {
         val monthAgo = nowSecs - TimeUnit.DAYS.toSeconds(30)
@@ -84,6 +143,8 @@ object DustReportBuilder {
         return DustInput(
             trackCount = tracks.size,
             totalDurationSecs = tracks.sumOf { (it.durationSecs ?: 0.0).toLong() },
+            albumCount = tracks.map { it.displayAlbum }.distinct().size,
+            artistCount = tracks.map { it.displayArtist }.distinct().size,
             playlists = playlists.map { it.name to it.trackCount },
             neverPlayedCount = tracks.count { it.playCount == 0 },
             topArtistThisMonth = topArtist,
