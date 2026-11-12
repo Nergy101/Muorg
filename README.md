@@ -8,6 +8,7 @@
   [![Latest Release](https://img.shields.io/github/v/release/Nergy101/Muorg)](https://github.com/Nergy101/Muorg/releases/latest)
   [![Docker Server](https://img.shields.io/docker/v/nergy101/muorg-server?label=docker%20server&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-server)
   [![Docker Web](https://img.shields.io/docker/v/nergy101/muorg-web?label=docker%20web&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-web)
+  [![Docs](https://img.shields.io/badge/docs-docs.muorg.nergy.space-blue)](https://docs.muorg.nergy.space)
   ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Android%20%7C%20Web-lightgrey)
 </div>
 
@@ -23,6 +24,7 @@ Muorg works in two modes:
 
 ## Table of contents
 
+- [Documentation](#-documentation)
 - [Download & install](#-download--install)
 - [Features](#-features)
 - [Repository layout](#-repository-layout)
@@ -30,6 +32,12 @@ Muorg works in two modes:
 - [Building from source](#-building-from-source)
 - [Contributing](#-contributing)
 - [License](#-license)
+
+---
+
+## 📚 Documentation
+
+Full user and developer documentation — quick start, installation, configuration, API reference, and per-platform guides — lives at **[docs.muorg.nergy.space](https://docs.muorg.nergy.space)**.
 
 ---
 

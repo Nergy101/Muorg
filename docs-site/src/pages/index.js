@@ -50,7 +50,10 @@ function Hero() {
           Organize, clean up and play your library — locally or from your own server.
         </p>
         <div className={styles.buttons}>
-          <Link className="button button--primary button--lg" to="/docs/quick-start">
+          <Link className="button button--primary button--lg" to="/docs/intro">
+            Read the Docs
+          </Link>
+          <Link className="button button--secondary button--lg" to="/docs/quick-start">
             Quick Start
           </Link>
           <Link
