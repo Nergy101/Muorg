@@ -1,0 +1,173 @@
+name: Server Image
+
+# Fast path to publish ONLY the muorg-server Docker image — no GitHub Release
+# page, no desktop/web/docs artifacts. Use this for server-only fixes so the
+# VPS gets a new :latest in ~10 minutes instead of waiting for a full v* tag
+# release.
+#
+# The image tag is the server crate version from
+# server/crates/muorg-server/Cargo.toml (the same version the API reports in
+# x-muorg-version). Bump the crate on main first, then dispatch this workflow
+# with that version. After the push, the VPS deploy workflow is dispatched so
+# it pulls the new :latest immediately instead of waiting for watchtower.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Server crate version to publish (must match server/crates/muorg-server/Cargo.toml; defaults to it)'
+        required: false
+        type: string
+
+concurrency:
+  group: server-image
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: set
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          CRATE="$(sed -n 's/^version = "\(.*\)"$/\1/p' server/crates/muorg-server/Cargo.toml | head -1)"
+          if [[ -z "${CRATE}" ]]; then
+            echo "::error::could not read the crate version from server/crates/muorg-server/Cargo.toml"
+            exit 1
+          fi
+          if [[ -n "${INPUT_VERSION}" && "${INPUT_VERSION}" != "${CRATE}" ]]; then
+            echo "::error::version input '${INPUT_VERSION}' does not match the crate version '${CRATE}' — bump server/crates/muorg-server/Cargo.toml on main first."
+            exit 1
+          fi
+          echo "Publishing muorg-server:${CRATE} (+ latest)"
+          echo "version=${CRATE}" >> "$GITHUB_OUTPUT"
+
+  # Same cross-compile as release.yml's server-binaries job: native x86_64 plus
+  # aarch64 via the GNU cross-linker (far faster than compiling under QEMU).
+  server-binaries:
+    needs: version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server -> target
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev libmp3lame-dev
+
+      - name: Set up arm64 cross-compilation
+        run: |
+          sudo dpkg --add-architecture arm64
+          printf '%s\n' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse' \
+            'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse' \
+            | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
+          sudo apt-get update \
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu-arm64.list \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y gcc-aarch64-linux-gnu libmp3lame-dev:arm64 libssl-dev:arm64
+          rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+
+      - name: Build server binary (x86_64-linux)
+        working-directory: server
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Build server binary (aarch64-linux)
+        working-directory: server
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          PKG_CONFIG_ALLOW_CROSS: "1"
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+
+      - name: Upload Docker server binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-server-binaries
+          path: |
+            server/target/x86_64-unknown-linux-gnu/release/muorg-server
+            server/target/aarch64-unknown-linux-gnu/release/muorg-server
+
+  docker-server:
+    needs: [version, server-binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download server binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: docker-server-binaries
+          path: server/binaries
+
+      - name: Rename and chmod binaries
+        run: |
+          mv server/binaries/x86_64-unknown-linux-gnu/release/muorg-server server/binaries/muorg-server-amd64
+          mv server/binaries/aarch64-unknown-linux-gnu/release/muorg-server server/binaries/muorg-server-arm64
+          chmod +x server/binaries/muorg-server-amd64 server/binaries/muorg-server-arm64
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: server
+          file: server/Dockerfile.release
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/nergy101/muorg-server:${{ needs.version.outputs.version }}
+            ghcr.io/nergy101/muorg-server:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Pull the new :latest on the VPS right away instead of waiting for the next
+  # main push or watchtower poll.
+  deploy:
+    needs: [version, docker-server]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch VPS deploy workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
+            -d '{"ref": "main"}' \
+            && echo "deploy workflow dispatched"
