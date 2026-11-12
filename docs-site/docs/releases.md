@@ -6,6 +6,11 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.6.0
+
+- **Web**: the maximized player now shows the queue in a side panel on the right of the glass controls card whenever the window is wide enough (content column ≥ 820px); in art-fullscreen mode a collapsed "Queue" menu in the top right expands to the same list. Both lists support drag-to-reorder (with auto-scroll near the edges), per-track 3-dots actions and remove-from-queue.
+- **Web**: fixed the popout miniplayer going silent after track changes while it was open — the mute flag and captured audio track now follow the PiP session across track handoffs.
+
 ## v4.5.2
 
 - **Web**: in an installed iOS PWA, the app shell now gets extra top padding so the iOS 26+ system top fade no longer sits under the header glass and blurs it.
