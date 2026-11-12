@@ -495,7 +495,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
@@ -584,6 +584,13 @@ watch(
 
 onMounted(() => {
   if (!player.currentTrack) void router.replace({ name: "library" });
+});
+
+// Leaving the maximized view always drops art-fullscreen: the sidebar's
+// collapsed state keys off it, and FS mode must not leak into the normal
+// shell where it would keep the sidenav collapsed.
+onUnmounted(() => {
+  player.artFullscreen = false;
 });
 
 // --- Dominant-colour background lives in CoverBackdrop; glowRgb here only
