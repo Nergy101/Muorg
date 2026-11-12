@@ -63,6 +63,10 @@
   color: var(--ifm-color-primary);
 }
 
+:global([data-theme="dark"]) .featureIcon {
+  color: #fff;
+}
+
 .featureIcon img {
   display: block;
 }
