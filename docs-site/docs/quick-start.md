@@ -6,7 +6,7 @@ description: Get Muorg running in a few minutes — self-host muorg-server and u
 Pick the path that matches what you want:
 
 - **[Self-host](#self-host)** — run muorg-server once, then reach the same library from the browser and phone. **Recommended.**
-- **[Run locally](#run-locally)** — music files stay on this machine via the legacy desktop app. Nothing to configure, no network.
+- **[Run locally](#run-locally)** — music files stay on your machine via the legacy desktop app, or on your phone via the Android app's local folders. Nothing to configure, no network.
 
 ---
 
