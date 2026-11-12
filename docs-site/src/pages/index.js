@@ -17,7 +17,7 @@ const components = [
   {
     title: "Web App",
     description:
-      "A mobile-first browser UI (Vue 3 + Vite) that connects to your server. Installable as a PWA, no app store, works on every device with a browser.",
+      "The easiest client to use Muorg, from any device, built for every viewport.",
     to: "/docs/web-client/",
     icon: "img/icons/globe.svg",
   },
