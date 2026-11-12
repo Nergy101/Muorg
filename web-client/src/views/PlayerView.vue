@@ -169,7 +169,7 @@
           class="controls-panel relative z-10 flex shrink-0 glass"
           :class="artFullscreen
             ? 'm-0 mt-auto w-full flex-row items-center gap-4 rounded-b-none rounded-t-3xl py-3 pl-6 pr-3 lg:px-6'
-            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2 @min-[820px]:max-w-[820px] @min-[820px]:pr-[316px]'"
+            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2' + (queuePanelOpen ? ' @min-[820px]:max-w-[820px] @min-[820px]:pr-[316px]' : '')"
         >
           <!-- Track info bottom-left, quick actions opposite, both above the seek bar.
                In art-fullscreen mode the panel is a single bottom row: cover +
@@ -491,11 +491,27 @@
                card; only the hairline separator marks the split. Hidden in
                art-fullscreen, where the panel is a single bottom bar. -->
           <div
-            v-if="!artFullscreen"
+            v-if="!artFullscreen && queuePanelOpen"
             class="absolute inset-y-0 right-0 hidden w-[300px] flex-col overflow-hidden rounded-r-3xl border-l border-white/10 @min-[820px]:flex"
           >
             <QueueMiniList />
           </div>
+
+          <!-- Chevron tab on the panel's right edge: collapses the side queue
+               panel and re-expands it. Rides the queue panel's left edge while
+               open, the panel's own edge once collapsed. Desktop-width only,
+               hidden in art-fullscreen where the panel is a single bottom bar. -->
+          <button
+            v-if="!artFullscreen"
+            type="button"
+            class="glass absolute top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-white/75 transition-all hover:bg-white/10 hover:text-white @min-[820px]:flex"
+            :class="queuePanelOpen ? 'right-[300px]' : 'right-2'"
+            :aria-label="queuePanelOpen ? 'Collapse queue panel' : 'Expand queue panel'"
+            :aria-expanded="queuePanelOpen"
+            @click="queuePanelOpen = !queuePanelOpen"
+          >
+            <MageIcon :name="queuePanelOpen ? 'chevron-right' : 'chevron-left'" class="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -655,6 +671,10 @@ const queueMenuOpen = ref(false);
 watch(artFullscreen, (v) => {
   if (!v) queueMenuOpen.value = false;
 });
+
+// Side queue panel on the desktop maximized player: the chevron tab on the
+// glass panel's right edge collapses and re-expands it.
+const queuePanelOpen = ref(true);
 
 /** Pressing the album art in the middle cycles through all three display
  *  variants: normal → FS with cover in the middle → FS with cover hidden
