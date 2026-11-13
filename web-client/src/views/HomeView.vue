@@ -90,6 +90,7 @@
               :item="item"
               mode="grid"
               class="w-full"
+              :is-active="isAlbumActive(item)"
               @open="openAlbum(item)"
               @actions="albumActions = item"
             />
@@ -198,6 +199,7 @@
               :item="item"
               mode="grid"
               class="w-full"
+              :is-active="isAlbumActive(item)"
               @open="openAlbum(item)"
               @actions="albumActions = item"
             />
@@ -443,6 +445,11 @@ onMounted(() => {
 onActivated(() => {
   for (const shelf of shelves) void loadShelf(shelf, true);
 });
+
+function isAlbumActive(item: AlbumGridItem): boolean {
+  const current = player.currentTrack;
+  return current != null && item.trackIds.includes(current.id);
+}
 
 function openAlbum(item: AlbumGridItem): void {
   void router.push({ name: "album", params: { albumKey: item.key } });

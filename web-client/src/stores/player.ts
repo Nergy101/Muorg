@@ -333,7 +333,6 @@ export const usePlayerStore = defineStore("player", () => {
   let audioCtx: AudioContext | null = null;
   let analyser: AnalyserNode | null = null;
   const analysedEls = new WeakSet<HTMLAudioElement>();
-  let lastLevelLog = 0;
 
   /** Create the shared context synchronously — call from a user gesture
    *  (the play handler) so resume() is allowed. */
@@ -343,7 +342,7 @@ export const usePlayerStore = defineStore("player", () => {
       audioCtx = new AudioContext();
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.3;
+      analyser.smoothingTimeConstant = 0.55;
       analyser.connect(audioCtx.destination);
     } catch {
       audioCtx = null;
@@ -353,15 +352,14 @@ export const usePlayerStore = defineStore("player", () => {
 
   function ensureAnalyser(el: HTMLAudioElement): void {
     if (analysedEls.has(el) || !audioCtx || !analyser) return;
-    const capture = (el as HTMLAudioElement & {
-      captureStream?: () => MediaStream;
-      webkitCaptureStream?: () => MediaStream;
-    }).captureStream ?? (el as unknown as { webkitCaptureStream?: () => MediaStream }).webkitCaptureStream;
-    if (!capture) return;
     analysedEls.add(el);
     try {
-      audioCtx.createMediaStreamSource(capture.call(el)).connect(analyser);
-      console.debug("[muorg] analyser attached to audio element");
+      // MediaElementSource carries the element's real audio into the graph.
+      // Safe now: the context is created+resumed synchronously in the play
+      // gesture (a suspended context was what silenced it before), and the
+      // element has crossOrigin="anonymous" so cross-origin streams are
+      // CORS-clean (any working setup sends ACAO for the web origin).
+      audioCtx.createMediaElementSource(el).connect(analyser);
     } catch {
       // Visualizer only — playback is unaffected.
     }
@@ -375,19 +373,17 @@ export const usePlayerStore = defineStore("player", () => {
     if (audioCtx?.state === "suspended") void audioCtx.resume();
     const arr = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(arr);
-    // Throttled diagnostic: is real signal reaching the analyser?
-    const now = Date.now();
-    if (now - lastLevelLog > 2000) {
-      lastLevelLog = now;
-      let sum = 0;
-      for (let i = 0; i < arr.length; i++) sum += arr[i];
-      console.debug(`[muorg] analyser level avg=${(sum / arr.length).toFixed(1)} ctx=${audioCtx?.state}`);
-    }
     return arr;
   }
 
   function makeAudioEl(): HTMLAudioElement {
     const el = new Audio();
+    // CORS-mode media fetch: without this the element loads in no-cors mode
+    // and captureStream() (used by the visualizer analyser) returns a silent,
+    // tainted stream for cross-origin servers. Safe because any working
+    // setup already sends CORS headers for the web origin (the API needs
+    // them too).
+    el.crossOrigin = "anonymous";
     el.addEventListener("timeupdate", () => {
       if (el !== audioEl.value) return;
       positionSecs.value = el.currentTime + flacSeekOffset;

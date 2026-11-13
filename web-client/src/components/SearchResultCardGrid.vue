@@ -8,6 +8,7 @@
         v-if="card.item.hasCover"
         :item="card.item"
         mode="grid"
+        :is-active="isActiveTrack(card.track)"
         @open="$emit('open', card.track)"
       />
       <!-- Tracks without artwork still get a card, with a placeholder
@@ -45,9 +46,17 @@
 import AlbumCard from "./AlbumCard.vue";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
+import { usePlayerStore } from "../stores/player";
 import type { CatalogTrack, SearchResultCard } from "../types";
 
 /** Album-cover grid of search-result cards (live results or recent results). */
 defineProps<{ cards: SearchResultCard[] }>();
 defineEmits<{ open: [track: CatalogTrack] }>();
+
+const player = usePlayerStore();
+
+/** Search cards are per-track, so the active one is the current track itself. */
+function isActiveTrack(track: CatalogTrack): boolean {
+  return player.currentTrack?.id === track.id;
+}
 </script>

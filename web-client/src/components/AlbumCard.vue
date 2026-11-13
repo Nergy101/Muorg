@@ -157,9 +157,12 @@ const lp = useLongPress(() => emit("actions"));
 // Radial visualizer: one closed ring path whose radius bulges outward per
 // angle. Animated with rAF while the track plays; frozen (last frame kept)
 // when paused.
-const RING_POINTS = 48;
-const RING_BASE_R = 48;
-const RING_MAX_SPIKE = 15;
+const RING_POINTS = 40;
+const RING_BASE_R = 30;
+const RING_MAX_SPIKE = 22;
+// Hard cap so the ring never exceeds the 128px viewBox (center 64, stroke
+// 2.5): the circle is always fully round, never clipped.
+const RING_MAX_R = 61;
 const ringPath = ref("");
 let ringRaf = 0;
 // Smoothed per-angle amplitudes, lerped toward the live spectrum each frame
@@ -167,12 +170,18 @@ let ringRaf = 0;
 const ringAmps = new Array<number>(RING_POINTS).fill(0);
 
 function ringFrame(t: number): void {
-  const spectrum = player.getFrequencyData();
+  const spectrum = player.isPlaying ? player.getFrequencyData() : null;
   // Treat an all-zero spectrum (suspended context, silent captured stream)
   // as "no data" so the ring never sits dead while music plays.
   let level = 0;
   if (spectrum) for (let i = 0; i < spectrum.length; i++) level += spectrum[i];
   const usable = spectrum && spectrum.length > 0 && level > spectrum.length * 2;
+  // Overall energy drives the ring's base size: quiet = small circle,
+  // loud = wide circle. The per-lobe spikes ride on top of that.
+  const energy = usable
+    ? level / spectrum.length / 255
+    : 0.3 + 0.15 * Math.sin(t * 0.002);
+  const baseR = RING_BASE_R * (1 + energy * 0.5);
   const pts: [number, number][] = [];
   for (let i = 0; i < RING_POINTS; i++) {
     const a = (i / RING_POINTS) * Math.PI * 2;
@@ -185,31 +194,45 @@ function ringFrame(t: number): void {
       // spreads the (bass-heavy) spectrum across the whole circle.
       let max = 1;
       for (let b = 0; b < spectrum.length; b++) if (spectrum[b] > max) max = spectrum[b];
-      const bin = Math.floor(Math.pow(i / RING_POINTS, 1.8) * spectrum.length * 0.6);
-      target = (spectrum[bin] / max) * RING_MAX_SPIKE;
-      // Peak-hold with fast decay: spikes jump with the beat, then fall.
-      ringAmps[i] = Math.max(target, ringAmps[i] * 0.8);
+      // Group points into wide lobes: the spectrum has too many bins to
+      // map 1:1 (that renders as one round blob), so every few adjacent
+      // points share one bin and the ring breaks into distinct spikes.
+      const lobe = Math.floor(i / 4);
+      const bin = Math.floor(Math.pow(lobe / (RING_POINTS / 4), 1.6) * spectrum.length * 0.6);
+      // Gamma for contrast: quiet bins stay near the ring, loud bins spike.
+      target = Math.pow(spectrum[bin] / max, 1.6) * RING_MAX_SPIKE;
+      // Lerp toward the target: smooth attack and decay, no snapping.
+      ringAmps[i] += (target - ringAmps[i]) * 0.22;
     } else {
+      // Fallback: broad, slow lobes — visible shape but still smooth.
+      const lobe = Math.floor(i / 6);
       target =
-        RING_MAX_SPIKE *
-        (0.5 + 0.5 * Math.sin(t * 0.003 + i * 0.7)) *
-        (0.55 + 0.45 * Math.sin(t * 0.0013 + i * 1.7));
-      ringAmps[i] += (target - ringAmps[i]) * 0.35;
+        RING_MAX_SPIKE * 0.65 *
+        (0.5 + 0.5 * Math.sin(t * 0.0022 + lobe * 1.3)) *
+        (0.6 + 0.4 * Math.sin(t * 0.0012 + lobe * 2.1));
+      ringAmps[i] += (target - ringAmps[i]) * 0.3;
     }
-    const r = RING_BASE_R + ringAmps[i];
+    const r = Math.min(baseR + ringAmps[i], RING_MAX_R);
     pts.push([64 + r * Math.cos(a), 64 + r * Math.sin(a)]);
   }
-  // Smooth closed curve through the points (quadratic via midpoints).
-  const mid = (p: [number, number], q: [number, number]): [number, number] => [
-    (p[0] + q[0]) / 2,
-    (p[1] + q[1]) / 2,
-  ];
-  let d = `M ${mid(pts[RING_POINTS - 1], pts[0]).join(" ")}`;
-  for (let i = 0; i < RING_POINTS; i++) {
-    const m = mid(pts[i], pts[(i + 1) % RING_POINTS]);
-    d += ` Q ${pts[i].join(" ")} ${m.join(" ")}`;
+  // Live spectrum: straight segments for sharp, jagged peaks. Fallback:
+  // quadratic smoothing for a soft round idle animation.
+  if (usable) {
+    let d = `M ${pts[0].join(" ")}`;
+    for (let i = 1; i < RING_POINTS; i++) d += ` L ${pts[i].join(" ")}`;
+    ringPath.value = d + " Z";
+  } else {
+    const mid = (p: [number, number], q: [number, number]): [number, number] => [
+      (p[0] + q[0]) / 2,
+      (p[1] + q[1]) / 2,
+    ];
+    let d = `M ${mid(pts[RING_POINTS - 1], pts[0]).join(" ")}`;
+    for (let i = 0; i < RING_POINTS; i++) {
+      const m = mid(pts[i], pts[(i + 1) % RING_POINTS]);
+      d += ` Q ${pts[i].join(" ")} ${m.join(" ")}`;
+    }
+    ringPath.value = d + " Z";
   }
-  ringPath.value = d + " Z";
 }
 
 function ringLoop(t: number): void {
@@ -218,13 +241,14 @@ function ringLoop(t: number): void {
 }
 
 watch(
-  () => props.isActive && player.isPlaying,
+  () => props.isActive,
   (active) => {
+    // The loop runs whenever the card is active; while paused, ringFrame
+    // falls back to the time-based animation instead of the spectrum.
     if (active) {
       ringRaf = requestAnimationFrame(ringLoop);
     } else {
       cancelAnimationFrame(ringRaf);
-      if (props.isActive) ringFrame(0); // paused: freeze on a static frame
     }
   },
   { immediate: true },

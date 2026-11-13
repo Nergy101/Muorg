@@ -44,6 +44,7 @@
               :key="item.key"
               :item="item"
               mode="grid"
+              :is-active="isAlbumActive(item)"
               @open="openAlbum(item)"
             />
           </div>
@@ -149,6 +150,11 @@ const metaLine = computed(() => {
   parts.push(tc === 1 ? "1 track" : `${tc} tracks`);
   return parts.join(" · ");
 });
+
+function isAlbumActive(item: AlbumGridItem): boolean {
+  const current = player.currentTrack;
+  return current != null && item.trackIds.includes(current.id);
+}
 
 function openAlbum(item: AlbumGridItem): void {
   void router.push({ name: "album", params: { albumKey: item.key } });
