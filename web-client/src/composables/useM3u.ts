@@ -92,8 +92,9 @@ export async function buildStreamM3u(tracks: CatalogTrack[]): Promise<M3uResult>
   tracks.forEach((t, i) => {
     lines.push(extinfLine(t));
     const info = infos[i];
-    // True-FLAC servers serve the original file from /stream/flac/...; the
-    // fallback is the unauthenticated transcoded stream URL.
+    // Servers with lossless passthrough serve the original FLAC/WAV file
+    // from /stream/flac/... or /stream/wav/...; the fallback is the
+    // unauthenticated transcoded stream URL.
     lines.push(info ? api.streamUrlForTrack(t, info) : `${getServerUrl()}/stream/${t.id}`);
   });
   return { content: lines.join("\n") + "\n", skippedCount: 0 };

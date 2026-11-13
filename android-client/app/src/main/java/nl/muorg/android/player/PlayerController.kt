@@ -454,19 +454,24 @@ class PlayerController @Inject constructor(
         }
     }
 
-    /** True when the server serves this track's original FLAC 1:1
-     *  (`[feature-flags] true_flac` on, FLAC track) instead of a transcoded MP3. */
-    private fun isTrueFlac(track: CatalogTrack, info: TokenResponse): Boolean =
-        info.flac && track.format.equals("flac", ignoreCase = true)
+    /** True when the server serves this track's original lossless file 1:1
+     *  (FLAC or WAV passthrough) instead of a transcoded MP3. */
+    private fun isPassthrough(track: CatalogTrack, info: TokenResponse): Boolean {
+        val f = track.format.lowercase()
+        return (info.flac && f == "flac") || (info.wav && f == "wav")
+    }
 
-    /** Playback URI for a server track: the FLAC passthrough endpoint when the
-     *  server flag is on and the track is FLAC, else the transcoded stream. */
-    private fun streamUriFor(baseUrl: String, track: CatalogTrack, info: TokenResponse): String =
-        if (isTrueFlac(track, info)) {
-            "$baseUrl/stream/flac/${info.token}/${track.id}"
-        } else {
-            "$baseUrl/stream/${info.token}/${track.id}"
+    /** Playback URI for a server track: the FLAC/WAV passthrough endpoint when
+     *  the server advertises it and the track has that format, else the
+     *  transcoded stream. */
+    private fun streamUriFor(baseUrl: String, track: CatalogTrack, info: TokenResponse): String {
+        val f = track.format.lowercase()
+        return when {
+            info.flac && f == "flac" -> "$baseUrl/stream/flac/${info.token}/${track.id}"
+            info.wav && f == "wav" -> "$baseUrl/stream/wav/${info.token}/${track.id}"
+            else -> "$baseUrl/stream/${info.token}/${track.id}"
         }
+    }
 
     /**
      * Build (and cache) the media items for [tracks], or null if a stream token
@@ -664,12 +669,12 @@ class PlayerController @Inject constructor(
         val targetMs = (fullDurationMs * fraction).toLong()
 
         if (track.needsTranscode && track.localFilePath == null) {
-            // FLAC/WAV server stream. A true-FLAC stream (feature flag on) is the
-            // complete file and seeks natively like an MP3; only a transcoded
-            // stream needs the ?start=N reload below.
+            // FLAC/WAV server stream. A passthrough stream is the complete
+            // file and seeks natively like an MP3; only a transcoded stream
+            // needs the ?start=N reload below.
             scope.launch {
                 val info = libraryRepository.getStreamTokenInfo(track.id).getOrNull()
-                if (info != null && isTrueFlac(track, info)) {
+                if (info != null && isPassthrough(track, info)) {
                     nativeSeek(ctrl, track, fraction)
                     return@launch
                 }
@@ -707,7 +712,7 @@ class PlayerController @Inject constructor(
         }
     }
 
-    /** Native seek for complete streams (MP3, cached files, true-FLAC). */
+    /** Native seek for complete streams (MP3, cached files, FLAC/WAV passthrough). */
     private fun nativeSeek(ctrl: Player, track: CatalogTrack, fraction: Float) {
         val durationMs = ctrl.duration.takeIf { it > 0 }
             ?: ((track.durationSecs ?: 0.0) * 1000).toLong().takeIf { it > 0 }

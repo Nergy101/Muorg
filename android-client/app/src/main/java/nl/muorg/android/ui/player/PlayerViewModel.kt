@@ -282,7 +282,7 @@ class PlayerViewModel @Inject constructor(
             castManager.castTrack(track, baseUrl, "")
         } else {
             libraryRepository.getStreamTokenInfo(track.id).onSuccess { info ->
-                castManager.castTrack(track, baseUrl, info.token, serverFlac = info.flac)
+                castManager.castTrack(track, baseUrl, info.token, serverFlac = info.flac, serverWav = info.wav)
             }
         }
     }

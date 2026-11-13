@@ -104,6 +104,7 @@ the first page, not the catalog. Follow `X-Total-Count`.",
         crate::routes::stream::issue_token,
         crate::routes::stream::stream_audio,
         crate::routes::stream::stream_audio_flac,
+        crate::routes::stream::stream_audio_wav,
         // Cast
         crate::routes::cast::get_devices,
         crate::routes::cast::start_discovery,

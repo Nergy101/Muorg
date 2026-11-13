@@ -292,7 +292,7 @@ describe("call surface", () => {
     const exercised = new Set(
       CALLS.map(([name]) => name.replace(/ \(.*\)$/, "")),
     );
-    const notHttp = new Set(["streamTracks", "fetchAllTracks", "getTracksPage", "getCoverBlob", "streamUrl", "flacStreamUrl", "streamUrlForTrack"]);
+    const notHttp = new Set(["streamTracks", "fetchAllTracks", "getTracksPage", "getCoverBlob", "streamUrl", "flacStreamUrl", "wavStreamUrl", "streamUrlForTrack"]);
     const missing = Object.keys(api()).filter(
       (k) => !exercised.has(k) && !notHttp.has(k),
     );
