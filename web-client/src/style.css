@@ -427,6 +427,42 @@ body {
   color: #1c1917;
 }
 
+/* Desktop only: the glass edge highlight (top inset line + border) takes the
+   hue of the playing album's dominant color. `--glass-edge` is an "r,g,b"
+   triplet set by the player store; the fallback is plain white, which is what
+   mobile viewports always use. */
+@media (min-width: 1024px) {
+  .glass,
+  .glass-strong,
+  .glass-deep {
+    border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, transparent);
+  }
+  /* The whole glass body takes a subtle wash of the album hue, not just the
+     edge — sidenav (.glass) and bottom player (.glass-deep) included. Kept
+     low-alpha so text over the blur stays legible. */
+  .glass {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 10%, var(--surface) 90%);
+    box-shadow:
+      0 10px 34px -8px rgba(0, 0, 0, 0.30),
+      inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 30%, transparent);
+  }
+  .glass-strong {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
+    box-shadow:
+      0 10px 34px -8px rgba(0, 0, 0, 0.34),
+      inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 32%, transparent);
+  }
+  .glass-deep {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 14%, var(--surface) 86%);
+    box-shadow:
+      0 14px 40px -10px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 34%, transparent);
+  }
+  [data-theme="light"] .glass {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
+  }
+}
+
 /* `.glass-sheer` is the thin pane for controls sitting on the player's own
    art-derived backdrop, which is always dimmed: white content is legible
    there, so the glass only has to lift the control off the background. */

@@ -9,7 +9,7 @@ import { computeReplayGainVolume } from "../audio/replayGain";
 import { clearPlayHistory, recordPlayHistory, stepBackPlayHistory } from "../audio/playHistory";
 import { showToast } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
-import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
+import { isColorBland, rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { router } from "../router";
 import { useCastStore } from "./cast";
 import { useLibraryStore } from "./library";
@@ -324,6 +324,68 @@ export const usePlayerStore = defineStore("player", () => {
   /** Wires the shared listener set onto one hidden, DOM-attached audio element.
    * Only the ACTIVE element may write playback state; the preload element fires
    * durationchange (and briefly play/pause) while it's just buffering. */
+  // Audio analysis for visualizers: one shared AudioContext + AnalyserNode.
+  // SAFETY: the playback element is NEVER rerouted — we tap it with
+  // captureStream(), which leaves native output untouched, so analysis can
+  // never silence playback. Worst case (cross-origin without CORS, or no
+  // captureStream support) the analyser just sees zeros and the visualizer
+  // falls back to its time-based animation.
+  let audioCtx: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  const analysedEls = new WeakSet<HTMLAudioElement>();
+  let lastLevelLog = 0;
+
+  /** Create the shared context synchronously — call from a user gesture
+   *  (the play handler) so resume() is allowed. */
+  function ensureAudioCtx(): void {
+    if (audioCtx) return;
+    try {
+      audioCtx = new AudioContext();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.3;
+      analyser.connect(audioCtx.destination);
+    } catch {
+      audioCtx = null;
+      analyser = null;
+    }
+  }
+
+  function ensureAnalyser(el: HTMLAudioElement): void {
+    if (analysedEls.has(el) || !audioCtx || !analyser) return;
+    const capture = (el as HTMLAudioElement & {
+      captureStream?: () => MediaStream;
+      webkitCaptureStream?: () => MediaStream;
+    }).captureStream ?? (el as unknown as { webkitCaptureStream?: () => MediaStream }).webkitCaptureStream;
+    if (!capture) return;
+    analysedEls.add(el);
+    try {
+      audioCtx.createMediaStreamSource(capture.call(el)).connect(analyser);
+      console.debug("[muorg] analyser attached to audio element");
+    } catch {
+      // Visualizer only — playback is unaffected.
+    }
+  }
+
+  /** Current frequency spectrum (0-255 per bin), or null when unavailable. */
+  function getFrequencyData(): Uint8Array | null {
+    if (!analyser) return null;
+    // A suspended context reports an all-zero spectrum; try to resume (works
+    // once the context has been running, e.g. after the first play gesture).
+    if (audioCtx?.state === "suspended") void audioCtx.resume();
+    const arr = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(arr);
+    // Throttled diagnostic: is real signal reaching the analyser?
+    const now = Date.now();
+    if (now - lastLevelLog > 2000) {
+      lastLevelLog = now;
+      let sum = 0;
+      for (let i = 0; i < arr.length; i++) sum += arr[i];
+      console.debug(`[muorg] analyser level avg=${(sum / arr.length).toFixed(1)} ctx=${audioCtx?.state}`);
+    }
+    return arr;
+  }
+
   function makeAudioEl(): HTMLAudioElement {
     const el = new Audio();
     el.addEventListener("timeupdate", () => {
@@ -352,6 +414,12 @@ export const usePlayerStore = defineStore("player", () => {
       void playIndexAt(0);
     });
     el.addEventListener("play", () => {
+      // Create/resume the AudioContext synchronously inside this user
+      // gesture — a suspended context silences the rerouted element — then
+      // attach the analyser (CORS-safe origins only, see ensureAnalyser).
+      ensureAudioCtx();
+      if (audioCtx?.state === "suspended") void audioCtx.resume();
+      ensureAnalyser(el);
       if (el === audioEl.value) isPlaying.value = true;
     });
     el.addEventListener("pause", () => {
@@ -1197,6 +1265,20 @@ export const usePlayerStore = defineStore("player", () => {
     el.style.setProperty("--secondary", onContainer);
   });
 
+  // Glass edge-highlight hue: the playing album's dominant color as an "r,g,b"
+  // triplet. Only desktop viewports consume it (see the media query in
+  // style.css); with no usable artwork color the var is dropped and the CSS
+  // fallback (white) applies.
+  watchEffect(() => {
+    const el = document.documentElement;
+    const rgb = rawMainColor(accentGlowRgb.value);
+    if (isColorBland(rgb)) {
+      el.style.removeProperty("--glass-edge");
+      return;
+    }
+    el.style.setProperty("--glass-edge", rgb);
+  });
+
   watch([currentTrack, currentCoverUrl], () => {
     if (!("mediaSession" in navigator)) return;
     const t = currentTrack.value;
@@ -1549,6 +1631,7 @@ export const usePlayerStore = defineStore("player", () => {
     currentTrack,
     currentCoverUrl,
     audioEl,
+    getFrequencyData,
     progress,
     sleepTimerActive,
     upNext,

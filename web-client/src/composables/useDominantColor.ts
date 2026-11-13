@@ -153,47 +153,172 @@ export function getGlowBlobs(glowRgb: string, seedString: string): GlowBlob[] {
   return blobs;
 }
 
+interface SampleResult {
+  /** Saturation-weighted average of the centre, glow-darkened ("r,g,b"). */
+  glow: string;
+  /** Most common quantized color of the whole image, raw ("r,g,b"). */
+  mode: string;
+  /** Peak hue among saturated pixels, as a vivid "r,g,b" accent. Picks out
+   *  small saturated details (e.g. red text on a black/white cover) that
+   *  the average and the mode both miss. */
+  hue: string;
+}
+
+/** Cache of sampled colors by image URL, so grids of album cards don't
+ *  re-decode the same cover per card. Bounded; oldest entries evicted. */
+const sampleCache = new Map<string, SampleResult>();
+const SAMPLE_CACHE_LIMIT = 500;
+
+/** Decode the image once and derive both color estimates from the pixels. */
+function sampleImage(url: string): Promise<SampleResult> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const size = Math.min(SAMPLE_SIZE, img.width, img.height);
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB }); return; }
+        ctx.drawImage(img, 0, 0, size, size);
+        const data = ctx.getImageData(0, 0, size, size).data;
+        const margin = Math.floor(size * 0.25);
+        let wr = 0, wg = 0, wb = 0, wTotal = 0;
+        // Quantize each pixel to 4 bits/channel and count bins to find the
+        // most common color — robust for dark or low-saturation artwork
+        // where the saturation-weighted average comes out bland.
+        const bins = new Map<number, { r: number; g: number; b: number; n: number }>();
+        // Saturation-weighted hue histogram over the saturated pixels only:
+        // near-gray pixels (the usual cover background) are skipped, so a
+        // small saturated detail — red text on a black/white sleeve — wins.
+        // Each bin also accumulates its pixels' RGB sums, so the winning hue
+        // is rendered as the bin's actual average color (matching the
+        // artwork's own saturation/lightness), not a synthesized one.
+        const HUE_BINS = 24; // 15° each
+        const hueBins = Array.from({ length: HUE_BINS }, () => ({
+          w: 0, r: 0, g: 0, b: 0, n: 0, first: -1,
+        }));
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const i = (y * size + x) * 4;
+            const pr = data[i], pg = data[i + 1], pb = data[i + 2];
+            const key = ((pr >> 4) << 8) | ((pg >> 4) << 4) | (pb >> 4);
+            const bin = bins.get(key);
+            if (bin) { bin.r += pr; bin.g += pg; bin.b += pb; bin.n++; }
+            else bins.set(key, { r: pr, g: pg, b: pb, n: 1 });
+            const max = Math.max(pr, pg, pb), min = Math.min(pr, pg, pb);
+            const sat = max === 0 ? 0 : (max - min) / max;
+            const lum = (pr * 0.299 + pg * 0.587 + pb * 0.114) / 255;
+            if (sat >= 0.3 && lum > 0.08 && lum < 0.92) {
+              const hb = hueBins[Math.min(HUE_BINS - 1, Math.floor(rgbToHue(pr, pg, pb) / 15))];
+              // Weight by saturation so the bin's average tracks the vivid
+              // pixels (e.g. khaki text), not the near-threshold gray ones.
+              hb.w += sat;
+              hb.r += pr * sat; hb.g += pg * sat; hb.b += pb * sat; hb.n++;
+              // Remember where this hue first appears in scan order, so
+              // covers with two equally strong colors resolve to the
+              // "first" one (top-left) instead of an arbitrary peak.
+              if (hb.first < 0) hb.first = y * size + x;
+            }
+            if (y >= margin && y < size - margin && x >= margin && x < size - margin) {
+              const w = sat * sat + 0.05;
+              wr += pr * w; wg += pg * w; wb += pb * w; wTotal += w;
+            }
+          }
+        }
+        const glow =
+          wTotal === 0
+            ? FALLBACK_RGB
+            : `${Math.round((wr / wTotal) * GLOW_DARKEN)},${Math.round((wg / wTotal) * GLOW_DARKEN)},${Math.round((wb / wTotal) * GLOW_DARKEN)}`;
+        let mode = FALLBACK_RGB;
+        let bestN = 0;
+        for (const bin of bins.values()) {
+          if (bin.n > bestN) {
+            bestN = bin.n;
+            mode = `${Math.round(bin.r / bin.n)},${Math.round(bin.g / bin.n)},${Math.round(bin.b / bin.n)}`;
+          }
+        }
+        let hue = FALLBACK_RGB;
+        let bestW = 0;
+        for (const hb of hueBins) if (hb.w > bestW) bestW = hb.w;
+        // Competing peaks (within 80% of the max) tie-break by scan order:
+        // the hue that appears first in the image wins.
+        let firstIdx = Infinity;
+        for (const hb of hueBins) {
+          if (hb.w >= 0.8 * bestW && hb.w > 0 && hb.first >= 0 && hb.first < firstIdx) {
+            firstIdx = hb.first;
+            hue = `${Math.round(hb.r / hb.w)},${Math.round(hb.g / hb.w)},${Math.round(hb.b / hb.w)}`;
+          }
+        }
+        resolve({ glow, mode, hue });
+      } catch {
+        resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB });
+      }
+    };
+    img.onerror = () => resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB });
+    img.src = url;
+  });
+}
+
+async function sampled(url: string | null): Promise<SampleResult> {
+  if (!url) return { glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB };
+  const cached = sampleCache.get(url);
+  if (cached) return cached;
+  const result = await sampleImage(url);
+  if (sampleCache.size >= SAMPLE_CACHE_LIMIT) {
+    const oldest = sampleCache.keys().next().value;
+    if (oldest !== undefined) sampleCache.delete(oldest);
+  }
+  sampleCache.set(url, result);
+  return result;
+}
+
 export function useDominantColor(imageUrl: Ref<string | null>) {
   const glowRgb = ref<string>(FALLBACK_RGB);
 
   watch(
     imageUrl,
     (url) => {
-      if (!url) { glowRgb.value = FALLBACK_RGB; return; }
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          const size = Math.min(SAMPLE_SIZE, img.width, img.height);
-          canvas.width = size; canvas.height = size;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          ctx.drawImage(img, 0, 0, size, size);
-          const data = ctx.getImageData(0, 0, size, size).data;
-          const margin = Math.floor(size * 0.25);
-          let wr = 0, wg = 0, wb = 0, wTotal = 0;
-          for (let y = margin; y < size - margin; y++) {
-            for (let x = margin; x < size - margin; x++) {
-              const i = (y * size + x) * 4;
-              const pr = data[i], pg = data[i + 1], pb = data[i + 2];
-              const max = Math.max(pr, pg, pb), min = Math.min(pr, pg, pb);
-              const sat = max === 0 ? 0 : (max - min) / max;
-              const w = sat * sat + 0.05;
-              wr += pr * w; wg += pg * w; wb += pb * w; wTotal += w;
-            }
-          }
-          if (wTotal === 0) return;
-          glowRgb.value = `${Math.round((wr / wTotal) * GLOW_DARKEN)},${Math.round((wg / wTotal) * GLOW_DARKEN)},${Math.round((wb / wTotal) * GLOW_DARKEN)}`;
-        } catch { glowRgb.value = FALLBACK_RGB; }
-      };
-      img.onerror = () => { glowRgb.value = FALLBACK_RGB; };
-      img.src = url;
+      void sampled(url).then((s) => { glowRgb.value = s.glow; });
     },
     { immediate: true },
   );
 
   return glowRgb;
+}
+
+/** Second color estimate: the image's most common (modal) color, raw. Used as
+ *  a fallback when the saturation-weighted average is bland. */
+export function useMostCommonColor(imageUrl: Ref<string | null>) {
+  const modeRgb = ref<string>(FALLBACK_RGB);
+
+  watch(
+    imageUrl,
+    (url) => {
+      void sampled(url).then((s) => { modeRgb.value = s.mode; });
+    },
+    { immediate: true },
+  );
+
+  return modeRgb;
+}
+
+/** Third color estimate: the peak hue among the image's saturated pixels,
+ *  rendered as a vivid accent. Catches small saturated details (colored
+ *  text on a monochrome cover) that the average and the mode both miss. */
+export function useProminentHueColor(imageUrl: Ref<string | null>) {
+  const hueRgb = ref<string>(FALLBACK_RGB);
+
+  watch(
+    imageUrl,
+    (url) => {
+      void sampled(url).then((s) => { hueRgb.value = s.hue; });
+    },
+    { immediate: true },
+  );
+
+  return hueRgb;
 }
 
 export function useEdgeColors(imageUrl: Ref<string | null>) {
