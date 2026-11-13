@@ -6,7 +6,11 @@ module.exports = {
   // Broken internal links are a build failure: the docs are the product surface
   // for self-hosters, and a dead link there costs someone an evening.
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "warn",
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
   favicon: "img/favicon.ico",
   organizationName: "Nergy101",
   projectName: "Muorg",

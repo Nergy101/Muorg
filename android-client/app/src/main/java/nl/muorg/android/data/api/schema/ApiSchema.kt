@@ -394,11 +394,16 @@ data class SmartRulesBody(
 @Serializable
 data class TokenResponse(
     /**
-     * Whether the server has `[feature-flags] true_flac` enabled, i.e. whether
-     * `GET /stream/flac/{token}/{id}` will serve this track's original FLAC.
+     * Whether `GET /stream/flac/{token}/{id}` will serve this track's original
+     * FLAC — false when `[transcoding] downgrade_flac_to_mp3 = true`.
      */
     val flac: Boolean,
-    val token: String
+    val token: String,
+    /**
+     * Whether `GET /stream/wav/{token}/{id}` will serve this track's original
+     * WAV — false when `[transcoding] downgrade_wav_to_mp3 = true`.
+     */
+    val wav: Boolean
 )
 
 @Serializable

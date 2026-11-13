@@ -1011,6 +1011,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stream/wav/{token}/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The track's original WAV bytes, served 1:1 with `audio/wav` and byte ranges.
+         *     Only available when the track is a WAV and `[transcoding]
+         *     downgrade_wav_to_mp3` is not set — otherwise 404, and clients fall back to
+         *     the transcoded `/stream/{token}/{id}`. Every browser decodes WAV natively,
+         *     so no user-agent fallback is needed.
+         */
+        get: operations["stream_audio_wav"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1328,6 +1351,11 @@ export interface components {
              */
             flac: boolean;
             token: string;
+            /**
+             * @description Whether `GET /stream/wav/{token}/{id}` will serve this track's original
+             *     WAV — false when `[transcoding] downgrade_wav_to_mp3 = true`.
+             */
+            wav: boolean;
         };
         TrackBackupRecord: {
             backup_path: string;
@@ -3726,6 +3754,52 @@ export interface operations {
                 content?: never;
             };
             /** @description Downgrade enabled or track is not a FLAC */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    stream_audio_wav: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Track id */
+                id: number;
+                /** @description Short-lived token from `/api/tracks/{id}/stream-token` */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original WAV bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": unknown;
+                };
+            };
+            /** @description Partial content for a ranged request */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired or wrong token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Downgrade enabled or track is not a WAV */
             404: {
                 headers: {
                     [name: string]: unknown;

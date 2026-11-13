@@ -167,6 +167,11 @@ pub struct TranscodingConfig {
     /// user agents that cannot decode FLAC, e.g. Safari).
     #[serde(default)]
     pub downgrade_flac_to_mp3: bool,
+    /// Downgrade WAV tracks to the MP3 transcode instead of serving the
+    /// original file 1:1 from `GET /stream/wav/{token}/{id}` (default:
+    /// false — WAV is served as-is; every browser decodes WAV natively).
+    #[serde(default)]
+    pub downgrade_wav_to_mp3: bool,
 }
 
 fn default_transcode_bitrate() -> u32 { 320 }
@@ -180,6 +185,7 @@ impl Default for TranscodingConfig {
             format: "mp3".to_string(),
             sample_rate: 48000,
             downgrade_flac_to_mp3: false,
+            downgrade_wav_to_mp3: false,
         }
     }
 }

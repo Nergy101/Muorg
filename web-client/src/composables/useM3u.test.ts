@@ -8,7 +8,7 @@ vi.mock("../api/catalog", () => ({
 vi.mock("../api/client", () => ({
   getServerUrl: () => "http://server.test:7700",
   api: {
-    streamUrlForTrack: (t: { id: number; format: string }, info: { token: string; flac: boolean }) =>
+    streamUrlForTrack: (t: { id: number; format: string }, info: { token: string; flac: boolean; wav: boolean }) =>
       info.flac && t.format.toLowerCase() === "flac"
         ? `http://server.test:7700/stream/flac/${info.token}/${t.id}`
         : `http://server.test:7700/stream/${info.token}/${t.id}`,
@@ -128,7 +128,7 @@ describe("previewRelativePath", () => {
 
 describe("buildStreamM3u", () => {
   it("issues a token per track and writes an authorised stream URL", async () => {
-    issueStreamTokenInfo.mockImplementation((id: number) => Promise.resolve({ token: `tok${id}`, flac: false }));
+    issueStreamTokenInfo.mockImplementation((id: number) => Promise.resolve({ token: `tok${id}`, flac: false, wav: false }));
     const tracks = [track({ id: 7, path: "/m/Music/A/Song.mp3", artist: "A", title: "Song", duration_secs: 42 })];
     const { content, skippedCount } = await buildStreamM3u(tracks);
     expect(skippedCount).toBe(0);

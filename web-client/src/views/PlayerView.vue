@@ -388,6 +388,12 @@
                  above, next to the favourite button — no separate pill here.
                  The middle-cover toggle is gone too: pressing the album art
                  itself cycles the display variants. -->
+            <!-- Format tag, left of the favourite (fs view only, desktop
+                 viewports only — the bottom bar is too tight on phones) -->
+            <AudioFormatTag
+              v-if="artFullscreen"
+              class="hidden h-8 shrink-0 text-white/75 hover:bg-white/10 hover:text-white lg:flex"
+            />
             <!-- Favorite, just left of the progress ring (fs view only) -->
             <button
               v-if="artFullscreen"
@@ -497,6 +503,16 @@
             <QueueMiniList />
           </div>
 
+          <!-- Format tag of the playing file or live stream, top-left corner
+               of the glass panel (mirrors the queue tab in the top-right).
+               Hovering shows the bitrate / sample-rate stats. Desktop-width
+               only, hidden in art-fullscreen where the panel is a bottom
+               row (the tag moves next to the favourite there). -->
+          <AudioFormatTag
+            v-if="!artFullscreen"
+            class="absolute left-2 top-2 z-20 hidden h-7 text-white/55 hover:bg-white/10 hover:text-white @min-[820px]:flex"
+          />
+
           <!-- Queue tab in the panel's top-right corner: the stack glyph plus a
                chevron that expands the side queue (pointing right) and
                collapses it again (pointing left, landing where the queue
@@ -572,6 +588,7 @@ import { useSettingsStore } from "../stores/settings";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
+import AudioFormatTag from "../components/AudioFormatTag.vue";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];

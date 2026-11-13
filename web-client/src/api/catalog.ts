@@ -57,9 +57,9 @@ export function issueStreamToken(trackId: number): Promise<string> {
 }
 
 /**
- * Stream token plus the server's `flac` capability flag — use this (with
- * `api.streamUrlForTrack`) when the caller needs to know whether the server
- * can serve the track's original FLAC.
+ * Stream token plus the server's `flac`/`wav` capability flags — use this
+ * (with `api.streamUrlForTrack`) when the caller needs to know whether the
+ * server can serve the track's original lossless file.
  */
 export function issueStreamTokenInfo(trackId: number): Promise<StreamTokenInfo> {
   return api.getStreamTokenInfo(trackId);

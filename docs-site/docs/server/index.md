@@ -92,6 +92,8 @@ backup_dir = "/data/backups"
 | `bitrate` | `128` | Output bitrate in kbps (128/160/192/256/320) |
 | `format` | `"mp3"` | Output format (currently only mp3) |
 | `sample_rate` | `44100` | Output sample rate in Hz |
+| `downgrade_flac_to_mp3` | `false` | Serve FLAC tracks through the MP3 transcode instead of the original file 1:1 from `GET /stream/flac/{token}/{id}`. Default serves FLAC as-is, with an automatic MP3 fallback for user agents that cannot decode FLAC (e.g. Safari). |
+| `downgrade_wav_to_mp3` | `false` | Serve WAV tracks through the MP3 transcode instead of the original file 1:1 from `GET /stream/wav/{token}/{id}`. Default serves WAV as-is; every browser decodes WAV natively. |
 
 ### Cloud storage (S3-compatible)
 
