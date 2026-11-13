@@ -19,6 +19,9 @@ pub struct TokenResponse {
     /// Whether `GET /stream/flac/{token}/{id}` will serve this track's original
     /// FLAC — false when `[transcoding] downgrade_flac_to_mp3 = true`.
     pub flac: bool,
+    /// Whether `GET /stream/wav/{token}/{id}` will serve this track's original
+    /// WAV — false when `[transcoding] downgrade_wav_to_mp3 = true`.
+    pub wav: bool,
 }
 
 /// Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so
@@ -49,6 +52,7 @@ pub async fn issue_token(
     Ok(Json(TokenResponse {
         token,
         flac: !state.transcoding_config.downgrade_flac_to_mp3,
+        wav: !state.transcoding_config.downgrade_wav_to_mp3,
     }))
 }
 
@@ -257,15 +261,62 @@ pub async fn stream_audio(
     ),
 )]
 pub async fn stream_audio_flac(
-    Path((token, id)): Path<(String, i64)>,
+    path: Path<(String, i64)>,
     State(state): State<Arc<AppState>>,
     req_headers: HeaderMap,
 ) -> Response {
+    let downgrade = state.transcoding_config.downgrade_flac_to_mp3;
+    stream_lossless_passthrough(path, State(state), req_headers, "flac", "audio/flac", downgrade, true).await
+}
+
+// GET /stream/wav/{token}/{id}  (no Bearer auth — same short-lived token as /stream)
+/// The track's original WAV bytes, served 1:1 with `audio/wav` and byte ranges.
+/// Only available when the track is a WAV and `[transcoding]
+/// downgrade_wav_to_mp3` is not set — otherwise 404, and clients fall back to
+/// the transcoded `/stream/{token}/{id}`. Every browser decodes WAV natively,
+/// so no user-agent fallback is needed.
+#[utoipa::path(
+    get,
+    path = "/stream/wav/{token}/{id}",
+    tag = "Stream",
+    params(
+        ("token" = String, Path, description = "Short-lived token from `/api/tracks/{id}/stream-token`"),
+        ("id" = i64, Path, description = "Track id"),
+    ),
+    responses(
+        (status = 200, description = "Original WAV bytes", content_type = "audio/wav"),
+        (status = 206, description = "Partial content for a ranged request"),
+        (status = 401, description = "Missing, expired or wrong token"),
+        (status = 404, description = "Downgrade enabled or track is not a WAV"),
+    ),
+)]
+pub async fn stream_audio_wav(
+    path: Path<(String, i64)>,
+    State(state): State<Arc<AppState>>,
+    req_headers: HeaderMap,
+) -> Response {
+    let downgrade = state.transcoding_config.downgrade_wav_to_mp3;
+    stream_lossless_passthrough(path, State(state), req_headers, "wav", "audio/wav", downgrade, false).await
+}
+
+/// Shared body of the `/stream/flac/...` and `/stream/wav/...` passthrough
+/// endpoints: serve the track's original bytes 1:1 when it has extension
+/// `ext`, unless `downgrade` is set. `ua_fallback` (FLAC only) reroutes user
+/// agents that cannot decode the format to the MP3 transcode.
+async fn stream_lossless_passthrough(
+    Path((token, id)): Path<(String, i64)>,
+    State(state): State<Arc<AppState>>,
+    req_headers: HeaderMap,
+    ext: &str,
+    content_type: &str,
+    downgrade: bool,
+    ua_fallback: bool,
+) -> Response {
     if !state.tokens.validate(&token, id) {
-        tracing::warn!(track_id = id, "stream/flac: invalid token");
+        tracing::warn!(track_id = id, "stream/{ext}: invalid token");
         return StatusCode::UNAUTHORIZED.into_response();
     }
-    if state.transcoding_config.downgrade_flac_to_mp3 {
+    if downgrade {
         return StatusCode::NOT_FOUND.into_response();
     }
 
@@ -276,44 +327,46 @@ pub async fn stream_audio_flac(
     })() {
         Ok(p) => p,
         Err(e) => {
-            tracing::warn!(track_id = id, "stream/flac: track not found");
+            tracing::warn!(track_id = id, "stream/{ext}: track not found");
             return e.into_response();
         }
     };
 
-    let is_flac = std::path::Path::new(&track_path)
+    let matches_ext = std::path::Path::new(&track_path)
         .extension()
         .and_then(|e| e.to_str())
-        .map(|e| e.eq_ignore_ascii_case("flac"))
+        .map(|e| e.eq_ignore_ascii_case(ext))
         .unwrap_or(false);
-    if !is_flac {
+    if !matches_ext {
         return StatusCode::NOT_FOUND.into_response();
     }
 
     // Safari and all iOS browsers cannot decode FLAC in an <audio> element —
     // serve them the MP3 transcode instead of bytes they cannot play.
-    let ua = req_headers
-        .get("user-agent")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    if ua_cannot_decode_flac(ua) {
-        tracing::info!(track_id = id, ua, "stream/flac: user agent cannot decode FLAC, serving MP3 transcode");
-        return stream_audio(
-            Path((token, id)),
-            Query(StreamQuery { start: None }),
-            State(state),
-            req_headers,
-        )
-        .await;
+    if ua_fallback {
+        let ua = req_headers
+            .get("user-agent")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        if ua_cannot_decode_flac(ua) {
+            tracing::info!(track_id = id, ua, "stream/{ext}: user agent cannot decode {ext}, serving MP3 transcode");
+            return stream_audio(
+                Path((token, id)),
+                Query(StreamQuery { start: None }),
+                State(state),
+                req_headers,
+            )
+            .await;
+        }
     }
 
     if let Some((remote, key)) = state.remotes.resolve(&track_path) {
-        return stream_flac_remote(id, remote, key, &req_headers).await;
+        return stream_lossless_remote(id, remote, key, &req_headers, ext, content_type).await;
     }
 
     let mtime = crate::routes::util::file_mtime(std::path::Path::new(&track_path));
     let etag = format!(
-        "\"flac-{id}-{}\"",
+        "\"{ext}-{id}-{}\"",
         mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
     );
     if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
@@ -321,7 +374,7 @@ pub async fn stream_audio_flac(
     }
 
     let range_header = req_headers.get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
-    tracing::info!(track_id = id, path = %track_path, range = ?range_header, "stream-flac-passthrough");
+    tracing::info!(track_id = id, path = %track_path, range = ?range_header, "stream-{ext}-passthrough");
     match tokio::fs::read(&track_path).await {
         Ok(data) => {
             let total = data.len() as u64;
@@ -330,7 +383,7 @@ pub async fn stream_audio_flac(
                 .and_then(|r| parse_range(r, total));
 
             let mut headers = HeaderMap::new();
-            headers.insert("Content-Type", "audio/flac".parse().unwrap());
+            headers.insert("Content-Type", content_type.parse().unwrap());
             headers.insert("Accept-Ranges", "bytes".parse().unwrap());
             headers.insert("Cache-Control", "no-cache".parse().unwrap());
             headers.insert("Vary", "Accept-Encoding, User-Agent".parse().unwrap());
@@ -353,13 +406,15 @@ pub async fn stream_audio_flac(
     }
 }
 
-/// Streams a FLAC object from object storage 1:1: a client `Range` becomes a
-/// ranged GET and the byte stream is piped straight through.
-async fn stream_flac_remote(
+/// Streams a lossless (FLAC/WAV) object from object storage 1:1: a client
+/// `Range` becomes a ranged GET and the byte stream is piped straight through.
+async fn stream_lossless_remote(
     id: i64,
     remote: Arc<crate::storage::RemoteStore>,
     key: object_store::path::Path,
     req_headers: &HeaderMap,
+    ext: &str,
+    content_type: &str,
 ) -> Response {
     use object_store::{GetOptions, GetRange, ObjectStore, ObjectStoreExt};
 
@@ -370,13 +425,13 @@ async fn stream_flac_remote(
 
     let secs = head.last_modified.timestamp().max(0) as u64;
     let mtime = Some(std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs));
-    let etag = format!("\"flac-{id}-{secs}\"");
+    let etag = format!("\"{ext}-{id}-{secs}\"");
     if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, req_headers) {
         return resp;
     }
 
     let mut headers = HeaderMap::new();
-    headers.insert("Content-Type", "audio/flac".parse().unwrap());
+    headers.insert("Content-Type", content_type.parse().unwrap());
     headers.insert("Cache-Control", "no-cache".parse().unwrap());
     headers.insert("Vary", "Accept-Encoding, User-Agent".parse().unwrap());
     headers.insert("ETag", etag.parse().unwrap());
@@ -390,7 +445,7 @@ async fn stream_flac_remote(
         .get("range")
         .and_then(|v| v.to_str().ok())
         .and_then(|r| parse_range(r, total));
-    tracing::info!(track_id = id, key = %key, total, range = ?range.as_ref().map(|r| (r.start, r.end)), "stream-remote-flac-passthrough");
+    tracing::info!(track_id = id, key = %key, total, range = ?range.as_ref().map(|r| (r.start, r.end)), "stream-remote-{ext}-passthrough");
 
     let opts = GetOptions {
         range: range.as_ref().map(|r| GetRange::Bounded(r.start..r.end + 1)),

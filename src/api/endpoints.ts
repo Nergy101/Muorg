@@ -27,8 +27,10 @@ import { TRACKS_PAGE_SIZE } from "./types";
 /** Response of `GET /api/tracks/{id}/stream-token`. */
 export interface StreamTokenInfo {
   token: string;
-  /** Server has `[feature-flags] true_flac` enabled. */
+  /** Server serves original FLAC from `/stream/flac/{token}/{id}`. */
   flac: boolean;
+  /** Server serves original WAV from `/stream/wav/{token}/{id}`. */
+  wav: boolean;
 }
 
 export function createApi(t: Transport) {
@@ -304,9 +306,10 @@ export function createApi(t: Transport) {
     },
 
     /**
-     * The stream token plus the server's `flac` capability flag: when `flac`
-     * is true the server serves original FLAC bytes from
-     * `/stream/flac/{token}/{id}` (see {@link streamUrlForTrack}).
+     * The stream token plus the server's `flac`/`wav` capability flags: when
+     * set, the server serves original FLAC/WAV bytes from
+     * `/stream/flac/{token}/{id}` / `/stream/wav/{token}/{id}` (see
+     * {@link streamUrlForTrack}).
      */
     async getStreamTokenInfo(trackId: number): Promise<StreamTokenInfo> {
       const result = await client.GET("/api/tracks/{id}/stream-token", {
@@ -317,20 +320,26 @@ export function createApi(t: Transport) {
 
     streamUrl: t.streamUrl,
     flacStreamUrl: t.flacStreamUrl,
+    wavStreamUrl: t.wavStreamUrl,
 
     /**
-     * Picks the playback URL for a track: the original FLAC when the server
-     * advertised `flac: true` and the track is a FLAC, otherwise the
-     * (possibly transcoded) `/stream/{token}/{id}` URL. `startSecs` only
-     * applies to the transcoded URL — FLAC seeks natively via byte ranges.
+     * Picks the playback URL for a track: the original FLAC/WAV when the
+     * server advertised the matching capability and the track has that
+     * format, otherwise the (possibly transcoded) `/stream/{token}/{id}` URL.
+     * `startSecs` only applies to the transcoded URL — FLAC/WAV seek natively
+     * via byte ranges.
      */
     streamUrlForTrack(
       track: CatalogTrack,
       tokenInfo: StreamTokenInfo,
       startSecs?: number,
     ): string {
-      if (tokenInfo.flac && track.format.toLowerCase() === "flac") {
+      const format = track.format.toLowerCase();
+      if (tokenInfo.flac && format === "flac") {
         return t.flacStreamUrl(track.id, tokenInfo.token);
+      }
+      if (tokenInfo.wav && format === "wav") {
+        return t.wavStreamUrl(track.id, tokenInfo.token);
       }
       return t.streamUrl(track.id, tokenInfo.token, startSecs);
     },

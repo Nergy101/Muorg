@@ -26,7 +26,7 @@ vi.mock("../api/catalog", () => ({
 
 vi.mock("../api/client", () => ({
   api: {
-    streamUrlForTrack: (t: { id: number; format: string }, info: { token: string; flac: boolean }) =>
+    streamUrlForTrack: (t: { id: number; format: string }, info: { token: string; flac: boolean; wav: boolean }) =>
       info.flac && t.format.toLowerCase() === "flac"
         ? `http://server/stream/flac/${info.token}/${t.id}`
         : `http://server/stream/${info.token}/${t.id}`,
@@ -158,7 +158,7 @@ beforeEach(() => {
   useSettingsStore().setAutoCacheEnabled(true);
   vi.clearAllMocks();
   fakeCaches.opened.clear();
-  issueStreamTokenInfo.mockResolvedValue({ token: "tok", flac: false });
+  issueStreamTokenInfo.mockResolvedValue({ token: "tok", flac: false, wav: false });
   getRecentPlayHistory.mockResolvedValue([]);
   getPlaylists.mockResolvedValue([]);
   getPlaylistPins.mockResolvedValue([]);

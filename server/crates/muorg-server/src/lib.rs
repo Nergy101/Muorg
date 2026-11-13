@@ -46,6 +46,7 @@ pub fn build_stream_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/stream/{token}/{id}", get(routes::stream::stream_audio))
         .route("/stream/flac/{token}/{id}", get(routes::stream::stream_audio_flac))
+        .route("/stream/wav/{token}/{id}", get(routes::stream::stream_audio_wav))
         .with_state(state)
 }
 
@@ -144,7 +145,8 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/", get(routes::util::home))
         .route("/api/health", get(routes::util::health))
         .route("/stream/{token}/{id}", get(routes::stream::stream_audio))
-        .route("/stream/flac/{token}/{id}", get(routes::stream::stream_audio_flac));
+        .route("/stream/flac/{token}/{id}", get(routes::stream::stream_audio_flac))
+        .route("/stream/wav/{token}/{id}", get(routes::stream::stream_audio_wav));
 
     Router::new()
         .merge(public)

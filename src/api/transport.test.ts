@@ -220,3 +220,13 @@ describe("flacStreamUrl", () => {
     expect(t.flacStreamUrl(7, "a+b/c=")).toContain("/stream/flac/a%2Bb%2Fc%3D/7");
   });
 });
+
+describe("wavStreamUrl", () => {
+  const t = createTransport(creds);
+
+  it("builds the original-WAV URL with the token in the path", () => {
+    expect(t.wavStreamUrl(7, "tok")).toBe(
+      "http://server.test:7700/stream/wav/tok/7",
+    );
+  });
+});

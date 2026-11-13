@@ -138,9 +138,9 @@ class LibraryRepository @Inject constructor(
         getStreamTokenInfo(trackId).map { it.token }
 
     /**
-     * The stream token plus the server's `flac` capability flag: when `flac`
+     * The stream token plus the server's `flac`/`wav` capability flags: when `flac`
      * is true the server serves original FLAC bytes from
-     * `/stream/flac/{token}/{id}` for FLAC tracks.
+     * `/stream/flac/{token}/{id}` (or `/stream/wav/{token}/{id}` for WAV) is served.
      */
     suspend fun getStreamTokenInfo(trackId: Int): Result<TokenResponse> = runCatching {
         api.issueToken(trackId.toLong())

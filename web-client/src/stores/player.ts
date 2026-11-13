@@ -18,10 +18,11 @@ import { usePlaylistStore } from "./playlists";
 import { useSettingsStore } from "./settings";
 import type { CatalogTrack, RepeatMode } from "../types";
 
-/** True when the server will serve this track's original FLAC 1:1
- *  (`[feature-flags] true_flac` on, FLAC track) instead of a transcoded MP3. */
-function isTrueFlac(track: CatalogTrack, info: StreamTokenInfo): boolean {
-  return info.flac && track.format.toLowerCase() === "flac";
+/** True when the server will serve this track's original lossless file 1:1
+ *  (FLAC or WAV passthrough) instead of a transcoded MP3. */
+function isPassthrough(track: CatalogTrack, info: StreamTokenInfo): boolean {
+  const format = track.format.toLowerCase();
+  return (info.flac && format === "flac") || (info.wav && format === "wav");
 }
 
 /** How many tracks "Shuffle all" queues up front and tops up with. */
@@ -432,26 +433,26 @@ export const usePlayerStore = defineStore("player", () => {
   async function resolveStreamSrc(
     track: CatalogTrack,
     startSecs: number,
-  ): Promise<{ src: string; trueFlac: boolean }> {
+  ): Promise<{ src: string; passthrough: boolean }> {
     const offline = useOfflineStore();
     if (useSettingsStore().offlineMode) {
       if (!offline.isCached(track.id)) {
         throw new Error("Not downloaded — download it or turn off offline mode");
       }
-      return { src: offlineStreamUrl(track.id), trueFlac: false };
+      return { src: offlineStreamUrl(track.id), passthrough: false };
     }
     if (offline.isCached(track.id)) {
       try {
         const info = await issueStreamTokenInfo(track.id);
-        return { src: api.streamUrlForTrack(track, info), trueFlac: isTrueFlac(track, info) };
+        return { src: api.streamUrlForTrack(track, info), passthrough: isPassthrough(track, info) };
       } catch {
-        return { src: offlineStreamUrl(track.id), trueFlac: false };
+        return { src: offlineStreamUrl(track.id), passthrough: false };
       }
     }
     const info = await issueStreamTokenInfo(track.id);
     return {
       src: api.streamUrlForTrack(track, info, startSecs),
-      trueFlac: isTrueFlac(track, info),
+      passthrough: isPassthrough(track, info),
     };
   }
 
@@ -461,7 +462,7 @@ export const usePlayerStore = defineStore("player", () => {
     const seq = ++_seekSeq;
     const cached = useOfflineStore().isCached(track.id);
     try {
-      const [{ src, trueFlac }, tags] = await Promise.all([
+      const [{ src, passthrough }, tags] = await Promise.all([
         resolveStreamSrc(track, startSecs),
         fetchMetadataCached(track.id),
       ]);
@@ -470,7 +471,7 @@ export const usePlayerStore = defineStore("player", () => {
       const el = initAudio();
       // A cached file or a true-FLAC stream is complete, so even FLAC/WAV
       // seeks natively — no transcode offset to track.
-      flacSeekOffset = !cached && !trueFlac && needsTranscode(track.format) ? startSecs : 0;
+      flacSeekOffset = !cached && !passthrough && needsTranscode(track.format) ? startSecs : 0;
       el.src = src;
       applyEffectiveVolume();
       positionSecs.value = startSecs;
@@ -733,16 +734,16 @@ export const usePlayerStore = defineStore("player", () => {
 
     // A true-FLAC stream (feature flag on) is the complete file, so it seeks
     // natively like an MP3 — only a transcoded stream needs the ?start= reload.
-    let trueFlac = false;
+    let passthrough = false;
     if (needsTranscode(track.format) && !cached) {
       try {
-        trueFlac = isTrueFlac(track, await issueStreamTokenInfo(track.id));
+        passthrough = isPassthrough(track, await issueStreamTokenInfo(track.id));
       } catch {
-        trueFlac = false;
+        passthrough = false;
       }
     }
 
-    if (needsTranscode(track.format) && !cached && !trueFlac) {
+    if (needsTranscode(track.format) && !cached && !passthrough) {
       // Streamed FLAC/WAV: the server transcodes from ?start=, so the stream
       // must reload. Issue a fresh token — the original expires 60s after track
       // start. A cached file is complete and seeks natively below.

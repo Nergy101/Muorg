@@ -105,6 +105,12 @@
       </div>
 
       <div class="flex shrink-0 items-center gap-0.5 pr-2">
+        <!-- Format tag of the playing file/stream, left of the favourite;
+             desktop only, matching the favourite button. Hover shows the
+             bitrate / sample-rate stats. -->
+        <AudioFormatTag
+          class="hidden h-8 text-on-surface-variant hover:bg-surface-container hover:text-on-surface lg:flex"
+        />
         <button
           type="button"
           class="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container lg:flex"
@@ -185,6 +191,7 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
+import AudioFormatTag from "./AudioFormatTag.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import VolumeControl from "./VolumeControl.vue";
 import { sidebarCollapsed } from "../composables/sidebarCollapsed";

@@ -263,6 +263,8 @@ import { useOfflineStore } from "../stores/offline";
 import { useSelectionStore } from "../stores/selection";
 import { showToast, showWarning } from "../composables/useToast";
 import { openMetadataEditor } from "../composables/useMetadataEditor";
+import { useAudioStats } from "../composables/useAudioStats";
+import type { AudioStats } from "../audio/audioStats";
 import type { CatalogTrack, Playlist } from "../types";
 
 const ROW = "flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface";
@@ -509,6 +511,20 @@ function formatTimestamp(secs: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Bitrate / sample rate of the track's stream, probed when the info level
+// opens (or the track changes while it is open).
+const { probeTrack } = useAudioStats();
+const audioStats = ref<AudioStats | null>(null);
+watch(
+  () => [level.value, props.track?.id],
+  async ([lv, id]) => {
+    audioStats.value = null;
+    if (lv !== "info" || !id || !props.track) return;
+    audioStats.value = await probeTrack(props.track);
+  },
+  { immediate: true },
+);
+
 const infoFields = computed(() => {
   const t = props.track;
   if (!t) return [];
@@ -528,6 +544,11 @@ const infoFields = computed(() => {
   push("Disc #", t.disc_number);
   if (t.duration_secs) push("Duration", formatDuration(t.duration_secs));
   push("Format", t.format.toUpperCase());
+  if (audioStats.value?.bitrateKbps != null) push("Bitrate", `${audioStats.value.bitrateKbps} kbps`);
+  if (audioStats.value?.sampleRateHz != null) {
+    const khz = audioStats.value.sampleRateHz / 1000;
+    push("Sample Rate", `${Number.isInteger(khz) ? khz : khz.toFixed(1)} kHz`);
+  }
   if (t.rating !== null) push("Rating", `${t.rating} / 5`);
   if (t.play_count > 0) push("Play Count", t.play_count);
   if (t.last_played_at !== null) push("Last Played", formatTimestamp(t.last_played_at));

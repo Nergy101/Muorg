@@ -166,28 +166,33 @@ class CastManager @Inject constructor(
             )
             .build()
 
-    fun castTrack(track: CatalogTrack, baseUrl: String, token: String, serverFlac: Boolean = false) {
+    fun castTrack(track: CatalogTrack, baseUrl: String, token: String, serverFlac: Boolean = false, serverWav: Boolean = false) {
         val session = castContext?.sessionManager?.currentCastSession ?: return
         val client = session.remoteMediaClient ?: return
 
-        // True-FLAC server (feature flag on): FLAC tracks stream the original
-        // file from /stream/flac/..., which Chromecast decodes natively.
-        val trueFlac = serverFlac && track.localFilePath == null &&
-            track.format.equals("flac", ignoreCase = true)
+        // Lossless-passthrough server: FLAC/WAV tracks stream the original
+        // file from /stream/flac/... or /stream/wav/..., which Chromecast
+        // decodes natively.
+        val f = track.format.lowercase()
+        val passthrough = track.localFilePath == null &&
+            ((serverFlac && f == "flac") || (serverWav && f == "wav"))
 
         val streamUrl = if (track.localFilePath != null) {
             if (!localCastServer.isAlive) localCastServer.start()
             localCastServer.register(track)
-        } else if (trueFlac) {
+        } else if (serverFlac && f == "flac") {
             "$baseUrl/stream/flac/$token/${track.id}"
+        } else if (serverWav && f == "wav") {
+            "$baseUrl/stream/wav/$token/${track.id}"
         } else {
             "$baseUrl/stream/$token/${track.id}"
         }
 
         val contentType = when {
             // A server stream of a FLAC/WAV track is the transcoded MP3, not the
-            // file itself — unless the server serves the original FLAC.
-            trueFlac -> "audio/flac"
+            // file itself — unless the server serves the original file.
+            passthrough && f == "flac" -> "audio/flac"
+            passthrough && f == "wav" -> "audio/wav"
             track.localFilePath == null && track.needsTranscode -> "audio/mpeg"
             else -> when (track.format.lowercase()) {
                 "mp3" -> "audio/mpeg"
