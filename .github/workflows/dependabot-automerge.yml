@@ -1,0 +1,52 @@
+name: Dependabot auto-merge
+
+on:
+  schedule:
+    # Every Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Squash-merge green Dependabot PRs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const botPrs = prs.filter(pr => pr.user.login === 'dependabot[bot]');
+            for (const pr of botPrs) {
+              const checks = await github.rest.checks.listForRef({
+                owner, repo, ref: pr.head.sha, per_page: 100,
+              });
+              const runs = checks.data.check_runs;
+              const pending = runs.some(r => r.status !== 'completed');
+              const failed = runs.some(r =>
+                r.status === 'completed' &&
+                !['success', 'skipped', 'neutral'].includes(r.conclusion));
+              if (pending) {
+                core.info(`PR #${pr.number}: checks still running, skipping`);
+                continue;
+              }
+              if (failed) {
+                core.info(`PR #${pr.number}: failing checks, leaving open`);
+                continue;
+              }
+              try {
+                await github.rest.pulls.merge({
+                  owner, repo, pull_number: pr.number, merge_method: 'squash',
+                });
+                core.info(`PR #${pr.number}: merged (${pr.title})`);
+              } catch (e) {
+                core.warning(`PR #${pr.number}: merge failed: ${e.message}`);
+              }
+            }
