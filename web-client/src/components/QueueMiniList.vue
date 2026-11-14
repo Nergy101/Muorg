@@ -27,7 +27,7 @@
         </div>
         <div class="min-w-0 flex-1">
           <p class="truncate text-body-md text-white">{{ player.currentTrack.title ?? "—" }}</p>
-          <p class="truncate text-body-sm text-white/55">{{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}</p>
+          <p class="truncate text-body-sm text-white/55"><ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" /></p>
         </div>
         <EqualizerBars class="shrink-0 text-primary" :paused="!player.isPlaying" />
       </div>
@@ -69,7 +69,7 @@
           </div>
           <div class="min-w-0 flex-1">
             <p class="truncate text-body-md text-white">{{ entry.track.title ?? "—" }}</p>
-            <p class="truncate text-body-sm text-white/55">{{ entry.track.artist ?? entry.track.album_artist ?? "—" }}</p>
+            <p class="truncate text-body-sm text-white/55"><ArtistLink :name="entry.track.artist ?? entry.track.album_artist" /></p>
           </div>
         </button>
         <button
@@ -111,6 +111,7 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
+import ArtistLink from "./ArtistLink.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import { useDragReorder } from "../composables/useDragReorder";
@@ -202,10 +203,8 @@ function onRemoveFromQueue(): void {
 function onViewArtist(): void {
   const t = sheetTrack.value;
   if (!t) return;
-  void router.push({
-    name: "library",
-    query: { artist: t.artist ?? t.album_artist ?? undefined },
-  });
+  const name = t.artist ?? t.album_artist;
+  if (name) void router.push({ name: "artist", params: { name } });
 }
 
 function onViewAlbum(): void {

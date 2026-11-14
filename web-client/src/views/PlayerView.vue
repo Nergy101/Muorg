@@ -214,7 +214,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-body-md text-white/75">
-                  {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}<template v-if="artFullscreen && player.currentTrack.album"> · {{ player.currentTrack.album }}</template>
+                  <ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" /><template v-if="artFullscreen && player.currentTrack.album"> · {{ player.currentTrack.album }}</template>
                 </p>
                 <p v-if="!artFullscreen" class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
               </div>
@@ -574,6 +574,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
+import ArtistLink from "../components/ArtistLink.vue";
 import BottomSheet from "../components/BottomSheet.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";

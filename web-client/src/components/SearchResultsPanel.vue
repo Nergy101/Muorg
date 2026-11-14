@@ -125,7 +125,7 @@
         :track="track"
         :is-playing="player.currentTrack?.id === track.id"
         :is-loading="player.pendingTrackId === track.id"
-        :subtitle="`${track.artist ?? track.album_artist ?? '—'} • ${track.album ?? '—'}`"
+        with-album
         :selectable="selection.selecting"
         :selected="selection.has(track.id)"
         @play="playTrack(track, results)"

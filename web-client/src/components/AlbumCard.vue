@@ -32,7 +32,9 @@
         :class="listTitleClass"
         :style="listTitleStyle"
       />
-      <MarqueeText :text="item.albumArtist" class="text-body-sm text-on-surface-variant" />
+      <ArtistLink :name="item.albumArtist" block>
+        <MarqueeText :text="item.albumArtist" class="text-body-sm text-on-surface-variant" />
+      </ArtistLink>
     </div>
 
     <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
@@ -105,7 +107,7 @@
     <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
       <div class="min-w-0 flex-1">
         <MarqueeText :text="item.album" class="text-label-lg font-semibold text-on-surface" />
-        <div class="truncate text-label-sm text-on-surface-variant">{{ item.albumArtist }}</div>
+        <div class="truncate text-label-sm text-on-surface-variant"><ArtistLink :name="item.albumArtist" /></div>
       </div>
       <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
         <MageIcon name="music" class="h-3 w-3" />
@@ -119,6 +121,7 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
+import ArtistLink from "./ArtistLink.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";

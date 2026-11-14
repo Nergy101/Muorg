@@ -48,7 +48,7 @@
             class="text-body-md text-on-surface"
           />
           <div class="truncate text-body-sm text-on-surface-variant">
-            {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}
+            <ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" />
           </div>
           <div
             v-if="cast.isCasting"
@@ -191,6 +191,7 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
+import ArtistLink from "./ArtistLink.vue";
 import AudioFormatTag from "./AudioFormatTag.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import VolumeControl from "./VolumeControl.vue";

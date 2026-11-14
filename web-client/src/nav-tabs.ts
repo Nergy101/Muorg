@@ -22,7 +22,7 @@ export type NavTabName = (typeof NAV_TABS)[number]["name"];
  * (the queue screen). Detail screens keep their parent tab lit.
  */
 export function tabIndexForRoute(routeName: string): number {
-  if (routeName === "album") return 2;
+  if (routeName === "album" || routeName === "artist") return 2;
   if (routeName === "playlist") return 3;
   return NAV_TABS.findIndex((t) => t.name === routeName);
 }
