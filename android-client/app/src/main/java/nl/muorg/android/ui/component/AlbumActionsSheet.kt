@@ -136,7 +136,7 @@ fun AlbumActionsSheet(
         if (onViewArtist != null || onViewAlbum != null) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
         }
-        if (onViewArtist != null) {
+        if (onViewArtist != null && nl.muorg.android.util.Discography.isLinkable(album.artist)) {
             SheetActionRow(
                 "View artist",
                 subtitle = album.artist,

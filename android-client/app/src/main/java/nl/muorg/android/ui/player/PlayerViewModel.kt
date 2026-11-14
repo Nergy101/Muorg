@@ -203,6 +203,38 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Add several tracks (an album's, from a card's menu) to a playlist,
+     * skipping the ones it already holds.
+     */
+    fun addTracksToPlaylist(tracks: List<CatalogTrack>, playlistId: Int) {
+        if (tracks.isEmpty()) return
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                localRepository.addTracksToPlaylist(playlistId, tracks)
+                refreshPlaylists()
+                return@launch
+            }
+            val playlist = _playlists.value.find { it.id == playlistId }
+            if (playlist == null) {
+                uiMessenger.show("Playlist not found")
+                return@launch
+            }
+            val check = playlistRepository.checkAddConflict(playlist, tracks)
+            if (check.newTracks.isEmpty()) {
+                uiMessenger.show("All tracks already in this playlist")
+                return@launch
+            }
+            playlistRepository.addTracks(playlist, check.newTracks.map { it.id })
+                .onSuccess {
+                    val n = check.newTracks.size
+                    uiMessenger.show("Added $n track${if (n == 1) "" else "s"} to ${playlist.name}")
+                }
+                .onFailure { uiMessenger.showError(it) }
+        }
+    }
+
     fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()

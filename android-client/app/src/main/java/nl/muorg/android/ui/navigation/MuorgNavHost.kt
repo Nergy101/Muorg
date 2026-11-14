@@ -27,6 +27,7 @@ import androidx.navigation.navArgument
 import coil.ImageLoader
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.screen.album.AlbumDetailScreen
+import nl.muorg.android.ui.screen.artist.ArtistScreen
 import nl.muorg.android.ui.screen.connect.ConnectScreen
 import nl.muorg.android.ui.screen.home.HomeScreen
 import nl.muorg.android.ui.screen.library.LibraryScreen
@@ -137,6 +138,9 @@ fun MuorgNavHost(
                 onOpenMix = { mixId ->
                     navController.navigate(Screen.MixDetail.createRoute(mixId))
                 },
+                onViewArtist = { artistName ->
+                    navController.navigate(Screen.Artist.createRoute(artistName))
+                },
             )
         }
 
@@ -149,7 +153,7 @@ fun MuorgNavHost(
                     navController.navigate(Screen.AlbumDetail.createRoute(albumName))
                 },
                 onViewArtist = { artistName ->
-                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                    navController.navigate(Screen.Artist.createRoute(artistName))
                 },
                 searchFocusSignal = navViewModel.searchFocusSignal,
             )
@@ -166,7 +170,7 @@ fun MuorgNavHost(
                 baseUrl = baseUrl,
                 onBack = { navController.popBackStack() },
                 onViewArtist = { artistName ->
-                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                    navController.navigate(Screen.Artist.createRoute(artistName))
                 },
                 onViewAlbum = { albumName ->
                     navController.navigate(Screen.AlbumDetail.createRoute(albumName))
@@ -216,7 +220,7 @@ fun MuorgNavHost(
                 },
                 onOpenQueue = onOpenQueue,
                 onViewArtist = { artistName ->
-                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                    navController.navigate(Screen.Artist.createRoute(artistName))
                 },
                 scrollToActiveSignal = navViewModel.scrollToActiveSignal,
             )
@@ -240,7 +244,26 @@ fun MuorgNavHost(
                 baseUrl = baseUrl,
                 onOpenQueue = onOpenQueue,
                 onViewArtist = { artistName ->
-                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                    navController.navigate(Screen.Artist.createRoute(artistName))
+                },
+            )
+        }
+
+        composable(
+            route = Screen.Artist.route,
+            arguments = listOf(navArgument("artistName") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            ArtistScreen(
+                artistName = backStackEntry.arguments?.getString("artistName").orEmpty(),
+                playerViewModel = playerViewModel,
+                imageLoader = imageLoader,
+                baseUrl = baseUrl,
+                onBack = { navController.popBackStack() },
+                onAlbumClick = { albumName ->
+                    navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                },
+                onViewArtist = { artistName ->
+                    navController.navigate(Screen.Artist.createRoute(artistName))
                 },
             )
         }
@@ -256,7 +279,7 @@ fun MuorgNavHost(
                 onOpenQueue = onOpenQueue,
                 onViewArtist = { artistName ->
                     navController.popBackStack()
-                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                    navController.navigate(Screen.Artist.createRoute(artistName))
                 },
                 onViewAlbum = { albumName ->
                     navController.popBackStack()
@@ -273,6 +296,12 @@ fun MuorgNavHost(
                 imageLoader = imageLoader,
                 baseUrl = baseUrl,
                 onBack = { navController.popBackStack() },
+                onViewArtist = { artistName ->
+                    navController.navigate(Screen.Artist.createRoute(artistName))
+                },
+                onViewAlbum = { albumName ->
+                    navController.navigate(Screen.AlbumDetail.createRoute(albumName))
+                },
             )
         }
 
@@ -303,7 +332,7 @@ fun MuorgNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenQueue = onOpenQueue,
                 onViewArtist = { artistName ->
-                    navController.navigate(Screen.Library.createRoute(artistFilter = artistName))
+                    navController.navigate(Screen.Artist.createRoute(artistName))
                 },
             )
         }

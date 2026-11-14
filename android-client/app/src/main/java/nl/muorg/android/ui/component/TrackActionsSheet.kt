@@ -285,13 +285,15 @@ private fun MainLevel(
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-    ListItem(
-        headlineContent = { Text("View artist", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
-        supportingContent = { Text(track.displayArtist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-        leadingContent = { Icon(
-                        painter = painterResource(mageIconRes("user")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = Modifier.clickable { onViewArtist() },
-    )
+    if (nl.muorg.android.util.Discography.isLinkable(track.displayArtist)) {
+        ListItem(
+            headlineContent = { Text("View artist", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
+            supportingContent = { Text(track.displayArtist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingContent = { Icon(
+                            painter = painterResource(mageIconRes("user")), null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            modifier = Modifier.clickable { onViewArtist() },
+        )
+    }
     ListItem(
         headlineContent = { Text("View album", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)) },
         supportingContent = { Text(track.displayAlbum, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },

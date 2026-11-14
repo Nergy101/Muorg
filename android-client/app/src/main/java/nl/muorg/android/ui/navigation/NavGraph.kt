@@ -99,6 +99,10 @@ sealed class Screen(val route: String) {
             if (artistFilter == null) "library"
             else "library?artistFilter=${java.net.URLEncoder.encode(artistFilter, "UTF-8").replace("+", "%20")}"
     }
+    /** The artist page. The name is URI-encoded here and decoded by Navigation. */
+    object Artist : Screen("artist/{artistName}") {
+        fun createRoute(artistName: String) = "artist/${android.net.Uri.encode(artistName)}"
+    }
     object Player : Screen("player")
     object Playlists : Screen("playlists")
     object Settings : Screen("settings")
@@ -137,6 +141,7 @@ private val islandTabs = listOf(
 private fun tabIndexForRoute(route: String?): Int = when {
     route == null -> 0
     route.startsWith("album") -> 2
+    route.startsWith("artist/") -> 2
     route.startsWith("library") -> 2
     route.startsWith("playlist") -> 3
     route == Screen.Settings.route -> 4
@@ -465,7 +470,7 @@ fun NavGraph() {
                         onRemoveFromPlaylist = { id -> playerViewModel.removeTrackFromPlaylist(track, id); miniPlayerSheet = false },
                         onViewArtist = {
                             miniPlayerSheet = false
-                            navController.navigate(Screen.Library.createRoute(artistFilter = track.displayArtist))
+                            navController.navigate(Screen.Artist.createRoute(track.displayArtist))
                         },
                         onViewAlbum = {
                             miniPlayerSheet = false
