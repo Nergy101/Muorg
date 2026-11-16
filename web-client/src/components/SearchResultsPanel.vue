@@ -32,6 +32,19 @@
           @open="openArtist"
         />
       </div>
+      <!-- Albums picked from the results get a proper album card, same as
+           the album matches below. -->
+      <div v-if="recentAlbumItems.length > 0" class="grid grid-cols-2 gap-3 pb-2 sm:grid-cols-3 lg:grid-cols-4">
+        <AlbumCard
+          v-for="item in recentAlbumItems"
+          :key="item.key"
+          :item="item"
+          mode="grid"
+          :is-active="isAlbumActive(item)"
+          @open="openAlbum(item)"
+          @actions="albumActions = item"
+        />
+      </div>
       <!-- Recently selected tracks follow the same layout as live results:
            album covers in grid mode, proper track rows in list mode. -->
       <div v-if="recentResultTracks.length > 0" class="pb-2">
@@ -188,7 +201,7 @@ import SearchResultCardGrid from "./SearchResultCardGrid.vue";
 import TrackListRow from "./TrackListRow.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import AlbumActionsHost from "./AlbumActionsHost.vue";
-import { useLibraryStore } from "../stores/library";
+import { resolveAlbumKey, useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useSelectionStore } from "../stores/selection";
@@ -344,6 +357,8 @@ function isAlbumActive(item: AlbumGridItem): boolean {
 }
 
 function openAlbum(item: AlbumGridItem): void {
+  settings.addAlbumSearch(item.key);
+  recordSearch(props.query);
   void router.push({ name: "album", params: { albumKey: item.key } });
 }
 
@@ -394,6 +409,16 @@ function artistTrackCount(name: string): number {
   for (const t of lib.tracks) if ((t.artist ?? t.album_artist) === name) n++;
   return n;
 }
+/** Albums picked from the search results, resolved against the catalog
+ *  (renamed albums resolve to their new key); entries that no longer exist
+ *  drop out. */
+const recentAlbumItems = computed<AlbumGridItem[]>(() =>
+  settings.searchHistory
+    .filter((e): e is Extract<SearchHistoryEntry, { type: "album" }> => e.type === "album")
+    .map((e) => lib.albumByKey(resolveAlbumKey(e.value)))
+    .filter((i): i is AlbumGridItem => i != null),
+);
+
 const recentQueryHistory = computed(() =>
   settings.searchHistory.filter((e) => e.type === "query"),
 );
@@ -433,7 +458,10 @@ function cardsForTracks(tracks: CatalogTrack[]): SearchResultCard[] {
 const resultCards = computed<SearchResultCard[]>(() => cardsForTracks(results.value));
 
 function openTrackAlbum(track: CatalogTrack): void {
-  void router.push({ name: "album", params: { albumKey: lib.keyForTrack(track) } });
+  const key = lib.keyForTrack(track);
+  settings.addAlbumSearch(key);
+  recordSearch(props.query);
+  void router.push({ name: "album", params: { albumKey: key } });
 }
 
 // Only the first page of results is rendered; "Load more"/"Show more" reveals

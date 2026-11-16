@@ -147,8 +147,10 @@
       >
         <!-- The track list is a plain transparent surface over the cover
              backdrop; only the currently playing row carries the glass
-             highlight (see TrackListRow). -->
-        <div class="tracks-panel m-3 rounded-2xl p-2">
+             highlight (see TrackListRow). In an installed PWA the list runs
+             edge to edge — no side margins; in the browser it keeps the
+             m-3 inset. -->
+        <div class="tracks-panel m-3 rounded-2xl p-2" :class="{ 'mx-0': isPwa }">
           <TrackListRow
             v-for="track in tracks"
             :key="track.id"
@@ -261,6 +263,7 @@ import { useOfflineStore } from "../stores/offline";
 import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useIsDesktop } from "../composables/useIsDesktop";
+import { useIsPwa } from "../composables/useIsPwa";
 import { provideVisibleIds } from "../composables/useSelectableList";
 import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
@@ -274,6 +277,7 @@ const route = useRoute();
 const router = useRouter();
 const lib = useLibraryStore();
 const isDesktop = useIsDesktop();
+const isPwa = useIsPwa();
 
 /** Shared styling for every icon button in the album header row (play /
  *  add-to-playlist / inline actions / 3-dots), so they all look identical. */
@@ -527,11 +531,20 @@ useScrollMemory(scroller);
 /* On mobile the global rule drops the backdrop's edge mask so the player's
    art runs full-bleed; the album view keeps an edge fade so the background
    behind the track list is evenly dark at every width — same sideways
-   (non-rounded) linear fade as desktop, not the circular vignette. */
+   (non-rounded) linear fade as desktop, not the circular vignette. On top of
+   that the art also fades into the top edge (the two mask layers are
+   intersected), so the header area blends into the theme background instead
+   of showing a hard cut at the top of the screen. */
 @media (max-width: 63.99rem) {
   :deep(.edge-blur-art) {
-    -webkit-mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
-    mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
+    -webkit-mask-image:
+      linear-gradient(to bottom, transparent, black 30%),
+      linear-gradient(to right, transparent, black 35%, black 65%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to bottom, transparent, black 30%),
+      linear-gradient(to right, transparent, black 35%, black 65%, transparent);
+    mask-composite: intersect;
   }
 }
 </style>

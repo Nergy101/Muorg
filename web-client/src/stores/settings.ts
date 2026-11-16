@@ -67,7 +67,8 @@ function sanitizeSearchHistory(raw: unknown[]): SearchHistoryEntry[] {
       typeof item === "object" &&
       typeof (item as { value?: unknown }).value === "string"
     ) {
-      const type = (item as { type?: unknown }).type === "artist" ? "artist" : "query";
+      const rawType = (item as { type?: unknown }).type;
+      const type = rawType === "artist" || rawType === "album" ? rawType : "query";
       entries.push({ type, value: (item as { value: string }).value });
     }
   }
@@ -378,6 +379,12 @@ export const useSettingsStore = defineStore("settings", () => {
     addHistoryEntry({ type: "artist", value: name });
   }
 
+  /** Records an album picked from the search results' album matches, so it
+   *  shows up as a recent search (an album card on the Search screen). */
+  function addAlbumSearch(albumKey: string): void {
+    addHistoryEntry({ type: "album", value: albumKey });
+  }
+
   function clearSearchHistory(): void {
     searchHistory.value = [];
     savePref("muorg-web-search-history", []);
@@ -462,6 +469,7 @@ export const useSettingsStore = defineStore("settings", () => {
     setDeviceName,
     addSearch,
     addArtistSearch,
+    addAlbumSearch,
     clearSearchHistory,
     addSearchResult,
     clearSearchResults,

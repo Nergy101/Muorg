@@ -143,7 +143,6 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
-          :style="accentStyle"
           aria-label="Track actions"
           @click="menuOpen = true"
         >
@@ -153,14 +152,14 @@
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
           :class="route.name === 'queue' ? 'text-primary' : 'text-on-surface-variant'"
-          :style="accentStyle"
           aria-label="Queue"
           @click="onQueueClick"
         >
           <MageIcon name="stack" class="h-5 w-5" />
         </button>
+        <!-- Hidden in an installed PWA: no browser chrome there. -->
         <button
-          v-if="popoutSupported"
+          v-if="popoutSupported && !isPwa"
           type="button"
           class="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container lg:flex"
           :class="pipActive ? 'text-primary' : 'text-on-surface-variant'"
@@ -172,7 +171,6 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface lg:hidden"
-          :style="accentStyle"
           :aria-label="transportPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
         >
@@ -213,6 +211,7 @@ import TrackActionsSheet from "./TrackActionsSheet.vue";
 import VolumeControl from "./VolumeControl.vue";
 import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
+import { useIsPwa } from "../composables/useIsPwa";
 import { usePlayerStore } from "../stores/player";
 import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { useSettingsStore } from "../stores/settings";
@@ -264,6 +263,7 @@ const lib = useLibraryStore();
 const menuOpen = ref(false);
 const actionsInitialLevel = ref<"main" | "playlists">("main");
 const { pipActive, supported: popoutSupported, togglePopout } = usePopoutPlayer();
+const isPwa = useIsPwa();
 
 /** The "+" jumps straight to the sheet's playlist picker. */
 function openAddToPlaylist(): void {

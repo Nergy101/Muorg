@@ -436,11 +436,11 @@ body {
   color: #1c1917;
 }
 
-/* Desktop only: the glass edge highlight (top inset line + border) takes the
-   hue of the playing album's dominant color. `--glass-edge` is an "r,g,b"
-   triplet set by the player store; the fallback is plain white, which is what
-   mobile viewports always use. */
-@media (min-width: 1024px) {
+/* Desktop viewports and installed PWAs: the glass edge highlight (top inset
+   line + border) takes the hue of the playing album's dominant color.
+   `--glass-edge` is an "r,g,b" triplet set by the player store; the fallback
+   is plain white, which is what plain mobile browsers use. */
+@media (min-width: 1024px), (display-mode: standalone) {
   .glass,
   .glass-strong,
   .glass-deep {

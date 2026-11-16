@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     recentSearchResultIds: [] as number[],
     addSearch: vi.fn(),
     addArtistSearch: vi.fn(),
+    addAlbumSearch: vi.fn(),
     addSearchResult: vi.fn(),
     clearSearchHistory: vi.fn(),
     clearSearchResults: vi.fn(),
@@ -21,7 +22,7 @@ const mocks = vi.hoisted(() => ({
     tracks: [] as CatalogTrack[],
     loading: false,
     keyForTrack: (t: CatalogTrack) => `${t.album ?? ""}|${t.album_artist ?? ""}`,
-    albumByKey: () => null,
+    albumByKey: (_key: string): unknown => null,
     coverCache: new Map<number, string>(),
     requestCover: vi.fn(),
   },
@@ -31,7 +32,10 @@ vi.mock("vue-router", () => ({
   useRouter: () => ({ push: mocks.push }),
   useRoute: () => ({ query: {} }),
 }));
-vi.mock("../stores/library", () => ({ useLibraryStore: () => reactive(mocks.lib) }));
+vi.mock("../stores/library", () => ({
+  useLibraryStore: () => reactive(mocks.lib),
+  resolveAlbumKey: (k: string) => k,
+}));
 vi.mock("../stores/player", () => ({
   usePlayerStore: () => ({ currentTrack: null, pendingTrackId: null, playTrack: mocks.playTrack }),
 }));
@@ -65,6 +69,13 @@ vi.mock("../components/SearchResultCardGrid.vue", () => ({
     template: '<div class="card-grid">{{ cards.length }}</div>',
   },
 }));
+vi.mock("../components/AlbumCard.vue", () => ({
+  default: {
+    props: ["item", "mode", "isActive"],
+    emits: ["open", "actions"],
+    template: '<button :data-album-key="item.key" @click="$emit(\'open\')">{{ item.album }}</button>',
+  },
+}));
 
 function track(id: number, title: string, artist: string | null = null, album: string | null = null): CatalogTrack {
   return { id, title, artist, album, album_artist: null, path: `/music/${title}.flac` } as CatalogTrack;
@@ -85,6 +96,7 @@ beforeEach(() => {
     track(3, "Blue Monday", "New Order", "Power, Corruption & Lies"),
   ];
   mocks.lib.loading = false;
+  mocks.lib.albumByKey = () => null;
 });
 
 function renderSearchView() {
@@ -196,6 +208,38 @@ describe("SearchView", () => {
 
     expect(mocks.settings.addArtistSearch).toHaveBeenCalledWith("Miles Davis");
     expect(mocks.push).toHaveBeenCalledWith({ name: "artist", params: { name: "Miles Davis" } });
+    view.unmount();
+  });
+
+  it("records a selected album as a recent search and navigates to it", async () => {
+    const key = mocks.lib.keyForTrack(mocks.lib.tracks[0]);
+    mocks.lib.albumByKey = (k: string) =>
+      ({ key: k, album: "Kind of Blue", albumArtist: "Miles Davis" }) as never;
+    const view = renderSearchView();
+    await type(view, "kind of blue");
+
+    const card = view.root.querySelector<HTMLElement>(`[data-album-key="${key}"]`);
+    expect(card).not.toBeNull();
+    card!.click();
+    await nextTick();
+
+    expect(mocks.settings.addAlbumSearch).toHaveBeenCalledWith(key);
+    expect(mocks.settings.addSearch).toHaveBeenCalledWith("kind of blue");
+    expect(mocks.push).toHaveBeenCalledWith({ name: "album", params: { albumKey: key } });
+    view.unmount();
+  });
+
+  it("renders a recent album entry as an album card when the query is empty", async () => {
+    const key = mocks.lib.keyForTrack(mocks.lib.tracks[0]);
+    mocks.settings.searchHistory = [{ type: "album", value: key }];
+    mocks.lib.albumByKey = (k: string) =>
+      ({ key: k, album: "Kind of Blue", albumArtist: "Miles Davis" }) as never;
+    const view = renderSearchView();
+    await nextTick();
+
+    const card = view.root.querySelector(`[data-album-key="${key}"]`);
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain("Kind of Blue");
     view.unmount();
   });
 

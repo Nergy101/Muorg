@@ -18,9 +18,7 @@
     <div v-if="artFullscreen" class="absolute right-3 top-3 z-20 flex flex-col items-end">
       <button
         type="button"
-        class="glass flex h-10 items-center gap-1.5 rounded-full px-3.5 transition-colors hover:bg-white/10"
-        :class="queueMenuOpen ? '' : 'text-white/75 hover:text-white'"
-        :style="queueMenuOpen && accentCss ? { color: accentCss } : accentStyle"
+        class="glass flex h-10 items-center gap-1.5 rounded-full px-3.5 text-white/75 transition-colors hover:bg-white/10 hover:text-white"
         aria-label="Queue"
         :aria-expanded="queueMenuOpen"
         @click="queueMenuOpen = !queueMenuOpen"
@@ -75,7 +73,6 @@
             v-if="settings.sleepTimerEnabled"
             type="button"
             class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
-            :class="player.sleepTimerActive ? 'text-primary' : ''"
             aria-label="Sleep timer"
             @click="onSleepButton"
           >
@@ -83,14 +80,12 @@
             <span
               v-if="player.sleepTimerActive"
               class="pr-1.5 text-label-md tabular-nums"
-              :class="player.sleepTimerActive ? 'text-primary' : ''"
             >{{ sleepLabel }}</span>
           </button>
           <button
             v-if="hasLyrics"
             type="button"
             class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
-            :class="showLyrics ? 'text-primary' : ''"
             :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
             @click="showLyrics = !showLyrics"
           >
@@ -236,8 +231,7 @@
               v-if="!artFullscreen"
               type="button"
               class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-              :class="[isFavorite ? '' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
-              :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
+              :class="[isFavorite ? 'text-white' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
               @animationend="heartPulse = false"
@@ -282,9 +276,10 @@
               >
                 <MageIcon name="maximize" class="h-5 w-5" />
               </button>
-              <!-- Popout (PiP) mini player, right of the fullscreen toggle -->
+              <!-- Popout (PiP) mini player, right of the fullscreen toggle.
+                   Hidden in an installed PWA: no browser chrome there. -->
               <button
-                v-if="popoutSupported"
+                v-if="popoutSupported && !isPwa"
                 type="button"
                 class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10"
                 :class="'text-white/75 hover:text-white'"
@@ -314,13 +309,13 @@
               >
                 <div class="h-1 w-full rounded-full bg-white/25">
                   <div
-                    class="h-full rounded-full"
-                    :style="{ width: `${displayedFraction * 100}%`, backgroundColor: accentCss ?? undefined }"
+                    class="h-full rounded-full bg-white"
+                    :style="{ width: `${displayedFraction * 100}%` }"
                   />
                 </div>
                 <div
-                  class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full shadow"
-                  :style="{ left: `${displayedFraction * 100}%`, backgroundColor: accentCss ?? undefined }"
+                  class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-white shadow"
+                  :style="{ left: `${displayedFraction * 100}%` }"
                 />
               </div>
             </div>
@@ -332,27 +327,33 @@
             </div>
           </div>
 
-          <!-- Transport row (hidden in art-fullscreen mode). The 1rem bottom
-               floor is for phones (home-indicator clearance); on desktop
-               viewports — including the md range below lg — the row sits
-               flush against the panel's own padding. -->
+          <!-- Transport row (hidden in art-fullscreen mode). Only the
+               safe-area inset pads the bottom on phones, so the row sits as
+               close to the bottom edge as the home indicator allows; on
+               desktop viewports — including the md range below lg — the row
+               sits flush against the panel's own padding. -->
           <div
             v-if="!artFullscreen"
-            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[env(safe-area-inset-bottom)] max-md:pb-[max(env(safe-area-inset-bottom),1rem)] lg:gap-2 lg:px-0 lg:pt-0 lg:pb-0"
+            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[env(safe-area-inset-bottom)] lg:gap-2 lg:px-0 lg:pt-0 lg:pb-0"
           >
             <button
               type="button"
-              class="flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
-              :class="'text-white/75 hover:text-white'"
+              class="relative flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
+              :class="player.shuffleEnabled ? 'text-white' : 'text-white/75 hover:text-white'"
+              :aria-pressed="player.shuffleEnabled"
               aria-label="Shuffle"
               @click="player.toggleShuffle()"
             >
               <MageIcon name="exchange" class="h-6 w-6" />
+              <span
+                v-if="player.shuffleEnabled"
+                class="absolute bottom-0.5 h-1 w-1 rounded-full bg-white"
+                aria-hidden="true"
+              />
             </button>
             <button
               type="button"
               class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
-              :style="accentStyle"
               aria-label="Previous track"
               @click="player.skipPrevious()"
             >
@@ -361,7 +362,6 @@
             <button
               type="button"
               class="chrome-glass glass-sheer flex h-16 w-16 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
-              :style="accentStyle"
               :aria-label="transportPlaying ? 'Pause' : 'Play'"
               @click="togglePlay"
             >
@@ -370,7 +370,6 @@
             <button
               type="button"
               class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
-              :style="accentStyle"
               aria-label="Next track"
               @click="player.skipNext()"
             >
@@ -379,7 +378,8 @@
             <button
               type="button"
               class="relative flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
-              :class="'text-white/75 hover:text-white'"
+              :class="player.repeatMode !== 'off' ? 'text-white' : 'text-white/75 hover:text-white'"
+              :aria-pressed="player.repeatMode !== 'off'"
               aria-label="Repeat mode"
               @click="player.cycleRepeatMode()"
             >
@@ -388,6 +388,11 @@
                 v-if="player.repeatMode === 'one'"
                 class="absolute bottom-0.5 right-0.5 text-label-sm font-bold leading-none"
               >1</span>
+              <span
+                v-else-if="player.repeatMode === 'all'"
+                class="absolute bottom-0.5 h-1 w-1 rounded-full bg-white"
+                aria-hidden="true"
+              />
             </button>
           </div>
 
@@ -414,8 +419,7 @@
               v-if="artFullscreen"
               type="button"
               class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
-              :class="[isFavorite ? '' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
-              :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
+              :class="[isFavorite ? 'text-white' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
               @animationend="heartPulse = false"
@@ -435,7 +439,7 @@
               <svg viewBox="0 0 20 20" class="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
                 <circle cx="10" cy="10" r="8" fill="none" class="text-white" stroke="currentColor" stroke-opacity="0.25" stroke-width="2.5" />
                 <circle
-                  cx="10" cy="10" r="8" fill="none" class="text-primary" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                  cx="10" cy="10" r="8" fill="none" class="text-white" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                   :stroke-dasharray="PROGRESS_RING_C" :stroke-dashoffset="PROGRESS_RING_C * (1 - displayedFraction)"
                 />
               </svg>
@@ -478,7 +482,6 @@
                 v-if="settings.sleepTimerEnabled"
                 type="button"
                 class="flex h-10 items-center gap-1.5 px-1 text-white transition-colors hover:bg-white/10"
-                :class="player.sleepTimerActive ? 'text-primary' : ''"
                 aria-label="Sleep timer"
                 @click="onSleepButton"
               >
@@ -486,14 +489,12 @@
                 <span
                   v-if="player.sleepTimerActive"
                   class="pr-1.5 text-label-md tabular-nums"
-                  :class="player.sleepTimerActive ? 'text-primary' : ''"
                 >{{ sleepLabel }}</span>
               </button>
               <button
                 v-if="hasLyrics"
                 type="button"
                 class="flex h-10 w-10 items-center justify-center text-white transition-colors hover:bg-white/10"
-                :class="showLyrics ? 'text-primary' : ''"
                 :aria-label="showLyrics ? 'Show cover art' : 'Show lyrics'"
                 @click="showLyrics = !showLyrics"
               >
@@ -597,8 +598,9 @@ import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import QueueMiniList from "../components/QueueMiniList.vue";
-import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
+import { useDominantColor } from "../composables/useDominantColor";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
+import { useIsPwa } from "../composables/useIsPwa";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 import { usePlayerStore } from "../stores/player";
@@ -614,6 +616,7 @@ const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
 const router = useRouter();
 const player = usePlayerStore();
 const { pipActive, supported: popoutSupported, togglePopout } = usePopoutPlayer();
+const isPwa = useIsPwa();
 const settings = useSettingsStore();
 const lib = useLibraryStore();
 const cast = useCastStore();
@@ -692,10 +695,6 @@ onUnmounted(() => {
 // feeds the halo behind the cover art ---
 const coverUrl = computed(() => player.currentCoverUrl);
 const glowRgb = useDominantColor(coverUrl);
-// Artwork accent (un-darkened main color — same source as the mini player) so
-// the fullscreen/FS player's controls theme-match the playing album.
-const accentCss = computed(() => (glowRgb.value ? `rgb(${rawMainColor(glowRgb.value)})` : null));
-const accentStyle = computed(() => (accentCss.value ? { color: accentCss.value } : undefined));
 
 // --- Art-fullscreen mode (desktop): clicking the cover hides it and unblurs
 // the backdrop art into a sharp full-bleed background. The flag lives in the
@@ -899,6 +898,20 @@ function onViewAlbum(): void {
 </script>
 
 <style scoped>
+/* The controls panel takes a wash of the playing album's accent hue at every
+   viewport — the same treatment the desktop glass rules give the sidenav and
+   mini player (the --glass-edge media query in style.css), applied here
+   unconditionally so the maximized player matches on mobile too. The player
+   store sets --glass-edge from the artwork; the white fallback applies when
+   the art has no usable color. The controls on the panel stay white. */
+.controls-panel {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 10%, var(--surface) 90%);
+  border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, transparent);
+  box-shadow:
+    0 10px 34px -8px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 30%, transparent);
+}
+
 /* The controls column sits on the glass backpanel at every size, so the
    individual chrome pills (play, favourite, volume, actions) drop their own
    glass and stay flat — glass-on-glass just muddies the panel. */

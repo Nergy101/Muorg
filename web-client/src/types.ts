@@ -57,8 +57,11 @@ export type ThemeMode = "dark" | "light" | "system";
 export type AccentColor = "green" | "blue" | "purple" | "orange" | "red" | "teal" | "dynamic";
 export type RepeatMode = "off" | "all" | "one";
 
-/** One recent-search entry: a typed query (shown as a chip) or an artist
- *  picked from the artist matches (shown as a large artist card). */
+/** One recent-search entry: a typed query (shown as a chip), an artist
+ *  picked from the artist matches (shown as a large artist card), or an
+ *  album picked from the album matches (shown as an album card; value is
+ *  the album key). */
 export type SearchHistoryEntry =
   | { type: "query"; value: string }
-  | { type: "artist"; value: string };
+  | { type: "artist"; value: string }
+  | { type: "album"; value: string };
