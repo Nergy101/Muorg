@@ -217,6 +217,11 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
 
+      # The shared src/ tree imports @lucide/vue, a ROOT devDependency —
+      # install the root manifest too, or vue-tsc can't resolve it from src/.
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install dependencies
         working-directory: web-client
         run: pnpm install --frozen-lockfile

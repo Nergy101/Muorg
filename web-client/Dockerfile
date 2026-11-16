@@ -11,7 +11,12 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # filesystem root, rolldown-vite fails to load the @shared SFC sub-modules
 # (the MageIcon re-export ends up self-referencing and the app crashes on
 # boot with a stack overflow).
-# Install dependencies first (better layer caching)
+# Install dependencies first (better layer caching). The ROOT manifest is
+# installed too: the shared src/ tree imports @lucide/vue, which is a root
+# devDependency, and node resolution from src/ walks up to /app/node_modules —
+# without it, vue-tsc fails with "Cannot find module '@lucide/vue'".
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY web-client/package.json web-client/pnpm-lock.yaml* web-client/.npmrc* ./web-client/
 RUN cd web-client && pnpm install --frozen-lockfile --ignore-scripts
 
