@@ -152,22 +152,3 @@ jobs:
             ghcr.io/nergy101/muorg-server:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  # Pull the new :latest on the VPS right away instead of waiting for the next
-  # main push or watchtower poll.
-  deploy:
-    needs: [version, docker-server]
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Dispatch VPS deploy workflow
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl -sf -X POST \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
-            -d '{"ref": "main"}' \
-            && echo "deploy workflow dispatched"
