@@ -547,16 +547,13 @@ import ExportSettingsSection from "../components/settings/ExportSettingsSection.
 import PlaybackAudioSettingsSection from "../components/settings/PlaybackAudioSettingsSection.vue";
 import KeyboardSettingsSection from "../components/settings/KeyboardSettingsSection.vue";
 import { pwaUpdateAvailable, refreshApp } from "../composables/usePwaUpdate";
-import { disconnect, getServerUrl } from "../api/client";
+import { getServerUrl } from "../api/client";
+import { logout } from "../logout";
 import { useLibraryStore } from "../stores/library";
-import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryTableStore } from "../stores/libraryTable";
 import { useOfflineStore } from "../stores/offline";
-import { useFoldersStore } from "../stores/folders";
-import { useSelectionStore } from "../stores/selection";
-import { clearUndo } from "../composables/useUndo";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { reportCounts } from "@shared/reports";
@@ -620,13 +617,10 @@ const reportIssues = computed(() => {
   const counts = reportCounts(lib.tracks, settings.missingMetadataFields);
   return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
 });
-const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
 const tableStore = useLibraryTableStore();
 const offline = useOfflineStore();
-const folders = useFoldersStore();
-const selection = useSelectionStore();
 const { canInstall, isIos, install } = useInstallPrompt();
 
 const version = __APP_VERSION__;
@@ -712,18 +706,7 @@ const logoutOpen = ref(false);
 
 async function onLogout(): Promise<void> {
   logoutOpen.value = false;
-  disconnect();
-  selection.clear();
-  clearUndo();
-  // Player first so audio stops before the library revokes its cover URLs.
-  player.reset();
-  lib.reset();
-  playlistStore.reset();
-  folders.reset();
-  // The offline cache is derived from this server's tracks — drop it so a
-  // different server does not inherit (or pay quota for) stale files.
-  await offline.clearAll();
-  await router.replace({ name: "connect" });
+  await logout();
 }
 
 // --- Offline cache ---------------------------------------------------------

@@ -220,6 +220,11 @@ class AppPreferences @Inject constructor(
         }
     }
 
+    /** Drops only the API key (server URL stays) — used when the server rejects it. */
+    suspend fun clearApiKey() {
+        context.dataStore.edit { it.remove(KEY_API_KEY) }
+    }
+
     suspend fun setPlayerBarTapOpensPlayer(value: Boolean) {
         context.dataStore.edit { it[KEY_PLAYERBAR_TAP_OPENS_PLAYER] = value }
     }

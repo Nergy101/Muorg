@@ -24,6 +24,8 @@ import nl.muorg.android.data.preferences.SearchResultsHistoryManager
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.OfflineSyncScheduler
 import nl.muorg.android.data.repository.PlaylistRepository
+import nl.muorg.android.ui.OrcMood
+import nl.muorg.android.ui.UiMessenger
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -55,8 +57,15 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(preferences: AppPreferences): OkHttpClient =
-        buildAuthOkHttpClient(preferences)
+    fun provideOkHttpClient(preferences: AppPreferences, uiMessenger: UiMessenger): OkHttpClient =
+        buildAuthOkHttpClient(preferences) {
+            // The stored key was just cleared after a 401 — tell the user to
+            // reconnect with the new key.
+            uiMessenger.show(
+                "Server rejected the API key — it may have changed. Please reconnect.",
+                OrcMood.Worried,
+            )
+        }
 
     @Provides
     @Singleton

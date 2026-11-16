@@ -25,6 +25,14 @@ export interface Credentials {
   baseUrl(): string;
   /** Bearer token, or `""` when the server is unauthenticated. */
   apiKey(): string;
+  /**
+   * Called when the server rejects the API key with a 401 on an `/api/*`
+   * request — e.g. after the key was changed server-side. Apps use it to
+   * drop their stored credentials and send the user back to log in again.
+   * Not fired for `/stream/*` 401s: those carry short-lived stream tokens,
+   * not the API key.
+   */
+  onUnauthorized?(): void;
 }
 
 /** An error carrying the HTTP status, so callers can branch on 404 vs 401. */
@@ -116,7 +124,11 @@ export function createTransport(credentials: Credentials): Transport {
       for (const [name, value] of Object.entries(authHeaders())) {
         next.headers.set(name, value);
       }
-      return globalThis.fetch(next);
+      const response = await globalThis.fetch(next);
+      if (response.status === 401 && pathname.startsWith("/api/")) {
+        credentials.onUnauthorized?.();
+      }
+      return response;
     },
   });
 
@@ -159,7 +171,10 @@ export function createTransport(credentials: Credentials): Transport {
         // unchanged cover still costs only a 304 thanks to the server's ETag.
         cache: "no-cache",
       });
-      if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status, path);
+      if (!res.ok) {
+        if (res.status === 401) credentials.onUnauthorized?.();
+        throw new ApiError(`HTTP ${res.status}`, res.status, path);
+      }
       return res.blob();
     },
 

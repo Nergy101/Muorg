@@ -201,6 +201,44 @@ describe("fetchBlob", () => {
   });
 });
 
+describe("onUnauthorized", () => {
+  it("fires when an /api/* request is rejected with 401", async () => {
+    stubFetch(() => new Response(null, { status: 401 }));
+    const onUnauthorized = vi.fn();
+    await createTransport({ ...creds, onUnauthorized }).client.GET("/api/roots");
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fire on other failure statuses", async () => {
+    stubFetch(() => new Response(null, { status: 404 }));
+    const onUnauthorized = vi.fn();
+    await createTransport({ ...creds, onUnauthorized }).client.GET("/api/roots");
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it("does not fire on success", async () => {
+    stubFetch(() => json([]));
+    const onUnauthorized = vi.fn();
+    await createTransport({ ...creds, onUnauthorized }).client.GET("/api/roots");
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it("fires on a 401 from fetchBlob (covers are /api/* too)", async () => {
+    stubFetch(() => new Response(null, { status: 401 }));
+    const onUnauthorized = vi.fn();
+    await expect(
+      createTransport({ ...creds, onUnauthorized }).fetchBlob("/api/tracks/1/cover"),
+    ).rejects.toThrowError(ApiError);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("is optional — a 401 without a handler still just throws", async () => {
+    stubFetch(() => new Response(null, { status: 401 }));
+    const result = await createTransport(creds).client.GET("/api/roots");
+    expect(result.response.status).toBe(401);
+  });
+});
+
 describe("streamUrl", () => {
   const t = createTransport(creds);
 

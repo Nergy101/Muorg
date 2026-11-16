@@ -60,6 +60,17 @@ export function setServerUrl(url: string) { setOnlineServerUrl(url); }
 /** @deprecated use getOnlineApiKey/setOnlineApiKey directly */
 export function setApiKey(key: string) { setOnlineApiKey(key); }
 
+let unauthorizedHandler: (() => void) | null = null;
+
+/**
+ * Register what happens when the server rejects our API key with a 401 —
+ * e.g. the key was changed server-side. Wired up in main.ts, which owns the
+ * settings store (this module must not import it: the store imports us).
+ */
+export function setUnauthorizedHandler(handler: () => void): void {
+  unauthorizedHandler = handler;
+}
+
 /**
  * The typed client. Request plumbing and every endpoint signature live in
  * `src/api/` at the repo root, shared with the web client — see
@@ -71,6 +82,7 @@ export function setApiKey(key: string) { setOnlineApiKey(key); }
 export const transport = createTransport({
   baseUrl: getServerUrl,
   apiKey: getApiKey,
+  onUnauthorized: () => unauthorizedHandler?.(),
 });
 
 export const api = createApi(transport);

@@ -5,6 +5,7 @@ import coil.request.CachePolicy
 import nl.muorg.android.data.preferences.AppPreferences
 import okhttp3.Dispatcher
 import java.io.IOException
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -22,8 +23,17 @@ class OfflineException(
 
 /**
  * Builds an OkHttpClient that injects the Bearer token from AppPreferences on every request.
+ *
+ * [onUnauthorized] fires when the server rejects the stored key with a 401 on
+ * an `/api/` call (e.g. the key was rotated server-side). The stored key is
+ * cleared either way, so the guard on a non-blank key keeps it from firing on
+ * every subsequent request. `/stream/` 401s are short-lived stream tokens, not
+ * the API key, and are ignored.
  */
-fun buildAuthOkHttpClient(preferences: AppPreferences): OkHttpClient {
+fun buildAuthOkHttpClient(
+    preferences: AppPreferences,
+    onUnauthorized: (() -> Unit)? = null,
+): OkHttpClient {
     val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
     }
@@ -43,6 +53,17 @@ fun buildAuthOkHttpClient(preferences: AppPreferences): OkHttpClient {
                 }
                 .build()
             chain.proceed(request)
+        }
+        .addInterceptor { chain ->
+            val response = chain.proceed(chain.request())
+            if (response.code == 401 &&
+                response.request.url.encodedPath.startsWith("/api/") &&
+                preferences.apiKeyState.value.isNotBlank()
+            ) {
+                runBlocking { preferences.clearApiKey() }
+                onUnauthorized?.invoke()
+            }
+            response
         }
         .addInterceptor(loggingInterceptor)
         .build()
