@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@emoji-mart/data':
-        specifier: ^1.2.1
-        version: 1.2.1
+      '@lucide/vue':
+        specifier: 1.73.0
+        version: 1.73.0(vue@3.5.45(typescript@6.0.3))
       '@tauri-apps/api':
         specifier: ^2.12.4
         version: 2.12.4
@@ -29,9 +29,6 @@ importers:
       '@tauri-apps/plugin-updater':
         specifier: ~2.14.1
         version: 2.14.1
-      emoji-mart:
-        specifier: ^5.6.0
-        version: 5.6.0
       openapi-fetch:
         specifier: ^0.17.0
         version: 0.17.0
@@ -125,9 +122,6 @@ packages:
   '@bcoe/v8-coverage@1.0.2':
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
-
-  '@emoji-mart/data@1.2.1':
-    resolution: {integrity: sha512-no2pQMWiBy6gpBEiqGeU77/bFejDqUTRY7KX+0+iur13op3bqUsXdnwoZs6Xb1zbv0gAj5VvS1PWoUUckSr5Dw==}
 
   '@esbuild/aix-ppc64@0.28.2':
     resolution: {integrity: sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==}
@@ -300,6 +294,11 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@lucide/vue@1.73.0':
+    resolution: {integrity: sha512-QVVRSgu2rqRX3NAUktT9venW0Bvtr03aCZjhFRLwnV3uqLyR7KCTOx5mMlukhw0aiyjC3D6w2b+fmy4MeM5R3Q==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   '@one-ini/wasm@0.2.1':
     resolution: {integrity: sha512-TUqERXGNTifZ9y2g3wPxQrw3HpHv/02DsW3D90T9x0hhonrL1ZqpSmNrU2XkoIq0fP1N6gZfVQzy2Fw1ZvGBNg==}
@@ -796,9 +795,6 @@ packages:
   electron-to-chromium@1.5.467:
     resolution: {integrity: sha512-Nw9X371rtZmYcBSnEijnCDONILjs93biCZO34juC7MBOmK8E+GFnyD4T/WvyrlJkppul7oxg6TwvtKst9SODTw==}
 
-  emoji-mart@5.6.0:
-    resolution: {integrity: sha512-eJp3QRe79pjwa+duv+n7+5YsNhRcMl812EcFVwrnRvYKoNPoQb5qxU8DG6Bgwji0akHdp6D4Ln6tYLG58MFSow==}
-
   enhanced-resolve@5.26.1:
     resolution: {integrity: sha512-PPnnSJq3azKOIewXR/uppBV/6h98dprBJ/WaQ9Qgj10xX1lJLNfg+XShpbsrSqcDSy2yYYyhfXM1wWhftqgyzw==}
     engines: {node: '>=10.13.0'}
@@ -1263,8 +1259,6 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@emoji-mart/data@1.2.1': {}
-
   '@esbuild/aix-ppc64@0.28.2':
     optional: true
 
@@ -1361,6 +1355,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@lucide/vue@1.73.0(vue@3.5.45(typescript@6.0.3))':
+    dependencies:
+      vue: 3.5.45(typescript@6.0.3)
 
   '@one-ini/wasm@0.2.1': {}
 
@@ -1783,8 +1781,6 @@ snapshots:
       semver: 7.8.5
 
   electron-to-chromium@1.5.467: {}
-
-  emoji-mart@5.6.0: {}
 
   enhanced-resolve@5.26.1:
     dependencies:

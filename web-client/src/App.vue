@@ -2,8 +2,13 @@
   <!-- pt keeps the header/top bar clear of the notch and status bar. On desktop
        the layout widens into a sidebar + content pane (lg). -->
   <div
-    class="flex h-full w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] lg:flex-row lg:pt-0"
+    class="app-shell flex h-full w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] lg:pt-0"
     :class="[
+      // Collapsed rail: the shell stacks vertically so the rail becomes a top
+      // bar (or is teleported into the library top row) and the content below
+      // grows to the full width. shell-row/shell-collapsed mark which layout
+      // is active so portrait CSS can tell whether a left rail exists.
+      sidebarCollapsed ? 'lg:flex-col shell-collapsed' : 'lg:flex-row shell-row',
       isBareless ? 'max-w-none' : 'max-w-[600px] md:max-w-[900px] lg:max-w-none',
       { 'ios-pwa': isIosPwa },
     ]"
@@ -84,7 +89,7 @@
         <div
           v-if="showMiniPlayer"
           ref="desktopBarEl"
-          class="glass-deep absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-none overflow-hidden rounded-2xl lg:block"
+          class="glass-deep desktop-player-bar absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-[900px] overflow-hidden rounded-2xl lg:block"
         >
           <!-- Desktop: the library search bar lives at the top of the library
                view instead (see LibraryView), so only the mini player floats
@@ -127,6 +132,7 @@ import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
 import { useScrollNavHide } from "./composables/useScrollNavHide";
 import { useBottomInset } from "./composables/useBottomInset";
 import { navTransition } from "./composables/useNavTransition";
+import { sidebarCollapsed } from "./composables/sidebarCollapsed";
 import { NAV_TABS } from "./nav-tabs";
 import { loadPref, savePref } from "./stores/prefs";
 

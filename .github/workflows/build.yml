@@ -122,6 +122,9 @@ jobs:
       - name: Check generated clients are current
         run: ./scripts/generate-api-clients.sh --check
 
+      - name: Check lucide icon artifacts are current
+        run: node scripts/sync-lucide-icons.mjs --check
+
       # One config covers the shared src/ and both apps, so it lives with the
       # other repo-wide checks rather than being duplicated per app.
       - name: Lint

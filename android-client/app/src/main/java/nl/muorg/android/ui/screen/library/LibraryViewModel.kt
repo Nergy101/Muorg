@@ -30,6 +30,7 @@ import nl.muorg.android.ui.easteregg.JanitorEasterEgg
 import nl.muorg.android.ui.screen.playlist.AddConflictState
 import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.friendlyMessage
+import nl.muorg.android.ui.icon.PlaylistIconDefaults
 import javax.inject.Inject
 
 enum class SortMode(val label: String) {
@@ -397,7 +398,7 @@ class LibraryViewModel @Inject constructor(
                 runCatching { localRepository.createPlaylist(name) }
                     .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}", OrcMood.Worried) }
             } else {
-                playlistRepository.createPlaylist(name, "🎵")
+                playlistRepository.createPlaylist(name, PlaylistIconDefaults.VALUE)
                     .onFailure { uiMessenger.show("Couldn't create playlist: ${it.friendlyMessage()}", OrcMood.Worried) }
             }
             loadPlaylists()

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
-import EmojiPicker from "./EmojiPicker.vue";
+import PlaylistIconPicker from "./PlaylistIconPicker.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 
 export interface SmartRule {
   field: string;
@@ -25,7 +26,7 @@ const emit = defineEmits<{
 
 const name = ref(props.initialName ?? "");
 const icon = ref(props.initialIcon ?? "");
-const showEmojiPicker = ref(false);
+const showIconPicker = ref(false);
 const rules = reactive<SmartRule[]>(
   props.initialRules ? [...props.initialRules.map((r) => ({ ...r }))] : [],
 );
@@ -35,7 +36,7 @@ watch(() => props.open, (isOpen) => {
   if (isOpen) {
     name.value = props.initialName ?? "";
     icon.value = props.initialIcon ?? "";
-    showEmojiPicker.value = false;
+    showIconPicker.value = false;
     rules.splice(0, rules.length, ...(props.initialRules?.map((r) => ({ ...r })) ?? []));
   }
 });
@@ -117,17 +118,17 @@ function confirm() {
           {{ isEditing ? "Edit smart playlist" : "New smart playlist" }}
         </h2>
 
-        <!-- Name + emoji row -->
+        <!-- Name + icon row -->
         <div class="relative mb-4 flex items-center gap-2">
           <button
             type="button"
             class="icon-btn h-8 w-8 shrink-0 rounded border border-stone-600 bg-stone-700 text-base leading-none hover:bg-stone-600"
-            :class="showEmojiPicker ? 'ring-1 ring-stone-400' : ''"
-            title="Pick emoji"
+            :class="showIconPicker ? 'ring-1 ring-stone-400' : ''"
+            title="Pick icon"
             @mousedown.prevent
-            @click.stop="showEmojiPicker = !showEmojiPicker"
+            @click.stop="showIconPicker = !showIconPicker"
           >
-            <span v-if="icon">{{ icon }}</span>
+            <PlaylistIcon v-if="icon" :icon="icon" class="h-4 w-4" />
             <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
           </button>
           <input
@@ -139,10 +140,11 @@ function confirm() {
             @keydown.enter="confirm"
             @keydown.escape="emit('cancel')"
           />
-          <EmojiPicker
-            :open="showEmojiPicker"
+          <PlaylistIconPicker
+            :open="showIconPicker"
+            :value="icon"
             class="absolute left-0 top-full z-50 mt-1"
-            @pick="icon = $event; showEmojiPicker = false"
+            @pick="icon = $event; showIconPicker = false"
           />
         </div>
 

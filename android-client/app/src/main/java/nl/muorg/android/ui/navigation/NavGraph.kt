@@ -112,6 +112,15 @@ sealed class Screen(val route: String) {
             "album/${java.net.URLEncoder.encode(albumName, "UTF-8")}" +
             (if (playlistId != null) "?playlistId=$playlistId" else "")
     }
+    /** The album metadata editor, pushed from the album page's 3-dots menu. */
+    object AlbumEdit : Screen("album/{albumName}/edit") {
+        fun createRoute(albumName: String) =
+            "album/${java.net.URLEncoder.encode(albumName, "UTF-8")}/edit"
+    }
+    /** The per-track metadata editor, pushed from the album editor's track list. */
+    object TrackEdit : Screen("track/{trackId}/edit") {
+        fun createRoute(trackId: Int) = "track/$trackId/edit"
+    }
     object PlaylistAlbums : Screen("playlist/{playlistId}/albums") {
         fun createRoute(playlistId: Int) = "playlist/$playlistId/albums"
     }
@@ -141,6 +150,7 @@ private val islandTabs = listOf(
 private fun tabIndexForRoute(route: String?): Int = when {
     route == null -> 0
     route.startsWith("album") -> 2
+    route.startsWith("track/") -> 2
     route.startsWith("artist/") -> 2
     route.startsWith("library") -> 2
     route.startsWith("playlist") -> 3

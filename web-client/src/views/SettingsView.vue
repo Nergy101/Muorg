@@ -496,8 +496,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import SettingsSection from "../components/settings/SettingsSection.vue";
 import SegmentedControl from "../components/SegmentedControl.vue";
@@ -560,7 +560,23 @@ const ACCENT_OPTIONS: { value: AccentColor; label: string; color?: string }[] = 
 ];
 
 const router = useRouter();
+const route = useRoute();
 const lib = useLibraryStore();
+
+// Deep link: arriving with #backup-before-write (e.g. from the "Backups OFF"
+// hint on the metadata editors) scrolls the backup toggle into view and
+// focuses its switch.
+watch(
+  () => route.hash,
+  async (hash) => {
+    if (hash !== "#backup-before-write") return;
+    await nextTick();
+    const el = document.getElementById("backup-before-write");
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.querySelector<HTMLElement>('[role="switch"]')?.focus();
+  },
+  { immediate: true },
+);
 
 /** Only the reports that mean something is wrong; see SidebarNav for the same
  *  reasoning — a play-history count next to "Reports" is not a to-do. */

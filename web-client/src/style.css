@@ -631,6 +631,73 @@ input[type="range"]::-moz-range-thumb {
     mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
   }
 }
+/* Sidenav collapsed into a top-nav (desktop): flip the mask from the sides to
+   the top — the art fades into the top-nav's background at the top edge
+   instead of showing a hard cut line beneath it, and the side fade is
+   dropped. Placed after the variant rules so it wins at equal specificity. */
+@media (min-width: 64rem) {
+  .edge-blur-art.edge-blur-art-topnav {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+    mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+  }
+}
+/* Narrow portrait monitors (desktop width but a narrow portrait viewport,
+   e.g. 1024-1360px wide portrait displays): drop the side edge mask — the
+   backdrop art fills the whole background edge to edge, like on mobile, with
+   no fade into the sidenav. The top-nav variant is excluded on purpose: when
+   the sidenav is collapsed into a top bar, the top fade from the base
+   topnav rule still applies so the art blends into the top-nav. */
+@media (min-width: 64rem) and (orientation: portrait) and (max-width: 85rem) {
+  .edge-blur-art.edge-blur-art-player,
+  .edge-blur-art.edge-blur-art-album {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  /* Re-assert the top fade for the top-nav variant inside this media query,
+     so it applies in portrait regardless of rule order. */
+  .edge-blur-art.edge-blur-art-topnav {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+    mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+  }
+}
+
+/* Same narrow portrait viewports: the floating desktop mini-player bar docks
+   to the bottom edge at full VIEWPORT width instead of floating inset within
+   the content pane. `fixed` (not just width:100%) so it also spans the strip
+   under the side-nav rail when the sidenav is expanded — with the top-nav
+   (collapsed rail) the pane is already full width, so this is equivalent
+   there. Landscape is untouched: the bar keeps its floating
+   w-[calc(100%-2rem)] inset width. No ancestor of the bar has a
+   transform/filter/backdrop-filter, so fixed anchors to the viewport. */
+@media (min-width: 64rem) and (orientation: portrait) and (max-width: 85rem) {
+  .desktop-player-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    border-radius: 1rem 1rem 0 0;
+  }
+}
+
+/* Same narrow portrait viewports: let only the album view's backdrop bleed
+   leftward behind the sidenav rail (m-4 + w-60 + m-4 = 17rem), so the
+   unmasked art fills the whole background — including the strip under the
+   glass rail — and stays centered in the viewport. The bleed is scoped to
+   shell-row (side-nav expanded): in top-nav mode (shell-collapsed) there is
+   no left rail, the pane is already full width, and bleeding would push the
+   art's center off-screen left. The view root must be unclipped for the
+   backdrop to overhang; the shell's overflow-hidden clips it at the
+   viewport edge. */
+@media (min-width: 64rem) and (orientation: portrait) and (max-width: 85rem) {
+  .album-view-root {
+    overflow: visible;
+  }
+  .app-shell.shell-row .album-view-root .cover-backdrop {
+    left: -17rem;
+  }
+}
 /* Art-fullscreen mode (maximized player): the backdrop art fills the pane with
    only a minimal blur — the edge mask stays, so the art still fades into the
    dark base at the borders. */

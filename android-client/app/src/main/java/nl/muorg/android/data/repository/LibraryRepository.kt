@@ -10,6 +10,7 @@ import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.api.bodyOrThrow
 import nl.muorg.android.data.api.orThrow
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.BatchMetadataItem
 import nl.muorg.android.data.api.schema.MatchCandidate
 import nl.muorg.android.data.api.schema.PatchMetadataBody
 import nl.muorg.android.data.api.schema.RecordPlayBody
@@ -152,6 +153,18 @@ class LibraryRepository @Inject constructor(
             .orThrow("PATCH /api/tracks/$trackId/metadata")
         // The edited row is now stale in the cached catalog.
         cacheLock.withLock { cachedTracks = null }
+    }
+
+    /**
+     * Apply the same metadata patch to many tracks in one call (the album
+     * editor). Returns the number of tracks the server actually wrote.
+     * The batch route never backs up, so callers warn first.
+     */
+    suspend fun batchPatchMetadata(items: List<BatchMetadataItem>): Result<Int> = runCatching {
+        val response = api.batchPatchMetadata(items)
+            .bodyOrThrow("POST /api/tracks/metadata/batch")
+        cacheLock.withLock { cachedTracks = null }
+        response.updated
     }
 
     /**

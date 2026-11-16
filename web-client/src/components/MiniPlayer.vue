@@ -67,10 +67,11 @@
         </div>
       </div>
 
-      <!-- Desktop transport, centred against the full bar -->
-      <div
-        class="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 lg:flex"
-      >
+      <!-- Desktop transport in its own centre zone: with the left and right
+           zones both flex-1, it stays centred in the bar and can never overlap
+           the right-side controls (e.g. the volume slider shown when the rail
+           is collapsed). -->
+      <div class="hidden shrink-0 items-center gap-1 lg:flex">
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
@@ -98,6 +99,11 @@
         </button>
       </div>
 
+      <!-- Right zone: flex-1 mirrors the left zone so the transport stays
+           centred, but WITHOUT min-w-0 — flex items then refuse to shrink
+           below their content width, so the volume slider and buttons can
+           never overflow leftwards onto the transport's next button. -->
+      <div class="flex flex-1 items-center justify-end">
       <!-- Volume only when the sidebar rail is collapsed — expanded, it lives
            in the nav's footer instead. -->
       <div v-if="sidebarCollapsed" class="hidden shrink-0 items-center pr-1 lg:flex">
@@ -172,6 +178,7 @@
         >
           <MageIcon name="next" class="h-5 w-5" />
         </button>
+      </div>
       </div>
     </div>
   </div>

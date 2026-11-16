@@ -48,6 +48,9 @@ export default defineConfig({
       workbox: {
         cacheId: "muorg-web",
         cleanupOutdatedCaches: true,
+        // The lazy lucide icon chunk (~2.4 MB min) exceeds workbox's 2 MiB
+        // default precache limit.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallback: "index.html",
         runtimeCaching: [

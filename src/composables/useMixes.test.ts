@@ -71,7 +71,7 @@ describe("useMixes", () => {
     expect(mixes.value).toHaveLength(8);
     for (const mix of mixes.value) {
       expect(mix.name).toBeTruthy();
-      expect(mix.emoji).toBeTruthy();
+      expect(mix.icon).toMatch(/^[a-z0-9-]+:#[0-9a-fA-F]{6}$/);
     }
   });
 

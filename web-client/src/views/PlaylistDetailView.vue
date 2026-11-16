@@ -47,8 +47,9 @@
           <span class="hidden lg:inline">Back</span>
         </button>
 
-        <span class="ml-2 min-w-0 flex-1 truncate text-title-md text-on-surface lg:ml-3">
-          {{ playlist.icon ?? "🎵" }} {{ playlist.name }}
+        <PlaylistIcon :icon="playlist?.icon" class="ml-2 h-5 w-5 shrink-0 lg:ml-3" />
+        <span class="min-w-0 flex-1 truncate text-title-md text-on-surface">
+          {{ playlist?.name }}
         </span>
 
         <!-- Every button carries the divider and `first:border-l-0` drops it on
@@ -57,6 +58,17 @@
              a stray rule down the pill's left edge. On lg the buttons widen to
              fit their text label. -->
         <div class="glass ml-1 flex items-center overflow-hidden rounded-full lg:ml-2">
+          <button
+            v-if="!isSmart && !isMix && !isFavorites"
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 border-l border-on-surface/15 text-on-surface transition-colors first:border-l-0 lg:w-auto lg:px-3 lg:text-label-lg lg:hover:bg-on-surface/10"
+            aria-label="Edit name and icon"
+            @click="editOpen = true"
+          >
+            <MageIcon name="edit" class="h-5 w-5" />
+            <span class="hidden lg:inline">Edit</span>
+          </button>
+
           <button
             v-if="isSmart"
             type="button"
@@ -301,11 +313,21 @@
     />
 
     <PlaylistFormDialog
+      :open="editOpen"
+      title="Edit playlist"
+      confirm-label="Save"
+      :initial-name="playlist?.name"
+      :initial-icon="playlist?.icon ?? undefined"
+      @confirm="onEditPlaylist"
+      @cancel="editOpen = false"
+    />
+
+    <PlaylistFormDialog
       :open="saveMixOpen"
       title="New playlist"
       confirm-label="Save"
       :initial-name="mix?.name"
-      :initial-icon="mix?.emoji"
+      :initial-icon="mix?.icon"
       @confirm="onSaveMix"
       @cancel="saveMixOpen = false"
     />
@@ -333,6 +355,7 @@
 import { computed, onActivated, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import BottomSheet from "../components/BottomSheet.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import AlbumCard from "../components/AlbumCard.vue";
@@ -393,7 +416,7 @@ const playlist = computed<Playlist | null>(() => {
       id: m.id,
       name: m.name,
       track_count: m.trackIds.length,
-      icon: m.emoji,
+      icon: m.icon,
       smart_rules: null,
     };
   }
@@ -402,6 +425,17 @@ const playlist = computed<Playlist | null>(() => {
 
 /** Smart playlists are rule-driven: no manual reorder, rules editable in place. */
 const isSmart = computed(() => playlist.value?.smart_rules != null);
+
+/** The server-side Favorites playlist cannot be renamed, so no edit action. */
+const isFavorites = computed(() => !isMix.value && playlist.value?.name === "Favorites");
+
+const editOpen = ref(false);
+
+async function onEditPlaylist(name: string, icon: string): Promise<void> {
+  if (!playlist.value || isMix.value) return;
+  await playlistStore.renamePlaylist(playlist.value.id, name, icon);
+  editOpen.value = false;
+}
 
 const genres = computed(() =>
   [...new Set(lib.tracks.map((t) => t.genre).filter((g): g is string => g != null))].sort(),
@@ -415,8 +449,9 @@ function openSmartEditor(): void {
   smartEditorOpen.value = true;
 }
 
-async function onSmartEdited(_name: string, _icon: string, rules: SmartRule[]): Promise<void> {
+async function onSmartEdited(name: string, icon: string, rules: SmartRule[]): Promise<void> {
   if (!playlist.value) return;
+  await playlistStore.renamePlaylist(playlist.value.id, name, icon);
   await playlistStore.updateSmartPlaylistRules(playlist.value.id, rulesToSmartJson(rules));
   smartEditorOpen.value = false;
   await loadOrder();

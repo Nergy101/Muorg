@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@lucide/vue':
+        specifier: 1.73.0
+        version: 1.73.0(vue@3.5.45(typescript@6.0.3))
       openapi-fetch:
         specifier: ^0.17.0
         version: 0.17.0
@@ -787,6 +790,11 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@lucide/vue@1.73.0':
+    resolution: {integrity: sha512-QVVRSgu2rqRX3NAUktT9venW0Bvtr03aCZjhFRLwnV3uqLyR7KCTOx5mMlukhw0aiyjC3D6w2b+fmy4MeM5R3Q==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   '@oxc-project/types@0.156.0':
     resolution: {integrity: sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==}
@@ -3485,6 +3493,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@lucide/vue@1.73.0(vue@3.5.45(typescript@6.0.3))':
+    dependencies:
+      vue: 3.5.45(typescript@6.0.3)
 
   '@oxc-project/types@0.156.0': {}
 

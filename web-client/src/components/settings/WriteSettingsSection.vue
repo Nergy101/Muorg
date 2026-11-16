@@ -1,5 +1,6 @@
 <template>
-  <div>
+  <!-- id anchors the "Backups OFF" deep link from the album/track editors. -->
+  <div id="backup-before-write">
     <div :class="ROW">
       <div class="min-w-0 flex-1">
         <p class="text-body-lg text-on-surface">Back up before writing</p>

@@ -31,6 +31,7 @@ import nl.muorg.android.player.QueueOrigin
 import nl.muorg.android.player.PlayerState
 import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.friendlyMessage
+import nl.muorg.android.ui.icon.PlaylistIconDefaults
 import javax.inject.Inject
 
 @HiltViewModel
@@ -255,7 +256,7 @@ class PlayerViewModel @Inject constructor(
                 runCatching { localRepository.createPlaylist(name) }
                 refreshPlaylists()
             } else {
-                playlistRepository.createPlaylist(name, "🎵")
+                playlistRepository.createPlaylist(name, PlaylistIconDefaults.VALUE)
                     .onFailure { uiMessenger.showError(it) }
                 refreshPlaylists()
             }
@@ -573,11 +574,11 @@ class PlayerViewModel @Inject constructor(
         val mode = preferences.musicMode.first()
         return if (mode == "local") {
             val existing = localRepository.getPlaylists().firstOrNull { it.name == FAVORITES_PLAYLIST_NAME }
-            existing?.id ?: localRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, "⭐").id
+            existing?.id ?: localRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, PlaylistIconDefaults.FAVORITES_VALUE).id
         } else {
             val playlists = playlistRepository.getPlaylists().getOrNull() ?: return null
             val existing = playlists.firstOrNull { it.name == FAVORITES_PLAYLIST_NAME }
-            existing?.id ?: playlistRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, "⭐").getOrNull()?.id
+            existing?.id ?: playlistRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, PlaylistIconDefaults.FAVORITES_VALUE).getOrNull()?.id
         }
     }
 

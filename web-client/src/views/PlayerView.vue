@@ -49,8 +49,15 @@
       <!-- Top row. The back chevron is centred in the middle of the row at
            every size (the chrome pill is hidden at lg, so left-aligned would
            look orphaned). Hidden entirely in art-fullscreen mode, which keeps
-           only the bottom bar. -->
-      <div v-if="!artFullscreen" class="relative flex h-14 shrink-0 items-center px-2">
+           only the bottom bar. The player root is fixed to the viewport, so
+           when the nav is collapsed into a top bar (m-4 + h-14 = 72px tall)
+           the row must drop by that much at lg, or the chevron hides behind
+           the top-nav. -->
+      <div
+        v-if="!artFullscreen"
+        class="relative flex h-14 shrink-0 items-center px-2"
+        :class="sidebarCollapsed ? 'lg:mt-[72px]' : ''"
+      >
         <button
           type="button"
           class="absolute left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full text-white/75"
@@ -584,6 +591,7 @@ import QueueMiniList from "../components/QueueMiniList.vue";
 import { useDominantColor } from "../composables/useDominantColor";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { useSwipeDown } from "../composables/useSwipeDown";
+import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { formatDuration, useLibraryStore } from "../stores/library";

@@ -1,22 +1,28 @@
 <template>
   <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
-    <!-- Desktop (lg+): the search field shares one row with the filter
-         controls (layout / shuffle / genre / sort) in every layout,
-         including the tracks table — the table toolbar below only carries
-         the table-specific controls (grouping, column sort, rating,
-         columns). The search field is capped so it doesn't balloon to the
-         full row width on wide screens. Mobile keeps the search bar in the
-         bottom island (App.vue). -->
-    <div class="hidden shrink-0 pt-3 lg:block">
+    <!-- Desktop (lg+): two rows, like the other pages — the search field on
+         the first row (capped so it doesn't balloon to the full row width on
+         wide screens), the filter controls (layout / shuffle / genre / sort)
+         on the second. The tracks table below only carries the table-specific
+         controls (grouping, column sort, rating, columns). Mobile keeps the
+         search bar in the bottom island (App.vue). -->
+    <div class="hidden shrink-0 lg:block">
+      <!-- While the rail is collapsed, the search field teleports into the
+           collapsed top bar's right end (see collapsedNavTrailing) and this
+           row hides on desktop; the filter row below stays. -->
+      <div class="flex items-center gap-2 px-4 pb-2 pt-3" :class="{ 'lg:hidden': railSearchActive }">
+        <Teleport :to="collapsedNavTrailing ?? 'body'" :disabled="!railSearchActive">
+          <div :class="railSearchActive ? 'w-64 shrink-0' : 'min-w-0 max-w-md flex-1'">
+            <LibrarySearchBar
+              ref="searchBar"
+              at-top
+              @focus="onSearchFocus"
+              @blur="onSearchBlur"
+            />
+          </div>
+        </Teleport>
+      </div>
       <div class="flex items-center gap-2 border-b border-outline/10 px-4 pb-2">
-        <div class="min-w-0 max-w-md flex-1">
-          <LibrarySearchBar
-            ref="searchBar"
-            at-top
-            @focus="onSearchFocus"
-            @blur="onSearchBlur"
-          />
-        </div>
         <LibraryViewActions />
       </div>
     </div>
@@ -145,7 +151,7 @@
 <script setup lang="ts">
 import EmptyState from "../components/EmptyState.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import TrackListRow from "../components/TrackListRow.vue";
@@ -164,13 +170,24 @@ import { scrollToActiveSignal } from "../composables/useScrollSignal";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useVirtualList } from "../composables/useVirtualList";
 import { useGridColumns } from "../composables/useGridColumns";
+import { sidebarCollapsed as collapsed, collapsedNavTrailing } from "../composables/sidebarCollapsed";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
+const route = useRoute();
 const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
 const settings = useSettingsStore();
 const selection = useSelectionStore();
+
+// --- Collapsed top bar search ----------------------------------------------
+// On desktop with the rail collapsed, the search field moves into the right
+// end of the collapsed top bar (collapsedNavTrailing) instead of this view's
+// own top row. KeepAlive keeps this view mounted on other routes, so the
+// teleport only engages while the library tab itself is showing.
+const railSearchActive = computed(
+  () => collapsed.value && isDesktop.value && route.name === "library" && collapsedNavTrailing.value != null,
+);
 
 // --- Content -----------------------------------------------------------
 

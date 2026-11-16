@@ -1243,7 +1243,33 @@ pub fn rename_playlist(conn: &rusqlite::Connection, id: i64, name: &str) -> Resu
     Ok(())
 }
 
+/// Validate a playlist icon value. New clients store `"<lucide-name>:#RRGGBB"`
+/// (e.g. `"guitar:#F87171"`); legacy emoji strings are still accepted so old
+/// clients and pre-existing rows keep working — clients render those as the
+/// default icon.
+fn validate_playlist_icon(icon: &str) -> Result<(), String> {
+    if icon.chars().count() > 64 {
+        return Err("playlist icon too long".to_string());
+    }
+    if let Some((name, color)) = icon.split_once(':') {
+        let valid_name = !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+        let valid_color = color.len() == 7
+            && color.starts_with('#')
+            && color[1..].chars().all(|c| c.is_ascii_hexdigit());
+        if !valid_name || !valid_color {
+            return Err(format!("invalid playlist icon format: {icon:?}"));
+        }
+    }
+    Ok(())
+}
+
 pub fn set_playlist_icon(conn: &rusqlite::Connection, id: i64, icon: Option<&str>) -> Result<(), String> {
+    if let Some(icon) = icon {
+        validate_playlist_icon(icon)?;
+    }
     conn.execute(
         "UPDATE playlists SET icon = ?1 WHERE id = ?2",
         rusqlite::params![icon, id],

@@ -4,6 +4,7 @@ import nl.muorg.android.ui.easteregg.DustContext
 import nl.muorg.android.ui.easteregg.DustReportBuilder
 import nl.muorg.android.ui.easteregg.DustStat
 import nl.muorg.android.ui.easteregg.JanitorEasterEgg
+import nl.muorg.android.ui.icon.PlaylistIconDefaults
 import nl.muorg.android.ui.OrcMood
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -35,11 +36,11 @@ data class PlaylistsUiState(
     val isLoading: Boolean = false,
     val showCreateDialog: Boolean = false,
     val newPlaylistName: String = "",
-    val newPlaylistIcon: String = "🎵",
+    val newPlaylistIcon: String = PlaylistIconDefaults.VALUE,
     val showEditDialog: Boolean = false,
     val editingPlaylist: Playlist? = null,
     val editName: String = "",
-    val editIcon: String = "🎵",
+    val editIcon: String = PlaylistIconDefaults.VALUE,
     /** Four DISTINCT-album track ids per playlist, for the 2x2 cover mosaic. */
     val covers: Map<Int, List<Int>> = emptyMap(),
     /** Most common release year among each playlist's tracks, for the sheet header. */
@@ -56,6 +57,7 @@ data class PlaylistsUiState(
     val downloadProgress: DownloadProgress = DownloadProgress(),
     val showSmartDialog: Boolean = false,
     val smartName: String = "",
+    val smartIcon: String = PlaylistIconDefaults.VALUE,
     val smartRules: List<SmartRule> = listOf(SmartRule("genre", "contains", "")),
     val smartSaving: Boolean = false,
     /**
@@ -324,6 +326,7 @@ class PlaylistsViewModel @Inject constructor(
             it.copy(
                 showSmartDialog = true,
                 smartName = "",
+                smartIcon = PlaylistIconDefaults.VALUE,
                 smartRules = listOf(SmartRule("genre", "contains", "")),
             )
         }
@@ -332,6 +335,8 @@ class PlaylistsViewModel @Inject constructor(
     fun dismissSmartDialog() = _uiState.update { it.copy(showSmartDialog = false) }
 
     fun onSmartNameChange(name: String) = _uiState.update { it.copy(smartName = name) }
+
+    fun onSmartIconChange(icon: String) = _uiState.update { it.copy(smartIcon = icon) }
 
     fun addSmartRule() = _uiState.update {
         it.copy(smartRules = it.smartRules + SmartRule("genre", "contains", ""))
@@ -355,8 +360,11 @@ class PlaylistsViewModel @Inject constructor(
             _uiState.update { it.copy(smartSaving = true) }
             val json = Json.encodeToString(rules)
             repository.createSmartPlaylist(state.smartName.trim(), json).fold(
-                onSuccess = {
+                onSuccess = { created ->
                     _uiState.update { it.copy(showSmartDialog = false, smartSaving = false) }
+                    // The smart-create endpoint takes no icon; set it via PATCH.
+                    val icon = state.smartIcon.ifBlank { PlaylistIconDefaults.VALUE }
+                    repository.updatePlaylist(created.id, null, icon)
                     loadPlaylists()
                 },
                 onFailure = { e ->
@@ -519,7 +527,7 @@ class PlaylistsViewModel @Inject constructor(
     }
 
     fun showCreateDialog() {
-        _uiState.update { it.copy(showCreateDialog = true, newPlaylistName = "", newPlaylistIcon = "🎵") }
+        _uiState.update { it.copy(showCreateDialog = true, newPlaylistName = "", newPlaylistIcon = PlaylistIconDefaults.VALUE) }
     }
 
     fun dismissCreateDialog() {
@@ -545,7 +553,7 @@ class PlaylistsViewModel @Inject constructor(
                 runCatching {
                     localRepository.createPlaylist(
                         name = state.newPlaylistName.trim(),
-                        icon = state.newPlaylistIcon.ifBlank { "🎵" },
+                        icon = state.newPlaylistIcon.ifBlank { PlaylistIconDefaults.VALUE },
                     )
                 }.fold(
                     onSuccess = { loadPlaylists() },
@@ -554,7 +562,7 @@ class PlaylistsViewModel @Inject constructor(
             } else {
                 repository.createPlaylist(
                     name = state.newPlaylistName.trim(),
-                    icon = state.newPlaylistIcon.ifBlank { "🎵" },
+                    icon = state.newPlaylistIcon.ifBlank { PlaylistIconDefaults.VALUE },
                 ).fold(
                     onSuccess = { loadPlaylists() },
                     onFailure = { error ->
@@ -571,7 +579,7 @@ class PlaylistsViewModel @Inject constructor(
                 showEditDialog = true,
                 editingPlaylist = playlist,
                 editName = playlist.name,
-                editIcon = playlist.icon?.takeIf { i -> i.isNotBlank() } ?: "🎵",
+                editIcon = playlist.icon?.takeIf { i -> i.isNotBlank() } ?: PlaylistIconDefaults.VALUE,
             )
         }
     }
@@ -601,7 +609,7 @@ class PlaylistsViewModel @Inject constructor(
                     localRepository.updatePlaylist(
                         id = id,
                         name = state.editName.trim(),
-                        icon = state.editIcon.ifBlank { "🎵" },
+                        icon = state.editIcon.ifBlank { PlaylistIconDefaults.VALUE },
                     )
                 }.fold(
                     onSuccess = { loadPlaylists() },
@@ -612,7 +620,7 @@ class PlaylistsViewModel @Inject constructor(
                 repository.updatePlaylist(
                     id = id,
                     name = state.editName.trim(),
-                    icon = state.editIcon.ifBlank { "🎵" },
+                    icon = state.editIcon.ifBlank { PlaylistIconDefaults.VALUE },
                 ).fold(
                     onSuccess = { _ ->
                         // Optimistically update from local edit state — server PATCH responses
@@ -621,7 +629,7 @@ class PlaylistsViewModel @Inject constructor(
                             s.copy(playlists = s.playlists.map { p ->
                                 if (p.id == id) p.copy(
                                     name = state.editName.trim(),
-                                    icon = state.editIcon.ifBlank { "🎵" },
+                                    icon = state.editIcon.ifBlank { PlaylistIconDefaults.VALUE },
                                 ) else p
                             })
                         }

@@ -69,6 +69,8 @@ import nl.muorg.android.ui.theme.themePrimary
 import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.component.CoverBackdrop
 import nl.muorg.android.ui.component.LocalBottomInset
+import nl.muorg.android.ui.component.OrcIllustration
+import nl.muorg.android.ui.component.OrcVariant
 import nl.muorg.android.ui.component.EqualizerBars
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.AlbumActionsViewModel
@@ -88,10 +90,17 @@ fun AlbumDetailScreen(
     baseUrl: String,
     onOpenQueue: () -> Unit = {},
     onViewArtist: (String) -> Unit = {},
+    onEditMetadata: () -> Unit = {},
+    onAlbumRenamed: (String) -> Unit = {},
     viewModel: AlbumDetailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(albumName, filterPlaylistId) {
         viewModel.loadAlbum(albumName, filterPlaylistId)
+    }
+
+    // This route's album name is a pre-rename one: forward to the renamed album.
+    LaunchedEffect(Unit) {
+        viewModel.renamed.collect { newName -> onAlbumRenamed(newName) }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -290,7 +299,25 @@ fun AlbumDetailScreen(
                                     artist = uiState.artist,
                                     onDismiss = { showAlbumMenuSheet = false },
                                     onViewArtist = { uiState.artist.takeIf { it.isNotBlank() }?.let(onViewArtist) },
+                                    onEditMetadata = onEditMetadata,
                                 )
+                            }
+                        }
+
+                        if (uiState.error == null && uiState.tracks.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    OrcIllustration(OrcVariant.NotFound, modifier = Modifier.size(160.dp))
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "Album not found",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
 
@@ -548,8 +575,8 @@ private fun AlbumTrackRow(
 }
 
 /**
- * The album header's 3-dots menu: a bottom sheet with only the offline
- * download toggle and view-artist.
+ * The album header's 3-dots menu: a bottom sheet with the offline download
+ * toggle, edit-album-metadata and view-artist.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -558,6 +585,7 @@ private fun AlbumHeaderMenuSheet(
     artist: String,
     onDismiss: () -> Unit,
     onViewArtist: () -> Unit,
+    onEditMetadata: () -> Unit = {},
     viewModel: AlbumActionsViewModel = hiltViewModel(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -600,6 +628,13 @@ private fun AlbumHeaderMenuSheet(
             ) {
                 DownloadStatusIcon(downloaded = downloaded && !downloading, progress = ringProgress)
             }
+        }
+        SheetActionRow(
+            "Edit album metadata",
+            subtitle = albumName,
+            onClick = { onEditMetadata(); onDismiss() },
+        ) {
+            MageIcon("edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         }
         if (nl.muorg.android.util.Discography.isLinkable(artist)) {
             SheetActionRow(

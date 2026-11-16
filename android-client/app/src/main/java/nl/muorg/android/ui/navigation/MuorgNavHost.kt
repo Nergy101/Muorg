@@ -31,6 +31,8 @@ import nl.muorg.android.ui.screen.artist.ArtistScreen
 import nl.muorg.android.ui.screen.connect.ConnectScreen
 import nl.muorg.android.ui.screen.home.HomeScreen
 import nl.muorg.android.ui.screen.library.LibraryScreen
+import nl.muorg.android.ui.screen.metadata.AlbumEditScreen
+import nl.muorg.android.ui.screen.metadata.TrackEditScreen
 import nl.muorg.android.ui.screen.player.PlayerScreen
 import nl.muorg.android.ui.screen.playlist.PlaylistAlbumsScreen
 import nl.muorg.android.ui.screen.playlists.PlaylistsScreen
@@ -245,6 +247,52 @@ fun MuorgNavHost(
                 onOpenQueue = onOpenQueue,
                 onViewArtist = { artistName ->
                     navController.navigate(Screen.Artist.createRoute(artistName))
+                },
+                onEditMetadata = {
+                    navController.navigate(Screen.AlbumEdit.createRoute(albumName))
+                },
+                onAlbumRenamed = { newName ->
+                    // Replace this entry with the renamed album, so the back
+                    // stack no longer holds the stale name.
+                    navController.navigate(Screen.AlbumDetail.createRoute(newName)) {
+                        popUpTo(Screen.AlbumDetail.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(
+            route = Screen.AlbumEdit.route,
+            arguments = listOf(navArgument("albumName") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val encoded = backStackEntry.arguments?.getString("albumName") ?: ""
+            val albumName = java.net.URLDecoder.decode(encoded, "UTF-8")
+            AlbumEditScreen(
+                albumName = albumName,
+                onBack = { navController.popBackStack() },
+                onEditTrack = { trackId ->
+                    navController.navigate(Screen.TrackEdit.createRoute(trackId))
+                },
+                onAlbumRenamed = { newName ->
+                    // Replace this editor with one for the renamed album, so the
+                    // back stack and the route both point at the album as saved.
+                    navController.navigate(Screen.AlbumEdit.createRoute(newName)) {
+                        popUpTo(Screen.AlbumEdit.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(
+            route = Screen.TrackEdit.route,
+            arguments = listOf(navArgument("trackId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val trackId = backStackEntry.arguments?.getInt("trackId") ?: -1
+            TrackEditScreen(
+                trackId = trackId,
+                onBack = { navController.popBackStack() },
+                onEditAlbum = { albumName ->
+                    navController.navigate(Screen.AlbumEdit.createRoute(albumName))
                 },
             )
         }

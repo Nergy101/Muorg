@@ -3,8 +3,11 @@ package nl.muorg.android.ui.screen.album
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -19,6 +22,8 @@ import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.ui.screen.playlist.AddConflictState
 import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.friendlyMessage
+import nl.muorg.android.util.AlbumRenames
+import nl.muorg.android.ui.icon.PlaylistIconDefaults
 import javax.inject.Inject
 
 data class AlbumDetailUiState(
@@ -48,6 +53,12 @@ class AlbumDetailViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(AlbumDetailUiState())
     val uiState: StateFlow<AlbumDetailUiState> = _uiState.asStateFlow()
+
+    /** Emits the album's NEW name when this route's name is a pre-rename one,
+     *  so the screen can forward to the renamed album instead of showing an
+     *  empty page. */
+    private val _renamed = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val renamed: SharedFlow<String> = _renamed.asSharedFlow()
 
     init {
         loadPlaylists()
@@ -138,6 +149,12 @@ class AlbumDetailViewModel @Inject constructor(
                     },
                     onFailure = { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
                 )
+            }
+            // The album was renamed elsewhere in this session (the album editor):
+            // a back-stack entry still holding the old name forwards to the new one.
+            if (_uiState.value.tracks.isEmpty()) {
+                val resolved = AlbumRenames.resolve(albumName)
+                if (resolved != albumName) _renamed.tryEmit(resolved)
             }
         }
     }
@@ -302,7 +319,7 @@ class AlbumDetailViewModel @Inject constructor(
             if (mode == "local") {
                 runCatching { localRepository.createPlaylist(name) }
             } else {
-                runCatching { playlistRepository.createPlaylist(name, "🎵") }
+                runCatching { playlistRepository.createPlaylist(name, PlaylistIconDefaults.VALUE) }
             }
             loadPlaylists()
         }

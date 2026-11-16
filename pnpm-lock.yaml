@@ -11,6 +11,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.14.0)
+      '@lucide/vue':
+        specifier: 1.73.0
+        version: 1.73.0(vue@3.5.44(typescript@5.9.3))
       '@vitejs/plugin-vue':
         specifier: ^6.0.10
         version: 6.0.10(vite@8.2.2(@types/node@26.6.5)(esbuild@0.28.2))(vue@3.5.44(typescript@5.9.3))
@@ -325,6 +328,11 @@ packages:
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
+
+  '@lucide/vue@1.73.0':
+    resolution: {integrity: sha512-QVVRSgu2rqRX3NAUktT9venW0Bvtr03aCZjhFRLwnV3uqLyR7KCTOx5mMlukhw0aiyjC3D6w2b+fmy4MeM5R3Q==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -1646,6 +1654,10 @@ snapshots:
       keyv: 5.6.0
 
   '@keyv/serialize@1.1.1': {}
+
+  '@lucide/vue@1.73.0(vue@3.5.44(typescript@5.9.3))':
+    dependencies:
+      vue: 3.5.44(typescript@5.9.3)
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:

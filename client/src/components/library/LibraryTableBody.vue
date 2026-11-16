@@ -10,6 +10,7 @@ import { setTracksDragGhost } from "../../utils/dragGhost";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import MarqueeCell from "@shared/components/MarqueeCell.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import { isPlayingNow } from "../../state/playback";
@@ -1270,7 +1271,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
               class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
               @click="addToPlaylistFromContextMenu(pl.id)"
             >
-              <span v-if="pl.icon" class="shrink-0 text-sm leading-none">{{ pl.icon }}</span>
+              <PlaylistIcon v-if="pl.icon" :icon="pl.icon" class="h-3.5 w-3.5 shrink-0" />
               <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
               <span class="min-w-0 flex-1 truncate">{{ pl.name }}</span>
               <FeatherIcon name="check" class="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -1285,7 +1286,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
             class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
             @click="addToPlaylistFromContextMenu(pl.id)"
           >
-            <span v-if="pl.icon" class="shrink-0 text-sm leading-none">{{ pl.icon }}</span>
+            <PlaylistIcon v-if="pl.icon" :icon="pl.icon" class="h-3.5 w-3.5 shrink-0" />
             <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
             <span class="min-w-0 truncate">{{ pl.name }}</span>
           </button>

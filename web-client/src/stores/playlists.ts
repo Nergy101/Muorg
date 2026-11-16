@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { FAVORITES_PLAYLIST_ICON } from "@shared/playlistIcons";
 import { computed, ref } from "vue";
 import {
   getPlaylists,
@@ -38,7 +39,7 @@ export interface PendingPlaylistAdd {
 
 /** Shared with the Android client so a common library stays consistent. */
 const FAVORITES_NAME = "Favorites";
-const FAVORITES_ICON = "⭐";
+const FAVORITES_ICON = FAVORITES_PLAYLIST_ICON;
 
 /** Fields whose rule values must be sent as JSON numbers, not strings. */
 const SMART_NUMERIC_FIELDS = new Set(["rating", "play_count", "year", "last_played_at", "has_cover"]);
@@ -137,7 +138,11 @@ export const usePlaylistStore = defineStore("playlists", () => {
     loadPlaylistsFlight = (async () => {
       loading.value = true;
       try {
-        playlists.value = await getPlaylists();
+        playlists.value = (await getPlaylists()).map((p) =>
+          // The server treats playlists.icon as opaque, so a legacy Favorites
+          // row can carry an old emoji/empty icon — always render the gold star.
+          p.name === FAVORITES_NAME ? { ...p, icon: FAVORITES_ICON } : p,
+        );
         // Pins live on the server (Q24); a failed read must not break boot.
         try {
           pinnedIds.value = await getPlaylistPins();
@@ -408,6 +413,26 @@ export const usePlaylistStore = defineStore("playlists", () => {
     resolvePendingAdd = null;
   }
 
+  /** Reorder pinned playlists among themselves: the pinned group's display
+   *  order IS the pin order, so this just rewrites pinnedIds (persisted via
+   *  the server pin list). Ids not in the pinned set are ignored; pinned ids
+   *  missing from the input keep their relative order at the end. */
+  async function reorderPinnedPlaylists(ids: number[]): Promise<void> {
+    const pinnedSet = new Set(pinnedIds.value);
+    const next = ids.filter((id) => pinnedSet.has(id));
+    for (const id of pinnedIds.value) {
+      if (!next.includes(id)) next.push(id);
+    }
+    const previous = pinnedIds.value;
+    pinnedIds.value = next;
+    try {
+      await setPlaylistPins(next);
+    } catch (e) {
+      pinnedIds.value = previous;
+      showToast(`Failed to update pins: ${(e as Error).message}`);
+    }
+  }
+
   return {
     playlists,
     loading,
@@ -417,6 +442,7 @@ export const usePlaylistStore = defineStore("playlists", () => {
     sortedPlaylists,
     isPinned,
     togglePin,
+    reorderPinnedPlaylists,
     loadPlaylists,
     createPlaylist,
     createSmartPlaylist,

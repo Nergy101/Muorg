@@ -7,7 +7,8 @@ import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
 import { getServerUrl } from "../../api/client";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
-import EmojiPicker from "../shared/EmojiPicker.vue";
+import PlaylistIconPicker from "../shared/PlaylistIconPicker.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import PlaylistDuplicateDialog from "../shared/PlaylistDuplicateDialog.vue";
 import PlaylistExportDialog from "../shared/PlaylistExportDialog.vue";
 import SmartPlaylistModal from "../shared/SmartPlaylistModal.vue";
@@ -36,12 +37,12 @@ const newPlaylistInputRef = ref<HTMLInputElement | null>(null);
 const newPlaylistName = ref("");
 const newPlaylistIcon = ref("");
 const isCreatingPlaylist = ref(false);
-const showNewEmojiPicker = ref(false);
+const showNewIconPicker = ref(false);
 
 function startCreatingPlaylist() {
   isCreatingPlaylist.value = true;
   newPlaylistIcon.value = "";
-  showNewEmojiPicker.value = false;
+  showNewIconPicker.value = false;
   nextTick(() => newPlaylistInputRef.value?.focus());
 }
 
@@ -54,14 +55,14 @@ async function confirmCreatePlaylist() {
   }
   newPlaylistName.value = "";
   newPlaylistIcon.value = "";
-  showNewEmojiPicker.value = false;
+  showNewIconPicker.value = false;
   isCreatingPlaylist.value = false;
 }
 
 function cancelCreatePlaylist() {
   newPlaylistName.value = "";
   newPlaylistIcon.value = "";
-  showNewEmojiPicker.value = false;
+  showNewIconPicker.value = false;
   isCreatingPlaylist.value = false;
 }
 
@@ -71,13 +72,13 @@ const editingPlaylistId = ref<number | null>(null);
 const editNameRef = ref<HTMLInputElement[]>([]);
 const editName = ref("");
 const editIcon = ref("");
-const showEmojiPicker = ref(false);
+const showIconPicker = ref(false);
 
 function startEditing(id: number, currentName: string, currentIcon: string | null) {
   editingPlaylistId.value = id;
   editName.value = currentName;
   editIcon.value = currentIcon ?? "";
-  showEmojiPicker.value = false;
+  showIconPicker.value = false;
   closePlaylistContextMenu();
   nextTick(() => editNameRef.value[0]?.focus());
 }
@@ -88,12 +89,12 @@ async function confirmEdit(id: number) {
   await playlistStore.renamePlaylist(id, name);
   await playlistStore.setPlaylistIcon(id, editIcon.value.trim() || null);
   editingPlaylistId.value = null;
-  showEmojiPicker.value = false;
+  showIconPicker.value = false;
 }
 
 function cancelEdit() {
   editingPlaylistId.value = null;
-  showEmojiPicker.value = false;
+  showIconPicker.value = false;
 }
 
 
@@ -417,12 +418,12 @@ const exportingPlaylist = ref<Playlist | null>(null);
         <button
           type="button"
           class="icon-btn h-7 w-7 shrink-0 rounded bg-stone-700 text-base leading-none hover:bg-stone-600"
-          :class="showNewEmojiPicker ? 'ring-1 ring-stone-400' : ''"
-          title="Pick emoji"
+          :class="showNewIconPicker ? 'ring-1 ring-stone-400' : ''"
+          title="Pick icon"
           @mousedown.prevent
-          @click.stop="showNewEmojiPicker = !showNewEmojiPicker"
+          @click.stop="showNewIconPicker = !showNewIconPicker"
         >
-          <span v-if="newPlaylistIcon">{{ newPlaylistIcon }}</span>
+          <PlaylistIcon v-if="newPlaylistIcon" :icon="newPlaylistIcon" class="h-4 w-4" />
           <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
         </button>
         <!-- Name input -->
@@ -438,10 +439,11 @@ const exportingPlaylist = ref<Playlist | null>(null);
           @blur="confirmCreatePlaylist"
         />
         <!-- Emoji picker -->
-        <EmojiPicker
-          :open="showNewEmojiPicker"
+        <PlaylistIconPicker
+          :open="showNewIconPicker"
+          :value="newPlaylistIcon"
           class="absolute left-0 top-full z-50 mt-1"
-          @pick="newPlaylistIcon = $event; showNewEmojiPicker = false"
+          @pick="newPlaylistIcon = $event; showNewIconPicker = false"
         />
       </div>
       <div v-else class="flex gap-1">
@@ -511,19 +513,19 @@ const exportingPlaylist = ref<Playlist | null>(null);
           @drop="onPlaylistDrop($event, playlist.id)"
           @contextmenu.prevent="openPlaylistContextMenu($event, playlist.id, playlist.name)"
         >
-          <!-- Edit inline (name + emoji) -->
+          <!-- Edit inline (name + icon) -->
           <template v-if="editingPlaylistId === playlist.id">
             <div class="flex min-w-0 flex-1 flex-col gap-1 px-1.5 py-1.5">
               <div class="flex items-center gap-1">
-                <!-- Emoji button: shows current emoji or placeholder, toggles picker -->
+                <!-- Icon button: shows current icon or placeholder, toggles picker -->
                 <button
                   type="button"
                   class="icon-btn h-6 w-7 shrink-0 rounded bg-stone-700 text-base leading-none hover:bg-stone-600"
-                  :class="showEmojiPicker ? 'ring-1 ring-stone-400' : ''"
-                  title="Pick emoji"
-                  @click.stop="showEmojiPicker = !showEmojiPicker"
+                  :class="showIconPicker ? 'ring-1 ring-stone-400' : ''"
+                  title="Pick icon"
+                  @click.stop="showIconPicker = !showIconPicker"
                 >
-                  <span v-if="editIcon">{{ editIcon }}</span>
+                  <PlaylistIcon v-if="editIcon" :icon="editIcon" class="h-4 w-4" />
                   <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
                 </button>
                 <!-- Name input -->
@@ -554,9 +556,10 @@ const exportingPlaylist = ref<Playlist | null>(null);
                 </button>
               </div>
               <!-- Emoji picker panel -->
-              <EmojiPicker
-                :open="showEmojiPicker"
-                @pick="editIcon = $event; showEmojiPicker = false"
+              <PlaylistIconPicker
+                :open="showIconPicker"
+                :value="editIcon"
+                @pick="editIcon = $event; showIconPicker = false"
               />
             </div>
           </template>
@@ -566,10 +569,11 @@ const exportingPlaylist = ref<Playlist | null>(null);
               class="flex min-w-0 flex-1 items-center gap-2 truncate px-1 py-1.5 text-left"
               @click="handleClickPlaylist(playlist.id)"
             >
-              <span
+              <PlaylistIcon
                 v-if="playlist.icon"
-                class="shrink-0 text-sm leading-none"
-              >{{ playlist.icon }}</span>
+                :icon="playlist.icon"
+                class="h-3.5 w-3.5 shrink-0"
+              />
               <FeatherIcon
                 v-else-if="playlist.smart_rules"
                 name="zap"

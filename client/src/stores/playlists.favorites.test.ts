@@ -10,7 +10,7 @@ const backend = vi.hoisted(() => ({
   favTracks: { ids: [42] as number[] },
   playlists: [
     { id: 1, name: "Rock", track_count: 2 },
-    { id: 7, name: "Favorites", icon: "⭐", track_count: 1 },
+    { id: 7, name: "Favorites", icon: "star:#FFD700", track_count: 1 },
   ] as { id: number; name: string; icon?: string | null; track_count: number }[],
 }));
 
@@ -59,7 +59,7 @@ describe("favorites", () => {
     backend.favTracks.ids = [42];
     backend.playlists = [
       { id: 1, name: "Rock", track_count: 2 },
-      { id: 7, name: "Favorites", icon: "⭐", track_count: 1 },
+      { id: 7, name: "Favorites", icon: "star:#FFD700", track_count: 1 },
     ];
   });
 
@@ -125,7 +125,7 @@ describe("favorites", () => {
     await store.toggleFavorite(5);
 
     expect(api.createPlaylist).toHaveBeenCalledWith(FAVORITES_PLAYLIST_NAME);
-    expect(api.setPlaylistIcon).toHaveBeenCalledWith(9, "⭐");
+    expect(api.setPlaylistIcon).toHaveBeenCalledWith(9, "star:#FFD700");
     expect(api.addTracksToPlaylist).toHaveBeenCalledWith(9, [5]);
     expect(store.isFavorite(5)).toBe(true);
   });

@@ -25,6 +25,7 @@ import nl.muorg.android.data.repository.PlaylistRepository
 import nl.muorg.android.data.repository.PlaylistTrackEntry
 import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.friendlyMessage
+import nl.muorg.android.ui.icon.PlaylistIconDefaults
 import javax.inject.Inject
 
 data class AddConflictState(
@@ -58,6 +59,7 @@ data class PlaylistAlbumsUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val isLocalMode: Boolean = false,
+    val isOfflineMode: Boolean = false,
     val addConflict: AddConflictState? = null,
     val hasUnsavedOrder: Boolean = false,
     val viewStyle: String = "tracks",
@@ -69,6 +71,10 @@ data class PlaylistAlbumsUiState(
     val playlistDownloading: Boolean = false,
     /** 0..1 ring progress while this playlist downloads, null otherwise. */
     val playlistDownloadRing: Float? = null,
+    /** Edit name+icon dialog state (top-bar Edit action). */
+    val showEditDialog: Boolean = false,
+    val editName: String = "",
+    val editIcon: String = PlaylistIconDefaults.VALUE,
 )
 
 /** Snapshot of the flows behind the playlist download button. */
@@ -213,6 +219,60 @@ class PlaylistAlbumsViewModel @Inject constructor(
         return result
     }
 
+    fun showEditDialog() {
+        val p = _uiState.value.playlist ?: return
+        _uiState.update {
+            it.copy(
+                showEditDialog = true,
+                editName = p.name,
+                editIcon = p.icon?.takeIf { i -> i.isNotBlank() } ?: PlaylistIconDefaults.VALUE,
+            )
+        }
+    }
+
+    fun dismissEditDialog() {
+        _uiState.update { it.copy(showEditDialog = false) }
+    }
+
+    fun onEditNameChange(name: String) {
+        _uiState.update { it.copy(editName = name) }
+    }
+
+    fun onEditIconChange(icon: String) {
+        _uiState.update { it.copy(editIcon = icon) }
+    }
+
+    fun updatePlaylist() {
+        val state = _uiState.value
+        if (state.editName.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(showEditDialog = false) }
+            val mode = preferences.musicMode.first()
+            val icon = state.editIcon.ifBlank { PlaylistIconDefaults.VALUE }
+            val result = if (mode == "local") {
+                runCatching {
+                    localRepository.updatePlaylist(
+                        id = playlistId,
+                        name = state.editName.trim(),
+                        icon = icon,
+                    )
+                }
+            } else if (preferences.offlineMode.first()) {
+                Result.failure(IllegalStateException("Offline mode is read-only"))
+            } else {
+                playlistRepository.updatePlaylist(
+                    id = playlistId,
+                    name = state.editName.trim(),
+                    icon = icon,
+                )
+            }
+            result.fold(
+                onSuccess = { load() },
+                onFailure = { e -> uiMessenger.showError(e); load() },
+            )
+        }
+    }
+
     private fun load() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -252,6 +312,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 playlists = offlineDownloadManager.getDownloadedPlaylists(),
                 isLoading = false,
                 isLocalMode = false,
+                isOfflineMode = true,
             )
             updated.copy(sortedTracks = applySort(tracks, addedKeys, updated))
         }
@@ -285,6 +346,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                     trackPlaylistMembership = membership,
                     isLoading = false,
                     isLocalMode = true,
+                    isOfflineMode = false,
                 )
                 updated.copy(sortedTracks = applySort(tracks, addedKeys, updated))
             }
@@ -351,6 +413,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 playlists = playlists,
                 isLoading = false,
                 isLocalMode = false,
+                isOfflineMode = false,
             )
             updated.copy(sortedTracks = applySort(playlistTracks, addedKeys, updated))
         }
@@ -460,7 +523,7 @@ class PlaylistAlbumsViewModel @Inject constructor(
                 runCatching { localRepository.createPlaylist(name) }
                 loadLocal()
             } else {
-                runCatching { playlistRepository.createPlaylist(name, "🎵") }
+                runCatching { playlistRepository.createPlaylist(name, PlaylistIconDefaults.VALUE) }
             }
         }
     }

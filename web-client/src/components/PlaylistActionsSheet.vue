@@ -80,7 +80,7 @@
       </button>
       <button v-if="!isFavorites" type="button" :class="ROW" @click="emit('edit'); emit('close')">
         <MageIcon name="edit" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-        <span>Edit playlist</span>
+        <span>Edit name and icon</span>
       </button>
       <button type="button" :class="ROW" @click="emit('export'); emit('close')">
         <MageIcon name="export-list" class="h-5 w-5 shrink-0 text-on-surface-variant" />

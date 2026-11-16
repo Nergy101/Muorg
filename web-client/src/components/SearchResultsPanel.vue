@@ -39,6 +39,7 @@
           v-if="layout === 'grid'"
           :cards="recentResultCards"
           @open="openTrackAlbum"
+          @actions="albumActions = $event"
         />
         <template v-else>
           <TrackListRow
@@ -107,7 +108,7 @@
          centered measure at 4 columns (normal cover size), paged 20 at
          a time so a big result set doesn't load every cover at once. -->
     <div v-if="layout === 'grid'" class="search-col px-4 pb-4 pt-1">
-      <SearchResultCardGrid :cards="visibleResultCards" @open="openTrackAlbum" />
+      <SearchResultCardGrid :cards="visibleResultCards" @open="openTrackAlbum" @actions="albumActions = $event" />
       <button
         v-if="hasMoreGrid"
         type="button"
@@ -151,6 +152,10 @@
     @view-artist="onViewArtist"
     @view-album="onViewAlbum"
   />
+
+  <!-- Album context sheet for right-click / long-press on a result card.
+       Mounted only while open: the host instantiates stores at setup. -->
+  <AlbumActionsHost v-if="albumActions" :item="albumActions" @close="albumActions = null" />
 </template>
 
 <script setup lang="ts">
@@ -162,11 +167,12 @@ import ArtistCard from "./ArtistCard.vue";
 import SearchResultCardGrid from "./SearchResultCardGrid.vue";
 import TrackListRow from "./TrackListRow.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
+import AlbumActionsHost from "./AlbumActionsHost.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useSelectionStore } from "../stores/selection";
-import type { CatalogTrack, SearchHistoryEntry, SearchResultCard } from "../types";
+import type { AlbumGridItem, CatalogTrack, SearchHistoryEntry, SearchResultCard } from "../types";
 
 const props = defineProps<{
   /** Raw query text; the panel debounces it internally. */
@@ -460,6 +466,8 @@ function onSelect(
 // --- Track actions sheet -------------------------------------------------
 
 const sheetTrack = ref<CatalogTrack | null>(null);
+/** Album whose context sheet is open (right-click / long-press on a card). */
+const albumActions = ref<AlbumGridItem | null>(null);
 
 function onViewArtist(): void {
   const t = sheetTrack.value;

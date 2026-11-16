@@ -10,6 +10,7 @@
         mode="grid"
         :is-active="isActiveTrack(card.track)"
         @open="$emit('open', card.track)"
+        @actions="$emit('actions', card.item)"
       />
       <!-- Tracks without artwork still get a card, with a placeholder
            sleeve instead of the cover. -->
@@ -48,11 +49,15 @@ import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import ArtistLink from "./ArtistLink.vue";
 import { usePlayerStore } from "../stores/player";
-import type { CatalogTrack, SearchResultCard } from "../types";
+import type { AlbumGridItem, CatalogTrack, SearchResultCard } from "../types";
 
 /** Album-cover grid of search-result cards (live results or recent results). */
 defineProps<{ cards: SearchResultCard[] }>();
-defineEmits<{ open: [track: CatalogTrack] }>();
+defineEmits<{
+  open: [track: CatalogTrack];
+  /** Right-click / long-press on a card: open the album actions sheet. */
+  actions: [item: AlbumGridItem];
+}>();
 
 const player = usePlayerStore();
 

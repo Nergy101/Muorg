@@ -37,6 +37,7 @@ import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.glass.GlassMaterial
+import nl.muorg.android.ui.icon.PlaylistIcon
 import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.glass.scrimLabelStyle
 import nl.muorg.android.ui.icon.mageIconRes
@@ -73,10 +74,9 @@ internal fun PlaylistCard(
                 modifier = Modifier.size(44.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = playlist.icon?.takeIf { it.isNotBlank() } ?: "🎵",
-                    fontSize = 26.sp,
-                    fontFamily = FontFamily.Default,
+                PlaylistIcon(
+                    icon = playlist.icon,
+                    modifier = Modifier.size(26.dp),
                 )
             }
 
@@ -152,11 +152,11 @@ internal fun PlaylistTile(
             imageLoader = imageLoader,
             modifier = Modifier.fillMaxSize(),
         ) {
-            Text(
-                text = playlist.icon ?: "🎵",
-                fontSize = 44.sp,
-                fontFamily = FontFamily.Default,
-                modifier = Modifier.align(Alignment.Center),
+            PlaylistIcon(
+                icon = playlist.icon,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(44.dp),
             )
         }
 

@@ -5,11 +5,14 @@
            "Shuffle all" + "Play random mix" on the right (mirrors the Android
            app's HomeHeader). On desktop the navbar already shows the logo, so
            the mark is hidden and the button pair is centred at the top. -->
-      <div class="content-col flex items-center gap-2 px-4 pb-2 pt-4 lg:justify-center">
+      <div
+        class="content-col flex items-center gap-2 px-4 pb-2 pt-4 lg:justify-center"
+        :class="collapsed ? 'lg:hidden' : ''"
+      >
         <img :src="logoUrl" alt="Muorg" class="h-8 w-8 shrink-0 lg:hidden" />
         <span class="text-title-md font-bold tracking-tight text-on-surface lg:hidden">Muorg</span>
         <div class="flex-1 lg:hidden" />
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2" :class="collapsed ? 'lg:hidden' : ''">
           <button
             type="button"
             class="glass flex h-9 items-center gap-1.5 rounded-full px-3 text-label-lg transition-colors"
@@ -34,6 +37,34 @@
           </button>
         </div>
       </div>
+
+      <!-- Desktop with the rail collapsed: the top bar replaces this row, so
+           the shuffle-all / play-random-mix actions move to its right end
+           (icon-only, matching the rail's nav buttons). -->
+      <Teleport v-if="collapsed && route.name === 'home' && collapsedNavTrailing" :to="collapsedNavTrailing">
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-lg transition-colors"
+            :class="player.shuffleAllActive ? 'text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
+            aria-label="Shuffle all"
+            :aria-pressed="player.shuffleAllActive"
+            title="Shuffle all"
+            @click="shuffleAll"
+          >
+            <MageIcon name="exchange" class="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+            aria-label="Play random mix"
+            title="Play random mix"
+            @click="playRandomMix"
+          >
+            <MageIcon name="play-circle" class="h-5 w-5" />
+          </button>
+        </div>
+      </Teleport>
 
       <EmptyState
         v-if="libraryEmpty"
@@ -230,7 +261,7 @@
 <script setup lang="ts">
 import EmptyState from "../components/EmptyState.vue";
 import { computed, onActivated, onMounted, reactive, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import AlbumCard from "../components/AlbumCard.vue";
 import AlbumActionsHost from "../components/AlbumActionsHost.vue";
@@ -242,11 +273,13 @@ import { usePlayerStore } from "../stores/player";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useGridColumns } from "../composables/useGridColumns";
+import { sidebarCollapsed as collapsed, collapsedNavTrailing } from "../composables/sidebarCollapsed";
 import { useIsDesktop } from "../composables/useIsDesktop";
 import { useMixes } from "@shared/composables/useMixes";
 import { useMixCoverReady } from "../composables/useMixCoverReady";
 import type { AlbumGridItem, CatalogTrack } from "../types";
 
+const route = useRoute();
 const router = useRouter();
 const lib = useLibraryStore();
 /** Nothing to browse yet: the catalog finished loading and holds no tracks. */
@@ -436,8 +469,37 @@ async function loadShelf(shelf: Shelf, background = false): Promise<void> {
   }
 }
 
-onMounted(() => {
-  for (const shelf of shelves) void loadShelf(shelf);
+/**
+ * Resolves once the Mixes section has fully settled: the catalog finished
+ * streaming, the mixes are rolled, and every mix cover collage has loaded (or
+ * definitively failed). An empty library resolves immediately — there are no
+ * mixes to wait for.
+ */
+function waitForMixesReady(): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () =>
+      !lib.loading &&
+      !lib.loadingMore &&
+      (mixes.value.length === 0 || mixCoverReady.allReady.value);
+    if (done()) return resolve();
+    const stop = watch(
+      () => [lib.loading, lib.loadingMore, mixes.value.length, mixCoverReady.allReady.value] as const,
+      () => {
+        if (done()) {
+          stop();
+          resolve();
+        }
+      },
+    );
+  });
+}
+
+onMounted(async () => {
+  // Top of the page first: Recommended and the Mixes (including their cover
+  // preloads) finish before the lower shelves' requests go out.
+  await loadShelf(shelves[0]);
+  await waitForMixesReady();
+  for (const shelf of shelves.slice(1)) void loadShelf(shelf);
 });
 
 // KeepAlive keeps this view mounted: re-fetch silently when the tab is

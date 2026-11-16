@@ -87,7 +87,31 @@
           class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
         >
           <PlaylistCard
-            v-for="p in visiblePlaylists"
+            v-for="p in pinnedPlaylists"
+            :key="p.id"
+            :playlist="p"
+            @open="router.push({ name: 'playlist', params: { id: String(p.id) } })"
+            @edit="openEdit(p)"
+            @delete="deleteTarget = p"
+          />
+        </div>
+
+        <!-- Divider between pinned and unpinned playlists. -->
+        <div
+          v-if="pinnedPlaylists.length > 0 && unpinnedPlaylists.length > 0"
+          class="my-4 flex items-center gap-3"
+          role="separator"
+        >
+          <span class="h-px flex-1 bg-outline/20" />
+          <MageIcon name="pin" class="h-3.5 w-3.5 text-on-surface-variant/60" />
+          <span class="h-px flex-1 bg-outline/20" />
+        </div>
+
+        <div
+          class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"
+        >
+          <PlaylistCard
+            v-for="p in unpinnedPlaylists"
             :key="p.id"
             :playlist="p"
             @open="router.push({ name: 'playlist', params: { id: String(p.id) } })"
@@ -185,10 +209,11 @@ function onDocumentClick(e: MouseEvent): void {
 onMounted(() => document.addEventListener("click", onDocumentClick));
 onUnmounted(() => document.removeEventListener("click", onDocumentClick));
 
-const visiblePlaylists = computed<Playlist[]>(() => {
-  const all = playlistStore.sortedPlaylists;
-  const pinned = all.filter((p) => playlistStore.isPinned(p.id));
-  const rest = all.filter((p) => !playlistStore.isPinned(p.id));
+const pinnedPlaylists = computed<Playlist[]>(() =>
+  playlistStore.sortedPlaylists.filter((p) => playlistStore.isPinned(p.id)),
+);
+const unpinnedPlaylists = computed<Playlist[]>(() => {
+  const rest = playlistStore.sortedPlaylists.filter((p) => !playlistStore.isPinned(p.id));
   const dir = sortAsc.value ? 1 : -1;
   const byKey = (a: Playlist, b: Playlist): number => {
     switch (sortKey.value) {
@@ -200,7 +225,7 @@ const visiblePlaylists = computed<Playlist[]>(() => {
         return a.name.localeCompare(b.name) * dir;
     }
   };
-  return [...pinned, ...rest.sort(byKey)];
+  return rest.sort(byKey);
 });
 
 // Preload all playlists' covers and hold the grid until every one is ready.

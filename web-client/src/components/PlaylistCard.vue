@@ -72,6 +72,7 @@
            A download icon appears when the playlist is cached for offline; while
            it downloads, a ring around the icon acts as the progress bar. -->
       <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
+        <PlaylistIcon :icon="playlist.icon" class="h-4 w-4 shrink-0 self-center" />
         <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
         <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
           <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
@@ -118,6 +119,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import MageIcon from "./MageIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import PlaylistExportDialog from "./PlaylistExportDialog.vue";
 import PlaylistActionsSheet from "./PlaylistActionsSheet.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";

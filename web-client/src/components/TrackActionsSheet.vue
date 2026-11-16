@@ -175,7 +175,7 @@
             class="flex h-14 w-full items-center gap-3 px-6 text-left"
             @click="togglePlaylist(p)"
           >
-            <span class="text-title-lg leading-none">{{ p.icon ?? "🎵" }}</span>
+            <PlaylistIcon :icon="p.icon" class="h-6 w-6 shrink-0" />
             <span class="min-w-0 flex-1 truncate text-body-lg text-on-surface">{{ p.name }}</span>
             <MageIcon
               v-if="isInPlaylist(p)"
@@ -252,6 +252,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
+import { DEFAULT_PLAYLIST_ICON } from "@shared/playlistIcons";
 import BottomSheet from "./BottomSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import MarqueeText from "./MarqueeText.vue";
@@ -494,7 +496,7 @@ async function submitCreate(): Promise<void> {
   creating.value = false;
   newName.value = "";
   try {
-    const p = await playlistStore.createPlaylist(name, "🎵");
+    const p = await playlistStore.createPlaylist(name, DEFAULT_PLAYLIST_ICON);
     await playlistStore.addTracks(p.id, [t.id]);
     membership.value = new Set(membership.value).add(p.id);
     showToast(`Added to ${name}`);

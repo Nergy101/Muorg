@@ -15,6 +15,7 @@ import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { useMixes, type Mix } from "@shared/composables/useMixes";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
@@ -40,7 +41,7 @@ function openMix(mix: Mix) {
   store.setActivePlaylist(
     filterId(mix),
     mix.trackIds.map((trackId) => ({ entryId: -1, trackId })),
-    `${mix.emoji} ${mix.name}`,
+    mix.name,
   );
 }
 
@@ -53,7 +54,7 @@ function playMix(mix: Mix) {
   store.setPlayRequestTrackId(mix.trackIds[0]);
 }
 
-/** Turn a throwaway mix into a real playlist, tracks and emoji included. */
+/** Turn a throwaway mix into a real playlist, tracks and icon included. */
 async function saveMix(mix: Mix) {
   if (mix.trackIds.length === 0 || saving.value != null) return;
   saving.value = mix.id;
@@ -63,7 +64,7 @@ async function saveMix(mix: Mix) {
     for (let n = 2; existing.has(name); n++) name = `${mix.name} ${n}`;
     const playlist = await playlistStore.createPlaylistFromTracks(name, mix.trackIds);
     if (playlist?.id != null) {
-      await playlistStore.setPlaylistIcon(playlist.id, mix.emoji);
+      await playlistStore.setPlaylistIcon(playlist.id, mix.icon);
     }
   } finally {
     saving.value = null;
@@ -112,7 +113,7 @@ const isBuilding = computed(() => loading.value || loadingMore.value);
             :disabled="mix.trackIds.length === 0"
             @click="openMix(mix)"
           >
-            <span class="shrink-0 text-base leading-none">{{ mix.emoji }}</span>
+            <PlaylistIcon :icon="mix.icon" class="h-4 w-4 shrink-0" />
             <span class="min-w-0 flex-1 truncate">{{ mix.name }}</span>
             <span class="shrink-0 text-xs tabular-nums text-stone-500">
               {{ mix.trackIds.length }}
