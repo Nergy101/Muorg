@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="client/public/favicon.svg" alt="Muorg logo" width="80" />
+  <img src="web-client/public/favicon.svg" alt="Muorg logo" width="80" />
   <h1>Muorg — The Music Organizer from Hell</h1>
   <em>Pronounced "Mu-Ork" — think of a Musical Ork who organizes your music.</em>
   <br /><br />
