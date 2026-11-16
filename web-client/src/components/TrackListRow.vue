@@ -63,10 +63,15 @@
       <div class="flex min-w-0 items-center gap-1.5">
         <div class="min-w-0 flex-1">
           <MarqueeText
-            :text="subtitle ?? track.artist ?? track.album_artist ?? '—'"
+            :text="subtitleText"
             class="text-body-md"
             :class="onDark ? 'text-white/75' : 'text-on-surface-variant'"
-          />
+          >
+            <template v-if="subtitle != null">{{ subtitle }}</template>
+            <template v-else>
+              <ArtistLink :name="artistCredit" :disabled="selectable" /><template v-if="withAlbum"> • {{ track.album ?? "—" }}</template>
+            </template>
+          </MarqueeText>
         </div>
         <span
           v-if="showFormatBadge !== false"
@@ -118,6 +123,7 @@ import MageIcon from "./MageIcon.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import { isLossless } from "@shared/formats";
 import MarqueeText from "./MarqueeText.vue";
+import ArtistLink from "./ArtistLink.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSelectionStore } from "../stores/selection";
@@ -131,8 +137,10 @@ const props = withDefaults(
     isPlaying?: boolean;
     /** Spinner on the cover while this track's play request is still loading. */
     isLoading?: boolean;
-    /** Overrides the second line (artist) — search uses it to show the album. */
+    /** Overrides the second line (artist) with plain text. */
     subtitle?: string | null;
+    /** Second line reads "artist • album" (the artist still a link) — search. */
+    withAlbum?: boolean;
     showFormatBadge?: boolean;
     showDuration?: boolean;
     /** Show a destructive "delete from server" button before the actions dot. */
@@ -171,6 +179,13 @@ const emit = defineEmits<{
   /** Click was (or should be) treated as a selection gesture, not a play. */
   select: [mods: { shift: boolean; ctrl: boolean }];
 }>();
+
+const artistCredit = computed(() => props.track.artist ?? props.track.album_artist ?? null);
+const subtitleText = computed(() => {
+  if (props.subtitle != null) return props.subtitle;
+  const artist = artistCredit.value ?? "—";
+  return props.withAlbum ? `${artist} • ${props.track.album ?? "—"}` : artist;
+});
 
 const titleClass = computed(() =>
   props.isPlaying

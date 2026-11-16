@@ -293,10 +293,8 @@ function onRemoveFromQueue(): void {
 function onViewArtist(): void {
   const t = sheetTrack.value;
   if (!t) return;
-  void router.push({
-    name: "library",
-    query: { artist: t.artist ?? t.album_artist ?? undefined },
-  });
+  const name = t.artist ?? t.album_artist;
+  if (name) void router.push({ name: "artist", params: { name } });
 }
 
 function onViewAlbum(): void {

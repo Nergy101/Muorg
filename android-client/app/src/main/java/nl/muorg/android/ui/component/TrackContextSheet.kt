@@ -131,7 +131,7 @@ fun TrackContextSheet(
                 MageIcon("compact-disk", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
             }
         }
-        if (onViewArtist != null) {
+        if (onViewArtist != null && nl.muorg.android.util.Discography.isLinkable(track.displayArtist)) {
             SheetActionRow(
                 "View artist",
                 subtitle = track.displayArtist,

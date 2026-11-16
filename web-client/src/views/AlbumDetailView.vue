@@ -56,7 +56,7 @@
               <p
                 class="truncate text-body-md"
                 :class="backdropActive ? 'text-white/75' : 'text-on-surface-variant'"
-              >{{ metaLine }}</p>
+              ><template v-if="item.albumArtist"><ArtistLink :name="item.albumArtist" /> · </template>{{ statsLine }}</p>
             </div>
 
             <div class="flex items-center gap-2">
@@ -195,6 +195,7 @@ import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
+import ArtistLink from "../components/ArtistLink.vue";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
@@ -289,9 +290,10 @@ const accentOnCss = computed(() => {
   return luminance > 0.55 ? "#1c1917" : "#ffffff";
 });
 
-const metaLine = computed(() => {
+/** Year, track count and running time — the header puts the (linked)
+ *  album artist in front of it, the sheet uses `metaLine`. */
+const statsLine = computed(() => {
   const parts: string[] = [];
-  if (item.value?.albumArtist) parts.push(item.value.albumArtist);
   if (item.value?.year) parts.push(String(item.value.year));
   const n = tracks.value.length;
   parts.push(n === 1 ? "1 track" : `${n} tracks`);
@@ -299,6 +301,10 @@ const metaLine = computed(() => {
   if (secs > 0) parts.push(`${Math.round(secs / 60)}m`);
   return parts.join(" · ");
 });
+
+const metaLine = computed(() =>
+  [item.value?.albumArtist, statsLine.value].filter((s) => !!s).join(" · "),
+);
 
 function playAlbum(): void {
   if (tracks.value.length === 0) return;

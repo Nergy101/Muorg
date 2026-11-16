@@ -33,7 +33,7 @@
               class="text-label-lg font-semibold text-on-surface"
             />
             <div class="truncate text-label-sm text-on-surface-variant">
-              {{ card.item.albumArtist }}
+              <ArtistLink :name="card.item.albumArtist" />
             </div>
           </div>
         </div>
@@ -46,6 +46,7 @@
 import AlbumCard from "./AlbumCard.vue";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
+import ArtistLink from "./ArtistLink.vue";
 import { usePlayerStore } from "../stores/player";
 import type { CatalogTrack, SearchResultCard } from "../types";
 

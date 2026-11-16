@@ -601,12 +601,14 @@ private fun AlbumHeaderMenuSheet(
                 DownloadStatusIcon(downloaded = downloaded && !downloading, progress = ringProgress)
             }
         }
-        SheetActionRow(
-            "View artist",
-            subtitle = artist,
-            onClick = { onViewArtist(); onDismiss() },
-        ) {
-            MageIcon("user", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        if (nl.muorg.android.util.Discography.isLinkable(artist)) {
+            SheetActionRow(
+                "View artist",
+                subtitle = artist,
+                onClick = { onViewArtist(); onDismiss() },
+            ) {
+                MageIcon("user", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+            }
         }
         Spacer(Modifier.size(16.dp))
     }

@@ -4,13 +4,18 @@
       ref="inner"
       class="inline-block max-w-full align-bottom"
       :class="[props.class, overflowing ? '' : 'truncate']"
-    >{{ text }}</span>
+    ><slot>{{ text }}</slot></span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+/**
+ * `text` drives the overflow measurement; the default slot, when given,
+ * replaces how it renders (e.g. with an artist link inside) and must show
+ * the same text.
+ */
 /** Android basicMarquee(initialDelayMillis = 1200, repeatDelayMillis = 1200, velocity = 40.dp). */
 const HOLD_MS = 1200;
 const VELOCITY_PX_PER_S = 40;

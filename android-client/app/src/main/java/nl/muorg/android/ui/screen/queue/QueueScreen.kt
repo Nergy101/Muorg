@@ -176,6 +176,8 @@ fun QueueScreen(
     imageLoader: ImageLoader,
     baseUrl: String,
     onBack: () -> Unit,
+    onViewArtist: (String) -> Unit = {},
+    onViewAlbum: (String) -> Unit = {},
 ) {
     val playerState by playerViewModel.playerState.collectAsStateWithLifecycle()
     val currentTrack = playerState.currentTrack
@@ -545,8 +547,8 @@ fun QueueScreen(
             onAddToPlaylist = { playlistId -> playerViewModel.addTrackToPlaylist(track, playlistId); sheetTrack = null },
             onRemoveFromPlaylist = { playlistId -> playerViewModel.removeTrackFromPlaylist(track, playlistId); sheetTrack = null },
             trackInPlaylistIds = currentTrackMembership,
-            onViewArtist = { sheetTrack = null },
-            onViewAlbum = { sheetTrack = null },
+            onViewArtist = { sheetTrack = null; onViewArtist(track.displayArtist) },
+            onViewAlbum = { sheetTrack = null; onViewAlbum(track.displayAlbum) },
             onRemoveFromQueue = { playerViewModel.removeFromQueue(track) },
             onSaveMetadata = { title, artist, album, albumArtist, genre, year ->
                 sheetTrack = null
