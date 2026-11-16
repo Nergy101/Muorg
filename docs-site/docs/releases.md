@@ -6,6 +6,18 @@ sidebar_position: 8
 
 Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
 
+## v4.6.3
+
+- **Web**: removed the Media Session `seekbackward`/`seekforward` handlers — mice whose back/forward buttons map to those media actions no longer skip the music 10s per click. Keyboard seeking (← / → / J / L) is unchanged.
+
+## v4.6.2
+
+- **Web**: the queue side panel's collapse chevron in the maximized player now sits small in the glass card's top-right corner — pointing right to expand, left to collapse — and the queue track count moved next to the "Queue" label as "N tracks".
+
+## v4.6.1
+
+- **Web**: the queue side panel in the maximized player (desktop, wide windows) now has a small chevron tab on the glass card's right edge to collapse and re-expand it; collapsing frees the reserved space so the controls panel returns to its normal width.
+
 ## v4.6.0
 
 - **Web**: the maximized player now shows the queue in a side panel on the right of the glass controls card whenever the window is wide enough (content column ≥ 820px); in art-fullscreen mode a collapsed "Queue" menu in the top right expands to the same list. Both lists support drag-to-reorder (with auto-scroll near the edges), per-track 3-dots actions and remove-from-queue.
@@ -124,7 +136,7 @@ Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notab
 - **Server**: WAV support — scanning, tag reading and tag editing now cover `.wav` files. Tags are written to the WAV's ID3 chunk (what DJ software and taggers use), with RIFF LIST/INFO read as a fallback and copied into the new ID3 tag on the first edit so no fields disappear; every other chunk (audio, cue points, smpl, bext, iXML) is left byte-for-byte as it was. Streaming and casting send WAV through the existing MP3 transcode path, like FLAC. Also fixes editing "featuring" on ID3 files: it removed every TXXX frame (catalogue numbers, Discogs IDs, …) and now removes only TXXX:FEATURING.
 - **Desktop App**: WAV support end to end — `.wav` files show up in the library and play, the metadata editor reads and writes their tags, and Chromecast sessions transcode them like FLAC.
 - **Web App**: playlists can be sorted by title, artist or added date (ascending/descending) from the playlist header, and the Home header has a **Shuffle all** button. WAV files play and stream like FLAC. Fixed iOS playback stalling on the lock screen — auto-advance now keeps working when the screen is locked.
-- **Android**: no new Android release in this cycle — see the [Android release notes](#android-32x--36x) (android-v3.3.8 through android-v3.5.0 shipped since v3.2.4). WAV support landed in android-v3.5.0.
+- **Android**: no new Android release in this cycle — see the [Android release notes](#android-32x--43x) (android-v3.3.8 through android-v3.5.0 shipped since v3.2.4). WAV support landed in android-v3.5.0.
 
 ## v3.2.4
 
@@ -255,4 +267,4 @@ See the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases) for o
 
 ### Versioning policy
 
-Docs are versioned per release — see [Versioned docs](/docs/development#versioned-docs) for when a new docs snapshot is cut.
+Docs are versioned per release — see [Versioned docs](/docs/development#docs-versioning) for when a new docs snapshot is cut.

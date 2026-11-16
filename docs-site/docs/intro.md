@@ -20,7 +20,7 @@ You are not locked into either: the desktop app can switch between its own local
 
 | Component | Stack | Needs a server? | Docs |
 |-----------|-------|-----------------|------|
-| **Desktop app** | Tauri 2 + Vue 3 (macOS, Windows, Linux) | No — it bundles its own | [Desktop App](/docs/desktop/) |
+| **Desktop app (Legacy)** | Tauri 2 + Vue 3 (macOS, Windows, Linux) | No — it bundles its own | [Desktop App](/docs/desktop/) |
 | **Web app** | Vue 3 + Vite, installable PWA | Yes | [Web App](/docs/web-client/) |
 | **Android app** | Kotlin + Jetpack Compose | No — server *or* on-device folders | [Android App](/docs/android/) |
 | **Server** | Rust + Axum + SQLite | — | [Server](/docs/server/) |

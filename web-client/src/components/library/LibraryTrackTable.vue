@@ -148,9 +148,9 @@
                         : 'h-3.5 w-3.5 shrink-0 transition-transform'
                     "
                   />
-                  <span class="truncate text-body-md text-on-surface">{{ row.group.label }}</span>
+                  <span class="truncate text-body-md text-on-surface"><ArtistLink v-if="tableStore.groupBy === 'artist'" :name="row.group.label" /><template v-else>{{ row.group.label }}</template></span>
                   <span v-if="tableStore.groupBy === 'album' && row.group.artist" class="shrink-0 text-on-surface-variant">
-                    · {{ row.group.artist }}
+                    · <ArtistLink :name="row.group.artist" />
                   </span>
                   <span class="shrink-0 text-on-surface-variant">({{ row.group.tracks.length }})</span>
                   <StarRatingCell
@@ -193,7 +193,7 @@
                     :class="row.track.id === player.currentTrack?.id ? 'text-primary' : 'text-on-surface'"
                   >{{ row.track.title ?? "—" }}</span>
                 </div>
-                <span v-else-if="col.id === 'artist'" class="block truncate text-on-surface">{{ row.track.artist ?? "—" }}</span>
+                <span v-else-if="col.id === 'artist'" class="block truncate text-on-surface"><ArtistLink :name="row.track.artist" :disabled="selection.selecting" /></span>
                 <span v-else-if="col.id === 'album'" class="block truncate text-on-surface">{{ row.track.album ?? "—" }}</span>
                 <span v-else-if="col.id === 'year'" class="block truncate text-on-surface-variant">{{ row.track.year ?? "—" }}</span>
                 <span v-else-if="col.id === 'duration'" class="block truncate text-on-surface-variant">{{ formatDuration(row.track.duration_secs ?? 0) }}</span>
@@ -309,6 +309,7 @@
 import EmptyState from "../EmptyState.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MageIcon from "../MageIcon.vue";
+import ArtistLink from "../ArtistLink.vue";
 import ConfirmDialog from "../ConfirmDialog.vue";
 import TrackContextSheet from "../TrackContextSheet.vue";
 import BottomSheet from "../BottomSheet.vue";

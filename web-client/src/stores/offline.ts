@@ -1,13 +1,14 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { getRecentPlayHistory, issueStreamToken } from "../api/catalog";
-import { getServerUrl, streamUrl } from "../api/client";
+import { getRecentPlayHistory, issueStreamTokenInfo } from "../api/catalog";
+import { api, getServerUrl } from "../api/client";
 import { showToast } from "../composables/useToast";
 import { useLibraryStore } from "./library";
 import { usePlaylistStore } from "./playlists";
 import { useSettingsStore } from "./settings";
 import { loadPref, savePref } from "./prefs";
 import type { CatalogTrack } from "../types";
+import type { StreamTokenInfo } from "@shared/api";
 
 /**
  * Offline playback for the web client (Q11).
@@ -176,9 +177,9 @@ export const useOfflineStore = defineStore("offline", () => {
     if (!cache) return false;
     if (isCached(track.id)) return true;
     const silent = opts?.silent === true;
-    let token: string;
+    let info: StreamTokenInfo;
     try {
-      token = await issueStreamToken(track.id);
+      info = await issueStreamTokenInfo(track.id);
     } catch (e) {
       failedIds.add(track.id);
       if (!silent) showToast(`Offline download failed: ${(e as Error).message}`);
@@ -186,7 +187,9 @@ export const useOfflineStore = defineStore("offline", () => {
     }
     let res: Response;
     try {
-      res = await fetch(streamUrl(track.id, token));
+      // True-FLAC servers hand us the original file, so the cached copy is
+      // lossless too; otherwise this is the transcoded stream.
+      res = await fetch(api.streamUrlForTrack(track, info));
     } catch (e) {
       failedIds.add(track.id);
       if (!silent) showToast(`Offline download failed: ${(e as Error).message}`);

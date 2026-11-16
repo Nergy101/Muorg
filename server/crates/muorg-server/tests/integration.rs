@@ -312,6 +312,105 @@ async fn asking_for_a_track_that_does_not_exist_is_a_404() {
     }
 }
 
+/// A cover write whose base64 exceeds axum's default 2 MB Json body limit
+/// must still succeed: /api/fetch-image accepts images up to 10 MB, so an
+/// online-search candidate can be ~13 MB of base64, and the webclient writes
+/// it per track through the batch route. Regression test for the 413 that
+/// made album-cover saves silently fail.
+/// A track without embedded art answers 404 on the cover route, not 500 —
+/// clients treat 404 as "no cover" and fall back to a placeholder.
+#[tokio::test]
+async fn a_track_without_cover_answers_404_not_500() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../muorg-core/tests/fixtures/no_cover.flac"
+    );
+    let p = dir.path().join("song.flac");
+    std::fs::copy(fixture, &p).unwrap();
+    let track_id = seed_track_format(&srv, p.to_str().unwrap(), "flac");
+
+    for path in [
+        format!("/api/tracks/{track_id}/cover"),
+        format!("/api/tracks/{track_id}/cover?size=1200"),
+    ] {
+        let resp = srv.get_auth(&path).await;
+        assert_eq!(resp.status(), 404, "{path} returned {}", resp.status());
+    }
+}
+
+/// A batch write where one track's file is missing must still write all the
+/// others: the failing track is skipped, the response reports the real
+/// `updated` count, and the DB reflects the successful writes only.
+#[tokio::test]
+async fn a_batch_write_skips_missing_files_and_still_updates_the_rest() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../muorg-core/tests/fixtures/cover_front.mp3"
+    );
+    let good = dir.path().join("good.mp3");
+    std::fs::copy(fixture, &good).unwrap();
+    let good_id = seed_track(&srv, good.to_str().unwrap());
+    // Catalog row exists, but the file is gone (e.g. remote object deleted
+    // from its bucket — same failure shape as a missing S3 key).
+    let missing_id = seed_track(&srv, "/music/gone.mp3");
+
+    let resp = srv
+        .post_auth(
+            "/api/tracks/metadata/batch",
+            serde_json::json!([
+                { "id": good_id, "genre": "Rock" },
+                { "id": missing_id, "genre": "Rock" },
+            ]),
+        )
+        .await;
+    assert_eq!(resp.status(), 200, "batch must not 500 on a missing file");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["updated"], 1, "only the existing file was written: {body}");
+
+    let conn = srv.catalog.db.lock().unwrap();
+    let genre: Option<String> = conn
+        .query_row("SELECT genre FROM tracks WHERE id = ?1", [good_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(genre.as_deref(), Some("Rock"));
+    let missing_genre: Option<String> = conn
+        .query_row("SELECT genre FROM tracks WHERE id = ?1", [missing_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(missing_genre, None, "the missing file's row must not be updated");
+}
+
+#[tokio::test]
+async fn a_large_cover_payload_is_accepted_on_the_batch_route() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../muorg-core/tests/fixtures/cover_front.mp3"
+    );
+    let p = dir.path().join("song.mp3");
+    std::fs::copy(fixture, &p).unwrap();
+    let track_id = seed_track(&srv, p.to_str().unwrap());
+
+    // ~3 MB of base64 — over the 2 MB default, under the raised limit.
+    let big = "A".repeat(3 * 1024 * 1024);
+    let resp = srv
+        .post_auth(
+            "/api/tracks/metadata/batch",
+            serde_json::json!([{ "id": track_id, "picture_base64": big }]),
+        )
+        .await;
+    assert_eq!(resp.status(), 200, "large cover write was rejected");
+
+    let conn = srv.catalog.db.lock().unwrap();
+    let has_cover: i64 = conn
+        .query_row("SELECT has_cover FROM tracks WHERE id = ?1", [track_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(has_cover, 1);
+}
+
 #[tokio::test]
 async fn a_playlist_survives_a_round_trip_through_the_api() {
     let srv = TestServer::start().await;
@@ -521,6 +620,11 @@ async fn a_429_carries_retry_after() {
 
 /// Insert a root and one track directly into the catalog, returning the track id.
 fn seed_track(srv: &TestServer, path: &str) -> i64 {
+    seed_track_format(srv, path, "mp3")
+}
+
+/// Like [`seed_track`], but with an explicit format (e.g. "flac").
+fn seed_track_format(srv: &TestServer, path: &str, format: &str) -> i64 {
     let conn = srv.catalog.db.lock().unwrap();
     conn.execute("INSERT OR IGNORE INTO roots (path, added_at) VALUES ('/music', 0)", [])
         .unwrap();
@@ -528,8 +632,8 @@ fn seed_track(srv: &TestServer, path: &str) -> i64 {
         .query_row("SELECT id FROM roots WHERE path = '/music'", [], |r| r.get(0))
         .unwrap();
     conn.execute(
-        "INSERT INTO tracks (root_id, path, format, mtime_secs) VALUES (?1, ?2, 'mp3', 0)",
-        rusqlite::params![root_id, path],
+        "INSERT INTO tracks (root_id, path, format, mtime_secs) VALUES (?1, ?2, ?3, 0)",
+        rusqlite::params![root_id, path, format],
     )
     .unwrap();
     conn.query_row("SELECT id FROM tracks WHERE path = ?1", [path], |r| r.get(0))
@@ -1048,4 +1152,333 @@ async fn browse_reports_truncation_past_the_entry_cap() {
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["entries"].as_array().unwrap().len(), 500);
     assert_eq!(body["truncated"], true);
+}
+
+// ---------------------------------------------------------------------------
+// True-FLAC streaming: GET /stream/flac/{token}/{id} (default on; disabled by
+// [transcoding] downgrade_flac_to_mp3 = true)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn flac_stream_endpoint_is_404_and_token_says_flac_false_when_downgrade_is_on() {
+    let srv = TestServer::start_with(|state| {
+        state.transcoding_config.downgrade_flac_to_mp3 = true;
+    })
+    .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    std::fs::write(&song, b"fake flac bytes").unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["flac"], false, "token response must advertise the downgrade");
+    assert_eq!(body["wav"], true, "wav passthrough is independent of the flac downgrade");
+    let token = body["token"].as_str().unwrap().to_string();
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "flac endpoint must be off when downgrade is on");
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_serves_the_original_bytes_1_to_1_when_enabled() {
+    let srv = TestServer::start().await; // FLAC passthrough is the default
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    let original = b"fake flac bytes, lossless and complete";
+    std::fs::write(&song, original).unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["flac"], true);
+    let token = body["token"].as_str().unwrap().to_string();
+
+    // Full body: byte-identical to the file on disk, served as audio/flac.
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("content-type").and_then(|v| v.to_str().ok()),
+        Some("audio/flac")
+    );
+    assert_eq!(
+        resp.headers().get("accept-ranges").and_then(|v| v.to_str().ok()),
+        Some("bytes")
+    );
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(&body[..], &original[..]);
+
+    // A ranged request returns the requested slice with 206 + Content-Range.
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .header("range", "bytes=5-9")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 206);
+    assert_eq!(
+        resp.headers().get("content-range").and_then(|v| v.to_str().ok()),
+        Some(format!("bytes 5-9/{}", original.len()).as_str())
+    );
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(&body[..], &original[5..=9]);
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_404s_for_non_flac_tracks_even_when_enabled() {
+    let srv = TestServer::start().await; // FLAC passthrough is the default
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.mp3");
+    std::fs::write(&song, b"fake mp3 bytes").unwrap();
+    let track_id = seed_track(&srv, song.to_str().unwrap());
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let token = body["token"].as_str().unwrap().to_string();
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/flac/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "only FLAC tracks get the passthrough endpoint");
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_rejects_a_forged_token() {
+    let srv = TestServer::start().await; // FLAC passthrough is the default
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    std::fs::write(&song, b"fake flac bytes").unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!(
+            "/stream/flac/00000000-0000-0000-0000-000000000000/{track_id}"
+        )))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+/// Generate a 1-second sine FLAC via ffmpeg (None when ffmpeg is unavailable,
+/// in which case the caller skips).
+fn generate_test_flac() -> Option<Vec<u8>> {
+    let dir = tempfile::tempdir().ok()?;
+    let src = dir.path().join("in.wav");
+    let out = dir.path().join("out.flac");
+    let run = |args: &[&str]| {
+        std::process::Command::new("ffmpeg")
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .ok()
+            .filter(|s| s.success())
+    };
+    run(&[
+        "-y", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=1",
+        &src.to_string_lossy().into_owned(),
+    ])?;
+    run(&["-y", "-i", &src.to_string_lossy().into_owned(), &out.to_string_lossy().into_owned()])?;
+    std::fs::read(&out).ok()
+}
+
+#[tokio::test]
+async fn flac_stream_endpoint_serves_mp3_to_user_agents_that_cannot_decode_flac() {
+    let Some(flac_bytes) = generate_test_flac() else {
+        eprintln!("skipping: ffmpeg not available");
+        return;
+    };
+
+    let srv = TestServer::start().await; // FLAC passthrough is the default
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    std::fs::write(&song, &flac_bytes).unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["flac"], true);
+    let token = body["token"].as_str().unwrap().to_string();
+    let url = srv.url(&format!("/stream/flac/{token}/{track_id}"));
+
+    async fn content_type_for(srv: &TestServer, url: &str, ua: &str) -> String {
+        let resp = srv
+            .client
+            .get(url)
+            .header("user-agent", ua)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 200);
+        resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string()
+    }
+
+    // Safari on macOS and any browser on iOS get the MP3 transcode.
+    let safari = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+    let iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0.6778.73 Mobile/15E148 Safari/604.1";
+    assert_eq!(content_type_for(&srv, &url, safari).await, "audio/mpeg");
+    assert_eq!(content_type_for(&srv, &url, iphone).await, "audio/mpeg");
+
+    // Chrome (which also carries a "Safari" token) still gets the real FLAC.
+    let chrome = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    assert_eq!(content_type_for(&srv, &url, chrome).await, "audio/flac");
+}
+
+// ---------------------------------------------------------------------------
+// WAV passthrough: GET /stream/wav/{token}/{id} (default on; disabled by
+// [transcoding] downgrade_wav_to_mp3 = true)
+
+#[tokio::test]
+async fn wav_stream_endpoint_serves_the_original_bytes_1_to_1_by_default() {
+    let srv = TestServer::start().await; // WAV passthrough is the default
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.wav");
+    let original = b"RIFF fake wav bytes, uncompressed and complete";
+    std::fs::write(&song, original).unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "wav");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["wav"], true);
+    let token = body["token"].as_str().unwrap().to_string();
+
+    // Full body: byte-identical to the file on disk, served as audio/wav —
+    // even for Safari, since every browser decodes WAV natively.
+    let safari = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/wav/{token}/{track_id}")))
+        .header("user-agent", safari)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("content-type").and_then(|v| v.to_str().ok()),
+        Some("audio/wav")
+    );
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(&body[..], &original[..]);
+
+    // A ranged request returns the requested slice with 206 + Content-Range.
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/wav/{token}/{track_id}")))
+        .header("range", "bytes=5-9")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 206);
+    let body = resp.bytes().await.unwrap();
+    assert_eq!(&body[..], &original[5..=9]);
+}
+
+#[tokio::test]
+async fn wav_stream_endpoint_404s_for_non_wav_tracks() {
+    let srv = TestServer::start().await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.flac");
+    std::fs::write(&song, b"fake flac bytes").unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "flac");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let token = body["token"].as_str().unwrap().to_string();
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/wav/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "only WAV tracks get the wav passthrough endpoint");
+}
+
+#[tokio::test]
+async fn wav_stream_endpoint_is_404_and_token_says_wav_false_when_downgrade_is_on() {
+    let srv = TestServer::start_with(|state| {
+        state.transcoding_config.downgrade_wav_to_mp3 = true;
+    })
+    .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.wav");
+    std::fs::write(&song, b"fake wav bytes").unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "wav");
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/stream-token"))
+        .await;
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["wav"], false);
+    assert_eq!(body["flac"], true, "flac passthrough is independent of the wav downgrade");
+    let token = body["token"].as_str().unwrap().to_string();
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!("/stream/wav/{token}/{track_id}")))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404, "wav endpoint must be off when downgrade is on");
+}
+
+#[tokio::test]
+async fn wav_stream_endpoint_rejects_a_forged_token() {
+    let srv = TestServer::start().await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let song = dir.path().join("song.wav");
+    std::fs::write(&song, b"fake wav bytes").unwrap();
+    let track_id = seed_track_format(&srv, song.to_str().unwrap(), "wav");
+
+    let resp = srv
+        .client
+        .get(srv.url(&format!(
+            "/stream/wav/00000000-0000-0000-0000-000000000000/{track_id}"
+        )))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
 }

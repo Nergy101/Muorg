@@ -171,9 +171,16 @@ export const useMetadataStore = defineStore("metadata", () => {
   /** Writes the same `update` to every id via the batch endpoint (never backs
    *  up — the server ignores `backup_before_write` on this route) and applies
    *  the confirmed fields to the in-memory catalog immediately (Q26). */
-  async function writeBatch(items: { id: number; update: MetadataUpdate }[]): Promise<void> {
-    if (items.length === 0) return;
-    await api.patchMetadataBatch(items.map(({ id, update }) => ({ id, ...update })));
+  async function writeBatch(items: { id: number; update: MetadataUpdate }[]): Promise<number> {
+    if (items.length === 0) return 0;
+    const res = await api.patchMetadataBatch(items.map(({ id, update }) => ({ id, ...update })));
+    // The batch route skips tracks whose file/object can't be written (e.g. a
+    // remote object missing from its bucket, or a read-only S3 key) and reports
+    // how many landed — surface that instead of pretending the whole batch succeeded.
+    const updated = res?.updated ?? 0;
+    if (updated < items.length) {
+      showWarning(`Updated ${updated} of ${items.length} tracks — ${items.length - updated} failed (file missing or unwritable)`);
+    }
     const lib = useLibraryStore();
     const coverIds: number[] = [];
     for (const { id, update } of items) {
@@ -182,6 +189,7 @@ export const useMetadataStore = defineStore("metadata", () => {
     }
     if (coverIds.length > 0) lib.invalidateCover(coverIds);
     scheduleLibraryReload();
+    return updated;
   }
 
   /** Writes `update` to one track via the single-track endpoint, which is the
@@ -309,7 +317,9 @@ export const useMetadataStore = defineStore("metadata", () => {
     warnTagWrite(true);
     const { prevByTrack, coverCaptureFailed } = await captureSnapshot(ids, update);
     try {
-      await writeBatch(ids.map((id) => ({ id, update })));
+      const updated = await writeBatch(ids.map((id) => ({ id, update })));
+      // writeBatch already warned with the counts — don't also show success.
+      if (updated < ids.length) return false;
     } catch (e) {
       showToast(`Failed to save: ${(e as Error).message}`);
       return false;
@@ -339,15 +349,21 @@ export const useMetadataStore = defineStore("metadata", () => {
       prevByTrack.set(id, prev as MetadataUpdate);
     }
     try {
-      await writeBatch(withChanges);
+      const updated = await writeBatch(withChanges);
+      // writeBatch already warned with the counts — don't also record success.
+      if (updated < withChanges.length) return false;
     } catch (e) {
       showToast(`Failed to save: ${(e as Error).message}`);
       return false;
     }
     recordUndoable({
       label,
-      undo: () => writeBatch(withChanges.map(({ id }) => ({ id, update: prevByTrack.get(id) ?? {} }))),
-      redo: () => writeBatch(withChanges),
+      undo: async () => {
+        await writeBatch(withChanges.map(({ id }) => ({ id, update: prevByTrack.get(id) ?? {} })));
+      },
+      redo: async () => {
+        await writeBatch(withChanges);
+      },
     });
     return true;
   }
@@ -375,7 +391,9 @@ export const useMetadataStore = defineStore("metadata", () => {
       if (ids.length === 1) {
         await writeOne(ids[0], update, backup);
       } else {
-        await writeBatch(ids.map((id) => ({ id, update })));
+        const updated = await writeBatch(ids.map((id) => ({ id, update })));
+        // writeBatch already warned with the counts — don't also show success.
+        if (updated < ids.length) return false;
       }
     } catch (e) {
       const msg = (e as Error).message;

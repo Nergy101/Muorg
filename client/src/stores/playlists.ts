@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { FAVORITES_PLAYLIST_ICON as FAVORITES_ICON } from "@shared/playlistIcons";
 import type { Playlist } from "../types";
 import * as api from "../api/playlists";
 import { getBackendMode } from "../api/client";
@@ -13,7 +14,7 @@ const isMock = () => import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_M
 
 /** Shared with the web and Android clients so a common library stays consistent. */
 export const FAVORITES_PLAYLIST_NAME = "Favorites";
-const FAVORITES_PLAYLIST_ICON = "⭐";
+const FAVORITES_PLAYLIST_ICON = FAVORITES_ICON;
 
 export const usePlaylistStore = defineStore("playlists", {
   state: () => ({

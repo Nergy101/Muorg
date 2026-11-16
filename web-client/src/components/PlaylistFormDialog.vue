@@ -26,15 +26,8 @@
             @keyup.enter="submit"
           />
 
-          <div class="mt-4 max-h-[40vh] grid grid-cols-8 gap-1 overflow-y-auto">
-            <button
-              v-for="emoji in PLAYLIST_EMOJIS"
-              :key="emoji"
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-lg text-title-md leading-none"
-              :class="emoji === icon ? 'bg-primary-container' : ''"
-              @click="icon = emoji"
-            >{{ emoji }}</button>
+          <div class="mt-4">
+            <PlaylistIconPicker v-model="icon" />
           </div>
 
           <div class="mt-6 flex justify-end gap-2">
@@ -45,10 +38,13 @@
             >Cancel</button>
             <button
               type="button"
-              class="rounded-full px-4 py-2 text-label-lg text-primary disabled:opacity-50"
-              :disabled="name.trim().length === 0"
+              class="flex items-center gap-1.5 rounded-full px-4 py-2 text-label-lg text-primary disabled:opacity-50"
+              :disabled="pending || name.trim().length === 0"
               @click="submit"
-            >{{ confirmLabel }}</button>
+            >
+              <MageIcon v-if="pending" name="refresh" class="h-4 w-4 animate-spin" />
+              <span>{{ confirmLabel }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -58,7 +54,9 @@
 
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { PLAYLIST_EMOJIS } from "../playlistEmojis";
+import MageIcon from "./MageIcon.vue";
+import PlaylistIconPicker from "./PlaylistIconPicker.vue";
+import { DEFAULT_PLAYLIST_ICON } from "@shared/playlistIcons";
 
 const props = defineProps<{
   open: boolean;
@@ -71,20 +69,28 @@ const props = defineProps<{
 const emit = defineEmits<{ confirm: [name: string, icon: string]; cancel: [] }>();
 
 const name = ref(props.initialName ?? "");
-const icon = ref(props.initialIcon ?? "🎵");
+const icon = ref(props.initialIcon ?? DEFAULT_PLAYLIST_ICON);
+
+// True from submit until the parent closes the dialog after the async save —
+// drives the confirm button's spinner so it's clear the app is working.
+const pending = ref(false);
 
 watch(
   () => props.open,
   (isOpen) => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      pending.value = false;
+      return;
+    }
     name.value = props.initialName ?? "";
-    icon.value = props.initialIcon ?? "🎵";
+    icon.value = props.initialIcon ?? DEFAULT_PLAYLIST_ICON;
   },
 );
 
 function submit(): void {
   const trimmed = name.value.trim();
-  if (!trimmed) return;
+  if (!trimmed || pending.value) return;
+  pending.value = true;
   emit("confirm", trimmed, icon.value);
 }
 </script>

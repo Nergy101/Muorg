@@ -2,6 +2,8 @@
 sidebar_position: 9
 ---
 
+import OrcIllustration from "@site/src/components/OrcIllustration";
+
 # FAQ & Troubleshooting
 
 ## Docker Compose says "no configuration file provided"
@@ -36,6 +38,10 @@ If you mounted the config with `:ro` in Docker, edit the file on the host (outsi
 
 ## I can't connect a client to the server
 
+<div style={{ maxWidth: 220, margin: "0 auto 1rem" }}>
+  <OrcIllustration variant="server-error" />
+</div>
+
 Check, in order:
 
 1. **Server is up** — `curl http://<host>:7700/api/health` returns `Healthy`. If not, check the server logs.
@@ -44,6 +50,10 @@ Check, in order:
 4. **CORS** — for browser clients, `allowed_origins` must include your web app's origin. The desktop-only default does not allow browsers. List the exact origin (e.g. `http://<host>:7800`); avoid `["*"]` on anything exposed to the internet.
 
 ## Music files are not appearing after I added a folder
+
+<div style={{ maxWidth: 220, margin: "0 auto 1rem" }}>
+  <OrcIllustration variant="empty" />
+</div>
 
 - The scan may still be running — large libraries take a while. Trigger one explicitly: `POST /api/admin/rescan` (requires the API key).
 - The folder must contain supported audio formats (MP3, FLAC, etc.).

@@ -39,6 +39,7 @@
           v-if="layout === 'grid'"
           :cards="recentResultCards"
           @open="openTrackAlbum"
+          @actions="albumActions = $event"
         />
         <template v-else>
           <TrackListRow
@@ -88,6 +89,25 @@
       :title="`No results for &quot;${query.trim()}&quot;`"
       body="Try another spelling or fewer words."
     />
+    <!-- Album matches: every album whose title matches the query, as album
+         cards in the same grid as the artist cards below, above the normal
+         track results. The query itself stays in the search field (and is
+         recorded as a query chip), so e.g. "three cheers" keeps its tag and
+         shows the matching album as a card. -->
+    <div v-if="albumHits.length > 0" class="search-col px-4 pb-3 pt-1">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <AlbumCard
+          v-for="item in albumHits"
+          :key="item.key"
+          :item="item"
+          mode="grid"
+          :is-active="isAlbumActive(item)"
+          @open="openAlbum(item)"
+          @actions="albumActions = item"
+        />
+      </div>
+    </div>
+
     <!-- Artist matches first: a 4-block cover collage per artist with the
          name underneath, above the normal track/album results. -->
     <div v-if="artistHits.length > 0" class="search-col px-4 pb-3 pt-1">
@@ -107,7 +127,7 @@
          centered measure at 4 columns (normal cover size), paged 20 at
          a time so a big result set doesn't load every cover at once. -->
     <div v-if="layout === 'grid'" class="search-col px-4 pb-4 pt-1">
-      <SearchResultCardGrid :cards="visibleResultCards" @open="openTrackAlbum" />
+      <SearchResultCardGrid :cards="visibleResultCards" @open="openTrackAlbum" @actions="albumActions = $event" />
       <button
         v-if="hasMoreGrid"
         type="button"
@@ -125,7 +145,7 @@
         :track="track"
         :is-playing="player.currentTrack?.id === track.id"
         :is-loading="player.pendingTrackId === track.id"
-        :subtitle="`${track.artist ?? track.album_artist ?? '—'} • ${track.album ?? '—'}`"
+        with-album
         :selectable="selection.selecting"
         :selected="selection.has(track.id)"
         @play="playTrack(track, results)"
@@ -151,6 +171,10 @@
     @view-artist="onViewArtist"
     @view-album="onViewAlbum"
   />
+
+  <!-- Album context sheet for right-click / long-press on a result card.
+       Mounted only while open: the host instantiates stores at setup. -->
+  <AlbumActionsHost v-if="albumActions" :item="albumActions" @close="albumActions = null" />
 </template>
 
 <script setup lang="ts">
@@ -159,14 +183,16 @@ import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import ArtistCard from "./ArtistCard.vue";
+import AlbumCard from "./AlbumCard.vue";
 import SearchResultCardGrid from "./SearchResultCardGrid.vue";
 import TrackListRow from "./TrackListRow.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
+import AlbumActionsHost from "./AlbumActionsHost.vue";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { useSelectionStore } from "../stores/selection";
-import type { CatalogTrack, SearchHistoryEntry, SearchResultCard } from "../types";
+import type { AlbumGridItem, CatalogTrack, SearchHistoryEntry, SearchResultCard } from "../types";
 
 const props = defineProps<{
   /** Raw query text; the panel debounces it internally. */
@@ -281,6 +307,45 @@ const artistHits = computed<ArtistHit[]>(() => {
       trackCount: entry.tracks.length,
     }));
 });
+
+/** Every album whose title matches the query (exact > prefix > contains),
+ *  shown as album cards in a grid above the artist matches. Capped at 8 so
+ *  the section stays compact. */
+const albumHits = computed<AlbumGridItem[]>(() => {
+  const q = normalize(debouncedQuery.value);
+  if (!q) return [];
+  const score = (text: string | null | undefined): number => {
+    const v = normalize(text);
+    if (!v) return 0;
+    if (v === q) return 100;
+    if (v.startsWith(q)) return 60;
+    if (v.includes(q)) return 40;
+    return 0;
+  };
+  const byKey = new Map<string, { item: AlbumGridItem; score: number }>();
+  for (const t of lib.tracks) {
+    const s = score(t.album);
+    if (s === 0) continue;
+    const key = lib.keyForTrack(t);
+    const item = lib.albumByKey(key);
+    if (!item) continue;
+    const existing = byKey.get(key);
+    if (!existing || s > existing.score) byKey.set(key, { item: { ...item }, score: s });
+  }
+  return [...byKey.values()]
+    .sort((a, b) => b.score - a.score || a.item.album.localeCompare(b.item.album))
+    .slice(0, 8)
+    .map((e) => e.item);
+});
+
+function isAlbumActive(item: AlbumGridItem): boolean {
+  const current = player.currentTrack;
+  return current != null && item.trackIds.includes(current.id);
+}
+
+function openAlbum(item: AlbumGridItem): void {
+  void router.push({ name: "album", params: { albumKey: item.key } });
+}
 
 /** First 4 distinct albums with artwork for an artist, in catalog order —
  *  the collage tiles for both search artist matches and recent artists. */
@@ -460,6 +525,8 @@ function onSelect(
 // --- Track actions sheet -------------------------------------------------
 
 const sheetTrack = ref<CatalogTrack | null>(null);
+/** Album whose context sheet is open (right-click / long-press on a card). */
+const albumActions = ref<AlbumGridItem | null>(null);
 
 function onViewArtist(): void {
   const t = sheetTrack.value;

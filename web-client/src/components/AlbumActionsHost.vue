@@ -11,6 +11,7 @@
     @undownload="onUndownload"
     @view-artist="viewArtist"
     @view-album="viewAlbum"
+    @edit-metadata="editMetadata"
   />
 
   <PlaylistPickerSheet
@@ -42,6 +43,7 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import AlbumActionsSheet from "./AlbumActionsSheet.vue";
 import PlaylistPickerSheet from "./PlaylistPickerSheet.vue";
+import { DEFAULT_PLAYLIST_ICON } from "@shared/playlistIcons";
 import { showToast } from "../composables/useToast";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
@@ -116,6 +118,12 @@ function viewAlbum(): void {
   if (album) void router.push({ name: "album", params: { albumKey: album.key } });
 }
 
+function editMetadata(): void {
+  const album = props.item;
+  emit("close");
+  if (album) void router.push({ name: "album-edit", params: { albumKey: album.key } });
+}
+
 // --- Add every track of the album to a playlist ----------------------------
 
 /** Kept separately from `item`: the menu closes the moment "Add to playlist"
@@ -174,7 +182,7 @@ async function onPickerCreate(name: string): Promise<void> {
   const album = pickerItem.value;
   if (!album) return;
   try {
-    const p = await playlistStore.createPlaylist(name, "🎵");
+    const p = await playlistStore.createPlaylist(name, DEFAULT_PLAYLIST_ICON);
     await playlistStore.addTracks(p.id, album.trackIds);
     showToast(`Added ${album.trackIds.length} tracks to ${p.name}`);
   } catch (e) {

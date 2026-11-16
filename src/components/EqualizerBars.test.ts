@@ -5,8 +5,9 @@ import EqualizerBars from "./EqualizerBars.vue";
 /**
  * The now-playing indicator, used by both apps in track lists and queues.
  *
- * Its one non-obvious property is that pausing *freezes* the bars rather than
- * hiding them — a paused track still has to read as the current one.
+ * Its one non-obvious property is that pausing switches the bars to a gentle
+ * low idle animation rather than hiding them — a paused track still has to
+ * read as the current one.
  */
 describe("EqualizerBars", () => {
   /** The animated bars, picked out by the inline animation the component sets. */
@@ -26,24 +27,22 @@ describe("EqualizerBars", () => {
 
   it("animates by default", () => {
     for (const bar of bars(mount(EqualizerBars))) {
-      expect(bar.attributes("style")).toContain("animation-play-state: running");
+      expect(bar.attributes("style")).toContain("animation: eq ");
     }
   });
 
-  it("freezes rather than hides when paused", () => {
+  it("switches to a low idle animation rather than hiding when paused", () => {
     const wrapper = mount(EqualizerBars, { props: { paused: true } });
     expect(bars(wrapper)).toHaveLength(3);
     for (const bar of bars(wrapper)) {
-      expect(bar.attributes("style")).toContain("animation-play-state: paused");
+      expect(bar.attributes("style")).toContain("animation: eq-idle ");
     }
   });
 
-  it("resumes when the prop flips back", async () => {
+  it("resumes the full animation when the prop flips back", async () => {
     const wrapper = mount(EqualizerBars, { props: { paused: true } });
     await wrapper.setProps({ paused: false });
-    expect(bars(wrapper)[0].attributes("style")).toContain(
-      "animation-play-state: running",
-    );
+    expect(bars(wrapper)[0].attributes("style")).toContain("animation: eq ");
   });
 
   it("passes a caller's class down to each bar for colouring", () => {

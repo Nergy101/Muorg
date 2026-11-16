@@ -95,7 +95,7 @@
           class="flex h-14 w-full items-center gap-3 px-6 text-left"
           @click="onAddToPlaylist(p)"
         >
-          <span class="text-title-lg leading-none">{{ p.icon ?? "🎵" }}</span>
+          <PlaylistIcon :icon="p.icon" class="h-6 w-6 shrink-0" />
           <span class="min-w-0 flex-1 truncate text-body-lg text-on-surface">{{ p.name }}</span>
         </button>
         <div class="h-4" />
@@ -143,6 +143,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import MarqueeText from "./MarqueeText.vue";

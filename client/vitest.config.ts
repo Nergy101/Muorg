@@ -1,4 +1,5 @@
 import { defineConfig, mergeConfig } from "vitest/config";
+import { resolve } from "path";
 import viteConfig from "./vite.config";
 
 /**
@@ -12,6 +13,15 @@ import viteConfig from "./vite.config";
 export default mergeConfig(
   viteConfig,
   defineConfig({
+    server: {
+      fs: {
+        // Component tests pull in @shared/components/MageIcon.vue, whose
+        // import.meta.glob reads ../assets/mage-icons/*.svg?raw — files outside
+        // this app's root. Vitest denies serving them unless the repo root is
+        // explicitly allowed.
+        allow: [resolve(__dirname, "..")],
+      },
+    },
     test: {
       include: ["src/**/*.test.ts"],
       environment: "happy-dom",

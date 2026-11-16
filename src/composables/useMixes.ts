@@ -1,5 +1,6 @@
 import { computed, ref, watch, type ComputedRef } from "vue";
 import type { CatalogTrack } from "../api";
+import { randomMusicIcon } from "../playlistIcons";
 
 /**
  * Ephemeral "Mixes", shared by the web and desktop clients: a rotating set of randomly assembled
@@ -8,7 +9,7 @@ import type { CatalogTrack } from "../api";
  * only eight are shown per session, picked at random — so the lineup moves
  * in and out between page loads. They are never written to the server; opening
  * one renders it via the playlist detail view, and saving goes through the
- * normal New-playlist flow (name + emoji, then the mix's tracks are added to
+ * normal New-playlist flow (name + icon, then the mix's tracks are added to
  * the new playlist).
  *
  * A module-level cache keeps the chosen 8 mixes (and their track picks) stable
@@ -20,7 +21,8 @@ import type { CatalogTrack } from "../api";
 export interface Mix {
   id: number;
   name: string;
-  emoji: string;
+  /** Stored playlist-icon string (`name:#RRGGBB`): a random music icon + color. */
+  icon: string;
   trackIds: number[];
 }
 
@@ -32,23 +34,23 @@ const MIX_COUNT = 8;
  *  against the live catalog). Each mix samples from its own genre pool only
  *  (up to MIX_SIZE tracks) — a small pool just makes a shorter mix, never a
  *  mix polluted with unrelated genres. */
-const MIX_DEFS: { name: string; emoji: string; genres: string[] }[] = [
-  { name: "Midnight Drive", emoji: "🌙", genres: ["Electronic", "Lo-Fi", "Indie", "Instrumental"] },
-  { name: "Morning Coffee", emoji: "☀️", genres: ["Indie Rock", "Indie", "Pop", "Pop Rock"] },
-  { name: "Summer Breeze", emoji: "🏖️", genres: ["Country", "Indie Rock", "Indie", "Pop Rock"] },
-  { name: "Gym Fuel", emoji: "🔥", genres: ["Metalcore", "Hardcore", "Nu Metal"] },
-  { name: "Rainy Day", emoji: "🌧️", genres: ["Emo", "Post-Hardcore", "Alternative"] },
-  { name: "Road Trip", emoji: "🚗", genres: ["Punk Rock", "Pop Punk", "Classic Rock"] },
-  { name: "Deep Focus", emoji: "💫", genres: ["Metal", "Electronic", "Progressive Metal", "Instrumental"] },
-  { name: "Party Starter", emoji: "🎉", genres: ["Nu Metal", "Pop", "Electronic", "Rap", "Punk", "Pop Punk", "Pop Rock", "Indie Rock"] },
-  { name: "Mosh Pit", emoji: "🤘", genres: ["Thrash Metal", "Death Metal", "Metal", "Nu Metal", "Hard Rock", "Metalcore"] },
-  { name: "Golden Hour", emoji: "🌅", genres: ["Alternative Rock", "Indie Rock", "Pop Rock"] },
-  { name: "Late Night Lo-Fi", emoji: "😴", genres: ["Lo-Fi", "Rap", "Instrumental"] },
-  { name: "Skatepark", emoji: "🛹", genres: ["Pop Punk", "Punk Rock", "Hardcore"] },
-  { name: "Sunday Chill", emoji: "😌", genres: ["Alternative Indie", "Indie", "Pop"] },
-  { name: "Thunderstorm", emoji: "⛈️", genres: ["Thrash Metal", "Death Metal", "Hard Rock"] },
-  { name: "Sing-Along", emoji: "🎤", genres: ["Pop", "Pop Rock", "Pop Punk", "Indie", "Indie Rock"] },
-  { name: "Power Hour", emoji: "⚡", genres: ["Nu Metal", "Hard Rock", "Metalcore"] },
+const MIX_DEFS: { name: string; genres: string[] }[] = [
+  { name: "Midnight Drive", genres: ["Electronic", "Lo-Fi", "Indie", "Instrumental"] },
+  { name: "Morning Coffee", genres: ["Indie Rock", "Indie", "Pop", "Pop Rock"] },
+  { name: "Summer Breeze", genres: ["Country", "Indie Rock", "Indie", "Pop Rock"] },
+  { name: "Gym Fuel", genres: ["Metalcore", "Hardcore", "Nu Metal"] },
+  { name: "Rainy Day", genres: ["Emo", "Post-Hardcore", "Alternative"] },
+  { name: "Road Trip", genres: ["Punk Rock", "Pop Punk", "Classic Rock"] },
+  { name: "Deep Focus", genres: ["Metal", "Electronic", "Progressive Metal", "Instrumental"] },
+  { name: "Party Starter", genres: ["Nu Metal", "Pop", "Electronic", "Rap", "Punk", "Pop Punk", "Pop Rock", "Indie Rock"] },
+  { name: "Mosh Pit", genres: ["Thrash Metal", "Death Metal", "Metal", "Nu Metal", "Hard Rock", "Metalcore"] },
+  { name: "Golden Hour", genres: ["Alternative Rock", "Indie Rock", "Pop Rock"] },
+  { name: "Late Night Lo-Fi", genres: ["Lo-Fi", "Rap", "Instrumental"] },
+  { name: "Skatepark", genres: ["Pop Punk", "Punk Rock", "Hardcore"] },
+  { name: "Sunday Chill", genres: ["Alternative Indie", "Indie", "Pop"] },
+  { name: "Thunderstorm", genres: ["Thrash Metal", "Death Metal", "Hard Rock"] },
+  { name: "Sing-Along", genres: ["Pop", "Pop Rock", "Pop Punk", "Indie", "Indie Rock"] },
+  { name: "Power Hour", genres: ["Nu Metal", "Hard Rock", "Metalcore"] },
 ];
 
 /** Lowercase + strip punctuation/whitespace so "Lo-Fi", "Lofi" and "Lo Fi"
@@ -154,7 +156,7 @@ export function useMixes(
       // server playlist id space entirely.
       id: -(MIX_DEFS.indexOf(def) + 1),
       name: def.name,
-      emoji: def.emoji,
+      icon: randomMusicIcon(),
       trackIds: sampleTrackIds(tracks, def.genres),
     }));
     sessionMixCount = count;
@@ -185,5 +187,5 @@ export function findMix(id: number): Mix | null {
   if (!def || !source || !source.ready()) return null;
   const tracks = source.tracks();
   if (tracks.length === 0) return null;
-  return { id, name: def.name, emoji: def.emoji, trackIds: sampleTrackIds(tracks, def.genres) };
+  return { id, name: def.name, icon: randomMusicIcon(), trackIds: sampleTrackIds(tracks, def.genres) };
 }

@@ -37,6 +37,33 @@ export function albumKeyFor(t: CatalogTrack): string {
   return `${album}|||${artist}`;
 }
 
+/**
+ * Session-only redirects for renamed albums: old key → new key. The key embeds
+ * the album title and artist, so saving new album metadata changes the key —
+ * any history entry or URL still holding the old key (e.g. the album page
+ * underneath the editor when the user navigates back) is forwarded to the new
+ * one instead of showing "Album not found".
+ */
+const albumKeyRedirects = new Map<string, string>();
+
+export function recordAlbumKeyRedirect(fromKey: string, toKey: string): void {
+  if (fromKey === toKey) return;
+  albumKeyRedirects.set(fromKey, toKey);
+}
+
+/** Follows recorded renames transitively (A→B→C resolves A to C). */
+export function resolveAlbumKey(key: string): string {
+  const seen = new Set<string>();
+  let current = key;
+  while (!seen.has(current)) {
+    seen.add(current);
+    const next = albumKeyRedirects.get(current);
+    if (!next) break;
+    current = next;
+  }
+  return current;
+}
+
 /** First non-null album artist (original casing); album artists are uniform per group. */
 function pickAlbumArtist(tracks: CatalogTrack[]): string {
   for (const t of tracks) {
@@ -365,6 +392,12 @@ export const useLibraryStore = defineStore("library", () => {
     const t = tracks.value.find((x) => x.id === trackId);
     if (!t) return;
     Object.assign(t, update);
+    // A picture write also flips has_cover, so the UI (album grid, editor
+    // preview) reflects the new art immediately instead of waiting for the
+    // debounced catalog reload.
+    if ("picture_base64" in update) {
+      t.has_cover = update.picture_base64 != null && update.picture_base64 !== "";
+    }
   }
 
   /**

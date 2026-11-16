@@ -75,6 +75,7 @@ allowed_origins = [
     "tauri://localhost",       # desktop app (Tauri)
     "http://tauri.localhost",  # desktop app (Tauri, Windows)
     "http://localhost:7800",   # web UI dev server (vite)
+    "http://127.0.0.1:7800",   # web UI dev server (vite, 127.0.0.1)
     # "https://music.example.com",  # your web UI's production origin
 ]
 # WARNING: never use ["*"] on a public deployment. "*" allows ANY website to

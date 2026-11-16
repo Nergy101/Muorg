@@ -837,6 +837,64 @@ fn playlist_pins_are_stored_in_order_and_replaced_as_a_set() {
 }
 
 #[test]
+fn playlist_icon_accepts_lucide_format_and_legacy_emoji() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    let p = cat::create_playlist(&conn, "A").unwrap();
+
+    // New format: "<lucide-name>:#RRGGBB".
+    cat::set_playlist_icon(&conn, p.id, Some("guitar:#F87171")).unwrap();
+    let icon = cat::load_playlists(&conn)
+        .unwrap()
+        .into_iter()
+        .find(|pl| pl.id == p.id)
+        .unwrap()
+        .icon;
+    assert_eq!(icon.as_deref(), Some("guitar:#F87171"));
+
+    // Legacy emoji values (written by older clients) still round-trip.
+    cat::set_playlist_icon(&conn, p.id, Some("🎵")).unwrap();
+    let icon = cat::load_playlists(&conn)
+        .unwrap()
+        .into_iter()
+        .find(|pl| pl.id == p.id)
+        .unwrap()
+        .icon;
+    assert_eq!(icon.as_deref(), Some("🎵"));
+
+    // Clearing works.
+    cat::set_playlist_icon(&conn, p.id, None).unwrap();
+    let icon = cat::load_playlists(&conn)
+        .unwrap()
+        .into_iter()
+        .find(|pl| pl.id == p.id)
+        .unwrap()
+        .icon;
+    assert_eq!(icon, None);
+}
+
+#[test]
+fn playlist_icon_rejects_malformed_lucide_format() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    let p = cat::create_playlist(&conn, "A").unwrap();
+
+    for bad in [
+        "guitar:F87171",      // missing '#'
+        "guitar:#F871",       // too short
+        "guitar:#GGGGGG",     // non-hex
+        "Guitar:#F87171",     // uppercase name
+        ":#F87171",           // empty name
+        &"x".repeat(65),      // too long
+    ] {
+        assert!(
+            cat::set_playlist_icon(&conn, p.id, Some(bad)).is_err(),
+            "should reject {bad:?}"
+        );
+    }
+}
+
+#[test]
 fn setting_pins_collapses_duplicate_ids() {
     let tc = TestCatalog::new();
     let conn = tc.conn();

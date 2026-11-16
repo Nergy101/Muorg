@@ -16,7 +16,7 @@
     <!-- Cover collage card: up to 4 distinct covers squared together -->
     <div
       ref="cardEl"
-      class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02]"
+      class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_2px_6px_rgba(0,0,0,0.35)]"
       :class="dragOver ? 'ring-2 ring-primary' : ''"
     >
       <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center">
@@ -72,6 +72,7 @@
            A download icon appears when the playlist is cached for offline; while
            it downloads, a ring around the icon acts as the progress bar. -->
       <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
+        <PlaylistIcon :icon="playlist.icon" class="h-4 w-4 shrink-0 self-center" />
         <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
         <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
           <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
@@ -118,6 +119,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import MageIcon from "./MageIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import PlaylistExportDialog from "./PlaylistExportDialog.vue";
 import PlaylistActionsSheet from "./PlaylistActionsSheet.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";

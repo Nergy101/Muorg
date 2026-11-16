@@ -16,6 +16,12 @@ use crate::transcode;
 #[derive(Serialize, utoipa::ToSchema)]
 pub struct TokenResponse {
     pub token: String,
+    /// Whether `GET /stream/flac/{token}/{id}` will serve this track's original
+    /// FLAC — false when `[transcoding] downgrade_flac_to_mp3 = true`.
+    pub flac: bool,
+    /// Whether `GET /stream/wav/{token}/{id}` will serve this track's original
+    /// WAV — false when `[transcoding] downgrade_wav_to_mp3 = true`.
+    pub wav: bool,
 }
 
 /// Mint a short-lived (8h) token for the public `/stream/{token}/{id}` URL, so
@@ -43,7 +49,11 @@ pub async fn issue_token(
             .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))?;
     }
     let token = state.tokens.issue(id, 28800);
-    Ok(Json(TokenResponse { token }))
+    Ok(Json(TokenResponse {
+        token,
+        flac: !state.transcoding_config.downgrade_flac_to_mp3,
+        wav: !state.transcoding_config.downgrade_wav_to_mp3,
+    }))
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -67,6 +77,21 @@ fn parse_range(range: &str, total: u64) -> Option<ByteRange> {
     };
     if start >= total || end < start { return None; }
     Some(ByteRange { start, end: end.min(total - 1) })
+}
+
+/// True for user agents whose `<audio>` element cannot decode FLAC: Safari on
+/// macOS, and every browser on iOS (all WebKit, so Chrome/Firefox on iOS are
+/// covered by the iPhone/iPad/iPod tokens). Desktop Chrome/Edge also carry a
+/// "Safari" token in their UA, so they are excluded explicitly.
+fn ua_cannot_decode_flac(ua: &str) -> bool {
+    if ua.contains("iPhone") || ua.contains("iPad") || ua.contains("iPod") {
+        return true;
+    }
+    ua.contains("Safari/")
+        && !ua.contains("Chrome/")
+        && !ua.contains("Chromium/")
+        && !ua.contains("Edg/")
+        && !ua.contains("Android")
 }
 
 /// Distinguishes a deleted object from a broken bucket or credential, so a
@@ -208,6 +233,241 @@ pub async fn stream_audio(
                 }
             }
             Err(_) => StatusCode::NOT_FOUND.into_response(),
+        }
+    }
+}
+
+// GET /stream/flac/{token}/{id}  (no Bearer auth — same short-lived token as /stream)
+/// The track's original FLAC bytes, served 1:1 with `audio/flac` and byte
+/// ranges, so clients get the lossless file and can seek natively. Only
+/// available when the track is a FLAC and `[transcoding] downgrade_flac_to_mp3`
+/// is not set — otherwise 404, and clients fall back to the transcoded
+/// `/stream/{token}/{id}`. Requestors whose user agent cannot decode FLAC
+/// (Safari, and every iOS browser since they are all WebKit) are transparently
+/// served the MP3 transcode instead.
+#[utoipa::path(
+    get,
+    path = "/stream/flac/{token}/{id}",
+    tag = "Stream",
+    params(
+        ("token" = String, Path, description = "Short-lived token from `/api/tracks/{id}/stream-token`"),
+        ("id" = i64, Path, description = "Track id"),
+    ),
+    responses(
+        (status = 200, description = "Original FLAC bytes", content_type = "audio/flac"),
+        (status = 206, description = "Partial content for a ranged request"),
+        (status = 401, description = "Missing, expired or wrong token"),
+        (status = 404, description = "Downgrade enabled or track is not a FLAC"),
+    ),
+)]
+pub async fn stream_audio_flac(
+    path: Path<(String, i64)>,
+    State(state): State<Arc<AppState>>,
+    req_headers: HeaderMap,
+) -> Response {
+    let downgrade = state.transcoding_config.downgrade_flac_to_mp3;
+    stream_lossless_passthrough(path, State(state), req_headers, "flac", "audio/flac", downgrade, true).await
+}
+
+// GET /stream/wav/{token}/{id}  (no Bearer auth — same short-lived token as /stream)
+/// The track's original WAV bytes, served 1:1 with `audio/wav` and byte ranges.
+/// Only available when the track is a WAV and `[transcoding]
+/// downgrade_wav_to_mp3` is not set — otherwise 404, and clients fall back to
+/// the transcoded `/stream/{token}/{id}`. Every browser decodes WAV natively,
+/// so no user-agent fallback is needed.
+#[utoipa::path(
+    get,
+    path = "/stream/wav/{token}/{id}",
+    tag = "Stream",
+    params(
+        ("token" = String, Path, description = "Short-lived token from `/api/tracks/{id}/stream-token`"),
+        ("id" = i64, Path, description = "Track id"),
+    ),
+    responses(
+        (status = 200, description = "Original WAV bytes", content_type = "audio/wav"),
+        (status = 206, description = "Partial content for a ranged request"),
+        (status = 401, description = "Missing, expired or wrong token"),
+        (status = 404, description = "Downgrade enabled or track is not a WAV"),
+    ),
+)]
+pub async fn stream_audio_wav(
+    path: Path<(String, i64)>,
+    State(state): State<Arc<AppState>>,
+    req_headers: HeaderMap,
+) -> Response {
+    let downgrade = state.transcoding_config.downgrade_wav_to_mp3;
+    stream_lossless_passthrough(path, State(state), req_headers, "wav", "audio/wav", downgrade, false).await
+}
+
+/// Shared body of the `/stream/flac/...` and `/stream/wav/...` passthrough
+/// endpoints: serve the track's original bytes 1:1 when it has extension
+/// `ext`, unless `downgrade` is set. `ua_fallback` (FLAC only) reroutes user
+/// agents that cannot decode the format to the MP3 transcode.
+async fn stream_lossless_passthrough(
+    Path((token, id)): Path<(String, i64)>,
+    State(state): State<Arc<AppState>>,
+    req_headers: HeaderMap,
+    ext: &str,
+    content_type: &str,
+    downgrade: bool,
+    ua_fallback: bool,
+) -> Response {
+    if !state.tokens.validate(&token, id) {
+        tracing::warn!(track_id = id, "stream/{ext}: invalid token");
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    if downgrade {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    let track_path = match (|| -> Result<String, ApiError> {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        muorg_core::catalog::get_track_path_by_id(&conn, id)?
+            .ok_or_else(|| ApiError::not_found(format!("Track {id} not found")))
+    })() {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(track_id = id, "stream/{ext}: track not found");
+            return e.into_response();
+        }
+    };
+
+    let matches_ext = std::path::Path::new(&track_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case(ext))
+        .unwrap_or(false);
+    if !matches_ext {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    // Safari and all iOS browsers cannot decode FLAC in an <audio> element —
+    // serve them the MP3 transcode instead of bytes they cannot play.
+    if ua_fallback {
+        let ua = req_headers
+            .get("user-agent")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        if ua_cannot_decode_flac(ua) {
+            tracing::info!(track_id = id, ua, "stream/{ext}: user agent cannot decode {ext}, serving MP3 transcode");
+            return stream_audio(
+                Path((token, id)),
+                Query(StreamQuery { start: None }),
+                State(state),
+                req_headers,
+            )
+            .await;
+        }
+    }
+
+    if let Some((remote, key)) = state.remotes.resolve(&track_path) {
+        return stream_lossless_remote(id, remote, key, &req_headers, ext, content_type).await;
+    }
+
+    let mtime = crate::routes::util::file_mtime(std::path::Path::new(&track_path));
+    let etag = format!(
+        "\"{ext}-{id}-{}\"",
+        mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
+    );
+    if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
+        return resp;
+    }
+
+    let range_header = req_headers.get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
+    tracing::info!(track_id = id, path = %track_path, range = ?range_header, "stream-{ext}-passthrough");
+    match tokio::fs::read(&track_path).await {
+        Ok(data) => {
+            let total = data.len() as u64;
+            let range = range_header
+                .as_deref()
+                .and_then(|r| parse_range(r, total));
+
+            let mut headers = HeaderMap::new();
+            headers.insert("Content-Type", content_type.parse().unwrap());
+            headers.insert("Accept-Ranges", "bytes".parse().unwrap());
+            headers.insert("Cache-Control", "no-cache".parse().unwrap());
+            headers.insert("Vary", "Accept-Encoding, User-Agent".parse().unwrap());
+            headers.insert("ETag", etag.parse().unwrap());
+            if let Some(m) = mtime {
+                headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+            }
+
+            if let Some(r) = range {
+                let body = data[r.start as usize..=r.end as usize].to_vec();
+                headers.insert("Content-Range", format!("bytes {}-{}/{}", r.start, r.end, total).parse().unwrap());
+                headers.insert("Content-Length", body.len().to_string().parse().unwrap());
+                (StatusCode::PARTIAL_CONTENT, headers, body).into_response()
+            } else {
+                headers.insert("Content-Length", total.to_string().parse().unwrap());
+                (StatusCode::OK, headers, data).into_response()
+            }
+        }
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// Streams a lossless (FLAC/WAV) object from object storage 1:1: a client
+/// `Range` becomes a ranged GET and the byte stream is piped straight through.
+async fn stream_lossless_remote(
+    id: i64,
+    remote: Arc<crate::storage::RemoteStore>,
+    key: object_store::path::Path,
+    req_headers: &HeaderMap,
+    ext: &str,
+    content_type: &str,
+) -> Response {
+    use object_store::{GetOptions, GetRange, ObjectStore, ObjectStoreExt};
+
+    let head = match remote.store.head(&key).await {
+        Ok(m) => m,
+        Err(e) => return remote_err(id, e),
+    };
+
+    let secs = head.last_modified.timestamp().max(0) as u64;
+    let mtime = Some(std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs));
+    let etag = format!("\"{ext}-{id}-{secs}\"");
+    if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, req_headers) {
+        return resp;
+    }
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", content_type.parse().unwrap());
+    headers.insert("Cache-Control", "no-cache".parse().unwrap());
+    headers.insert("Vary", "Accept-Encoding, User-Agent".parse().unwrap());
+    headers.insert("ETag", etag.parse().unwrap());
+    headers.insert("Accept-Ranges", "bytes".parse().unwrap());
+    if let Some(m) = mtime {
+        headers.insert("Last-Modified", crate::routes::util::http_date(m).parse().unwrap());
+    }
+
+    let total = head.size;
+    let range = req_headers
+        .get("range")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|r| parse_range(r, total));
+    tracing::info!(track_id = id, key = %key, total, range = ?range.as_ref().map(|r| (r.start, r.end)), "stream-remote-{ext}-passthrough");
+
+    let opts = GetOptions {
+        range: range.as_ref().map(|r| GetRange::Bounded(r.start..r.end + 1)),
+        ..Default::default()
+    };
+    let res = match remote.store.get_opts(&key, opts).await {
+        Ok(r) => r,
+        Err(e) => return remote_err(id, e),
+    };
+
+    match range {
+        Some(r) => {
+            headers.insert(
+                "Content-Range",
+                format!("bytes {}-{}/{}", r.start, r.end, total).parse().unwrap(),
+            );
+            headers.insert("Content-Length", (r.end - r.start + 1).to_string().parse().unwrap());
+            (StatusCode::PARTIAL_CONTENT, headers, Body::from_stream(res.into_stream())).into_response()
+        }
+        None => {
+            headers.insert("Content-Length", total.to_string().parse().unwrap());
+            (StatusCode::OK, headers, Body::from_stream(res.into_stream())).into_response()
         }
     }
 }
@@ -387,5 +647,41 @@ async fn stream_remote(
             headers.insert("Content-Length", total.to_string().parse().unwrap());
             (StatusCode::OK, headers, Body::from_stream(res.into_stream())).into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ua_cannot_decode_flac;
+
+    #[test]
+    fn safari_and_ios_user_agents_cannot_decode_flac() {
+        assert!(ua_cannot_decode_flac(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+        ));
+        assert!(ua_cannot_decode_flac(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+        ));
+        // Chrome on iOS is still WebKit — no FLAC decode.
+        assert!(ua_cannot_decode_flac(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0.6778.73 Mobile/15E148 Safari/604.1"
+        ));
+    }
+
+    #[test]
+    fn chrome_edge_firefox_and_android_can_decode_flac() {
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        ));
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+        ));
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"
+        ));
+        assert!(!ua_cannot_decode_flac(
+            "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+        ));
+        assert!(!ua_cannot_decode_flac(""));
     }
 }

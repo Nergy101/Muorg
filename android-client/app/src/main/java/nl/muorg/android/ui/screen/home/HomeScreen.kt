@@ -1,5 +1,6 @@
 package nl.muorg.android.ui.screen.home
 
+import nl.muorg.android.util.Discography
 import nl.muorg.android.ui.easteregg.TappableLogo
 import nl.muorg.android.ui.component.OrcMunchingMeter
 import nl.muorg.android.ui.component.EmptyState
@@ -86,6 +87,7 @@ fun HomeScreen(
     baseUrl: String,
     onOpenAlbum: (String) -> Unit,
     onOpenMix: (Int) -> Unit,
+    onViewArtist: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -180,6 +182,7 @@ fun HomeScreen(
                 baseUrl = baseUrl,
                 imageLoader = imageLoader,
                 onClick = { onOpenAlbum(album.albumName) },
+                onViewArtist = album.artist.takeIf { Discography.isLinkable(it) }?.let { name -> { onViewArtist(name) } },
             )
         }
 
@@ -238,6 +241,7 @@ fun HomeScreen(
                 baseUrl = baseUrl,
                 imageLoader = imageLoader,
                 onClick = { onOpenAlbum(album.albumName) },
+                onViewArtist = album.artist.takeIf { Discography.isLinkable(it) }?.let { name -> { onViewArtist(name) } },
             )
         }
 
@@ -264,6 +268,7 @@ fun HomeScreen(
                 baseUrl = baseUrl,
                 imageLoader = imageLoader,
                 onClick = { onOpenAlbum(album.albumName) },
+                onViewArtist = album.artist.takeIf { Discography.isLinkable(it) }?.let { name -> { onViewArtist(name) } },
             )
         }
 

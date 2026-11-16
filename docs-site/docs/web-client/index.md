@@ -3,7 +3,11 @@ title: Web App
 description: The Muorg browser client — a mobile-first, installable PWA that connects to your muorg-server.
 ---
 
+import OrcIllustration from "@site/src/components/OrcIllustration";
+
 The Muorg web app is a browser UI (Vue 3 + Vite) that connects to a [muorg-server](/docs/server/). It is mobile-first, installable as a PWA, and mirrors the Android app's experience without an app store.
+
+![Web app home](/img/screenshots/web-app-home.jpg)
 
 ![Web app library grid](/img/screenshots/web-app-library.jpg)
 
@@ -26,6 +30,10 @@ There is no `VITE_API_URL` or any other environment variable that points the web
 
 :::caution CORS
 The server's default `allowed_origins` only permits the desktop app. Before a browser can talk to your server, set `allowed_origins` in `[cors]` to include the web app's exact origin (e.g. `http://<host>:7800`). Avoid `["*"]` on public deployments. See [Configuration](/docs/server/configuration#cors).
+
+<div style={{ maxWidth: 200, margin: "0.5rem auto 0" }}>
+  <OrcIllustration variant="forbidden" />
+</div>
 :::
 
 ## Deploying
@@ -67,9 +75,23 @@ The app uses hash-based routing, so no server-side rewrite rules are required.
 
 ## Feature tour
 
-![Web app album detail](/img/screenshots/web-app-album.png)
+![Web app album detail](/img/screenshots/web-app-album.jpg)
+
+Search across albums, artists and tracks from the search view:
+
+![Web app search results](/img/screenshots/web-app-search.jpg)
 
 The full-screen player shows album art with a dominant-colour backdrop, seek bar and transport controls, and can toggle to synced lyrics when a track has them.
+
+![Web app maximized player](/img/screenshots/web-app-player-max.jpg)
+
+Tap the artwork to switch to the full-screen art view — cover art edge to edge with a compact bottom bar:
+
+![Web app full-screen art player](/img/screenshots/web-app-player-fs.jpg)
+
+While a track plays, the mini player bar sits at the bottom — tap it to expand to the full-screen player:
+
+![Web app mini player](/img/screenshots/web-app-mini-player.jpg)
 
 ![Web app player](/img/screenshots/web-app-player.jpg)
 
@@ -110,6 +132,8 @@ Hover or keyboard-focus any icon-only button to see what it does (with its keybo
 - **Export to M3U** with either stream URLs (which expire after 8 hours) or paths relative to a music root folder you set in Settings → Export.
 
 ### Reports, Smart Transform and statistics
+
+![Web app statistics](/img/screenshots/web-app-stats.jpg)
 
 - **Reports** (missing metadata, duplicates, missing cover, recently played, most played). The fields that count as "missing" are configurable. From a report you can save the result as a playlist, apply "from path" to every track, or **auto-tag all** (MusicBrainz matches of 90 % confidence or better fill only empty fields; the rest are listed for review).
 - **Smart Transform** (Settings → Reports) bulk-renames files by rewriting a path pattern. It checks for collisions, never overwrites without an explicit choice, and asks for confirmation with the file count — renames cannot be undone.

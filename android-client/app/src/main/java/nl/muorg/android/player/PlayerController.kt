@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import nl.muorg.android.data.api.CatalogTrack
+import nl.muorg.android.data.api.schema.TokenResponse
 import nl.muorg.android.data.preferences.AppPreferences
 import nl.muorg.android.data.repository.LibraryRepository
 import nl.muorg.android.data.repository.OfflineDownloadManager
@@ -453,6 +454,25 @@ class PlayerController @Inject constructor(
         }
     }
 
+    /** True when the server serves this track's original lossless file 1:1
+     *  (FLAC or WAV passthrough) instead of a transcoded MP3. */
+    private fun isPassthrough(track: CatalogTrack, info: TokenResponse): Boolean {
+        val f = track.format.lowercase()
+        return (info.flac && f == "flac") || (info.wav && f == "wav")
+    }
+
+    /** Playback URI for a server track: the FLAC/WAV passthrough endpoint when
+     *  the server advertises it and the track has that format, else the
+     *  transcoded stream. */
+    private fun streamUriFor(baseUrl: String, track: CatalogTrack, info: TokenResponse): String {
+        val f = track.format.lowercase()
+        return when {
+            info.flac && f == "flac" -> "$baseUrl/stream/flac/${info.token}/${track.id}"
+            info.wav && f == "wav" -> "$baseUrl/stream/wav/${info.token}/${track.id}"
+            else -> "$baseUrl/stream/${info.token}/${track.id}"
+        }
+    }
+
     /**
      * Build (and cache) the media items for [tracks], or null if a stream token
      * could not be had — in which case the error is already on screen.
@@ -464,14 +484,14 @@ class PlayerController @Inject constructor(
                 val uri = if (t.localFilePath != null) {
                     resolveLocalUri(t.localFilePath)
                 } else {
-                    val token = libraryRepository.getStreamToken(t.id).getOrElse { e ->
+                    val info = libraryRepository.getStreamTokenInfo(t.id).getOrElse { e ->
                         _state.update { s ->
                             s.copy(errorMessage = "Playback failed: ${e.message ?: "Could not get stream token"}")
                         }
                         scope.launch { delay(4000); _state.update { it.copy(errorMessage = null) } }
                         return null
                     }
-                    "$baseUrl/stream/$token/${t.id}"
+                    streamUriFor(baseUrl, t, info)
                 }
                 MediaItem.Builder()
                     .setMediaId(t.id.toString())
@@ -649,14 +669,22 @@ class PlayerController @Inject constructor(
         val targetMs = (fullDurationMs * fraction).toLong()
 
         if (track.needsTranscode && track.localFilePath == null) {
-            // FLAC/WAV server stream: the server transcodes to MP3 starting at ?start=N.
-            // Re-request with a fresh token and the desired start offset. The
-            // seek bar shows buffering until the replacement stream is READY.
+            // FLAC/WAV server stream. A passthrough stream is the complete
+            // file and seeks natively like an MP3; only a transcoded stream
+            // needs the ?start=N reload below.
             scope.launch {
+                val info = libraryRepository.getStreamTokenInfo(track.id).getOrNull()
+                if (info != null && isPassthrough(track, info)) {
+                    nativeSeek(ctrl, track, fraction)
+                    return@launch
+                }
+                // The server transcodes to MP3 starting at ?start=N.
+                // Re-request with a fresh token and the desired start offset. The
+                // seek bar shows buffering until the replacement stream is READY.
                 flacSeekInFlight = true
                 _state.update { it.copy(isSeekBuffering = true) }
                 val baseUrl = preferences.serverUrl.first().trimEnd('/')
-                val token = libraryRepository.getStreamToken(track.id).getOrNull() ?: run {
+                val token = info?.token ?: libraryRepository.getStreamToken(track.id).getOrNull() ?: run {
                     flacSeekInFlight = false
                     _state.update { it.copy(isSeekBuffering = false) }
                     return@launch
@@ -680,14 +708,19 @@ class PlayerController @Inject constructor(
                 ctrl.play()
             }
         } else {
-            val durationMs = ctrl.duration.takeIf { it > 0 }
-                ?: ((track.durationSecs ?: 0.0) * 1000).toLong().takeIf { it > 0 }
-                ?: return
-            ctrl.seekTo((durationMs * fraction).toLong())
-            // The progress poll only runs while playing, so a seek while
-            // paused has to push the new position itself.
-            syncState()
+            nativeSeek(ctrl, track, fraction)
         }
+    }
+
+    /** Native seek for complete streams (MP3, cached files, FLAC/WAV passthrough). */
+    private fun nativeSeek(ctrl: Player, track: CatalogTrack, fraction: Float) {
+        val durationMs = ctrl.duration.takeIf { it > 0 }
+            ?: ((track.durationSecs ?: 0.0) * 1000).toLong().takeIf { it > 0 }
+            ?: return
+        ctrl.seekTo((durationMs * fraction).toLong())
+        // The progress poll only runs while playing, so a seek while
+        // paused has to push the new position itself.
+        syncState()
     }
 
     fun toggleShuffle() = setShuffle(!queue.shuffleEnabled)

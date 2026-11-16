@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.PlaylistIcon
 import androidx.compose.ui.unit.dp
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.ui.icon.MageIcon
@@ -90,8 +91,13 @@ fun PlaylistPickerSheet(
                             .padding(horizontal = 20.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        PlaylistIcon(
+                            icon = playlist.icon,
+                            modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "${playlist.icon ?: "🎵"}  ${playlist.name}",
+                            text = playlist.name,
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.weight(1f),
                             color = when {

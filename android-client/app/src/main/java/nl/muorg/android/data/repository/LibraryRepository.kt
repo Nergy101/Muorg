@@ -10,10 +10,12 @@ import nl.muorg.android.data.api.Stats
 import nl.muorg.android.data.api.bodyOrThrow
 import nl.muorg.android.data.api.orThrow
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.BatchMetadataItem
 import nl.muorg.android.data.api.schema.MatchCandidate
 import nl.muorg.android.data.api.schema.PatchMetadataBody
 import nl.muorg.android.data.api.schema.RecordPlayBody
 import nl.muorg.android.data.api.schema.RenameBody
+import nl.muorg.android.data.api.schema.TokenResponse
 import nl.muorg.android.data.api.schema.RenameCheckBody
 import nl.muorg.android.data.api.schema.RenameCheckItem
 import nl.muorg.android.data.api.schema.RenameCollision
@@ -133,9 +135,17 @@ class LibraryRepository @Inject constructor(
         cachedAtMs = 0L
     }
 
-    suspend fun getStreamToken(trackId: Int): Result<String> = runCatching {
+    suspend fun getStreamToken(trackId: Int): Result<String> =
+        getStreamTokenInfo(trackId).map { it.token }
+
+    /**
+     * The stream token plus the server's `flac`/`wav` capability flags: when `flac`
+     * is true the server serves original FLAC bytes from
+     * `/stream/flac/{token}/{id}` (or `/stream/wav/{token}/{id}` for WAV) is served.
+     */
+    suspend fun getStreamTokenInfo(trackId: Int): Result<TokenResponse> = runCatching {
         api.issueToken(trackId.toLong())
-            .bodyOrThrow("GET /api/tracks/$trackId/stream-token").token
+            .bodyOrThrow("GET /api/tracks/$trackId/stream-token")
     }
 
     suspend fun patchTrackMetadata(trackId: Int, update: MetadataUpdateRequest): Result<Unit> = runCatching {
@@ -143,6 +153,18 @@ class LibraryRepository @Inject constructor(
             .orThrow("PATCH /api/tracks/$trackId/metadata")
         // The edited row is now stale in the cached catalog.
         cacheLock.withLock { cachedTracks = null }
+    }
+
+    /**
+     * Apply the same metadata patch to many tracks in one call (the album
+     * editor). Returns the number of tracks the server actually wrote.
+     * The batch route never backs up, so callers warn first.
+     */
+    suspend fun batchPatchMetadata(items: List<BatchMetadataItem>): Result<Int> = runCatching {
+        val response = api.batchPatchMetadata(items)
+            .bodyOrThrow("POST /api/tracks/metadata/batch")
+        cacheLock.withLock { cachedTracks = null }
+        response.updated
     }
 
     /**

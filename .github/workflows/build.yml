@@ -122,6 +122,9 @@ jobs:
       - name: Check generated clients are current
         run: ./scripts/generate-api-clients.sh --check
 
+      - name: Check lucide icon artifacts are current
+        run: node scripts/sync-lucide-icons.mjs --check
+
       # One config covers the shared src/ and both apps, so it lives with the
       # other repo-wide checks rather than being duplicated per app.
       - name: Lint
@@ -177,6 +180,11 @@ jobs:
             patchelf libasound2-dev \
             pkg-config libssl-dev libmp3lame-dev
 
+      # The shared src/ tree imports @lucide/vue, a ROOT devDependency —
+      # install the root manifest too, or vue-tsc can't resolve it from src/.
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install dependencies
         working-directory: client
         run: pnpm install --frozen-lockfile
@@ -213,6 +221,11 @@ jobs:
       # is an error ("Multiple versions of pnpm specified").
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+
+      # The shared src/ tree imports @lucide/vue, a ROOT devDependency —
+      # install the root manifest too, or vue-tsc can't resolve it from src/.
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Install dependencies
         working-directory: web-client

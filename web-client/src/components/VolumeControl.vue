@@ -3,6 +3,7 @@
     <button
       type="button"
       :class="iconButtonClass"
+      :style="accentStyle"
       :aria-label="displayVolume <= 0 ? 'Unmute' : 'Mute'"
       :title="cast.isCasting ? 'Cast device volume' : 'Volume'"
       @click="toggleMute"
@@ -17,6 +18,7 @@
       :value="displayVolume"
       class="h-1 w-28 cursor-pointer"
       :class="variant === 'player' ? 'volume-range--player' : ''"
+      :style="{ '--primary': accentCss ?? undefined }"
       :aria-label="cast.isCasting ? 'Cast device volume' : 'Volume'"
       @input="onInput"
     />
@@ -39,6 +41,7 @@
 import { computed } from "vue";
 import MageIcon from "./MageIcon.vue";
 import { usePlayerStore } from "../stores/player";
+import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { useCastStore } from "../stores/cast";
 import { isVolumeControlSupported } from "../audio/volumeSupport";
 
@@ -51,6 +54,13 @@ const props = withDefaults(defineProps<{ variant?: "player" | "bar" }>(), {
 
 const player = usePlayerStore();
 const cast = useCastStore();
+
+// Artwork accent (same source as the player visualizer) so the slider thumb
+// and mute icon color-match the playing album even when the theme accent is
+// not "dynamic".
+const glowRgb = useDominantColor(computed(() => player.currentCoverUrl));
+const accentCss = computed(() => (glowRgb.value ? `rgb(${rawMainColor(glowRgb.value)})` : null));
+const accentStyle = computed(() => (accentCss.value ? { color: accentCss.value } : undefined));
 
 const supported = isVolumeControlSupported();
 

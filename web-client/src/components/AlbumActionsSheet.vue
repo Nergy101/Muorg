@@ -103,6 +103,18 @@
         </span>
       </button>
 
+      <div class="my-1 border-t border-outline/30" />
+
+      <!-- Bottom-most action, under its own divider: edit the album's metadata. -->
+      <button
+        type="button"
+        :class="ROW"
+        @click="emit('edit-metadata'); emit('close')"
+      >
+        <MageIcon name="edit-pen" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+        <span>Edit metadata</span>
+      </button>
+
       <div class="h-4" />
     </template>
   </BottomSheet>
@@ -135,6 +147,7 @@ const emit = defineEmits<{
   undownload: [];
   "view-artist": [];
   "view-album": [];
+  "edit-metadata": [];
 }>();
 
 const lib = useLibraryStore();

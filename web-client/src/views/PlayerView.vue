@@ -19,7 +19,8 @@
       <button
         type="button"
         class="glass flex h-10 items-center gap-1.5 rounded-full px-3.5 transition-colors hover:bg-white/10"
-        :class="queueMenuOpen ? 'text-primary' : 'text-white/75 hover:text-white'"
+        :class="queueMenuOpen ? '' : 'text-white/75 hover:text-white'"
+        :style="queueMenuOpen && accentCss ? { color: accentCss } : accentStyle"
         aria-label="Queue"
         :aria-expanded="queueMenuOpen"
         @click="queueMenuOpen = !queueMenuOpen"
@@ -49,8 +50,15 @@
       <!-- Top row. The back chevron is centred in the middle of the row at
            every size (the chrome pill is hidden at lg, so left-aligned would
            look orphaned). Hidden entirely in art-fullscreen mode, which keeps
-           only the bottom bar. -->
-      <div v-if="!artFullscreen" class="relative flex h-14 shrink-0 items-center px-2">
+           only the bottom bar. The player root is fixed to the viewport, so
+           when the nav is collapsed into a top bar (m-4 + h-14 = 72px tall)
+           the row must drop by that much at lg, or the chevron hides behind
+           the top-nav. -->
+      <div
+        v-if="!artFullscreen"
+        class="relative flex h-14 shrink-0 items-center px-2"
+        :class="sidebarCollapsed ? 'lg:mt-[72px]' : ''"
+      >
         <button
           type="button"
           class="absolute left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full text-white/75"
@@ -149,7 +157,10 @@
               :style="{ background: `radial-gradient(circle, rgba(${glowRgb},0.45) 0%, transparent 70%)`, filter: 'blur(32px)' }"
               aria-hidden="true"
             />
-            <div class="relative aspect-square max-h-full w-full overflow-hidden rounded-2xl shadow-2xl">
+            <div
+              class="relative aspect-square max-h-full w-full overflow-hidden shadow-2xl"
+              :class="settings.squarePlayerCover ? '' : 'rounded-2xl'"
+            >
               <img
                 v-if="coverUrl"
                 :src="coverUrl"
@@ -169,7 +180,7 @@
           class="controls-panel relative z-10 flex shrink-0 glass"
           :class="artFullscreen
             ? 'm-0 mt-auto w-full flex-row items-center gap-4 rounded-b-none rounded-t-3xl py-3 pl-6 pr-3 lg:px-6'
-            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2 @min-[820px]:max-w-[820px] @min-[820px]:pr-[316px]'"
+            : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2' + (queuePanelOpen ? ' @min-[820px]:max-w-[820px] @min-[820px]:pr-[316px]' : '')"
         >
           <!-- Track info bottom-left, quick actions opposite, both above the seek bar.
                In art-fullscreen mode the panel is a single bottom row: cover +
@@ -214,7 +225,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-body-md text-white/75">
-                  {{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}<template v-if="artFullscreen && player.currentTrack.album"> · {{ player.currentTrack.album }}</template>
+                  <ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" /><template v-if="artFullscreen && player.currentTrack.album"> · {{ player.currentTrack.album }}</template>
                 </p>
                 <p v-if="!artFullscreen" class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
               </div>
@@ -225,7 +236,8 @@
               v-if="!artFullscreen"
               type="button"
               class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-              :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :class="[isFavorite ? '' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
               @animationend="heartPulse = false"
@@ -264,7 +276,7 @@
               <button
                 type="button"
                 class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex"
-                :class="artFullscreen ? 'text-primary hover:text-primary' : 'text-white/75 hover:text-white'"
+                :class="'text-white/75 hover:text-white'"
                 :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
                 @click="toggleArtFullscreen"
               >
@@ -275,7 +287,7 @@
                 v-if="popoutSupported"
                 type="button"
                 class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-                :class="pipActive ? 'text-primary' : 'text-white/75 hover:text-white'"
+                :class="'text-white/75 hover:text-white'"
                 :aria-label="pipActive ? 'Close popout player' : 'Pop out player'"
                 @click="void togglePopout()"
               >
@@ -302,13 +314,13 @@
               >
                 <div class="h-1 w-full rounded-full bg-white/25">
                   <div
-                    class="h-full rounded-full bg-primary"
-                    :style="{ width: `${displayedFraction * 100}%` }"
+                    class="h-full rounded-full"
+                    :style="{ width: `${displayedFraction * 100}%`, backgroundColor: accentCss ?? undefined }"
                   />
                 </div>
                 <div
-                  class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-primary shadow"
-                  :style="{ left: `${displayedFraction * 100}%` }"
+                  class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full shadow"
+                  :style="{ left: `${displayedFraction * 100}%`, backgroundColor: accentCss ?? undefined }"
                 />
               </div>
             </div>
@@ -331,7 +343,7 @@
             <button
               type="button"
               class="flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
-              :class="player.shuffleEnabled ? 'text-primary' : 'text-white/75'"
+              :class="'text-white/75 hover:text-white'"
               aria-label="Shuffle"
               @click="player.toggleShuffle()"
             >
@@ -340,6 +352,7 @@
             <button
               type="button"
               class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
+              :style="accentStyle"
               aria-label="Previous track"
               @click="player.skipPrevious()"
             >
@@ -348,6 +361,7 @@
             <button
               type="button"
               class="chrome-glass glass-sheer flex h-16 w-16 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
+              :style="accentStyle"
               :aria-label="transportPlaying ? 'Pause' : 'Play'"
               @click="togglePlay"
             >
@@ -356,6 +370,7 @@
             <button
               type="button"
               class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
+              :style="accentStyle"
               aria-label="Next track"
               @click="player.skipNext()"
             >
@@ -364,7 +379,7 @@
             <button
               type="button"
               class="relative flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
-              :class="player.repeatMode !== 'off' ? 'text-primary' : 'text-white/75'"
+              :class="'text-white/75 hover:text-white'"
               aria-label="Repeat mode"
               @click="player.cycleRepeatMode()"
             >
@@ -388,12 +403,19 @@
                  above, next to the favourite button — no separate pill here.
                  The middle-cover toggle is gone too: pressing the album art
                  itself cycles the display variants. -->
+            <!-- Format tag, left of the favourite (fs view only, desktop
+                 viewports only — the bottom bar is too tight on phones) -->
+            <AudioFormatTag
+              v-if="artFullscreen"
+              class="hidden h-8 shrink-0 text-white/75 hover:bg-white/10 hover:text-white lg:flex"
+            />
             <!-- Favorite, just left of the progress ring (fs view only) -->
             <button
               v-if="artFullscreen"
               type="button"
               class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
-              :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :class="[isFavorite ? '' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
               @animationend="heartPulse = false"
@@ -435,7 +457,7 @@
               v-if="artFullscreen"
               type="button"
               class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex lg:h-10 lg:w-10"
-              :class="artFullscreen ? 'text-primary hover:text-primary' : 'text-white/75 hover:text-white'"
+              :class="'text-white/75 hover:text-white'"
               :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
               @click="toggleArtFullscreen"
             >
@@ -491,11 +513,38 @@
                card; only the hairline separator marks the split. Hidden in
                art-fullscreen, where the panel is a single bottom bar. -->
           <div
-            v-if="!artFullscreen"
+            v-if="!artFullscreen && queuePanelOpen"
             class="absolute inset-y-0 right-0 hidden w-[300px] flex-col overflow-hidden rounded-r-3xl border-l border-white/10 @min-[820px]:flex"
           >
             <QueueMiniList />
           </div>
+
+          <!-- Format tag of the playing file or live stream, top-left corner
+               of the glass panel (mirrors the queue tab in the top-right).
+               Hovering shows the bitrate / sample-rate stats. Desktop-width
+               only, hidden in art-fullscreen where the panel is a bottom
+               row (the tag moves next to the favourite there). -->
+          <AudioFormatTag
+            v-if="!artFullscreen"
+            class="absolute left-2 top-2 z-20 hidden h-7 text-white/55 hover:bg-white/10 hover:text-white @min-[820px]:flex"
+          />
+
+          <!-- Queue tab in the panel's top-right corner: the stack glyph plus a
+               chevron that expands the side queue (pointing right) and
+               collapses it again (pointing left, landing where the queue
+               header's track count used to sit). Desktop-width only, hidden
+               in art-fullscreen where the panel is a bottom bar. -->
+          <button
+            v-if="!artFullscreen"
+            type="button"
+            class="chrome-glass glass-sheer absolute right-2 top-2 z-20 hidden h-7 items-center justify-center gap-1 rounded-full px-2 text-white/75 transition-all hover:bg-white/10 hover:text-white @min-[820px]:flex"
+            :aria-label="queuePanelOpen ? 'Collapse queue panel' : 'Expand queue panel'"
+            :aria-expanded="queuePanelOpen"
+            @click="queuePanelOpen = !queuePanelOpen"
+          >
+            <MageIcon name="stack" class="h-3.5 w-3.5" />
+            <MageIcon :name="queuePanelOpen ? 'chevron-left' : 'chevron-right'" class="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -541,20 +590,23 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
+import ArtistLink from "../components/ArtistLink.vue";
 import BottomSheet from "../components/BottomSheet.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import QueueMiniList from "../components/QueueMiniList.vue";
-import { useDominantColor } from "../composables/useDominantColor";
+import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { useSwipeDown } from "../composables/useSwipeDown";
+import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 import { usePlayerStore } from "../stores/player";
 import { useSettingsStore } from "../stores/settings";
 import { formatDuration, useLibraryStore } from "../stores/library";
 import { activeLrcIndex, parseLrc, type LrcLine } from "@shared/lyrics";
 import { useCastStore } from "../stores/cast";
+import AudioFormatTag from "../components/AudioFormatTag.vue";
 import type { CatalogTrack } from "../types";
 
 const SLEEP_PRESETS = [5, 10, 15, 20, 30, 45, 60, 90];
@@ -640,6 +692,10 @@ onUnmounted(() => {
 // feeds the halo behind the cover art ---
 const coverUrl = computed(() => player.currentCoverUrl);
 const glowRgb = useDominantColor(coverUrl);
+// Artwork accent (un-darkened main color — same source as the mini player) so
+// the fullscreen/FS player's controls theme-match the playing album.
+const accentCss = computed(() => (glowRgb.value ? `rgb(${rawMainColor(glowRgb.value)})` : null));
+const accentStyle = computed(() => (accentCss.value ? { color: accentCss.value } : undefined));
 
 // --- Art-fullscreen mode (desktop): clicking the cover hides it and unblurs
 // the backdrop art into a sharp full-bleed background. The flag lives in the
@@ -655,6 +711,10 @@ const queueMenuOpen = ref(false);
 watch(artFullscreen, (v) => {
   if (!v) queueMenuOpen.value = false;
 });
+
+// Side queue panel on the desktop maximized player: the chevron tab on the
+// glass panel's right edge collapses and re-expands it.
+const queuePanelOpen = ref(true);
 
 /** Pressing the album art in the middle cycles through all three display
  *  variants: normal → FS with cover in the middle → FS with cover hidden

@@ -1,6 +1,7 @@
 package nl.muorg.android.ui.screen.playlist
 
 import nl.muorg.android.ui.component.OrcLoading
+import nl.muorg.android.ui.component.PlaylistIconPicker
 import nl.muorg.android.ui.component.EmptyState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import nl.muorg.android.ui.component.PickerSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.PlaylistIcon
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -155,8 +159,16 @@ fun PlaylistAlbumsScreen(
                 title = {
                     val playlist = uiState.playlist
                     if (playlist != null) {
-                        val title = if (!playlist.icon.isNullOrBlank()) "${playlist.icon} ${playlist.name}" else playlist.name
-                        Text(text = title, maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!playlist.icon.isNullOrBlank()) {
+                                PlaylistIcon(
+                                    icon = playlist.icon,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text(text = playlist.name, maxLines = 1)
+                        }
                     }
                 },
                 navigationIcon = {
@@ -166,6 +178,23 @@ fun PlaylistAlbumsScreen(
                     }
                 },
                 actions = {
+                    // Edit name + icon. Hidden in offline mode (read-only) and
+                    // for the server-side Favorites playlist, which cannot be
+                    // renamed.
+                    val currentPlaylist = uiState.playlist
+                    val editable = !uiState.isOfflineMode &&
+                        currentPlaylist != null &&
+                        currentPlaylist.name != "Favorites"
+                    if (editable) {
+                        IconButton(onClick = { viewModel.showEditDialog() }) {
+                            MageIcon(
+                                name = "edit",
+                                contentDescription = "Edit name and icon",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
                     // Download the whole playlist for offline use; left of the
                     // reorder button. Hidden in local/offline mode.
                     if (uiState.canDownloadPlaylist) {
@@ -516,6 +545,47 @@ fun PlaylistAlbumsScreen(
             },
         )
     }
+
+    if (uiState.showEditDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissEditDialog,
+            title = { Text("Edit playlist") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = uiState.editName,
+                        onValueChange = viewModel::onEditNameChange,
+                        label = { Text("Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Icon",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                    PlaylistIconPicker(
+                        value = uiState.editIcon,
+                        onChange = viewModel::onEditIconChange,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::updatePlaylist,
+                    enabled = uiState.editName.isNotBlank(),
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissEditDialog) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 @Composable
@@ -670,4 +740,5 @@ private fun PlaylistSortRow(
             onDismiss = { showSortMenu = false },
         )
     }
+
 }

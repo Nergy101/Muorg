@@ -6,8 +6,12 @@ module.exports = {
   // Broken internal links are a build failure: the docs are the product surface
   // for self-hosters, and a dead link there costs someone an evening.
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "warn",
-  favicon: "img/favicon.ico",
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
+  favicon: "img/favicon.svg",
   organizationName: "Nergy101",
   projectName: "Muorg",
 
@@ -43,6 +47,8 @@ module.exports = {
     ],
   ],
 
+  clientModules: [require.resolve("./src/clientModules/orcLoader.js")],
+
   themeConfig: {
     colorMode: {
       defaultMode: "dark",
@@ -54,14 +60,15 @@ module.exports = {
         alt: "Muorg Logo",
         src: "img/logo.svg",
       },
-      // Same order as the sidebar: apps first, then the server behind them.
       items: [
-        { type: "doc", docId: "intro", position: "left", label: "Docs" },
-        { type: "doc", docId: "desktop/index", position: "left", label: "Desktop" },
-        { type: "doc", docId: "web-client/index", position: "left", label: "Web" },
-        { type: "doc", docId: "android/index", position: "left", label: "Android" },
-        { type: "doc", docId: "server/index", position: "left", label: "Server" },
-        { type: "doc", docId: "releases", position: "left", label: "Releases" },
+        // Plain `to:` links, not type:"doc" — every doc lives under /docs/,
+        // so type:"doc" would mark ALL items active on every docs page.
+        { to: "/docs/intro", position: "left", label: "Docs" },
+        { to: "/docs/web-client/", position: "left", label: "Web" },
+        { to: "/docs/android/", position: "left", label: "Android" },
+        { to: "/docs/server/", position: "left", label: "Server" },
+        { to: "/docs/desktop/", position: "left", label: "Desktop (Legacy)" },
+        { to: "/docs/releases", position: "left", label: "Releases" },
         {
           href: "https://github.com/Nergy101/Muorg",
           label: "GitHub",
@@ -83,7 +90,7 @@ module.exports = {
         {
           title: "Components",
           items: [
-            { label: "Desktop App", to: "/docs/desktop/" },
+            { label: "Desktop App (Legacy)", to: "/docs/desktop/" },
             { label: "Web App", to: "/docs/web-client/" },
             { label: "Android App", to: "/docs/android/" },
             { label: "Server", to: "/docs/server/" },

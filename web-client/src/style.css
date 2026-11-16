@@ -344,6 +344,15 @@ body {
     max-width: 900px;
     margin-inline: auto;
   }
+
+  /* The album editor is a fullscreen experience on desktop viewports, not the
+     capped mobile/portrait column. */
+  @media (min-width: 64rem) {
+    .album-edit-root .content-col,
+    .album-edit-root .content-col-children > * {
+      max-width: none;
+    }
+  }
 }
 
 body {
@@ -425,6 +434,42 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.45);
   color: #1c1917;
+}
+
+/* Desktop only: the glass edge highlight (top inset line + border) takes the
+   hue of the playing album's dominant color. `--glass-edge` is an "r,g,b"
+   triplet set by the player store; the fallback is plain white, which is what
+   mobile viewports always use. */
+@media (min-width: 1024px) {
+  .glass,
+  .glass-strong,
+  .glass-deep {
+    border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, transparent);
+  }
+  /* The whole glass body takes a subtle wash of the album hue, not just the
+     edge — sidenav (.glass) and bottom player (.glass-deep) included. Kept
+     low-alpha so text over the blur stays legible. */
+  .glass {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 10%, var(--surface) 90%);
+    box-shadow:
+      0 10px 34px -8px rgba(0, 0, 0, 0.30),
+      inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 30%, transparent);
+  }
+  .glass-strong {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
+    box-shadow:
+      0 10px 34px -8px rgba(0, 0, 0, 0.34),
+      inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 32%, transparent);
+  }
+  .glass-deep {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 14%, var(--surface) 86%);
+    box-shadow:
+      0 14px 40px -10px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 34%, transparent);
+  }
+  [data-theme="light"] .glass {
+    background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
+  }
 }
 
 /* `.glass-sheer` is the thin pane for controls sitting on the player's own
@@ -595,6 +640,73 @@ input[type="range"]::-moz-range-thumb {
     mask-image: linear-gradient(to right, transparent, black 35%, black 65%, transparent);
   }
 }
+/* Sidenav collapsed into a top-nav (desktop): flip the mask from the sides to
+   the top — the art fades into the top-nav's background at the top edge
+   instead of showing a hard cut line beneath it, and the side fade is
+   dropped. Placed after the variant rules so it wins at equal specificity. */
+@media (min-width: 64rem) {
+  .edge-blur-art.edge-blur-art-topnav {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+    mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+  }
+}
+/* Narrow portrait monitors (desktop width but a narrow portrait viewport,
+   e.g. 1024-1360px wide portrait displays): drop the side edge mask — the
+   backdrop art fills the whole background edge to edge, like on mobile, with
+   no fade into the sidenav. The top-nav variant is excluded on purpose: when
+   the sidenav is collapsed into a top bar, the top fade from the base
+   topnav rule still applies so the art blends into the top-nav. */
+@media (min-width: 64rem) and (orientation: portrait) and (max-width: 85rem) {
+  .edge-blur-art.edge-blur-art-player,
+  .edge-blur-art.edge-blur-art-album {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  /* Re-assert the top fade for the top-nav variant inside this media query,
+     so it applies in portrait regardless of rule order. */
+  .edge-blur-art.edge-blur-art-topnav {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+    mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+  }
+}
+
+/* Same narrow portrait viewports: the floating desktop mini-player bar docks
+   to the bottom edge at full VIEWPORT width instead of floating inset within
+   the content pane. `fixed` (not just width:100%) so it also spans the strip
+   under the side-nav rail when the sidenav is expanded — with the top-nav
+   (collapsed rail) the pane is already full width, so this is equivalent
+   there. Landscape is untouched: the bar keeps its floating
+   w-[calc(100%-2rem)] inset width. No ancestor of the bar has a
+   transform/filter/backdrop-filter, so fixed anchors to the viewport. */
+@media (min-width: 64rem) and (orientation: portrait) and (max-width: 85rem) {
+  .desktop-player-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    border-radius: 1rem 1rem 0 0;
+  }
+}
+
+/* Same narrow portrait viewports: let only the album view's backdrop bleed
+   leftward behind the sidenav rail (m-4 + w-60 + m-4 = 17rem), so the
+   unmasked art fills the whole background — including the strip under the
+   glass rail — and stays centered in the viewport. The bleed is scoped to
+   shell-row (side-nav expanded): in top-nav mode (shell-collapsed) there is
+   no left rail, the pane is already full width, and bleeding would push the
+   art's center off-screen left. The view root must be unclipped for the
+   backdrop to overhang; the shell's overflow-hidden clips it at the
+   viewport edge. */
+@media (min-width: 64rem) and (orientation: portrait) and (max-width: 85rem) {
+  .album-view-root {
+    overflow: visible;
+  }
+  .app-shell.shell-row .album-view-root .cover-backdrop {
+    left: -17rem;
+  }
+}
 /* Art-fullscreen mode (maximized player): the backdrop art fills the pane with
    only a minimal blur — the edge mask stays, so the art still fades into the
    dark base at the borders. */
@@ -757,6 +869,17 @@ input[type="range"]::-moz-range-thumb {
 }
 .heart-pop {
   animation: heart-pop 550ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Indeterminate progress bar: a sliding segment, used while a batch write
+   is in flight (no per-track progress to show). */
+@keyframes hf-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
 }
 
 /* Three-dot "toggling" loader: three dots that pulse in a staggered wave,

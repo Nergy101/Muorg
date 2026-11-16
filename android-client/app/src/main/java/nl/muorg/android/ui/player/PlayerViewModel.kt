@@ -31,6 +31,7 @@ import nl.muorg.android.player.QueueOrigin
 import nl.muorg.android.player.PlayerState
 import nl.muorg.android.ui.UiMessenger
 import nl.muorg.android.ui.friendlyMessage
+import nl.muorg.android.ui.icon.PlaylistIconDefaults
 import javax.inject.Inject
 
 @HiltViewModel
@@ -203,6 +204,38 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Add several tracks (an album's, from a card's menu) to a playlist,
+     * skipping the ones it already holds.
+     */
+    fun addTracksToPlaylist(tracks: List<CatalogTrack>, playlistId: Int) {
+        if (tracks.isEmpty()) return
+        viewModelScope.launch {
+            val mode = preferences.musicMode.first()
+            if (mode == "local") {
+                localRepository.addTracksToPlaylist(playlistId, tracks)
+                refreshPlaylists()
+                return@launch
+            }
+            val playlist = _playlists.value.find { it.id == playlistId }
+            if (playlist == null) {
+                uiMessenger.show("Playlist not found")
+                return@launch
+            }
+            val check = playlistRepository.checkAddConflict(playlist, tracks)
+            if (check.newTracks.isEmpty()) {
+                uiMessenger.show("All tracks already in this playlist")
+                return@launch
+            }
+            playlistRepository.addTracks(playlist, check.newTracks.map { it.id })
+                .onSuccess {
+                    val n = check.newTracks.size
+                    uiMessenger.show("Added $n track${if (n == 1) "" else "s"} to ${playlist.name}")
+                }
+                .onFailure { uiMessenger.showError(it) }
+        }
+    }
+
     fun removeTrackFromPlaylist(track: CatalogTrack, playlistId: Int) {
         viewModelScope.launch {
             val mode = preferences.musicMode.first()
@@ -223,7 +256,7 @@ class PlayerViewModel @Inject constructor(
                 runCatching { localRepository.createPlaylist(name) }
                 refreshPlaylists()
             } else {
-                playlistRepository.createPlaylist(name, "🎵")
+                playlistRepository.createPlaylist(name, PlaylistIconDefaults.VALUE)
                     .onFailure { uiMessenger.showError(it) }
                 refreshPlaylists()
             }
@@ -281,8 +314,8 @@ class PlayerViewModel @Inject constructor(
             // Local file — no stream token needed; LocalCastServer serves it over WiFi
             castManager.castTrack(track, baseUrl, "")
         } else {
-            libraryRepository.getStreamToken(track.id).onSuccess { token ->
-                castManager.castTrack(track, baseUrl, token)
+            libraryRepository.getStreamTokenInfo(track.id).onSuccess { info ->
+                castManager.castTrack(track, baseUrl, info.token, serverFlac = info.flac, serverWav = info.wav)
             }
         }
     }
@@ -541,11 +574,11 @@ class PlayerViewModel @Inject constructor(
         val mode = preferences.musicMode.first()
         return if (mode == "local") {
             val existing = localRepository.getPlaylists().firstOrNull { it.name == FAVORITES_PLAYLIST_NAME }
-            existing?.id ?: localRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, "⭐").id
+            existing?.id ?: localRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, PlaylistIconDefaults.FAVORITES_VALUE).id
         } else {
             val playlists = playlistRepository.getPlaylists().getOrNull() ?: return null
             val existing = playlists.firstOrNull { it.name == FAVORITES_PLAYLIST_NAME }
-            existing?.id ?: playlistRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, "⭐").getOrNull()?.id
+            existing?.id ?: playlistRepository.createPlaylist(FAVORITES_PLAYLIST_NAME, PlaylistIconDefaults.FAVORITES_VALUE).getOrNull()?.id
         }
     }
 

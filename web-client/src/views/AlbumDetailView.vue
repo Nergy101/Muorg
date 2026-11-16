@@ -1,7 +1,10 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+  <div class="album-view-root absolute inset-0 flex flex-col overflow-hidden bg-background">
     <template v-if="!item">
       <div class="content-col flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+        <div class="w-40 shrink-0 sm:w-48">
+          <OrcIllustration variant="not-found" />
+        </div>
         <p class="text-body-md text-on-surface-variant">Album not found</p>
         <button
           type="button"
@@ -56,7 +59,7 @@
               <p
                 class="truncate text-body-md"
                 :class="backdropActive ? 'text-white/75' : 'text-on-surface-variant'"
-              >{{ metaLine }}</p>
+              ><template v-if="item.albumArtist"><ArtistLink :name="item.albumArtist" /> · </template>{{ statsLine }}</p>
             </div>
 
             <div class="flex items-center gap-2">
@@ -72,17 +75,57 @@
               </button>
               <button
                 type="button"
-                class="flex h-9 w-9 items-center justify-center rounded-full"
-                :class="backdropActive ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant'"
+                :class="headerIconBtnClass"
                 aria-label="Add album to playlist"
                 @click="openPicker"
               >
                 <MageIcon name="playlist-add" class="h-5 w-5" />
               </button>
+              <!-- Desktop (lg+): the album-context actions sit inline in a
+                   horizontal row next to play / add-to-playlist, as long as
+                   there is room; below lg the 3-dots button opens the sheet. -->
+              <template v-if="isDesktop">
+                <button
+                  type="button"
+                  :class="headerIconBtnClass"
+                  :aria-label="'Edit album metadata'"
+                  title="Edit album metadata"
+                  @click="editAlbum"
+                >
+                  <MageIcon name="edit" class="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  :class="[headerIconBtnClass, 'disabled:opacity-50']"
+                  :disabled="albumDownloading || tracks.length === 0"
+                  :aria-label="albumDownloaded ? 'Remove offline download' : 'Download for offline'"
+                  :title="albumDownloaded ? 'Remove offline download' : 'Download for offline'"
+                  @click="toggleAlbumDownload"
+                >
+                  <MageIcon
+                    :name="albumDownloading ? 'refresh' : 'download'"
+                    class="h-5 w-5"
+                    :class="[
+                      albumDownloading ? 'animate-spin' : '',
+                      albumDownloaded ? 'text-error' : '',
+                    ].join(' ')"
+                  />
+                </button>
+                <button
+                  v-if="item?.albumArtist"
+                  type="button"
+                  :class="headerIconBtnClass"
+                  aria-label="View artist"
+                  title="View artist"
+                  @click="viewArtistFromAlbum"
+                >
+                  <MageIcon name="user" class="h-5 w-5" />
+                </button>
+              </template>
               <button
+                v-else
                 type="button"
-                class="flex h-9 w-9 items-center justify-center rounded-full"
-                :class="backdropActive ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant'"
+                :class="headerIconBtnClass"
                 aria-label="More album options"
                 @click="menuOpen = true"
               >
@@ -134,6 +177,14 @@
           <p class="truncate text-body-sm text-on-surface-variant">{{ metaLine }}</p>
         </div>
         <div class="my-1 border-t border-outline/30" />
+        <button
+          type="button"
+          class="flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg text-on-surface"
+          @click="editAlbum"
+        >
+          <MageIcon name="edit" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <span>Edit album metadata</span>
+        </button>
         <button
           type="button"
           class="flex h-14 w-full items-center gap-4 px-6 text-left text-body-lg disabled:opacity-50"
@@ -194,18 +245,22 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import OrcIllustration from "../components/OrcIllustration.vue";
 import MarqueeText from "../components/MarqueeText.vue";
+import { DEFAULT_PLAYLIST_ICON } from "@shared/playlistIcons";
+import ArtistLink from "../components/ArtistLink.vue";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import TrackListRow from "../components/TrackListRow.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import BottomSheet from "../components/BottomSheet.vue";
 import PlaylistPickerSheet from "../components/PlaylistPickerSheet.vue";
-import { useLibraryStore } from "../stores/library";
+import { resolveAlbumKey, useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useOfflineStore } from "../stores/offline";
 import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
+import { useIsDesktop } from "../composables/useIsDesktop";
 import { provideVisibleIds } from "../composables/useSelectableList";
 import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
@@ -218,6 +273,14 @@ const props = defineProps<{ albumKey: string }>();
 const route = useRoute();
 const router = useRouter();
 const lib = useLibraryStore();
+const isDesktop = useIsDesktop();
+
+/** Shared styling for every icon button in the album header row (play /
+ *  add-to-playlist / inline actions / 3-dots), so they all look identical. */
+const headerIconBtnClass = computed(() => [
+  "flex h-9 w-9 items-center justify-center rounded-full",
+  backdropActive.value ? "text-white/75 hover:bg-white/10" : "text-on-surface-variant",
+]);
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const offline = useOfflineStore();
@@ -225,6 +288,18 @@ const selection = useSelectionStore();
 
 const albumKey = computed(() => props.albumKey);
 const item = computed(() => lib.albumByKey(albumKey.value));
+
+// A history entry or URL holding the album's pre-rename key (this page sits
+// underneath the editor in the stack when the album gets renamed there)
+// forwards to the renamed album instead of showing "Album not found".
+watch(
+  albumKey,
+  (key) => {
+    const resolved = resolveAlbumKey(key);
+    if (resolved !== key) void router.replace({ name: "album", params: { albumKey: resolved } });
+  },
+  { immediate: true },
+);
 
 /** Non-null only while the view was reached from a playlist. */
 const playlistFilter = ref<Set<number> | null>(null);
@@ -289,9 +364,10 @@ const accentOnCss = computed(() => {
   return luminance > 0.55 ? "#1c1917" : "#ffffff";
 });
 
-const metaLine = computed(() => {
+/** Year, track count and running time — the header puts the (linked)
+ *  album artist in front of it, the sheet uses `metaLine`. */
+const statsLine = computed(() => {
   const parts: string[] = [];
-  if (item.value?.albumArtist) parts.push(item.value.albumArtist);
   if (item.value?.year) parts.push(String(item.value.year));
   const n = tracks.value.length;
   parts.push(n === 1 ? "1 track" : `${n} tracks`);
@@ -299,6 +375,10 @@ const metaLine = computed(() => {
   if (secs > 0) parts.push(`${Math.round(secs / 60)}m`);
   return parts.join(" · ");
 });
+
+const metaLine = computed(() =>
+  [item.value?.albumArtist, statsLine.value].filter((s) => !!s).join(" · "),
+);
 
 function playAlbum(): void {
   if (tracks.value.length === 0) return;
@@ -313,6 +393,11 @@ function viewArtistFromAlbum(): void {
   const name = item.value?.albumArtist;
   menuOpen.value = false;
   if (name) void router.push({ name: "artist", params: { name } });
+}
+
+function editAlbum(): void {
+  menuOpen.value = false;
+  void router.push({ name: "album-edit", params: { albumKey: albumKey.value } });
 }
 
 // --- Offline download ------------------------------------------------------
@@ -414,7 +499,7 @@ async function onPickerRemove(p: Playlist): Promise<void> {
 
 async function onPickerCreate(name: string): Promise<void> {
   try {
-    const p = await playlistStore.createPlaylist(name, "🎵");
+    const p = await playlistStore.createPlaylist(name, DEFAULT_PLAYLIST_ICON);
     await playlistStore.addTracks(
       p.id,
       tracks.value.map((t) => t.id),

@@ -47,3 +47,4 @@ releasing/
 server/logs/
 server/*.db-shm
 server/*.db-wal
+scripts/.cache/

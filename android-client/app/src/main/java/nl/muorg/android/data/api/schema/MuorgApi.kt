@@ -591,6 +591,38 @@ interface MuorgApi {
     ): Response<TokenResponse>
 
     /**
+     * The track's original FLAC bytes, served 1:1 with `audio/flac` and byte
+     * ranges, so clients get the lossless file and can seek natively. Only
+     * available when the track is a FLAC and `[transcoding] downgrade_flac_to_mp3`
+     * is not set — otherwise 404, and clients fall back to the transcoded
+     * `/stream/{token}/{id}`. Requestors whose user agent cannot decode FLAC
+     * (Safari, and every iOS browser since they are all WebKit) are transparently
+     * served the MP3 transcode instead.
+     *
+     * `GET /stream/flac/{token}/{id}`
+     */
+    @GET("stream/flac/{token}/{id}")
+    suspend fun streamAudioFlac(
+        @Path("token") token: String,
+        @Path("id") id: Long,
+    ): Response<ResponseBody>
+
+    /**
+     * The track's original WAV bytes, served 1:1 with `audio/wav` and byte ranges.
+     * Only available when the track is a WAV and `[transcoding]
+     * downgrade_wav_to_mp3` is not set — otherwise 404, and clients fall back to
+     * the transcoded `/stream/{token}/{id}`. Every browser decodes WAV natively,
+     * so no user-agent fallback is needed.
+     *
+     * `GET /stream/wav/{token}/{id}`
+     */
+    @GET("stream/wav/{token}/{id}")
+    suspend fun streamAudioWav(
+        @Path("token") token: String,
+        @Path("id") id: Long,
+    ): Response<ResponseBody>
+
+    /**
      * Audio bytes, range-capable. Public: authorised by the `token` path segment
      * rather than the Bearer header, so browsers and cast receivers can fetch it
      * directly. The token lives in the path — not the query string — so it stays

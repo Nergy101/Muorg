@@ -62,6 +62,24 @@
       <SettingsSection title="Playback" icon="play">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Square cover in player</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ settings.squarePlayerCover ? "Square corners" : "Rounded corners" }}
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.squarePlayerCover)"
+          role="switch"
+          aria-label="Square cover in player"
+          :aria-checked="settings.squarePlayerCover"
+          @click="settings.setSquarePlayerCover(!settings.squarePlayerCover)"
+        >
+          <span :class="knobClass(settings.squarePlayerCover)" />
+        </button>
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Continuous playback</p>
           <p class="text-body-sm text-on-surface-variant">
             Automatically play next track when queue ends
@@ -160,6 +178,24 @@
           :options="LAYOUT_OPTIONS"
           @update:model-value="settings.setAlbumViewStyle($event as LibraryViewStyle)"
         />
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Square Album Cards</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ settings.squareAlbumCards ? "Square corners" : "Rounded corners" }}
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.squareAlbumCards)"
+          role="switch"
+          aria-label="Square Album Cards"
+          :aria-checked="settings.squareAlbumCards"
+          @click="settings.setSquareAlbumCards(!settings.squareAlbumCards)"
+        >
+          <span :class="knobClass(settings.squareAlbumCards)" />
+        </button>
       </div>
       <LibraryTableSettingsSection />
       <div class="px-4 py-2">
@@ -496,8 +532,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import SettingsSection from "../components/settings/SettingsSection.vue";
 import SegmentedControl from "../components/SegmentedControl.vue";
@@ -511,16 +547,13 @@ import ExportSettingsSection from "../components/settings/ExportSettingsSection.
 import PlaybackAudioSettingsSection from "../components/settings/PlaybackAudioSettingsSection.vue";
 import KeyboardSettingsSection from "../components/settings/KeyboardSettingsSection.vue";
 import { pwaUpdateAvailable, refreshApp } from "../composables/usePwaUpdate";
-import { disconnect, getServerUrl } from "../api/client";
+import { getServerUrl } from "../api/client";
+import { logout } from "../logout";
 import { useLibraryStore } from "../stores/library";
-import { usePlayerStore } from "../stores/player";
 import { usePlaylistStore } from "../stores/playlists";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryTableStore } from "../stores/libraryTable";
 import { useOfflineStore } from "../stores/offline";
-import { useFoldersStore } from "../stores/folders";
-import { useSelectionStore } from "../stores/selection";
-import { clearUndo } from "../composables/useUndo";
 import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { reportCounts } from "@shared/reports";
@@ -560,7 +593,23 @@ const ACCENT_OPTIONS: { value: AccentColor; label: string; color?: string }[] = 
 ];
 
 const router = useRouter();
+const route = useRoute();
 const lib = useLibraryStore();
+
+// Deep link: arriving with #backup-before-write (e.g. from the "Backups OFF"
+// hint on the metadata editors) scrolls the backup toggle into view and
+// focuses its switch.
+watch(
+  () => route.hash,
+  async (hash) => {
+    if (hash !== "#backup-before-write") return;
+    await nextTick();
+    const el = document.getElementById("backup-before-write");
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.querySelector<HTMLElement>('[role="switch"]')?.focus();
+  },
+  { immediate: true },
+);
 
 /** Only the reports that mean something is wrong; see SidebarNav for the same
  *  reasoning — a play-history count next to "Reports" is not a to-do. */
@@ -568,13 +617,10 @@ const reportIssues = computed(() => {
   const counts = reportCounts(lib.tracks, settings.missingMetadataFields);
   return counts.missing_metadata + counts.duplicates + counts.missing_album_cover;
 });
-const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settings = useSettingsStore();
 const tableStore = useLibraryTableStore();
 const offline = useOfflineStore();
-const folders = useFoldersStore();
-const selection = useSelectionStore();
 const { canInstall, isIos, install } = useInstallPrompt();
 
 const version = __APP_VERSION__;
@@ -660,18 +706,7 @@ const logoutOpen = ref(false);
 
 async function onLogout(): Promise<void> {
   logoutOpen.value = false;
-  disconnect();
-  selection.clear();
-  clearUndo();
-  // Player first so audio stops before the library revokes its cover URLs.
-  player.reset();
-  lib.reset();
-  playlistStore.reset();
-  folders.reset();
-  // The offline cache is derived from this server's tracks — drop it so a
-  // different server does not inherit (or pay quota for) stale files.
-  await offline.clearAll();
-  await router.replace({ name: "connect" });
+  await logout();
 }
 
 // --- Offline cache ---------------------------------------------------------

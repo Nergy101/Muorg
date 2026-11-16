@@ -25,6 +25,7 @@ import coil.ImageLoader
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.repository.DownloadProgress
 import nl.muorg.android.ui.icon.MageIcon
+import nl.muorg.android.ui.icon.PlaylistIcon
 
 /**
  * Long-press sheet for a playlist: a four-cover collage and title with play
@@ -74,10 +75,11 @@ fun PlaylistActionsSheet(
                 imageLoader = imageLoader,
                 modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)),
             ) {
-                Text(
-                    text = playlist.icon ?: "🎵",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.align(Alignment.Center),
+                PlaylistIcon(
+                    icon = playlist.icon,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(28.dp),
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -117,7 +119,7 @@ fun PlaylistActionsSheet(
             }
         }
         if (onEdit != null) {
-            SheetActionRow("Rename playlist", onClick = { onEdit(); onDismiss() }) {
+            SheetActionRow("Edit name and icon", onClick = { onEdit(); onDismiss() }) {
                 MageIcon("edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
             }
         }

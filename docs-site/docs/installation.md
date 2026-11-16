@@ -5,7 +5,11 @@ description: Download names, install steps and update behaviour for the Muorg de
 
 Every Muorg component is published from the same GitHub repository. This page is the complete download and update reference; for the fastest path to a working setup see the [Quick Start](/docs/quick-start).
 
-## Desktop app
+## Desktop app (Legacy)
+
+:::warning Legacy
+The desktop app is **legacy** — it still works and receives fixes, but new development focuses on the web and Android clients against a self-hosted server. For new setups, see the [Quick Start](/docs/quick-start).
+:::
 
 Download from the [latest release](https://github.com/Nergy101/Muorg/releases/latest). Assets are named after the version, e.g. `muorg-4.3.0-macos.dmg`.
 

@@ -152,27 +152,40 @@ impl Default for CorsConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct TranscodingConfig {
-    /// Audio bitrate in kbps (default: 128)
+    /// Audio bitrate in kbps (default: 320)
     #[serde(default = "default_transcode_bitrate")]
     pub bitrate: u32,
     /// Output format: "mp3" only for now (default: "mp3")
     #[serde(default = "default_transcode_format")]
     pub format: String,
-    /// Output sample rate in Hz (default: 44100)
+    /// Output sample rate in Hz (default: 48000)
     #[serde(default = "default_transcode_sample_rate")]
     pub sample_rate: u32,
+    /// Downgrade FLAC tracks to the MP3 transcode instead of serving the
+    /// original file 1:1 from `GET /stream/flac/{token}/{id}` (default:
+    /// false — FLAC is served as-is, with an automatic MP3 fallback for
+    /// user agents that cannot decode FLAC, e.g. Safari).
+    #[serde(default)]
+    pub downgrade_flac_to_mp3: bool,
+    /// Downgrade WAV tracks to the MP3 transcode instead of serving the
+    /// original file 1:1 from `GET /stream/wav/{token}/{id}` (default:
+    /// false — WAV is served as-is; every browser decodes WAV natively).
+    #[serde(default)]
+    pub downgrade_wav_to_mp3: bool,
 }
 
-fn default_transcode_bitrate() -> u32 { 128 }
+fn default_transcode_bitrate() -> u32 { 320 }
 fn default_transcode_format() -> String { "mp3".to_string() }
-fn default_transcode_sample_rate() -> u32 { 44100 }
+fn default_transcode_sample_rate() -> u32 { 48000 }
 
 impl Default for TranscodingConfig {
     fn default() -> Self {
         Self {
-            bitrate: 128,
+            bitrate: 320,
             format: "mp3".to_string(),
-            sample_rate: 44100,
+            sample_rate: 48000,
+            downgrade_flac_to_mp3: false,
+            downgrade_wav_to_mp3: false,
         }
     }
 }

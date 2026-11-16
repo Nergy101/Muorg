@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -146,8 +146,11 @@ pub async fn get_cover(
                 _ => return Err(ApiError::not_found("No cover art")),
             };
             let mime = meta.picture_mime.unwrap_or_else(|| "image/jpeg".to_string());
+            // A corrupt embedded picture (invalid base64, e.g. written by
+            // another tool) is "no usable cover", not a server error — 404 so
+            // clients fall back to the placeholder instead of seeing a 500.
             let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64)
-                .map_err(|e| e.to_string())?;
+                .map_err(|_| ApiError::not_found("No cover art"))?;
             if is_remote {
                 state.cover_cache.put(id, &mime, &data);
             }
@@ -163,9 +166,18 @@ pub async fn get_cover(
     };
 
     let mut headers = HeaderMap::new();
-    headers.insert("Content-Type", mime.parse().unwrap());
+    // A non-standard stored mime must not panic the handler — fall back to
+    // the generic image type.
+    let content_type: HeaderValue = mime
+        .parse()
+        .unwrap_or_else(|_| HeaderValue::from_static("image/jpeg"));
+    headers.insert("Content-Type", content_type);
     headers.insert("Content-Length", data.len().to_string().parse().unwrap());
-    headers.insert("Cache-Control", "public, max-age=86400".parse().unwrap());
+    // Covers are mutable (the metadata editor rewrites them), so they must
+    // revalidate instead of being served from the browser cache for a day:
+    // after a cover write, max-age would show the OLD art. `no-cache` plus
+    // the ETag below makes an unchanged cover a cheap 304.
+    headers.insert("Cache-Control", "no-cache".parse().unwrap());
     headers.insert("Vary", "Accept-Encoding".parse().unwrap());
     headers.insert("ETag", etag.parse().unwrap());
     if let Some(m) = mtime {
@@ -828,33 +840,43 @@ pub async fn batch_patch_metadata(
         updates.push((item.id, track_path, item.update.clone()));
     }
 
-    // Write metadata to each track's file or object
-    let mut remote_writes: Vec<(usize, RemoteWrite)> = Vec::new();
-    for (i, (_, track_path, update)) in updates.iter().enumerate() {
-        if let Some(w) = write_track_metadata(&state, track_path, update, false).await? {
-            remote_writes.push((i, w));
-        }
-    }
-
-    // Batch update the DB in a single transaction
-    {
-        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-        let batch: Vec<(&str, &MetadataUpdate)> =
-            updates.iter().map(|(_, p, u)| (p.as_str(), u)).collect();
-        muorg_core::catalog::batch_update_track_metadata(&conn, &batch)?;
-        // Remote objects changed identity: mtime drives the cover cache and the
-        // scanner, the hash drives move detection.
-        for (i, w) in &remote_writes {
-            let track_path = updates[*i].1.as_str();
-            muorg_core::catalog::update_track_mtime(&conn, track_path, w.new_mtime)?;
-            if let Some(h) = &w.new_hash {
-                let _ = muorg_core::catalog::update_track_hash(&conn, track_path, h);
+    // Write metadata to each track's file or object. A per-track failure —
+    // e.g. a remote object missing from its bucket — must not abort the whole
+    // batch: the track is skipped (and logged), the rest are still written,
+    // and `updated` reports how many actually landed.
+    let mut written: Vec<(i64, String, MetadataUpdate, Option<RemoteWrite>)> = Vec::new();
+    for (id, track_path, update) in &updates {
+        match write_track_metadata(&state, track_path, update, false).await {
+            Ok(w) => written.push((*id, track_path.clone(), update.clone(), w)),
+            Err(e) => {
+                tracing::warn!(track_id = id, path = %track_path, error = ?e, "batch metadata write skipped for track");
             }
         }
     }
-    for (i, _) in &remote_writes {
-        state.cover_cache.invalidate(updates[*i].0);
+
+    // Batch update the DB in a single transaction — only for the tracks whose
+    // file/object write actually succeeded.
+    {
+        let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
+        let batch: Vec<(&str, &MetadataUpdate)> =
+            written.iter().map(|(_, p, u, _)| (p.as_str(), u)).collect();
+        muorg_core::catalog::batch_update_track_metadata(&conn, &batch)?;
+        // Remote objects changed identity: mtime drives the cover cache and the
+        // scanner, the hash drives move detection.
+        for (_, track_path, _, w) in &written {
+            if let Some(w) = w {
+                muorg_core::catalog::update_track_mtime(&conn, track_path, w.new_mtime)?;
+                if let Some(h) = &w.new_hash {
+                    let _ = muorg_core::catalog::update_track_hash(&conn, track_path, h);
+                }
+            }
+        }
+    }
+    for (id, _, _, w) in &written {
+        if w.is_some() {
+            state.cover_cache.invalidate(*id);
+        }
     }
 
-    Ok(Json(BatchUpdateResponse { ok: true, updated: updates.len() }))
+    Ok(Json(BatchUpdateResponse { ok: true, updated: written.len() }))
 }

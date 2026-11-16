@@ -136,6 +136,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import StarIcon from "./StarIcon.vue";
+import { DEFAULT_PLAYLIST_ICON } from "@shared/playlistIcons";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PlaylistPickerSheet from "./PlaylistPickerSheet.vue";
 import { useSelectionStore } from "../stores/selection";
@@ -266,7 +267,7 @@ async function onPickerRemove(p: Playlist): Promise<void> {
 
 async function onPickerCreate(name: string): Promise<void> {
   try {
-    const p = await playlistStore.createPlaylist(name, "🎵");
+    const p = await playlistStore.createPlaylist(name, DEFAULT_PLAYLIST_ICON);
     await playlistStore.addTracks(p.id, selection.ids);
     showToast(`Added to ${p.name}`);
   } catch (e) {

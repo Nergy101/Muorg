@@ -4,6 +4,9 @@ import React, { useEffect } from "react";
 // (the @easyops-cn/docusaurus-search-local plugin ships ⌘K / Ctrl+K only).
 export default function Root({ children }) {
   useEffect(() => {
+    // Tell the orc loader (src/clientModules/orcLoader.js) hydration is done.
+    window.dispatchEvent(new Event("orc:hydrated"));
+
     const isTyping = (e) => {
       const tag = e.target?.tagName;
       return (

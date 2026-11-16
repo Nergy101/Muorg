@@ -28,15 +28,8 @@
             @keyup.enter="confirm"
           />
 
-          <div class="mt-4 max-h-[24vh] grid grid-cols-8 gap-1 overflow-y-auto">
-            <button
-              v-for="emoji in PLAYLIST_EMOJIS"
-              :key="emoji"
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-lg text-title-md leading-none"
-              :class="emoji === icon ? 'bg-primary-container' : ''"
-              @click="icon = emoji"
-            >{{ emoji }}</button>
+          <div class="mt-4">
+            <PlaylistIconPicker v-model="icon" />
           </div>
 
           <div class="mt-4 max-h-[38vh] min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -141,7 +134,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
-import { PLAYLIST_EMOJIS } from "../playlistEmojis";
+import PlaylistIconPicker from "./PlaylistIconPicker.vue";
+import { DEFAULT_PLAYLIST_ICON } from "@shared/playlistIcons";
 import type { SmartRule } from "../types";
 
 const props = defineProps<{
@@ -211,7 +205,7 @@ function onFieldChange(rule: SmartRule): void {
 }
 
 const name = ref(props.initialName ?? "");
-const icon = ref(props.initialIcon ?? "⚡");
+const icon = ref(props.initialIcon ?? DEFAULT_PLAYLIST_ICON);
 const rules = reactive<SmartRule[]>([]);
 
 watch(
@@ -219,7 +213,7 @@ watch(
   (isOpen) => {
     if (!isOpen) return;
     name.value = props.initialName ?? "";
-    icon.value = props.initialIcon ?? "⚡";
+    icon.value = props.initialIcon ?? DEFAULT_PLAYLIST_ICON;
     rules.splice(0, rules.length, ...(props.initialRules?.map((r) => ({ ...r })) ?? []));
   },
 );

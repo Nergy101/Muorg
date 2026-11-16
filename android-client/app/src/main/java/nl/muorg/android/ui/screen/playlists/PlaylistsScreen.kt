@@ -70,6 +70,7 @@ import nl.muorg.android.ui.glass.GlassMaterial
 import nl.muorg.android.ui.glass.GlassSurface
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.ui.layout.rememberGridColumns
+import nl.muorg.android.ui.component.PlaylistIconPicker
 import nl.muorg.android.ui.component.PlaylistActionsSheet
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
@@ -77,16 +78,6 @@ import nl.muorg.android.ui.icon.MageIcon
 
 /** The server's favorites playlist — managed by the server, not editable. */
 private const val FAVORITES_PLAYLIST_NAME = "Favorites"
-
-private val PLAYLIST_EMOJIS = listOf(
-    "🎵", "🎶", "🎸", "🎹", "🎺", "🎻", "🥁", "🎷",
-    "🎤", "🎧", "📻", "🎼", "🎙", "🎛", "🎚", "🔊",
-    "❤️", "💜", "💚", "💙", "💛", "🧡", "🖤", "🤍",
-    "🔥", "⭐", "🌟", "✨", "💫", "🌙", "☀️", "🌈",
-    "🏃", "💪", "🧘", "🎉", "🎊", "🥳", "😴", "😌",
-    "🌿", "🌺", "🍂", "🌊", "⛰️", "🌃", "🌆", "🏖️",
-    "🎮", "📚", "🏀", "⚽", "🚀", "🌍", "🦋", "🐾",
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -441,9 +432,11 @@ fun PlaylistsScreen(
     if (uiState.showSmartDialog) {
         SmartPlaylistDialog(
             name = uiState.smartName,
+            icon = uiState.smartIcon,
             rules = uiState.smartRules,
             saving = uiState.smartSaving,
             onNameChange = viewModel::onSmartNameChange,
+            onIconChange = viewModel::onSmartIconChange,
             onRuleChange = viewModel::updateSmartRule,
             onAddRule = viewModel::addSmartRule,
             onRemoveRule = viewModel::removeSmartRule,
@@ -472,33 +465,11 @@ fun PlaylistsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 6.dp),
                     )
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(8),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                    ) {
-                        items(PLAYLIST_EMOJIS) { emoji ->
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(
-                                        if (uiState.newPlaylistIcon == emoji)
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        else Color.Transparent
-                                    )
-                                    .clickable { viewModel.onIconChange(emoji) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = emoji,
-                                    fontSize = 20.sp,
-                                    fontFamily = FontFamily.Default,
-                                )
-                            }
-                        }
-                    }
+                    PlaylistIconPicker(
+                        value = uiState.newPlaylistIcon,
+                        onChange = viewModel::onIconChange,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             },
             confirmButton = {
@@ -535,33 +506,11 @@ fun PlaylistsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 6.dp),
                     )
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(8),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                    ) {
-                        items(PLAYLIST_EMOJIS) { emoji ->
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(
-                                        if (uiState.editIcon == emoji)
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        else Color.Transparent
-                                    )
-                                    .clickable { viewModel.onEditIconChange(emoji) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = emoji,
-                                    fontSize = 20.sp,
-                                    fontFamily = FontFamily.Default,
-                                )
-                            }
-                        }
-                    }
+                    PlaylistIconPicker(
+                        value = uiState.editIcon,
+                        onChange = viewModel::onEditIconChange,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             },
             confirmButton = {

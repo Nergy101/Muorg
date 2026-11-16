@@ -51,6 +51,7 @@ import nl.muorg.android.ui.component.MarqueeText
 import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.coverModelFor
 import nl.muorg.android.ui.icon.mageIconRes
+import nl.muorg.android.ui.icon.PlaylistIcon
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.theme.MuorgShapes
 
@@ -130,10 +131,11 @@ fun MixDetailScreen(
                     imageLoader = imageLoader,
                     modifier = Modifier.size(112.dp).clip(MuorgShapes.art),
                 ) {
-                    Text(
-                        text = mix.emoji,
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.align(Alignment.Center),
+                    PlaylistIcon(
+                        icon = mix.icon,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(48.dp),
                     )
                 }
                 Spacer(Modifier.width(14.dp))

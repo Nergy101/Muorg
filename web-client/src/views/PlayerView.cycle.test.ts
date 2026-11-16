@@ -14,6 +14,7 @@ vi.mock("vue-router", () => ({
 vi.mock("../api/catalog", () => ({ getTrackLyrics: () => Promise.resolve(null) }));
 vi.mock("../composables/useDominantColor", () => ({
   useDominantColor: () => ref("128,128,128"),
+  rawMainColor: (rgb: string) => rgb,
   isColorBland: () => false,
 }));
 vi.mock("../composables/usePopoutPlayer", () => ({

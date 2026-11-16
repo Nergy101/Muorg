@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import nl.muorg.android.data.api.Playlist
 import nl.muorg.android.data.api.SmartRule
 import nl.muorg.android.ui.component.PickerSheet
+import nl.muorg.android.ui.component.PlaylistIconPicker
 import nl.muorg.android.ui.icon.mageIconRes
 
 /**
@@ -45,9 +46,11 @@ import nl.muorg.android.ui.icon.mageIconRes
 @Composable
 internal fun SmartPlaylistDialog(
     name: String,
+    icon: String,
     rules: List<SmartRule>,
     saving: Boolean,
     onNameChange: (String) -> Unit,
+    onIconChange: (String) -> Unit,
     onRuleChange: (Int, SmartRule) -> Unit,
     onAddRule: () -> Unit,
     onRemoveRule: (Int) -> Unit,
@@ -75,6 +78,18 @@ internal fun SmartPlaylistDialog(
                     onValueChange = onNameChange,
                     label = { Text("Name") },
                     singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "Icon",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                PlaylistIconPicker(
+                    value = icon,
+                    onChange = onIconChange,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))

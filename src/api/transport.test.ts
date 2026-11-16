@@ -180,11 +180,62 @@ describe("fetchBlob", () => {
     expect(await blob.text()).toBe("img");
   });
 
+  it("revalidates with the server instead of trusting a cached cover", async () => {
+    // A cover cached under an old `max-age` header would otherwise keep
+    // showing the previous art after a cover write.
+    const spy = vi.fn(async () => new Response(new Blob(["img"])));
+    vi.stubGlobal("fetch", spy);
+    await createTransport(creds).fetchBlob("/api/tracks/1/cover");
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ cache: "no-cache" }),
+    );
+  });
+
   it("throws ApiError on a non-2xx", async () => {
     stubFetch(() => new Response(null, { status: 404 }));
     await expect(
       createTransport(creds).fetchBlob("/api/tracks/1/cover"),
     ).rejects.toThrowError(ApiError);
+  });
+});
+
+describe("onUnauthorized", () => {
+  it("fires when an /api/* request is rejected with 401", async () => {
+    stubFetch(() => new Response(null, { status: 401 }));
+    const onUnauthorized = vi.fn();
+    await createTransport({ ...creds, onUnauthorized }).client.GET("/api/roots");
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fire on other failure statuses", async () => {
+    stubFetch(() => new Response(null, { status: 404 }));
+    const onUnauthorized = vi.fn();
+    await createTransport({ ...creds, onUnauthorized }).client.GET("/api/roots");
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it("does not fire on success", async () => {
+    stubFetch(() => json([]));
+    const onUnauthorized = vi.fn();
+    await createTransport({ ...creds, onUnauthorized }).client.GET("/api/roots");
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it("fires on a 401 from fetchBlob (covers are /api/* too)", async () => {
+    stubFetch(() => new Response(null, { status: 401 }));
+    const onUnauthorized = vi.fn();
+    await expect(
+      createTransport({ ...creds, onUnauthorized }).fetchBlob("/api/tracks/1/cover"),
+    ).rejects.toThrowError(ApiError);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("is optional — a 401 without a handler still just throws", async () => {
+    stubFetch(() => new Response(null, { status: 401 }));
+    const result = await createTransport(creds).client.GET("/api/roots");
+    expect(result.response.status).toBe(401);
   });
 });
 
@@ -204,5 +255,29 @@ describe("streamUrl", () => {
   it("appends a seek offset only when it is past the start", () => {
     expect(t.streamUrl(7, "tok", 0)).not.toContain("start=");
     expect(t.streamUrl(7, "tok", 12.345)).toContain("?start=12.35");
+  });
+});
+
+describe("flacStreamUrl", () => {
+  const t = createTransport(creds);
+
+  it("builds the original-FLAC URL with the token in the path", () => {
+    expect(t.flacStreamUrl(7, "tok")).toBe(
+      "http://server.test:7700/stream/flac/tok/7",
+    );
+  });
+
+  it("escapes a token with URL-unsafe characters", () => {
+    expect(t.flacStreamUrl(7, "a+b/c=")).toContain("/stream/flac/a%2Bb%2Fc%3D/7");
+  });
+});
+
+describe("wavStreamUrl", () => {
+  const t = createTransport(creds);
+
+  it("builds the original-WAV URL with the token in the path", () => {
+    expect(t.wavStreamUrl(7, "tok")).toBe(
+      "http://server.test:7700/stream/wav/tok/7",
+    );
   });
 });

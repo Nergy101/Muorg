@@ -330,11 +330,18 @@ class OfflineDownloadManager @Inject constructor(
     /** Bytes written, or null when the track could not be downloaded. */
     private suspend fun downloadTrack(track: CatalogTrack, playlistId: Int?): Long? {
         val baseUrl = preferences.serverUrlState.value.trimEnd('/')
-        val token = runCatching {
+        val info = runCatching {
             api.issueToken(track.id.toLong())
-                .bodyOrThrow("GET /api/tracks/${track.id}/stream-token").token
+                .bodyOrThrow("GET /api/tracks/${track.id}/stream-token")
         }.getOrElse { return null }
-        val url = "$baseUrl/stream/$token/${track.id}"
+        // Servers with lossless passthrough hand over the original file, so
+        // the offline copy is lossless too; otherwise this is the transcoded stream.
+        val f = track.format.lowercase()
+        val url = when {
+            info.flac && f == "flac" -> "$baseUrl/stream/flac/${info.token}/${track.id}"
+            info.wav && f == "wav" -> "$baseUrl/stream/wav/${info.token}/${track.id}"
+            else -> "$baseUrl/stream/${info.token}/${track.id}"
+        }
 
         val request = Request.Builder().url(url).build()
         val response = okHttpClient.newCall(request).execute()

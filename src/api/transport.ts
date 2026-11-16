@@ -25,6 +25,14 @@ export interface Credentials {
   baseUrl(): string;
   /** Bearer token, or `""` when the server is unauthenticated. */
   apiKey(): string;
+  /**
+   * Called when the server rejects the API key with a 401 on an `/api/*`
+   * request — e.g. after the key was changed server-side. Apps use it to
+   * drop their stored credentials and send the user back to log in again.
+   * Not fired for `/stream/*` 401s: those carry short-lived stream tokens,
+   * not the API key.
+   */
+  onUnauthorized?(): void;
 }
 
 /** An error carrying the HTTP status, so callers can branch on 404 vs 401. */
@@ -71,6 +79,18 @@ export interface Transport {
   fetchBlob(path: string): Promise<Blob>;
   /** Absolute, token-authorised `<audio src>` URL. */
   streamUrl(trackId: number, token: string, startSecs?: number): string;
+  /**
+   * Absolute, token-authorised URL for the track's original FLAC bytes
+   * (`/stream/flac/{token}/{id}`). Only served when the server advertises
+   * `flac: true`; no `?start=` — FLAC seeks natively via byte ranges.
+   */
+  flacStreamUrl(trackId: number, token: string): string;
+  /**
+   * Absolute, token-authorised URL for the track's original WAV bytes
+   * (`/stream/wav/{token}/{id}`). Only served when the server advertises
+   * `wav: true`; no `?start=` — WAV seeks natively via byte ranges.
+   */
+  wavStreamUrl(trackId: number, token: string): string;
   baseUrl(): string;
 }
 
@@ -104,7 +124,11 @@ export function createTransport(credentials: Credentials): Transport {
       for (const [name, value] of Object.entries(authHeaders())) {
         next.headers.set(name, value);
       }
-      return globalThis.fetch(next);
+      const response = await globalThis.fetch(next);
+      if (response.status === 401 && pathname.startsWith("/api/")) {
+        credentials.onUnauthorized?.();
+      }
+      return response;
     },
   });
 
@@ -139,8 +163,18 @@ export function createTransport(credentials: Credentials): Transport {
       const headers = new Headers(authHeaders());
       const res = await globalThis.fetch(`${credentials.baseUrl()}${path}`, {
         headers,
+        // Album art is mutable (the metadata editor rewrites it), so every
+        // fetch must revalidate with the server instead of trusting the HTTP
+        // cache. Older servers sent covers with `max-age=86400`; those cached
+        // entries stay "fresh" for a day and would keep serving the OLD art
+        // after a cover write without the server ever being asked. An
+        // unchanged cover still costs only a 304 thanks to the server's ETag.
+        cache: "no-cache",
       });
-      if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status, path);
+      if (!res.ok) {
+        if (res.status === 401) credentials.onUnauthorized?.();
+        throw new ApiError(`HTTP ${res.status}`, res.status, path);
+      }
       return res.blob();
     },
 
@@ -151,6 +185,14 @@ export function createTransport(credentials: Credentials): Transport {
       return startSecs != null && startSecs > 0
         ? `${base}?start=${startSecs.toFixed(2)}`
         : base;
+    },
+
+    flacStreamUrl(trackId: number, token: string): string {
+      return `${credentials.baseUrl()}/stream/flac/${encodeURIComponent(token)}/${trackId}`;
+    },
+
+    wavStreamUrl(trackId: number, token: string): string {
+      return `${credentials.baseUrl()}/stream/wav/${encodeURIComponent(token)}/${trackId}`;
     },
   };
 }

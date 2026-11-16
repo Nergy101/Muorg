@@ -16,7 +16,7 @@
       class="flex h-14 w-full items-center gap-3 px-6 text-left"
       @click="toggle(p)"
     >
-      <span class="text-title-lg leading-none">{{ p.icon ?? "🎵" }}</span>
+      <PlaylistIcon :icon="p.icon" class="h-6 w-6 shrink-0" />
       <span class="min-w-0 flex-1 truncate text-body-lg text-on-surface">{{ p.name }}</span>
       <MageIcon
         v-if="stateFor(p.id) === 'full'"
@@ -74,6 +74,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import BottomSheet from "./BottomSheet.vue";
 import { usePlaylistStore } from "../stores/playlists";
 import type { Playlist } from "../types";

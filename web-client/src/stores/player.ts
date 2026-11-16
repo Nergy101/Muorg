@@ -1,14 +1,15 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch, watchEffect } from "vue";
-import { getMetadata, issueStreamToken, recordPlay } from "../api/catalog";
+import { getMetadata, issueStreamTokenInfo, recordPlay } from "../api/catalog";
 import type { TrackMetadata } from "../api/catalog";
-import { streamUrl } from "../api/client";
+import { api, streamUrl } from "../api/client";
+import type { StreamTokenInfo } from "@shared/api";
 import { needsTranscode } from "@shared/formats";
 import { computeReplayGainVolume } from "../audio/replayGain";
 import { clearPlayHistory, recordPlayHistory, stepBackPlayHistory } from "../audio/playHistory";
 import { showToast } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
-import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
+import { isColorBland, rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { router } from "../router";
 import { useCastStore } from "./cast";
 import { useLibraryStore } from "./library";
@@ -16,6 +17,13 @@ import { useOfflineStore, offlineStreamUrl } from "./offline";
 import { usePlaylistStore } from "./playlists";
 import { useSettingsStore } from "./settings";
 import type { CatalogTrack, RepeatMode } from "../types";
+
+/** True when the server will serve this track's original lossless file 1:1
+ *  (FLAC or WAV passthrough) instead of a transcoded MP3. */
+function isPassthrough(track: CatalogTrack, info: StreamTokenInfo): boolean {
+  const format = track.format.toLowerCase();
+  return (info.flac && format === "flac") || (info.wav && format === "wav");
+}
 
 /** How many tracks "Shuffle all" queues up front and tops up with. */
 const SHUFFLE_ALL_BATCH = 20;
@@ -316,8 +324,66 @@ export const usePlayerStore = defineStore("player", () => {
   /** Wires the shared listener set onto one hidden, DOM-attached audio element.
    * Only the ACTIVE element may write playback state; the preload element fires
    * durationchange (and briefly play/pause) while it's just buffering. */
+  // Audio analysis for visualizers: one shared AudioContext + AnalyserNode.
+  // SAFETY: the playback element is NEVER rerouted — we tap it with
+  // captureStream(), which leaves native output untouched, so analysis can
+  // never silence playback. Worst case (cross-origin without CORS, or no
+  // captureStream support) the analyser just sees zeros and the visualizer
+  // falls back to its time-based animation.
+  let audioCtx: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  const analysedEls = new WeakSet<HTMLAudioElement>();
+
+  /** Create the shared context synchronously — call from a user gesture
+   *  (the play handler) so resume() is allowed. */
+  function ensureAudioCtx(): void {
+    if (audioCtx) return;
+    try {
+      audioCtx = new AudioContext();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.55;
+      analyser.connect(audioCtx.destination);
+    } catch {
+      audioCtx = null;
+      analyser = null;
+    }
+  }
+
+  function ensureAnalyser(el: HTMLAudioElement): void {
+    if (analysedEls.has(el) || !audioCtx || !analyser) return;
+    analysedEls.add(el);
+    try {
+      // MediaElementSource carries the element's real audio into the graph.
+      // Safe now: the context is created+resumed synchronously in the play
+      // gesture (a suspended context was what silenced it before), and the
+      // element has crossOrigin="anonymous" so cross-origin streams are
+      // CORS-clean (any working setup sends ACAO for the web origin).
+      audioCtx.createMediaElementSource(el).connect(analyser);
+    } catch {
+      // Visualizer only — playback is unaffected.
+    }
+  }
+
+  /** Current frequency spectrum (0-255 per bin), or null when unavailable. */
+  function getFrequencyData(): Uint8Array | null {
+    if (!analyser) return null;
+    // A suspended context reports an all-zero spectrum; try to resume (works
+    // once the context has been running, e.g. after the first play gesture).
+    if (audioCtx?.state === "suspended") void audioCtx.resume();
+    const arr = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(arr);
+    return arr;
+  }
+
   function makeAudioEl(): HTMLAudioElement {
     const el = new Audio();
+    // CORS-mode media fetch: without this the element loads in no-cors mode
+    // and captureStream() (used by the visualizer analyser) returns a silent,
+    // tainted stream for cross-origin servers. Safe because any working
+    // setup already sends CORS headers for the web origin (the API needs
+    // them too).
+    el.crossOrigin = "anonymous";
     el.addEventListener("timeupdate", () => {
       if (el !== audioEl.value) return;
       positionSecs.value = el.currentTime + flacSeekOffset;
@@ -344,6 +410,12 @@ export const usePlayerStore = defineStore("player", () => {
       void playIndexAt(0);
     });
     el.addEventListener("play", () => {
+      // Create/resume the AudioContext synchronously inside this user
+      // gesture — a suspended context silences the rerouted element — then
+      // attach the analyser (CORS-safe origins only, see ensureAnalyser).
+      ensureAudioCtx();
+      if (audioCtx?.state === "suspended") void audioCtx.resume();
+      ensureAnalyser(el);
       if (el === audioEl.value) isPlaying.value = true;
     });
     el.addEventListener("pause", () => {
@@ -422,24 +494,30 @@ export const usePlayerStore = defineStore("player", () => {
    *  server is unreachable the offline copy is used (Q11). Offline mode (the
    *  settings toggle, mirroring the Android app) makes no network calls at
    *  all: cached tracks play from the cache, anything else is an error. */
-  async function resolveStreamSrc(track: CatalogTrack, startSecs: number): Promise<string> {
+  async function resolveStreamSrc(
+    track: CatalogTrack,
+    startSecs: number,
+  ): Promise<{ src: string; passthrough: boolean }> {
     const offline = useOfflineStore();
     if (useSettingsStore().offlineMode) {
       if (!offline.isCached(track.id)) {
         throw new Error("Not downloaded — download it or turn off offline mode");
       }
-      return offlineStreamUrl(track.id);
+      return { src: offlineStreamUrl(track.id), passthrough: false };
     }
     if (offline.isCached(track.id)) {
       try {
-        const token = await issueStreamToken(track.id);
-        return streamUrl(track.id, token);
+        const info = await issueStreamTokenInfo(track.id);
+        return { src: api.streamUrlForTrack(track, info), passthrough: isPassthrough(track, info) };
       } catch {
-        return offlineStreamUrl(track.id);
+        return { src: offlineStreamUrl(track.id), passthrough: false };
       }
     }
-    const token = await issueStreamToken(track.id);
-    return streamUrl(track.id, token, startSecs);
+    const info = await issueStreamTokenInfo(track.id);
+    return {
+      src: api.streamUrlForTrack(track, info, startSecs),
+      passthrough: isPassthrough(track, info),
+    };
   }
 
   async function playCurrent(startSecs = 0): Promise<void> {
@@ -448,16 +526,16 @@ export const usePlayerStore = defineStore("player", () => {
     const seq = ++_seekSeq;
     const cached = useOfflineStore().isCached(track.id);
     try {
-      const [src, tags] = await Promise.all([
+      const [{ src, passthrough }, tags] = await Promise.all([
         resolveStreamSrc(track, startSecs),
         fetchMetadataCached(track.id),
       ]);
       if (seq !== _seekSeq) return;
       replayGainTags.value = tags;
       const el = initAudio();
-      // A cached file is complete, so even FLAC/WAV seeks natively — no
-      // transcode offset to track.
-      flacSeekOffset = !cached && needsTranscode(track.format) ? startSecs : 0;
+      // A cached file or a true-FLAC stream is complete, so even FLAC/WAV
+      // seeks natively — no transcode offset to track.
+      flacSeekOffset = !cached && !passthrough && needsTranscode(track.format) ? startSecs : 0;
       el.src = src;
       applyEffectiveVolume();
       positionSecs.value = startSecs;
@@ -558,7 +636,7 @@ export const usePlayerStore = defineStore("player", () => {
     if (preloadedTrack?.id === next.id && buf.src) return; // already buffering it
     const seq = ++preloadSeq;
     try {
-      const [src, tags] = await Promise.all([
+      const [{ src }, tags] = await Promise.all([
         resolveStreamSrc(next, 0),
         fetchMetadataCached(next.id),
       ]);
@@ -718,7 +796,18 @@ export const usePlayerStore = defineStore("player", () => {
     const wasPlaying = !el.paused;
     const cached = useOfflineStore().isCached(track.id);
 
+    // A true-FLAC stream (feature flag on) is the complete file, so it seeks
+    // natively like an MP3 — only a transcoded stream needs the ?start= reload.
+    let passthrough = false;
     if (needsTranscode(track.format) && !cached) {
+      try {
+        passthrough = isPassthrough(track, await issueStreamTokenInfo(track.id));
+      } catch {
+        passthrough = false;
+      }
+    }
+
+    if (needsTranscode(track.format) && !cached && !passthrough) {
       // Streamed FLAC/WAV: the server transcodes from ?start=, so the stream
       // must reload. Issue a fresh token — the original expires 60s after track
       // start. A cached file is complete and seeks natively below.
@@ -726,9 +815,9 @@ export const usePlayerStore = defineStore("player", () => {
       flacSeekOffset = secs;
       el.src = "";
       try {
-        const token = await issueStreamToken(track.id);
+        const info = await issueStreamTokenInfo(track.id);
         if (seq !== _seekSeq) return;
-        el.src = streamUrl(track.id, token, secs);
+        el.src = streamUrl(track.id, info.token, secs);
         el.load();
         positionSecs.value = secs;
         if (wasPlaying) {
@@ -1117,12 +1206,9 @@ export const usePlayerStore = defineStore("player", () => {
     navigator.mediaSession.setActionHandler("seekto", (d) => {
       if (d.seekTime != null) void seekTo(Math.floor(d.seekTime));
     });
-    navigator.mediaSession.setActionHandler("seekbackward", (d) => {
-      void seekTo(Math.max(0, Math.floor(positionSecs.value - (d.seekOffset ?? 10))));
-    });
-    navigator.mediaSession.setActionHandler("seekforward", (d) => {
-      void seekTo(Math.min(durationSecs.value, Math.floor(positionSecs.value + (d.seekOffset ?? 10))));
-    });
+    // No seekbackward/seekforward handlers: some mice route their back/forward
+    // buttons to those media actions, which made them skip 10s per click.
+    // Keyboard seeking stays available via ← / → / J / L.
   }
 
   const currentCoverUrl = computed(() => {
@@ -1173,6 +1259,20 @@ export const usePlayerStore = defineStore("player", () => {
     el.style.setProperty("--primary-container", container);
     el.style.setProperty("--on-primary-container", onContainer);
     el.style.setProperty("--secondary", onContainer);
+  });
+
+  // Glass edge-highlight hue: the playing album's dominant color as an "r,g,b"
+  // triplet. Only desktop viewports consume it (see the media query in
+  // style.css); with no usable artwork color the var is dropped and the CSS
+  // fallback (white) applies.
+  watchEffect(() => {
+    const el = document.documentElement;
+    const rgb = rawMainColor(accentGlowRgb.value);
+    if (isColorBland(rgb)) {
+      el.style.removeProperty("--glass-edge");
+      return;
+    }
+    el.style.setProperty("--glass-edge", rgb);
   });
 
   watch([currentTrack, currentCoverUrl], () => {
@@ -1527,6 +1627,7 @@ export const usePlayerStore = defineStore("player", () => {
     currentTrack,
     currentCoverUrl,
     audioEl,
+    getFrequencyData,
     progress,
     sleepTimerActive,
     upNext,

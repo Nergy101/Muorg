@@ -19,8 +19,8 @@
  * `buildStreamM3u` (token issuance) and `downloadM3uFile` (DOM) are impure.
  */
 
-import { issueStreamToken } from "../api/catalog";
-import { getServerUrl, streamUrl } from "../api/client";
+import { issueStreamTokenInfo } from "../api/catalog";
+import { api, getServerUrl } from "../api/client";
 import type { CatalogTrack } from "../types";
 
 export type M3uMode = "stream" | "relative";
@@ -87,12 +87,15 @@ export function previewRelativePath(tracks: CatalogTrack[], musicRoot: string): 
  * unauthenticated stream URL (same as the pre-existing PlaylistCard export).
  */
 export async function buildStreamM3u(tracks: CatalogTrack[]): Promise<M3uResult> {
-  const tokens = await Promise.all(tracks.map((t) => issueStreamToken(t.id).catch(() => null)));
+  const infos = await Promise.all(tracks.map((t) => issueStreamTokenInfo(t.id).catch(() => null)));
   const lines: string[] = ["#EXTM3U"];
   tracks.forEach((t, i) => {
     lines.push(extinfLine(t));
-    const tok = tokens[i];
-    lines.push(tok ? streamUrl(t.id, tok) : `${getServerUrl()}/stream/${t.id}`);
+    const info = infos[i];
+    // Servers with lossless passthrough serve the original FLAC/WAV file
+    // from /stream/flac/... or /stream/wav/...; the fallback is the
+    // unauthenticated transcoded stream URL.
+    lines.push(info ? api.streamUrlForTrack(t, info) : `${getServerUrl()}/stream/${t.id}`);
   });
   return { content: lines.join("\n") + "\n", skippedCount: 0 };
 }

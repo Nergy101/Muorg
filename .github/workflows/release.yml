@@ -1,13 +1,12 @@
 name: Release
 
-# Each artifact is released independently: the desktop apps and the three
-# Docker images no longer share a dependency chain, so publishing a web image
-# does not wait ~25 minutes behind the macOS and Windows Tauri builds.
+# Each artifact is released independently: the Docker images no longer share
+# a dependency chain with the (now disabled) desktop Tauri builds.
 #
-#   version ─┬─ desktop ── release            (dmg / msi / AppImage + latest.json)
-#            ├─ server-binaries ── docker-server
+#   version ─┬─ server-binaries ── docker-server
 #            ├─ docker-web
 #            └─ docker-docs
+#   (desktop/Tauri release job is commented out — legacy)
 #
 # Pushing a v* tag releases only the artifacts whose source paths changed since
 # the previous v* tag. workflow_dispatch releases whichever targets you tick, so
@@ -22,10 +21,10 @@ on:
         description: 'Version to publish (defaults to the version in web-client/package.json)'
         required: false
         type: string
-      desktop:
-        description: 'Build + release the desktop apps'
-        type: boolean
-        default: false
+#       desktop:
+#         description: 'Build + release the desktop apps'
+#         type: boolean
+#         default: false
       docker_server:
         description: 'Build + push muorg-server image'
         type: boolean
@@ -107,7 +106,7 @@ jobs:
 
           if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
             {
-              echo "desktop=${{ inputs.desktop }}"
+              echo "desktop=false"  # desktop releases disabled (legacy)
               echo "docker_server=${{ inputs.docker_server }}"
               echo "docker_web=${{ inputs.docker_web }}"
               echo "docker_docs=${{ inputs.docker_docs }}"
@@ -131,7 +130,7 @@ jobs:
           if [[ -z "${PREV}" ]]; then
             echo "::warning::No previous v* tag found — releasing every artifact."
             {
-              echo "desktop=true"
+              echo "desktop=false"  # desktop releases disabled (legacy)
               echo "docker_server=true"
               echo "docker_web=true"
               echo "docker_docs=true"
@@ -146,9 +145,7 @@ jobs:
           changed() { grep -qE "$1" <<< "${CHANGED}"; }
 
           desktop=false; docker_server=false; docker_web=false; docker_docs=false
-          # src/ holds components shared by the desktop and web front-ends, and the
-          # desktop bundle ships the server as a sidecar binary.
-          if changed '^(client/|src/|server/)'; then desktop=true;       fi
+          # Desktop releases are disabled (legacy) — desktop is always false.
           if changed '^server/';                then docker_server=true; fi
           if changed '^(web-client/|src/)';     then docker_web=true;    fi
           if changed '^docs-site/';             then docker_docs=true;   fi
@@ -218,190 +215,190 @@ jobs:
             server/target/x86_64-unknown-linux-gnu/release/muorg-server
             server/target/aarch64-unknown-linux-gnu/release/muorg-server
 
-  desktop:
-    needs: version
-    if: needs.version.outputs.desktop == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            server-target: aarch64-apple-darwin
-            artifact_name: aarch64-darwin
-          - platform: windows-latest
-            target: ""
-            server-target: x86_64-pc-windows-msvc
-            artifact_name: x86_64-windows
-          - platform: ubuntu-22.04
-            target: ""
-            server-target: x86_64-unknown-linux-gnu
-            artifact_name: x86_64-linux
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set version in manifests
-        shell: bash
-        run: |
-          node -e "
-            const fs = require('fs');
-            const v = process.env.VERSION;
-            const p = require('./client/package.json');
-            p.version = v;
-            fs.writeFileSync('./client/package.json', JSON.stringify(p, null, 2));
-            const tauri = require('./client/src-tauri/tauri.conf.json');
-            tauri.version = v;
-            fs.writeFileSync('./client/src-tauri/tauri.conf.json', JSON.stringify(tauri, null, 2));
-            const cargo = fs.readFileSync('./client/src-tauri/Cargo.toml', 'utf8');
-            fs.writeFileSync('./client/src-tauri/Cargo.toml', cargo.replace(/^version = \".*\"$/m, 'version = \"' + v + '\"'));
-            const pw = require('./web-client/package.json');
-            pw.version = v;
-            fs.writeFileSync('./web-client/package.json', JSON.stringify(pw, null, 2));
-          "
-        env:
-          VERSION: ${{ needs.version.outputs.version }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '20'
-
-      # No `version:` — pnpm/action-setup reads the root package.json's
-      # `packageManager` field. Setting both is an error ("Multiple versions of
-      # pnpm specified"), which is what broke the Linux desktop build on v3.0.0.
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Add Rust target for server
-        run: rustup target add ${{ matrix.server-target }}
-
-      - name: Add Rust target for Tauri (cross-compilation)
-        if: matrix.target != ''
-        run: rustup target add ${{ matrix.target }}
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            server -> target
-            client/src-tauri -> target
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
-            patchelf libasound2-dev \
-            pkg-config libssl-dev libmp3lame-dev
-
-      - name: Install OpenSSL via vcpkg (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (-Not (Test-Path C:\vcpkg)) {
-            git clone https://github.com/microsoft/vcpkg C:\vcpkg
-            C:\vcpkg\bootstrap-vcpkg.bat
-          }
-          C:\vcpkg\vcpkg.exe install openssl:x64-windows-static
-          C:\vcpkg\vcpkg.exe integrate install
-          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          echo "X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          echo "VCPKGRS_DYNAMIC=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-      - name: Build server binary
-        working-directory: server
-        shell: bash
-        run: cargo build --release --target ${{ matrix.server-target }}
-
-      - name: Copy sidecar binary (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          mkdir -p client/src-tauri/binaries
-          TARGET="${{ matrix.server-target }}"
-          cp server/target/${TARGET}/release/muorg-server \
-             client/src-tauri/binaries/muorg-server-${TARGET}
-          chmod +x client/src-tauri/binaries/muorg-server-${TARGET}
-
-      - name: Copy sidecar binary (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path client/src-tauri/binaries
-          $target = "${{ matrix.server-target }}"
-          Copy-Item "server/target/$target/release/muorg-server.exe" `
-            "client/src-tauri/binaries/muorg-server-${target}.exe"
-
-      - name: Install frontend dependencies
-        working-directory: client
-        run: pnpm install --frozen-lockfile
-
-      - name: Build Tauri app
-        working-directory: client
-        shell: bash
-        run: |
-          if [ -n "${{ matrix.target }}" ]; then
-            pnpm tauri build --target ${{ matrix.target }}
-          else
-            pnpm tauri build
-          fi
-        env:
-          CI: true
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
-          APPLE_SIGNING_IDENTITY: "-"
-          OPENSSL_STATIC: ${{ runner.os == 'macOS' && '1' || '' }}
-
-      - name: Set bundle path
-        id: bundle
-        shell: bash
-        run: |
-          if [ -n "${{ matrix.target }}" ]; then
-            echo "path=client/src-tauri/target/${{ matrix.target }}/release/bundle" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=client/src-tauri/target/release/bundle" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload artifacts (macOS)
-        if: matrix.platform == 'macos-latest'
-        uses: actions/upload-artifact@v7
-        with:
-          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
-          path: |
-            ${{ steps.bundle.outputs.path }}/dmg/*.dmg
-            ${{ steps.bundle.outputs.path }}/macos/*.app
-            ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz
-            ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz.sig
-
-      - name: Upload artifacts (Windows)
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v7
-        with:
-          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
-          path: |
-            ${{ steps.bundle.outputs.path }}/msi/*.msi
-            ${{ steps.bundle.outputs.path }}/nsis/*.exe
-            ${{ steps.bundle.outputs.path }}/msi/*.msi.sig
-            ${{ steps.bundle.outputs.path }}/nsis/*.exe.sig
-
-      - name: Upload artifacts (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v7
-        with:
-          name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
-          path: |
-            ${{ steps.bundle.outputs.path }}/appimage/*.AppImage
-            ${{ steps.bundle.outputs.path }}/deb/*.deb
-            ${{ steps.bundle.outputs.path }}/appimage/*.AppImage.sig
-
+#   desktop:
+#     needs: version
+#     if: needs.version.outputs.desktop == 'true'
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - platform: macos-latest
+#             target: aarch64-apple-darwin
+#             server-target: aarch64-apple-darwin
+#             artifact_name: aarch64-darwin
+#           - platform: windows-latest
+#             target: ""
+#             server-target: x86_64-pc-windows-msvc
+#             artifact_name: x86_64-windows
+#           - platform: ubuntu-22.04
+#             target: ""
+#             server-target: x86_64-unknown-linux-gnu
+#             artifact_name: x86_64-linux
+#     runs-on: ${{ matrix.platform }}
+#     steps:
+#       - uses: actions/checkout@v7
+#
+#       - name: Set version in manifests
+#         shell: bash
+#         run: |
+#           node -e "
+#             const fs = require('fs');
+#             const v = process.env.VERSION;
+#             const p = require('./client/package.json');
+#             p.version = v;
+#             fs.writeFileSync('./client/package.json', JSON.stringify(p, null, 2));
+#             const tauri = require('./client/src-tauri/tauri.conf.json');
+#             tauri.version = v;
+#             fs.writeFileSync('./client/src-tauri/tauri.conf.json', JSON.stringify(tauri, null, 2));
+#             const cargo = fs.readFileSync('./client/src-tauri/Cargo.toml', 'utf8');
+#             fs.writeFileSync('./client/src-tauri/Cargo.toml', cargo.replace(/^version = \".*\"$/m, 'version = \"' + v + '\"'));
+#             const pw = require('./web-client/package.json');
+#             pw.version = v;
+#             fs.writeFileSync('./web-client/package.json', JSON.stringify(pw, null, 2));
+#           "
+#         env:
+#           VERSION: ${{ needs.version.outputs.version }}
+#
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v7
+#         with:
+#           node-version: '20'
+#
+#       # No `version:` — pnpm/action-setup reads the root package.json's
+#       # `packageManager` field. Setting both is an error ("Multiple versions of
+#       # pnpm specified"), which is what broke the Linux desktop build on v3.0.0.
+#       - name: Install pnpm
+#         uses: pnpm/action-setup@v6
+#
+#       - name: Install Rust stable
+#         uses: dtolnay/rust-toolchain@stable
+#
+#       - name: Add Rust target for server
+#         run: rustup target add ${{ matrix.server-target }}
+#
+#       - name: Add Rust target for Tauri (cross-compilation)
+#         if: matrix.target != ''
+#         run: rustup target add ${{ matrix.target }}
+#
+#       - name: Cache Rust dependencies
+#         uses: Swatinem/rust-cache@v2
+#         with:
+#           workspaces: |
+#             server -> target
+#             client/src-tauri -> target
+#
+#       - name: Install Linux dependencies
+#         if: matrix.platform == 'ubuntu-22.04'
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y \
+#             libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+#             patchelf libasound2-dev \
+#             pkg-config libssl-dev libmp3lame-dev
+#
+#       - name: Install OpenSSL via vcpkg (Windows)
+#         if: runner.os == 'Windows'
+#         shell: pwsh
+#         run: |
+#           if (-Not (Test-Path C:\vcpkg)) {
+#             git clone https://github.com/microsoft/vcpkg C:\vcpkg
+#             C:\vcpkg\bootstrap-vcpkg.bat
+#           }
+#           C:\vcpkg\vcpkg.exe install openssl:x64-windows-static
+#           C:\vcpkg\vcpkg.exe integrate install
+#           echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+#           echo "X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+#           echo "VCPKGRS_DYNAMIC=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+#
+#       - name: Build server binary
+#         working-directory: server
+#         shell: bash
+#         run: cargo build --release --target ${{ matrix.server-target }}
+#
+#       - name: Copy sidecar binary (Unix)
+#         if: runner.os != 'Windows'
+#         shell: bash
+#         run: |
+#           mkdir -p client/src-tauri/binaries
+#           TARGET="${{ matrix.server-target }}"
+#           cp server/target/${TARGET}/release/muorg-server \
+#              client/src-tauri/binaries/muorg-server-${TARGET}
+#           chmod +x client/src-tauri/binaries/muorg-server-${TARGET}
+#
+#       - name: Copy sidecar binary (Windows)
+#         if: runner.os == 'Windows'
+#         shell: pwsh
+#         run: |
+#           New-Item -ItemType Directory -Force -Path client/src-tauri/binaries
+#           $target = "${{ matrix.server-target }}"
+#           Copy-Item "server/target/$target/release/muorg-server.exe" `
+#             "client/src-tauri/binaries/muorg-server-${target}.exe"
+#
+#       - name: Install frontend dependencies
+#         working-directory: client
+#         run: pnpm install --frozen-lockfile
+#
+#       - name: Build Tauri app
+#         working-directory: client
+#         shell: bash
+#         run: |
+#           if [ -n "${{ matrix.target }}" ]; then
+#             pnpm tauri build --target ${{ matrix.target }}
+#           else
+#             pnpm tauri build
+#           fi
+#         env:
+#           CI: true
+#           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+#           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+#           TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+#           APPLE_SIGNING_IDENTITY: "-"
+#           OPENSSL_STATIC: ${{ runner.os == 'macOS' && '1' || '' }}
+#
+#       - name: Set bundle path
+#         id: bundle
+#         shell: bash
+#         run: |
+#           if [ -n "${{ matrix.target }}" ]; then
+#             echo "path=client/src-tauri/target/${{ matrix.target }}/release/bundle" >> "$GITHUB_OUTPUT"
+#           else
+#             echo "path=client/src-tauri/target/release/bundle" >> "$GITHUB_OUTPUT"
+#           fi
+#
+#       - name: Upload artifacts (macOS)
+#         if: matrix.platform == 'macos-latest'
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+#           path: |
+#             ${{ steps.bundle.outputs.path }}/dmg/*.dmg
+#             ${{ steps.bundle.outputs.path }}/macos/*.app
+#             ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz
+#             ${{ steps.bundle.outputs.path }}/macos/*.app.tar.gz.sig
+#
+#       - name: Upload artifacts (Windows)
+#         if: matrix.platform == 'windows-latest'
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+#           path: |
+#             ${{ steps.bundle.outputs.path }}/msi/*.msi
+#             ${{ steps.bundle.outputs.path }}/nsis/*.exe
+#             ${{ steps.bundle.outputs.path }}/msi/*.msi.sig
+#             ${{ steps.bundle.outputs.path }}/nsis/*.exe.sig
+#
+#       - name: Upload artifacts (Linux)
+#         if: matrix.platform == 'ubuntu-22.04'
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: muorg-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}
+#           path: |
+#             ${{ steps.bundle.outputs.path }}/appimage/*.AppImage
+#             ${{ steps.bundle.outputs.path }}/deb/*.deb
+#             ${{ steps.bundle.outputs.path }}/appimage/*.AppImage.sig
+#
   release:
-    needs: [version, desktop]
+    needs: version  # desktop job removed — desktop releases are legacy
     runs-on: ubuntu-latest
     # Runs even when the desktop matrix was filtered out, so every v* tag still
     # gets a GitHub Release page. The installer and updater steps below no-op on
@@ -412,13 +409,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Download all artifacts
-        if: needs.version.outputs.desktop == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-          pattern: muorg-*
-
+#       - name: Download all artifacts
+#         if: needs.version.outputs.desktop == 'true'
+#         uses: actions/download-artifact@v8
+#         with:
+#           path: artifacts
+#           pattern: muorg-*
+#
       - name: Organize release files
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -468,54 +465,54 @@ jobs:
             echo "Tags pushed: ${VERSION}  latest"
           } > dist/docker.txt
 
-      - name: Generate latest.json for updater
-        if: needs.version.outputs.desktop == 'true'
-        run: |
-          VERSION="${{ needs.version.outputs.version }}"
-          TAG="${{ needs.version.outputs.tag }}"
-          REPO="${{ github.repository }}"
-          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
-
-          cd artifacts
-
-          linux_sig="$(find . -name '*.AppImage.sig' | head -1)"
-          win_msi_sig="$(find . -name '*.msi.sig' | head -1)"
-          mac_sig="$(find . -name '*.app.tar.gz.sig' | head -1)"
-
-          if [ -z "$linux_sig" ] || [ -z "$win_msi_sig" ] || [ -z "$mac_sig" ]; then
-            echo "Missing one or more updater signatures; cannot generate latest.json" >&2
-            exit 1
-          fi
-
-          linux_sig_content="$(tr -d '\n' < "$linux_sig")"
-          win_sig_content="$(tr -d '\n' < "$win_msi_sig")"
-          mac_sig_content="$(tr -d '\n' < "$mac_sig")"
-
-          pub_date="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-          # File names match what Organize step uploaded to dist/
-          cat > ../dist/latest.json << EOF
-          {
-            "version": "${VERSION}",
-            "notes": "Muorg ${VERSION}",
-            "pub_date": "${pub_date}",
-            "platforms": {
-              "linux-x86_64": {
-                "signature": "${linux_sig_content}",
-                "url": "${BASE_URL}/muorg-${VERSION}-linux.AppImage"
-              },
-              "windows-x86_64": {
-                "signature": "${win_sig_content}",
-                "url": "${BASE_URL}/muorg-${VERSION}-windows.msi"
-              },
-              "darwin-aarch64": {
-                "signature": "${mac_sig_content}",
-                "url": "${BASE_URL}/muorg-${VERSION}-macos.app.tar.gz"
-              }
-            }
-          }
-          EOF
-
+#       - name: Generate latest.json for updater
+#         if: needs.version.outputs.desktop == 'true'
+#         run: |
+#           VERSION="${{ needs.version.outputs.version }}"
+#           TAG="${{ needs.version.outputs.tag }}"
+#           REPO="${{ github.repository }}"
+#           BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+#
+#           cd artifacts
+#
+#           linux_sig="$(find . -name '*.AppImage.sig' | head -1)"
+#           win_msi_sig="$(find . -name '*.msi.sig' | head -1)"
+#           mac_sig="$(find . -name '*.app.tar.gz.sig' | head -1)"
+#
+#           if [ -z "$linux_sig" ] || [ -z "$win_msi_sig" ] || [ -z "$mac_sig" ]; then
+#             echo "Missing one or more updater signatures; cannot generate latest.json" >&2
+#             exit 1
+#           fi
+#
+#           linux_sig_content="$(tr -d '\n' < "$linux_sig")"
+#           win_sig_content="$(tr -d '\n' < "$win_msi_sig")"
+#           mac_sig_content="$(tr -d '\n' < "$mac_sig")"
+#
+#           pub_date="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+#
+#           # File names match what Organize step uploaded to dist/
+#           cat > ../dist/latest.json << EOF
+#           {
+#             "version": "${VERSION}",
+#             "notes": "Muorg ${VERSION}",
+#             "pub_date": "${pub_date}",
+#             "platforms": {
+#               "linux-x86_64": {
+#                 "signature": "${linux_sig_content}",
+#                 "url": "${BASE_URL}/muorg-${VERSION}-linux.AppImage"
+#               },
+#               "windows-x86_64": {
+#                 "signature": "${win_sig_content}",
+#                 "url": "${BASE_URL}/muorg-${VERSION}-windows.msi"
+#               },
+#               "darwin-aarch64": {
+#                 "signature": "${mac_sig_content}",
+#                 "url": "${BASE_URL}/muorg-${VERSION}-macos.app.tar.gz"
+#               }
+#             }
+#           }
+#           EOF
+#
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
@@ -555,7 +552,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4.7.0
+        uses: docker/login-action@v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -590,7 +587,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4.7.0
+        uses: docker/login-action@v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -627,7 +624,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4.7.0
+        uses: docker/login-action@v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

@@ -21,6 +21,9 @@ const mocks = vi.hoisted(() => ({
     tracks: [] as CatalogTrack[],
     loading: false,
     keyForTrack: (t: CatalogTrack) => `${t.album ?? ""}|${t.album_artist ?? ""}`,
+    albumByKey: () => null,
+    coverCache: new Map<number, string>(),
+    requestCover: vi.fn(),
   },
 }));
 

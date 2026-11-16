@@ -5,7 +5,7 @@
        the base. Paints its own background so the parent's theme background
        stays fully covered. -->
   <div
-    class="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+    class="cover-backdrop pointer-events-none absolute inset-0 z-0 overflow-hidden"
     :style="baseStyle"
     aria-hidden="true"
   >
@@ -16,6 +16,10 @@
         'edge-art-sharp': sharp,
         'edge-blur-art-player': variant === 'player',
         'edge-blur-art-album': variant === 'album',
+        // Sidenav collapsed into a top-nav: flip the edge mask from the
+        // sides to the top (see style.css) so the art fades into the
+        // top-nav's background instead of showing a hard cut beneath it.
+        'edge-blur-art-topnav': sidebarCollapsed,
       }"
       :style="artStyle"
     />
@@ -26,6 +30,7 @@
 import { computed } from "vue";
 import { isColorBland, useDominantColor } from "../composables/useDominantColor";
 import { useFsBackdropBlur } from "../composables/useFsBackdropBlur";
+import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 
 const props = withDefaults(
   defineProps<{

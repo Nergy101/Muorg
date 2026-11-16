@@ -1,20 +1,30 @@
 <div align="center">
-  <img src="client/public/favicon.svg" alt="Muorg logo" width="80" />
+  <img src="web-client/public/favicon.svg" alt="Muorg logo" width="80" />
   <h1>Muorg — The Music Organizer from Hell</h1>
   <em>Pronounced "Mu-Ork" — think of a Musical Ork who organizes your music.</em>
   <br /><br />
 
   [![Build](https://github.com/Nergy101/Muorg/actions/workflows/build.yml/badge.svg)](https://github.com/Nergy101/Muorg/actions/workflows/build.yml)
   [![Latest Release](https://img.shields.io/github/v/release/Nergy101/Muorg)](https://github.com/Nergy101/Muorg/releases/latest)
-  [![Docker Server](https://img.shields.io/docker/v/nergy101/muorg-server?label=docker%20server&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-server)
-  [![Docker Web](https://img.shields.io/docker/v/nergy101/muorg-web?label=docker%20web&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-web)
+  [![Docker Server](https://img.shields.io/github/v/release/Nergy101/Muorg?label=docker%20server&color=0db7ed)](https://github.com/Nergy101/Muorg/pkgs/container/muorg-server)
+  [![Docker Web](https://img.shields.io/github/v/release/Nergy101/Muorg?label=docker%20web&color=0db7ed)](https://github.com/Nergy101/Muorg/pkgs/container/muorg-web)
   [![Docs](https://img.shields.io/badge/docs-docs.muorg.nergy.space-blue)](https://docs.muorg.nergy.space)
-  ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Android%20%7C%20Web-lightgrey)
+  ![Platforms](https://img.shields.io/badge/platform-Web%20%7C%20Android%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 </div>
 
 ---
 
-A music library organizer with a dense, library-style UI — a cross-platform desktop app, plus a web app and an Android app that connect to the same server. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+A music library organizer with a dense, library-style UI — a web app and an Android app that connect to the same self-hosted server, plus a legacy cross-platform desktop app. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+
+<div align="center">
+  <img src="assets/orc/orc-empty.svg" alt="Muorg Orc shrugging while holding an empty crate" width="110" />
+  <img src="assets/orc/orc-not-found.svg" alt="Muorg Orc scratching its head and holding an empty record sleeve" width="110" />
+  <img src="assets/orc/orc-forbidden.svg" alt="Muorg Orc bouncer in sunglasses with crossed arms" width="110" />
+  <img src="assets/orc/orc-server-error.svg" alt="Muorg Orc panicking next to a guitar with a snapped string" width="110" />
+  <img src="assets/orc/orc-maintenance.svg" alt="Muorg Orc in a hard hat holding a tuning fork and a wrench" width="110" />
+  <br />
+  <em>Meet the Muorg Orc — he shows up when something's missing, forbidden, or broken.</em>
+</div>
 
 Muorg works in two modes:
 - **Local** — music files live on your own machine; no remote server needed.
@@ -43,7 +53,7 @@ Full user and developer documentation — quick start, installation, configurati
 
 ## ⬇️ Download & install
 
-Grab the latest build for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
+Grab the latest build for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest). The desktop app below is **legacy** — for new setups, self-host the server and use the web or Android client instead (see [Quick Start](https://docs.muorg.nergy.space/docs/quick-start)):
 
 | Platform | File |
 |----------|------|
@@ -84,7 +94,7 @@ share:
 
 ```
 Muorg/
-├── client/          # Desktop app (Tauri 2 + Vue 3 + Rust)
+├── client/          # Desktop app — legacy (Tauri 2 + Vue 3 + Rust)
 │   └── README.md    # Developer setup, build, and release docs
 ├── web-client/      # Browser-based UI (Vue 3 + Vite, served via nginx)
 ├── android-client/  # Android app (Kotlin + Jetpack Compose + Media3)
@@ -100,7 +110,7 @@ Muorg/
 
 | Component | What it does | When you need it |
 |-----------|-------------|-----------------|
-| `client/` | Cross-platform desktop app | Always — this is the main app |
+| `client/` | Cross-platform desktop app (**legacy**) | Legacy — kept for existing users; new development targets web / Android / server |
 | `web-client/` | Browser UI connecting to muorg-server | When you want web access alongside or instead of the desktop app |
 | `android-client/` | Android app connecting to muorg-server | On a phone or tablet |
 | `server/` | HTTP backend for remote/NAS use | Only for home-server / multi-device setups |
@@ -123,9 +133,9 @@ For full developer and configuration details see **[client/README.md](client/REA
 
 ## 🐳 Self-hosting with Docker
 
-### Server only (desktop app in Online mode)
+### Server only (legacy desktop app in Online mode)
 
-Run muorg-server on a NAS or home server and connect to it from the desktop app in **Online** mode.
+Run muorg-server on a NAS or home server and connect to it from the legacy desktop app in **Online** mode.
 
 ```bash
 # 1. Grab the compose file
@@ -150,7 +160,7 @@ Run both muorg-server and the muorg-web browser interface together. Drop this `d
 ```yaml
 services:
   muorg-server:
-    image: nergy101/muorg-server:latest
+    image: ghcr.io/nergy101/muorg-server:latest
     ports:
       - "7700:7700"
     volumes:
@@ -166,7 +176,7 @@ services:
       start_period: 10s
 
   muorg-web:
-    image: nergy101/muorg-web:latest
+    image: ghcr.io/nergy101/muorg-web:latest
     ports:
       - "7800:80"
     restart: unless-stopped
@@ -200,7 +210,7 @@ See the [server README](server/README.md) for the full configuration reference a
 - [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/) for your OS
 - For the Android app only: JDK 17 and the Android SDK
 
-### Desktop app
+### Desktop app (legacy)
 
 ```bash
 cd client

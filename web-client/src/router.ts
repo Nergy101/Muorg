@@ -10,6 +10,8 @@ import HomeView from "./views/HomeView.vue";
 import SearchView from "./views/SearchView.vue";
 import LibraryView from "./views/LibraryView.vue";
 import AlbumDetailView from "./views/AlbumDetailView.vue";
+import AlbumEditView from "./views/AlbumEditView.vue";
+import TrackEditView from "./views/TrackEditView.vue";
 import ArtistDetailView from "./views/ArtistDetailView.vue";
 import PlaylistsView from "./views/PlaylistsView.vue";
 import PlaylistDetailView from "./views/PlaylistDetailView.vue";
@@ -61,6 +63,22 @@ export const router = createRouter({
       component: AlbumDetailView,
       props: true,
       meta: { depth: 1 },
+    },
+    // Metadata editors: pushed from the album page's 3-dots menu and from the
+    // album editor's track list.
+    {
+      path: "/album/:albumKey/edit",
+      name: "album-edit",
+      component: AlbumEditView,
+      props: true,
+      meta: { depth: 2 },
+    },
+    {
+      path: "/track/:trackId/edit",
+      name: "track-edit",
+      component: TrackEditView,
+      props: true,
+      meta: { depth: 2 },
     },
     {
       path: "/artist/:name",

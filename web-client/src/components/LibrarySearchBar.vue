@@ -10,24 +10,27 @@
         class="glass-field flex h-11 items-center gap-2 rounded-full px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
       >
         <MageIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
-        <input
-          v-model="query"
-          type="text"
-          placeholder="Search albums, artists…"
-          class="search-input flex-1 bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
-          @keyup.enter="onSearchEnter"
-          @focus="emit('focus')"
-          @blur="emit('blur')"
-        />
-        <button
-          v-if="query"
-          type="button"
-          class="shrink-0 text-on-surface-variant"
-          aria-label="Clear search"
-          @click="clearSearch"
-        >
-          <MageIcon name="multiply" class="h-4 w-4" />
-        </button>
+        <!-- Clear button overlays the input's right end, inside the field. -->
+        <div class="relative min-w-0 flex-1">
+          <input
+            v-model="query"
+            type="text"
+            placeholder="Search"
+            class="search-input w-full bg-transparent pr-8 text-body-lg text-on-surface outline-none placeholder:text-on-surface-variant"
+            @keyup.enter="onSearchEnter"
+            @focus="emit('focus')"
+            @blur="emit('blur')"
+          />
+          <button
+            v-if="query"
+            type="button"
+            class="absolute right-0 top-1/2 -translate-y-1/2 text-on-surface-variant"
+            aria-label="Clear search"
+            @click="clearSearch"
+          >
+            <MageIcon name="multiply" class="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
 

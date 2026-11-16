@@ -10,7 +10,7 @@ import type { CatalogTrack } from "../types";
  * of listening, not at track start (Q20).
  */
 
-const issueStreamToken = vi.fn();
+const issueStreamTokenInfo = vi.fn();
 const recordPlay = vi.fn();
 const getTracks = vi.fn();
 const getStats = vi.fn();
@@ -20,7 +20,7 @@ const getMetadata = vi.fn();
 const toastShow = vi.fn();
 
 vi.mock("../api/catalog", () => ({
-  issueStreamToken: (...a: unknown[]) => issueStreamToken(...a),
+  issueStreamTokenInfo: (...a: unknown[]) => issueStreamTokenInfo(...a),
   recordPlay: (...a: unknown[]) => recordPlay(...a),
   getTracks: (...a: unknown[]) => getTracks(...a),
   getStats: (...a: unknown[]) => getStats(...a),
@@ -41,6 +41,12 @@ vi.mock("../api/client", () => ({
     castDevices: vi.fn(),
     castStartDiscovery: vi.fn(),
     castStopDiscovery: vi.fn(),
+    streamUrlForTrack: (t: { id: number; format: string }, info: { token: string; flac: boolean; wav: boolean }, start?: number) => {
+      const f = t.format.toLowerCase();
+      if (info.flac && f === "flac") return `http://server/stream/flac/${info.token}/${t.id}`;
+      if (info.wav && f === "wav") return `http://server/stream/wav/${info.token}/${t.id}`;
+      return `http://server/stream/${info.token}/${t.id}${start ? `?start=${start}` : ""}`;
+    },
   },
   streamUrl: (id: number, token: string, start?: number) =>
     `http://server/stream/${token}/${id}${start ? `?start=${start}` : ""}`,
@@ -101,7 +107,7 @@ beforeEach(() => {
   setActivePinia(createPinia());
   vi.clearAllMocks();
   vi.useFakeTimers();
-  issueStreamToken.mockResolvedValue("tok");
+  issueStreamTokenInfo.mockResolvedValue({ token: "tok", flac: false, wav: false });
   recordPlay.mockResolvedValue(undefined);
   getTracks.mockResolvedValue({ tracks: [], total: 0 });
   getStats.mockResolvedValue({

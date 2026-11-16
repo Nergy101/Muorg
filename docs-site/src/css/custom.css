@@ -8,8 +8,11 @@
   --ifm-color-primary-lightest: #84a34e;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  /* Keep nav links neutral; only the active item gets the primary color. */
+  --ifm-navbar-link-hover-color: var(--ifm-color-emphasis-900);
 }
 
 [data-theme="dark"] {
   --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+  --ifm-navbar-link-hover-color: var(--ifm-color-white);
 }

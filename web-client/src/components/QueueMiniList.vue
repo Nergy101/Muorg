@@ -5,8 +5,9 @@
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex h-11 shrink-0 items-center gap-2 border-b border-white/10 px-4">
       <MageIcon name="stack" class="h-4 w-4 text-primary" />
-      <span class="flex-1 text-label-lg text-white">Queue</span>
-      <span class="text-label-sm tabular-nums text-white/50">{{ player.upNext.length }}</span>
+      <span class="text-label-lg text-white">Queue</span>
+      <span class="text-label-sm tabular-nums text-white/50">{{ player.upNext.length }} track{{ player.upNext.length === 1 ? "" : "s" }}</span>
+      <span class="flex-1"></span>
     </div>
     <div ref="scroller" class="queue-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
       <div
@@ -26,7 +27,7 @@
         </div>
         <div class="min-w-0 flex-1">
           <p class="truncate text-body-md text-white">{{ player.currentTrack.title ?? "—" }}</p>
-          <p class="truncate text-body-sm text-white/55">{{ player.currentTrack.artist ?? player.currentTrack.album_artist ?? "—" }}</p>
+          <p class="truncate text-body-sm text-white/55"><ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" /></p>
         </div>
         <EqualizerBars class="shrink-0 text-primary" :paused="!player.isPlaying" />
       </div>
@@ -68,7 +69,7 @@
           </div>
           <div class="min-w-0 flex-1">
             <p class="truncate text-body-md text-white">{{ entry.track.title ?? "—" }}</p>
-            <p class="truncate text-body-sm text-white/55">{{ entry.track.artist ?? entry.track.album_artist ?? "—" }}</p>
+            <p class="truncate text-body-sm text-white/55"><ArtistLink :name="entry.track.artist ?? entry.track.album_artist" /></p>
           </div>
         </button>
         <button
@@ -110,6 +111,7 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
+import ArtistLink from "./ArtistLink.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import TrackActionsSheet from "./TrackActionsSheet.vue";
 import { useDragReorder } from "../composables/useDragReorder";
@@ -201,10 +203,8 @@ function onRemoveFromQueue(): void {
 function onViewArtist(): void {
   const t = sheetTrack.value;
   if (!t) return;
-  void router.push({
-    name: "library",
-    query: { artist: t.artist ?? t.album_artist ?? undefined },
-  });
+  const name = t.artist ?? t.album_artist;
+  if (name) void router.push({ name: "artist", params: { name } });
 }
 
 function onViewAlbum(): void {
