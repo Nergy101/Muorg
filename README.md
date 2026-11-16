@@ -6,8 +6,8 @@
 
   [![Build](https://github.com/Nergy101/Muorg/actions/workflows/build.yml/badge.svg)](https://github.com/Nergy101/Muorg/actions/workflows/build.yml)
   [![Latest Release](https://img.shields.io/github/v/release/Nergy101/Muorg)](https://github.com/Nergy101/Muorg/releases/latest)
-  [![Docker Server](https://img.shields.io/docker/v/nergy101/muorg-server?label=docker%20server&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-server)
-  [![Docker Web](https://img.shields.io/docker/v/nergy101/muorg-web?label=docker%20web&color=0db7ed)](https://hub.docker.com/r/nergy101/muorg-web)
+  [![Docker Server](https://img.shields.io/github/v/release/Nergy101/Muorg?label=docker%20server&color=0db7ed)](https://github.com/Nergy101/Muorg/pkgs/container/muorg-server)
+  [![Docker Web](https://img.shields.io/github/v/release/Nergy101/Muorg?label=docker%20web&color=0db7ed)](https://github.com/Nergy101/Muorg/pkgs/container/muorg-web)
   [![Docs](https://img.shields.io/badge/docs-docs.muorg.nergy.space-blue)](https://docs.muorg.nergy.space)
   ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Android%20%7C%20Web-lightgrey)
 </div>
@@ -160,7 +160,7 @@ Run both muorg-server and the muorg-web browser interface together. Drop this `d
 ```yaml
 services:
   muorg-server:
-    image: nergy101/muorg-server:latest
+    image: ghcr.io/nergy101/muorg-server:latest
     ports:
       - "7700:7700"
     volumes:
@@ -176,7 +176,7 @@ services:
       start_period: 10s
 
   muorg-web:
-    image: nergy101/muorg-web:latest
+    image: ghcr.io/nergy101/muorg-web:latest
     ports:
       - "7800:80"
     restart: unless-stopped

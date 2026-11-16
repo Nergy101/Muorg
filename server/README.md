@@ -56,7 +56,7 @@ Open Muorg → Settings → Connection → switch to **Online** mode. Enter:
 ```yaml
 services:
   muorg-server:
-    image: nergy101/muorg-server:latest
+    image: ghcr.io/nergy101/muorg-server:latest
     ports:
       - "7700:7700"          # host:container — change left side to use a different host port
     volumes:
