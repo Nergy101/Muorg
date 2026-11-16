@@ -180,6 +180,19 @@ describe("fetchBlob", () => {
     expect(await blob.text()).toBe("img");
   });
 
+  it("revalidates with the server instead of trusting a cached cover", async () => {
+    // A cover cached under an old `max-age` header would otherwise keep
+    // showing the previous art after a cover write.
+    const spy = vi.fn(async () => new Response(new Blob(["img"])));
+    vi.stubGlobal("fetch", spy);
+    await createTransport(creds).fetchBlob("/api/tracks/1/cover");
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ cache: "no-cache" }),
+    );
+  });
+
   it("throws ApiError on a non-2xx", async () => {
     stubFetch(() => new Response(null, { status: 404 }));
     await expect(

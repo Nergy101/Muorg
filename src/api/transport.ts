@@ -151,6 +151,13 @@ export function createTransport(credentials: Credentials): Transport {
       const headers = new Headers(authHeaders());
       const res = await globalThis.fetch(`${credentials.baseUrl()}${path}`, {
         headers,
+        // Album art is mutable (the metadata editor rewrites it), so every
+        // fetch must revalidate with the server instead of trusting the HTTP
+        // cache. Older servers sent covers with `max-age=86400`; those cached
+        // entries stay "fresh" for a day and would keep serving the OLD art
+        // after a cover write without the server ever being asked. An
+        // unchanged cover still costs only a 304 thanks to the server's ETag.
+        cache: "no-cache",
       });
       if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status, path);
       return res.blob();
