@@ -127,6 +127,7 @@ import { usePlayerStore } from "./stores/player";
 import { useSettingsStore } from "./stores/settings";
 import { useSwipeNavigate } from "./composables/useSwipeNavigate";
 import { useIosPwa } from "./composables/useIosPwa";
+import { useIsPwa } from "./composables/useIsPwa";
 import { useSwipeBack } from "./composables/useSwipeBack";
 import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
 import { useScrollNavHide } from "./composables/useScrollNavHide";
@@ -159,6 +160,14 @@ const isBareless = computed(() => BARELESS.includes(String(route.name)));
 // iOS PWA: extra top padding so the iOS 26+ system top fade doesn't sit under
 // the header glass (see the .ios-pwa rule in style.css).
 const isIosPwa = useIosPwa();
+// Installed PWA (any platform): marks <html> with .pwa so CSS can apply the
+// album-accent glass wash. Done from JS because the (display-mode: standalone)
+// media query does not match on iOS home-screen apps (see the .pwa rules in
+// style.css).
+const isPwa = useIsPwa();
+watchEffect(() => {
+  document.documentElement.classList.toggle("pwa", isPwa.value);
+});
 
 // The connect screen is a full-pane onboarding flow — no nav rail beside it.
 // Everything else (including the player sheet, also in art-fullscreen mode)

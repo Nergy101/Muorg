@@ -472,6 +472,48 @@ body {
   }
 }
 
+/* Installed PWAs detected from JS (App.vue sets .pwa on <html>): same accent
+   wash as the media query above — needed because (display-mode: standalone)
+   does not match on iOS home-screen apps. The bottom player (.glass-deep)
+   gets a stronger wash so it reads as accent-colored glass, matching the
+   playing track row's highlight. */
+.pwa .glass,
+.pwa .glass-strong,
+.pwa .glass-deep {
+  border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, transparent);
+}
+.pwa .glass {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 10%, var(--surface) 90%);
+  box-shadow:
+    0 10px 34px -8px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 30%, transparent);
+}
+.pwa .glass-strong {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
+  box-shadow:
+    0 10px 34px -8px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 32%, transparent);
+}
+.pwa .glass-deep {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, var(--surface) 76%);
+  box-shadow:
+    0 14px 40px -10px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 45%, transparent);
+}
+.pwa[data-theme="light"] .glass {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
+}
+/* The maximized player's controls panel takes a stronger accent wash in a
+   PWA so it reads as colored glass, matching the bottom player above.
+   (html.pwa keeps this ahead of the panel's own scoped 10% rule.) */
+html.pwa .controls-panel {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 20%, var(--surface) 80%);
+  border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 34%, transparent);
+  box-shadow:
+    0 10px 34px -8px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 42%, transparent);
+}
+
 /* `.glass-sheer` is the thin pane for controls sitting on the player's own
    art-derived backdrop, which is always dimmed: white content is legible
    there, so the glass only has to lift the control off the background. */

@@ -3,6 +3,9 @@
        role="link" rather than an <a>/<button>: it sits inside clickable cards
        and rows (some of them <button>s), and a click on it must stop there
        instead of also opening the album or playing the track.
+       The link only exists on desktop viewports (lg+): on mobile/PWA the
+       credit renders as plain text, because the small tap target is too
+       easy to hit by accident next to the row/card it sits in.
        Placeholder credits ("Unknown Artist", "Various Artists", "—") and a
        disabled link render as plain text. -->
   <component
@@ -10,11 +13,19 @@
     v-if="linkable"
     role="link"
     tabindex="0"
-    class="artist-link cursor-pointer"
-    :class="block ? 'min-w-0' : ''"
+    class="artist-link cursor-pointer hidden"
+    :class="block ? 'min-w-0 lg:block' : 'lg:inline'"
     :aria-label="`View artist ${name}`"
     @click="onClick"
     @keydown.enter.stop.prevent="open"
+  >
+    <slot>{{ name }}</slot>
+  </component>
+  <component
+    :is="block ? 'div' : 'span'"
+    v-if="linkable"
+    class="lg:hidden"
+    :class="block ? 'min-w-0' : ''"
   >
     <slot>{{ name }}</slot>
   </component>

@@ -529,22 +529,14 @@ useScrollMemory(scroller);
 }
 
 /* On mobile the global rule drops the backdrop's edge mask so the player's
-   art runs full-bleed; the album view keeps an edge fade so the background
-   behind the track list is evenly dark at every width — same sideways
-   (non-rounded) linear fade as desktop, not the circular vignette. On top of
-   that the art also fades into the top edge (the two mask layers are
-   intersected), so the header area blends into the theme background instead
-   of showing a hard cut at the top of the screen. */
+   art runs full-bleed; the album view keeps only a top fade: the art covers
+   the whole screen width edge to edge (no side mask) and fades in from the
+   top edge, so the header area shows the artwork dissolving into the theme
+   background instead of a hard cut or a dark band. */
 @media (max-width: 63.99rem) {
   :deep(.edge-blur-art) {
-    -webkit-mask-image:
-      linear-gradient(to bottom, transparent, black 30%),
-      linear-gradient(to right, transparent, black 35%, black 65%, transparent);
-    -webkit-mask-composite: source-in;
-    mask-image:
-      linear-gradient(to bottom, transparent, black 30%),
-      linear-gradient(to right, transparent, black 35%, black 65%, transparent);
-    mask-composite: intersect;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%);
+    mask-image: linear-gradient(to bottom, transparent, black 30%);
   }
 }
 </style>
