@@ -16,6 +16,16 @@
 
 A music library organizer with a dense, library-style UI — a web app and an Android app that connect to the same self-hosted server, plus a legacy cross-platform desktop app. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
 
+<div align="center">
+  <img src="assets/orc/orc-empty.svg" alt="Muorg Orc shrugging while holding an empty crate" width="110" />
+  <img src="assets/orc/orc-not-found.svg" alt="Muorg Orc scratching its head and holding an empty record sleeve" width="110" />
+  <img src="assets/orc/orc-forbidden.svg" alt="Muorg Orc bouncer in sunglasses with crossed arms" width="110" />
+  <img src="assets/orc/orc-server-error.svg" alt="Muorg Orc panicking next to a guitar with a snapped string" width="110" />
+  <img src="assets/orc/orc-maintenance.svg" alt="Muorg Orc in a hard hat holding a tuning fork and a wrench" width="110" />
+  <br />
+  <em>Meet the Muorg Orc — he shows up when something's missing, forbidden, or broken.</em>
+</div>
+
 Muorg works in two modes:
 - **Local** — music files live on your own machine; no remote server needed.
 - **Online** — connect to a remote **muorg-server** (e.g. on a NAS) where your music files are stored, and access your full library from any device.

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Muorg: a vinyl record with orc ears, a happy face on the label, and tusks. -->
+  <path d="M32,28 L84,50 L50,94 Z" fill="#5b7c32"/>
+  <path d="M168,28 L116,50 L150,94 Z" fill="#5b7c32"/>
+  <circle cx="100" cy="108" r="72" fill="#759346"/>
+  <circle cx="100" cy="108" r="62" fill="none" stroke="#5b7c32" stroke-width="3" opacity="0.45"/>
+  <circle cx="100" cy="108" r="52" fill="none" stroke="#5b7c32" stroke-width="3" opacity="0.45"/>
+  <circle cx="100" cy="108" r="40" fill="#5b7c32"/>
+  <path d="M71,106 Q82,92 93,106" fill="none" stroke="#1c1917" stroke-width="5" stroke-linecap="round"/>
+  <path d="M107,106 Q118,92 129,106" fill="none" stroke="#1c1917" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="100" cy="117" rx="5" ry="4" fill="#759346"/>
+  <path d="M81,127 Q100,144 119,127" fill="none" stroke="#1c1917" stroke-width="5" stroke-linecap="round"/>
+  <path d="M84,129 L88,115 L94,135 Z" fill="#f5f5f4"/>
+  <path d="M116,129 L112,115 L106,135 Z" fill="#f5f5f4"/>
+</svg>

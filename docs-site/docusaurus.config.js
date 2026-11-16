@@ -11,7 +11,7 @@ module.exports = {
       onBrokenMarkdownLinks: "warn",
     },
   },
-  favicon: "img/favicon.ico",
+  favicon: "img/favicon.svg",
   organizationName: "Nergy101",
   projectName: "Muorg",
 
