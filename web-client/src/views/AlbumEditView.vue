@@ -45,9 +45,12 @@
       </div>
 
       <div class="content-col min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+      <!-- Landscape desktop: cover editor in a sticky left column, fields and
+           actions in the right column, track list full-width below. -->
+      <div class="lg:grid lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-10 lg:px-8 lg:pt-6">
         <!-- ─── Cover art editor ──────────────────────────────────────── -->
-        <div class="flex flex-col items-center gap-3 px-4 pt-4">
-          <div class="h-44 w-44 shrink-0 overflow-hidden rounded-xl bg-surface-variant shadow-[0_2px_6px_rgba(0,0,0,0.35)] sm:h-52 sm:w-52">
+        <div class="flex flex-col items-center gap-3 px-4 pt-4 lg:sticky lg:top-6 lg:self-start lg:px-0 lg:pt-0">
+          <div class="h-44 w-44 shrink-0 overflow-hidden rounded-xl bg-surface-variant shadow-[0_2px_6px_rgba(0,0,0,0.35)] sm:h-52 sm:w-52 lg:h-72 lg:w-72">
             <img
               v-if="displayCoverUrl"
               :src="displayCoverUrl"
@@ -131,7 +134,7 @@
         </div>
 
         <!-- ─── Album fields ──────────────────────────────────────────── -->
-        <div class="px-4 py-3">
+        <div class="px-4 py-3 lg:px-0 lg:py-0">
           <p class="pb-2 text-body-sm text-on-surface-variant">
             Shared values are pre-filled; only the fields you change are written to all
             {{ tracks.length }} track{{ tracks.length === 1 ? "" : "s" }} of this album.
@@ -214,13 +217,14 @@
             <div class="h-full w-1/3 animate-[hf-indeterminate_1.2s_ease-in-out_infinite] bg-primary" />
           </div>
         </div>
+      </div>
 
         <!-- ─── Tracks of this album ──────────────────────────────────── -->
         <div class="border-t border-outline/30" />
-        <p class="px-4 pb-1 pt-3 text-label-sm text-on-surface-variant">
+        <p class="px-4 pb-1 pt-3 text-label-sm text-on-surface-variant lg:px-8">
           TRACKS — TAP A TRACK TO EDIT IT
         </p>
-        <div class="p-2">
+        <div class="p-2 lg:px-8">
           <button
             v-for="(track, i) in tracks"
             :key="track.id"
