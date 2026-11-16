@@ -19,7 +19,8 @@
       <button
         type="button"
         class="glass flex h-10 items-center gap-1.5 rounded-full px-3.5 transition-colors hover:bg-white/10"
-        :class="queueMenuOpen ? 'text-primary' : 'text-white/75 hover:text-white'"
+        :class="queueMenuOpen ? '' : 'text-white/75 hover:text-white'"
+        :style="queueMenuOpen && accentCss ? { color: accentCss } : accentStyle"
         aria-label="Queue"
         :aria-expanded="queueMenuOpen"
         @click="queueMenuOpen = !queueMenuOpen"
@@ -156,7 +157,10 @@
               :style="{ background: `radial-gradient(circle, rgba(${glowRgb},0.45) 0%, transparent 70%)`, filter: 'blur(32px)' }"
               aria-hidden="true"
             />
-            <div class="relative aspect-square max-h-full w-full overflow-hidden rounded-2xl shadow-2xl">
+            <div
+              class="relative aspect-square max-h-full w-full overflow-hidden shadow-2xl"
+              :class="settings.squarePlayerCover ? '' : 'rounded-2xl'"
+            >
               <img
                 v-if="coverUrl"
                 :src="coverUrl"
@@ -232,7 +236,8 @@
               v-if="!artFullscreen"
               type="button"
               class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-              :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :class="[isFavorite ? '' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
               @animationend="heartPulse = false"
@@ -271,7 +276,7 @@
               <button
                 type="button"
                 class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex"
-                :class="artFullscreen ? 'text-primary hover:text-primary' : 'text-white/75 hover:text-white'"
+                :class="'text-white/75 hover:text-white'"
                 :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
                 @click="toggleArtFullscreen"
               >
@@ -282,7 +287,7 @@
                 v-if="popoutSupported"
                 type="button"
                 class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-                :class="pipActive ? 'text-primary' : 'text-white/75 hover:text-white'"
+                :class="'text-white/75 hover:text-white'"
                 :aria-label="pipActive ? 'Close popout player' : 'Pop out player'"
                 @click="void togglePopout()"
               >
@@ -309,13 +314,13 @@
               >
                 <div class="h-1 w-full rounded-full bg-white/25">
                   <div
-                    class="h-full rounded-full bg-primary"
-                    :style="{ width: `${displayedFraction * 100}%` }"
+                    class="h-full rounded-full"
+                    :style="{ width: `${displayedFraction * 100}%`, backgroundColor: accentCss ?? undefined }"
                   />
                 </div>
                 <div
-                  class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-primary shadow"
-                  :style="{ left: `${displayedFraction * 100}%` }"
+                  class="absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full shadow"
+                  :style="{ left: `${displayedFraction * 100}%`, backgroundColor: accentCss ?? undefined }"
                 />
               </div>
             </div>
@@ -338,7 +343,7 @@
             <button
               type="button"
               class="flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
-              :class="player.shuffleEnabled ? 'text-primary' : 'text-white/75'"
+              :class="'text-white/75 hover:text-white'"
               aria-label="Shuffle"
               @click="player.toggleShuffle()"
             >
@@ -347,6 +352,7 @@
             <button
               type="button"
               class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
+              :style="accentStyle"
               aria-label="Previous track"
               @click="player.skipPrevious()"
             >
@@ -355,6 +361,7 @@
             <button
               type="button"
               class="chrome-glass glass-sheer flex h-16 w-16 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
+              :style="accentStyle"
               :aria-label="transportPlaying ? 'Pause' : 'Play'"
               @click="togglePlay"
             >
@@ -363,6 +370,7 @@
             <button
               type="button"
               class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
+              :style="accentStyle"
               aria-label="Next track"
               @click="player.skipNext()"
             >
@@ -371,7 +379,7 @@
             <button
               type="button"
               class="relative flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
-              :class="player.repeatMode !== 'off' ? 'text-primary' : 'text-white/75'"
+              :class="'text-white/75 hover:text-white'"
               aria-label="Repeat mode"
               @click="player.cycleRepeatMode()"
             >
@@ -406,7 +414,8 @@
               v-if="artFullscreen"
               type="button"
               class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
-              :class="[isFavorite ? 'text-primary' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :class="[isFavorite ? '' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
+              :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
               @animationend="heartPulse = false"
@@ -448,7 +457,7 @@
               v-if="artFullscreen"
               type="button"
               class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex lg:h-10 lg:w-10"
-              :class="artFullscreen ? 'text-primary hover:text-primary' : 'text-white/75 hover:text-white'"
+              :class="'text-white/75 hover:text-white'"
               :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
               @click="toggleArtFullscreen"
             >
@@ -588,7 +597,7 @@ import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import QueueMiniList from "../components/QueueMiniList.vue";
-import { useDominantColor } from "../composables/useDominantColor";
+import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { useSwipeDown } from "../composables/useSwipeDown";
 import { sidebarCollapsed } from "../composables/sidebarCollapsed";
@@ -683,6 +692,10 @@ onUnmounted(() => {
 // feeds the halo behind the cover art ---
 const coverUrl = computed(() => player.currentCoverUrl);
 const glowRgb = useDominantColor(coverUrl);
+// Artwork accent (un-darkened main color — same source as the mini player) so
+// the fullscreen/FS player's controls theme-match the playing album.
+const accentCss = computed(() => (glowRgb.value ? `rgb(${rawMainColor(glowRgb.value)})` : null));
+const accentStyle = computed(() => (accentCss.value ? { color: accentCss.value } : undefined));
 
 // --- Art-fullscreen mode (desktop): clicking the cover hides it and unblurs
 // the backdrop art into a sharp full-bleed background. The flag lives in the

@@ -12,6 +12,15 @@
 const ONE_MB = 1024 * 1024;
 
 /**
+ * Longest edge of a stored cover, in px. Rockbox — the reference for what a
+ * "default" device cover size is — expects embedded album art around 500×500
+ * at most, and larger art just wastes flash and RAM on players. Keeping every
+ * written cover at this size also keeps its base64 far below the server's
+ * request-body limit, so the tag write is never rejected as too large.
+ */
+export const MAX_COVER_EDGE_PX = 500;
+
+/**
  * The base64 payload of a `data:` URL, without the `data:<mime>;base64,`
  * prefix. A string that is already bare base64 passes through unchanged.
  */
@@ -69,6 +78,39 @@ export async function pngDataUrlToJpegBase64(dataUrl: string): Promise<string> {
         return;
       }
       ctx.drawImage(img, 0, 0);
+      try {
+        resolve(stripDataUrlPrefix(canvas.toDataURL("image/jpeg", 0.92)));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error("Failed to decode image"));
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Re-encode an image `data:` URL as JPEG base64, downscaled so its longest
+ * side is at most `maxSize` px (never upscaled). Covers are stored as JPEG and
+ * kept small: a full-resolution photo is routinely several MB, whose base64
+ * then exceeds the server's request-body limit and the tag write is rejected.
+ */
+export async function downscaleImageToJpegBase64(dataUrl: string, maxSize = MAX_COVER_EDGE_PX): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas not supported"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
       try {
         resolve(stripDataUrlPrefix(canvas.toDataURL("image/jpeg", 0.92)));
       } catch (e) {

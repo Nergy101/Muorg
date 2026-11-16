@@ -62,6 +62,24 @@
       <SettingsSection title="Playback" icon="play">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Square cover in player</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ settings.squarePlayerCover ? "Square corners" : "Rounded corners" }}
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.squarePlayerCover)"
+          role="switch"
+          aria-label="Square cover in player"
+          :aria-checked="settings.squarePlayerCover"
+          @click="settings.setSquarePlayerCover(!settings.squarePlayerCover)"
+        >
+          <span :class="knobClass(settings.squarePlayerCover)" />
+        </button>
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Continuous playback</p>
           <p class="text-body-sm text-on-surface-variant">
             Automatically play next track when queue ends
@@ -160,6 +178,24 @@
           :options="LAYOUT_OPTIONS"
           @update:model-value="settings.setAlbumViewStyle($event as LibraryViewStyle)"
         />
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Square Album Cards</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ settings.squareAlbumCards ? "Square corners" : "Rounded corners" }}
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.squareAlbumCards)"
+          role="switch"
+          aria-label="Square Album Cards"
+          :aria-checked="settings.squareAlbumCards"
+          @click="settings.setSquareAlbumCards(!settings.squareAlbumCards)"
+        >
+          <span :class="knobClass(settings.squareAlbumCards)" />
+        </button>
       </div>
       <LibraryTableSettingsSection />
       <div class="px-4 py-2">

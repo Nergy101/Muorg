@@ -15,7 +15,7 @@
     <!-- Progress line at the bottom of the mini player, on the flat edge above
          the tabs — not the rounded top, where it would clip at the corners. -->
     <div class="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-surface-variant/60">
-      <div class="h-full bg-primary" :style="{ width: `${player.progress * 100}%` }" />
+      <div class="h-full" :style="{ width: `${player.progress * 100}%`, backgroundColor: accentCss ?? undefined }" />
     </div>
 
     <!-- Bar spans the shell, its controls stay grouped with the rest of the UI.
@@ -75,6 +75,7 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          :style="accentStyle"
           aria-label="Previous track"
           @click="player.skipPrevious()"
         >
@@ -82,7 +83,9 @@
         </button>
         <button
           type="button"
-          class="mx-1 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-on-primary transition-transform hover:scale-105"
+          class="mx-1 flex h-11 w-11 items-center justify-center rounded-full transition-transform hover:scale-105"
+          :class="accentCss ? '' : 'bg-primary text-on-primary'"
+          :style="accentCss ? { backgroundColor: accentCss, color: accentOnCss ?? undefined } : undefined"
           :aria-label="transportPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
         >
@@ -92,6 +95,7 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          :style="accentStyle"
           aria-label="Next track"
           @click="player.skipNext()"
         >
@@ -120,7 +124,8 @@
         <button
           type="button"
           class="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container lg:flex"
-          :class="isFavorite ? 'text-primary' : 'text-on-surface-variant'"
+          :class="isFavorite ? '' : 'text-on-surface-variant'"
+          :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
           :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
           @click="onToggleFavorite"
         >
@@ -129,6 +134,7 @@
         <button
           type="button"
           class="hidden h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container lg:flex"
+          :style="accentStyle"
           aria-label="Add to playlist"
           @click="openAddToPlaylist"
         >
@@ -137,6 +143,7 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+          :style="accentStyle"
           aria-label="Track actions"
           @click="menuOpen = true"
         >
@@ -146,6 +153,7 @@
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
           :class="route.name === 'queue' ? 'text-primary' : 'text-on-surface-variant'"
+          :style="accentStyle"
           aria-label="Queue"
           @click="onQueueClick"
         >
@@ -164,6 +172,7 @@
         <button
           type="button"
           class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface lg:hidden"
+          :style="accentStyle"
           :aria-label="transportPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
         >
@@ -205,6 +214,7 @@ import VolumeControl from "./VolumeControl.vue";
 import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { usePlayerStore } from "../stores/player";
+import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { useSettingsStore } from "../stores/settings";
 import { useLibraryStore } from "../stores/library";
 import { useCastStore } from "../stores/cast";
@@ -212,6 +222,20 @@ import { useCastStore } from "../stores/cast";
 const route = useRoute();
 const router = useRouter();
 const player = usePlayerStore();
+
+// Accent = dominant color of the current track's cover — the same source the
+// circular visualizer in the full player uses, so the mini player's transport
+// and progress line color-match it.
+const glowRgb = useDominantColor(computed(() => player.currentCoverUrl));
+const accentCss = computed(() => (glowRgb.value ? `rgb(${rawMainColor(glowRgb.value)})` : null));
+const accentStyle = computed(() => (accentCss.value ? { color: accentCss.value } : undefined));
+// Contrasting icon color for the filled round play button (accent background).
+const accentOnCss = computed(() => {
+  if (!glowRgb.value) return null;
+  const [r, g, b] = rawMainColor(glowRgb.value).split(",").map(Number);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.95)";
+});
 const cast = useCastStore();
 
 /** While casting, the device is the thing that is playing, not this tab. */

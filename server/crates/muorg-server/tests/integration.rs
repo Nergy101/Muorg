@@ -312,6 +312,105 @@ async fn asking_for_a_track_that_does_not_exist_is_a_404() {
     }
 }
 
+/// A cover write whose base64 exceeds axum's default 2 MB Json body limit
+/// must still succeed: /api/fetch-image accepts images up to 10 MB, so an
+/// online-search candidate can be ~13 MB of base64, and the webclient writes
+/// it per track through the batch route. Regression test for the 413 that
+/// made album-cover saves silently fail.
+/// A track without embedded art answers 404 on the cover route, not 500 —
+/// clients treat 404 as "no cover" and fall back to a placeholder.
+#[tokio::test]
+async fn a_track_without_cover_answers_404_not_500() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../muorg-core/tests/fixtures/no_cover.flac"
+    );
+    let p = dir.path().join("song.flac");
+    std::fs::copy(fixture, &p).unwrap();
+    let track_id = seed_track_format(&srv, p.to_str().unwrap(), "flac");
+
+    for path in [
+        format!("/api/tracks/{track_id}/cover"),
+        format!("/api/tracks/{track_id}/cover?size=1200"),
+    ] {
+        let resp = srv.get_auth(&path).await;
+        assert_eq!(resp.status(), 404, "{path} returned {}", resp.status());
+    }
+}
+
+/// A batch write where one track's file is missing must still write all the
+/// others: the failing track is skipped, the response reports the real
+/// `updated` count, and the DB reflects the successful writes only.
+#[tokio::test]
+async fn a_batch_write_skips_missing_files_and_still_updates_the_rest() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../muorg-core/tests/fixtures/cover_front.mp3"
+    );
+    let good = dir.path().join("good.mp3");
+    std::fs::copy(fixture, &good).unwrap();
+    let good_id = seed_track(&srv, good.to_str().unwrap());
+    // Catalog row exists, but the file is gone (e.g. remote object deleted
+    // from its bucket — same failure shape as a missing S3 key).
+    let missing_id = seed_track(&srv, "/music/gone.mp3");
+
+    let resp = srv
+        .post_auth(
+            "/api/tracks/metadata/batch",
+            serde_json::json!([
+                { "id": good_id, "genre": "Rock" },
+                { "id": missing_id, "genre": "Rock" },
+            ]),
+        )
+        .await;
+    assert_eq!(resp.status(), 200, "batch must not 500 on a missing file");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["updated"], 1, "only the existing file was written: {body}");
+
+    let conn = srv.catalog.db.lock().unwrap();
+    let genre: Option<String> = conn
+        .query_row("SELECT genre FROM tracks WHERE id = ?1", [good_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(genre.as_deref(), Some("Rock"));
+    let missing_genre: Option<String> = conn
+        .query_row("SELECT genre FROM tracks WHERE id = ?1", [missing_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(missing_genre, None, "the missing file's row must not be updated");
+}
+
+#[tokio::test]
+async fn a_large_cover_payload_is_accepted_on_the_batch_route() {
+    let srv = TestServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../muorg-core/tests/fixtures/cover_front.mp3"
+    );
+    let p = dir.path().join("song.mp3");
+    std::fs::copy(fixture, &p).unwrap();
+    let track_id = seed_track(&srv, p.to_str().unwrap());
+
+    // ~3 MB of base64 — over the 2 MB default, under the raised limit.
+    let big = "A".repeat(3 * 1024 * 1024);
+    let resp = srv
+        .post_auth(
+            "/api/tracks/metadata/batch",
+            serde_json::json!([{ "id": track_id, "picture_base64": big }]),
+        )
+        .await;
+    assert_eq!(resp.status(), 200, "large cover write was rejected");
+
+    let conn = srv.catalog.db.lock().unwrap();
+    let has_cover: i64 = conn
+        .query_row("SELECT has_cover FROM tracks WHERE id = ?1", [track_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(has_cover, 1);
+}
+
 #[tokio::test]
 async fn a_playlist_survives_a_round_trip_through_the_api() {
     let srv = TestServer::start().await;

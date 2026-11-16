@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   saveBulk: vi.fn(async (_ids: number[], _update: Record<string, unknown>) => true),
+  setCover: vi.fn(async (_ids: number[], _base64: string | null) => true),
   saveSingle: vi.fn(async (_id: number, _update: Record<string, unknown>) => true),
   lib: {
     loading: false,
@@ -32,7 +33,7 @@ vi.mock("../stores/settings", () => ({
 }));
 vi.mock("../stores/metadata", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../stores/metadata")>()),
-  useMetadataStore: () => ({ saveBulk: mocks.saveBulk, saveSingle: mocks.saveSingle }),
+  useMetadataStore: () => ({ saveBulk: mocks.saveBulk, saveSingle: mocks.saveSingle, setCover: mocks.setCover }),
 }));
 vi.mock("../components/MageIcon.vue", () => ({
   default: { props: ["name"], template: '<span aria-hidden="true"></span>' },
@@ -87,6 +88,7 @@ function render(component: typeof AlbumEditView | typeof TrackEditView, props: R
   app.mount(root);
   return {
     root,
+    app,
     unmount() {
       app.unmount();
       root.remove();
@@ -140,10 +142,32 @@ describe("AlbumEditView", () => {
     const save = [...view.root.querySelectorAll("button")].find((b) => b.textContent?.includes("Save"))!;
     save.click();
     await nextTick();
-    await vi.waitFor(() => expect(mocks.saveBulk).toHaveBeenCalled());
+    // One batch call carries every track id — the batch endpoint writes them
+    // all in a single request.
+    await vi.waitFor(() => expect(mocks.saveBulk).toHaveBeenCalledTimes(1));
     const [ids, update] = mocks.saveBulk.mock.calls[0];
     expect(ids).toEqual(mocks.lib.tracks.map((t) => t.id));
     expect(update).toEqual({ year: 1960 });
+    view.unmount();
+  });
+
+  it("applies a changed cover to every track of the album", async () => {
+    const view = render(AlbumEditView, { albumKey: albumKeyFor(mocks.lib.tracks[0]) });
+    await nextTick();
+    // Stage a cover via the crop-apply path (data URL gets stripped to raw base64).
+    const setupState = (view.app as unknown as { _instance: { setupState: Record<string, unknown> } })._instance.setupState;
+    (setupState.onCropApply as (d: string) => void)("data:image/jpeg;base64,QUJD");
+    await nextTick();
+    const save = [...view.root.querySelectorAll("button")].find((b) => b.textContent?.includes("Save"))!;
+    save.click();
+    await vi.waitFor(() =>
+      expect(mocks.saveBulk.mock.calls.some(([, u]) => "picture_base64" in (u as object))).toBe(true),
+    );
+    // The cover goes out in a single batch call carrying every track id, so
+    // every track of the album gets it.
+    const coverCall = mocks.saveBulk.mock.calls.find(([, u]) => "picture_base64" in (u as object))!;
+    expect(coverCall[0]).toEqual(mocks.lib.tracks.map((t) => t.id));
+    expect((coverCall[1] as Record<string, unknown>).picture_base64).toBe("QUJD");
     view.unmount();
   });
 

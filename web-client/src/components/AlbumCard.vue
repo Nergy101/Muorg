@@ -12,7 +12,7 @@
     @touchend="lp.onTouchend"
     @contextmenu.prevent="emit('actions')"
   >
-    <div class="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-surface-variant">
+    <div class="h-full w-14 shrink-0 overflow-hidden bg-surface-variant">
       <img
         v-if="coverUrl"
         :src="coverUrl"
@@ -48,7 +48,10 @@
     v-else-if="ready"
     :data-album-key="item.key"
     type="button"
-    class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 text-left transition-transform duration-150 [-webkit-touch-callout:none] active:scale-95 lg:hover:scale-[1.03] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
+    :class="[
+      'relative aspect-square w-full select-none overflow-hidden bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] text-left transition-transform duration-150 [-webkit-touch-callout:none] active:scale-95 lg:cursor-pointer lg:hover:scale-[1.03]',
+      settings.squareAlbumCards ? '' : 'rounded-xl',
+    ]"
     @click="emit('open')"
     @touchstart.passive="lp.onTouchstart"
     @touchmove.passive="lp.onTouchmove"
@@ -124,6 +127,7 @@ import MarqueeText from "./MarqueeText.vue";
 import ArtistLink from "./ArtistLink.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import { useLibraryStore } from "../stores/library";
+import { useSettingsStore } from "../stores/settings";
 import { usePlayerStore } from "../stores/player";
 import { useLongPress } from "../composables/useLongPress";
 import { rawMainColor, useDominantColor, useMostCommonColor, useProminentHueColor } from "../composables/useDominantColor";
@@ -154,6 +158,7 @@ const props = defineProps<{
 const emit = defineEmits<{ open: []; actions: [] }>();
 
 const lib = useLibraryStore();
+const settings = useSettingsStore();
 const player = usePlayerStore();
 const lp = useLongPress(() => emit("actions"));
 
@@ -273,24 +278,28 @@ const ready = computed(() => props.item.hasCover && coverUrl.value !== null);
 // 1) saturation-weighted average, 2) peak saturated hue (catches e.g. red
 // text on a black/white cover), 3) most common (modal) color. If all come
 // out unusable there is no color and the theme secondary (green) is used.
-const activeCoverUrl = computed(() => (props.isActive ? coverUrl.value : null));
-const activeGlowRgb = useDominantColor(activeCoverUrl);
-const activeHueRgb = useProminentHueColor(activeCoverUrl);
-const activeModeRgb = useMostCommonColor(activeCoverUrl);
-const activeColor = computed<string | null>(() => {
-  if (!props.isActive) return null;
+// The album's accent color (dominant cover color, same tier logic the playing
+// card uses) is computed for every card so square cards can border-highlight
+// on hover with it. Covers are already decoded for display, so this only adds
+// the canvas sampling per visible (virtualized) card.
+const coverGlowRgb = useDominantColor(coverUrl);
+const coverHueRgb = useProminentHueColor(coverUrl);
+const coverModeRgb = useMostCommonColor(coverUrl);
+const cardAccentColor = computed<string | null>(() => {
   // Tier 1 (the average) must be clearly saturated — a muddy gray-brown
   // average on a mostly-monochrome cover should not mask the vivid accent
   // the hue tier finds. Fallback tiers accept muted colors (e.g. #7C6C4D).
-  const avg = rawMainColor(activeGlowRgb.value);
+  const avg = rawMainColor(coverGlowRgb.value);
   if (isUsableHighlightColor(avg, 0.22)) return avg;
-  const hue = activeHueRgb.value;
+  const hue = coverHueRgb.value;
   if (isUsableHighlightColor(hue, 0.08)) return hue;
-  const mode = activeModeRgb.value;
+  const mode = coverModeRgb.value;
   if (isUsableHighlightColor(mode, 0.08)) return mode;
   return null;
 });
-
+const activeColor = computed<string | null>(() =>
+  props.isActive ? cardAccentColor.value : null,
+);
 const listActiveStyle = computed<Record<string, string> | undefined>(() => {
   if (!props.isActive || !activeColor.value) return undefined;
   return { backgroundColor: `rgba(${activeColor.value},0.08)` };

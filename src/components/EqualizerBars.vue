@@ -6,8 +6,7 @@
       class="w-[3px] rounded-sm bg-current"
       :class="props.class"
       :style="{
-        animation: `eq 380ms cubic-bezier(0.4,0,0.2,1) ${delay}ms infinite alternate`,
-        animationPlayState: props.paused ? 'paused' : 'running',
+        animation: `${props.paused ? 'eq-idle 900ms' : 'eq 380ms'} cubic-bezier(0.4,0,0.2,1) ${delay}ms infinite alternate`,
       }"
     />
   </div>
@@ -16,8 +15,9 @@
 <script setup lang="ts">
 const DELAYS = [0, 160, 80];
 
-/** `paused` freezes the bars where they stand rather than hiding them, so a
-    paused track still reads as the current one. */
+/** `paused` switches the bars to a gentle low idle animation (all three bars
+    stay low but keep moving) instead of freezing, so a paused track still
+    reads as the current one without looking alive. */
 const props = defineProps<{ class?: string; paused?: boolean }>();
 </script>
 
@@ -30,5 +30,10 @@ const props = defineProps<{ class?: string; paused?: boolean }>();
 @keyframes eq {
   from { height: 25%; }
   to { height: 100%; }
+}
+/* Paused idle: all three bars stay very low but visibly breathing. */
+@keyframes eq-idle {
+  from { height: 10%; }
+  to { height: 22%; }
 }
 </style>

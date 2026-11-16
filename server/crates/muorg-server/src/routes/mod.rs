@@ -14,6 +14,7 @@ use axum::{
     Json,
 };
 
+#[derive(Debug)]
 pub struct ApiError(StatusCode, String);
 
 impl IntoResponse for ApiError {

@@ -2,10 +2,12 @@ package nl.muorg.android.ui.screen.metadata
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,23 +16,33 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -65,6 +77,7 @@ import nl.muorg.android.ui.friendlyMessage
 import nl.muorg.android.ui.icon.MageIcon
 import nl.muorg.android.ui.icon.mageIconRes
 import nl.muorg.android.util.AlbumRenames
+import nl.muorg.android.data.WikipediaCover
 import javax.inject.Inject
 
 /** The value shared by every track of the album, or "" when they differ. */
@@ -73,6 +86,13 @@ private fun shared(values: List<String?>): String {
     val first = values[0] ?: ""
     return if (values.all { (it ?: "") == first }) first else ""
 }
+
+/** One cover candidate in the picker: a Wikipedia image URL, or the album's
+ *  current cover (isOriginal) served by the Muorg server. */
+data class CoverCandidate(
+    val url: String,
+    val isOriginal: Boolean = false,
+)
 
 data class AlbumEditUiState(
     val albumName: String = "",
@@ -84,6 +104,10 @@ data class AlbumEditUiState(
     val albumArtist: String = "",
     val year: String = "",
     val genre: String = "",
+    val coverSearching: Boolean = false,
+    val coverPickerVisible: Boolean = false,
+    val coverCandidates: List<CoverCandidate> = emptyList(),
+    val applyingCover: Boolean = false,
 )
 
 @HiltViewModel
@@ -189,6 +213,74 @@ class AlbumEditViewModel @Inject constructor(
     /** Writes only the fields that differ from the loaded values to every
      *  track of the album — the batch endpoint on the server, one local
      *  update per track in local mode. */
+    /**
+     * Auto-search Wikipedia for this album's cover candidates (port of the
+     * legacy desktop app's auto-search cover feature). Nothing is written yet:
+     * the candidates open in a picker and only the one the user taps is
+     * written, as a perfect square, to every track of the album.
+     */
+    fun searchCoverOnline() {
+        val state = _uiState.value
+        if (state.coverSearching || state.tracks.isEmpty()) return
+        viewModelScope.launch {
+            if (preferences.musicMode.first() == "local") {
+                uiMessenger.show("Cover search is only available in server mode", OrcMood.Worried)
+                return@launch
+            }
+            _uiState.update { it.copy(coverSearching = true) }
+            val found = WikipediaCover.findAlbumCoverUrls(state.album, state.albumArtist, limit = 6)
+            _uiState.update { it.copy(coverSearching = false) }
+            if (found.isFailure) {
+                uiMessenger.show("Cover search failed: ${found.exceptionOrNull()?.message}", OrcMood.Worried)
+                return@launch
+            }
+            // The album's current cover is always the first candidate, tagged Original.
+            val original = state.tracks.firstOrNull { it.hasCover }?.let { t ->
+                CoverCandidate(
+                    url = "${preferences.serverUrlState.value}/api/tracks/${t.id}/cover?size=1200",
+                    isOriginal = true,
+                )
+            }
+            val candidates = listOfNotNull(original) + found.getOrThrow().map { CoverCandidate(url = it) }
+            _uiState.update { it.copy(coverCandidates = candidates, coverPickerVisible = true) }
+        }
+    }
+
+    fun dismissCoverPicker() {
+        _uiState.update { it.copy(coverPickerVisible = false, coverCandidates = emptyList()) }
+    }
+
+    /** Write the picked candidate as a perfect square to every track of the album. */
+    fun applyCover(candidate: CoverCandidate) {
+        val state = _uiState.value
+        if (state.applyingCover || state.tracks.isEmpty()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(applyingCover = true) }
+            val headers = if (candidate.isOriginal && preferences.apiKeyState.value.isNotBlank()) {
+                mapOf("Authorization" to "Bearer ${preferences.apiKeyState.value}")
+            } else {
+                emptyMap()
+            }
+            val base64 = WikipediaCover.downloadSquareCoverBase64(candidate.url, headers).getOrNull()
+            if (base64 == null) {
+                _uiState.update { it.copy(applyingCover = false) }
+                uiMessenger.show("Could not download the selected cover", OrcMood.Worried)
+                return@launch
+            }
+            val items = state.tracks.map { t ->
+                BatchMetadataItem(id = t.id.toLong(), pictureBase64 = base64)
+            }
+            repository.batchPatchMetadata(items).fold(
+                onSuccess = { n ->
+                    uiMessenger.show("Set cover on $n track${if (n == 1) "" else "s"}", OrcMood.Happy)
+                    refreshAfterSave()
+                },
+                onFailure = { e -> uiMessenger.show("Failed to set cover: ${e.friendlyMessage()}", OrcMood.Worried) },
+            )
+            _uiState.update { it.copy(applyingCover = false, coverPickerVisible = false, coverCandidates = emptyList()) }
+        }
+    }
+
     fun save() {
         val state = _uiState.value
         val base = snapshot ?: return
@@ -369,6 +461,7 @@ class TrackEditViewModel @Inject constructor(
  * value shared by all tracks, saved to every track of the album) and the
  * album's track list underneath, each row opening the per-track editor.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumEditScreen(
     albumName: String,
@@ -436,6 +529,23 @@ fun AlbumEditScreen(
                             keyboardType = KeyboardType.Number,
                         )
                         Spacer(Modifier.height(8.dp))
+                        // Auto-search the album cover on Wikipedia and show the
+                        // candidates in a picker; only the tapped one is written
+                        // to every track of the album.
+                        OutlinedButton(
+                            onClick = viewModel::searchCoverOnline,
+                            enabled = !uiState.saving && !uiState.coverSearching,
+                        ) {
+                            if (uiState.coverSearching) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(if (uiState.coverSearching) "Searching cover…" else "Search cover online")
+                        }
+                        Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Button(onClick = viewModel::save, enabled = !uiState.saving) {
                                 Text(if (uiState.saving) "Saving…" else "Save")
@@ -491,6 +601,67 @@ fun AlbumEditScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp),
                         )
+                    }
+                }
+            }
+        }
+        if (uiState.coverPickerVisible) {
+            ModalBottomSheet(
+                onDismissRequest = viewModel::dismissCoverPicker,
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        "Pick a cover",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        "Tap a candidate to write it as a square cover to all " +
+                            "${uiState.tracks.size} track${if (uiState.tracks.size == 1) "" else "s"} of this album.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = 24.dp),
+                    ) {
+                        items(uiState.coverCandidates, key = { it.url }) { candidate ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box {
+                                    AsyncImage(
+                                        model = candidate.url,
+                                        contentDescription = if (candidate.isOriginal) "Current cover" else "Wikipedia cover candidate",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .clickable(enabled = !uiState.applyingCover) {
+                                                viewModel.applyCover(candidate)
+                                            },
+                                    )
+                                    if (uiState.applyingCover) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .align(Alignment.Center),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    }
+                                }
+                                if (candidate.isOriginal) {
+                                    Text(
+                                        "Original",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -558,7 +729,6 @@ fun TrackEditScreen(
                         EditField("Year", uiState.year, viewModel::onYearChange, keyboardType = KeyboardType.Number)
                         EditField("Track #", uiState.trackNumber, viewModel::onTrackNumberChange, keyboardType = KeyboardType.Number)
                         EditField("Disc #", uiState.discNumber, viewModel::onDiscNumberChange, keyboardType = KeyboardType.Number)
-                        Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Button(onClick = viewModel::save, enabled = !uiState.saving) {
                                 Text(if (uiState.saving) "Saving…" else "Save")

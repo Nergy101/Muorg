@@ -173,7 +173,13 @@ export const useMetadataStore = defineStore("metadata", () => {
    *  the confirmed fields to the in-memory catalog immediately (Q26). */
   async function writeBatch(items: { id: number; update: MetadataUpdate }[]): Promise<void> {
     if (items.length === 0) return;
-    await api.patchMetadataBatch(items.map(({ id, update }) => ({ id, ...update })));
+    const res = await api.patchMetadataBatch(items.map(({ id, update }) => ({ id, ...update })));
+    // The batch route skips tracks whose file/object can't be written (e.g. a
+    // remote object missing from its bucket) and reports how many landed —
+    // surface that instead of pretending the whole batch succeeded.
+    if (res && res.updated < items.length) {
+      showWarning(`Updated ${res.updated} of ${items.length} tracks — ${items.length - res.updated} failed (file missing or unwritable)`);
+    }
     const lib = useLibraryStore();
     const coverIds: number[] = [];
     for (const { id, update } of items) {

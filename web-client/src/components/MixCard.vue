@@ -45,6 +45,7 @@
 
       <!-- Title at the bottom of the glass; music icon + count on the right -->
       <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
+        <PlaylistIcon :icon="mix.icon" class="h-4 w-4 shrink-0 self-center" />
         <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ mix.name }}</p>
         <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
           <MageIcon name="music" class="h-3.5 w-3.5" />
@@ -58,6 +59,7 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
+import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
 import type { Mix } from "@shared/composables/useMixes";
 

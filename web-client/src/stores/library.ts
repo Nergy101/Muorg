@@ -392,6 +392,12 @@ export const useLibraryStore = defineStore("library", () => {
     const t = tracks.value.find((x) => x.id === trackId);
     if (!t) return;
     Object.assign(t, update);
+    // A picture write also flips has_cover, so the UI (album grid, editor
+    // preview) reflects the new art immediately instead of waiting for the
+    // debounced catalog reload.
+    if ("picture_base64" in update) {
+      t.has_cover = update.picture_base64 != null && update.picture_base64 !== "";
+    }
   }
 
   /**

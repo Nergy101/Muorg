@@ -93,6 +93,10 @@ export const useSettingsStore = defineStore("settings", () => {
   const albumViewStyle = ref<LibraryViewStyle>(
     loadPref<LibraryViewStyle>("muorg-web-album-view", "grid"),
   );
+  /** Square (no border radius) album cards in the Library grid. Off = rounded. */
+  const squareAlbumCards = ref(loadPref("muorg-web-square-album-cards", false));
+  /** Square (no border radius) cover in the maximized/FS player. Off = rounded. */
+  const squarePlayerCover = ref(loadPref("muorg-web-square-player-cover", false));
   /** Layout for the playlist/mix detail view — separate from the Library's
    *  albumViewStyle so a user can keep the library as an album grid while
    *  opening playlists as a track list. */
@@ -225,6 +229,16 @@ export const useSettingsStore = defineStore("settings", () => {
   function setAlbumViewStyle(s: LibraryViewStyle): void {
     albumViewStyle.value = s;
     savePref("muorg-web-album-view", s);
+  }
+
+  function setSquareAlbumCards(v: boolean): void {
+    squareAlbumCards.value = v;
+    savePref("muorg-web-square-album-cards", v);
+  }
+
+  function setSquarePlayerCover(v: boolean): void {
+    squarePlayerCover.value = v;
+    savePref("muorg-web-square-player-cover", v);
   }
 
   /** grid → list → tracks — the library's three layouts, same as Android. */
@@ -400,6 +414,10 @@ export const useSettingsStore = defineStore("settings", () => {
     setPathFormatTemplates,
     setMusicRootFolder,
     albumViewStyle,
+    squareAlbumCards,
+    setSquareAlbumCards,
+    squarePlayerCover,
+    setSquarePlayerCover,
     playlistViewStyle,
     miniPlayerTapOpensPlayer,
     fsBackdropBlur,

@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute inset-0 flex flex-col overflow-hidden bg-background">
+  <div class="album-edit-root absolute inset-0 flex flex-col overflow-hidden bg-background">
     <template v-if="!albumName">
       <div class="content-col flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
         <div class="w-40 shrink-0 sm:w-48">
@@ -45,6 +45,91 @@
       </div>
 
       <div class="content-col min-h-0 flex-1 overflow-y-auto pb-[var(--bottom-inset)]">
+        <!-- ─── Cover art editor ──────────────────────────────────────── -->
+        <div class="flex flex-col items-center gap-3 px-4 pt-4">
+          <div class="h-44 w-44 shrink-0 overflow-hidden rounded-xl bg-surface-variant shadow-[0_2px_6px_rgba(0,0,0,0.35)] sm:h-52 sm:w-52">
+            <img
+              v-if="displayCoverUrl"
+              :src="displayCoverUrl"
+              :alt="albumName ?? 'Album cover'"
+              class="h-full w-full object-cover"
+              draggable="false"
+              @load="onCoverImgLoad"
+            />
+            <div v-else class="flex h-full w-full items-center justify-center">
+              <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/60" />
+            </div>
+          </div>
+          <input
+            ref="coverFileRef"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="onCoverFileChange"
+          />
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="flex items-center gap-1.5 rounded-full bg-surface-variant px-4 py-2 text-label-lg text-on-surface"
+              @click="coverFileRef?.click()"
+            >
+              <MageIcon name="image" class="h-4 w-4" />
+              {{ displayCoverUrl ? "Change cover" : "Add cover" }}
+            </button>
+            <button
+              v-if="displayCoverUrl"
+              type="button"
+              class="flex items-center gap-1.5 rounded-full bg-surface-variant px-4 py-2 text-label-lg text-error"
+              @click="clearCover"
+            >
+              <MageIcon name="trash" class="h-4 w-4" />
+              Remove
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-1.5 rounded-full bg-surface-variant px-4 py-2 text-label-lg text-on-surface disabled:opacity-50"
+              :disabled="coverSearching"
+              @click="searchCoverOnline"
+            >
+              <span
+                v-if="coverSearching"
+                class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                aria-hidden="true"
+              />
+              <MageIcon v-else name="search" class="h-4 w-4" />
+              {{ coverSearching ? "Searching…" : "Search online" }}
+            </button>
+          </div>
+          <p v-if="coverSearchError" class="text-body-sm text-error">{{ coverSearchError }}</p>
+          <p v-if="coverDimensions" class="text-body-sm text-on-surface-variant">
+            {{ coverDimensions.width }}×{{ coverDimensions.height }}px
+          </p>
+          <!-- Online-search candidates: pick one to fill the cover input. -->
+          <div v-if="coverCandidates.length" class="flex max-w-full flex-wrap items-center justify-center gap-2">
+            <button
+              v-for="(c, i) in coverCandidates"
+              :key="i"
+              type="button"
+              class="relative h-16 w-16 overflow-hidden rounded-lg ring-2"
+              :class="selectedCandidate === i ? 'ring-primary' : 'ring-transparent hover:ring-on-surface-variant/40'"
+              :title="c.width && c.height ? `${c.width}×${c.height}px` : 'Cover candidate'"
+              @click="selectCandidate(c, i)"
+            >
+              <img
+                :src="`data:${c.mime};base64,${c.base64}`"
+                :alt="c.original ? 'Original cover' : 'Cover candidate'"
+                class="h-full w-full object-cover"
+                draggable="false"
+              />
+              <span
+                v-if="c.original"
+                class="absolute bottom-0.5 left-0.5 rounded bg-black/70 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-white"
+              >Original</span>
+            </button>
+          </div>
+          <p v-if="pendingCover" class="text-body-sm text-primary">New cover selected — saved with the form.</p>
+        </div>
+
         <!-- ─── Album fields ──────────────────────────────────────────── -->
         <div class="px-4 py-3">
           <p class="pb-2 text-body-sm text-on-surface-variant">
@@ -124,6 +209,10 @@
               {{ saving ? "Saving…" : "Save" }}
             </button>
           </div>
+          <!-- Indeterminate bar while the batch write is in flight. -->
+          <div v-if="saving" class="mt-2 h-1 w-full overflow-hidden rounded-full bg-surface-variant">
+            <div class="h-full w-1/3 animate-[hf-indeterminate_1.2s_ease-in-out_infinite] bg-primary" />
+          </div>
         </div>
 
         <!-- ─── Tracks of this album ──────────────────────────────────── -->
@@ -151,6 +240,12 @@
       </div>
     </template>
   </div>
+    <CoverCropModal
+      v-if="cropImageUrl"
+      :image-url="cropImageUrl"
+      @apply="onCropApply"
+      @cancel="cropImageUrl = null; selectedCandidate = -1"
+    />
 </template>
 
 <script setup lang="ts">
@@ -164,10 +259,15 @@
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import CoverCropModal from "../components/CoverCropModal.vue";
+import { api } from "../api/client";
+import { findAlbumCoverUrls } from "@shared/utils/wikipediaCover";
+import { downscaleImageToJpegBase64, normalizeMime, stripDataUrlPrefix } from "@shared/utils/imageData";
 import OrcIllustration from "../components/OrcIllustration.vue";
 import GenreCombobox from "../components/metadata/GenreCombobox.vue";
 import { recordAlbumKeyRedirect, resolveAlbumKey, useLibraryStore } from "../stores/library";
 import { useSettingsStore } from "../stores/settings";
+import { showToast } from "../composables/useToast";
 import {
   buildFieldUpdate,
   sharedFormValue,
@@ -201,8 +301,11 @@ const metadataStore = useMetadataStore();
  */
 const albumTrackIds = ref<number[]>([]);
 watch(
-  () => props.albumKey,
-  (key) => {
+  // Re-resolve when the catalog (re)loads too: on a fresh page load the
+  // library is still streaming in at mount, and resolving once against an
+  // empty catalog would stick the view on "Album not found".
+  [() => props.albumKey, () => lib.tracks.length],
+  ([key]) => {
     // A URL or history entry holding the pre-rename key forwards to the
     // renamed album's editor instead of showing "Album not found".
     const resolved = resolveAlbumKey(key);
@@ -239,6 +342,140 @@ const coverUrl = computed(() => {
   return lib.coverCache.get(t.id) ?? null;
 });
 
+// --- Cover art editing ------------------------------------------------------
+
+const coverFileRef = ref<HTMLInputElement | null>(null);
+/** base64 data URL of the newly cropped cover, applied on save. */
+const pendingCover = ref<string | null>(null);
+const coverCleared = ref(false);
+const cropImageUrl = ref<string | null>(null);
+
+const displayCoverUrl = computed(() => {
+  // pendingCover is raw base64 (what picture_base64 expects) — prefix it for <img>.
+  if (pendingCover.value) return `data:image/jpeg;base64,${pendingCover.value}`;
+  if (coverCleared.value) return null;
+  return coverUrl.value;
+});
+
+function onCoverFileChange(e: Event): void {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  cropImageUrl.value = URL.createObjectURL(file);
+}
+
+function onCropApply(dataUrl: string): void {
+  // The crop canvas emits a full data URL; picture_base64 needs raw base64.
+  pendingCover.value = stripDataUrlPrefix(dataUrl);
+  coverCleared.value = false;
+  cropImageUrl.value = null;
+  selectedCandidate.value = -1;
+}
+
+function clearCover(): void {
+  pendingCover.value = null;
+  coverCleared.value = true;
+}
+
+const coverSearching = ref(false);
+const coverSearchError = ref<string | null>(null);
+interface CoverCandidate { base64: string; mime: string; width: number | null; height: number | null; original?: boolean }
+const coverCandidates = ref<CoverCandidate[]>([]);
+
+/** Index of the candidate whose crop modal is open (ring highlight). */
+const selectedCandidate = ref(-1);
+
+/** Selecting a candidate opens the crop modal on it; the cropped result is
+ *  staged via onCropApply, capped at MAX_COVER_EDGE_PX keeping aspect ratio. */
+function selectCandidate(c: CoverCandidate, i: number): void {
+  selectedCandidate.value = i;
+  cropImageUrl.value = `data:${c.mime};base64,${c.base64}`;
+}
+const coverDimensions = ref<{ width: number; height: number } | null>(null);
+
+function onCoverImgLoad(e: Event): void {
+  const img = e.target as HTMLImageElement;
+  coverDimensions.value = { width: img.naturalWidth, height: img.naturalHeight };
+}
+
+/** Auto-search Wikipedia for this album's cover; shows all candidates as a
+ *  selection strip — picking one stages it as the new cover. */
+async function searchCoverOnline(): Promise<void> {
+  coverSearchError.value = null;
+  coverCandidates.value = [];
+  coverSearching.value = true;
+  try {
+    const found = await findAlbumCoverUrls(
+      form.value.album || albumName.value || "",
+      form.value.album_artist || albumArtist.value || "",
+      6,
+    );
+    const urls = found.filter((f): f is { ok: true; url: string } => f.ok).map((f) => f.url);
+    if (urls.length === 0) {
+      coverSearchError.value = found[0] && !found[0].ok ? found[0].reason : "No images found.";
+      return;
+    }
+    const candidates: CoverCandidate[] = [];
+    // Candidates are downscaled to at most 1400px for the strip preview; the
+    // final staged cover is capped at MAX_COVER_EDGE_PX (500px, the
+    // Rockbox-friendly default) by the crop modal when a candidate is picked,
+    // so the per-track tag write stays far below the server's request body
+    // limit (a full-resolution download's base64 would be rejected with 413).
+    async function stageCandidate(dataUrl: string): Promise<{ base64: string; width: number; height: number }> {
+      const base64 = await downscaleImageToJpegBase64(dataUrl, 1400);
+      // Only keep candidates that actually decode — a broken image must not
+      // show up in the strip.
+      const dims = await new Promise<{ width: number; height: number }>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => resolve({ width: 0, height: 0 });
+        img.src = `data:image/jpeg;base64,${base64}`;
+      });
+      return { base64, ...dims };
+    }
+    // The album's current cover is always the first candidate, tagged Original.
+    if (coverUrl.value) {
+      try {
+        const blob = await (await fetch(coverUrl.value)).blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const { base64, width, height } = await stageCandidate(dataUrl);
+        if (width > 0) {
+          candidates.push({ base64, mime: "image/jpeg", width, height, original: true });
+        }
+      } catch {
+        // original cover unavailable — search results still show
+      }
+    }
+    for (const url of urls) {
+      try {
+        const { base64, mime } = await api.fetchImage(url);
+        const normMime = normalizeMime(mime);
+        if (!normMime.startsWith("image/")) continue;
+        const staged = await stageCandidate(`data:${normMime};base64,${base64}`);
+        // Keep anything that decodes and is at least 300px on its longest
+        // edge — the crop modal keeps the aspect ratio, so non-square images
+        // are usable covers too.
+        if (staged.width === 0 || staged.height === 0 || Math.max(staged.width, staged.height) < 300) continue;
+        candidates.push({ base64: staged.base64, mime: "image/jpeg", width: staged.width, height: staged.height });
+      } catch {
+        // skip candidates that fail to download
+      }
+    }
+    coverCandidates.value = candidates;
+    if (candidates.length === 0) coverSearchError.value = "Could not download any found images.";
+  } catch (e) {
+    coverSearchError.value = e instanceof Error ? e.message : "Search failed.";
+  } finally {
+    coverSearching.value = false;
+  }
+}
+
 const form = ref<MetadataForm>({
   title: "",
   artist: "",
@@ -264,6 +501,20 @@ function clearField(key: MetadataFieldKey): void {
   markEdited(key);
 }
 
+/** Cover edits are per-album: drop any pending/cleared cover from a previous
+ *  album so re-entering the editor (KeepAlive) never shows stale state. Only
+ *  called when the album key actually changes — NOT on library reloads, which
+ *  would wipe a pending selection mid-edit. */
+function resetCoverState(): void {
+  pendingCover.value = null;
+  coverCleared.value = false;
+  cropImageUrl.value = null;
+  selectedCandidate.value = -1;
+  coverSearchError.value = null;
+  coverDimensions.value = null;
+  coverCandidates.value = [];
+}
+
 function syncFromTracks(): void {
   const list = tracks.value;
   touched.value = new Set();
@@ -278,15 +529,42 @@ function syncFromTracks(): void {
   };
 }
 
+// Reset cover state only when the album key actually changes (declared after
+// the cover refs so the immediate run doesn't hit TDZ).
+watch(
+  () => props.albumKey,
+  () => resetCoverState(),
+  { immediate: true },
+);
+
 watch(tracks, syncFromTracks, { immediate: true, deep: true });
 
 async function save(): Promise<void> {
   const ids = tracks.value.map((t) => t.id);
   if (ids.length === 0) return;
   const update = buildFieldUpdate(form.value, touched.value, cleared.value, true);
+  const hasFieldChanges = Object.keys(update).length > 0;
+  const hasCoverChange = pendingCover.value != null || coverCleared.value;
+  if (!hasFieldChanges && !hasCoverChange) {
+    showToast("No changes to save");
+    return;
+  }
   saving.value = true;
   try {
-    const ok = await metadataStore.saveBulk(ids, update);
+    // One batch call per change set: the batch endpoint writes every id in a
+    // single request (and reports one "Edited N tracks" toast), so there is
+    // no per-track loop. Field edits and the cover are independent — saveBulk
+    // reports "no changes" when only the cover changed — so gate each write on
+    // its own change set.
+    let ok = true;
+    if (hasFieldChanges) ok = await metadataStore.saveBulk(ids, update);
+    if (ok && hasCoverChange) {
+      ok = await metadataStore.saveBulk(ids, { picture_base64: coverCleared.value ? null : pendingCover.value });
+    }
+    if (ok && hasCoverChange) {
+      pendingCover.value = null;
+      coverCleared.value = false;
+    }
     if (ok) {
       syncFromTracks();
       // Renaming the album (or its artist) changed its key — point the URL at

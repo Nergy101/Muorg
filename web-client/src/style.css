@@ -344,6 +344,15 @@ body {
     max-width: 900px;
     margin-inline: auto;
   }
+
+  /* The album editor is a fullscreen experience on desktop viewports, not the
+     capped mobile/portrait column. */
+  @media (min-width: 64rem) {
+    .album-edit-root .content-col,
+    .album-edit-root .content-col-children > * {
+      max-width: none;
+    }
+  }
 }
 
 body {
@@ -860,6 +869,17 @@ input[type="range"]::-moz-range-thumb {
 }
 .heart-pop {
   animation: heart-pop 550ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Indeterminate progress bar: a sliding segment, used while a batch write
+   is in flight (no per-track progress to show). */
+@keyframes hf-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
 }
 
 /* Three-dot "toggling" loader: three dots that pulse in a staggered wave,

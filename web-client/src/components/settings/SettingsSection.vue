@@ -2,7 +2,7 @@
   <div>
     <button
       type="button"
-      :class="[SECTION, 'flex w-full items-center gap-1.5 text-left']"
+      :class="[SECTION, 'flex w-full items-center gap-1.5 rounded-lg text-left transition-colors hover:bg-surface-container/70']"
       :aria-expanded="open"
       @click="open = !open"
     >

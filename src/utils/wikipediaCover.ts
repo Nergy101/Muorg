@@ -64,6 +64,94 @@ export type CoverLookup =
   | { ok: false; reason: string };
 
 /**
+ * Look up up to `limit` cover candidates for `album` by `artist`, best-scoring
+ * first. Same search flow as [findAlbumCoverUrl], but the imageinfo call is
+ * batched over all top titles so callers can show a selection strip.
+ */
+export async function findAlbumCoverUrls(
+  album: string,
+  artist: string,
+  limit = 6,
+  fetchImpl: typeof fetch = fetch,
+): Promise<CoverLookup[]> {
+  const albumName = album.trim();
+  const artistName = artist.trim();
+  const query = [albumName, artistName].filter(Boolean).join(" ") || albumName;
+  if (!query) return [{ ok: false, reason: "Enter an album (or artist) name first." }];
+
+  const searchQuery = albumName ? `${albumName} (album)` : query;
+  const searchRes = await fetchImpl(
+    `${WIKI_API}?${new URLSearchParams({
+      action: "query",
+      generator: "search",
+      gsrsearch: searchQuery,
+      gsrlimit: "5",
+      format: "json",
+      origin: "*",
+    })}`,
+  );
+  const searchData = (await searchRes.json()) as {
+    query?: { pages?: Record<string, { pageid: number; title: string; index?: number }> };
+  };
+  const pages = searchData?.query?.pages;
+  const firstPage = pages
+    ? Object.values(pages).sort((a, b) => (a.index ?? 99) - (b.index ?? 99))[0]
+    : undefined;
+  if (!firstPage?.pageid) {
+    return [{ ok: false, reason: "No Wikipedia page found for this album." }];
+  }
+
+  const imagesRes = await fetchImpl(
+    `${WIKI_API}?${new URLSearchParams({
+      action: "query",
+      pageids: String(firstPage.pageid),
+      prop: "images",
+      format: "json",
+      origin: "*",
+    })}`,
+  );
+  const imagesData = (await imagesRes.json()) as {
+    query?: { pages?: Record<string, { images?: { title: string }[] }> };
+  };
+  const images = imagesData?.query?.pages?.[String(firstPage.pageid)]?.images ?? [];
+  const scored = images
+    .filter((img) => img.title.startsWith("File:"))
+    .map((img) => ({ title: img.title, score: scoreImageAsAlbumArt(img.title, albumName || query) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+  if (scored.length === 0) {
+    return [{ ok: false, reason: "No image found on this Wikipedia page." }];
+  }
+
+  // Batch-resolve all candidate titles to thumbnail URLs in one call.
+  const infoRes = await fetchImpl(
+    `${WIKI_API}?${new URLSearchParams({
+      action: "query",
+      titles: scored.map((s) => s.title).join("|"),
+      prop: "imageinfo",
+      iiprop: "url",
+      iiurlwidth: "800",
+      format: "json",
+      origin: "*",
+    })}`,
+  );
+  const infoData = (await infoRes.json()) as {
+    query?: { pages?: Record<string, { title?: string; imageinfo?: { url: string }[] }> };
+  };
+  const byTitle = new Map<string, string>();
+  for (const page of Object.values(infoData?.query?.pages ?? {})) {
+    const url = page.imageinfo?.[0]?.url;
+    if (page.title && url) byTitle.set(page.title, url);
+  }
+  const out: CoverLookup[] = [];
+  for (const s of scored) {
+    const url = byTitle.get(s.title);
+    if (url) out.push({ ok: true, url });
+  }
+  return out.length > 0 ? out : [{ ok: false, reason: "Could not get image URLs." }];
+}
+
+/**
  * Look up a cover for `album` by `artist`.
  *
  * `origin: "*"` on every request is what makes these callable from a browser at

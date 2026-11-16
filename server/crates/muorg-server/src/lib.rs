@@ -11,6 +11,7 @@ pub mod transcode;
 pub mod urlguard;
 
 use axum::{
+    extract::DefaultBodyLimit,
     middleware,
     routing::{delete, get, patch, post, put},
     Router,
@@ -139,7 +140,13 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         // route_layer (not layer): middleware only runs when a route matches,
         // so unknown paths fall through to the 404 fallback instead of 401.
         .route_layer(middleware::from_fn_with_state(state.clone(), auth::auth_middleware))
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth::rate_limit_middleware));
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth::rate_limit_middleware))
+        // Axum's Json extractor caps bodies at 2 MB by default, which rejects
+        // cover-art writes: /api/fetch-image accepts images up to 10 MB, whose
+        // base64 (~13.4 MB) then 413s on the metadata PATCH and batch routes.
+        // 32 MB fits one full-size cover plus headroom for small batches.
+        // (layer applies to the routes above, so it must come last.)
+        .layer(DefaultBodyLimit::max(32 * 1024 * 1024));
 
     let public = Router::new()
         .route("/", get(routes::util::home))
