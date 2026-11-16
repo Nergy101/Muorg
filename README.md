@@ -9,7 +9,7 @@
   [![Docker Server](https://img.shields.io/github/v/release/Nergy101/Muorg?label=docker%20server&color=0db7ed)](https://github.com/Nergy101/Muorg/pkgs/container/muorg-server)
   [![Docker Web](https://img.shields.io/github/v/release/Nergy101/Muorg?label=docker%20web&color=0db7ed)](https://github.com/Nergy101/Muorg/pkgs/container/muorg-web)
   [![Docs](https://img.shields.io/badge/docs-docs.muorg.nergy.space-blue)](https://docs.muorg.nergy.space)
-  ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Android%20%7C%20Web-lightgrey)
+  ![Platforms](https://img.shields.io/badge/platform-Web%20%7C%20Android%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 </div>
 
 ---
