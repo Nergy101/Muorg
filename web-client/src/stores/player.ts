@@ -1232,21 +1232,29 @@ export const usePlayerStore = defineStore("player", () => {
       el.style.removeProperty("--primary-container");
       el.style.removeProperty("--on-primary-container");
       el.style.removeProperty("--secondary");
+      el.style.removeProperty("--dynamic-primary");
     };
     if (settings.accent !== "dynamic") {
-      clearInlineAccent();
-      return;
-    }
-    // The settings page always shows the selected static accent (the default
-    // Muorg green when "dynamic" is picked) — never the artwork-derived
-    // dynamic color, so the accent controls read predictably there.
-    if (router.currentRoute.value.name === "settings") {
       clearInlineAccent();
       return;
     }
     const accent = visibleAccentFromRgb(rawMainColor(accentGlowRgb.value));
     if (!accent) {
       clearInlineAccent();
+      return;
+    }
+    // --dynamic-primary is route-independent: the nav's active tab keeps the
+    // artwork accent even on the settings page, where --primary is reset to
+    // the static theme accent so the accent controls read predictably there.
+    el.style.setProperty("--dynamic-primary", accent);
+    // The settings page always shows the selected static accent (the default
+    // Muorg green when "dynamic" is picked) — never the artwork-derived
+    // dynamic color, so the accent controls read predictably there.
+    if (router.currentRoute.value.name === "settings") {
+      el.style.removeProperty("--primary");
+      el.style.removeProperty("--primary-container");
+      el.style.removeProperty("--on-primary-container");
+      el.style.removeProperty("--secondary");
       return;
     }
     // Container = the accent pulled ~40% toward the dark surface so fills made

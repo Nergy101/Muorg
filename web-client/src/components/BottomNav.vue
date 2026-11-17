@@ -23,7 +23,7 @@
         }"
         aria-hidden="true"
       >
-        <div class="h-10 w-14 rounded-full bg-primary/[0.18]" />
+        <div class="nav-active-pill h-10 w-14 rounded-full" />
       </div>
 
       <RouterLink
@@ -38,7 +38,7 @@
         <MageIcon
           :name="activeIndex === i ? tab.iconActive : tab.icon"
           class="h-6 w-6 transition-transform duration-200"
-          :class="activeIndex === i ? 'scale-[1.15] text-primary' : 'text-on-surface-variant'"
+          :class="activeIndex === i ? 'scale-[1.15] nav-active-icon' : 'text-on-surface-variant'"
         />
       </RouterLink>
     </div>
@@ -64,3 +64,15 @@ function onTabClick(name: string): void {
   if (name === "search" && route.name === "search") searchFocusSignal.value++;
 }
 </script>
+
+<style scoped>
+/* The active tab keeps the artwork-derived dynamic accent even on the
+   settings page, where --primary is reset to the static theme accent so the
+   page itself stays Muorg green (see the player store's accent effect). */
+.nav-active-icon {
+  color: var(--dynamic-primary, var(--primary));
+}
+.nav-active-pill {
+  background-color: color-mix(in srgb, var(--dynamic-primary, var(--primary)) 18%, transparent);
+}
+</style>
