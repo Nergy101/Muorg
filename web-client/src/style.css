@@ -150,7 +150,7 @@ html {
   --on-error: #370b1e;
   --error-container: #44201f;
   --on-error-container: #f9dedc;
-  /* Colour the album-cover scrim fades into; true black mode overrides it. */
+  /* Default caption halo color on card scrims; true black mode overrides it. */
   --scrim: var(--surface);
   /* Near-black core of the cover backdrop wash (bland/missing art); true
      black mode overrides it so the centre is pure black too. */
@@ -178,7 +178,7 @@ html {
   --on-error: #370b1e;
   --error-container: #44201f;
   --on-error-container: #f9dedc;
-  /* True black mode: cover scrims fade into pure black, not the toned gray. */
+  /* True black mode: caption halo is pure black, not the toned gray. */
   --scrim: #000000;
   --backdrop-core: #000000;
 }
@@ -527,42 +527,40 @@ html.pwa .controls-panel {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
 }
 
-/* Frosted caption scrim for cards: a translucent, blurred panel along the
-   bottom that keeps the label legible over any artwork — the glass-islands
-   counterpart to the old dark gradient overlay. The top edge fades out (via a
-   mask over the frosted fill + blur) so it dissolves into the artwork like the
-   old shadow gradient did, instead of ending in a hard line.
+/* Frosted caption scrim for cards: a theme-independent frosted-glass panel
+   along the bottom — backdrop blur plus a faint neutral white ramp — that
+   keeps the label legible over any artwork. The top edge fades out (via a
+   mask over the frosted fill + blur) so it dissolves into the artwork
+   instead of ending in a hard line.
 
-   Legibility is deliberately NOT bought with flat opacity. A uniform tint
-   strong enough to beat a white sleeve turns the bottom of every card into a
+   Legibility is deliberately NOT bought with a strong tint: a uniform fill
+   dense enough to beat a white sleeve turns the bottom of every card into a
    near-solid bar. Instead the fill RAMPS: near-clear where it meets the
    artwork, densest in the last few px where the caption actually sits. The
-   band therefore reads as sheer — you can see the cover through most of it —
-   while the text still has a surface behind it. The mask fades the blur in
-   over the same span so the panel dissolves into the sleeve, and
-   `.scrim-label` adds a halo for the busiest covers. */
+   band therefore reads as sheer frosted glass — you can see the cover
+   through most of it — while the blur behind the text does the work. The
+   caption's own color is picked per card from the artwork (see useCardScrim);
+   `.scrim-label` adds a halo in the opposite tone for the busiest covers. */
 .glass-scrim {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--scrim) 8%, transparent) 0%,
-    color-mix(in srgb, var(--scrim) 55%, transparent) 50%,
-    color-mix(in srgb, var(--scrim) 78%, transparent) 100%
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.12) 100%
   );
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
-  backdrop-filter: blur(26px) saturate(160%);
-  border-top: 1px solid color-mix(in srgb, var(--on-surface) 12%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
+  -webkit-backdrop-filter: blur(6px) saturate(140%);
+  backdrop-filter: blur(6px) saturate(140%);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 45%, #000 85%);
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.55) 45%, #000 85%);
 }
 
-/* Captions sitting on `.glass-scrim`. The halo is drawn in `--scrim` (the
-   scrim's own fade colour), so it matches the panel behind the text in every
-   theme — pure black in true black mode. Two stacked shadows: a tight one
-   for edge definition and a wide soft one to knock back busy artwork. */
+/* Captions sitting on `.glass-scrim`. Only a tight edge shadow in `--scrim`
+   (which cover cards override per artwork to the tone opposite their caption
+   text); cards without art keep the theme's --scrim. No wide blur halo — on
+   busy covers it read as a dark box behind the text. */
 .scrim-label {
-  text-shadow:
-    0 1px 2px color-mix(in srgb, var(--scrim) 90%, transparent),
-    0 0 12px color-mix(in srgb, var(--scrim) 75%, transparent);
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--scrim) 90%, transparent);
 }
 
 /* Focus ring */

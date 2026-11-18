@@ -65,14 +65,14 @@
 
       <!-- Bottom frosted scrim so the title stays legible over artwork -->
       <div
-        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[52px]"
+        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[72px]"
         aria-hidden="true"
       />
 
       <!-- Title at the bottom of the glass; music icon + count on the right.
            A download icon appears when the playlist is cached for offline; while
            it downloads, a ring around the icon acts as the progress bar. -->
-      <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-center gap-1.5 px-2.5">
+      <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[72px] items-end pb-2 gap-1.5 px-2.5">
         <PlaylistIcon :icon="playlist.icon" class="h-4 w-4 shrink-0" :class="scrimMutedClass" />
         <p class="min-w-0 flex-1 truncate" :class="scrimTitleClass">{{ playlist.name }}</p>
         <span class="flex shrink-0 items-center gap-1 text-label-sm" :class="scrimMutedClass">

@@ -179,12 +179,12 @@ export function relativeLuminance(rgb: string): number {
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
 
-/** Which scrim fade to use over a cover whose bottom strip averages `rgb`:
- *  "dark" (black fade, white caption) when the art underneath is light,
- *  "light" (white fade, black caption) when it is dark. The threshold is the
- *  WCAG crossover where white text starts beating black text against the
- *  background (relative luminance ~0.179). */
-export function scrimToneFor(rgb: string): "dark" | "light" {
+/** Which caption tone to use over a cover whose bottom strip averages `rgb`:
+ *  "dark" (black text) when the art underneath is light, "light" (white text)
+ *  when it is dark. The threshold is the WCAG crossover where white text
+ *  starts beating black text against the background (relative luminance
+ *  ~0.179). */
+export function captionToneFor(rgb: string): "dark" | "light" {
   return relativeLuminance(rgb) >= 0.179 ? "dark" : "light";
 }
 
@@ -355,18 +355,18 @@ export function useProminentHueColor(imageUrl: Ref<string | null>) {
   return hueRgb;
 }
 
-/** Art-dependent scrim tone for a cover: "dark" (black fade + white caption)
- *  when the bottom of the artwork is light, "light" (white fade + black
- *  caption) when it is dark. Null until the image has been sampled (or when
- *  there is no image), so callers can fall back to the theme's --scrim. */
-export function useScrimTone(imageUrl: Ref<string | null>) {
+/** Art-dependent caption tone for a cover: "dark" (black caption) when the
+ *  bottom of the artwork is light, "light" (white caption) when it is dark.
+ *  Null until the image has been sampled (or when there is no image), so
+ *  callers can fall back to the theme's caption colors. */
+export function useCaptionTone(imageUrl: Ref<string | null>) {
   const tone = ref<"dark" | "light" | null>(null);
 
   watch(
     imageUrl,
     (url) => {
       if (!url) { tone.value = null; return; }
-      void sampled(url).then((s) => { tone.value = scrimToneFor(s.bottom); });
+      void sampled(url).then((s) => { tone.value = captionToneFor(s.bottom); });
     },
     { immediate: true },
   );
@@ -375,8 +375,10 @@ export function useScrimTone(imageUrl: Ref<string | null>) {
 }
 
 export interface CardScrim {
-  /** Per-card `--scrim` override; undefined while the tone is unknown, so the
-   *  theme's own --scrim applies until the cover has been sampled. */
+  /** Per-card `--scrim` override used as the caption text halo — the opposite
+   *  of the caption color (white halo behind black text, black halo behind
+   *  white text). Undefined while the tone is unknown, so the theme's own
+   *  --scrim applies until the cover has been sampled. */
   scrimStyle: ComputedRef<Record<string, string> | undefined>;
   /** Caption title class for the current tone. */
   scrimTitleClass: ComputedRef<string>;
@@ -386,28 +388,31 @@ export interface CardScrim {
   scrimMutedClass: ComputedRef<string>;
 }
 
-/** Everything a cover card needs to render its bottom scrim and caption in
- *  an art-dependent tone: the --scrim override plus the matching text
- *  classes. Falls back to the theme classes while the tone is unknown. */
+/** Everything a cover card needs for its caption over the frosted-glass
+ *  scrim: the art-dependent text classes plus the matching halo color via
+ *  the --scrim override. Falls back to the theme classes while the tone is
+ *  unknown. */
 export function useCardScrim(imageUrl: Ref<string | null>): CardScrim {
-  const tone = useScrimTone(imageUrl);
+  const tone = useCaptionTone(imageUrl);
   const scrimStyle = computed<Record<string, string> | undefined>(() => {
     if (!tone.value) return undefined;
-    return { "--scrim": tone.value === "dark" ? "#000000" : "#ffffff" };
+    // Black caption text gets no halo (transparent shadow); white text keeps
+    // a black halo to stay legible over dark artwork.
+    return { "--scrim": tone.value === "dark" ? "transparent" : "#000000" };
   });
   const scrimTitleClass = computed(() => {
-    if (tone.value === "dark") return "text-label-lg font-semibold text-white";
-    if (tone.value === "light") return "text-label-lg font-semibold text-black";
+    if (tone.value === "dark") return "text-label-lg font-semibold text-black";
+    if (tone.value === "light") return "text-label-lg font-semibold text-white";
     return "text-label-lg font-semibold text-on-surface";
   });
   const scrimSubClass = computed(() => {
-    if (tone.value === "dark") return "truncate text-label-sm text-white/70";
-    if (tone.value === "light") return "truncate text-label-sm text-black/60";
+    if (tone.value === "dark") return "truncate text-label-sm text-black/60";
+    if (tone.value === "light") return "truncate text-label-sm text-white/70";
     return "truncate text-label-sm text-on-surface-variant";
   });
   const scrimMutedClass = computed(() => {
-    if (tone.value === "dark") return "text-white/70";
-    if (tone.value === "light") return "text-black/60";
+    if (tone.value === "dark") return "text-black/60";
+    if (tone.value === "light") return "text-white/70";
     return "text-on-surface-variant";
   });
   return { scrimStyle, scrimTitleClass, scrimSubClass, scrimMutedClass };

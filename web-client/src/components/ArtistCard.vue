@@ -43,10 +43,10 @@
 
     <!-- Dark bottom fade so the caption stays legible over any artwork -->
     <div
-      class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[44px]"
+      class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[64px]"
       aria-hidden="true"
     />
-    <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
+    <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[64px] items-end pb-2 gap-2 px-2.5">
       <div class="min-w-0 flex-1">
         <MarqueeText :text="name" :class="scrimTitleClass" />
       </div>

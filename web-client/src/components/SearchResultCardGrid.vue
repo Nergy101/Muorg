@@ -24,10 +24,10 @@
           <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/60" />
         </div>
         <div
-          class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[44px]"
+          class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[64px]"
           aria-hidden="true"
         />
-        <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[44px] items-center px-2.5">
+        <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[64px] items-end pb-2 px-2.5">
           <div class="min-w-0 flex-1">
             <MarqueeText
               :text="card.item.album"
