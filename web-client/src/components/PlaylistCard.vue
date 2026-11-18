@@ -18,6 +18,7 @@
       ref="cardEl"
       class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_2px_6px_rgba(0,0,0,0.35)]"
       :class="dragOver ? 'ring-2 ring-primary' : ''"
+      :style="scrimStyle"
     >
       <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center">
         <MageIcon name="music" class="h-10 w-10 text-on-surface-variant/50" />
@@ -71,10 +72,10 @@
       <!-- Title at the bottom of the glass; music icon + count on the right.
            A download icon appears when the playlist is cached for offline; while
            it downloads, a ring around the icon acts as the progress bar. -->
-      <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
-        <PlaylistIcon :icon="playlist.icon" class="h-4 w-4 shrink-0 self-center" />
-        <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ playlist.name }}</p>
-        <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
+      <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-center gap-1.5 px-2.5">
+        <PlaylistIcon :icon="playlist.icon" class="h-4 w-4 shrink-0" :class="scrimMutedClass" />
+        <p class="min-w-0 flex-1 truncate" :class="scrimTitleClass">{{ playlist.name }}</p>
+        <span class="flex shrink-0 items-center gap-1 text-label-sm" :class="scrimMutedClass">
           <MageIcon v-if="playlist.smart_rules" name="zap" class="h-3 w-3 text-primary" />
           <span v-if="downloadState !== 'none'" class="relative flex h-4 w-4 items-center justify-center" :title="downloadTitle">
             <svg v-if="downloadState === 'downloading'" viewBox="0 0 16 16" class="absolute inset-0 h-4 w-4 -rotate-90">
@@ -128,6 +129,7 @@ import { useOfflineStore } from "../stores/offline";
 import { usePlayerStore } from "../stores/player";
 import { isTrackDrag, readTrackDrag } from "../composables/useTrackDrag";
 import { useLongPress } from "../composables/useLongPress";
+import { useCardScrim } from "../composables/useDominantColor";
 import type { Playlist, CatalogTrack } from "../types";
 
 const props = defineProps<{ playlist: Playlist }>();
@@ -209,6 +211,14 @@ const coverUrls = computed<(string | null)[]>(() => {
   return urls;
 });
 const coverCount = computed(() => coverUrls.value.length);
+
+// Art-dependent scrim tone, sampled from the cover sitting under the bottom
+// fade: the bottom-left tile of the 2x2 collage when all 4 covers loaded,
+// otherwise the first cover.
+const scrimSourceUrl = computed<string | null>(
+  () => (coverUrls.value.length >= 4 ? coverUrls.value[2] : coverUrls.value[0]) ?? null,
+);
+const { scrimStyle, scrimTitleClass, scrimMutedClass } = useCardScrim(scrimSourceUrl);
 
 // Lazy-load the playlist's track order + request covers only when visible.
 let observer: IntersectionObserver | null = null;

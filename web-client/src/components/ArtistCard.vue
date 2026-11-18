@@ -6,6 +6,7 @@
     type="button"
     class="relative aspect-square w-full select-none overflow-hidden rounded-xl bg-surface-variant ring-1 ring-white/10 text-left"
     :aria-label="`Browse artist ${name}`"
+    :style="scrimStyle"
     @click="$emit('open', name)"
   >
     <div v-if="coverUrls.length === 0" class="absolute inset-0 flex items-center justify-center">
@@ -47,9 +48,9 @@
     />
     <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
       <div class="min-w-0 flex-1">
-        <MarqueeText :text="name" class="text-label-lg font-semibold text-on-surface" />
+        <MarqueeText :text="name" :class="scrimTitleClass" />
       </div>
-      <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
+      <div class="flex shrink-0 items-center gap-1" :class="scrimMutedClass">
         <MageIcon name="music" class="h-3 w-3" />
         <span class="text-label-sm tabular-nums">{{ trackCount }}</span>
       </div>
@@ -58,16 +59,26 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
+import { useCardScrim } from "../composables/useDominantColor";
 
 /** A large artist card: up to 4 album covers in a collage, with the artist
  *  name and total song count on the bottom scrim — used for search artist
  *  matches and recent artists. */
-defineProps<{
+const props = defineProps<{
   name: string;
   coverUrls: (string | null)[];
   trackCount: number;
 }>();
 defineEmits<{ open: [name: string] }>();
+
+// Art-dependent scrim tone, sampled from the cover sitting under the bottom
+// fade: the bottom-left tile of the 2x2 collage when all 4 covers loaded,
+// otherwise the first cover.
+const scrimSourceUrl = computed<string | null>(
+  () => (props.coverUrls.length >= 4 ? props.coverUrls[2] : props.coverUrls[0]) ?? null,
+);
+const { scrimStyle, scrimTitleClass, scrimMutedClass } = useCardScrim(scrimSourceUrl);
 </script>

@@ -52,6 +52,7 @@
       'relative aspect-square w-full select-none overflow-hidden bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] text-left transition-transform duration-150 [-webkit-touch-callout:none] active:scale-95 lg:cursor-pointer lg:hover:scale-[1.03]',
       settings.squareAlbumCards ? '' : 'rounded-xl',
     ]"
+    :style="scrimStyle"
     @click="emit('open')"
     @touchstart.passive="lp.onTouchstart"
     @touchmove.passive="lp.onTouchmove"
@@ -106,13 +107,15 @@
       aria-hidden="true"
     />
 
-    <!-- Caption, vertically centred within the frosted panel -->
+    <!-- Caption, vertically centred within the frosted panel. Text color
+         follows the art-dependent scrim tone (white on a dark fade, black on
+         a light fade) so it stays legible in every theme. -->
     <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[44px] items-center gap-2 px-2.5">
       <div class="min-w-0 flex-1">
-        <MarqueeText :text="item.album" class="text-label-lg font-semibold text-on-surface" />
-        <div class="truncate text-label-sm text-on-surface-variant"><ArtistLink :name="item.albumArtist" /></div>
+        <MarqueeText :text="item.album" :class="scrimTitleClass" />
+        <div :class="scrimSubClass"><ArtistLink :name="item.albumArtist" /></div>
       </div>
-      <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
+      <div class="flex shrink-0 items-center gap-1" :class="scrimMutedClass">
         <MageIcon name="music" class="h-3 w-3" />
         <span class="text-label-sm tabular-nums">{{ item.trackCount }}</span>
       </div>
@@ -130,7 +133,7 @@ import { useLibraryStore } from "../stores/library";
 import { useSettingsStore } from "../stores/settings";
 import { usePlayerStore } from "../stores/player";
 import { useLongPress } from "../composables/useLongPress";
-import { rawMainColor, useDominantColor, useMostCommonColor, useProminentHueColor } from "../composables/useDominantColor";
+import { rawMainColor, useCardScrim, useDominantColor, useMostCommonColor, useProminentHueColor } from "../composables/useDominantColor";
 import type { AlbumGridItem } from "../types";
 
 /** Active-highlight usability: unlike isColorBland (built for vivid player
@@ -285,6 +288,13 @@ const ready = computed(() => props.item.hasCover && coverUrl.value !== null);
 const coverGlowRgb = useDominantColor(coverUrl);
 const coverHueRgb = useProminentHueColor(coverUrl);
 const coverModeRgb = useMostCommonColor(coverUrl);
+
+// Art-dependent scrim: the bottom fade and its text halo are theme-independent
+// — the tone is picked from the cover's bottom strip (dark fade + white text
+// over light art, light fade + black text over dark art). While the cover has
+// not been sampled yet, the theme's own --scrim and caption colors apply, so
+// there is no flash of the wrong tone.
+const { scrimStyle, scrimTitleClass, scrimSubClass, scrimMutedClass } = useCardScrim(coverUrl);
 const cardAccentColor = computed<string | null>(() => {
   // Tier 1 (the average) must be clearly saturated — a muddy gray-brown
   // average on a mostly-monochrome cover should not mask the vivid accent

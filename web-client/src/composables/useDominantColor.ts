@@ -1,5 +1,5 @@
-import { ref, watch } from "vue";
-import type { Ref } from "vue";
+import { computed, ref, watch } from "vue";
+import type { ComputedRef, Ref } from "vue";
 
 const SAMPLE_SIZE = 32;
 /** Glow-only darkening; the dynamic accent uses the raw average (rawMainColor). */
@@ -162,6 +162,30 @@ interface SampleResult {
    *  small saturated details (e.g. red text on a black/white cover) that
    *  the average and the mode both miss. */
   hue: string;
+  /** Plain average of the bottom strip (bottom quarter of rows), raw
+   *  ("r,g,b") — the region the card scrim fade sits on. Drives the
+   *  art-dependent scrim tone. */
+  bottom: string;
+}
+
+/** WCAG relative luminance of an "r,g,b" string, 0 (black) to 1 (white). */
+export function relativeLuminance(rgb: string): number {
+  const [r, g, b] = rgb.split(",").map(Number);
+  if ([r, g, b].some((n) => !Number.isFinite(n))) return 0;
+  const f = (c: number): number => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+/** Which scrim fade to use over a cover whose bottom strip averages `rgb`:
+ *  "dark" (black fade, white caption) when the art underneath is light,
+ *  "light" (white fade, black caption) when it is dark. The threshold is the
+ *  WCAG crossover where white text starts beating black text against the
+ *  background (relative luminance ~0.179). */
+export function scrimToneFor(rgb: string): "dark" | "light" {
+  return relativeLuminance(rgb) >= 0.179 ? "dark" : "light";
 }
 
 /** Cache of sampled colors by image URL, so grids of album cards don't
@@ -180,11 +204,15 @@ function sampleImage(url: string): Promise<SampleResult> {
         const size = Math.min(SAMPLE_SIZE, img.width, img.height);
         canvas.width = size; canvas.height = size;
         const ctx = canvas.getContext("2d");
-        if (!ctx) { resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB }); return; }
+        if (!ctx) { resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB, bottom: FALLBACK_RGB }); return; }
         ctx.drawImage(img, 0, 0, size, size);
         const data = ctx.getImageData(0, 0, size, size).data;
         const margin = Math.floor(size * 0.25);
         let wr = 0, wg = 0, wb = 0, wTotal = 0;
+        // Bottom strip (the last quarter of rows): where the card scrim
+        // fade sits, so its average decides the scrim tone.
+        const bottomStart = size - Math.max(1, Math.floor(size * 0.25));
+        let br = 0, bg = 0, bb = 0, bn = 0;
         // Quantize each pixel to 4 bits/channel and count bins to find the
         // most common color — robust for dark or low-saturation artwork
         // where the saturation-weighted average comes out bland.
@@ -225,8 +253,14 @@ function sampleImage(url: string): Promise<SampleResult> {
               const w = sat * sat + 0.05;
               wr += pr * w; wg += pg * w; wb += pb * w; wTotal += w;
             }
+            if (y >= bottomStart) {
+              br += pr; bg += pg; bb += pb; bn++;
+            }
           }
         }
+        const bottom = bn === 0
+          ? FALLBACK_RGB
+          : `${Math.round(br / bn)},${Math.round(bg / bn)},${Math.round(bb / bn)}`;
         const glow =
           wTotal === 0
             ? FALLBACK_RGB
@@ -251,18 +285,18 @@ function sampleImage(url: string): Promise<SampleResult> {
             hue = `${Math.round(hb.r / hb.w)},${Math.round(hb.g / hb.w)},${Math.round(hb.b / hb.w)}`;
           }
         }
-        resolve({ glow, mode, hue });
+        resolve({ glow, mode, hue, bottom });
       } catch {
-        resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB });
+        resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB, bottom: FALLBACK_RGB });
       }
     };
-    img.onerror = () => resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB });
+    img.onerror = () => resolve({ glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB, bottom: FALLBACK_RGB });
     img.src = url;
   });
 }
 
 async function sampled(url: string | null): Promise<SampleResult> {
-  if (!url) return { glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB };
+  if (!url) return { glow: FALLBACK_RGB, mode: FALLBACK_RGB, hue: FALLBACK_RGB, bottom: FALLBACK_RGB };
   const cached = sampleCache.get(url);
   if (cached) return cached;
   const result = await sampleImage(url);
@@ -319,6 +353,64 @@ export function useProminentHueColor(imageUrl: Ref<string | null>) {
   );
 
   return hueRgb;
+}
+
+/** Art-dependent scrim tone for a cover: "dark" (black fade + white caption)
+ *  when the bottom of the artwork is light, "light" (white fade + black
+ *  caption) when it is dark. Null until the image has been sampled (or when
+ *  there is no image), so callers can fall back to the theme's --scrim. */
+export function useScrimTone(imageUrl: Ref<string | null>) {
+  const tone = ref<"dark" | "light" | null>(null);
+
+  watch(
+    imageUrl,
+    (url) => {
+      if (!url) { tone.value = null; return; }
+      void sampled(url).then((s) => { tone.value = scrimToneFor(s.bottom); });
+    },
+    { immediate: true },
+  );
+
+  return tone;
+}
+
+export interface CardScrim {
+  /** Per-card `--scrim` override; undefined while the tone is unknown, so the
+   *  theme's own --scrim applies until the cover has been sampled. */
+  scrimStyle: ComputedRef<Record<string, string> | undefined>;
+  /** Caption title class for the current tone. */
+  scrimTitleClass: ComputedRef<string>;
+  /** Secondary caption line (artist etc.) for the current tone. */
+  scrimSubClass: ComputedRef<string>;
+  /** Muted color-only class (icon + count cluster) for the current tone. */
+  scrimMutedClass: ComputedRef<string>;
+}
+
+/** Everything a cover card needs to render its bottom scrim and caption in
+ *  an art-dependent tone: the --scrim override plus the matching text
+ *  classes. Falls back to the theme classes while the tone is unknown. */
+export function useCardScrim(imageUrl: Ref<string | null>): CardScrim {
+  const tone = useScrimTone(imageUrl);
+  const scrimStyle = computed<Record<string, string> | undefined>(() => {
+    if (!tone.value) return undefined;
+    return { "--scrim": tone.value === "dark" ? "#000000" : "#ffffff" };
+  });
+  const scrimTitleClass = computed(() => {
+    if (tone.value === "dark") return "text-label-lg font-semibold text-white";
+    if (tone.value === "light") return "text-label-lg font-semibold text-black";
+    return "text-label-lg font-semibold text-on-surface";
+  });
+  const scrimSubClass = computed(() => {
+    if (tone.value === "dark") return "truncate text-label-sm text-white/70";
+    if (tone.value === "light") return "truncate text-label-sm text-black/60";
+    return "truncate text-label-sm text-on-surface-variant";
+  });
+  const scrimMutedClass = computed(() => {
+    if (tone.value === "dark") return "text-white/70";
+    if (tone.value === "light") return "text-black/60";
+    return "text-on-surface-variant";
+  });
+  return { scrimStyle, scrimTitleClass, scrimSubClass, scrimMutedClass };
 }
 
 export function useEdgeColors(imageUrl: Ref<string | null>) {

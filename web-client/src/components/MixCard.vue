@@ -13,6 +13,7 @@
   >
     <div
       class="relative aspect-square w-full overflow-hidden rounded-xl bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.06)] ring-1 ring-white/10 transition-transform duration-150 active:scale-95 lg:hover:scale-[1.02] lg:hover:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
+      :style="scrimStyle"
     >
       <div v-if="coverCount === 0" class="absolute inset-0 flex items-center justify-center">
         <MageIcon name="music" class="h-10 w-10 text-white/40" />
@@ -43,11 +44,12 @@
         aria-hidden="true"
       />
 
-      <!-- Title at the bottom of the glass; music icon + count on the right -->
-      <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-end gap-1.5 px-2.5 pb-2">
-        <PlaylistIcon :icon="mix.icon" class="h-4 w-4 shrink-0 self-center" />
-        <p class="min-w-0 flex-1 truncate text-label-lg font-semibold text-on-surface">{{ mix.name }}</p>
-        <span class="flex shrink-0 items-center gap-1 text-label-sm text-on-surface-variant">
+      <!-- Title at the bottom of the glass; music icon + count on the right.
+           Text color follows the art-dependent scrim tone. -->
+      <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[52px] items-center gap-1.5 px-2.5">
+        <PlaylistIcon :icon="mix.icon" class="h-4 w-4 shrink-0" :class="scrimMutedClass" />
+        <p class="min-w-0 flex-1 truncate" :class="scrimTitleClass">{{ mix.name }}</p>
+        <span class="flex shrink-0 items-center gap-1 text-label-sm" :class="scrimMutedClass">
           <MageIcon name="music" class="h-3.5 w-3.5" />
           <span class="tabular-nums">{{ mix.trackIds.length }}</span>
         </span>
@@ -61,6 +63,7 @@ import { computed, watch } from "vue";
 import MageIcon from "./MageIcon.vue";
 import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import { useLibraryStore, albumKeyFor } from "../stores/library";
+import { useCardScrim } from "../composables/useDominantColor";
 import type { Mix } from "@shared/composables/useMixes";
 
 /**
@@ -111,6 +114,14 @@ const coverUrls = computed<(string | null)[]>(() => {
   return urls;
 });
 const coverCount = computed(() => coverUrls.value.length);
+
+// Art-dependent scrim tone, sampled from the cover sitting under the bottom
+// fade: the bottom-left tile of the 2x2 collage when all 4 covers loaded,
+// otherwise the first cover.
+const scrimSourceUrl = computed<string | null>(
+  () => (coverUrls.value.length >= 4 ? coverUrls.value[2] : coverUrls.value[0]) ?? null,
+);
+const { scrimStyle, scrimTitleClass, scrimMutedClass } = useCardScrim(scrimSourceUrl);
 
 /**
  * Still fetching while we have fewer than 4 covers AND some candidate is still
