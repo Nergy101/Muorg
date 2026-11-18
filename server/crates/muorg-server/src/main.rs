@@ -186,6 +186,9 @@ async fn main() {
         .and_then(|l| l.local_addr().ok())
         .map(|a| a.port());
 
+    // Shared with AppState for GET /api/admin/config; cloned before
+    // `config.transcoding` is moved into AppState::new below.
+    let config_arc = Arc::new(config.clone());
     let state_builder = AppState::new(
         catalog.clone(),
         config.storage.backup_dir.clone(),
@@ -199,7 +202,8 @@ async fn main() {
             config.storage.cover_cache_max_bytes,
         )),
         config.library.remote_scan_concurrency,
-    ).with_image_fetch(config.images.clone())
+    ).with_config(config_arc)
+     .with_image_fetch(config.images.clone())
      .with_rate_limiter(
         config.server.rate_limit_requests,
         config.server.rate_limit_window_secs,

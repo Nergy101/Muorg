@@ -22,6 +22,7 @@ import SettingsView from "./views/SettingsView.vue";
 import ReportsView from "./views/ReportsView.vue";
 import ReportDetailView from "./views/ReportDetailView.vue";
 import SmartTransformView from "./views/SmartTransformView.vue";
+import PathFormatsView from "./views/PathFormatsView.vue";
 import StatsView from "./views/StatsView.vue";
 import ErrorView from "./views/ErrorView.vue";
 
@@ -129,6 +130,12 @@ export const router = createRouter({
       path: "/smart-transform",
       name: "smart-transform",
       component: SmartTransformView,
+      meta: { depth: 1 },
+    },
+    {
+      path: "/path-formats",
+      name: "path-formats",
+      component: PathFormatsView,
       meta: { depth: 1 },
     },
     { path: "/stats", name: "stats", component: StatsView, meta: { depth: 1 } },

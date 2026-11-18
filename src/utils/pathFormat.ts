@@ -7,6 +7,16 @@ import type { MetadataUpdate } from "../api/types";
  * against the N segments of the format.
  */
 
+/** Built-in example path-format patterns, shared by the "Apply from path"
+ *  template editor and the Smart Transform examples list. */
+export const PATH_FORMAT_EXAMPLES: readonly string[] = [
+  "<Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>",
+  "<Artist>/Albums/<Year> - <Album>/<TrackNumber> - <TrackTitle>.<Format>",
+  "<AlbumArtist>/<Album>/<DiscNumber>-<TrackNumber> <TrackTitle>.<Format>",
+  "<Genre>/<Artist>/<Year> - <Album>/<TrackNumber> - <TrackTitle>.<Format>",
+  "<Artist> - <Album>/<TrackNumber> - <TrackTitle>.<Format>",
+];
+
 export const PATH_FIELD_MAP: Record<string, string> = {
   artist: "artist",
   album: "album",

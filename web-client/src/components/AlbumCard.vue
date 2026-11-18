@@ -43,22 +43,33 @@
     </div>
   </div>
 
-  <!-- Grid mode -->
+  <!-- Grid mode. The caption mode setting decides where title/artist go:
+       "overlay" on the frosted scrim, "below" the art, or "none" at all. -->
   <button
     v-else-if="ready"
     :data-album-key="item.key"
     type="button"
     :class="[
-      'relative aspect-square w-full select-none overflow-hidden bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] text-left transition-transform duration-150 [-webkit-touch-callout:none] active:scale-95 lg:cursor-pointer lg:hover:scale-[1.03]',
+      'group relative w-full select-none text-left transition-transform duration-150 [-webkit-touch-callout:none] active:scale-95 lg:cursor-pointer lg:hover:scale-[1.03]',
+      overlayLike
+        ? 'aspect-square overflow-hidden bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)]'
+        : 'flex flex-col',
       settings.squareAlbumCards ? '' : 'rounded-xl',
     ]"
-    :style="scrimStyle"
+    :style="overlayLike ? scrimStyle : undefined"
     @click="emit('open')"
     @touchstart.passive="lp.onTouchstart"
     @touchmove.passive="lp.onTouchmove"
     @touchend="lp.onTouchend"
     @contextmenu.prevent="emit('actions')"
   >
+    <!-- Art box: in overlay mode the wrapper is display:contents so the
+         absolutely-positioned children anchor to the button as before. -->
+    <div
+      :class="overlayLike
+        ? 'contents'
+        : ['relative aspect-square w-full overflow-hidden bg-surface-variant shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)]', settings.squareAlbumCards ? '' : 'rounded-xl']"
+    >
     <img
       :src="coverUrl!"
       :alt="item.album"
@@ -101,21 +112,42 @@
       </div>
     </div>
 
-    <!-- Frosted scrim so the caption stays legible over any artwork -->
-    <div
-      class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[64px]"
-      aria-hidden="true"
-    />
+    <!-- Frosted scrim so the caption stays legible over any artwork
+         (overlay modes only; "hover" reveals it on hover/focus) -->
+    <template v-if="overlayLike">
+      <div
+        class="glass-scrim pointer-events-none absolute inset-x-0 bottom-0 h-[64px]"
+        :class="hoverRevealClass"
+        aria-hidden="true"
+      />
 
-    <!-- Caption, vertically centred within the frosted panel. Text color
-         follows the art-dependent scrim tone (white on a dark fade, black on
-         a light fade) so it stays legible in every theme. -->
-    <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[64px] items-end pb-2 gap-2 px-2.5">
-      <div class="min-w-0 flex-1">
-        <MarqueeText :text="item.album" :class="scrimTitleClass" />
-        <div :class="scrimSubClass"><ArtistLink :name="item.albumArtist" /></div>
+      <!-- Caption at the bottom of the frosted panel. Text color follows the
+           art-dependent tone (white over dark art, black over light art) so it
+           stays legible in every theme. -->
+      <div
+        class="scrim-label absolute inset-x-0 bottom-0 flex h-[64px] items-end pb-2 gap-2 px-2.5"
+        :class="hoverRevealClass"
+      >
+        <div class="min-w-0 flex-1">
+          <MarqueeText :text="item.album" :class="scrimTitleClass" />
+          <div :class="scrimSubClass"><ArtistLink :name="item.albumArtist" /></div>
+        </div>
+        <div class="flex shrink-0 items-center gap-1" :class="scrimMutedClass">
+          <MageIcon name="music" class="h-3 w-3" />
+          <span class="text-label-sm tabular-nums">{{ item.trackCount }}</span>
+        </div>
       </div>
-      <div class="flex shrink-0 items-center gap-1" :class="scrimMutedClass">
+    </template>
+    </div>
+
+    <!-- Caption underneath the art (below mode): plain theme text on the page
+         background, no scrim. -->
+    <div v-if="captionMode === 'below'" class="flex items-center gap-2 px-1 pt-1.5">
+      <div class="min-w-0 flex-1">
+        <MarqueeText :text="item.album" class="text-body-md font-semibold text-on-surface" />
+        <div class="truncate text-body-sm text-on-surface-variant"><ArtistLink :name="item.albumArtist" /></div>
+      </div>
+      <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
         <MageIcon name="music" class="h-3 w-3" />
         <span class="text-label-sm tabular-nums">{{ item.trackCount }}</span>
       </div>
@@ -295,6 +327,18 @@ const coverModeRgb = useMostCommonColor(coverUrl);
 // not been sampled yet, the theme's own --scrim and caption colors apply, so
 // there is no flash of the wrong tone.
 const { scrimStyle, scrimTitleClass, scrimSubClass, scrimMutedClass } = useCardScrim(coverUrl);
+
+/** Where the grid card shows its caption: overlay scrim, below the art, none. */
+const captionMode = computed(() => settings.albumCardCaption);
+/** Overlay-like modes render the scrim caption on the art box. */
+const overlayLike = computed(() => captionMode.value === "overlay" || captionMode.value === "hover");
+/** In "hover" mode the scrim caption is hidden until the card is hovered or
+ *  keyboard-focused; in plain "overlay" mode it is always visible. */
+const hoverRevealClass = computed(() =>
+  captionMode.value === "hover"
+    ? "opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+    : "",
+);
 const cardAccentColor = computed<string | null>(() => {
   // Tier 1 (the average) must be clearly saturated — a muddy gray-brown
   // average on a mostly-monochrome cover should not mask the vivid accent

@@ -26,8 +26,14 @@
         <MageIcon name="chevron-right" class="h-5 w-5 shrink-0 text-on-surface-variant" />
       </button>
 
-      <!-- ─── Muorg Info (the one section that starts expanded) ─────── -->
-      <SettingsSection title="Muorg Info" default-open>
+      <div class="flex flex-col gap-3 px-3 pb-4 pt-1">
+
+      <!-- ─── Muorg Info (the first section) ───────────────────────── -->
+      <SettingsSection
+        title="Muorg Info"
+        subtitle="Version, install and app details"
+        icon="information-circle"
+      >
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Version</p>
@@ -55,11 +61,107 @@
           <span>Install</span>
         </button>
       </div>
+      <div class="hidden lg:block"><KeyboardSettingsSection /></div>
 
       </SettingsSection>
 
-      <!-- ─── Playback ───────────────────────────────────────────────── -->
-      <SettingsSection title="Playback" icon="play">
+      <!-- ─── Appearance ────────────────────────────────────────────── -->
+      <SettingsSection
+        title="Appearance"
+        subtitle="Theme, accent color and card layout"
+        icon="color-swatch"
+      >
+      <p :class="SUBHEAD">Theme</p>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Mode</p>
+        <SegmentedControl
+          :model-value="settings.theme"
+          :options="THEME_OPTIONS"
+          @update:model-value="settings.setTheme($event as ThemeMode)"
+        />
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Use true black</p>
+          <p class="text-body-sm text-on-surface-variant">
+            OLED-friendly pitch-black background
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.trueBlack)"
+          role="switch"
+          aria-label="Use true black"
+          :data-tip="`True black (OLED) background is ${settings.trueBlack ? 'on' : 'off'} — click to turn ${settings.trueBlack ? 'off' : 'on'}`"
+          :aria-checked="settings.trueBlack"
+          @click="settings.setTrueBlack(!settings.trueBlack)"
+        >
+          <span :class="knobClass(settings.trueBlack)" />
+        </button>
+      </div>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Accent color</p>
+        <div class="flex flex-wrap gap-2.5">
+          <button
+            v-for="opt in ACCENT_OPTIONS"
+            :key="opt.value"
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-full transition-transform hover:scale-110"
+            :class="[
+              settings.accent === opt.value ? 'ring-2 ring-on-surface ring-offset-2 ring-offset-background' : '',
+              opt.color ? '' : 'glass-field',
+            ]"
+            :style="opt.color ? { backgroundColor: opt.color } : undefined"
+            :aria-label="opt.label"
+            :aria-pressed="settings.accent === opt.value"
+            @click="settings.setAccent(opt.value)"
+          >
+            <MageIcon
+              v-if="settings.accent === opt.value"
+              :name="opt.color ? 'check' : 'color-swatch'"
+              class="h-4 w-4 text-on-surface"
+            />
+          </button>
+        </div>
+      </div>
+      <p :class="SUBHEAD">Library grid</p>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Layout</p>
+        <SegmentedControl
+          :model-value="settings.albumViewStyle"
+          :options="LAYOUT_OPTIONS"
+          @update:model-value="settings.setAlbumViewStyle($event as LibraryViewStyle)"
+        />
+      </div>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Square Album Cards</p>
+          <p class="text-body-sm text-on-surface-variant">
+            {{ settings.squareAlbumCards ? "Square corners" : "Rounded corners" }}
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.squareAlbumCards)"
+          role="switch"
+          aria-label="Square Album Cards"
+          :aria-checked="settings.squareAlbumCards"
+          @click="settings.setSquareAlbumCards(!settings.squareAlbumCards)"
+        >
+          <span :class="knobClass(settings.squareAlbumCards)" />
+        </button>
+      </div>
+      <div class="px-4 py-2">
+        <p class="pb-2 text-body-lg text-on-surface">Album title and artist</p>
+        <SegmentedControl
+          :model-value="settings.albumCardCaption"
+          :options="ALBUM_CARD_CAPTION_OPTIONS"
+          @update:model-value="settings.setAlbumCardCaption($event as AlbumCardCaptionMode)"
+        />
+      </div>
+      <p :class="SUBHEAD">Tracks table</p>
+      <LibraryTableSettingsSection />
+      <p :class="SUBHEAD">Player</p>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Square cover in player</p>
@@ -78,6 +180,35 @@
           <span :class="knobClass(settings.squarePlayerCover)" />
         </button>
       </div>
+      <p :class="SUBHEAD">Motion</p>
+      <div :class="ROW">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Reduce motion</p>
+          <p class="text-body-sm text-on-surface-variant">
+            Keep navigation, skip the slide and fade travel
+          </p>
+        </div>
+        <button
+          type="button"
+          :class="switchClass(settings.reduceMotion)"
+          role="switch"
+          aria-label="Reduce motion"
+          :data-tip="`Reduce motion is ${settings.reduceMotion ? 'on' : 'off'} — click to turn ${settings.reduceMotion ? 'off' : 'on'}`"
+          :aria-checked="settings.reduceMotion"
+          @click="settings.setReduceMotion(!settings.reduceMotion)"
+        >
+          <span :class="knobClass(settings.reduceMotion)" />
+        </button>
+      </div>
+
+      </SettingsSection>
+
+      <!-- ─── Playback ───────────────────────────────────────────────── -->
+      <SettingsSection
+        title="Playback"
+        subtitle="Queue behavior, mini player and audio"
+        icon="play"
+      >
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Continuous playback</p>
@@ -136,14 +267,16 @@
         </button>
       </div>
       <PlaybackAudioSettingsSection />
-      <div class="hidden lg:block"><KeyboardSettingsSection /></div>
 
       </SettingsSection>
 
       <!-- ─── Library ────────────────────────────────────────────────── -->
-      <SettingsSection title="Library" icon="music">
+      <SettingsSection
+title="Library"
+        subtitle="Sorting and result display"
+        icon="music">
       <ReportsSettingsSection />
-      <LibraryFoldersSection />
+      <p :class="SUBHEAD">Sorting</p>
       <div class="px-4 py-2">
         <p class="pb-2 text-body-lg text-on-surface">Default sort order</p>
         <SegmentedControl
@@ -172,58 +305,12 @@
         </button>
       </div>
       <div class="px-4 py-2">
-        <p class="pb-2 text-body-lg text-on-surface">Layout</p>
-        <SegmentedControl
-          :model-value="settings.albumViewStyle"
-          :options="LAYOUT_OPTIONS"
-          @update:model-value="settings.setAlbumViewStyle($event as LibraryViewStyle)"
-        />
-      </div>
-      <div :class="ROW">
-        <div class="min-w-0 flex-1">
-          <p class="text-body-lg text-on-surface">Square Album Cards</p>
-          <p class="text-body-sm text-on-surface-variant">
-            {{ settings.squareAlbumCards ? "Square corners" : "Rounded corners" }}
-          </p>
-        </div>
-        <button
-          type="button"
-          :class="switchClass(settings.squareAlbumCards)"
-          role="switch"
-          aria-label="Square Album Cards"
-          :aria-checked="settings.squareAlbumCards"
-          @click="settings.setSquareAlbumCards(!settings.squareAlbumCards)"
-        >
-          <span :class="knobClass(settings.squareAlbumCards)" />
-        </button>
-      </div>
-      <LibraryTableSettingsSection />
-      <div class="px-4 py-2">
         <p class="pb-2 text-body-lg text-on-surface">Groupings default to collapsed or expanded</p>
         <SegmentedControl
           :model-value="tableStore.defaultGroupsExpanded ? 'expanded' : 'collapsed'"
           :options="GROUPING_DEFAULT_OPTIONS"
           @update:model-value="tableStore.setDefaultGroupsExpanded($event === 'expanded')"
         />
-      </div>
-      <div :class="ROW">
-        <div class="min-w-0 flex-1">
-          <p class="text-body-lg text-on-surface">Reduce motion</p>
-          <p class="text-body-sm text-on-surface-variant">
-            Keep navigation, skip the slide and fade travel
-          </p>
-        </div>
-        <button
-          type="button"
-          :class="switchClass(settings.reduceMotion)"
-          role="switch"
-          aria-label="Reduce motion"
-          :data-tip="`Reduce motion is ${settings.reduceMotion ? 'on' : 'off'} — click to turn ${settings.reduceMotion ? 'off' : 'on'}`"
-          :aria-checked="settings.reduceMotion"
-          @click="settings.setReduceMotion(!settings.reduceMotion)"
-        >
-          <span :class="knobClass(settings.reduceMotion)" />
-        </button>
       </div>
       <div :class="ROW">
         <div class="min-w-0 flex-1">
@@ -245,17 +332,38 @@
         </button>
       </div>
 
-      <ExportSettingsSection />
-
       </SettingsSection>
 
-      <!-- ─── Metadata writing ───────────────────────────────────────── -->
-      <SettingsSection title="Metadata writing" icon="edit">
+      <!-- ─── Export & Rockbox ───────────────────────────────────────── -->
+      <SettingsSection
+        title="Export & Rockbox"
+        subtitle="M3U playlist export and Rockbox-friendly covers"
+        icon="export-list"
+      >
+      <ExportSettingsSection />
+      </SettingsSection>
+
+      <!-- ─── Smart Transform & Metadata Editing ─────────────────────── -->
+      <SettingsSection
+        title="Smart Transform & Metadata Editing"
+        subtitle="Bulk rename, tag writing and path formats"
+        icon="edit"
+      >
       <WriteSettingsSection />
+      <button type="button" :class="[ROW, 'w-full text-left']" @click="router.push({ name: 'smart-transform' })">
+        <div class="min-w-0 flex-1">
+          <p class="text-body-lg text-on-surface">Smart Transform</p>
+          <p class="text-body-sm text-on-surface-variant">Bulk-rename files by rewriting a path pattern</p>
+        </div>
+        <MageIcon name="chevron-right" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+      </button>
       </SettingsSection>
 
       <!-- ─── Offline ────────────────────────────────────────────────── -->
-      <SettingsSection title="Offline" icon="download">
+      <SettingsSection
+title="Offline"
+        subtitle="Downloads and cache"
+        icon="download">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Offline mode</p>
@@ -364,65 +472,11 @@
 
       </SettingsSection>
 
-      <!-- ─── Theme ──────────────────────────────────────────────────── -->
-      <SettingsSection title="Theme" :icon="themeIcon">
-      <div class="px-4 py-2">
-        <p class="pb-2 text-body-lg text-on-surface">Mode</p>
-        <SegmentedControl
-          :model-value="settings.theme"
-          :options="THEME_OPTIONS"
-          @update:model-value="settings.setTheme($event as ThemeMode)"
-        />
-      </div>
-      <div :class="ROW">
-        <div class="min-w-0 flex-1">
-          <p class="text-body-lg text-on-surface">Use true black</p>
-          <p class="text-body-sm text-on-surface-variant">
-            OLED-friendly pitch-black background
-          </p>
-        </div>
-        <button
-          type="button"
-          :class="switchClass(settings.trueBlack)"
-          role="switch"
-          aria-label="Use true black"
-          :data-tip="`True black (OLED) background is ${settings.trueBlack ? 'on' : 'off'} — click to turn ${settings.trueBlack ? 'off' : 'on'}`"
-          :aria-checked="settings.trueBlack"
-          @click="settings.setTrueBlack(!settings.trueBlack)"
-        >
-          <span :class="knobClass(settings.trueBlack)" />
-        </button>
-      </div>
-      <div class="px-4 py-2">
-        <p class="pb-2 text-body-lg text-on-surface">Accent color</p>
-        <div class="flex flex-wrap gap-2.5">
-          <button
-            v-for="opt in ACCENT_OPTIONS"
-            :key="opt.value"
-            type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-full transition-transform hover:scale-110"
-            :class="[
-              settings.accent === opt.value ? 'ring-2 ring-on-surface ring-offset-2 ring-offset-background' : '',
-              opt.color ? '' : 'glass-field',
-            ]"
-            :style="opt.color ? { backgroundColor: opt.color } : undefined"
-            :aria-label="opt.label"
-            :aria-pressed="settings.accent === opt.value"
-            @click="settings.setAccent(opt.value)"
-          >
-            <MageIcon
-              v-if="settings.accent === opt.value"
-              :name="opt.color ? 'check' : 'color-swatch'"
-              class="h-4 w-4 text-on-surface"
-            />
-          </button>
-        </div>
-      </div>
-
-      </SettingsSection>
-
       <!-- ─── Server ─────────────────────────────────────────────────── -->
-      <SettingsSection title="Server" icon="server">
+      <SettingsSection
+title="Server"
+        subtitle="Connection, folders, device and library stats"
+        icon="server">
       <div :class="ROW">
         <div class="min-w-0 flex-1">
           <p class="text-body-lg text-on-surface">Server URL</p>
@@ -487,12 +541,20 @@
         <span class="text-body-md text-on-surface-variant">{{ totalDurationLabel }}</span>
       </div>
 
+      <p :class="SUBHEAD">Library folders</p>
+      <LibraryFoldersSection />
+      <p :class="SUBHEAD">Server settings (from config.toml)</p>
+      <ServerConfigSection />
+
       <MaintenanceSection />
 
       </SettingsSection>
 
       <!-- ─── Development ─────────────────────────────────────────────── -->
-      <SettingsSection title="Development" icon="wrench">
+      <SettingsSection
+title="Development"
+        subtitle="Links and diagnostics"
+        icon="wrench">
       <a
         :class="ROW"
         href="https://github.com/Nergy101/Muorg"
@@ -501,7 +563,18 @@
       >
         <div class="flex min-w-0 flex-1 items-center gap-3">
           <MageIcon name="github" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-          <p class="text-body-lg text-on-surface">See github repo</p>
+          <p class="text-body-lg text-on-surface">See GitHub page</p>
+        </div>
+      </a>
+      <a
+        :class="ROW"
+        href="https://docs.muorg.nergy.space"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <div class="flex min-w-0 flex-1 items-center gap-3">
+          <MageIcon name="book" class="h-5 w-5 shrink-0 text-on-surface-variant" />
+          <p class="text-body-lg text-on-surface">See Muorg Docs</p>
         </div>
       </a>
 
@@ -529,7 +602,7 @@
       @cancel="clearOfflineOpen = false"
     />
   </div>
-</template>
+</div></template>
 
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from "vue";
@@ -543,6 +616,7 @@ import LibraryFoldersSection from "../components/settings/LibraryFoldersSection.
 import LibraryTableSettingsSection from "../components/settings/LibraryTableSettingsSection.vue";
 import WriteSettingsSection from "../components/settings/WriteSettingsSection.vue";
 import MaintenanceSection from "../components/settings/MaintenanceSection.vue";
+import ServerConfigSection from "../components/settings/ServerConfigSection.vue";
 import ExportSettingsSection from "../components/settings/ExportSettingsSection.vue";
 import PlaybackAudioSettingsSection from "../components/settings/PlaybackAudioSettingsSection.vue";
 import KeyboardSettingsSection from "../components/settings/KeyboardSettingsSection.vue";
@@ -558,9 +632,12 @@ import { useInstallPrompt } from "../composables/useInstallPrompt";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { reportCounts } from "@shared/reports";
 import logoUrl from "../assets/muorg-logo.svg";
-import type { AccentColor, LibraryViewStyle, SortMode, ThemeMode } from "../types";
+import type { AccentColor, AlbumCardCaptionMode, LibraryViewStyle, SortMode, ThemeMode } from "../types";
 
 const ROW = "flex min-h-14 items-center justify-between gap-4 px-4 py-2";
+/** Subsection header inside a settings section, for context on what the
+ *  rows below it edit. */
+const SUBHEAD = "px-4 pb-1 pt-3 text-label-sm font-semibold uppercase tracking-[0.8px] text-on-surface-variant";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "album", label: "Album" },
@@ -575,6 +652,12 @@ const LAYOUT_OPTIONS = [
   { value: "grid", label: "Album covers" },
   { value: "list", label: "Album list" },
   { value: "tracks", label: "Tracks" },
+];
+const ALBUM_CARD_CAPTION_OPTIONS: { value: AlbumCardCaptionMode; label: string }[] = [
+  { value: "overlay", label: "Overlay" },
+  { value: "below", label: "Underneath" },
+  { value: "hover", label: "Overlay on hover" },
+  { value: "none", label: "None" },
 ];
 const THEME_OPTIONS = [
   { value: "dark", label: "Dark" },
@@ -625,10 +708,6 @@ const { canInstall, isIos, install } = useInstallPrompt();
 
 const version = __APP_VERSION__;
 const serverUrl = computed(() => getServerUrl() || "Not configured");
-// Theme icon follows the effective theme: moon when dark, sun when light.
-// Auto (system) resolves to whichever the system is currently using, and the
-// store's matchMedia listener keeps this reactive to live OS theme changes.
-const themeIcon = computed(() => (settings.resolvedTheme === "dark" ? "moon" : "sun"));
 
 function switchClass(on: boolean): string {
   return `flex h-8 w-[52px] shrink-0 items-center rounded-full px-1 transition-colors duration-200 ${

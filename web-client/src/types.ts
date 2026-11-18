@@ -45,6 +45,9 @@ export type AlbumViewStyle = "grid" | "list" | "tracks";
 /** The Library's layouts: album covers (grid), the album list, or the
  *  tracks table — same three as the Android app. */
 export type LibraryViewStyle = AlbumViewStyle;
+/** Where an album grid card shows its title/artist: overlaid on the cover
+ *  (scrim), only on hover, in a section underneath the art, or not at all. */
+export type AlbumCardCaptionMode = "overlay" | "hover" | "below" | "none";
 export type SortMode = "album" | "artist" | "year";
 
 /**

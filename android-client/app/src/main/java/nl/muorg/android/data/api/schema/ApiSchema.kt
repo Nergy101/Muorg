@@ -169,6 +169,23 @@ data class CatalogTrack(
     val year: Long? = null
 )
 
+@Serializable
+data class ConfigEntry(
+    val key: String,
+    val secret: Boolean,
+    /**
+     * Plain value, or — when `secret` is true — asterisks plus the last 3
+     * characters. The full secret is never serialized.
+     */
+    val value: String
+)
+
+@Serializable
+data class ConfigSectionView(
+    val entries: List<ConfigEntry>,
+    val name: String
+)
+
 /** `GET /api/tracks/count` */
 @Serializable
 data class CountResponse(

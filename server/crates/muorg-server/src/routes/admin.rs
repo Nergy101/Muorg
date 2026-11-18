@@ -155,6 +155,137 @@ pub async fn get_backup_directory(
     Ok(Json(BackupDirectoryResponse { path }))
 }
 
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct ConfigEntry {
+    pub key: String,
+    /// Plain value, or — when `secret` is true — asterisks plus the last 3
+    /// characters. The full secret is never serialized.
+    pub value: String,
+    pub secret: bool,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct ConfigSectionView {
+    pub name: String,
+    pub entries: Vec<ConfigEntry>,
+}
+
+/// Mask a secret for display: asterisks plus the last 3 characters. The full
+/// value never leaves the server.
+fn mask_secret(s: &str) -> String {
+    const MASK: &str = "••••••";
+    if s.chars().count() > 3 {
+        format!("{}{}", MASK, s.chars().skip(s.chars().count() - 3).collect::<String>())
+    } else {
+        MASK.to_string()
+    }
+}
+
+fn entry(key: &str, value: impl ToString) -> ConfigEntry {
+    ConfigEntry { key: key.to_string(), value: value.to_string(), secret: false }
+}
+
+fn secret_entry(key: &str, value: &str) -> ConfigEntry {
+    ConfigEntry { key: key.to_string(), value: mask_secret(value), secret: true }
+}
+
+/// The server's TOML config as displayable sections. Secrets (`api_key`,
+/// remote `secret_access_key`) are redacted to asterisks + last 3 chars —
+/// the full secret is never sent over the network.
+#[utoipa::path(
+    get,
+    path = "/api/admin/config",
+    tag = "Admin",
+    responses(
+        (status = 200, description = "Server config with secrets redacted", body = Vec<ConfigSectionView>),
+        (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
+    ),
+    security(("BearerAuth" = [])),
+)]
+pub async fn get_config(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<ConfigSectionView>>, ApiError> {
+    let c = &state.config;
+    let list = |items: &[String]| {
+        if items.is_empty() { "(none)".to_string() } else { items.join(", ") }
+    };
+    let opt = |o: &Option<String>| o.clone().unwrap_or_else(|| "(none)".to_string());
+    let opt_path = |o: &Option<PathBuf>| o.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "(default)".to_string());
+
+    let sections = vec![
+        ConfigSectionView {
+            name: "server".to_string(),
+            entries: vec![
+                entry("host", &c.server.host),
+                entry("port", c.server.port),
+                secret_entry("api_key", &c.server.api_key),
+                entry("shutdown_timeout_secs", c.server.shutdown_timeout_secs),
+                entry("rate_limit_requests", c.server.rate_limit_requests),
+                entry("rate_limit_window_secs", c.server.rate_limit_window_secs),
+            ],
+        },
+        ConfigSectionView {
+            name: "library".to_string(),
+            entries: {
+                let mut e = vec![
+                    entry("content_paths", list(&c.library.content_paths)),
+                    entry("scan_on_startup", c.library.scan_on_startup),
+                    entry("remote_scan_concurrency", c.library.remote_scan_concurrency),
+                    entry("browse_roots", list(&c.library.browse_roots)),
+                ];
+                for (i, r) in c.library.remotes.iter().enumerate() {
+                    let p = format!("remotes[{i}]");
+                    e.push(entry(&format!("{p}.name"), &r.name));
+                    e.push(entry(&format!("{p}.bucket"), &r.bucket));
+                    e.push(entry(&format!("{p}.endpoint"), opt(&r.endpoint)));
+                    e.push(entry(&format!("{p}.region"), &r.region));
+                    e.push(entry(&format!("{p}.access_key_id"), opt(&r.access_key_id)));
+                    if let Some(secret) = &r.secret_access_key {
+                        e.push(secret_entry(&format!("{p}.secret_access_key"), secret));
+                    }
+                    e.push(entry(&format!("{p}.prefix"), opt(&r.prefix)));
+                    e.push(entry(&format!("{p}.virtual_hosted_style"), r.virtual_hosted_style));
+                    e.push(entry(&format!("{p}.unsigned_payload"), r.unsigned_payload));
+                }
+                e
+            },
+        },
+        ConfigSectionView {
+            name: "storage".to_string(),
+            entries: vec![
+                entry("db_path", c.storage.db_path.display()),
+                entry("backup_dir", c.storage.backup_dir.display()),
+                entry("backup_retention_count", c.storage.backup_retention_count),
+                entry("cover_cache_dir", opt_path(&c.storage.cover_cache_dir)),
+                entry("cover_cache_max_bytes", c.storage.cover_cache_max_bytes),
+            ],
+        },
+        ConfigSectionView {
+            name: "cors".to_string(),
+            entries: vec![entry("allowed_origins", list(&c.cors.allowed_origins))],
+        },
+        ConfigSectionView {
+            name: "transcoding".to_string(),
+            entries: vec![
+                entry("bitrate", c.transcoding.bitrate),
+                entry("format", &c.transcoding.format),
+                entry("sample_rate", c.transcoding.sample_rate),
+                entry("downgrade_flac_to_mp3", c.transcoding.downgrade_flac_to_mp3),
+                entry("downgrade_wav_to_mp3", c.transcoding.downgrade_wav_to_mp3),
+            ],
+        },
+        ConfigSectionView {
+            name: "images".to_string(),
+            entries: vec![
+                entry("allowed_hosts", list(&c.images.allowed_hosts)),
+                entry("max_bytes", c.images.max_bytes),
+                entry("timeout_secs", c.images.timeout_secs),
+            ],
+        },
+    ];
+    Ok(Json(sections))
+}
+
 /// Deeper health check than `/api/health`: also proves the catalog is readable.
 #[utoipa::path(
     get,
@@ -522,6 +653,17 @@ pub async fn browse(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mask_secret_never_reveals_more_than_last_three_chars() {
+        let masked = mask_secret("super-secret-api-key-123");
+        assert!(masked.ends_with("123"));
+        assert!(!masked.contains("super"));
+        assert!(!masked.contains("secret-api-key"));
+        // Short secrets collapse to pure asterisks — no partial leak.
+        assert_eq!(mask_secret("abc"), "••••••");
+        assert_eq!(mask_secret(""), "••••••");
+    }
 
     #[test]
     fn version_comparison_is_numeric_not_lexicographic() {

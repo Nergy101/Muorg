@@ -600,6 +600,18 @@ export function createApi(t: Transport) {
       return unwrap(result, "/api/admin/backup-directory").path;
     },
 
+    /**
+     * The server's TOML config as displayable sections. Secrets come back
+     * already redacted by the server (asterisks + last 3 chars) — the full
+     * secret is never sent over the network.
+     */
+    async getServerConfig() {
+      return unwrap(
+        await client.GET("/api/admin/config"),
+        "/api/admin/config",
+      );
+    },
+
     async fetchImage(url: string) {
       return unwrap(
         await client.POST("/api/fetch-image", { body: { url } }),

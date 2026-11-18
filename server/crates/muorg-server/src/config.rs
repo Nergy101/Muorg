@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::path::PathBuf;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,
@@ -17,7 +17,7 @@ pub struct Config {
     pub images: ImageFetchConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
@@ -50,7 +50,7 @@ impl Default for ServerConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct LibraryConfig {
     #[serde(default)]
     pub content_paths: Vec<String>,
@@ -105,7 +105,7 @@ pub struct RemoteConfig {
 
 fn default_region() -> String { "auto".to_string() }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StorageConfig {
     pub db_path: PathBuf,
     pub backup_dir: PathBuf,
@@ -134,7 +134,7 @@ impl Default for StorageConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CorsConfig {
     pub allowed_origins: Vec<String>,
 }

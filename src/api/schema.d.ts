@@ -73,6 +73,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The server's TOML config as displayable sections. Secrets (`api_key`,
+         *     remote `secret_access_key`) are redacted to asterisks + last 3 chars —
+         *     the full secret is never sent over the network.
+         */
+        get: operations["get_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/health": {
         parameters: {
             query?: never;
@@ -1167,6 +1188,19 @@ export interface components {
             /** Format: int64 */
             year?: number | null;
         };
+        ConfigEntry: {
+            key: string;
+            secret: boolean;
+            /**
+             * @description Plain value, or — when `secret` is true — asterisks plus the last 3
+             *     characters. The full secret is never serialized.
+             */
+            value: string;
+        };
+        ConfigSectionView: {
+            entries: components["schemas"]["ConfigEntry"][];
+            name: string;
+        };
         /** @description `GET /api/tracks/count` */
         CountResponse: {
             /** Format: int64 */
@@ -1449,6 +1483,8 @@ export type SchemaCastPlayResponse = components['schemas']['CastPlayResponse'];
 export type SchemaCastSessionStatus = components['schemas']['CastSessionStatus'];
 export type SchemaCastStatusResponse = components['schemas']['CastStatusResponse'];
 export type SchemaCatalogTrack = components['schemas']['CatalogTrack'];
+export type SchemaConfigEntry = components['schemas']['ConfigEntry'];
+export type SchemaConfigSectionView = components['schemas']['ConfigSectionView'];
 export type SchemaCountResponse = components['schemas']['CountResponse'];
 export type SchemaCreateBody = components['schemas']['CreateBody'];
 export type SchemaErrorResponse = components['schemas']['ErrorResponse'];
@@ -1587,6 +1623,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server config with secrets redacted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigSectionView"][];
                 };
             };
             /** @description Missing or invalid API key */

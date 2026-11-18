@@ -5,6 +5,7 @@ import { DEFAULT_MISSING_METADATA_FIELDS, MISSING_METADATA_FIELDS } from "@share
 import type { MissingMetadataField } from "@shared/reports";
 import type {
   AccentColor,
+  AlbumCardCaptionMode,
   AlbumViewStyle,
   LibraryViewStyle,
   PlaylistSortMode,
@@ -96,6 +97,11 @@ export const useSettingsStore = defineStore("settings", () => {
   );
   /** Square (no border radius) album cards in the Library grid. Off = rounded. */
   const squareAlbumCards = ref(loadPref("muorg-web-square-album-cards", false));
+  /** Where album grid cards show title/artist: "overlay" on the cover scrim
+   *  (default), "below" the art, or "none". */
+  const albumCardCaption = ref<AlbumCardCaptionMode>(
+    loadPref<AlbumCardCaptionMode>("muorg-web-album-card-caption", "overlay"),
+  );
   /** Square (no border radius) cover in the maximized/FS player. Off = rounded. */
   const squarePlayerCover = ref(loadPref("muorg-web-square-player-cover", false));
   /** Layout for the playlist/mix detail view — separate from the Library's
@@ -235,6 +241,11 @@ export const useSettingsStore = defineStore("settings", () => {
   function setSquareAlbumCards(v: boolean): void {
     squareAlbumCards.value = v;
     savePref("muorg-web-square-album-cards", v);
+  }
+
+  function setAlbumCardCaption(m: AlbumCardCaptionMode): void {
+    albumCardCaption.value = m;
+    savePref("muorg-web-album-card-caption", m);
   }
 
   function setSquarePlayerCover(v: boolean): void {
@@ -423,6 +434,8 @@ export const useSettingsStore = defineStore("settings", () => {
     albumViewStyle,
     squareAlbumCards,
     setSquareAlbumCards,
+    albumCardCaption,
+    setAlbumCardCaption,
     squarePlayerCover,
     setSquarePlayerCover,
     playlistViewStyle,

@@ -250,6 +250,7 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
   ["browse (roots)", (a) => a.browse(), "GET", "/api/admin/browse"],
   ["browse (path)", (a) => a.browse("/music/rock"), "GET", "/api/admin/browse?path=%2Fmusic%2Frock"],
   ["getBackupDirectory", (a) => a.getBackupDirectory(), "GET", "/api/admin/backup-directory"],
+  ["getServerConfig", (a) => a.getServerConfig(), "GET", "/api/admin/config"],
   [
     "rescan (one root)",
     (a) => a.rescan("/music"),

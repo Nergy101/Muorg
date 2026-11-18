@@ -1,9 +1,5 @@
 <template>
   <div>
-    <div :class="[SECTION, 'flex items-center gap-1.5']">
-      <MageIcon name="playlist" class="h-3.5 w-3.5" />
-      <span>Export</span>
-    </div>
     <div :class="ROW">
       <div class="min-w-0 flex-1">
         <p class="text-body-lg text-on-surface">Music root folder</p>
@@ -33,10 +29,8 @@
  * PlaylistExportDialog / composables/useM3u). Tracks whose path doesn't
  * contain this folder as a segment are skipped during that export.
  */
-import MageIcon from "../MageIcon.vue";
 import { useSettingsStore } from "../../stores/settings";
 
-const SECTION = "px-4 pt-5 pb-1 text-label-sm uppercase tracking-[0.8px] text-primary";
 const ROW = "flex min-h-14 items-center justify-between gap-4 px-4 py-2";
 
 const settings = useSettingsStore();

@@ -55,6 +55,35 @@
           Tracks whose path matches the Origin pattern are listed below. The path prefix before the matched
           segments is preserved; only the matched segments are rewritten using the Destination pattern.
         </p>
+
+        <!-- Example patterns from Settings → Metadata writing ("Apply from
+             path" templates): load one into either input. -->
+        <div v-if="examplePatterns.length > 0" class="mt-3">
+          <p class="mb-1 text-label-sm text-on-surface-variant">Examples</p>
+          <div
+            v-for="(pattern, i) in examplePatterns"
+            :key="i"
+            class="flex items-center gap-2 border-b border-surface-variant/40 py-1.5 last:border-0"
+          >
+            <span class="min-w-0 flex-1 truncate font-mono text-body-sm text-on-surface" :title="pattern">
+              {{ pattern }}
+            </span>
+            <button
+              type="button"
+              class="shrink-0 rounded-full glass-field px-3 py-1 text-label-sm text-primary"
+              @click="origin = pattern"
+            >
+              Origin
+            </button>
+            <button
+              type="button"
+              class="shrink-0 rounded-full glass-field px-3 py-1 text-label-sm text-primary"
+              @click="dest = pattern"
+            >
+              Destination
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-if="!origin.trim() || !dest.trim()" class="flex flex-col items-center gap-2 px-6 py-12 text-center">
@@ -157,10 +186,16 @@ import { loadPref, savePref } from "../stores/prefs";
 import { api } from "../api/client";
 import { showToast, showWarning } from "../composables/useToast";
 import { computeTransformMatches, planSelectedRenames } from "../smartTransform";
+import { PATH_FORMAT_EXAMPLES } from "@shared/utils/pathFormat";
 import type { RenameCollision } from "@shared/api";
 
 const router = useRouter();
 const lib = useLibraryStore();
+
+/** The built-in example path patterns (shared with the "Apply from path"
+ *  formats editor), offered here as one-tap examples for the
+ *  Origin/Destination inputs. */
+const examplePatterns = computed(() => [...PATH_FORMAT_EXAMPLES]);
 
 // Last-used templates persist across visits — typing them out again every
 // time would make this screen tedious to use more than once.

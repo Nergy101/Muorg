@@ -102,12 +102,36 @@
       :title="`No results for &quot;${query.trim()}&quot;`"
       body="Try another spelling or fewer words."
     />
-    <!-- Album matches: every album whose title matches the query, as album
-         cards in the same grid as the artist cards below, above the normal
-         track results. The query itself stays in the search field (and is
-         recorded as a query chip), so e.g. "three cheers" keeps its tag and
-         shows the matching album as a card. -->
+    <!-- Artist matches first: a 4-block cover collage per artist with the
+         name underneath, above the album and track results. -->
+    <div v-if="artistHits.length > 0" class="search-col px-4 pb-3 pt-1">
+      <div class="flex items-center gap-1.5 py-1 text-label-lg text-on-surface-variant">
+        <MageIcon name="user" class="h-4 w-4" />
+        <span>Artists</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <ArtistCard
+          v-for="hit in artistHits"
+          :key="hit.name"
+          :name="hit.name"
+          :cover-urls="coverUrlsFor(hit)"
+          :track-count="hit.trackCount"
+          @open="openArtist"
+        />
+      </div>
+    </div>
+
+    <!-- Album matches: when the query hits an artist, the albums OF that
+         artist; otherwise every album whose title matches the query. Album
+         cards in the same grid as the artist cards, above the track results.
+         The query itself stays in the search field (and is recorded as a
+         query chip), so e.g. "three cheers" keeps its tag and shows the
+         matching album as a card. -->
     <div v-if="albumHits.length > 0" class="search-col px-4 pb-3 pt-1">
+      <div class="flex items-center gap-1.5 py-1 text-label-lg text-on-surface-variant">
+        <MageIcon name="compact-disk" class="h-4 w-4" />
+        <span>Albums</span>
+      </div>
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <AlbumCard
           v-for="item in albumHits"
@@ -121,25 +145,14 @@
       </div>
     </div>
 
-    <!-- Artist matches first: a 4-block cover collage per artist with the
-         name underneath, above the normal track/album results. -->
-    <div v-if="artistHits.length > 0" class="search-col px-4 pb-3 pt-1">
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <ArtistCard
-          v-for="hit in artistHits"
-          :key="hit.name"
-          :name="hit.name"
-          :cover-urls="coverUrlsFor(hit)"
-          :track-count="hit.trackCount"
-          @open="openArtist"
-        />
-      </div>
-    </div>
-
     <!-- Album-cover layout: one album card PER matching track, in the
          centered measure at 4 columns (normal cover size), paged 20 at
          a time so a big result set doesn't load every cover at once. -->
     <div v-if="layout === 'grid'" class="search-col px-4 pb-4 pt-1">
+      <div class="flex items-center gap-1.5 py-1 text-label-lg text-on-surface-variant">
+        <MageIcon name="music" class="h-4 w-4" />
+        <span>Tracks</span>
+      </div>
       <SearchResultCardGrid :cards="visibleResultCards" @open="openTrackAlbum" @actions="albumActions = $event" />
       <button
         v-if="hasMoreGrid"
@@ -152,6 +165,10 @@
       </button>
     </div>
     <div v-else class="search-col pb-4">
+      <div class="flex items-center gap-1.5 px-4 py-1 text-label-lg text-on-surface-variant">
+        <MageIcon name="music" class="h-4 w-4" />
+        <span>Tracks</span>
+      </div>
       <TrackListRow
         v-for="track in visibleResults"
         :key="track.id"
@@ -273,7 +290,13 @@ const results = computed(() => {
   return lib.tracks
     .map((t) => ({ t, s: matchScore(t, q) }))
     .filter(({ s }) => s > 0)
-    .sort((a, b) => b.s - a.s || normalize(a.t.title).localeCompare(normalize(b.t.title)))
+    // Most-listened first (play_count), then match relevance, then title.
+    .sort(
+      (a, b) =>
+        (b.t.play_count ?? 0) - (a.t.play_count ?? 0) ||
+        b.s - a.s ||
+        normalize(a.t.title).localeCompare(normalize(b.t.title)),
+    )
     .map(({ t }) => t);
 });
 
@@ -288,7 +311,8 @@ interface ArtistHit {
 }
 
 /** Artists whose name matches the query (exact > prefix > contains), capped
- *  at 4 so the section stays a single row. */
+ *  at 4 so the section stays a single row. Sorted by how often the artist
+ *  has been listened to (summed play_count), then match relevance. */
 const artistHits = computed<ArtistHit[]>(() => {
   const q = normalize(debouncedQuery.value);
   if (!q) return [];
@@ -300,19 +324,20 @@ const artistHits = computed<ArtistHit[]>(() => {
     if (v.includes(q)) return 40;
     return 0;
   };
-  const byArtist = new Map<string, { score: number; tracks: CatalogTrack[] }>();
+  const byArtist = new Map<string, { score: number; plays: number; tracks: CatalogTrack[] }>();
   for (const t of lib.tracks) {
     const name = t.artist ?? t.album_artist;
     if (!name) continue;
     const s = score(name);
     if (s === 0) continue;
-    const entry = byArtist.get(name) ?? { score: s, tracks: [] };
+    const entry = byArtist.get(name) ?? { score: s, plays: 0, tracks: [] };
     entry.score = Math.max(entry.score, s);
+    entry.plays += t.play_count ?? 0;
     entry.tracks.push(t);
     byArtist.set(name, entry);
   }
   return [...byArtist.entries()]
-    .sort((a, b) => b[1].score - a[1].score || a[0].localeCompare(b[0]))
+    .sort((a, b) => b[1].plays - a[1].plays || b[1].score - a[1].score || a[0].localeCompare(b[0]))
     .slice(0, 4)
     .map(([name, entry]) => ({
       name,
@@ -321,9 +346,10 @@ const artistHits = computed<ArtistHit[]>(() => {
     }));
 });
 
-/** Every album whose title matches the query (exact > prefix > contains),
- *  shown as album cards in a grid above the artist matches. Capped at 8 so
- *  the section stays compact. */
+/** Album cards for the query: when the query matches an artist, the albums
+ *  OF that artist; otherwise every album whose title matches the query
+ *  (exact > prefix > contains). Sorted by total play count of the album's
+ *  tracks, then match relevance. Capped at 8 so the section stays compact. */
 const albumHits = computed<AlbumGridItem[]>(() => {
   const q = normalize(debouncedQuery.value);
   if (!q) return [];
@@ -335,18 +361,29 @@ const albumHits = computed<AlbumGridItem[]>(() => {
     if (v.includes(q)) return 40;
     return 0;
   };
-  const byKey = new Map<string, { item: AlbumGridItem; score: number }>();
+  const matchedArtists = artistHits.value.length > 0
+    ? new Set(artistHits.value.map((h) => h.name))
+    : null;
+  const byKey = new Map<string, { item: AlbumGridItem; score: number; plays: number }>();
   for (const t of lib.tracks) {
-    const s = score(t.album);
+    const artistName = t.artist ?? t.album_artist ?? "";
+    const s = matchedArtists ? (matchedArtists.has(artistName) ? 100 : 0) : score(t.album);
     if (s === 0) continue;
     const key = lib.keyForTrack(t);
     const item = lib.albumByKey(key);
     if (!item) continue;
     const existing = byKey.get(key);
-    if (!existing || s > existing.score) byKey.set(key, { item: { ...item }, score: s });
+    if (!existing) byKey.set(key, { item: { ...item }, score: s, plays: t.play_count ?? 0 });
+    else {
+      existing.plays += t.play_count ?? 0;
+      if (s > existing.score) existing.score = s;
+    }
   }
   return [...byKey.values()]
-    .sort((a, b) => b.score - a.score || a.item.album.localeCompare(b.item.album))
+    .sort(
+      (a, b) =>
+        b.plays - a.plays || b.score - a.score || a.item.album.localeCompare(b.item.album),
+    )
     .slice(0, 8)
     .map((e) => e.item);
 });

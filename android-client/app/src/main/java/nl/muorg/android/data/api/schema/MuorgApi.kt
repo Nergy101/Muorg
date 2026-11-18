@@ -59,6 +59,16 @@ interface MuorgApi {
     suspend fun clearCache(): Response<OkResponse>
 
     /**
+     * The server's TOML config as displayable sections. Secrets (`api_key`,
+     * remote `secret_access_key`) are redacted to asterisks + last 3 chars —
+     * the full secret is never sent over the network.
+     *
+     * `GET /api/admin/config`
+     */
+    @GET("api/admin/config")
+    suspend fun getConfig(): Response<List<ConfigSectionView>>
+
+    /**
      * Deeper health check than `/api/health`: also proves the catalog is readable.
      *
      * `GET /api/admin/health`

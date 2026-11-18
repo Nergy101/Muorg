@@ -15,14 +15,6 @@
       </div>
     </div>
 
-    <button type="button" :class="[ROW, 'w-full text-left']" @click="router.push({ name: 'smart-transform' })">
-      <div class="min-w-0 flex-1">
-        <p class="text-body-lg text-on-surface">Smart Transform</p>
-        <p class="text-body-sm text-on-surface-variant">Bulk-rename files by rewriting a path pattern</p>
-      </div>
-      <MageIcon name="chevron-right" class="h-5 w-5 shrink-0 text-on-surface-variant" />
-    </button>
-
   </div>
 </template>
 
@@ -31,14 +23,9 @@
  * Reports settings block, mounted inside SettingsView's Library section:
  * which fields count as "missing metadata" everywhere in the app (Reports,
  * Stats, the Settings badge, the sidebar badge — all read this one list),
- * plus links to the two screens that are not top-level nav destinations.
  */
-import { useRouter } from "vue-router";
-import MageIcon from "../MageIcon.vue";
 import { useSettingsStore } from "../../stores/settings";
 import { MISSING_METADATA_FIELDS, type MissingMetadataField } from "@shared/reports";
-
-const ROW = "flex min-h-14 items-center justify-between gap-4 px-4 py-2";
 
 const FIELD_LABELS: Record<MissingMetadataField, string> = {
   title: "Title",
@@ -53,7 +40,6 @@ const FIELD_LABELS: Record<MissingMetadataField, string> = {
   has_cover: "Album cover",
 };
 
-const router = useRouter();
 const settings = useSettingsStore();
 
 function isChecked(field: MissingMetadataField): boolean {

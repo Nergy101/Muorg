@@ -149,6 +149,9 @@ pub struct AppState {
     /// [`AppState::with_browse`] rather than through `new`, which has enough
     /// positional arguments already.
     pub browse: BrowseConfig,
+    /// The full parsed TOML config, for `GET /api/admin/config` (which
+    /// redacts secrets before responding). Set with [`AppState::with_config`].
+    pub config: Arc<crate::config::Config>,
 }
 
 impl AppState {
@@ -187,7 +190,14 @@ impl AppState {
             image_fetch: ImageFetchConfig::default(),
             scanning: Arc::new(AtomicBool::new(false)),
             browse: BrowseConfig::default(),
+            config: Arc::new(crate::config::Config::default()),
         }
+    }
+
+    /// Attach the full parsed config (used by the admin config endpoint).
+    pub fn with_config(mut self, config: Arc<crate::config::Config>) -> Self {
+        self.config = config;
+        self
     }
 
     /// Override the image-fetch guards. Defaults are the safe ones, so a caller

@@ -431,6 +431,44 @@
         ],
         "type": "object"
       },
+      "ConfigEntry": {
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "boolean"
+          },
+          "value": {
+            "description": "Plain value, or — when `secret` is true — asterisks plus the last 3\ncharacters. The full secret is never serialized.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "secret"
+        ],
+        "type": "object"
+      },
+      "ConfigSectionView": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigEntry"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "entries"
+        ],
+        "type": "object"
+      },
       "CountResponse": {
         "description": "`GET /api/tracks/count`",
         "properties": {
@@ -1446,6 +1484,45 @@
           }
         ],
         "summary": "Deprecated alias of [`purge_deleted`]: despite the name, this has never\ncleared anything but soft-deleted rows. Kept for one release so existing\nclients are not broken by the rename; new callers should use\n`/api/admin/purge-deleted`.",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/config": {
+      "get": {
+        "operationId": "get_config",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConfigSectionView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Server config with secrets redacted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "The server's TOML config as displayable sections. Secrets (`api_key`,\nremote `secret_access_key`) are redacted to asterisks + last 3 chars —\nthe full secret is never sent over the network.",
         "tags": [
           "Admin"
         ]

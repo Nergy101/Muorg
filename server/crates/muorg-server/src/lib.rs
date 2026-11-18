@@ -123,6 +123,7 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/admin/purge-deleted", post(routes::admin::purge_deleted))
         .route("/api/admin/browse", get(routes::admin::browse))
         .route("/api/admin/backup-directory", get(routes::admin::get_backup_directory))
+        .route("/api/admin/config", get(routes::admin::get_config))
         .route("/api/admin/health", get(routes::admin::health))
         .route("/api/admin/metrics", get(routes::admin::metrics))
         .route("/api/admin/update", post(routes::admin::update))
