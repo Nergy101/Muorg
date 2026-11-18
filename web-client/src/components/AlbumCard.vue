@@ -130,7 +130,9 @@
       >
         <div class="min-w-0 flex-1">
           <MarqueeText :text="item.album" :class="scrimTitleClass" />
-          <div :class="scrimSubClass"><ArtistLink :name="item.albumArtist" /></div>
+          <div :class="scrimSubClass">
+            <ArtistLink :name="item.albumArtist" /><template v-if="showYear && item.year"> · {{ item.year }}</template>
+          </div>
         </div>
         <div class="flex shrink-0 items-center gap-1" :class="scrimMutedClass">
           <MageIcon name="music" class="h-3 w-3" />
@@ -145,7 +147,9 @@
     <div v-if="captionMode === 'below'" class="flex items-center gap-2 px-1 pt-1.5">
       <div class="min-w-0 flex-1">
         <MarqueeText :text="item.album" class="text-body-md font-semibold text-on-surface" />
-        <div class="truncate text-body-sm text-on-surface-variant"><ArtistLink :name="item.albumArtist" /></div>
+        <div class="truncate text-body-sm text-on-surface-variant">
+          <ArtistLink :name="item.albumArtist" /><template v-if="showYear && item.year"> · {{ item.year }}</template>
+        </div>
       </div>
       <div class="flex shrink-0 items-center gap-1 text-on-surface-variant">
         <MageIcon name="music" class="h-3 w-3" />
@@ -188,6 +192,9 @@ const props = defineProps<{
   item: AlbumGridItem;
   mode: "grid" | "list";
   isActive?: boolean;
+  /** Show the release year after the artist name in the grid caption
+   *  (used by the search results' album cards). */
+  showYear?: boolean;
 }>();
 
 const emit = defineEmits<{ open: []; actions: [] }>();

@@ -282,7 +282,7 @@ describe("SearchView", () => {
     view.unmount();
   });
 
-  it("reacts to the layout toggle: recent results and live results switch between rows and cards", async () => {
+  it("reacts to the layout toggle for recent results; live track results are always rows", async () => {
     mocks.settings.recentSearchResultIds = [1, 2];
     const view = renderSearchView();
     await nextTick();
@@ -298,12 +298,13 @@ describe("SearchView", () => {
     expect(view.root.querySelector(".card-grid")).not.toBeNull();
     expect(view.root.querySelectorAll(".row").length).toBe(0);
 
-    // Live results follow the same layout.
+    // Live results render as track rows in BOTH layouts — the toggle only
+    // affects the recent section.
     await type(view, "blue");
-    expect(view.root.querySelector(".card-grid")).not.toBeNull();
-    expect(view.root.querySelectorAll(".row").length).toBe(0);
+    expect(view.root.querySelector(".card-grid")).toBeNull();
+    expect(view.root.querySelectorAll(".row").length).toBeGreaterThan(0);
 
-    // Back to list: live results render as rows again.
+    // Back to list: recent results render as rows again.
     view.root.querySelector<HTMLButtonElement>('[aria-label="Show results as a list"]')!.click();
     await nextTick();
     expect(view.root.querySelector(".card-grid")).toBeNull();

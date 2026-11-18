@@ -138,6 +138,7 @@
           :key="item.key"
           :item="item"
           mode="grid"
+          show-year
           :is-active="isAlbumActive(item)"
           @open="openAlbum(item)"
           @actions="albumActions = item"
@@ -145,26 +146,9 @@
       </div>
     </div>
 
-    <!-- Album-cover layout: one album card PER matching track, in the
-         centered measure at 4 columns (normal cover size), paged 20 at
-         a time so a big result set doesn't load every cover at once. -->
-    <div v-if="layout === 'grid'" class="search-col px-4 pb-4 pt-1">
-      <div class="flex items-center gap-1.5 py-1 text-label-lg text-on-surface-variant">
-        <MageIcon name="music" class="h-4 w-4" />
-        <span>Tracks</span>
-      </div>
-      <SearchResultCardGrid :cards="visibleResultCards" @open="openTrackAlbum" @actions="albumActions = $event" />
-      <button
-        v-if="hasMoreGrid"
-        type="button"
-        class="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full glass-field text-label-lg text-primary"
-        @click="showMoreGrid"
-      >
-        <MageIcon name="chevron-down" class="h-4 w-4" />
-        <span>Show more ({{ resultCards.length - visibleGridCount }} remaining)</span>
-      </button>
-    </div>
-    <div v-else class="search-col pb-4">
+    <!-- Tracks: always plain track rows (paged 10 at a time so a big
+         result set doesn't render every row at once). -->
+    <div class="search-col pb-4">
       <div class="flex items-center gap-1.5 px-4 py-1 text-label-lg text-on-surface-variant">
         <MageIcon name="music" class="h-4 w-4" />
         <span>Tracks</span>
@@ -348,8 +332,9 @@ const artistHits = computed<ArtistHit[]>(() => {
 
 /** Album cards for the query: when the query matches an artist, the albums
  *  OF that artist; otherwise every album whose title matches the query
- *  (exact > prefix > contains). Sorted by total play count of the album's
- *  tracks, then match relevance. Capped at 8 so the section stays compact. */
+ *  (exact > prefix > contains). Sorted by release year, newest first
+ *  (albums without a year last), then alphabetically. Not capped — every
+ *  matching album is shown. */
 const albumHits = computed<AlbumGridItem[]>(() => {
   const q = normalize(debouncedQuery.value);
   if (!q) return [];
@@ -380,11 +365,11 @@ const albumHits = computed<AlbumGridItem[]>(() => {
     }
   }
   return [...byKey.values()]
-    .sort(
-      (a, b) =>
-        b.plays - a.plays || b.score - a.score || a.item.album.localeCompare(b.item.album),
-    )
-    .slice(0, 8)
+    .sort((a, b) => {
+      const ya = a.item.year ?? Number.MIN_SAFE_INTEGER;
+      const yb = b.item.year ?? Number.MIN_SAFE_INTEGER;
+      return yb - ya || a.item.album.localeCompare(b.item.album, undefined, { sensitivity: "base", numeric: true });
+    })
     .map((e) => e.item);
 });
 
@@ -492,8 +477,6 @@ function cardsForTracks(tracks: CatalogTrack[]): SearchResultCard[] {
   });
 }
 
-const resultCards = computed<SearchResultCard[]>(() => cardsForTracks(results.value));
-
 function openTrackAlbum(track: CatalogTrack): void {
   const key = lib.keyForTrack(track);
   settings.addAlbumSearch(key);
@@ -501,31 +484,20 @@ function openTrackAlbum(track: CatalogTrack): void {
   void router.push({ name: "album", params: { albumKey: key } });
 }
 
-// Only the first page of results is rendered; "Load more"/"Show more" reveals
-// the next. The cover grid pages 20 at a time — rendering every card at once
-// makes the browser fetch every cover in one go and the page lags.
+// Only the first page of results is rendered; "Load more" reveals the next.
 const PAGE_SIZE = 10;
-const GRID_PAGE_SIZE = 20;
 const visibleCount = ref(PAGE_SIZE);
-const visibleGridCount = ref(GRID_PAGE_SIZE);
 watch(debouncedQuery, () => {
   visibleCount.value = PAGE_SIZE;
-  visibleGridCount.value = GRID_PAGE_SIZE;
 });
-// Switching layout starts the new layout from its first page.
+// Switching layout starts the list from its first page.
 watch(() => props.layout, () => {
   visibleCount.value = PAGE_SIZE;
-  visibleGridCount.value = GRID_PAGE_SIZE;
 });
 const visibleResults = computed(() => results.value.slice(0, visibleCount.value));
 const hasMore = computed(() => results.value.length > visibleCount.value);
 function loadMore(): void {
   visibleCount.value = Math.min(visibleCount.value + PAGE_SIZE, results.value.length);
-}
-const visibleResultCards = computed(() => resultCards.value.slice(0, visibleGridCount.value));
-const hasMoreGrid = computed(() => resultCards.value.length > visibleGridCount.value);
-function showMoreGrid(): void {
-  visibleGridCount.value = Math.min(visibleGridCount.value + GRID_PAGE_SIZE, resultCards.value.length);
 }
 
 /** Recently selected search results, resolved against the catalog and kept
@@ -544,9 +516,7 @@ const recentResultCards = computed<SearchResultCard[]>(() => cardsForTracks(rece
  *  host view can register them for range selection. */
 const visibleIds = computed(() => {
   if (!debouncedQuery.value.trim()) return recentResultTracks.value.map((t) => t.id);
-  return props.layout === "grid"
-    ? visibleResultCards.value.map((c) => c.track.id)
-    : visibleResults.value.map((t) => t.id);
+  return visibleResults.value.map((t) => t.id);
 });
 defineExpose({ visibleIds });
 
