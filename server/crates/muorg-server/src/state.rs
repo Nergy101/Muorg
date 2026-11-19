@@ -106,6 +106,62 @@ impl TranscodeCache {
     }
 }
 
+/// Cache key for a downscaled cover thumbnail: identity plus the source's
+/// mtime and the requested edge, so a re-written cover or a different size
+/// never serves stale bytes.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct ThumbKey {
+    track_id: i64,
+    size: u32,
+    mtime_secs: u64,
+}
+
+/// In-memory LRU of downscaled cover thumbnails (`?size=` variants), keyed by
+/// `(track_id, size, mtime)`. Album art is square and usually ≤ 500 px, so
+/// most variants are a few tens of KB; 512 entries bounds the cache well
+/// under 50 MB even for unusually large art.
+pub struct ThumbnailCache {
+    inner: Mutex<HashMap<ThumbKey, bytes::Bytes>>,
+    order: Mutex<VecDeque<ThumbKey>>,
+    max_entries: usize,
+}
+
+impl ThumbnailCache {
+    pub fn new(max_entries: usize) -> Self {
+        Self {
+            inner: Mutex::new(HashMap::new()),
+            order: Mutex::new(VecDeque::new()),
+            max_entries: max_entries.max(1),
+        }
+    }
+
+    pub fn get(&self, track_id: i64, size: u32, mtime_secs: u64) -> Option<bytes::Bytes> {
+        let key = ThumbKey { track_id, size, mtime_secs };
+        let map = self.inner.lock().unwrap();
+        let hit = map.get(&key).cloned();
+        if hit.is_some() {
+            let mut order = self.order.lock().unwrap();
+            order.retain(|k| *k != key);
+            order.push_back(key);
+        }
+        hit
+    }
+
+    pub fn insert(&self, track_id: i64, size: u32, mtime_secs: u64, bytes: bytes::Bytes) {
+        let key = ThumbKey { track_id, size, mtime_secs };
+        let mut map = self.inner.lock().unwrap();
+        let mut order = self.order.lock().unwrap();
+        order.retain(|k| *k != key);
+        order.push_back(key);
+        map.insert(key, bytes);
+        while order.len() > self.max_entries {
+            if let Some(old) = order.pop_front() {
+                map.remove(&old);
+            }
+        }
+    }
+}
+
 /// Directories `GET /api/admin/browse` may list from or descend into. See
 /// `LibraryConfig::browse_roots` for the default-fallback rule.
 #[derive(Debug, Clone, Default)]
@@ -123,6 +179,7 @@ pub struct AppState {
     pub tokens: StreamTokens,
     pub transcoding_config: TranscodingConfig,
     pub transcode_cache: TranscodeCache,
+    pub thumbnail_cache: ThumbnailCache,
     pub server_port: u16,
     /// Port of the stream-only listener bound on all interfaces when the main
     /// listener is loopback-only (the desktop app's sidecar). Cast devices on
@@ -176,6 +233,7 @@ impl AppState {
             tokens: StreamTokens::new(),
             transcoding_config,
             transcode_cache: TranscodeCache::new(24),
+            thumbnail_cache: ThumbnailCache::new(512),
             server_port,
             stream_port: None,
             // Discovery is started by the caller (main), not here: a test

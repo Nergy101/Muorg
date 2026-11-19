@@ -340,6 +340,130 @@ async fn a_track_without_cover_answers_404_not_500() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Scalar API docs UI (public, driven by the live OpenAPI spec)
+// ---------------------------------------------------------------------------
+
+/// The Scalar page must be public and point at `/api/openapi.json`, which the
+/// same binary serves live from the utoipa document — so the UI always tracks
+/// the current spec with no snapshot to regenerate.
+#[tokio::test]
+async fn scalar_ui_is_public_and_points_at_the_live_openapi_spec() {
+    let srv = TestServer::start().await;
+    let resp = srv.get("/api/scalar").await;
+    assert_eq!(resp.status(), 200);
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    assert!(ct.contains("text/html"), "content-type was {ct}");
+    let body = resp.text().await.unwrap();
+    assert!(body.contains("id=\"api-reference\""), "scalar embed script missing");
+    assert!(
+        body.contains("data-url=\"/api/openapi.json\""),
+        "scalar page must reference the live spec endpoint"
+    );
+
+    let spec = srv.get("/api/openapi.json").await;
+    assert_eq!(spec.status(), 200);
+    let doc: serde_json::Value = spec.json().await.unwrap();
+    assert!(doc.get("openapi").is_some(), "spec endpoint did not return an OpenAPI document");
+}
+
+// ---------------------------------------------------------------------------
+// Cover thumbnails (?size=)
+// ---------------------------------------------------------------------------
+
+/// Seed a track from the cover fixture (its embedded art is a 64x64 JPEG).
+fn seed_cover_track(srv: &TestServer) -> (tempfile::TempDir, i64) {
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../muorg-core/tests/fixtures/cover_front.mp3"
+    );
+    let p = dir.path().join("song.mp3");
+    std::fs::copy(fixture, &p).unwrap();
+    let id = seed_track(srv, p.to_str().unwrap());
+    (dir, id)
+}
+
+/// `?size=N` downscales to a JPEG with max edge N; square art stays square,
+/// and the variant is cached so a repeat request returns identical bytes.
+#[tokio::test]
+async fn cover_thumbnail_downscales_square_art_and_caches_the_variant() {
+    let srv = TestServer::start().await;
+    let (_dir, track_id) = seed_cover_track(&srv);
+
+    let full = srv.get_auth(&format!("/api/tracks/{track_id}/cover")).await;
+    assert_eq!(full.status(), 200);
+    let full_etag = full
+        .headers()
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let full_bytes = full.bytes().await.unwrap();
+
+    let resp = srv
+        .get_auth(&format!("/api/tracks/{track_id}/cover?size=32"))
+        .await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("content-type").and_then(|v| v.to_str().ok()),
+        Some("image/jpeg")
+    );
+    let thumb_etag = resp
+        .headers()
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let thumb = resp.bytes().await.unwrap();
+
+    let _ = &full_bytes; // full cover fetched for the ETag comparison above
+    let img = image::load_from_memory(&thumb).unwrap();
+    assert_eq!(
+        image::GenericImageView::dimensions(&img),
+        (32, 32),
+        "square art must stay square"
+    );
+    assert_ne!(thumb_etag, full_etag, "each size variant needs its own ETag");
+
+    // Repeat request: served from the in-memory thumbnail cache, identical bytes.
+    let again = srv
+        .get_auth(&format!("/api/tracks/{track_id}/cover?size=32"))
+        .await;
+    assert_eq!(again.status(), 200);
+    assert_eq!(again.bytes().await.unwrap(), thumb);
+}
+
+/// Art already at or below the requested size (most covers are ≤ 500 px) is
+/// served unchanged — never upscaled — and sizes under 16 px are ignored.
+#[tokio::test]
+async fn cover_size_above_art_or_below_16_serves_the_original() {
+    let srv = TestServer::start().await;
+    let (_dir, track_id) = seed_cover_track(&srv);
+
+    let full = srv.get_auth(&format!("/api/tracks/{track_id}/cover")).await;
+    let full_bytes = full.bytes().await.unwrap();
+
+    for path in [
+        format!("/api/tracks/{track_id}/cover?size=500"),
+        format!("/api/tracks/{track_id}/cover?size=8"),
+        format!("/api/tracks/{track_id}/cover?size=99999"),
+    ] {
+        let resp = srv.get_auth(&path).await;
+        assert_eq!(resp.status(), 200, "{path} returned {}", resp.status());
+        assert_eq!(
+            resp.bytes().await.unwrap(),
+            full_bytes,
+            "{path} should serve the original art unchanged"
+        );
+    }
+}
+
 /// A batch write where one track's file is missing must still write all the
 /// others: the failing track is skipped, the response reports the real
 /// `updated` count, and the DB reflects the successful writes only.

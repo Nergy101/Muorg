@@ -152,6 +152,7 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
     let public = Router::new()
         .route("/", get(routes::util::home))
         .route("/api/health", get(routes::util::health))
+        .route("/api/scalar", get(routes::openapi::scalar))
         .route("/stream/{token}/{id}", get(routes::stream::stream_audio))
         .route("/stream/flac/{token}/{id}", get(routes::stream::stream_audio_flac))
         .route("/stream/wav/{token}/{id}", get(routes::stream::stream_audio_wav));

@@ -107,6 +107,12 @@
       letter-spacing: 0.04em;
     }
 
+    .api-docs {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .api-docs a { color: var(--text); }
+
     .theme-toggle {
       display: flex;
       border: 1px solid var(--card-border);
@@ -165,6 +171,13 @@
     </div>
 
     <div class="version">v{{VERSION}}</div>
+
+    <div class="api-docs">
+      API docs:
+      <a href="/api/docs">Swagger UI</a> ·
+      <a href="/api/scalar">Scalar</a> ·
+      <a href="/api/openapi.json">OpenAPI spec</a>
+    </div>
 
     <div class="theme-toggle" role="group" aria-label="Color theme">
       <button id="btn-light" onclick="setTheme('light')">Light</button>

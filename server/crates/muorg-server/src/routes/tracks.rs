@@ -119,7 +119,10 @@ pub async fn get_cover(
 ) -> Result<Response, ApiError> {
     let (track_path, track_mtime_secs) = resolve_track_with_mtime(&state, id)?;
     let is_remote = crate::storage::is_remote_uri(&track_path);
-    let size = params.size.filter(|s| *s >= 16);
+    // Sizes under 16 px are ignored (serve full); anything above 4096 is
+    // clamped so the cache key and ETag stay normalized — art larger than
+    // that is rare and a 4096 px request is already served the original.
+    let size = params.size.filter(|s| *s >= 16).map(|s| s.min(4096));
 
     // Remote covers key off the catalog's mtime so a cache hit costs no request
     // at all; local ones stay on the file's own mtime, as before.
@@ -128,11 +131,10 @@ pub async fn get_cover(
     } else {
         crate::routes::util::file_mtime(path::Path::new(&track_path))
     };
-    let etag = format!(
-        "\"cover-{id}-{}-{}\"",
-        size.unwrap_or(0),
-        mtime.map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)).unwrap_or(0)
-    );
+    let mtime_secs = mtime
+        .map(|t| t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0))
+        .unwrap_or(0);
+    let etag = format!("\"cover-{id}-{}-{}\"", size.unwrap_or(0), mtime_secs);
     if let Some(resp) = crate::routes::util::check_not_modified(&etag, mtime, &req_headers) {
         return Ok(resp);
     }
@@ -158,11 +160,26 @@ pub async fn get_cover(
         }
     };
 
-    // Downscale on demand; thumbnails are always JPEG (covers are photo art, and
-    // JPEG shrinks bytes far better than PNG for them).
-    let (data, mime) = match size.and_then(|s| downscale_cover(&data, s)) {
-        Some(thumb) => (thumb, "image/jpeg".to_string()),
-        None => (data, mime),
+    // Downscale on demand, caching each (track, size) variant in memory so a
+    // grid of rows re-requesting the same thumbnail doesn't re-decode and
+    // re-encode the art every time. Thumbnails are always JPEG (covers are
+    // photo art, and JPEG shrinks bytes far better than PNG for them). Album
+    // art is square, so max-edge scaling keeps it square; art already at or
+    // below the requested size (most covers are ≤ 500 px) is served as-is —
+    // never upscaled.
+    let (data, mime): (bytes::Bytes, String) = match size {
+        Some(s) => match state.thumbnail_cache.get(id, s, mtime_secs) {
+            Some(hit) => (hit, "image/jpeg".to_string()),
+            None => match downscale_cover(&data, s) {
+                Some(thumb) => {
+                    let b = bytes::Bytes::from(thumb);
+                    state.thumbnail_cache.insert(id, s, mtime_secs, b.clone());
+                    (b, "image/jpeg".to_string())
+                }
+                None => (bytes::Bytes::from(data), mime),
+            },
+        },
+        None => (bytes::Bytes::from(data), mime),
     };
 
     let mut headers = HeaderMap::new();

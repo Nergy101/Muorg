@@ -145,3 +145,25 @@ pub fn spec_json() -> String {
     s.push('\n');
     s
 }
+
+/// Scalar API reference page, served at `/api/scalar` (public, like the
+/// Swagger UI at `/api/docs`). The page points Scalar at `/api/openapi.json`,
+/// which utoipa-swagger-ui serves live from `ApiDoc::openapi()` — the same
+/// document this binary's handlers produce — so the UI always reflects the
+/// current spec with no checked-in snapshot to regenerate.
+pub async fn scalar() -> axum::response::Html<&'static str> {
+    axum::response::Html(
+        r#"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Muorg Server API</title>
+    <script id="api-reference" data-url="/api/openapi.json" type="application/json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </head>
+  <body></body>
+</html>
+"#,
+    )
+}
