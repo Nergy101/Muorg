@@ -58,7 +58,9 @@ function fetchPackage() {
 
 function attrsOf(tag) {
   const attrs = {};
-  for (const m of tag.matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) attrs[m[1]] = m[2];
+  // Attribute names may contain digits (x1, y2, ...) — excluding them made
+  // <line> coordinates parse as undefined and ship "Mundefined undefined...".
+  for (const m of tag.matchAll(/([a-zA-Z][a-zA-Z0-9-]*)="([^"]*)"/g)) attrs[m[1]] = m[2];
   return attrs;
 }
 
@@ -108,6 +110,16 @@ function shapeToPathData(el) {
   }
 }
 
+function checkedPathData(el, d) {
+  // A missing attribute stringifies to "undefined"/"NaN" into the path data,
+  // which Android's VectorDrawable parser rejects at inflation time — i.e. a
+  // crash the first time the icon renders. Fail the sync instead.
+  if (typeof d !== "string" || /undefined|NaN/.test(d)) {
+    throw new Error(`bad pathData for <${el.match(/^<([a-z]+)/)[1]}>: ${d}`);
+  }
+  return d;
+}
+
 function svgToVectorDrawable(svg) {
   const root = svg.match(/<svg[^>]*>/)[0];
   const rootAttrs = attrsOf(root);
@@ -122,7 +134,7 @@ function svgToVectorDrawable(svg) {
     const a = attrsOf(el);
     const fill = a.fill && a.fill !== "none" ? "#FF000000" : "#00000000";
     paths.push(
-      `    <path android:pathData="${shapeToPathData(el)}" android:fillColor="${fill}"` +
+      `    <path android:pathData="${checkedPathData(el, shapeToPathData(el))}" android:fillColor="${fill}"` +
         ` android:strokeColor="#FF000000" android:strokeWidth="${a["stroke-width"] ?? strokeWidth}"` +
         ` android:strokeLineCap="${lineCap}" android:strokeLineJoin="${lineJoin}"/>`,
     );
