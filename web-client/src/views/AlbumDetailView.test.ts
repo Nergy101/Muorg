@@ -56,7 +56,9 @@ vi.mock("../composables/useScrollMemory", () => ({ useScrollMemory: () => ({}) }
 vi.mock("../composables/useSelectableList", () => ({ provideVisibleIds: () => {} }));
 vi.mock("../composables/useDominantColor", () => ({
   useDominantColor: () => ({ value: null }),
+  useMostCommonColor: () => ({ value: null }),
   rawMainColor: () => null,
+  relativeLuminance: () => 0,
 }));
 vi.mock("../composables/useToast", () => ({ showToast: vi.fn(), showWarning: vi.fn() }));
 vi.mock("../components/MageIcon.vue", () => ({

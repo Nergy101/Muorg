@@ -29,7 +29,8 @@
       <!-- Tap body -->
       <div class="flex min-w-0 flex-1 items-center self-stretch" @click="onBodyTap">
         <div
-          class="aspect-square h-full shrink-0 overflow-hidden rounded-tl-md bg-surface-variant lg:h-14 lg:rounded-tl-none"
+          class="aspect-square h-full shrink-0 overflow-hidden bg-surface-variant lg:h-14"
+          :class="settings.squareAlbumCards || settings.squarePlayerCover ? '' : 'rounded-tl-md lg:rounded-md'"
         >
           <img
             v-if="player.currentCoverUrl"
@@ -42,12 +43,12 @@
           </div>
         </div>
 
-        <div class="min-w-0 flex-1 px-3">
+        <div class="flex min-w-0 flex-1 flex-col justify-center self-stretch px-3">
           <MarqueeText
             :text="player.currentTrack.title ?? '—'"
-            class="text-body-md text-on-surface"
+            class="text-title-md leading-tight text-white"
           />
-          <div class="truncate text-body-sm text-on-surface-variant">
+          <div class="truncate text-body-sm text-white">
             <ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" />
           </div>
           <div
@@ -74,8 +75,7 @@
       <div class="hidden shrink-0 items-center gap-1 lg:flex">
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-          :style="accentStyle"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container hover:text-white"
           aria-label="Previous track"
           @click="player.skipPrevious()"
         >
@@ -83,19 +83,16 @@
         </button>
         <button
           type="button"
-          class="mx-1 flex h-11 w-11 items-center justify-center rounded-full transition-transform hover:scale-105"
-          :class="accentCss ? '' : 'bg-primary text-on-primary'"
-          :style="accentCss ? { backgroundColor: accentCss, color: accentOnCss ?? undefined } : undefined"
+          class="mx-1 flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container hover:text-white"
           :aria-label="transportPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
         >
-          <MageIcon v-if="isLoading" name="refresh" class="h-5 w-5 animate-spin" />
-          <MageIcon v-else :name="transportPlaying ? 'pause' : 'play'" class="h-5 w-5" />
+          <MageIcon v-if="isLoading" name="caret-down-fill" class="h-6 w-6 animate-float" />
+          <MageIcon v-else :name="transportPlaying ? 'pause' : 'play'" class="h-6 w-6" />
         </button>
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-          :style="accentStyle"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container hover:text-white"
           aria-label="Next track"
           @click="player.skipNext()"
         >
@@ -123,9 +120,7 @@
         />
         <button
           type="button"
-          class="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container lg:flex"
-          :class="isFavorite ? '' : 'text-on-surface-variant'"
-          :style="isFavorite && accentCss ? { color: accentCss } : accentStyle"
+          class="hidden h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container lg:flex"
           :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
           @click="onToggleFavorite"
         >
@@ -133,8 +128,7 @@
         </button>
         <button
           type="button"
-          class="hidden h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container lg:flex"
-          :style="accentStyle"
+          class="hidden h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container hover:text-white lg:flex"
           aria-label="Add to playlist"
           @click="openAddToPlaylist"
         >
@@ -142,7 +136,7 @@
         </button>
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container hover:text-white"
           aria-label="Track actions"
           @click="menuOpen = true"
         >
@@ -150,8 +144,7 @@
         </button>
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container"
-          :class="route.name === 'queue' ? 'text-primary' : 'text-on-surface-variant'"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container"
           aria-label="Queue"
           @click="onQueueClick"
         >
@@ -161,8 +154,7 @@
         <button
           v-if="popoutSupported && !isPwa"
           type="button"
-          class="hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface-container lg:flex"
-          :class="pipActive ? 'text-primary' : 'text-on-surface-variant'"
+          class="hidden h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-surface-container lg:flex"
           :aria-label="pipActive ? 'Close popout player' : 'Pop out player'"
           @click="void togglePopout()"
         >
@@ -170,16 +162,16 @@
         </button>
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface lg:hidden"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-white lg:hidden"
           :aria-label="transportPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
         >
-          <MageIcon v-if="isLoading" name="refresh" class="h-6 w-6 animate-spin" />
+          <MageIcon v-if="isLoading" name="caret-down-fill" class="h-6 w-6 animate-float" />
           <MageIcon v-else :name="transportPlaying ? 'pause' : 'play'" class="h-6 w-6" />
         </button>
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant lg:hidden"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-white lg:hidden"
           aria-label="Next track"
           @click="player.skipNext()"
         >
@@ -222,19 +214,11 @@ const route = useRoute();
 const router = useRouter();
 const player = usePlayerStore();
 
-// Accent = dominant color of the current track's cover — the same source the
-// circular visualizer in the full player uses, so the mini player's transport
-// and progress line color-match it.
+// Accent = dominant color of the current track's cover. Only the progress
+// line uses it now — the controls stay white/slate-gray like the full
+// player's, not the themed accent.
 const glowRgb = useDominantColor(computed(() => player.currentCoverUrl));
 const accentCss = computed(() => (glowRgb.value ? `rgb(${rawMainColor(glowRgb.value)})` : null));
-const accentStyle = computed(() => (accentCss.value ? { color: accentCss.value } : undefined));
-// Contrasting icon color for the filled round play button (accent background).
-const accentOnCss = computed(() => {
-  if (!glowRgb.value) return null;
-  const [r, g, b] = rawMainColor(glowRgb.value).split(",").map(Number);
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.6 ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.95)";
-});
 const cast = useCastStore();
 
 /** While casting, the device is the thing that is playing, not this tab. */

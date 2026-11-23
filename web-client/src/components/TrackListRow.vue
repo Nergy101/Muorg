@@ -1,7 +1,7 @@
 <template>
   <div
     class="track-row flex h-14 w-full select-none items-center gap-3 px-4 text-left transition-colors lg:cursor-pointer"
-    :class="rowStateClass"
+    :class="[rowStateClass, onLight ? 'row-on-light' : '']"
     :style="rowStyle"
     @click="onRowClick"
     @touchstart.passive="lp.onTouchstart"
@@ -15,11 +15,11 @@
       <span
         v-if="leading === 'index'"
         class="w-5 text-right text-body-md tabular-nums"
-        :class="onDark ? 'text-white/60' : 'text-on-surface-variant'"
+        :class="overArt ? 'text-white/60' : 'text-on-surface-variant'"
       >{{ track.track_number ?? "·" }}</span>
       <div
         class="relative flex shrink-0 items-center justify-center overflow-hidden rounded"
-        :class="[leading === 'index' ? 'h-10 w-10' : 'h-12 w-12', onDark ? 'bg-white/10' : 'bg-surface-variant']"
+        :class="[leading === 'index' ? 'h-10 w-10' : 'h-12 w-12', overArt ? 'bg-white/10' : 'bg-surface-variant']"
       >
         <img
           v-if="coverUrl"
@@ -29,7 +29,7 @@
           :class="leading === 'index' ? 'h-10 w-10' : 'h-12 w-12'"
           decoding="async"
         />
-        <MageIcon v-else name="music" class="h-5 w-5" :class="onDark ? 'text-white/50' : 'text-on-surface-variant/60'" />
+        <MageIcon v-else name="music" class="h-5 w-5" :class="overArt ? 'text-white/50' : 'text-on-surface-variant/60'" />
       <div
         v-if="selectable"
         class="absolute inset-0 flex items-center justify-center rounded transition-colors"
@@ -42,13 +42,18 @@
         v-else-if="isLoading"
         class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
       >
-        <MageIcon name="refresh" class="h-6 w-6 animate-spin text-primary" />
+        <!-- Color goes on a wrapper span: MageIcon puts the caller's class on
+             the <svg> itself, so an inline style on the component would land
+             on the outer span and lose to the svg's own text-primary. -->
+        <span class="text-primary" :style="{ color: nowPlayingAccent ?? undefined }">
+          <MageIcon name="caret-down-fill" class="h-6 w-6 animate-float" />
+        </span>
       </div>
       <div
         v-else-if="isPlaying"
         class="absolute inset-0 flex items-center justify-center rounded bg-black/45"
       >
-        <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
+        <EqualizerBars class="text-primary" :color="nowPlayingAccent ?? undefined" :paused="!player.isPlaying" />
       </div>
       </div>
     </div>
@@ -63,13 +68,14 @@
       <div class="flex min-w-0 items-center gap-1.5">
         <div class="min-w-0 flex-1">
           <MarqueeText
+            v-if="subtitleText"
             :text="subtitleText"
             class="text-body-md"
-            :class="onDark ? 'text-white/75' : 'text-on-surface-variant'"
+            :class="overArt ? 'text-white/75' : 'text-on-surface-variant'"
           >
             <template v-if="subtitle != null">{{ subtitle }}</template>
             <template v-else>
-              <ArtistLink :name="artistCredit" :disabled="selectable" /><template v-if="withAlbum"> • {{ track.album ?? "—" }}</template>
+              <ArtistLink :name="artistCredit" :disabled="selectable" /><template v-if="withAlbum"> • <AlbumLink :name="track.album" :album-key="albumKey" :disabled="selectable" /></template>
             </template>
           </MarqueeText>
         </div>
@@ -80,7 +86,7 @@
             ? accentRgb
               ? ''
               : 'bg-primary/[0.12] text-primary'
-            : onDark
+            : overArt
               ? 'bg-white/10 text-white/70'
               : 'bg-on-surface-variant/10 text-on-surface-variant'"
           :style="isLossless(track.format) && accentRgb
@@ -90,7 +96,7 @@
         <span
           v-if="showDuration !== false"
           class="shrink-0 text-[10px] leading-none tabular-nums"
-          :class="onDark ? 'text-white/55' : 'text-on-surface-variant'"
+          :class="overArt ? 'text-white/55' : 'text-on-surface-variant'"
         >{{ duration }}</span>
       </div>
     </div>
@@ -108,7 +114,7 @@
     <button
       type="button"
       class="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors"
-      :class="onDark ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant hover:bg-surface-container/70'"
+      :class="overArt ? 'text-white/75 hover:bg-white/10' : 'text-on-surface-variant hover:bg-surface-container/70'"
       aria-label="Track actions"
       @click.stop="emit('actions')"
     >
@@ -124,8 +130,10 @@ import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import { isLossless } from "@shared/formats";
 import MarqueeText from "./MarqueeText.vue";
 import ArtistLink from "./ArtistLink.vue";
+import AlbumLink from "./AlbumLink.vue";
 import { useLibraryStore, formatDuration } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { useNowPlayingAccent } from "../composables/useNowPlayingAccent";
 import { useSelectionStore } from "../stores/selection";
 import { useLongPress } from "../composables/useLongPress";
 import type { CatalogTrack } from "../types";
@@ -147,6 +155,8 @@ const props = withDefaults(
     showDelete?: boolean;
     /** Render for a dark cover-derived backdrop (white text instead of theme). */
     onDark?: boolean;
+    /** Render for a LIGHT cover-derived backdrop (black text instead of white). */
+    onLight?: boolean;
     /**
      * "r,g,b" accent colour (e.g. the album's dominant cover colour) used for
      * the lossless format badge instead of the theme primary. Null = default.
@@ -166,11 +176,17 @@ const props = withDefaults(
     showDuration: true,
     showDelete: false,
     onDark: false,
+    onLight: false,
     accentRgb: null,
     selectable: false,
     selected: false,
   },
 );
+
+/** "Over artwork" mode: dark backdrop (white text) or light backdrop (black
+ *  text via .row-on-light) — both select the white-based classes, which the
+ *  .row-on-light rules then flip to black. */
+const overArt = computed(() => props.onDark || props.onLight);
 
 const emit = defineEmits<{
   play: [];
@@ -190,21 +206,23 @@ const subtitleText = computed(() => {
 const titleClass = computed(() =>
   props.isPlaying
     ? "text-body-lg text-white"
-    : props.onDark
+    : overArt.value
       ? "text-body-lg text-white"
       : "text-body-lg text-on-surface",
 );
 
 const lib = useLibraryStore();
+const albumKey = computed(() => lib.keyForTrack(props.track));
 // `isPlaying` means "this row is the current track"; the store says whether
 // audio is actually running, which is what freezes the bars.
 const player = usePlayerStore();
+const nowPlayingAccent = useNowPlayingAccent();
 const selection = useSelectionStore();
 const lp = useLongPress(() => selection.begin(props.track.id));
 
 const rowStateClass = computed(() => {
-  const hover = props.onDark ? "lg:hover:bg-white/10" : "lg:hover:bg-surface-container/50";
-  const tint = props.selected ? (props.onDark ? "bg-white/15" : "bg-primary/10") : "";
+  const hover = overArt.value ? "lg:hover:bg-white/10" : "lg:hover:bg-surface-container/50";
+  const tint = props.selected ? (overArt.value ? "bg-white/15" : "bg-primary/10") : "";
   // The current track gets a glass background as its highlight.
   const playing = props.isPlaying ? "glass" : "";
   return [hover, tint, playing].filter(Boolean).join(" ");
@@ -245,3 +263,19 @@ const duration = computed(() =>
   props.track.duration_secs ? formatDuration(props.track.duration_secs) : "",
 );
 </script>
+
+<style scoped>
+/* Light cover backdrop (album view): flip the white "over art" text/icons to
+   black. Exact class tokens only — never the hover: variants at rest. */
+/* :deep so the rules also reach child components (MarqueeText title,
+   ArtistLink/AlbumLink) whose elements don't carry this component's scope id. */
+.row-on-light :deep(.text-white),
+.row-on-light :deep(.text-white\/75),
+.row-on-light :deep(.text-white\/60),
+.row-on-light :deep(.text-white\/55),
+.row-on-light :deep(.text-white\/50) { color: #000; }
+.row-on-light :deep(.bg-white\/10) { background-color: rgb(0 0 0 / 0.1); }
+.row-on-light :deep(.bg-white\/15) { background-color: rgb(0 0 0 / 0.15); }
+.row-on-light :deep(.hover\:bg-white\/10:hover) { background-color: rgb(0 0 0 / 0.1); }
+.row-on-light :deep(.border-white\/15) { border-color: rgb(0 0 0 / 0.15); }
+</style>

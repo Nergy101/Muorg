@@ -396,7 +396,7 @@ body {
 /* The dark, album-art-style islands (mini player, sheets) want a warmer,
    denser frosted glass. */
 .glass-deep {
-  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
   -webkit-backdrop-filter: blur(36px) saturate(200%);
   backdrop-filter: blur(36px) saturate(200%);
   border: 1px solid color-mix(in srgb, var(--on-surface) 16%, transparent);
@@ -503,15 +503,80 @@ body {
 .pwa[data-theme="light"] .glass {
   background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
 }
+
+/* The mini player's bottom bar floats over scrolling content, so it gets a
+   sheerer variant of .glass-deep — less dark, more see-through — while keeping
+   the same blur. Placed after the glass media query and the .pwa blocks so it
+   wins over the denser .glass-deep fills those set at lg / in PWAs. */
+.mini-player-glass {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 8%, var(--surface) 55%, transparent 37%);
+}
+.pwa .mini-player-glass {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 50%, transparent 38%);
+}
+
+/* Light album accent (player store toggles .accent-light on <html>): the
+   glass panels washed with --glass-edge turn pale, so all text and controls
+   inside them switch to black. The maximized player's own panel is handled
+   separately with alpha-preserving rules via .controls-on-light, and the
+   mini player (.mini-player-glass) is excluded on purpose: its glass stays
+   dark enough that white text always reads. */
+html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) {
+  color: #000;
+}
+html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) [class*="text-white"],
+html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) [class*="text-on-surface"] {
+  color: #000;
+}
+html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) [class*="border-white"] {
+  border-color: rgb(0 0 0 / 0.12);
+}
+/* Exact class tokens only — a [class*="bg-white"] substring selector would
+   also match hover:bg-white/10 and paint resting circles on every button. */
+html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) :is(.bg-white, .bg-white\/25, .bg-white\/10) {
+  background-color: rgb(0 0 0 / 0.12);
+}
+/* Volume slider thumb inside those light glass panels (e.g. the sidebar rail)
+   goes black too. The mini player bar is excluded — its controls stay white. */
+html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) input[type="range"]::-webkit-slider-thumb,
+html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) input[type="range"]::-moz-range-thumb {
+  background: #000;
+}
+
+/* Album view with a light cover (AlbumDetailView toggles .album-view-light on
+   <html> only while that view is active): the mini player floats over the
+   light backdrop there, so its text/icons switch to black. On every other
+   view this class is absent and the mini player stays white. */
+html.album-view-light .mini-player-glass {
+  color: #000;
+}
+html.album-view-light .mini-player-glass [class*="text-white"] {
+  color: #000;
+}
+html.album-view-light .mini-player-glass input[type="range"]::-webkit-slider-thumb,
+html.album-view-light .mini-player-glass input[type="range"]::-moz-range-thumb {
+  background: #000;
+}
 /* The maximized player's controls panel takes a stronger accent wash in a
-   PWA so it reads as colored glass, matching the bottom player above.
-   (html.pwa keeps this ahead of the panel's own scoped 10% rule.) */
+   PWA so it reads as colored glass, matching the bottom player above — but
+   stays just as sheer as the panel's own scoped rule (large transparent
+   share) so the artwork shows through.
+   (html.pwa keeps this ahead of the panel's own scoped rules.) */
 html.pwa .controls-panel {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 20%, var(--surface) 80%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, var(--surface) 70%, transparent 6%);
   border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 34%, transparent);
   box-shadow:
     0 10px 34px -8px rgba(0, 0, 0, 0.30),
     inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 42%, transparent);
+}
+/* Art-fullscreen bottom bar and FS queue dropdown in a PWA: same fills as
+   their scoped rules (darker for white text; the .controls-on-light scoped
+   overrides still win for black text), kept ahead of them by html.pwa. */
+html.pwa .controls-panel-fs {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 26%, var(--surface) 58%, transparent 16%);
+}
+html.pwa .fs-queue-menu {
+  background: color-mix(in srgb, var(--surface) 34%, transparent);
 }
 
 /* `.glass-sheer` is the thin pane for controls sitting on the player's own
@@ -577,11 +642,15 @@ html.pwa .controls-panel {
   outline: none;
 }
 
-/* Scrollbar */
+/* Scrollbar — thumb follows the playing album's accent (--glass-edge, set by
+   the player store; falls back to the Muorg green when no track is playing). */
+html {
+  scrollbar-color: rgb(var(--glass-edge, 91 124 50) / 0.5) transparent;
+}
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(91, 124, 50, 0.5); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(91, 124, 50, 0.75); }
+::-webkit-scrollbar-thumb { background: rgb(var(--glass-edge, 91 124 50) / 0.5); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--glass-edge, 91 124 50) / 0.75); }
 
 /* Hide the scrollbar so its 8px of reserved gutter doesn't eat into content
    width (used on dense grid/track scrollers where every px of width counts). */
@@ -688,6 +757,14 @@ input[type="range"]::-moz-range-thumb {
   .edge-blur-art.edge-blur-art-topnav {
     -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
     mask-image: linear-gradient(to bottom, transparent, black 30%, black 100%);
+  }
+  /* Album view: no top fading mask when the nav is collapsed — the art fills
+     the background edge to edge there. It also extends past the pane so the
+     24px blur has no transparent fringe (hard cutoff) at the top edge. */
+  .edge-blur-art.edge-blur-art-album.edge-blur-art-topnav {
+    -webkit-mask-image: none;
+    mask-image: none;
+    inset: -32px;
   }
 }
 /* Narrow portrait monitors (desktop width but a narrow portrait viewport,
@@ -887,6 +964,17 @@ input[type="range"]::-moz-range-thumb {
   transition:
     transform var(--sheet-duration) var(--nav-ease),
     opacity var(--sheet-duration) var(--nav-ease);
+}
+
+/* Downloading indicator: the filled caret-down floats up/down instead of
+   spinning (used on play buttons and download buttons while a track/file
+   loads). */
+@keyframes float-y {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(2px); }
+}
+.animate-float {
+  animation: float-y 900ms ease-in-out infinite;
 }
 
 /* Favorite heart pop (PlayerView): springy bounce when a track is favourited */

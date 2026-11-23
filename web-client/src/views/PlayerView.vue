@@ -5,6 +5,7 @@
   <div
     v-if="player.currentTrack"
     class="fixed inset-0 z-30 flex flex-col overflow-hidden pt-[env(safe-area-inset-top)]"
+    :class="{ 'controls-on-light': lightBackdrop }"
     :style="rootStyle"
     @pointerdown="onPlayerPointerdown"
   >
@@ -28,7 +29,7 @@
       </button>
       <div
         v-if="queueMenuOpen"
-        class="glass mt-2 flex max-h-[60vh] w-[320px] flex-col overflow-hidden rounded-2xl"
+        class="glass fs-queue-menu mt-2 flex max-h-[50vh] w-[min(320px,calc(100vw-24px))] flex-col overflow-hidden rounded-2xl"
       >
         <QueueMiniList />
       </div>
@@ -135,14 +136,21 @@
           class="flex min-h-0 flex-1 items-center justify-center px-6 lg:px-0 lg:pointer-events-none"
           @click="onCoverAreaClick"
         >
-          <!-- 50vh cap: on a wide shell 86% would be taller than the centre column,
+          <!-- 60vh cap: on a wide shell 86% would be taller than the centre column,
                so the art would clamp to a cropped rectangle. Never binds on phones.
                The pane stays in flow at every size, so `max-h-full` clamps the art
                to the space above the controls panel — on short desktop viewports
-               the cover can no longer slide behind the glass controls. -->
+               the cover can no longer slide behind the glass controls. At lg the
+               NORMAL player's art is height-driven instead: it fills the centre
+               pane (capped at 520px) so a wide shell no longer leaves dead space
+               beside the art. In art-fullscreen mode the art keeps the vh-capped
+               sizing: height-driven there would push the cover up behind the
+               floating top nav instead of centring it with even space around. -->
           <div
-            class="relative flex max-h-full w-[86%] max-w-[50vh] items-center justify-center transition-all duration-300 lg:w-full lg:max-w-[420px] lg:pointer-events-auto lg:cursor-pointer"
-            :class="artFullscreen && !player.fsShowCover ? 'scale-90 opacity-0' : ''"
+            class="relative flex max-h-full w-[86%] max-w-[60vh] items-center justify-center transition-all duration-300 lg:pointer-events-auto lg:cursor-pointer"
+            :class="artFullscreen
+              ? (player.fsShowCover ? '' : 'scale-90 opacity-0')
+              : 'lg:h-full lg:max-h-[520px] lg:w-auto lg:max-w-none lg:aspect-square'"
             role="button"
             aria-label="Cycle player display"
             @click.stop="onCoverClick"
@@ -174,7 +182,7 @@
         <div
           class="controls-panel relative z-10 flex shrink-0 glass"
           :class="artFullscreen
-            ? 'm-0 mt-auto w-full flex-row items-center gap-4 rounded-b-none rounded-t-3xl py-3 pl-6 pr-3 lg:px-6'
+            ? 'controls-panel-fs m-0 mt-auto w-full flex-row items-center gap-4 rounded-b-none rounded-t-3xl py-3 pl-6 pr-3 lg:px-6'
             : 'm-2 flex-col rounded-3xl p-2 lg:m-0 lg:mx-auto lg:mt-auto lg:w-full lg:max-w-[480px] lg:gap-1 lg:px-4 lg:py-2' + (queuePanelOpen ? ' @min-[820px]:max-w-[820px] @min-[820px]:pr-[316px]' : '')"
         >
           <!-- Track info bottom-left, quick actions opposite, both above the seek bar.
@@ -209,20 +217,31 @@
               :class="artFullscreen ? 'flex flex-col' : 'contents'"
             >
               <div
-                class="min-w-0 basis-full"
+                class="flex min-w-0 basis-full items-center gap-2"
                 :class="artFullscreen ? '' : 'text-center'"
               >
+                <!-- Format tag sits inline at the left edge of the title row,
+                     left-aligned with the track title (desktop-width only;
+                     in art-fullscreen the tag moves next to the favourite). -->
+                <AudioFormatTag
+                  v-if="!artFullscreen"
+                  class="hidden h-7 shrink-0 text-white/55 hover:bg-white/10 hover:text-white @min-[820px]:flex"
+                />
                 <MarqueeText
                   :text="player.currentTrack.title ?? '—'"
-                  class="text-title-lg text-white lg:text-headline-sm"
+                  class="min-w-0 flex-1 text-title-lg text-white lg:text-headline-sm"
                   :class="artFullscreen ? 'lg:text-title-md' : ''"
                 />
               </div>
               <div class="min-w-0 flex-1">
-                <p class="truncate text-body-md text-white/75">
-                  <ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" /><template v-if="artFullscreen && player.currentTrack.album"> · {{ player.currentTrack.album }}</template>
+                <p class="flex min-w-0 items-center gap-1.5 text-body-md text-white/75">
+                  <MageIcon name="user" class="h-4 w-4 shrink-0" />
+                  <span class="truncate"><ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" /></span><template v-if="artFullscreen && player.currentTrack.album"><MageIcon name="compact-disk" class="h-4 w-4 shrink-0" /><span class="truncate"><AlbumLink :name="player.currentTrack.album" :album-key="currentAlbumKey" /></span></template>
                 </p>
-                <p v-if="!artFullscreen" class="truncate text-body-sm text-white/55">{{ player.currentTrack.album ?? "—" }}</p>
+                <p v-if="!artFullscreen" class="flex min-w-0 items-center gap-1.5 text-body-md text-white/75">
+                  <MageIcon name="compact-disk" class="h-4 w-4 shrink-0" />
+                  <span class="truncate"><AlbumLink :name="player.currentTrack.album" :album-key="currentAlbumKey" /></span>
+                </p>
               </div>
             </div>
             <!-- Favorite sits right of the track title (non-fs; in fs it moves
@@ -230,7 +249,7 @@
             <button
               v-if="!artFullscreen"
               type="button"
-              class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+              class="chrome-glass flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10"
               :class="[isFavorite ? 'text-white' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
@@ -271,8 +290,8 @@
                 type="button"
                 class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex"
                 :class="'text-white/75 hover:text-white'"
-                :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
-                @click="toggleArtFullscreen"
+                aria-label="Fullscreen artwork"
+                @click="onCoverClick"
               >
                 <MageIcon name="maximize" class="h-5 w-5" />
               </button>
@@ -327,18 +346,17 @@
             </div>
           </div>
 
-          <!-- Transport row (hidden in art-fullscreen mode). Only the
-               safe-area inset pads the bottom on phones, so the row sits as
-               close to the bottom edge as the home indicator allows; on
-               desktop viewports — including the md range below lg — the row
-               sits flush against the panel's own padding. -->
+          <!-- Transport row (hidden in art-fullscreen mode). The tight gap and
+               flush padding apply at every viewport, not just desktop; only
+               the safe-area inset pads the bottom on phones, so the row sits
+               as close to the bottom edge as the home indicator allows. -->
           <div
             v-if="!artFullscreen"
-            class="flex shrink-0 items-center justify-center gap-4 px-6 pt-2 pb-[env(safe-area-inset-bottom)] lg:gap-2 lg:px-0 lg:pt-0 lg:pb-0"
+            class="flex shrink-0 items-center justify-center gap-2 px-0 pt-1 pb-[env(safe-area-inset-bottom)] lg:pt-0 lg:pb-0"
           >
             <button
               type="button"
-              class="relative flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
+              class="relative flex h-8 w-8 items-center justify-center transition-colors hover:text-white"
               :class="player.shuffleEnabled ? 'text-white' : 'text-white/75 hover:text-white'"
               :aria-pressed="player.shuffleEnabled"
               aria-label="Shuffle"
@@ -353,31 +371,31 @@
             </button>
             <button
               type="button"
-              class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
+              class="flex h-10 w-10 items-center justify-center text-white transition-transform hover:scale-110"
               aria-label="Previous track"
               @click="player.skipPrevious()"
             >
-              <MageIcon name="previous" class="h-6 w-6" />
+              <MageIcon name="previous" class="h-7 w-7" />
             </button>
             <button
               type="button"
-              class="chrome-glass glass-sheer flex h-16 w-16 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
+              class="chrome-glass flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
               :aria-label="transportPlaying ? 'Pause' : 'Play'"
               @click="togglePlay"
             >
-              <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-7 w-7" />
+              <MageIcon :name="transportPlaying ? 'pause' : 'play'" class="h-8 w-8" />
             </button>
             <button
               type="button"
-              class="flex h-12 w-12 items-center justify-center text-white transition-transform hover:scale-110"
+              class="flex h-10 w-10 items-center justify-center text-white transition-transform hover:scale-110"
               aria-label="Next track"
               @click="player.skipNext()"
             >
-              <MageIcon name="next" class="h-6 w-6" />
+              <MageIcon name="next" class="h-7 w-7" />
             </button>
             <button
               type="button"
-              class="relative flex h-9 w-9 items-center justify-center transition-colors hover:text-white"
+              class="relative flex h-8 w-8 items-center justify-center transition-colors hover:text-white"
               :class="player.repeatMode !== 'off' ? 'text-white' : 'text-white/75 hover:text-white'"
               :aria-pressed="player.repeatMode !== 'off'"
               aria-label="Repeat mode"
@@ -418,7 +436,7 @@
             <button
               v-if="artFullscreen"
               type="button"
-              class="chrome-glass glass-sheer flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
+              class="chrome-glass flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:h-10 lg:w-10"
               :class="[isFavorite ? 'text-white' : 'text-white/75 hover:text-white', heartPulse ? 'heart-pop' : '']"
               :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               @click="onToggleFavorite"
@@ -428,7 +446,8 @@
             </button>
             <!-- Circular progress ring with a play/pause button inside (fs view
                  only), left of the maximize icon. Pressing the ring or the icon
-                 toggles playback. -->
+                 toggles playback. The ring uses currentColor, so it follows the
+                 text color (white normally, black in controls-on-light). -->
             <button
               v-if="artFullscreen"
               type="button"
@@ -462,8 +481,8 @@
               type="button"
               class="hidden h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex lg:h-10 lg:w-10"
               :class="'text-white/75 hover:text-white'"
-              :aria-label="artFullscreen ? 'Show album cover' : 'Fullscreen artwork'"
-              @click="toggleArtFullscreen"
+              :aria-label="player.fsShowCover ? 'Hide album cover' : 'Exit fullscreen'"
+              @click="onCoverClick"
             >
               <MageIcon name="maximize" class="h-5 w-5 lg:h-6 lg:w-6" />
             </button>
@@ -477,7 +496,7 @@
             >
               <MageIcon name="dots" class="h-5 w-5 lg:h-6 lg:w-6" />
             </button>
-            <div v-if="!artFullscreen" class="chrome-glass glass-sheer flex items-center overflow-hidden rounded-full">
+            <div v-if="!artFullscreen" class="chrome-glass flex items-center overflow-hidden rounded-full">
               <button
                 v-if="settings.sleepTimerEnabled"
                 type="button"
@@ -520,16 +539,6 @@
             <QueueMiniList />
           </div>
 
-          <!-- Format tag of the playing file or live stream, top-left corner
-               of the glass panel (mirrors the queue tab in the top-right).
-               Hovering shows the bitrate / sample-rate stats. Desktop-width
-               only, hidden in art-fullscreen where the panel is a bottom
-               row (the tag moves next to the favourite there). -->
-          <AudioFormatTag
-            v-if="!artFullscreen"
-            class="absolute left-2 top-2 z-20 hidden h-7 text-white/55 hover:bg-white/10 hover:text-white @min-[820px]:flex"
-          />
-
           <!-- Queue tab in the panel's top-right corner: the stack glyph plus a
                chevron that expands the side queue (pointing right) and
                collapses it again (pointing left, landing where the queue
@@ -538,7 +547,7 @@
           <button
             v-if="!artFullscreen"
             type="button"
-            class="chrome-glass glass-sheer absolute right-2 top-2 z-20 hidden h-7 items-center justify-center gap-1 rounded-full px-2 text-white/75 transition-all hover:bg-white/10 hover:text-white @min-[820px]:flex"
+            class="chrome-glass absolute right-2 top-2 z-20 hidden h-7 items-center justify-center gap-1 rounded-full px-2 text-white/75 transition-all hover:bg-white/10 hover:text-white @min-[820px]:flex"
             :aria-label="queuePanelOpen ? 'Collapse queue panel' : 'Expand queue panel'"
             :aria-expanded="queuePanelOpen"
             @click="queuePanelOpen = !queuePanelOpen"
@@ -592,13 +601,14 @@ import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import MarqueeText from "../components/MarqueeText.vue";
 import ArtistLink from "../components/ArtistLink.vue";
+import AlbumLink from "../components/AlbumLink.vue";
 import BottomSheet from "../components/BottomSheet.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TrackActionsSheet from "../components/TrackActionsSheet.vue";
 import { getTrackLyrics, type TrackLyrics } from "../api/catalog";
 import CoverBackdrop from "../components/CoverBackdrop.vue";
 import QueueMiniList from "../components/QueueMiniList.vue";
-import { useDominantColor } from "../composables/useDominantColor";
+import { rawMainColor, relativeLuminance, useDominantColor, useMostCommonColor } from "../composables/useDominantColor";
 import { usePopoutPlayer } from "../composables/usePopoutPlayer";
 import { useIsPwa } from "../composables/useIsPwa";
 import { useSwipeDown } from "../composables/useSwipeDown";
@@ -619,6 +629,9 @@ const { pipActive, supported: popoutSupported, togglePopout } = usePopoutPlayer(
 const isPwa = useIsPwa();
 const settings = useSettingsStore();
 const lib = useLibraryStore();
+const currentAlbumKey = computed(() =>
+  player.currentTrack ? lib.keyForTrack(player.currentTrack) : null,
+);
 const cast = useCastStore();
 
 // ── Casting ────────────────────────────────────────────────────────────────
@@ -695,6 +708,18 @@ onUnmounted(() => {
 // feeds the halo behind the cover art ---
 const coverUrl = computed(() => player.currentCoverUrl);
 const glowRgb = useDominantColor(coverUrl);
+const modeRgb = useMostCommonColor(coverUrl);
+
+/** True when the artwork behind the controls is light enough that white
+ *  glyphs wash out over the sheer glass — the controls then switch to black
+ *  (see the .controls-on-light rules below). Triggered when the album accent
+ *  is pale OR the cover's overall (modal) color is light: a busy cover can
+ *  have a mid-tone dominant color while its backdrop still reads light. */
+const lightBackdrop = computed(
+  () =>
+    relativeLuminance(rawMainColor(glowRgb.value)) >= 0.45 ||
+    relativeLuminance(modeRgb.value) >= 0.55,
+);
 
 // --- Art-fullscreen mode (desktop): clicking the cover hides it and unblurs
 // the backdrop art into a sharp full-bleed background. The flag lives in the
@@ -903,14 +928,56 @@ function onViewAlbum(): void {
    mini player (the --glass-edge media query in style.css), applied here
    unconditionally so the maximized player matches on mobile too. The player
    store sets --glass-edge from the artwork; the white fallback applies when
-   the art has no usable color. The controls on the panel stay white. */
+   the art has no usable color. The controls on the panel stay white. The
+   fill is deliberately sheer (a large transparent share) so the blurred
+   artwork shows through the panel instead of sitting under an opaque card. */
 .controls-panel {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 10%, var(--surface) 90%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 18%, var(--surface) 76%, transparent 6%);
   border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, transparent);
   box-shadow:
     0 10px 34px -8px rgba(0, 0, 0, 0.30),
     inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 30%, transparent);
 }
+
+/* White text (dark artwork) gets the darker fill above; black text over
+   light artwork (.controls-on-light) keeps the sheerer fill so the panel
+   stays light enough for the dark glyphs. */
+.controls-on-light .controls-panel {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 16%, var(--surface) 58%, transparent 26%);
+}
+
+/* Art-fullscreen bottom bar: it sits on the sharp full-bleed artwork, so it
+   can be sheerer than the normal panel — mostly blur, a whisper of surface
+   tint. A stronger blur keeps the transport legible over the art. */
+.controls-panel-fs {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 20%, var(--surface) 64%, transparent 16%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  backdrop-filter: blur(40px) saturate(200%);
+}
+
+.controls-on-light .controls-panel-fs {
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 18%, var(--surface) 40%, transparent 42%);
+}
+
+/* The FS queue dropdown floats over the sharp artwork too — sheer glass. */
+.fs-queue-menu {
+  background: color-mix(in srgb, var(--surface) 38%, transparent);
+}
+
+/* Light artwork behind the player: the sheer glass lets it show through, so
+   white glyphs wash out. Every white text/fill in the player (including the
+   queue panel's, via :deep) switches to black at the same alpha. */
+.controls-on-light :deep(.text-white) { color: #000; }
+.controls-on-light :deep(.text-white\/75) { color: rgb(0 0 0 / 0.75); }
+.controls-on-light :deep(.text-white\/55) { color: rgb(0 0 0 / 0.55); }
+.controls-on-light :deep(.text-white\/50) { color: rgb(0 0 0 / 0.5); }
+.controls-on-light :deep(.text-white\/45) { color: rgb(0 0 0 / 0.45); }
+.controls-on-light :deep(.text-white\/40) { color: rgb(0 0 0 / 0.4); }
+.controls-on-light :deep(.bg-white) { background-color: #000; }
+.controls-on-light :deep(.bg-white\/25) { background-color: rgb(0 0 0 / 0.25); }
+.controls-on-light :deep(.bg-white\/10) { background-color: rgb(0 0 0 / 0.1); }
+.controls-on-light :deep(.hover\:bg-white\/10:hover) { background-color: rgb(0 0 0 / 0.1); }
+.controls-on-light :deep(.border-white\/10) { border-color: rgb(0 0 0 / 0.1); }
 
 /* The controls column sits on the glass backpanel at every size, so the
    individual chrome pills (play, favourite, volume, actions) drop their own
@@ -921,5 +988,11 @@ function onViewAlbum(): void {
   box-shadow: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+/* No resting background discs on the round control buttons — only the hover
+   state may paint. (:not(:hover) keeps this from beating the hover utility.) */
+.controls-panel button:not(:hover) {
+  background: transparent;
 }
 </style>

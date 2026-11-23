@@ -29,10 +29,12 @@
         />
         <div class="scrim-label absolute inset-x-0 bottom-0 flex h-[64px] items-end pb-2 px-2.5">
           <div class="min-w-0 flex-1">
-            <MarqueeText
-              :text="card.item.album"
-              class="text-label-lg font-semibold text-on-surface"
-            />
+            <AlbumLink :name="card.item.album" :album-key="card.item.key" block>
+              <MarqueeText
+                :text="card.item.album"
+                class="text-label-lg font-semibold text-on-surface"
+              />
+            </AlbumLink>
             <div class="truncate text-label-sm text-on-surface-variant">
               <ArtistLink :name="card.item.albumArtist" />
             </div>
@@ -48,6 +50,7 @@ import AlbumCard from "./AlbumCard.vue";
 import MageIcon from "./MageIcon.vue";
 import MarqueeText from "./MarqueeText.vue";
 import ArtistLink from "./ArtistLink.vue";
+import AlbumLink from "./AlbumLink.vue";
 import { usePlayerStore } from "../stores/player";
 import type { AlbumGridItem, CatalogTrack, SearchResultCard } from "../types";
 

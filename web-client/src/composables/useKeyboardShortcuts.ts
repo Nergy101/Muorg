@@ -228,6 +228,14 @@ export function useKeyboardShortcuts(): void {
       return;
     }
 
+    if (key === "q" || key === "Q") {
+      if (e.repeat) return;
+      e.preventDefault();
+      if (router.currentRoute.value.name === "queue") router.back();
+      else void router.push({ name: "queue" });
+      return;
+    }
+
     if (key === "Escape") {
       // Selection and the metadata editor handle their own Escape.
       if (useSelectionStore().hasSelection || isEditorOpen.value) return;

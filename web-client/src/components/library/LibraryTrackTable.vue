@@ -148,7 +148,7 @@
                         : 'h-3.5 w-3.5 shrink-0 transition-transform'
                     "
                   />
-                  <span class="truncate text-body-md text-on-surface"><ArtistLink v-if="tableStore.groupBy === 'artist'" :name="row.group.label" /><template v-else>{{ row.group.label }}</template></span>
+                  <span class="truncate text-body-md text-on-surface"><ArtistLink v-if="tableStore.groupBy === 'artist'" :name="row.group.label" /><AlbumLink v-else :name="row.group.label" :album-key="groupAlbumKey(row.group)" /></span>
                   <span v-if="tableStore.groupBy === 'album' && row.group.artist" class="shrink-0 text-on-surface-variant">
                     · <ArtistLink :name="row.group.artist" />
                   </span>
@@ -186,6 +186,7 @@
                   <EqualizerBars
                     v-if="row.track.id === player.currentTrack?.id"
                     class="shrink-0 text-primary"
+                    :color="nowPlayingAccent ?? undefined"
                     :paused="!player.isPlaying"
                   />
                   <span
@@ -194,7 +195,7 @@
                   >{{ row.track.title ?? "—" }}</span>
                 </div>
                 <span v-else-if="col.id === 'artist'" class="block truncate text-on-surface"><ArtistLink :name="row.track.artist" :disabled="selection.selecting" /></span>
-                <span v-else-if="col.id === 'album'" class="block truncate text-on-surface">{{ row.track.album ?? "—" }}</span>
+                <span v-else-if="col.id === 'album'" class="block truncate text-on-surface"><AlbumLink :name="row.track.album" :album-key="lib.keyForTrack(row.track)" :disabled="selection.selecting" /></span>
                 <span v-else-if="col.id === 'year'" class="block truncate text-on-surface-variant">{{ row.track.year ?? "—" }}</span>
                 <span v-else-if="col.id === 'duration'" class="block truncate text-on-surface-variant">{{ formatDuration(row.track.duration_secs ?? 0) }}</span>
                 <StarRatingCell
@@ -310,6 +311,7 @@ import EmptyState from "../EmptyState.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MageIcon from "../MageIcon.vue";
 import ArtistLink from "../ArtistLink.vue";
+import AlbumLink from "../AlbumLink.vue";
 import ConfirmDialog from "../ConfirmDialog.vue";
 import TrackContextSheet from "../TrackContextSheet.vue";
 import BottomSheet from "../BottomSheet.vue";
@@ -317,6 +319,7 @@ import StarRatingCell from "./StarRatingCell.vue";
 import EqualizerBars from "@shared/components/EqualizerBars.vue";
 import { useLibraryStore, formatDuration } from "../../stores/library";
 import { usePlayerStore } from "../../stores/player";
+import { useNowPlayingAccent } from "../../composables/useNowPlayingAccent";
 import { useSelectionStore } from "../../stores/selection";
 import { useLibraryTableStore, TABLE_COLUMNS, type TableColumnId } from "../../stores/libraryTable";
 import { showToast } from "../../composables/useToast";
@@ -352,6 +355,7 @@ const OVERSCAN = 10;
 
 const lib = useLibraryStore();
 const player = usePlayerStore();
+const nowPlayingAccent = useNowPlayingAccent();
 const selection = useSelectionStore();
 const tableStore = useLibraryTableStore();
 
@@ -598,6 +602,12 @@ function coverUrl(track: CatalogTrack): string | null {
   if (!track.has_cover) return null;
   lib.requestCover(track.id);
   return lib.coverCache.get(track.id) ?? null;
+}
+
+/** Album groups key on the album title, so the route key comes from any of
+ *  the group's tracks (they all share the album). */
+function groupAlbumKey(group: TableGroup): string {
+  return lib.keyForTrack(group.tracks[0]);
 }
 
 function groupCover(group: TableGroup): string | null {

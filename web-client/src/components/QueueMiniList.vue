@@ -4,7 +4,7 @@
        ever renders over the player's cover-art backdrop. -->
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex h-11 shrink-0 items-center gap-2 border-b border-white/10 px-4">
-      <MageIcon name="stack" class="h-4 w-4 text-primary" />
+      <MageIcon name="stack" class="h-4 w-4 text-white" />
       <span class="text-label-lg text-white">Queue</span>
       <span class="text-label-sm tabular-nums text-white/50">{{ player.upNext.length }} track{{ player.upNext.length === 1 ? "" : "s" }}</span>
       <span class="flex-1"></span>
@@ -29,7 +29,7 @@
           <p class="truncate text-body-md text-white">{{ player.currentTrack.title ?? "—" }}</p>
           <p class="truncate text-body-sm text-white/55"><ArtistLink :name="player.currentTrack.artist ?? player.currentTrack.album_artist" /></p>
         </div>
-        <EqualizerBars class="shrink-0 text-primary" :paused="!player.isPlaying" />
+        <EqualizerBars class="shrink-0 text-primary" :color="nowPlayingAccent ?? undefined" :paused="!player.isPlaying" />
       </div>
       <div
         v-for="(entry, i) in player.upNext"
@@ -117,10 +117,12 @@ import TrackActionsSheet from "./TrackActionsSheet.vue";
 import { useDragReorder } from "../composables/useDragReorder";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { useNowPlayingAccent } from "../composables/useNowPlayingAccent";
 import type { CatalogTrack } from "../types";
 
 const router = useRouter();
 const player = usePlayerStore();
+const nowPlayingAccent = useNowPlayingAccent();
 const lib = useLibraryStore();
 
 // --- Drag reorder (same composable + visuals as the full queue screen) ------
@@ -215,12 +217,13 @@ function onViewAlbum(): void {
 </script>
 
 <style scoped>
-/* See-through glassy scrollbar for the queue scroller: a translucent white
-   thumb floating over a transparent track (scrollbar pseudo-elements can't
-   take backdrop-filter, so the glass read comes from the alpha alone). */
+/* See-through glassy scrollbar for the queue scroller: a translucent thumb in
+   the playing album's accent (--glass-edge, white fallback) floating over a
+   transparent track (scrollbar pseudo-elements can't take backdrop-filter,
+   so the glass read comes from the alpha alone). */
 .queue-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  scrollbar-color: rgb(var(--glass-edge, 255 255 255) / 0.4) transparent;
 }
 .queue-scroll::-webkit-scrollbar {
   width: 6px;
@@ -229,11 +232,11 @@ function onViewAlbum(): void {
   background: transparent;
 }
 .queue-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgb(var(--glass-edge, 255 255 255) / 0.35);
+  border: 1px solid rgb(var(--glass-edge, 255 255 255) / 0.2);
   border-radius: 3px;
 }
 .queue-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgb(var(--glass-edge, 255 255 255) / 0.5);
 }
 </style>

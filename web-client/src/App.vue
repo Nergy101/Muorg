@@ -58,7 +58,7 @@
         <div
           v-if="showMiniPlayer || showBottomNav"
           ref="mobileBarEl"
-          class="glass-deep absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[600px] overflow-hidden rounded-t-3xl md:max-w-[900px] lg:hidden"
+          class="glass-deep mini-player-glass absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[600px] overflow-hidden rounded-t-3xl md:max-w-[900px] lg:hidden"
         >
           <MiniPlayer v-if="showMiniPlayer" />
           <!-- The library search/filter bar lives below the mini player and
@@ -89,7 +89,7 @@
         <div
           v-if="showMiniPlayer"
           ref="desktopBarEl"
-          class="glass-deep desktop-player-bar absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-[900px] overflow-hidden rounded-2xl lg:block"
+          class="glass-deep mini-player-glass desktop-player-bar absolute inset-x-0 bottom-4 z-20 mx-auto hidden w-[calc(100%-2rem)] max-w-[900px] overflow-hidden rounded-2xl lg:block"
         >
           <!-- Desktop: the library search bar lives at the top of the library
                view instead (see LibraryView), so only the mini player floats

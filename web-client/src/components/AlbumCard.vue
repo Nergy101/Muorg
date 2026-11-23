@@ -86,7 +86,7 @@
       :style="activeColor ? { color: `rgb(${activeColor})` } : undefined"
       :class="activeColor ? '' : 'text-primary'"
     >
-      <EqualizerBars :paused="!player.isPlaying" />
+      <EqualizerBars :color="nowPlayingAccent ?? undefined" :paused="!player.isPlaying" />
     </div>
 
     <!-- Playing indicator on the active album: a single round line centered
@@ -170,6 +170,7 @@ import { useSettingsStore } from "../stores/settings";
 import { usePlayerStore } from "../stores/player";
 import { useLongPress } from "../composables/useLongPress";
 import { rawMainColor, useCardScrim, useDominantColor, useMostCommonColor, useProminentHueColor } from "../composables/useDominantColor";
+import { useNowPlayingAccent } from "../composables/useNowPlayingAccent";
 import type { AlbumGridItem } from "../types";
 
 /** Active-highlight usability: unlike isColorBland (built for vivid player
@@ -202,6 +203,7 @@ const emit = defineEmits<{ open: []; actions: [] }>();
 const lib = useLibraryStore();
 const settings = useSettingsStore();
 const player = usePlayerStore();
+const nowPlayingAccent = useNowPlayingAccent();
 const lp = useLongPress(() => emit("actions"));
 
 // Radial visualizer: one closed ring path whose radius bulges outward per

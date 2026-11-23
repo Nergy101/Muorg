@@ -55,6 +55,14 @@ export function isLinkableArtist(name: string | null | undefined): name is strin
   return !PLACEHOLDER_ARTISTS.has(normalizeArtist(name));
 }
 
+/** Placeholder album titles that must never become an album page. */
+const PLACEHOLDER_ALBUMS = new Set(["", "—", "unknown album"]);
+
+/** Whether an album title names a real album worth linking to. */
+export function isLinkableAlbum(name: string | null | undefined): name is string {
+  return !PLACEHOLDER_ALBUMS.has(normalizeArtist(name));
+}
+
 /** The names in a `featuring` tag: "A, B & C", "A; B", "A / B", "A and B". */
 export function splitCredits(value: string | null | undefined): string[] {
   if (!value) return [];

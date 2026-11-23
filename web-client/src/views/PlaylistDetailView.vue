@@ -118,7 +118,7 @@
             <MageIcon
               :name="offlineDownloadIcon"
               class="h-5 w-5"
-              :class="offlineDownloading ? 'animate-spin' : ''"
+              :class="offlineDownloading ? 'animate-float' : ''"
             />
             <span class="hidden lg:inline">Download</span>
           </button>
@@ -465,7 +465,7 @@ const viewIcon = computed(
 const offlineDownloading = computed(() => offline.activePlaylistId === playlistId.value);
 const offlineDownloaded = computed(() => offline.isPlaylistDownloaded(playlistId.value));
 const offlineDownloadIcon = computed(() =>
-  offlineDownloading.value ? "refresh" : offlineDownloaded.value ? "check" : "download",
+  offlineDownloading.value ? "caret-down-fill" : offlineDownloaded.value ? "check" : "download",
 );
 const offlineDownloadLabel = computed(() =>
   offlineDownloading.value

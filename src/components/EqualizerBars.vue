@@ -7,6 +7,7 @@
       :class="props.class"
       :style="{
         animation: `${props.paused ? 'eq-idle 900ms' : 'eq 380ms'} cubic-bezier(0.4,0,0.2,1) ${delay}ms infinite alternate`,
+        ...(props.color ? { color: props.color } : {}),
       }"
     />
   </div>
@@ -17,8 +18,9 @@ const DELAYS = [0, 160, 80];
 
 /** `paused` switches the bars to a gentle low idle animation (all three bars
     stay low but keep moving) instead of freezing, so a paused track still
-    reads as the current one without looking alive. */
-const props = defineProps<{ class?: string; paused?: boolean }>();
+    reads as the current one without looking alive. `color` overrides the
+    inherited/`class` color per bar (inline style wins over the class). */
+const props = defineProps<{ class?: string; paused?: boolean; color?: string }>();
 </script>
 
 <style>

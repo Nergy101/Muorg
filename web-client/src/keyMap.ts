@@ -41,6 +41,7 @@ export const WEB_KEY_MAP: readonly WebKeyMapGroup[] = [
       { keys: "G then L", description: "Go to Library" },
       { keys: "G then P", description: "Go to Playlists" },
       { keys: "G then Q", description: "Go to the queue" },
+      { keys: "Q", description: "Open the queue screen (press again to close)" },
       { keys: "G then R", description: "Go to Reports" },
       { keys: "G then S", description: "Go to Settings" },
       { keys: "? or Ctrl/⌘ + K", description: "Show this key map" },

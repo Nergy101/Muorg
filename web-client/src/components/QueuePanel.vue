@@ -62,7 +62,7 @@
             />
             <p class="truncate text-body-sm text-on-surface-variant">{{ currentSubtitle }}</p>
           </div>
-          <EqualizerBars class="text-primary" :paused="!player.isPlaying" />
+          <EqualizerBars class="text-primary" :color="nowPlayingAccent ?? undefined" :paused="!player.isPlaying" />
         </div>
       </template>
 
@@ -163,6 +163,7 @@ import { REORDER_ROW_HEIGHT, useDragReorder } from "../composables/useDragReorde
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { useNowPlayingAccent } from "../composables/useNowPlayingAccent";
 import { usePlaylistStore } from "../stores/playlists";
 import { showToast } from "../composables/useToast";
 import type { CatalogTrack } from "../types";
@@ -178,6 +179,7 @@ withDefaults(defineProps<{ safeBottom?: boolean }>(), { safeBottom: false });
 const router = useRouter();
 const lib = useLibraryStore();
 const player = usePlayerStore();
+const nowPlayingAccent = useNowPlayingAccent();
 const playlistStore = usePlaylistStore();
 
 const currentCover = computed(() => {

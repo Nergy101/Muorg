@@ -3,6 +3,7 @@ import {
   buildDiscography,
   classifyRelease,
   creditsArtist,
+  isLinkableAlbum,
   isLinkableArtist,
   splitCredits,
 } from "./discography";
@@ -95,6 +96,14 @@ describe("credits", () => {
     expect(isLinkableArtist("Various Artists")).toBe(false);
     expect(isLinkableArtist("  ")).toBe(false);
     expect(isLinkableArtist(null)).toBe(false);
+  });
+
+  it("never links placeholder albums", () => {
+    expect(isLinkableAlbum("Kind of Blue")).toBe(true);
+    expect(isLinkableAlbum("Unknown Album")).toBe(false);
+    expect(isLinkableAlbum("—")).toBe(false);
+    expect(isLinkableAlbum("  ")).toBe(false);
+    expect(isLinkableAlbum(null)).toBe(false);
   });
 });
 

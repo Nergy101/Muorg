@@ -14,7 +14,9 @@ vi.mock("vue-router", () => ({
 vi.mock("../api/catalog", () => ({ getTrackLyrics: () => Promise.resolve(null) }));
 vi.mock("../composables/useDominantColor", () => ({
   useDominantColor: () => ref("128,128,128"),
+  useMostCommonColor: () => ref("128,128,128"),
   rawMainColor: (rgb: string) => rgb,
+  relativeLuminance: () => 0,
   isColorBland: () => false,
 }));
 vi.mock("../composables/usePopoutPlayer", () => ({
@@ -25,7 +27,7 @@ vi.mock("../composables/useSwipeDown", () => ({
 }));
 vi.mock("../stores/settings", () => ({ useSettingsStore: () => ({ sleepTimerEnabled: false }) }));
 vi.mock("../stores/library", () => ({
-  useLibraryStore: () => ({}),
+  useLibraryStore: () => ({ keyForTrack: () => "kind of blue|||" }),
   formatDuration: (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`,
 }));
 vi.mock("../stores/cast", () => ({

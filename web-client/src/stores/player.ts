@@ -9,7 +9,7 @@ import { computeReplayGainVolume } from "../audio/replayGain";
 import { clearPlayHistory, recordPlayHistory, stepBackPlayHistory } from "../audio/playHistory";
 import { showToast } from "../composables/useToast";
 import { visibleAccentFromRgb } from "../composables/dynamicAccent";
-import { isColorBland, rawMainColor, useDominantColor } from "../composables/useDominantColor";
+import { isColorBland, rawMainColor, relativeLuminance, useDominantColor, useMostCommonColor } from "../composables/useDominantColor";
 import { router } from "../router";
 import { useCastStore } from "./cast";
 import { useLibraryStore } from "./library";
@@ -1225,6 +1225,7 @@ export const usePlayerStore = defineStore("player", () => {
   // no usable color exists (no cover, gray art, or an edge-blur background) the
   // inline vars are dropped and the theme default shows.
   const accentGlowRgb = useDominantColor(currentCoverUrl);
+  const accentModeRgb = useMostCommonColor(currentCoverUrl);
   watchEffect(() => {
     const el = document.documentElement;
     const clearInlineAccent = () => {
@@ -1276,6 +1277,15 @@ export const usePlayerStore = defineStore("player", () => {
   watchEffect(() => {
     const el = document.documentElement;
     const rgb = rawMainColor(accentGlowRgb.value);
+    // Light album accent: the glass panels washed with --glass-edge turn pale,
+    // so their text/controls must switch to black (see html.accent-light in
+    // style.css; the maximized player additionally has .controls-on-light).
+    // Also trigger on the cover's overall (modal) color — a busy cover can
+    // have a mid-tone dominant color while the backdrop still reads light.
+    el.classList.toggle(
+      "accent-light",
+      relativeLuminance(rgb) >= 0.45 || relativeLuminance(accentModeRgb.value) >= 0.55,
+    );
     if (isColorBland(rgb)) {
       el.style.removeProperty("--glass-edge");
       return;

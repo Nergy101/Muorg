@@ -3,7 +3,6 @@
     <button
       type="button"
       :class="iconButtonClass"
-      :style="accentStyle"
       :aria-label="displayVolume <= 0 ? 'Unmute' : 'Mute'"
       :title="cast.isCasting ? 'Cast device volume' : 'Volume'"
       @click="toggleMute"
@@ -17,8 +16,8 @@
       step="0.05"
       :value="displayVolume"
       class="h-1 w-28 cursor-pointer"
-      :class="variant === 'player' ? 'volume-range--player' : ''"
-      :style="{ '--primary': accentCss ?? undefined }"
+      :class="variant === 'player' ? 'volume-range--player' : 'volume-range--bar'"
+      :style="{ '--primary': variant === 'player' ? '#ffffff' : 'var(--on-surface)' }"
       :aria-label="cast.isCasting ? 'Cast device volume' : 'Volume'"
       @input="onInput"
     />
@@ -41,7 +40,6 @@
 import { computed } from "vue";
 import MageIcon from "./MageIcon.vue";
 import { usePlayerStore } from "../stores/player";
-import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
 import { useCastStore } from "../stores/cast";
 import { isVolumeControlSupported } from "../audio/volumeSupport";
 
@@ -54,13 +52,6 @@ const props = withDefaults(defineProps<{ variant?: "player" | "bar" }>(), {
 
 const player = usePlayerStore();
 const cast = useCastStore();
-
-// Artwork accent (same source as the player visualizer) so the slider thumb
-// and mute icon color-match the playing album even when the theme accent is
-// not "dynamic".
-const glowRgb = useDominantColor(computed(() => player.currentCoverUrl));
-const accentCss = computed(() => (glowRgb.value ? `rgb(${rawMainColor(glowRgb.value)})` : null));
-const accentStyle = computed(() => (accentCss.value ? { color: accentCss.value } : undefined));
 
 const supported = isVolumeControlSupported();
 
@@ -76,7 +67,7 @@ const iconName = computed(() => {
 const iconButtonClass = computed(() =>
   props.variant === "player"
     ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-    : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface",
+    : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface transition-colors hover:bg-surface-container hover:text-white",
 );
 
 function onInput(e: Event): void {
@@ -104,5 +95,12 @@ function toggleMute(): void {
    actual themed surface) uses the global style unchanged. */
 .volume-range--player {
   background: rgba(255, 255, 255, 0.25);
+}
+/* Bar variant (MiniPlayer): the global track is surface-variant gray, which
+   reads too dim next to the now-white controls — lift it toward on-surface.
+   The thumb color comes from the inline `--primary` override on the input
+   (white in the player, on-surface in the bar): no album-accent tint. */
+.volume-range--bar {
+  background: color-mix(in srgb, var(--on-surface) 30%, transparent);
 }
 </style>

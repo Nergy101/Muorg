@@ -26,7 +26,7 @@
         <button
           type="button"
           class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-colors lg:h-9 lg:w-auto lg:gap-1 lg:rounded-full lg:px-3 lg:text-label-lg lg:hover:bg-white/10"
-          :class="backdropActive ? 'text-white/85' : 'text-on-surface lg:hover:bg-surface-container'"
+          :class="backdropActive ? (lightBackdrop ? 'text-black' : 'text-white/85') : 'text-on-surface lg:hover:bg-surface-container'"
           aria-label="Back"
           @click="router.back()"
         >
@@ -54,11 +54,11 @@
               <MarqueeText
                 :text="item.album"
                 class="text-title-md"
-                :class="backdropActive ? 'text-white' : 'text-on-surface'"
+                :class="backdropActive ? (lightBackdrop ? 'text-black' : 'text-white') : 'text-on-surface'"
               />
               <p
                 class="truncate text-body-md"
-                :class="backdropActive ? 'text-white/75' : 'text-on-surface-variant'"
+                :class="backdropActive ? (lightBackdrop ? 'text-black' : 'text-white/75') : 'text-on-surface-variant'"
               ><template v-if="item.albumArtist"><ArtistLink :name="item.albumArtist" /> · </template>{{ statsLine }}</p>
             </div>
 
@@ -103,10 +103,10 @@
                   @click="toggleAlbumDownload"
                 >
                   <MageIcon
-                    :name="albumDownloading ? 'refresh' : 'download'"
+                    :name="albumDownloading ? 'caret-down-fill' : 'download'"
                     class="h-5 w-5"
                     :class="[
-                      albumDownloading ? 'animate-spin' : '',
+                      albumDownloading ? 'animate-float' : '',
                       albumDownloaded ? 'text-error' : '',
                     ].join(' ')"
                   />
@@ -138,7 +138,7 @@
 
       <div
         class="content-col relative z-10 shrink-0 border-t"
-        :class="backdropActive ? 'border-white/15' : 'border-outline/30'"
+        :class="backdropActive ? (lightBackdrop ? 'border-black/15' : 'border-white/15') : 'border-outline/30'"
       />
 
       <div
@@ -157,7 +157,9 @@
             :track="track"
             leading="index"
             :is-loading="player.pendingTrackId === track.id"
-            :on-dark="backdropActive"
+            :on-dark="backdropActive && !lightBackdrop"
+            :on-light="backdropActive && lightBackdrop"
+            :subtitle="''"
             :accent-rgb="accentRgb"
             :is-playing="player.currentTrack?.id === track.id"
             :selectable="selection.selecting"
@@ -244,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
 import OrcIllustration from "../components/OrcIllustration.vue";
@@ -265,7 +267,7 @@ import { useScrollMemory } from "../composables/useScrollMemory";
 import { useIsDesktop } from "../composables/useIsDesktop";
 import { useIsPwa } from "../composables/useIsPwa";
 import { provideVisibleIds } from "../composables/useSelectableList";
-import { rawMainColor, useDominantColor } from "../composables/useDominantColor";
+import { rawMainColor, relativeLuminance, useDominantColor, useMostCommonColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
 import type { CatalogTrack, Playlist } from "../types";
 
@@ -283,7 +285,11 @@ const isPwa = useIsPwa();
  *  add-to-playlist / inline actions / 3-dots), so they all look identical. */
 const headerIconBtnClass = computed(() => [
   "flex h-9 w-9 items-center justify-center rounded-full",
-  backdropActive.value ? "text-white/75 hover:bg-white/10" : "text-on-surface-variant",
+  backdropActive.value
+    ? lightBackdrop.value
+      ? "text-black hover:bg-black/10"
+      : "text-white/75 hover:bg-white/10"
+    : "text-on-surface-variant",
 ]);
 const player = usePlayerStore();
 const playlistStore = usePlaylistStore();
@@ -357,6 +363,27 @@ const backdropActive = computed(() => coverUrl.value != null);
 // never the currently playing track's colour. Null only when the album has
 // no art at all, in which case the theme primary is the fallback.
 const glowRgb = useDominantColor(coverUrl);
+const modeRgb = useMostCommonColor(coverUrl);
+
+// True when this album's cover is light overall: the backdrop (and the
+// mini player floating over it) then needs black text instead of white.
+// Uses the dominant accent OR the modal (average) colour — a busy cover can
+// have a mid-tone dominant colour while still reading light.
+const lightBackdrop = computed(
+  () =>
+    backdropActive.value &&
+    (relativeLuminance(rawMainColor(glowRgb.value)) >= 0.45 ||
+      relativeLuminance(modeRgb.value) >= 0.55),
+);
+
+// While this view is active with a light cover, the mini player switches to
+// black text too (see html.album-view-light in style.css). Other views never
+// set this class, so the mini player stays white there. Views live inside
+// KeepAlive, so deactivation (not just unmount) must clear the class.
+watch(lightBackdrop, (v) => document.documentElement.classList.toggle("album-view-light", v), { immediate: true });
+onActivated(() => document.documentElement.classList.toggle("album-view-light", lightBackdrop.value));
+onDeactivated(() => document.documentElement.classList.remove("album-view-light"));
+onUnmounted(() => document.documentElement.classList.remove("album-view-light"));
 const accentRgb = computed(() =>
   coverUrl.value != null ? rawMainColor(glowRgb.value) : null,
 );
