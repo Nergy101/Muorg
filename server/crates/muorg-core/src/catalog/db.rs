@@ -97,10 +97,16 @@ CREATE INDEX IF NOT EXISTS idx_track_backups_track_path ON track_backups(track_p
 CREATE TABLE IF NOT EXISTS play_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-    played_at INTEGER NOT NULL
+    played_at INTEGER NOT NULL,
+    duration_played INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_play_history_track ON play_history(track_id);
 CREATE INDEX IF NOT EXISTS idx_play_history_played ON play_history(played_at);
+CREATE TABLE IF NOT EXISTS play_history_daily (
+    day_unix INTEGER PRIMARY KEY,
+    plays INTEGER NOT NULL,
+    listening_secs INTEGER NOT NULL
+);
 ";
 
 fn schema_has_column(
@@ -204,6 +210,16 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
         conn.execute("ALTER TABLE play_history ADD COLUMN device_name TEXT", [])
             .map_err(|e| e.to_string())?;
     }
+    // Seconds actually listened per play (NER-325). NULL when the client did
+    // not report it; statistics then estimate from the track's catalog duration.
+    if !schema_has_column(conn, "play_history", "duration_played")? {
+        conn.execute("ALTER TABLE play_history ADD COLUMN duration_played INTEGER", [])
+            .map_err(|e| e.to_string())?;
+    }
+    // Seed the daily rollup from existing history so the weekly listening
+    // graph has a past before the table existed. Going forward, record_play
+    // keeps the rollup per play; refresh_play_history_rollup() can re-run this.
+    refresh_play_history_rollup(conn)?;
     // File size at scan time, so suffix-based move detection can require it.
     if !schema_has_column(conn, "tracks", "file_size")? {
         conn.execute("ALTER TABLE tracks ADD COLUMN file_size INTEGER", [])
@@ -1553,24 +1569,56 @@ pub fn record_play(
     path: &str,
     device_name: Option<&str>,
 ) -> Result<(), String> {
+    record_play_with_duration(conn, path, device_name, None)
+}
+
+/// Record a play with the seconds actually listened (NER-325). A `duration_secs`
+/// of `None` means the client did not report one, and the row stays NULL so
+/// statistics can estimate it from the track's catalog duration; the daily
+/// rollup always gets a number, falling back to that same estimate.
+pub fn record_play_with_duration(
+    conn: &rusqlite::Connection,
+    path: &str,
+    device_name: Option<&str>,
+    duration_secs: Option<i64>,
+) -> Result<(), String> {
     let now = now_secs()?;
-    let track_id: Option<i64> = conn
+    // (id, catalog duration) of the track, if it exists.
+    let track: Option<(i64, Option<i64>)> = conn
         .query_row(
-            "SELECT id FROM tracks WHERE path = ?1 AND deleted_at IS NULL",
+            "SELECT id, duration_secs FROM tracks WHERE path = ?1 AND deleted_at IS NULL",
             [path],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .ok();
     conn.execute(
         "UPDATE tracks SET play_count = COALESCE(play_count, 0) + 1, last_played_at = ?1 WHERE path = ?2",
         rusqlite::params![now, path],
     ).map_err(|e| e.to_string())?;
-    if let Some(id) = track_id {
+    if let Some((id, track_duration)) = track {
+        let reported = duration_secs
+            .filter(|d| *d >= 0)
+            .map(|d| d.min(86_400));
+        let estimated = reported
+            .or(track_duration)
+            .unwrap_or(0)
+            .min(86_400);
         conn.execute(
-            "INSERT INTO play_history (track_id, played_at, device_name) VALUES (?1, ?2, ?3)",
-            rusqlite::params![id, now, device_name],
-        )
-        .map_err(|e| e.to_string())?;
+            "INSERT INTO play_history (track_id, played_at, device_name, duration_played) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![id, now, device_name, reported],
+        ).map_err(|e| e.to_string())?;
+        // Daily rollup (NER-325): keep one totals row per day so
+        // prune_play_history can drop old rows without losing the weekly
+        // listening graph. Increment-only — the rollup mirrors live rows.
+        let day = now - (now % 86_400);
+        conn.execute(
+            "INSERT INTO play_history_daily (day_unix, plays, listening_secs)
+             VALUES (?1, 1, ?2)
+             ON CONFLICT(day_unix) DO UPDATE SET
+                plays = plays + excluded.plays,
+                listening_secs = listening_secs + excluded.listening_secs",
+            rusqlite::params![day, estimated],
+        ).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -1582,6 +1630,320 @@ pub fn prune_play_history(conn: &rusqlite::Connection, older_than_secs: i64) -> 
     conn.execute("DELETE FROM play_history WHERE played_at < ?1", [cutoff])
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Rebuild `play_history_daily` from the rows that are still in
+/// `play_history`. Days whose rows were pruned keep their rollup totals, so
+/// this only ever grows (or corrects) the past — it never shrinks it.
+pub fn refresh_play_history_rollup(conn: &rusqlite::Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "INSERT INTO play_history_daily (day_unix, plays, listening_secs)
+         SELECT ph.played_at - (ph.played_at % 86400),
+                COUNT(*),
+                COALESCE(SUM(COALESCE(ph.duration_played, t.duration_secs, 0)), 0)
+         FROM play_history ph
+         JOIN tracks t ON t.id = ph.track_id
+         GROUP BY ph.played_at - (ph.played_at % 86400)
+         ON CONFLICT(day_unix) DO UPDATE SET
+            plays = excluded.plays,
+            listening_secs = excluded.listening_secs",
+    )
+    .map_err(|e| e.to_string())
+}
+
+// ── Listening statistics (NER-325) ──────────────────────────────────────────────
+
+/// Seconds counted for one play: the client-reported listening time when the
+/// client sent one, otherwise the track's catalog duration as an estimate
+/// (rows recorded before `duration_played` existed have no measured value).
+const LISTENED_SECS_SQL: &str = "COALESCE(ph.duration_played, t.duration_secs, 0)";
+
+fn window_cutoff(days: i64) -> Result<i64, String> {
+    Ok(now_secs()? - days.max(0) * 86_400)
+}
+
+/// Listening totals over a look-back window.
+#[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct ListeningSummary {
+    /// The look-back window the numbers were computed over, in days.
+    pub days: i64,
+    /// Plays recorded inside the window.
+    pub plays: i64,
+    /// Total listening time in seconds (measured, or estimated per row).
+    pub listening_secs: i64,
+    /// Distinct tracks played inside the window.
+    pub unique_tracks: i64,
+    /// Distinct artists played inside the window.
+    pub unique_artists: i64,
+    /// Distinct albums played inside the window.
+    pub unique_albums: i64,
+}
+
+pub fn get_listening_summary(
+    conn: &rusqlite::Connection,
+    days: i64,
+) -> Result<ListeningSummary, String> {
+    let cutoff = window_cutoff(days)?;
+    conn.query_row(
+        &format!(
+            "SELECT COUNT(*), \
+                    COALESCE(SUM({lis}), 0), \
+                    COUNT(DISTINCT ph.track_id), \
+                    COUNT(DISTINCT LOWER(TRIM(COALESCE(t.artist, '')))), \
+                    COUNT(DISTINCT LOWER(TRIM(COALESCE(t.album, ''))) || '|||' || LOWER(TRIM(COALESCE(t.album_artist, '')))) \
+             FROM play_history ph \
+             JOIN tracks t ON t.id = ph.track_id \
+             WHERE ph.played_at >= ?1",
+            lis = LISTENED_SECS_SQL
+        ),
+        [cutoff],
+        |r| {
+            Ok(ListeningSummary {
+                days: days.max(0),
+                plays: r.get(0)?,
+                listening_secs: r.get(1)?,
+                unique_tracks: r.get(2)?,
+                unique_artists: r.get(3)?,
+                unique_albums: r.get(4)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// One track's play and listening totals over the window.
+#[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct TopTrackStat {
+    pub track_id: i64,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub plays: i64,
+    pub listening_secs: i64,
+}
+
+pub fn get_top_tracks_by_time(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    days: i64,
+) -> Result<Vec<TopTrackStat>, String> {
+    let cutoff = window_cutoff(days)?;
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT ph.track_id, \
+                    COALESCE(t.title, ''), COALESCE(t.artist, ''), COALESCE(t.album, ''), \
+                    COUNT(*) AS plays, \
+                    COALESCE(SUM({lis}), 0) AS secs \
+             FROM play_history ph \
+             JOIN tracks t ON t.id = ph.track_id \
+             WHERE ph.played_at >= ?1 \
+             GROUP BY ph.track_id \
+             ORDER BY secs DESC, plays DESC, MAX(ph.played_at) DESC \
+             LIMIT ?2",
+            lis = LISTENED_SECS_SQL
+        ))
+        .map_err(|e| e.to_string())?;
+    stmt.query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+        Ok(TopTrackStat {
+            track_id: r.get(0)?,
+            title: r.get(1)?,
+            artist: r.get(2)?,
+            album: r.get(3)?,
+            plays: r.get(4)?,
+            listening_secs: r.get(5)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())
+}
+
+/// One artist's play and listening totals over the window.
+#[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct TopArtistStat {
+    pub artist: String,
+    pub plays: i64,
+    pub listening_secs: i64,
+}
+
+pub fn get_top_artists_by_time(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    days: i64,
+) -> Result<Vec<TopArtistStat>, String> {
+    let cutoff = window_cutoff(days)?;
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT MAX(COALESCE(t.artist, '')) AS artist, \
+                    COUNT(*) AS plays, \
+                    COALESCE(SUM({lis}), 0) AS secs \
+             FROM play_history ph \
+             JOIN tracks t ON t.id = ph.track_id \
+             WHERE ph.played_at >= ?1 \
+             GROUP BY LOWER(TRIM(COALESCE(t.artist, ''))) \
+             ORDER BY secs DESC, plays DESC, MIN(ph.played_at) DESC \
+             LIMIT ?2",
+            lis = LISTENED_SECS_SQL
+        ))
+        .map_err(|e| e.to_string())?;
+    stmt.query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+        Ok(TopArtistStat {
+            artist: r.get(0)?,
+            plays: r.get(1)?,
+            listening_secs: r.get(2)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())
+}
+
+/// One album's play and listening totals over the window.
+#[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct TopAlbumStat {
+    pub album: String,
+    pub album_artist: String,
+    pub plays: i64,
+    pub listening_secs: i64,
+}
+
+pub fn get_top_albums_by_time(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    days: i64,
+) -> Result<Vec<TopAlbumStat>, String> {
+    let cutoff = window_cutoff(days)?;
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT MAX(COALESCE(t.album, '')) AS album, \
+                    MAX(COALESCE(t.album_artist, '')) AS album_artist, \
+                    COUNT(*) AS plays, \
+                    COALESCE(SUM({lis}), 0) AS secs \
+             FROM play_history ph \
+             JOIN tracks t ON t.id = ph.track_id \
+             WHERE ph.played_at >= ?1 \
+             GROUP BY LOWER(TRIM(COALESCE(t.album, ''))) || '|||' || LOWER(TRIM(COALESCE(t.album_artist, ''))) \
+             ORDER BY secs DESC, plays DESC, MIN(ph.played_at) DESC \
+             LIMIT ?2",
+            lis = LISTENED_SECS_SQL
+        ))
+        .map_err(|e| e.to_string())?;
+    stmt.query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+        Ok(TopAlbumStat {
+            album: r.get(0)?,
+            album_artist: r.get(1)?,
+            plays: r.get(2)?,
+            listening_secs: r.get(3)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())
+}
+
+/// One bucket of the weekly listening graph.
+#[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct ListeningWeek {
+    /// Start of the week as a Unix timestamp. Weeks are 7-day buckets aligned
+    /// to the Unix epoch (a Thursday), so bucket edges stay stable for charts.
+    pub week_start: i64,
+    pub plays: i64,
+    pub listening_secs: i64,
+}
+
+/// Listening time per week for the last `weeks` weeks, oldest first, empty
+/// weeks included so a chart can plot a continuous line. Reads the daily
+/// rollup, which survives `prune_play_history`.
+pub fn get_listening_time_by_week(
+    conn: &rusqlite::Connection,
+    weeks: i64,
+) -> Result<Vec<ListeningWeek>, String> {
+    let weeks = weeks.clamp(1, 104);
+    let now = now_secs()?;
+    let week_secs: i64 = 7 * 86_400;
+    let this_week_start = now - (now % week_secs);
+    let window_start = this_week_start - (weeks - 1) * week_secs;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT day_unix, plays, listening_secs FROM play_history_daily WHERE day_unix >= ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let daily: Vec<(i64, i64, i64)> = stmt
+        .query_map([window_start], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut buckets: std::collections::HashMap<i64, (i64, i64)> =
+        std::collections::HashMap::new();
+    for (day, plays, secs) in daily {
+        let week_start = day - (day % week_secs);
+        let entry = buckets.entry(week_start).or_insert((0, 0));
+        entry.0 += plays;
+        entry.1 += secs;
+    }
+
+    let mut out = Vec::with_capacity(weeks as usize);
+    for w in 0..weeks {
+        let week_start = window_start + w * week_secs;
+        let (plays, secs) = buckets.get(&week_start).copied().unwrap_or((0, 0));
+        out.push(ListeningWeek {
+            week_start,
+            plays,
+            listening_secs: secs,
+        });
+    }
+    Ok(out)
+}
+
+/// One hour-of-day bucket of the listening clock.
+#[derive(Debug, serde::Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct ClockBucket {
+    /// Hour of the day, 0-23, in the server's local timezone.
+    pub hour: i64,
+    pub plays: i64,
+    pub listening_secs: i64,
+}
+
+/// How listening is spread over the hours of the day, inside the window.
+pub fn get_play_clock(conn: &rusqlite::Connection, days: i64) -> Result<Vec<ClockBucket>, String> {
+    let cutoff = window_cutoff(days)?;
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT CAST(strftime('%H', ph.played_at, 'unixepoch', 'localtime') AS INTEGER) AS hour, \
+                    COUNT(*) AS plays, \
+                    COALESCE(SUM({lis}), 0) AS secs \
+             FROM play_history ph \
+             JOIN tracks t ON t.id = ph.track_id \
+             WHERE ph.played_at >= ?1 \
+             GROUP BY hour \
+             ORDER BY hour",
+            lis = LISTENED_SECS_SQL
+        ))
+        .map_err(|e| e.to_string())?;
+    stmt.query_map([cutoff], |r| {
+        Ok(ClockBucket {
+            hour: r.get(0)?,
+            plays: r.get(1)?,
+            listening_secs: r.get(2)?,
+        })
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())
 }
 
 /// Last N distinct played tracks, most recent first.

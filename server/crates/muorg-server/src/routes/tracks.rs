@@ -416,12 +416,16 @@ pub async fn set_rating(
 pub struct RecordPlayBody {
     /// Optional per-device name the play is attributed to in play history.
     pub device_name: Option<String>,
+    /// Optional seconds actually listened (NER-325). When omitted the row
+    /// keeps no measured time and statistics estimate it from the track's
+    /// catalog duration.
+    pub duration_secs: Option<i64>,
 }
 
 // POST /api/tracks/:id/play
 /// Record a play. Bumps `play_count`/`last_played_at` and appends to play
 /// history. The optional body carries the device name the play is attributed
-/// to; requests with no body keep working.
+/// to and how long was actually listened; requests with no body keep working.
 #[utoipa::path(
     post,
     path = "/api/tracks/{id}/play",
@@ -441,9 +445,16 @@ pub async fn record_play(
     body: Option<Json<RecordPlayBody>>,
 ) -> Result<Json<OkResponse>, ApiError> {
     let track_path = resolve_track(&state, id)?;
-    let device_name = body.and_then(|Json(body)| body.device_name);
+    let record = body.map(|Json(body)| body);
+    let device_name = record.as_ref().and_then(|b| b.device_name.clone());
+    let duration_secs = record.as_ref().and_then(|b| b.duration_secs);
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    muorg_core::catalog::record_play(&conn, &track_path, device_name.as_deref())?;
+    muorg_core::catalog::record_play_with_duration(
+        &conn,
+        &track_path,
+        device_name.as_deref(),
+        duration_secs,
+    )?;
     Ok(Json(OkResponse::new()))
 }
 

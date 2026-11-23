@@ -69,6 +69,13 @@ the first page, not the catalog. Follow `X-Total-Count`.",
         crate::routes::library::get_top_play_history,
         crate::routes::library::search_tracks,
         crate::routes::library::get_stats,
+        // Listening statistics (NER-325)
+        crate::routes::stats::get_listening_summary,
+        crate::routes::stats::get_top_tracks_time,
+        crate::routes::stats::get_top_artists_time,
+        crate::routes::stats::get_top_albums_time,
+        crate::routes::stats::get_listening_time,
+        crate::routes::stats::get_play_clock,
         // Tracks
         crate::routes::tracks::get_cover,
         crate::routes::tracks::get_lyrics,
