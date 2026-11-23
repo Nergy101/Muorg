@@ -64,6 +64,14 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
   ["getRecentlyPlayed", (a) => a.getRecentlyPlayed(7), "GET", "/api/play-history/recent?limit=7"],
   ["getMostPlayed", (a) => a.getMostPlayed(7, 14), "GET", "/api/play-history/top?limit=7&days=14"],
 
+  // Listening statistics (NER-325)
+  ["getListeningSummary", (a) => a.getListeningSummary(7), "GET", "/api/stats/summary?days=7"],
+  ["getTopTracksByTime", (a) => a.getTopTracksByTime(5, 7), "GET", "/api/stats/top/tracks?limit=5&days=7"],
+  ["getTopArtistsByTime", (a) => a.getTopArtistsByTime(5, 7), "GET", "/api/stats/top/artists?limit=5&days=7"],
+  ["getTopAlbumsByTime", (a) => a.getTopAlbumsByTime(5, 7), "GET", "/api/stats/top/albums?limit=5&days=7"],
+  ["getListeningTime", (a) => a.getListeningTime(8), "GET", "/api/stats/listening-time?weeks=8"],
+  ["getPlayClock", (a) => a.getPlayClock(7), "GET", "/api/stats/clock?days=7"],
+
   // Tracks
   ["getMetadata", (a) => a.getMetadata(3), "GET", "/api/tracks/3/metadata"],
   ["getLyrics", (a) => a.getLyrics(3), "GET", "/api/tracks/3/lyrics"],
@@ -77,6 +85,13 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
     "POST",
     "/api/tracks/3/play",
     { device_name: "Living room" },
+  ],
+  [
+    "recordPlay (device name + duration)",
+    (a) => a.recordPlay(3, "Living room", 42),
+    "POST",
+    "/api/tracks/3/play",
+    { device_name: "Living room", duration_secs: 42 },
   ],
   ["restoreFromBackup", (a) => a.restoreFromBackup(3), "POST", "/api/tracks/3/restore"],
   [
