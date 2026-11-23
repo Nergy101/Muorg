@@ -49,6 +49,17 @@ export type BatchMetadataItem = Schemas["BatchMetadataItem"];
 export type MatchCandidate = AlwaysPresent<Schemas["MatchCandidate"]>;
 export type RenameCollision = AlwaysPresent<Schemas["RenameCollision"]>;
 
+// -------------------------------------------------- listening statistics ---
+
+export type ListeningSummary = AlwaysPresent<Schemas["ListeningSummary"]>;
+export type ListeningWeek = AlwaysPresent<Schemas["ListeningWeek"]>;
+export type ClockBucket = AlwaysPresent<Schemas["ClockBucket"]>;
+export type TopTrackStat = AlwaysPresent<Schemas["TopTrackStat"]>;
+export type TopArtistStat = AlwaysPresent<Schemas["TopArtistStat"]>;
+export type TopAlbumStat = AlwaysPresent<Schemas["TopAlbumStat"]>;
+/** Request body for `POST /api/tracks/{id}/play` — really is optional. */
+export type RecordPlayBody = Schemas["RecordPlayBody"];
+
 // -------------------------------------------------------------- playlists ---
 
 export type Playlist = AlwaysPresent<Schemas["Playlist"]>;

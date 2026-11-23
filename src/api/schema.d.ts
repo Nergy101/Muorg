@@ -696,6 +696,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stats/clock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How listening is spread over the hours of the day, in the server's local
+         *     timezone, inside the window. Only hours with plays are returned.
+         */
+        get: operations["get_play_clock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stats/listening-time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listening time per week, read from the daily rollup so pruning play
+         *     history never eats the graph. Empty weeks included, oldest first.
+         */
+        get: operations["get_listening_time"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stats/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listening totals for the window: plays, seconds listened, and how many
+         *     distinct tracks, artists and albums that covered.
+         */
+        get: operations["get_listening_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stats/top/albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Top albums inside the window, ranked by seconds listened (plays break ties).
+         */
+        get: operations["get_top_albums_time"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stats/top/artists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Top artists inside the window, ranked by seconds listened (plays break ties).
+         */
+        get: operations["get_top_artists_time"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stats/top/tracks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Top tracks inside the window, ranked by seconds listened (plays break ties).
+         */
+        get: operations["get_top_tracks_time"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tracks": {
         parameters: {
             query?: never;
@@ -831,7 +948,7 @@ export interface paths {
         /**
          * Record a play. Bumps `play_count`/`last_played_at` and appends to play
          *     history. The optional body carries the device name the play is attributed
-         *     to; requests with no body keep working.
+         *     to and how long was actually listened; requests with no body keep working.
          */
         post: operations["record_play"];
         delete?: never;
@@ -1188,6 +1305,15 @@ export interface components {
             /** Format: int64 */
             year?: number | null;
         };
+        /** @description One hour-of-day bucket of the listening clock. */
+        ClockBucket: {
+            /** @description Hour of the day, 0-23, in the server's local timezone. */
+            hour: number;
+            /** Format: int64 */
+            plays: number;
+            /** Format: int64 */
+            listening_secs: number;
+        };
         ConfigEntry: {
             key: string;
             secret: boolean;
@@ -1231,6 +1357,33 @@ export interface components {
             track_count: number;
         };
         /** @description A single candidate match from MusicBrainz. */
+        /** @description Listening totals over a look-back window. */
+        ListeningSummary: {
+            /** @description The look-back window the numbers were computed over, in days. */
+            days: number;
+            /** @description Total listening time in seconds (measured, or estimated per row). */
+            listening_secs: number;
+            /** @description Plays recorded inside the window. */
+            plays: number;
+            /** @description Distinct albums played inside the window. */
+            unique_albums: number;
+            /** @description Distinct artists played inside the window. */
+            unique_artists: number;
+            /** @description Distinct tracks played inside the window. */
+            unique_tracks: number;
+        };
+        /** @description One bucket of the weekly listening graph. */
+        ListeningWeek: {
+            /** Format: int64 */
+            listening_secs: number;
+            /** Format: int64 */
+            plays: number;
+            /**
+             * @description Start of the week as a Unix timestamp. Weeks are 7-day buckets aligned
+             *     to the Unix epoch (a Thursday), so bucket edges stay stable for charts.
+             */
+            week_start: number;
+        };
         MatchCandidate: {
             album?: string | null;
             album_artist?: string | null;
@@ -1315,6 +1468,13 @@ export interface components {
         RecordPlayBody: {
             /** @description Optional per-device name the play is attributed to in play history. */
             device_name?: string | null;
+            /**
+             * @description Optional seconds actually listened (NER-325). When omitted the row
+             *     keeps no measured time and statistics estimate it from the track's
+             *     catalog duration.
+             */
+            /** Format: int64 */
+            duration_secs?: number | null;
         };
         RemoveFolderBody: {
             root_path: string;
@@ -1390,6 +1550,35 @@ export interface components {
              *     WAV — false when `[transcoding] downgrade_wav_to_mp3 = true`.
              */
             wav: boolean;
+        };
+        /** @description One album's play and listening totals over the window. */
+        TopAlbumStat: {
+            album: string;
+            album_artist: string;
+            /** Format: int64 */
+            listening_secs: number;
+            /** Format: int64 */
+            plays: number;
+        };
+        /** @description One artist's play and listening totals over the window. */
+        TopArtistStat: {
+            artist: string;
+            /** Format: int64 */
+            listening_secs: number;
+            /** Format: int64 */
+            plays: number;
+        };
+        /** @description One track's play and listening totals over the window. */
+        TopTrackStat: {
+            album: string;
+            artist: string;
+            /** Format: int64 */
+            listening_secs: number;
+            /** Format: int64 */
+            plays: number;
+            title: string;
+            /** Format: int64 */
+            track_id: number;
         };
         TrackBackupRecord: {
             backup_path: string;
@@ -1483,6 +1672,7 @@ export type SchemaCastPlayResponse = components['schemas']['CastPlayResponse'];
 export type SchemaCastSessionStatus = components['schemas']['CastSessionStatus'];
 export type SchemaCastStatusResponse = components['schemas']['CastStatusResponse'];
 export type SchemaCatalogTrack = components['schemas']['CatalogTrack'];
+export type SchemaClockBucket = components['schemas']['ClockBucket'];
 export type SchemaConfigEntry = components['schemas']['ConfigEntry'];
 export type SchemaConfigSectionView = components['schemas']['ConfigSectionView'];
 export type SchemaCountResponse = components['schemas']['CountResponse'];
@@ -1491,6 +1681,8 @@ export type SchemaErrorResponse = components['schemas']['ErrorResponse'];
 export type SchemaFetchedImage = components['schemas']['FetchedImage'];
 export type SchemaFetchImageBody = components['schemas']['FetchImageBody'];
 export type SchemaLibraryStats = components['schemas']['LibraryStats'];
+export type SchemaListeningSummary = components['schemas']['ListeningSummary'];
+export type SchemaListeningWeek = components['schemas']['ListeningWeek'];
 export type SchemaMatchCandidate = components['schemas']['MatchCandidate'];
 export type SchemaMetadataUpdate = components['schemas']['MetadataUpdate'];
 export type SchemaOkResponse = components['schemas']['OkResponse'];
@@ -1516,6 +1708,9 @@ export type SchemaSeekBody = components['schemas']['SeekBody'];
 export type SchemaSmartCreateBody = components['schemas']['SmartCreateBody'];
 export type SchemaSmartRulesBody = components['schemas']['SmartRulesBody'];
 export type SchemaTokenResponse = components['schemas']['TokenResponse'];
+export type SchemaTopAlbumStat = components['schemas']['TopAlbumStat'];
+export type SchemaTopArtistStat = components['schemas']['TopArtistStat'];
+export type SchemaTopTrackStat = components['schemas']['TopTrackStat'];
 export type SchemaTrackBackupRecord = components['schemas']['TrackBackupRecord'];
 export type SchemaTrackIdsBody = components['schemas']['TrackIdsBody'];
 export type SchemaTrackLyrics = components['schemas']['TrackLyrics'];
@@ -3009,6 +3204,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryStats"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_play_clock: {
+        parameters: {
+            query?: {
+                /** @description Look-back window in days. Default 30. */
+                days?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plays and listening time per hour of day */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockBucket"][];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_listening_time: {
+        parameters: {
+            query?: {
+                /** @description Weeks to cover, oldest bucket first. Default 12. */
+                weeks?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Weekly listening buckets, oldest week first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningWeek"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_listening_summary: {
+        parameters: {
+            query?: {
+                /** @description Look-back window in days. Default 30. */
+                days?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Listening totals inside the window */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningSummary"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_top_albums_time: {
+        parameters: {
+            query?: {
+                /** @description Look-back window in days. Default 30. */
+                days?: number | null;
+                /** @description Rows to return. Default 10. */
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Albums with the most listening time inside the window */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopAlbumStat"][];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_top_artists_time: {
+        parameters: {
+            query?: {
+                /** @description Look-back window in days. Default 30. */
+                days?: number | null;
+                /** @description Rows to return. Default 10. */
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Artists with the most listening time inside the window */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopArtistStat"][];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_top_tracks_time: {
+        parameters: {
+            query?: {
+                /** @description Look-back window in days. Default 30. */
+                days?: number | null;
+                /** @description Rows to return. Default 10. */
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tracks with the most listening time inside the window */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopTrackStat"][];
                 };
             };
             /** @description Missing or invalid API key */

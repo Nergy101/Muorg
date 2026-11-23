@@ -19,6 +19,7 @@ import type {
   CatalogTrack,
   MatchCandidate,
   MetadataUpdate,
+  RecordPlayBody,
   RenameCollision,
   TracksPage,
 } from "./types";
@@ -144,6 +145,77 @@ export function createApi(t: Transport) {
       );
     },
 
+    // ----------------------------------------------- listening statistics ---
+
+    /**
+     * Listening totals over the window: plays, seconds listened, and how many
+     * distinct tracks, artists and albums that covered (NER-325).
+     */
+    async getListeningSummary(days = 30) {
+      return unwrap(
+        await client.GET("/api/stats/summary", {
+          params: { query: { days } },
+        }),
+        "/api/stats/summary",
+      );
+    },
+
+    /** Top tracks inside the window, ranked by seconds listened. */
+    async getTopTracksByTime(limit = 10, days = 30) {
+      return unwrap(
+        await client.GET("/api/stats/top/tracks", {
+          params: { query: { limit, days } },
+        }),
+        "/api/stats/top/tracks",
+      );
+    },
+
+    /** Top artists inside the window, ranked by seconds listened. */
+    async getTopArtistsByTime(limit = 10, days = 30) {
+      return unwrap(
+        await client.GET("/api/stats/top/artists", {
+          params: { query: { limit, days } },
+        }),
+        "/api/stats/top/artists",
+      );
+    },
+
+    /** Top albums inside the window, ranked by seconds listened. */
+    async getTopAlbumsByTime(limit = 10, days = 30) {
+      return unwrap(
+        await client.GET("/api/stats/top/albums", {
+          params: { query: { limit, days } },
+        }),
+        "/api/stats/top/albums",
+      );
+    },
+
+    /**
+     * Listening time per week, read from the rollup so pruning play history
+     * never eats the graph. Empty weeks included, oldest first.
+     */
+    async getListeningTime(weeks = 12) {
+      return unwrap(
+        await client.GET("/api/stats/listening-time", {
+          params: { query: { weeks } },
+        }),
+        "/api/stats/listening-time",
+      );
+    },
+
+    /**
+     * Plays and listening time per hour of the day, in the server's local
+     * timezone. Only hours with plays are returned.
+     */
+    async getPlayClock(days = 30) {
+      return unwrap(
+        await client.GET("/api/stats/clock", {
+          params: { query: { days } },
+        }),
+        "/api/stats/clock",
+      );
+    },
+
     // ------------------------------------------------------------- tracks ---
 
     /** Bytes, not JSON — goes straight through the transport. */
@@ -203,13 +275,18 @@ export function createApi(t: Transport) {
 
     /**
      * Record a play. `deviceName` is the optional per-device name the play is
-     * attributed to in play history; omit it to record the play without one.
+     * attributed to in play history; `durationSecs` is the optional seconds
+     * actually listened (NER-325). Omit either to leave it unset — the stats
+     * endpoints then estimate from the track's catalog duration.
      */
-    async recordPlay(trackId: number, deviceName?: string) {
+    async recordPlay(trackId: number, deviceName?: string, durationSecs?: number) {
+      const body: RecordPlayBody = {};
+      if (deviceName != null) body.device_name = deviceName;
+      if (durationSecs != null) body.duration_secs = durationSecs;
       return unwrap(
         await client.POST("/api/tracks/{id}/play", {
           params: { path: { id: trackId } },
-          body: deviceName != null ? { device_name: deviceName } : {},
+          body,
         }),
         "/api/tracks/{id}/play",
       );
