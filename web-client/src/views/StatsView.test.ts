@@ -23,6 +23,9 @@ vi.mock("../stores/library", () => ({ useLibraryStore: () => reactive(mocks.lib)
 vi.mock("../components/MageIcon.vue", () => ({
   default: { props: ["name"], template: '<span aria-hidden="true"></span>' },
 }));
+vi.mock("../components/ListeningStats.vue", () => ({
+  default: { template: '<section class="listening-stub"></section>' },
+}));
 vi.mock("@shared/components/stats/GenrePieChart.vue", () => ({
   default: { props: ["tracks"], emits: ["view-field"], template: '<div class="chart"></div>' },
 }));
@@ -110,6 +113,14 @@ describe("StatsView", () => {
 
     view.root.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!.click();
     expect(mocks.back).toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it("renders the listening statistics panel (NER-325)", async () => {
+    const view = renderStatsView();
+    await nextTick();
+    // ListeningStats is mocked to a stub above; its own suite covers it.
+    expect(view.root.querySelector(".listening-stub")).not.toBeNull();
     view.unmount();
   });
 });
