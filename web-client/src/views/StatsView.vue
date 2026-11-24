@@ -54,6 +54,9 @@
           </div>
         </div>
 
+        <!-- Listening (NER-325): fetched from play history, self-contained panel -->
+        <ListeningStats />
+
         <!-- Metadata health -->
         <section class="rounded-2xl bg-surface-container p-4">
           <p class="mb-3 text-label-lg text-on-surface-variant">Metadata health</p>
@@ -110,6 +113,7 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import MageIcon from "../components/MageIcon.vue";
+import ListeningStats from "../components/ListeningStats.vue";
 import { useLibraryStore } from "../stores/library";
 import GenrePieChart from "@shared/components/stats/GenrePieChart.vue";
 import YearLineChart from "@shared/components/stats/YearLineChart.vue";

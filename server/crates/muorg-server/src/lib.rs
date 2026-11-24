@@ -86,6 +86,12 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/play-history/top", get(routes::library::get_top_play_history))
         .route("/api/search", get(routes::library::search_tracks))
         .route("/api/stats", get(routes::library::get_stats))
+        .route("/api/stats/summary", get(routes::stats::get_listening_summary))
+        .route("/api/stats/top/tracks", get(routes::stats::get_top_tracks_time))
+        .route("/api/stats/top/artists", get(routes::stats::get_top_artists_time))
+        .route("/api/stats/top/albums", get(routes::stats::get_top_albums_time))
+        .route("/api/stats/listening-time", get(routes::stats::get_listening_time))
+        .route("/api/stats/clock", get(routes::stats::get_play_clock))
         .route("/api/tracks/{id}/cover", get(routes::tracks::get_cover))
         .route("/api/tracks/{id}/lyrics", get(routes::tracks::get_lyrics))
         .route("/api/tracks/{id}/metadata",

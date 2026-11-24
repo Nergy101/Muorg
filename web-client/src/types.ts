@@ -8,10 +8,16 @@ import type { CatalogTrack } from "@shared/api";
 
 export type {
   CatalogTrack,
+  ClockBucket,
   LibraryStats,
+  ListeningSummary,
+  ListeningWeek,
   MatchCandidate,
   Playlist,
   PlaylistTrackEntry,
+  TopAlbumStat,
+  TopArtistStat,
+  TopTrackStat,
 } from "@shared/api";
 
 /** One row of a smart playlist's rules editor. Serialized as

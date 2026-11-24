@@ -704,6 +704,195 @@ fn recently_added_is_newest_first() {
 }
 
 // ---------------------------------------------------------------------------
+// Listening statistics (NER-325)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn listening_summary_counts_measured_and_estimated_time() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 1);
+    // One play where the client reported 60s, one where it did not (so the
+    // catalog duration of 180s from `meta` is the estimate).
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, Some(60))
+        .unwrap();
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, None).unwrap();
+
+    let s = cat::get_listening_summary(&conn, 30).unwrap();
+    assert_eq!(s.days, 30);
+    assert_eq!(s.plays, 2);
+    assert_eq!(
+        s.listening_secs, 240,
+        "60 measured + 180 estimated from the catalog duration"
+    );
+    assert_eq!(s.unique_tracks, 1);
+    assert_eq!(s.unique_artists, 1);
+    assert_eq!(s.unique_albums, 1);
+}
+
+#[test]
+fn out_of_range_reported_durations_do_not_poison_the_row() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 1);
+    // Negative is ignored (falls back to the catalog estimate), absurdly
+    // large is clamped to one day.
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, Some(-5)).unwrap();
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, Some(900_000))
+        .unwrap();
+
+    let s = cat::get_listening_summary(&conn, 30).unwrap();
+    assert_eq!(s.plays, 2);
+    assert_eq!(
+        s.listening_secs, 180 + 86_400,
+        "the clamped play counts as exactly one day of listening"
+    );
+}
+
+#[test]
+fn top_tracks_rank_by_listening_time_not_by_plays() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 2);
+    // Track 0 gets two short plays (2 x 120 = 240s), track 1 one long one
+    // (300s). By play count track 0 would win; by seconds track 1 must.
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, Some(120))
+        .unwrap();
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, Some(120))
+        .unwrap();
+    cat::record_play_with_duration(&conn, "/music/track1.mp3", None, Some(300))
+        .unwrap();
+
+    let top = cat::get_top_tracks_by_time(&conn, 10, 30).unwrap();
+    assert_eq!(top.len(), 2);
+    assert_eq!(top[0].title, "Track 1");
+    assert_eq!(top[0].plays, 1);
+    assert_eq!(top[0].listening_secs, 300);
+    assert_eq!(top[1].title, "Track 0");
+    assert_eq!(top[1].plays, 2);
+    assert_eq!(top[1].listening_secs, 240);
+
+    // The old by-count view must keep its own ranking.
+    let by_count = cat::load_most_played(&conn, 10, 30).unwrap();
+    assert_eq!(titles(&by_count).first().map(String::as_str), Some("Track 0"));
+}
+
+#[test]
+fn top_artists_and_albums_rank_by_listening_time() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    cat::save_roots(&conn, &["/music".to_string()]).unwrap();
+    let m0 = meta("Track A", "Alpha", "Album A");
+    let m1 = meta("Track B", "Beta", "Album B");
+    insert_track(&conn, "/music", "/music/a.mp3", &m0, None);
+    insert_track(&conn, "/music", "/music/b.mp3", &m1, None);
+    // Alpha: one estimate play (180s). Beta: one measured play (400s).
+    cat::record_play_with_duration(&conn, "/music/a.mp3", None, None).unwrap();
+    cat::record_play_with_duration(&conn, "/music/b.mp3", None, Some(400)).unwrap();
+
+    let artists = cat::get_top_artists_by_time(&conn, 10, 30).unwrap();
+    assert_eq!(artists.len(), 2);
+    assert_eq!(artists[0].artist, "Beta");
+    assert_eq!(artists[0].listening_secs, 400);
+    assert_eq!(artists[1].artist, "Alpha");
+
+    let albums = cat::get_top_albums_by_time(&conn, 10, 30).unwrap();
+    assert_eq!(albums.len(), 2);
+    assert_eq!(albums[0].album, "Album B");
+    assert_eq!(albums[0].album_artist, "Beta");
+    assert_eq!(albums[1].album, "Album A");
+}
+
+#[test]
+fn weekly_buckets_cover_the_window_and_survive_pruning() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 1);
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, Some(205))
+        .unwrap();
+
+    let weeks = cat::get_listening_time_by_week(&conn, 12).unwrap();
+    assert_eq!(weeks.len(), 12, "the window has one bucket per week");
+    assert_eq!(
+        weeks.iter().filter(|w| w.plays == 0).count(),
+        11,
+        "empty weeks are included so a chart can draw a continuous line"
+    );
+    let current = weeks.last().expect("current week bucket");
+    assert_eq!(current.plays, 1);
+    assert_eq!(current.listening_secs, 205);
+
+    // Pruning the raw history must not touch the rollup the graph reads.
+    cat::prune_play_history(&conn, -1).unwrap();
+    let after = cat::get_listening_time_by_week(&conn, 12).unwrap();
+    assert_eq!(
+        after.iter().map(|w| w.listening_secs).sum::<i64>(),
+        205,
+        "the rollup keeps the listening graph after pruning"
+    );
+}
+
+#[test]
+fn refresh_rollup_backfills_estimates_from_the_catalog() {
+    // Rows that predate `duration_played` have NULL in it; a refresh must
+    // estimate them from the track's catalog duration instead of counting 0.
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    let ids = seed(&conn, "/music", 1);
+    let played_at: i64 = conn
+        .query_row("SELECT CAST(strftime('%s', 'now') AS INTEGER)", [], |r| r.get(0))
+        .unwrap();
+    conn.execute(
+        "INSERT INTO play_history (track_id, played_at, device_name, duration_played)
+         VALUES (?1, ?2, NULL, NULL)",
+        rusqlite::params![ids[0], played_at],
+    )
+    .unwrap();
+
+    cat::refresh_play_history_rollup(&conn).unwrap();
+    let day = played_at - (played_at % 86_400);
+    let (plays, secs): (i64, i64) = conn
+        .query_row(
+            "SELECT plays, listening_secs FROM play_history_daily WHERE day_unix = ?1",
+            [day],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(plays, 1);
+    assert_eq!(secs, 180, "NULL duration falls back to the catalog estimate");
+
+    // And the summary reads the same estimate through the rollup's logic.
+    let s = cat::get_listening_summary(&conn, 30).unwrap();
+    assert_eq!(s.listening_secs, 180);
+}
+
+#[test]
+fn play_clock_buckets_by_local_hour() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 1);
+    cat::record_play_with_duration(&conn, "/music/track0.mp3", None, Some(150))
+        .unwrap();
+
+    let buckets = cat::get_play_clock(&conn, 30).unwrap();
+    assert_eq!(buckets.len(), 1, "one bucket: one play, one hour");
+    let played_at: i64 = conn
+        .query_row("SELECT MAX(played_at) FROM play_history", [], |r| r.get(0))
+        .unwrap();
+    let hour: i64 = conn
+        .query_row(
+            "SELECT CAST(strftime('%H', ?1, 'unixepoch', 'localtime') AS INTEGER)",
+            [played_at],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(buckets[0].hour, hour);
+    assert_eq!(buckets[0].plays, 1);
+    assert_eq!(buckets[0].listening_secs, 150);
+
+}
+
+// ---------------------------------------------------------------------------
 // Playlists
 // ---------------------------------------------------------------------------
 

@@ -431,6 +431,30 @@
         ],
         "type": "object"
       },
+      "ClockBucket": {
+        "description": "One hour-of-day bucket of the listening clock.",
+        "properties": {
+          "hour": {
+            "description": "Hour of the day, 0-23, in the server's local timezone.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "listening_secs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plays": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hour",
+          "plays",
+          "listening_secs"
+        ],
+        "type": "object"
+      },
       "ConfigEntry": {
         "properties": {
           "key": {
@@ -555,6 +579,74 @@
           "artist_count",
           "album_count",
           "total_duration_secs"
+        ],
+        "type": "object"
+      },
+      "ListeningSummary": {
+        "description": "Listening totals over a look-back window.",
+        "properties": {
+          "days": {
+            "description": "The look-back window the numbers were computed over, in days.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "listening_secs": {
+            "description": "Total listening time in seconds (measured, or estimated per row).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "plays": {
+            "description": "Plays recorded inside the window.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "unique_albums": {
+            "description": "Distinct albums played inside the window.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "unique_artists": {
+            "description": "Distinct artists played inside the window.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "unique_tracks": {
+            "description": "Distinct tracks played inside the window.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "plays",
+          "listening_secs",
+          "unique_tracks",
+          "unique_artists",
+          "unique_albums"
+        ],
+        "type": "object"
+      },
+      "ListeningWeek": {
+        "description": "One bucket of the weekly listening graph.",
+        "properties": {
+          "listening_secs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plays": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "week_start": {
+            "description": "Start of the week as a Unix timestamp. Weeks are 7-day buckets aligned\nto the Unix epoch (a Thursday), so bucket edges stay stable for charts.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week_start",
+          "plays",
+          "listening_secs"
         ],
         "type": "object"
       },
@@ -838,6 +930,14 @@
               "string",
               "null"
             ]
+          },
+          "duration_secs": {
+            "description": "Optional seconds actually listened (NER-325). When omitted the row\nkeeps no measured time and statistics estimate it from the track's\ncatalog duration.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -1064,6 +1164,89 @@
           "token",
           "flac",
           "wav"
+        ],
+        "type": "object"
+      },
+      "TopAlbumStat": {
+        "description": "One album's play and listening totals over the window.",
+        "properties": {
+          "album": {
+            "type": "string"
+          },
+          "album_artist": {
+            "type": "string"
+          },
+          "listening_secs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plays": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "album",
+          "album_artist",
+          "plays",
+          "listening_secs"
+        ],
+        "type": "object"
+      },
+      "TopArtistStat": {
+        "description": "One artist's play and listening totals over the window.",
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "listening_secs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plays": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artist",
+          "plays",
+          "listening_secs"
+        ],
+        "type": "object"
+      },
+      "TopTrackStat": {
+        "description": "One track's play and listening totals over the window.",
+        "properties": {
+          "album": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "listening_secs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plays": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "track_id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "track_id",
+          "title",
+          "artist",
+          "album",
+          "plays",
+          "listening_secs"
         ],
         "type": "object"
       },
@@ -3388,6 +3571,351 @@
         ]
       }
     },
+    "/api/stats/clock": {
+      "get": {
+        "operationId": "get_play_clock",
+        "parameters": [
+          {
+            "description": "Look-back window in days. Default 30.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockBucket"
+                }
+              }
+            },
+            "description": "Plays and listening time per hour of day"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "How listening is spread over the hours of the day, in the server's local\ntimezone, inside the window. Only hours with plays are returned.",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/stats/listening-time": {
+      "get": {
+        "operationId": "get_listening_time",
+        "parameters": [
+          {
+            "description": "Weeks to cover, oldest bucket first. Default 12.",
+            "in": "query",
+            "name": "weeks",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListeningWeek"
+                }
+              }
+            },
+            "description": "Weekly listening buckets, oldest week first"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Listening time per week, read from the daily rollup so pruning play\nhistory never eats the graph. Empty weeks included, oldest first.",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/stats/summary": {
+      "get": {
+        "operationId": "get_listening_summary",
+        "parameters": [
+          {
+            "description": "Look-back window in days. Default 30.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListeningSummary"
+                }
+              }
+            },
+            "description": "Listening totals inside the window"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Listening totals for the window: plays, seconds listened, and how many\ndistinct tracks, artists and albums that covered.",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/stats/top/albums": {
+      "get": {
+        "operationId": "get_top_albums_time",
+        "parameters": [
+          {
+            "description": "Look-back window in days. Default 30.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows to return. Default 10.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopAlbumStat"
+                }
+              }
+            },
+            "description": "Albums with the most listening time inside the window"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Top albums inside the window, ranked by seconds listened (plays break ties).",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/stats/top/artists": {
+      "get": {
+        "operationId": "get_top_artists_time",
+        "parameters": [
+          {
+            "description": "Look-back window in days. Default 30.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows to return. Default 10.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopArtistStat"
+                }
+              }
+            },
+            "description": "Artists with the most listening time inside the window"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Top artists inside the window, ranked by seconds listened (plays break ties).",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/stats/top/tracks": {
+      "get": {
+        "operationId": "get_top_tracks_time",
+        "parameters": [
+          {
+            "description": "Look-back window in days. Default 30.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Rows to return. Default 10.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopTrackStat"
+                }
+              }
+            },
+            "description": "Tracks with the most listening time inside the window"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Top tracks inside the window, ranked by seconds listened (plays break ties).",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
     "/api/tracks": {
       "get": {
         "operationId": "get_tracks",
@@ -4178,7 +4706,7 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Record a play. Bumps `play_count`/`last_played_at` and appends to play\nhistory. The optional body carries the device name the play is attributed\nto; requests with no body keep working.",
+        "summary": "Record a play. Bumps `play_count`/`last_played_at` and appends to play\nhistory. The optional body carries the device name the play is attributed\nto and how long was actually listened; requests with no body keep working.",
         "tags": [
           "Tracks"
         ]

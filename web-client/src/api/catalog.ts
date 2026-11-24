@@ -7,7 +7,16 @@
  */
 
 import { api } from "./client";
-import type { CatalogTrack, LibraryStats } from "../types";
+import type {
+  CatalogTrack,
+  ClockBucket,
+  LibraryStats,
+  ListeningSummary,
+  ListeningWeek,
+  TopAlbumStat,
+  TopArtistStat,
+  TopTrackStat,
+} from "../types";
 import type { MetadataUpdate, StreamTokenInfo, TracksPage, TrackLyrics, TrackMetadata } from "@shared/api";
 
 export type { TracksPage, TrackLyrics, MetadataUpdate, TrackMetadata };
@@ -42,6 +51,44 @@ export function getRecentPlayHistory(limit = 20): Promise<CatalogTrack[]> {
 /** Most played tracks within the last `days` days (highest count first). */
 export function getTopPlayHistory(limit = 20, days = 30): Promise<CatalogTrack[]> {
   return api.getMostPlayed(limit, days);
+}
+
+// ------------------------------------------------------- listening stats ---
+
+/**
+ * Listening totals over the window: plays, seconds listened, and how many
+ * distinct tracks, artists and albums that covered (NER-325).
+ */
+export function getListeningSummary(days = 30): Promise<ListeningSummary> {
+  return api.getListeningSummary(days);
+}
+
+/** Top tracks inside the window, ranked by seconds listened. */
+export function getTopTracksByTime(limit = 10, days = 30): Promise<TopTrackStat[]> {
+  return api.getTopTracksByTime(limit, days);
+}
+
+/** Top artists inside the window, ranked by seconds listened. */
+export function getTopArtistsByTime(limit = 10, days = 30): Promise<TopArtistStat[]> {
+  return api.getTopArtistsByTime(limit, days);
+}
+
+/** Top albums inside the window, ranked by seconds listened. */
+export function getTopAlbumsByTime(limit = 10, days = 30): Promise<TopAlbumStat[]> {
+  return api.getTopAlbumsByTime(limit, days);
+}
+
+/**
+ * Listening time per week, read from the server's daily rollup so pruning
+ * play history never eats the graph. Empty weeks included, oldest first.
+ */
+export function getListeningTime(weeks = 12): Promise<ListeningWeek[]> {
+  return api.getListeningTime(weeks);
+}
+
+/** Plays and listening time per hour of the day, server-local timezone. */
+export function getPlayClock(days = 30): Promise<ClockBucket[]> {
+  return api.getPlayClock(days);
 }
 
 export async function getCoverBlob(trackId: number, size?: number): Promise<Blob | null> {
@@ -80,9 +127,13 @@ export async function getMetadata(trackId: number): Promise<TrackMetadata | null
   }
 }
 
-/** Record a play, attributed to this device's name (Q19). */
-export async function recordPlay(trackId: number, deviceName?: string): Promise<void> {
-  await api.recordPlay(trackId, deviceName).catch(() => {
+/**
+ * Record a play, attributed to this device's name (Q19) and — when the caller
+ * knows it — the seconds actually listened (NER-325). Fire-and-forget on
+ * purpose; playback must never block or break on this.
+ */
+export async function recordPlay(trackId: number, deviceName?: string, durationSecs?: number): Promise<void> {
+  await api.recordPlay(trackId, deviceName, durationSecs).catch(() => {
     /* fire-and-forget */
   });
 }
