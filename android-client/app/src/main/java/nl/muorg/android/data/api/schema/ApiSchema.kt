@@ -169,6 +169,15 @@ data class CatalogTrack(
     val year: Long? = null
 )
 
+/** One hour-of-day bucket of the listening clock. */
+@Serializable
+data class ClockBucket(
+    /** Hour of the day, 0-23, in the server's local timezone. */
+    val hour: Long,
+    @SerialName("listening_secs") val listeningSecs: Long,
+    val plays: Long
+)
+
 @Serializable
 data class ConfigEntry(
     val key: String,
@@ -220,6 +229,35 @@ data class LibraryStats(
     @SerialName("artist_count") val artistCount: Long,
     @SerialName("total_duration_secs") val totalDurationSecs: Long,
     @SerialName("track_count") val trackCount: Long
+)
+
+/** Listening totals over a look-back window. */
+@Serializable
+data class ListeningSummary(
+    /** The look-back window the numbers were computed over, in days. */
+    val days: Long,
+    /** Total listening time in seconds (measured, or estimated per row). */
+    @SerialName("listening_secs") val listeningSecs: Long,
+    /** Plays recorded inside the window. */
+    val plays: Long,
+    /** Distinct albums played inside the window. */
+    @SerialName("unique_albums") val uniqueAlbums: Long,
+    /** Distinct artists played inside the window. */
+    @SerialName("unique_artists") val uniqueArtists: Long,
+    /** Distinct tracks played inside the window. */
+    @SerialName("unique_tracks") val uniqueTracks: Long
+)
+
+/** One bucket of the weekly listening graph. */
+@Serializable
+data class ListeningWeek(
+    @SerialName("listening_secs") val listeningSecs: Long,
+    val plays: Long,
+    /**
+     * Start of the week as a Unix timestamp. Weeks are 7-day buckets aligned
+     * to the Unix epoch (a Thursday), so bucket edges stay stable for charts.
+     */
+    @SerialName("week_start") val weekStart: Long
 )
 
 /** A single candidate match from MusicBrainz. */
@@ -322,7 +360,13 @@ data class RatingBody(
 @Serializable
 data class RecordPlayBody(
     /** Optional per-device name the play is attributed to in play history. */
-    @SerialName("device_name") val deviceName: String? = null
+    @SerialName("device_name") val deviceName: String? = null,
+    /**
+     * Optional seconds actually listened (NER-325). When omitted the row
+     * keeps no measured time and statistics estimate it from the track's
+     * catalog duration.
+     */
+    @SerialName("duration_secs") val durationSecs: Long? = null
 )
 
 @Serializable
@@ -421,6 +465,34 @@ data class TokenResponse(
      * WAV — false when `[transcoding] downgrade_wav_to_mp3 = true`.
      */
     val wav: Boolean
+)
+
+/** One album's play and listening totals over the window. */
+@Serializable
+data class TopAlbumStat(
+    val album: String,
+    @SerialName("album_artist") val albumArtist: String,
+    @SerialName("listening_secs") val listeningSecs: Long,
+    val plays: Long
+)
+
+/** One artist's play and listening totals over the window. */
+@Serializable
+data class TopArtistStat(
+    val artist: String,
+    @SerialName("listening_secs") val listeningSecs: Long,
+    val plays: Long
+)
+
+/** One track's play and listening totals over the window. */
+@Serializable
+data class TopTrackStat(
+    val album: String,
+    val artist: String,
+    @SerialName("listening_secs") val listeningSecs: Long,
+    val plays: Long,
+    val title: String,
+    @SerialName("track_id") val trackId: Long
 )
 
 @Serializable

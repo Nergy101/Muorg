@@ -427,6 +427,72 @@ interface MuorgApi {
     @GET("api/stats")
     suspend fun getStats(): Response<LibraryStats>
 
+    /**
+     * How listening is spread over the hours of the day, in the server's local
+     * timezone, inside the window. Only hours with plays are returned.
+     *
+     * `GET /api/stats/clock`
+     */
+    @GET("api/stats/clock")
+    suspend fun getPlayClock(
+        @Query("days") days: Long? = null,
+    ): Response<List<ClockBucket>>
+
+    /**
+     * Listening time per week, read from the daily rollup so pruning play
+     * history never eats the graph. Empty weeks included, oldest first.
+     *
+     * `GET /api/stats/listening-time`
+     */
+    @GET("api/stats/listening-time")
+    suspend fun getListeningTime(
+        @Query("weeks") weeks: Long? = null,
+    ): Response<List<ListeningWeek>>
+
+    /**
+     * Listening totals for the window: plays, seconds listened, and how many
+     * distinct tracks, artists and albums that covered.
+     *
+     * `GET /api/stats/summary`
+     */
+    @GET("api/stats/summary")
+    suspend fun getListeningSummary(
+        @Query("days") days: Long? = null,
+    ): Response<ListeningSummary>
+
+    /**
+     * Top albums inside the window, ranked by seconds listened (plays break ties).
+     *
+     * `GET /api/stats/top/albums`
+     */
+    @GET("api/stats/top/albums")
+    suspend fun getTopAlbumsTime(
+        @Query("days") days: Long? = null,
+        @Query("limit") limit: Long? = null,
+    ): Response<List<TopAlbumStat>>
+
+    /**
+     * Top artists inside the window, ranked by seconds listened (plays break ties).
+     *
+     * `GET /api/stats/top/artists`
+     */
+    @GET("api/stats/top/artists")
+    suspend fun getTopArtistsTime(
+        @Query("days") days: Long? = null,
+        @Query("limit") limit: Long? = null,
+    ): Response<List<TopArtistStat>>
+
+    /**
+     * Top tracks inside the window, ranked by seconds listened (plays break ties).
+     *
+     * `GET /api/stats/top/tracks`
+     */
+    @GET("api/stats/top/tracks")
+    suspend fun getTopTracksTime(
+        @Query("days") days: Long? = null,
+        @Query("limit") limit: Long? = null,
+    ): Response<List<TopTrackStat>>
+
     /** `GET /api/tracks` */
     @GET("api/tracks")
     suspend fun getTracks(
@@ -546,7 +612,7 @@ interface MuorgApi {
     /**
      * Record a play. Bumps `play_count`/`last_played_at` and appends to play
      * history. The optional body carries the device name the play is attributed
-     * to; requests with no body keep working.
+     * to and how long was actually listened; requests with no body keep working.
      *
      * `POST /api/tracks/{id}/play`
      */

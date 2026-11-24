@@ -119,7 +119,7 @@ describe("ListeningStats", () => {
     const view = render();
     await flush();
 
-    const buttons = view.root.querySelectorAll<HTMLButtonElement>("button");
+    const buttons = Array.from(view.root.querySelectorAll<HTMLButtonElement>("button"));
     const ninety = buttons.find((b) => b.textContent?.trim() === "90d");
     expect(ninety).toBeDefined();
     ninety!.click();
@@ -150,6 +150,7 @@ describe("ListeningStats", () => {
       b.textContent?.includes("Try again"),
     );
     expect(retry).toBeDefined();
+    resolveAll(); // the retry succeeds: the server is back
     retry!.click();
     await flush();
 

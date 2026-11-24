@@ -3594,7 +3594,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ClockBucket"
+                  "items": {
+                    "$ref": "#/components/schemas/ClockBucket"
+                  },
+                  "type": "array"
                 }
               }
             },
@@ -3645,7 +3648,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListeningWeek"
+                  "items": {
+                    "$ref": "#/components/schemas/ListeningWeek"
+                  },
+                  "type": "array"
                 }
               }
             },
@@ -3760,7 +3766,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TopAlbumStat"
+                  "items": {
+                    "$ref": "#/components/schemas/TopAlbumStat"
+                  },
+                  "type": "array"
                 }
               }
             },
@@ -3824,7 +3833,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TopArtistStat"
+                  "items": {
+                    "$ref": "#/components/schemas/TopArtistStat"
+                  },
+                  "type": "array"
                 }
               }
             },
@@ -3888,7 +3900,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TopTrackStat"
+                  "items": {
+                    "$ref": "#/components/schemas/TopTrackStat"
+                  },
+                  "type": "array"
                 }
               }
             },

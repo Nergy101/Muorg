@@ -763,9 +763,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Top albums inside the window, ranked by seconds listened (plays break ties).
-         */
+        /** Top albums inside the window, ranked by seconds listened (plays break ties). */
         get: operations["get_top_albums_time"];
         put?: never;
         post?: never;
@@ -782,9 +780,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Top artists inside the window, ranked by seconds listened (plays break ties).
-         */
+        /** Top artists inside the window, ranked by seconds listened (plays break ties). */
         get: operations["get_top_artists_time"];
         put?: never;
         post?: never;
@@ -801,9 +797,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Top tracks inside the window, ranked by seconds listened (plays break ties).
-         */
+        /** Top tracks inside the window, ranked by seconds listened (plays break ties). */
         get: operations["get_top_tracks_time"];
         put?: never;
         post?: never;
@@ -1307,12 +1301,15 @@ export interface components {
         };
         /** @description One hour-of-day bucket of the listening clock. */
         ClockBucket: {
-            /** @description Hour of the day, 0-23, in the server's local timezone. */
+            /**
+             * Format: int64
+             * @description Hour of the day, 0-23, in the server's local timezone.
+             */
             hour: number;
             /** Format: int64 */
-            plays: number;
-            /** Format: int64 */
             listening_secs: number;
+            /** Format: int64 */
+            plays: number;
         };
         ConfigEntry: {
             key: string;
@@ -1356,20 +1353,37 @@ export interface components {
             /** Format: int64 */
             track_count: number;
         };
-        /** @description A single candidate match from MusicBrainz. */
         /** @description Listening totals over a look-back window. */
         ListeningSummary: {
-            /** @description The look-back window the numbers were computed over, in days. */
+            /**
+             * Format: int64
+             * @description The look-back window the numbers were computed over, in days.
+             */
             days: number;
-            /** @description Total listening time in seconds (measured, or estimated per row). */
+            /**
+             * Format: int64
+             * @description Total listening time in seconds (measured, or estimated per row).
+             */
             listening_secs: number;
-            /** @description Plays recorded inside the window. */
+            /**
+             * Format: int64
+             * @description Plays recorded inside the window.
+             */
             plays: number;
-            /** @description Distinct albums played inside the window. */
+            /**
+             * Format: int64
+             * @description Distinct albums played inside the window.
+             */
             unique_albums: number;
-            /** @description Distinct artists played inside the window. */
+            /**
+             * Format: int64
+             * @description Distinct artists played inside the window.
+             */
             unique_artists: number;
-            /** @description Distinct tracks played inside the window. */
+            /**
+             * Format: int64
+             * @description Distinct tracks played inside the window.
+             */
             unique_tracks: number;
         };
         /** @description One bucket of the weekly listening graph. */
@@ -1379,11 +1393,13 @@ export interface components {
             /** Format: int64 */
             plays: number;
             /**
+             * Format: int64
              * @description Start of the week as a Unix timestamp. Weeks are 7-day buckets aligned
              *     to the Unix epoch (a Thursday), so bucket edges stay stable for charts.
              */
             week_start: number;
         };
+        /** @description A single candidate match from MusicBrainz. */
         MatchCandidate: {
             album?: string | null;
             album_artist?: string | null;
@@ -1469,11 +1485,11 @@ export interface components {
             /** @description Optional per-device name the play is attributed to in play history. */
             device_name?: string | null;
             /**
+             * Format: int64
              * @description Optional seconds actually listened (NER-325). When omitted the row
              *     keeps no measured time and statistics estimate it from the track's
              *     catalog duration.
              */
-            /** Format: int64 */
             duration_secs?: number | null;
         };
         RemoveFolderBody: {
@@ -3267,7 +3283,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListeningWeek"];
+                    "application/json": components["schemas"]["ListeningWeek"][];
                 };
             };
             /** @description Missing or invalid API key */

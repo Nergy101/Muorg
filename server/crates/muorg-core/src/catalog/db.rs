@@ -1745,19 +1745,21 @@ pub fn get_top_tracks_by_time(
             lis = LISTENED_SECS_SQL
         ))
         .map_err(|e| e.to_string())?;
-    stmt.query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
-        Ok(TopTrackStat {
-            track_id: r.get(0)?,
-            title: r.get(1)?,
-            artist: r.get(2)?,
-            album: r.get(3)?,
-            plays: r.get(4)?,
-            listening_secs: r.get(5)?,
+    let rows = stmt
+        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+            Ok(TopTrackStat {
+                track_id: r.get(0)?,
+                title: r.get(1)?,
+                artist: r.get(2)?,
+                album: r.get(3)?,
+                plays: r.get(4)?,
+                listening_secs: r.get(5)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
 }
 
 /// One artist's play and listening totals over the window.
@@ -1789,16 +1791,18 @@ pub fn get_top_artists_by_time(
             lis = LISTENED_SECS_SQL
         ))
         .map_err(|e| e.to_string())?;
-    stmt.query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
-        Ok(TopArtistStat {
-            artist: r.get(0)?,
-            plays: r.get(1)?,
-            listening_secs: r.get(2)?,
+    let rows = stmt
+        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+            Ok(TopArtistStat {
+                artist: r.get(0)?,
+                plays: r.get(1)?,
+                listening_secs: r.get(2)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
 }
 
 /// One album's play and listening totals over the window.
@@ -1832,17 +1836,19 @@ pub fn get_top_albums_by_time(
             lis = LISTENED_SECS_SQL
         ))
         .map_err(|e| e.to_string())?;
-    stmt.query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
-        Ok(TopAlbumStat {
-            album: r.get(0)?,
-            album_artist: r.get(1)?,
-            plays: r.get(2)?,
-            listening_secs: r.get(3)?,
+    let rows = stmt
+        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+            Ok(TopAlbumStat {
+                album: r.get(0)?,
+                album_artist: r.get(1)?,
+                plays: r.get(2)?,
+                listening_secs: r.get(3)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
 }
 
 /// One bucket of the weekly listening graph.
@@ -1934,16 +1940,18 @@ pub fn get_play_clock(conn: &rusqlite::Connection, days: i64) -> Result<Vec<Cloc
             lis = LISTENED_SECS_SQL
         ))
         .map_err(|e| e.to_string())?;
-    stmt.query_map([cutoff], |r| {
-        Ok(ClockBucket {
-            hour: r.get(0)?,
-            plays: r.get(1)?,
-            listening_secs: r.get(2)?,
+    let rows = stmt
+        .query_map([cutoff], |r| {
+            Ok(ClockBucket {
+                hour: r.get(0)?,
+                plays: r.get(1)?,
+                listening_secs: r.get(2)?,
+            })
         })
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
 }
 
 /// Last N distinct played tracks, most recent first.
