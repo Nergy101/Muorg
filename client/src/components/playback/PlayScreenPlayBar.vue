@@ -305,7 +305,7 @@ async function onFormatHover(e: MouseEvent) {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const t = singleTrack.value;
   if (!t) return;
-  let sizeBytes: number | null = null;
+  let sizeBytes: number | null;
   try {
     const { stat } = await import("@tauri-apps/plugin-fs");
     const meta = await stat(t.path);

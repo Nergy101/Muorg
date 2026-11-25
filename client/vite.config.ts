@@ -24,6 +24,8 @@ export default defineConfig({
       // ../src (the @shared tree) sits outside this app's node_modules, so the
       // shared API client needs openapi-fetch resolved explicitly.
       "openapi-fetch": resolve(__dirname, "node_modules/openapi-fetch"),
+      // Same for @lucide/vue, imported by ../src/lucideIcons.ts.
+      "@lucide/vue": resolve(__dirname, "node_modules/@lucide/vue"),
     },
   },
   build: {

@@ -144,12 +144,16 @@ const formatSegments = computed(() => donutSegments(formatRows.value, formatTota
       </div>
 
       <div class="mb-6 grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr))">
-        <div v-for="card in [
+        <div
+          v-for="card in [
             { label: 'Tracks', value: stats?.track_count ?? tracks.length },
             { label: 'Artists', value: stats?.artist_count ?? '—' },
             { label: 'Albums', value: stats?.album_count ?? '—' },
             { label: 'Total time', value: stats ? fmtDuration(stats.total_duration_secs) : '—' },
-          ]" :key="card.label" class="rounded-2xl bg-surface p-4">
+          ]"
+          :key="card.label"
+          class="rounded-2xl bg-surface p-4"
+        >
           <div class="text-2xl font-bold text-on-surface">{{ card.value }}</div>
           <div class="text-xs text-on-surface-variant">{{ card.label }}</div>
         </div>
