@@ -41,7 +41,7 @@ pub struct TracksQuery {
 #[utoipa::path(
     get,
     path = "/api/tracks",
-    tag = "Catalog",
+    tag = "Catalog / Tracks",
     params(TracksQuery),
     responses(
         (
@@ -75,7 +75,7 @@ pub async fn get_tracks(
 #[utoipa::path(
     get,
     path = "/api/tracks/count",
-    tag = "Catalog",
+    tag = "Catalog / Tracks",
     responses(
         (status = 200, description = "Total tracks in the catalog", body = CountResponse),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
@@ -101,7 +101,7 @@ pub struct HistoryQuery {
 #[utoipa::path(
     get,
     path = "/api/play-history/recent",
-    tag = "Catalog",
+    tag = "Catalog / Play History",
     params(HistoryQuery),
     responses(
         (status = 200, description = "Most recently played tracks, newest first", body = Vec<CatalogTrack>),
@@ -123,7 +123,7 @@ pub async fn get_recent_play_history(
 #[utoipa::path(
     get,
     path = "/api/play-history/top",
-    tag = "Catalog",
+    tag = "Catalog / Play History",
     params(HistoryQuery),
     responses(
         (status = 200, description = "Most played tracks within the window", body = Vec<CatalogTrack>),
@@ -146,7 +146,7 @@ pub async fn get_top_play_history(
 #[utoipa::path(
     get,
     path = "/api/tracks/recently-added",
-    tag = "Catalog",
+    tag = "Catalog / Tracks",
     params(HistoryQuery),
     responses(
         (status = 200, description = "Most recently scanned tracks, newest first", body = Vec<CatalogTrack>),
@@ -195,7 +195,7 @@ pub async fn search_tracks(
 #[utoipa::path(
     get,
     path = "/api/stats",
-    tag = "Catalog",
+    tag = "Catalog / Stats",
     responses(
         (status = 200, description = "Catalog totals", body = LibraryStats),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),

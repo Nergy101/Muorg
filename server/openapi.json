@@ -1525,7 +1525,7 @@
       "name": ""
     },
     "title": "Muorg Server API",
-    "version": "5.0.0"
+    "version": "5.0.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -2439,7 +2439,7 @@
           }
         ],
         "tags": [
-          "Catalog"
+          "Catalog / Play History"
         ]
       }
     },
@@ -2505,7 +2505,7 @@
           }
         ],
         "tags": [
-          "Catalog"
+          "Catalog / Play History"
         ]
       }
     },
@@ -3567,7 +3567,7 @@
           }
         ],
         "tags": [
-          "Catalog"
+          "Catalog / Stats"
         ]
       }
     },
@@ -3621,7 +3621,7 @@
         ],
         "summary": "How listening is spread over the hours of the day, in the server's local\ntimezone, inside the window. Only hours with plays are returned.",
         "tags": [
-          "Catalog"
+          "Catalog / Stats"
         ]
       }
     },
@@ -3675,7 +3675,7 @@
         ],
         "summary": "Listening time per week, read from the daily rollup so pruning play\nhistory never eats the graph. Empty weeks included, oldest first.",
         "tags": [
-          "Catalog"
+          "Catalog / Stats"
         ]
       }
     },
@@ -3726,7 +3726,7 @@
         ],
         "summary": "Listening totals for the window: plays, seconds listened, and how many\ndistinct tracks, artists and albums that covered.",
         "tags": [
-          "Catalog"
+          "Catalog / Stats"
         ]
       }
     },
@@ -3793,7 +3793,7 @@
         ],
         "summary": "Top albums inside the window, ranked by seconds listened (plays break ties).",
         "tags": [
-          "Catalog"
+          "Catalog / Stats"
         ]
       }
     },
@@ -3860,7 +3860,7 @@
         ],
         "summary": "Top artists inside the window, ranked by seconds listened (plays break ties).",
         "tags": [
-          "Catalog"
+          "Catalog / Stats"
         ]
       }
     },
@@ -3927,7 +3927,7 @@
         ],
         "summary": "Top tracks inside the window, ranked by seconds listened (plays break ties).",
         "tags": [
-          "Catalog"
+          "Catalog / Stats"
         ]
       }
     },
@@ -4002,7 +4002,7 @@
           }
         ],
         "tags": [
-          "Catalog"
+          "Catalog / Tracks"
         ]
       }
     },
@@ -4038,7 +4038,7 @@
         ],
         "summary": "Total track count without loading rows.",
         "tags": [
-          "Catalog"
+          "Catalog / Tracks"
         ]
       }
     },
@@ -4163,7 +4163,7 @@
           }
         ],
         "tags": [
-          "Catalog"
+          "Catalog / Tracks"
         ]
       }
     },
@@ -5161,8 +5161,20 @@
   ],
   "tags": [
     {
-      "description": "Tracks, roots, search, stats and play history",
+      "description": "Library roots and search",
       "name": "Catalog"
+    },
+    {
+      "description": "Track listing, counts and recently added",
+      "name": "Catalog / Tracks"
+    },
+    {
+      "description": "Recently played and top-played tracks",
+      "name": "Catalog / Play History"
+    },
+    {
+      "description": "Catalog statistics and listening-time analytics",
+      "name": "Catalog / Stats"
     },
     {
       "description": "Per-track resources: art, lyrics, tags, ratings, backups",

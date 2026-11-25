@@ -51,7 +51,10 @@ the first page, not the catalog. Follow `X-Total-Count`.",
     servers((url = "/")),
     modifiers(&SecurityAddon),
     tags(
-        (name = "Catalog", description = "Tracks, roots, search, stats and play history"),
+        (name = "Catalog", description = "Library roots and search"),
+        (name = "Catalog / Tracks", description = "Track listing, counts and recently added"),
+        (name = "Catalog / Play History", description = "Recently played and top-played tracks"),
+        (name = "Catalog / Stats", description = "Catalog statistics and listening-time analytics"),
         (name = "Tracks", description = "Per-track resources: art, lyrics, tags, ratings, backups"),
         (name = "Playlists", description = "Regular and rule-driven smart playlists"),
         (name = "Stream", description = "Token issuing and audio delivery"),
@@ -166,10 +169,14 @@ pub async fn scalar() -> axum::response::Html<&'static str> {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Muorg Server API</title>
-    <script id="api-reference" data-url="/api/openapi.json" type="application/json"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
   </head>
-  <body></body>
+  <body>
+    <!-- The standalone bundle mounts the UI into a <div> it inserts before this
+         script tag, so both scripts must live in <body> — in <head> the mount
+         point is never rendered and the page stays blank. -->
+    <script id="api-reference" data-url="/api/openapi.json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
 </html>
 "#,
     )

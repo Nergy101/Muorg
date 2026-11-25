@@ -40,7 +40,7 @@ pub struct WeeksQuery {
 #[utoipa::path(
     get,
     path = "/api/stats/summary",
-    tag = "Catalog",
+    tag = "Catalog / Stats",
     params(WindowQuery),
     responses(
         (status = 200, description = "Listening totals inside the window", body = ListeningSummary),
@@ -63,7 +63,7 @@ pub async fn get_listening_summary(
 #[utoipa::path(
     get,
     path = "/api/stats/top/tracks",
-    tag = "Catalog",
+    tag = "Catalog / Stats",
     params(TopQuery),
     responses(
         (status = 200, description = "Tracks with the most listening time inside the window", body = Vec<TopTrackStat>),
@@ -87,7 +87,7 @@ pub async fn get_top_tracks_time(
 #[utoipa::path(
     get,
     path = "/api/stats/top/artists",
-    tag = "Catalog",
+    tag = "Catalog / Stats",
     params(TopQuery),
     responses(
         (status = 200, description = "Artists with the most listening time inside the window", body = Vec<TopArtistStat>),
@@ -111,7 +111,7 @@ pub async fn get_top_artists_time(
 #[utoipa::path(
     get,
     path = "/api/stats/top/albums",
-    tag = "Catalog",
+    tag = "Catalog / Stats",
     params(TopQuery),
     responses(
         (status = 200, description = "Albums with the most listening time inside the window", body = Vec<TopAlbumStat>),
@@ -136,7 +136,7 @@ pub async fn get_top_albums_time(
 #[utoipa::path(
     get,
     path = "/api/stats/listening-time",
-    tag = "Catalog",
+    tag = "Catalog / Stats",
     params(WeeksQuery),
     responses(
         (status = 200, description = "Weekly listening buckets, oldest week first", body = Vec<ListeningWeek>),
@@ -160,7 +160,7 @@ pub async fn get_listening_time(
 #[utoipa::path(
     get,
     path = "/api/stats/clock",
-    tag = "Catalog",
+    tag = "Catalog / Stats",
     params(WindowQuery),
     responses(
         (status = 200, description = "Plays and listening time per hour of day", body = Vec<ClockBucket>),
