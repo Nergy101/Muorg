@@ -22,9 +22,10 @@ module.exports = {
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
           editUrl: "https://github.com/Nergy101/Muorg/edit/main/docs-site/",
-          // Unversioned on purpose: every component ships in lockstep and
-          // patch releases land weekly, so a frozen snapshot rots faster than
-          // it helps. These docs always describe the latest release.
+          // Unversioned on purpose: all components ship from one repo on a
+          // shared version line and patch releases land weekly, so a frozen
+          // snapshot rots faster than it helps. These docs always describe
+          // the latest release.
           // See docs/development/index.md → "Docs site".
         },
         blog: false,
@@ -67,7 +68,7 @@ module.exports = {
         { to: "/docs/web-client/", position: "left", label: "Web" },
         { to: "/docs/android/", position: "left", label: "Android" },
         { to: "/docs/server/", position: "left", label: "Server" },
-        { to: "/docs/desktop/", position: "left", label: "Desktop (Legacy)" },
+        { to: "/docs/desktop/", position: "left", label: "Desktop" },
         { to: "/docs/releases", position: "left", label: "Releases" },
         {
           href: "https://github.com/Nergy101/Muorg",
@@ -90,7 +91,7 @@ module.exports = {
         {
           title: "Components",
           items: [
-            { label: "Desktop App (Legacy)", to: "/docs/desktop/" },
+            { label: "Desktop App", to: "/docs/desktop/" },
             { label: "Web App", to: "/docs/web-client/" },
             { label: "Android App", to: "/docs/android/" },
             { label: "Server", to: "/docs/server/" },

@@ -36,7 +36,7 @@ function onKeydown(e: KeyboardEvent) {
     <div
       v-if="props.open"
       ref="keyMapModalRef"
-      class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+      class="fixed inset-0 z-[300] flex items-center justify-center bg-background/70 p-4 outline-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="keymap-modal-title"
@@ -44,12 +44,12 @@ function onKeydown(e: KeyboardEvent) {
       @keydown="onKeydown"
       @click.self="close"
     >
-      <div class="w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl" @click.stop>
-        <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
-          <h2 id="keymap-modal-title" class="text-sm font-semibold text-stone-200">Key map</h2>
+      <div class="w-full max-w-md glass-strong rounded-2xl shadow-xl" @click.stop>
+        <div class="flex items-center justify-between border-b border-outline px-4 py-3">
+          <h2 id="keymap-modal-title" class="text-sm font-semibold text-on-surface">Key map</h2>
           <button
             type="button"
-            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            class="rounded p-1.5 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             aria-label="Close"
             @click="close"
           >
@@ -59,8 +59,8 @@ function onKeydown(e: KeyboardEvent) {
         <div class="max-h-[70vh] overflow-y-auto p-4">
           <dl class="space-y-3">
             <div v-for="entry in KEY_MAP_ENTRIES" :key="entry.keys" class="flex gap-3 text-sm">
-              <dt class="w-36 shrink-0 font-mono text-stone-400">{{ entry.keys }}</dt>
-              <dd class="min-w-0 text-stone-300">{{ entry.description }}</dd>
+              <dt class="w-36 shrink-0 font-mono text-on-surface-variant">{{ entry.keys }}</dt>
+              <dd class="min-w-0 text-on-surface">{{ entry.description }}</dd>
             </div>
           </dl>
         </div>

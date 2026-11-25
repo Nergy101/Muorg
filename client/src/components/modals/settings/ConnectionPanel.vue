@@ -75,17 +75,17 @@ async function refreshFromServer() {
 
 <template>
           <div class="w-full space-y-4">
-            <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-              <FeatherIcon name="wifi" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+            <p class="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
+              <FeatherIcon name="wifi" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
               Server Connection
             </p>
 
             <!-- Local / Online segmented control -->
-            <div class="flex rounded-lg border border-stone-600 bg-stone-900/60 p-0.5 text-xs font-medium">
+            <div class="flex rounded-lg border border-outline bg-surface/60 p-0.5 text-xs font-medium">
               <button
                 type="button"
                 class="flex-1 rounded-md px-4 py-1.5 transition-colors"
-                :class="connMode === 'local' ? 'bg-stone-600 text-stone-100 shadow-sm' : 'text-stone-400 hover:text-stone-200'"
+                :class="connMode === 'local' ? 'bg-surface-variant text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'"
                 @click="switchMode('local')"
               >
                 Local
@@ -93,7 +93,7 @@ async function refreshFromServer() {
               <button
                 type="button"
                 class="flex-1 rounded-md px-4 py-1.5 transition-colors"
-                :class="connMode === 'online' ? 'bg-stone-600 text-stone-100 shadow-sm' : 'text-stone-400 hover:text-stone-200'"
+                :class="connMode === 'online' ? 'bg-surface-variant text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'"
                 @click="switchMode('online')"
               >
                 Online
@@ -101,48 +101,48 @@ async function refreshFromServer() {
             </div>
 
             <!-- Local: no config needed -->
-            <p v-if="connMode === 'local'" class="text-[11px] text-stone-500 leading-relaxed">
+            <p v-if="connMode === 'local'" class="text-[11px] text-on-surface-variant leading-relaxed">
               Connects to MuorgServer running on this machine. No configuration needed.
             </p>
 
             <!-- Online fields -->
             <div v-else class="settings-section space-y-3">
               <div>
-                <label class="mb-1 block text-xs font-medium text-stone-400">Server URL</label>
+                <label class="mb-1 block text-xs font-medium text-on-surface-variant">Server URL</label>
                 <input
                   v-model="connOnlineUrl"
                   type="url"
                   placeholder="https://muorg.example.com"
-                  class="w-full rounded border border-stone-600 bg-stone-900 px-3 py-1.5 text-xs text-stone-200 placeholder-stone-600 focus:border-stone-400 focus:outline-none"
+                  class="w-full rounded border border-outline bg-surface px-3 py-1.5 text-xs text-on-surface placeholder-on-surface-variant focus:border-outline focus:outline-none"
                   @input="connStatus = 'idle'"
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium text-stone-400">API Key</label>
+                <label class="mb-1 block text-xs font-medium text-on-surface-variant">API Key</label>
                 <div class="flex items-center gap-2">
                   <input
                     v-model="connOnlineApiKey"
                     :type="connOnlineApiKeyVisible ? 'text' : 'password'"
                     placeholder="Enter API key"
-                    class="flex-1 rounded border border-stone-600 bg-stone-900 px-3 py-1.5 text-xs text-stone-200 placeholder-stone-600 focus:border-stone-400 focus:outline-none"
+                    class="flex-1 rounded border border-outline bg-surface px-3 py-1.5 text-xs text-on-surface placeholder-on-surface-variant focus:border-outline focus:outline-none"
                     @input="connStatus = 'idle'"
                   />
                   <button
                     type="button"
-                    class="rounded border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-400 hover:bg-stone-700"
+                    class="rounded border border-outline bg-surface-container px-2 py-1.5 text-on-surface-variant hover:bg-surface-variant"
                     @click="connOnlineApiKeyVisible = !connOnlineApiKeyVisible"
                   >
                     <FeatherIcon :name="connOnlineApiKeyVisible ? 'eye-off' : 'eye'" class="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <p class="mt-1 text-[11px] text-stone-500">Folders list will be read-only in online mode</p>
+                <p class="mt-1 text-[11px] text-on-surface-variant">Folders list will be read-only in online mode</p>
               </div>
             </div>
 
             <!-- Q19: device name, reported with every play recorded to the server -->
             <div class="settings-section space-y-3">
               <div>
-                <label class="mb-1 block text-xs font-medium text-stone-400">Device name</label>
+                <label class="mb-1 block text-xs font-medium text-on-surface-variant">Device name</label>
                 <input
                   :value="settingsStore.deviceName"
                   type="text"
@@ -150,10 +150,10 @@ async function refreshFromServer() {
                   spellcheck="false"
                   aria-label="Device name"
                   placeholder="Muorg on macOS"
-                  class="w-full rounded border border-stone-600 bg-stone-900 px-3 py-1.5 text-xs text-stone-200 placeholder-stone-600 focus:border-stone-400 focus:outline-none"
+                  class="w-full rounded border border-outline bg-surface px-3 py-1.5 text-xs text-on-surface placeholder-on-surface-variant focus:border-outline focus:outline-none"
                   @change="settingsStore.setDeviceName(($event.target as HTMLInputElement).value)"
                 />
-                <p class="mt-1 text-[11px] text-stone-500">Shown in play history on the server</p>
+                <p class="mt-1 text-[11px] text-on-surface-variant">Shown in play history on the server</p>
               </div>
             </div>
 
@@ -197,7 +197,7 @@ async function refreshFromServer() {
             </div>
 
             <!-- Q25: settings live in a per-device file and are not synced. -->
-            <p class="text-[11px] text-stone-500 leading-relaxed">
+            <p class="text-[11px] text-on-surface-variant leading-relaxed">
               Settings are kept per device and do not sync through the server.
             </p>
           </div>

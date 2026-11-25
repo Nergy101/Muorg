@@ -23,12 +23,12 @@ import LibraryKeyMapModal from "../modals/LibraryKeyMapModal.vue";
 import LibraryReportsModal from "../modals/LibraryReportsModal.vue";
 
 const props = defineProps<{
-  activeTab: "library" | "metadata" | "player" | "queue";
+  activeTab: "library" | "search" | "metadata" | "player" | "queue";
   sidebarCollapsed: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
+  (e: "update:activeTab", value: "library" | "search" | "metadata" | "player" | "queue"): void;
   (e: "expandSidebar"): void;
   (e: "expandPlayer"): void;
 }>();

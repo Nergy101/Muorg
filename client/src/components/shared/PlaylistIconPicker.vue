@@ -50,13 +50,13 @@ function selectColor(color: string): void {
 <template>
   <div
     v-show="open"
-    class="w-72 rounded-lg border border-stone-600 bg-stone-800 p-2 shadow-xl shadow-black/50"
+    class="w-72 glass-strong rounded-2xl p-2 shadow-xl shadow-black/50"
   >
     <input
       v-model="query"
       type="text"
       placeholder="Search icons…"
-      class="w-full rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none placeholder:text-stone-500 focus:border-stone-400"
+      class="w-full rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none placeholder-on-surface-variant focus:border-outline"
     />
 
     <div class="mt-2 grid max-h-48 grid-cols-8 gap-0.5 overflow-y-auto pr-1">
@@ -65,7 +65,7 @@ function selectColor(color: string): void {
         :key="name"
         type="button"
         class="flex h-7 w-7 items-center justify-center rounded"
-        :class="name === current.name ? 'bg-stone-600 ring-1 ring-stone-400' : 'hover:bg-stone-700'"
+        :class="name === current.name ? 'bg-surface-variant ring-1 ring-outline' : 'hover:bg-surface-variant'"
         :title="name"
         @click="selectIcon(name)"
       >
@@ -79,19 +79,19 @@ function selectColor(color: string): void {
       </button>
       <div
         v-if="!filtered.length"
-        class="col-span-8 py-3 text-center text-xs text-stone-500"
+        class="col-span-8 py-3 text-center text-xs text-on-surface-variant"
       >
         No icons match “{{ query }}”.
       </div>
     </div>
 
-    <div class="mt-2 flex flex-wrap items-center gap-1.5 border-t border-stone-700 pt-2">
+    <div class="mt-2 flex flex-wrap items-center gap-1.5 border-t border-outline pt-2">
       <button
         v-for="color in PLAYLIST_ICON_COLORS"
         :key="color"
         type="button"
         class="h-5 w-5 rounded-full border border-black/40"
-        :class="color.toLowerCase() === current.color.toLowerCase() ? 'ring-2 ring-stone-300' : ''"
+        :class="color.toLowerCase() === current.color.toLowerCase() ? 'ring-2 ring-outline' : ''"
         :style="{ backgroundColor: color }"
         :title="color"
         @click="selectColor(color)"

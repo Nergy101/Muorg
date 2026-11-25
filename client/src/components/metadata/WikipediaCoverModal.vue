@@ -19,29 +19,29 @@ const emit = defineEmits<{ (e: "close"): void; (e: "apply"): void }>();
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 p-4"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Image from Wikipedia"
       @click.self="emit('close')"
     >
       <div
-        class="flex max-h-[90vh] max-w-lg flex-col gap-4 rounded-lg border border-stone-600 bg-stone-800 p-4 shadow-xl"
+        class="flex max-h-[90vh] max-w-lg flex-col gap-4 glass-strong rounded-2xl p-4 shadow-xl"
         @click.stop
       >
-        <p v-if="imageUrl" class="text-sm font-medium text-stone-300">Use this image?</p>
-        <p v-if="loading" class="text-xs text-stone-500">Searching Wikipedia…</p>
+        <p v-if="imageUrl" class="text-sm font-medium text-on-surface">Use this image?</p>
+        <p v-if="loading" class="text-xs text-on-surface-variant">Searching Wikipedia…</p>
         <p v-else-if="error" class="text-xs text-amber-400">{{ error }}</p>
         <template v-else-if="imageUrl">
           <img
             :src="imageUrl"
             alt="Wikipedia result"
-            class="max-h-[60vh] w-full rounded object-contain border border-stone-600"
+            class="max-h-[60vh] w-full rounded object-contain border border-outline"
           />
           <div class="flex justify-end gap-2">
             <button
               type="button"
-              class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              class="rounded border border-outline px-3 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               @click="emit('close')"
             >
               Cancel
@@ -58,11 +58,11 @@ const emit = defineEmits<{ (e: "close"): void; (e: "apply"): void }>();
           </div>
         </template>
         <template v-else>
-          <p class="text-sm text-stone-400">No image was found on Wikipedia.</p>
+          <p class="text-sm text-on-surface-variant">No image was found on Wikipedia.</p>
           <div class="flex justify-end">
             <button
               type="button"
-              class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              class="rounded border border-outline px-3 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               @click="emit('close')"
             >
               Close

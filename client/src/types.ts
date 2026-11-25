@@ -38,3 +38,12 @@ export interface UndoEntry {
   kind: "metadata" | "rating";
   snapshots: UndoSnapshot[];
 }
+
+/**
+ * One search-history entry, mirroring the web/Android clients: a completed
+ * query, or an artist/album picked from the results.
+ */
+export type SearchHistoryEntry =
+  | { type: "query"; value: string }
+  | { type: "artist"; value: string }
+  | { type: "album"; value: string };

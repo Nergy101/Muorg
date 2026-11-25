@@ -78,21 +78,21 @@ async function refresh() {
 <template>
   <div
     :style="style"
-    class="w-52 rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+    class="w-52 glass-strong rounded-2xl py-1 shadow-xl"
   >
     <!-- Active cast: show connected device + disconnect -->
     <template v-if="isActive">
-      <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+      <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
         Now casting
       </div>
-      <div class="flex items-center gap-2 px-3 py-2 text-sm text-stone-300">
+      <div class="flex items-center gap-2 px-3 py-2 text-sm text-on-surface">
         <FeatherIcon name="cast" class="h-3.5 w-3.5 shrink-0 text-green-400" />
         <span class="truncate">{{ connectedDeviceName ?? "Device" }}</span>
       </div>
-      <div class="mt-1 border-t border-stone-700 pt-1">
+      <div class="mt-1 border-t border-outline pt-1">
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-400 hover:bg-surface-variant hover:text-red-300"
           @click="disconnect"
         >
           <FeatherIcon name="x-circle" class="h-3.5 w-3.5 shrink-0" />
@@ -104,10 +104,10 @@ async function refresh() {
     <!-- Idle: show device list -->
     <template v-else>
       <div class="flex items-center justify-between px-3 py-1.5">
-        <span class="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Cast to device</span>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Cast to device</span>
         <button
           type="button"
-          class="flex items-center justify-center rounded p-0.5 text-stone-500 hover:bg-stone-700 hover:text-stone-300"
+          class="flex items-center justify-center rounded p-0.5 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
           title="Refresh devices"
           @click="refresh"
         >
@@ -115,7 +115,7 @@ async function refresh() {
         </button>
       </div>
 
-      <div v-if="discoveredDevices.length === 0" class="px-3 py-2 text-xs text-stone-500">
+      <div v-if="discoveredDevices.length === 0" class="px-3 py-2 text-xs text-on-surface-variant">
         Searching for devices…
       </div>
 
@@ -123,17 +123,17 @@ async function refresh() {
         v-for="device in discoveredDevices"
         :key="device.id"
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant"
         @click="selectDevice(device)"
       >
-        <FeatherIcon name="cast" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+        <FeatherIcon name="cast" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
         <span class="truncate">{{ device.name }}</span>
       </button>
 
-      <div class="mt-1 border-t border-stone-700 pt-1">
+      <div class="mt-1 border-t border-outline pt-1">
         <button
           type="button"
-          class="w-full px-3 py-1.5 text-left text-xs text-stone-500 hover:text-stone-300"
+          class="w-full px-3 py-1.5 text-left text-xs text-on-surface-variant hover:text-on-surface"
           @click="emit('close')"
         >
           Dismiss

@@ -75,12 +75,12 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <div class="relative">
-    <label class="block text-stone-500">Genre</label>
+    <label class="block text-on-surface-variant">Genre</label>
     <div class="relative mt-0.5">
       <input
         :value="modelValue"
         type="text"
-        class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+        class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
         :class="modelValue ? 'pr-6' : ''"
         @input="onInput"
         @focus="open = true"
@@ -91,7 +91,7 @@ function onKeydown(e: KeyboardEvent) {
         v-if="modelValue"
         type="button"
         tabindex="-1"
-        class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300"
+        class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface"
         title="Clear genre"
         @click="emit('clear')"
       >
@@ -100,15 +100,15 @@ function onKeydown(e: KeyboardEvent) {
     </div>
     <div
       v-if="open && filtered.length"
-      class="absolute left-0 top-full z-50 mt-0.5 min-w-[240px] rounded border border-stone-600 bg-stone-900 shadow-lg"
+      class="absolute left-0 top-full z-50 mt-0.5 min-w-[240px] rounded border border-outline bg-surface shadow-lg"
     >
       <div ref="scrollRef" class="max-h-48">
         <button
           v-for="(g, i) in filtered"
           :key="g"
           type="button"
-          class="flex w-full items-center pl-3 pr-8 py-1 text-left text-sm text-stone-200 hover:bg-stone-700"
-          :class="{ 'bg-stone-700': i === activeIndex }"
+          class="flex w-full items-center pl-3 pr-8 py-1 text-left text-sm text-on-surface hover:bg-surface-variant"
+          :class="{ 'bg-surface-variant': i === activeIndex }"
           @mousedown.prevent="select(g)"
         >{{ g }}</button>
       </div>

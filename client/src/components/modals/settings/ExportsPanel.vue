@@ -23,22 +23,22 @@ const musicRootFolderPlaceholder = computed(() =>
 <template>
             <div class="space-y-3">
               <p
-                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+                class="flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
               >
                 <FeatherIcon
                   name="download"
-                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                 />
                 Exports
               </p>
 
               <div class="settings-section">
                 <p
-                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                 >
                   <FeatherIcon
                     name="folder"
-                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                   />
                   Music Root Folder
                 </p>
@@ -46,16 +46,16 @@ const musicRootFolderPlaceholder = computed(() =>
                   :value="musicRootFolder"
                   type="text"
                   :placeholder="musicRootFolderPlaceholder"
-                  class="mt-1 w-full rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-xs text-stone-200 placeholder:text-stone-500 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+                  class="mt-1 w-full rounded border border-outline bg-surface-container px-2.5 py-1.5 text-xs text-on-surface placeholder-on-surface-variant focus:border-outline focus:outline-none focus:ring-1 focus:ring-outline"
                   @input="
                     settingsStore.setMusicRootFolder(
                       ($event.target as HTMLInputElement).value,
                     )
                   "
                 />
-                <p class="mt-1.5 text-xs text-stone-500">
+                <p class="mt-1.5 text-xs text-on-surface-variant">
                   Enter just the folder name (e.g.
-                  <code class="rounded bg-stone-700 px-1 font-mono text-[11px]"
+                  <code class="rounded bg-surface-variant px-1 font-mono text-[11px]"
                     >Music</code
                   >), not a full path. This should be the root folder that is
                   scanned into your library. It is used to generate relative
@@ -64,24 +64,24 @@ const musicRootFolderPlaceholder = computed(() =>
               </div>
               <div class="settings-section">
                 <p
-                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                 >
                   <FeatherIcon
                     name="shield"
-                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                   />
                   Metadata Backup
                 </p>
-                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant">
                   <input
                     type="checkbox"
                     :checked="backupBeforeWrite"
-                    class="rounded border-stone-600"
+                    class="rounded border-outline"
                     @change="settingsStore.setBackupBeforeWrite(($event.target as HTMLInputElement).checked)"
                   />
                   Backup file before metadata writes
                 </label>
-                <p class="mt-1.5 text-xs text-stone-500">
+                <p class="mt-1.5 text-xs text-on-surface-variant">
                   When enabled, Muorg creates a backup copy before writing tags.
                   This gives you a safety net and enables quick restore from the
                   Metadata panel if an edit goes wrong.

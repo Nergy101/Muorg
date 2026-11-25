@@ -2,8 +2,12 @@ import { defineStore } from "pinia";
 import { readTextFile, writeTextFile, BaseDirectory } from "@tauri-apps/plugin-fs";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { getBackendMode, setBackendMode as writeBackendMode } from "../api/client";
+import type { SearchHistoryEntry } from "../types";
 
 export type ThemeId = "dark" | "light" | "doom" | "orkish" | "auto";
+
+/** Accent presets plus "dynamic" (recolor to the playing album's art). */
+export type AccentColor = "dynamic" | "green" | "blue" | "purple" | "orange" | "red" | "teal";
 
 export type DefaultGroupBy = "none" | "artist" | "album";
 
@@ -12,11 +16,15 @@ export type TableDensity = "comfortable" | "compact" | "spacious";
 export type BottomPanelId = "library" | "metadata" | "player" | "queue";
 export type SidebarDefaultTab = "folders" | "reports" | "playlists";
 
-export type PlayerGlowIntensity = "off" | "subdued" | "default" | "vibrant";
-export type PlayerGlowMode = "dynamic" | "vivid" | "edge-blur" | "bland";
 export type ReplayGainMode = "off" | "track" | "album";
 export type LibraryLayoutMode = "table" | "album_grid";
 export type AlbumGridSortBy = "album" | "artist" | "year";
+
+/** Card caption style: glass overlay text ON the cover, or text below in an enclosing card. */
+export type CardStyle = "overlay" | "below";
+
+/** Album art corner style: rounded (default) or square. */
+export type ArtCorners = "rounded" | "square";
 
 export type SortableColumn = "title" | "artist" | "album" | "year" | "duration" | "rating";
 
@@ -39,14 +47,15 @@ export const DEFAULT_PATH_FORMAT_EXAMPLE_PATH =
   "/library/music/Linkin Park/Meteora/04 - Faint.flac";
 
 const ALLOWED_THEMES: ThemeId[] = ["dark", "light", "doom", "orkish", "auto"];
+const ALLOWED_ACCENTS: AccentColor[] = ["dynamic", "green", "blue", "purple", "orange", "red", "teal"];
 const ALLOWED_GROUP_BY: DefaultGroupBy[] = ["none", "artist", "album"];
 const ALLOWED_DENSITY: TableDensity[] = ["comfortable", "compact", "spacious"];
 const ALLOWED_BOTTOM_PANELS: BottomPanelId[] = ["library", "metadata", "player", "queue"];
-const ALLOWED_PLAYER_GLOW: PlayerGlowIntensity[] = ["off", "subdued", "default", "vibrant"];
-const ALLOWED_PLAYER_GLOW_MODE: PlayerGlowMode[] = ["dynamic", "vivid", "edge-blur", "bland"];
 const ALLOWED_REPLAYGAIN_MODE: ReplayGainMode[] = ["off", "track", "album"];
 const ALLOWED_LIBRARY_LAYOUT_MODES: LibraryLayoutMode[] = ["table", "album_grid"];
 const ALLOWED_ALBUM_GRID_SORT_BY: AlbumGridSortBy[] = ["album", "artist", "year"];
+const ALLOWED_CARD_STYLES: CardStyle[] = ["overlay", "below"];
+const ALLOWED_ART_CORNERS: ArtCorners[] = ["rounded", "square"];
 const ALLOWED_SORT_COLUMNS: SortableColumn[] = ["title", "artist", "album", "year", "duration", "rating"];
 const ALLOWED_MISSING_FIELDS: MissingMetadataField[] = [
   "title",
@@ -76,9 +85,55 @@ function applyThemeToDocument(theme: ThemeId) {
 /** Weakly-typed record from settings file (unknown keys ignored). */
 type SettingsRecord = Record<string, unknown>;
 
+// ── Search history (mirrors the web/Android clients) ────────────────────────
+const MAX_SEARCH_HISTORY = 10;
+const MAX_RECENT_SEARCH_RESULTS = 20;
+const SEARCH_HISTORY_KEY = "muorg-desktop-search-history";
+const RECENT_SEARCH_RESULTS_KEY = "muorg-desktop-recent-search-results";
+
+function loadSearchHistory(): SearchHistoryEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SEARCH_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const entries: SearchHistoryEntry[] = [];
+    for (const item of parsed) {
+      if (typeof item === "string") {
+        entries.push({ type: "query", value: item });
+      } else if (item != null && typeof item === "object" && typeof (item as { value?: unknown }).value === "string") {
+        const rawType = (item as { type?: unknown }).type;
+        const type = rawType === "artist" || rawType === "album" ? rawType : "query";
+        entries.push({ type, value: (item as { value: string }).value });
+      }
+    }
+    return entries.slice(0, MAX_SEARCH_HISTORY);
+  } catch {
+    return [];
+  }
+}
+
+function loadRecentSearchResultIds(): number[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_SEARCH_RESULTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is number => typeof x === "number" && Number.isFinite(x)).slice(-MAX_RECENT_SEARCH_RESULTS);
+  } catch {
+    return [];
+  }
+}
+
 function coerceTheme(v: unknown): ThemeId {
   if (typeof v === "string" && ALLOWED_THEMES.includes(v as ThemeId)) return v as ThemeId;
   return "auto";
+}
+function coerceAccent(v: unknown): AccentColor {
+  if (typeof v === "string" && ALLOWED_ACCENTS.includes(v as AccentColor)) return v as AccentColor;
+  return "dynamic";
 }
 function coerceGroupBy(v: unknown): DefaultGroupBy {
   if (typeof v === "string" && ALLOWED_GROUP_BY.includes(v as DefaultGroupBy)) return v as DefaultGroupBy;
@@ -116,10 +171,6 @@ function coerceBottomPanel(v: unknown): BottomPanelId {
   }
   return "library";
 }
-function coerceGlowMode(v: unknown): PlayerGlowMode {
-  if (typeof v === "string" && ALLOWED_PLAYER_GLOW_MODE.includes(v as PlayerGlowMode)) return v as PlayerGlowMode;
-  return "dynamic";
-}
 function coerceSortColumn(v: unknown): SortableColumn | null {
   if (typeof v === "string" && ALLOWED_SORT_COLUMNS.includes(v as SortableColumn)) return v as SortableColumn;
   return null;
@@ -135,12 +186,6 @@ function coercePositionSecs(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
   if (!Number.isFinite(n) || n < 0) return 0;
   return n;
-}
-function coercePlayerGlow(v: unknown): PlayerGlowIntensity {
-  if (typeof v === "string" && ALLOWED_PLAYER_GLOW.includes(v as PlayerGlowIntensity)) {
-    return v as PlayerGlowIntensity;
-  }
-  return "default";
 }
 function coerceReplayGainMode(v: unknown): ReplayGainMode {
   if (typeof v === "string" && ALLOWED_REPLAYGAIN_MODE.includes(v as ReplayGainMode)) {
@@ -158,7 +203,18 @@ function coerceAlbumGridSortBy(v: unknown): AlbumGridSortBy {
   if (typeof v === "string" && ALLOWED_ALBUM_GRID_SORT_BY.includes(v as AlbumGridSortBy)) {
     return v as AlbumGridSortBy;
   }
-  return "album";
+  return "year";
+}
+function coerceCardStyle(v: unknown): CardStyle {
+  if (typeof v === "string" && ALLOWED_CARD_STYLES.includes(v as CardStyle)) return v as CardStyle;
+  return "overlay";
+}
+function coerceArtCorners(v: unknown): ArtCorners {
+  if (typeof v === "string" && ALLOWED_ART_CORNERS.includes(v as ArtCorners)) return v as ArtCorners;
+  return "rounded";
+}
+function applyArtCorners(v: ArtCorners) {
+  if (typeof document !== "undefined") document.documentElement.dataset.artCorners = v;
 }
 function coercePreampDb(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
@@ -238,12 +294,12 @@ function defaultDeviceName(): string {
 export const useSettingsStore = defineStore("settings", {
   state: () => ({
     theme: "auto" as ThemeId,
+    accentColor: "dynamic" as AccentColor,
     defaultGroupBy: "album" as DefaultGroupBy,
     defaultGroupsExpanded: false,
     autoplayOnSelect: false,
     continuousPlayback: false,
     playbarShowAlbumInMarquee: false,
-    playbarDisableMarquee: false,
     playbarShowRatingInMaximized: true,
     shuffle: false,
     repeat: "none" as "none" | "one" | "all",
@@ -279,9 +335,7 @@ export const useSettingsStore = defineStore("settings", {
     backendMode: getBackendMode() as "local" | "online",
     localServerReady: false,
     /** Maximized player: glow shadows from album art. "off" = disabled; subdued/default/vibrant = intensity. */
-    playerGlowIntensity: "default" as PlayerGlowIntensity,
     /** Maximized player: which glow effect to use. "dynamic" = auto-detect from album art. */
-    playerGlowMode: "dynamic" as PlayerGlowMode,
     /** Queue panel width as fraction of bottom bar when queue tab is active (0.15–0.6). */
     queuePanelWidthFraction: 0.25,
     /** Bottom panel height in px when Player or Queue tab is active (300–600). */
@@ -311,7 +365,15 @@ export const useSettingsStore = defineStore("settings", {
     replayGainPreampDb: 0,
     replayGainPreventClipping: true,
     libraryLayoutMode: "table" as LibraryLayoutMode,
-    albumGridSortBy: "album" as AlbumGridSortBy,
+    albumGridSortBy: "year" as AlbumGridSortBy,
+    cardStyle: "overlay" as CardStyle,
+    mixCardsFollowLayout: true,
+    searchResultsFollowLayout: false,
+    artCorners: "rounded" as ArtCorners,
+    /** Search history: completed queries + clicked artist/album results. */
+    searchHistory: loadSearchHistory(),
+    /** Track ids of clicked search results, most recent last. */
+    recentSearchResultIds: loadRecentSearchResultIds(),
   }),
   actions: {
     /** Load settings from AppConfig/settings.yml; unknown or invalid keys ignored. */
@@ -322,15 +384,13 @@ export const useSettingsStore = defineStore("settings", {
         const data = parseYaml(raw) as SettingsRecord | null;
         if (!data || typeof data !== "object") return;
         if ("theme" in data) this.theme = coerceTheme(data.theme);
+        if ("accentColor" in data) this.accentColor = coerceAccent(data.accentColor);
         if ("defaultGroupBy" in data) this.defaultGroupBy = coerceGroupBy(data.defaultGroupBy);
         if ("defaultGroupsExpanded" in data) this.defaultGroupsExpanded = coerceBool(data.defaultGroupsExpanded, false);
         if ("autoplayOnSelect" in data) this.autoplayOnSelect = coerceBool(data.autoplayOnSelect, false);
         if ("continuousPlayback" in data) this.continuousPlayback = coerceBool(data.continuousPlayback, false);
         if ("playbarShowAlbumInMarquee" in data) {
           this.playbarShowAlbumInMarquee = coerceBool(data.playbarShowAlbumInMarquee, false);
-        }
-        if ("playbarDisableMarquee" in data) {
-          this.playbarDisableMarquee = coerceBool(data.playbarDisableMarquee, false);
         }
         if ("playbarShowRatingInMaximized" in data) {
           this.playbarShowRatingInMaximized = coerceBool(data.playbarShowRatingInMaximized, true);
@@ -371,8 +431,6 @@ export const useSettingsStore = defineStore("settings", {
           if (v) this.pathFormatTemplates = [v];
         }
         if ("pathFormatExamplePath" in data) this.pathFormatExamplePath = coerceString(data.pathFormatExamplePath, DEFAULT_PATH_FORMAT_EXAMPLE_PATH);
-        if ("playerGlowIntensity" in data) this.playerGlowIntensity = coercePlayerGlow(data.playerGlowIntensity);
-        if ("playerGlowMode" in data) this.playerGlowMode = coerceGlowMode(data.playerGlowMode);
         if ("queuePanelWidthFraction" in data) this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(data.queuePanelWidthFraction);
         if ("bottomPanelHeightPx" in data) this.bottomPanelHeightPx = coerceBottomPanelHeightPx(data.bottomPanelHeightPx);
         if ("sidebarWidthPx" in data) this.sidebarWidthPx = coerceSidebarWidthPx(data.sidebarWidthPx);
@@ -394,6 +452,10 @@ export const useSettingsStore = defineStore("settings", {
         if ("replayGainPreventClipping" in data) this.replayGainPreventClipping = coerceBool(data.replayGainPreventClipping, true);
         if ("libraryLayoutMode" in data) this.libraryLayoutMode = coerceLibraryLayoutMode(data.libraryLayoutMode);
         if ("albumGridSortBy" in data) this.albumGridSortBy = coerceAlbumGridSortBy(data.albumGridSortBy);
+        if ("cardStyle" in data) this.cardStyle = coerceCardStyle(data.cardStyle);
+        if ("mixCardsFollowLayout" in data) this.mixCardsFollowLayout = coerceBool(data.mixCardsFollowLayout, true);
+        if ("searchResultsFollowLayout" in data) this.searchResultsFollowLayout = coerceBool(data.searchResultsFollowLayout, false);
+        if ("artCorners" in data) this.artCorners = coerceArtCorners(data.artCorners);
       } catch {
         // file missing or invalid: keep defaults
       }
@@ -405,12 +467,12 @@ export const useSettingsStore = defineStore("settings", {
       try {
         const data: SettingsRecord = {
           theme: this.theme,
+          accentColor: this.accentColor,
           defaultGroupBy: this.defaultGroupBy,
           defaultGroupsExpanded: this.defaultGroupsExpanded,
           autoplayOnSelect: this.autoplayOnSelect,
           continuousPlayback: this.continuousPlayback,
           playbarShowAlbumInMarquee: this.playbarShowAlbumInMarquee,
-          playbarDisableMarquee: this.playbarDisableMarquee,
           playbarShowRatingInMaximized: this.playbarShowRatingInMaximized,
           shuffle: this.shuffle,
           repeat: this.repeat,
@@ -438,8 +500,6 @@ export const useSettingsStore = defineStore("settings", {
           sidebarDefaultTab: this.sidebarDefaultTab,
           pathFormatTemplates: this.pathFormatTemplates,
           pathFormatExamplePath: this.pathFormatExamplePath,
-          playerGlowIntensity: this.playerGlowIntensity,
-          playerGlowMode: this.playerGlowMode,
           queuePanelWidthFraction: this.queuePanelWidthFraction,
           bottomPanelHeightPx: this.bottomPanelHeightPx,
           sidebarWidthPx: this.sidebarWidthPx,
@@ -458,6 +518,10 @@ export const useSettingsStore = defineStore("settings", {
           replayGainPreventClipping: this.replayGainPreventClipping,
           libraryLayoutMode: this.libraryLayoutMode,
           albumGridSortBy: this.albumGridSortBy,
+          cardStyle: this.cardStyle,
+          mixCardsFollowLayout: this.mixCardsFollowLayout,
+          searchResultsFollowLayout: this.searchResultsFollowLayout,
+          artCorners: this.artCorners,
         };
         const yaml = stringifyYaml(data, { lineWidth: 0 });
         await writeTextFile(SETTINGS_FILENAME, yaml, { baseDir: BaseDirectory.AppConfig });
@@ -471,8 +535,95 @@ export const useSettingsStore = defineStore("settings", {
       applyThemeToDocument(theme);
       this.saveToFile();
     },
+    setAccentColor(accent: AccentColor) {
+      this.accentColor = accent;
+      if (typeof document !== "undefined") {
+        if (accent === "dynamic") delete document.documentElement.dataset.accent;
+        else document.documentElement.dataset.accent = accent;
+      }
+      this.saveToFile();
+    },
+    /** Record a completed search query (most recent first, capped). */
+    addSearch(q: string) {
+      const value = q.trim();
+      if (!value) return;
+      const next: SearchHistoryEntry[] = [
+        { type: "query", value },
+        ...this.searchHistory.filter((h) => !(h.type === "query" && h.value === value)),
+      ];
+      this.searchHistory = next.slice(0, MAX_SEARCH_HISTORY);
+      this.persistSearchHistory();
+    },
+    /** Record an artist picked from the search results. */
+    addArtistSearch(name: string) {
+      const value = name.trim();
+      if (!value) return;
+      const next: SearchHistoryEntry[] = [
+        { type: "artist", value },
+        ...this.searchHistory.filter((h) => !(h.type === "artist" && h.value === value)),
+      ];
+      this.searchHistory = next.slice(0, MAX_SEARCH_HISTORY);
+      this.persistSearchHistory();
+    },
+    /** Record an album picked from the search results. */
+    addAlbumSearch(albumKey: string) {
+      const value = albumKey.trim();
+      if (!value) return;
+      const next: SearchHistoryEntry[] = [
+        { type: "album", value },
+        ...this.searchHistory.filter((h) => !(h.type === "album" && h.value === value)),
+      ];
+      this.searchHistory = next.slice(0, MAX_SEARCH_HISTORY);
+      this.persistSearchHistory();
+    },
+    /** Record a track clicked in the search results (playing keeps order). */
+    addSearchResult(trackId: number) {
+      if (this.recentSearchResultIds.includes(trackId)) return;
+      this.recentSearchResultIds = [...this.recentSearchResultIds, trackId].slice(-MAX_RECENT_SEARCH_RESULTS);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(RECENT_SEARCH_RESULTS_KEY, JSON.stringify(this.recentSearchResultIds));
+        } catch { /* ignore */ }
+      }
+    },
+    clearSearchHistory() {
+      this.searchHistory = [];
+      this.persistSearchHistory();
+    },
+    /** Remove one history entry (query/artist/album) from recent searches. */
+    removeSearchHistoryEntry(type: string, value: string) {
+      this.searchHistory = this.searchHistory.filter((h) => !(h.type === type && h.value === value));
+      this.persistSearchHistory();
+    },
+    /** Remove one track id from the recent search results. */
+    removeSearchResult(trackId: number) {
+      this.recentSearchResultIds = this.recentSearchResultIds.filter((id) => id !== trackId);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(RECENT_SEARCH_RESULTS_KEY, JSON.stringify(this.recentSearchResultIds));
+        } catch { /* ignore */ }
+      }
+    },
+    clearSearchResults() {
+      this.recentSearchResultIds = [];
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(RECENT_SEARCH_RESULTS_KEY, "[]");
+        } catch { /* ignore */ }
+      }
+    },
+    persistSearchHistory() {
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(this.searchHistory));
+      } catch { /* ignore */ }
+    },
     initTheme() {
       applyThemeToDocument(this.theme);
+      applyArtCorners(this.artCorners);
+      if (typeof document !== "undefined" && this.accentColor !== "dynamic") {
+        document.documentElement.dataset.accent = this.accentColor;
+      }
       if (typeof window !== "undefined") {
         const mq = window.matchMedia("(prefers-color-scheme: dark)");
         mq.addEventListener("change", () => {
@@ -498,10 +649,6 @@ export const useSettingsStore = defineStore("settings", {
     },
     setPlaybarShowAlbumInMarquee(value: boolean) {
       this.playbarShowAlbumInMarquee = value;
-      this.saveToFile();
-    },
-    setPlaybarDisableMarquee(value: boolean) {
-      this.playbarDisableMarquee = value;
       this.saveToFile();
     },
     setPlaybarShowRatingInMaximized(value: boolean) {
@@ -627,14 +774,6 @@ export const useSettingsStore = defineStore("settings", {
       this.backendMode = mode;
       writeBackendMode(mode);
     },
-    setPlayerGlowIntensity(value: PlayerGlowIntensity) {
-      this.playerGlowIntensity = value;
-      this.saveToFile();
-    },
-    setPlayerGlowMode(value: PlayerGlowMode) {
-      this.playerGlowMode = value;
-      this.saveToFile();
-    },
     setQueuePanelWidthFraction(value: number) {
       this.queuePanelWidthFraction = coerceQueuePanelWidthFraction(value);
       this.saveToFile();
@@ -694,6 +833,23 @@ export const useSettingsStore = defineStore("settings", {
     },
     setLibraryLayoutMode(value: LibraryLayoutMode) {
       this.libraryLayoutMode = coerceLibraryLayoutMode(value);
+      this.saveToFile();
+    },
+    setCardStyle(value: CardStyle) {
+      this.cardStyle = value;
+      this.saveToFile();
+    },
+    setMixCardsFollowLayout(value: boolean) {
+      this.mixCardsFollowLayout = value;
+      this.saveToFile();
+    },
+    setSearchResultsFollowLayout(value: boolean) {
+      this.searchResultsFollowLayout = value;
+      this.saveToFile();
+    },
+    setArtCorners(value: ArtCorners) {
+      this.artCorners = value;
+      applyArtCorners(value);
       this.saveToFile();
     },
     setAlbumGridSortBy(value: AlbumGridSortBy) {

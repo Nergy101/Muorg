@@ -71,14 +71,14 @@ function handleClick() {
     :class="[
       props.size === 'md' ? 'flex items-center justify-center rounded p-2 transition-colors' : 'flex items-center justify-center rounded p-1.5 transition-colors',
       isCasting
-        ? 'text-green-400 hover:bg-stone-600'
+        ? 'text-green-400 hover:bg-surface-variant'
         : isTranscoding
-          ? 'text-amber-400 hover:bg-stone-600'
+          ? 'text-amber-400 hover:bg-surface-variant'
           : isConnecting
-            ? 'text-stone-300'
+            ? 'text-on-surface'
             : isDisabled
-              ? 'cursor-not-allowed text-stone-600'
-              : 'text-stone-400 hover:bg-stone-600 hover:text-stone-100',
+              ? 'cursor-not-allowed text-on-surface-variant'
+              : 'text-on-surface-variant hover:bg-surface-variant hover:text-on-surface',
     ]"
     @click="handleClick"
   >

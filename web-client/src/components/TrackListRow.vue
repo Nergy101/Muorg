@@ -59,13 +59,20 @@
     </div>
 
     <!-- Title + artist (format tag and duration sit on the artist's line so
-         the title row keeps the full width) -->
-    <div class="min-w-0 flex-1">
+         the title row keeps the full width). The column stretches and centers
+         vertically, so a row without subtitle (e.g. album view) shows the
+         title nicely centered in the row. -->
+    <div class="relative flex min-w-0 flex-1 flex-col justify-center self-stretch">
       <MarqueeText
         :text="track.title ?? '—'"
         :class="titleClass"
       />
-      <div class="flex min-w-0 items-center gap-1.5">
+      <!-- Without a subtitle (album view) the badge/duration row floats at the
+           right edge so the title alone is vertically centered in the row. -->
+      <div
+        class="flex min-w-0 items-center gap-1.5"
+        :class="subtitleText ? '' : 'absolute right-0 top-1/2 -translate-y-1/2'"
+      >
         <div class="min-w-0 flex-1">
           <MarqueeText
             v-if="subtitleText"

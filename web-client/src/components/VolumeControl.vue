@@ -17,7 +17,6 @@
       :value="displayVolume"
       class="h-1 w-28 cursor-pointer"
       :class="variant === 'player' ? 'volume-range--player' : 'volume-range--bar'"
-      :style="{ '--primary': variant === 'player' ? '#ffffff' : 'var(--on-surface)' }"
       :aria-label="cast.isCasting ? 'Cast device volume' : 'Volume'"
       @input="onInput"
     />
@@ -102,5 +101,11 @@ function toggleMute(): void {
    (white in the player, on-surface in the bar): no album-accent tint. */
 .volume-range--bar {
   background: color-mix(in srgb, var(--on-surface) 30%, transparent);
+}
+/* Thumb color via a class (not an inline style) so global light/dark rules
+   can override --primary and recolor the thumb. */
+.volume-range--player,
+.volume-range--bar {
+  --primary: #fff;
 }
 </style>

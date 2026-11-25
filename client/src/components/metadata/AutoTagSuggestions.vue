@@ -128,21 +128,21 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <div
-    class="fixed inset-0 z-[400] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+    class="fixed inset-0 z-[400] flex items-center justify-center bg-background/70 p-4 outline-none"
     @click.self="emit('close')"
   >
     <div
-      class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-stone-700 bg-stone-900 shadow-2xl"
+      class="flex max-h-[85vh] w-full max-w-2xl flex-col glass-strong rounded-2xl shadow-2xl"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
-        <h2 class="flex items-center gap-2 text-sm font-semibold text-stone-200">
+      <div class="flex items-center justify-between border-b border-outline px-4 py-3">
+        <h2 class="flex items-center gap-2 text-sm font-semibold text-on-surface">
           <FeatherIcon name="search" class="h-4 w-4" />
           Find MusicBrainz matches
         </h2>
         <button
           type="button"
-          class="rounded p-1 text-stone-500 hover:bg-stone-700 hover:text-stone-300"
+          class="rounded p-1 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
           @click="emit('close')"
           title="Close"
         >
@@ -151,34 +151,34 @@ function onKeydown(e: KeyboardEvent) {
       </div>
 
       <!-- Search form -->
-      <div class="border-b border-stone-700 px-4 py-3">
+      <div class="border-b border-outline px-4 py-3">
         <div class="grid grid-cols-3 gap-3">
           <div>
-            <label class="block text-xs text-stone-500">Artist</label>
+            <label class="block text-xs text-on-surface-variant">Artist</label>
             <input
               v-model="searchArtist"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200"
+              class="mt-0.5 w-full rounded border border-outline bg-surface-container px-2 py-1 text-sm text-on-surface"
               placeholder="Artist name"
               @keydown.enter="doSearch"
             />
           </div>
           <div>
-            <label class="block text-xs text-stone-500">Title</label>
+            <label class="block text-xs text-on-surface-variant">Title</label>
             <input
               v-model="searchTitle"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200"
+              class="mt-0.5 w-full rounded border border-outline bg-surface-container px-2 py-1 text-sm text-on-surface"
               placeholder="Track title"
               @keydown.enter="doSearch"
             />
           </div>
           <div>
-            <label class="block text-xs text-stone-500">Album</label>
+            <label class="block text-xs text-on-surface-variant">Album</label>
             <input
               v-model="searchAlbum"
               type="text"
-              class="mt-0.5 w-full rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200"
+              class="mt-0.5 w-full rounded border border-outline bg-surface-container px-2 py-1 text-sm text-on-surface"
               placeholder="Album (optional)"
               @keydown.enter="doSearch"
             />
@@ -186,7 +186,7 @@ function onKeydown(e: KeyboardEvent) {
         </div>
         <button
           type="button"
-          class="accent-btn mt-2 inline-flex items-center gap-1.5 rounded border border-stone-600 px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
+          class="accent-btn mt-2 inline-flex items-center gap-1.5 rounded border border-outline px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
           style="background-color: #5b7c32"
           :disabled="searching || (!searchArtist && !searchTitle)"
           @click="doSearch"
@@ -199,7 +199,7 @@ function onKeydown(e: KeyboardEvent) {
       <!-- Results -->
       <div class="flex-1 overflow-y-auto px-4 py-3">
         <!-- Loading -->
-        <div v-if="searching" class="flex items-center justify-center py-8 text-stone-400">
+        <div v-if="searching" class="flex items-center justify-center py-8 text-on-surface-variant">
           <FeatherIcon name="loader" class="mr-2 h-5 w-5 animate-spin" />
           Searching MusicBrainz…
         </div>
@@ -215,14 +215,14 @@ function onKeydown(e: KeyboardEvent) {
         <!-- Empty state -->
         <div
           v-else-if="searched && candidates.length === 0"
-          class="py-8 text-center text-sm text-stone-500"
+          class="py-8 text-center text-sm text-on-surface-variant"
         >
           No matches found. Try different search terms.
         </div>
 
         <!-- Candidate list -->
         <div v-else-if="candidates.length > 0" class="space-y-2">
-          <p class="text-xs text-stone-500">
+          <p class="text-xs text-on-surface-variant">
             {{ candidates.length }} result{{ candidates.length === 1 ? "" : "s" }} — click a row to preview
           </p>
           <div
@@ -231,8 +231,8 @@ function onKeydown(e: KeyboardEvent) {
             class="cursor-pointer rounded border px-3 py-2 text-sm transition-colors"
             :class="[
               selectedCandidate?.mbid === c.mbid && selectedCandidate?.album === c.album
-                ? 'border-[#5b7c32] bg-stone-800'
-                : 'border-stone-700 hover:bg-stone-800',
+                ? 'border-primary bg-surface-container'
+                : 'border-outline hover:bg-surface-container',
             ]"
             @click="selectCandidate(c)"
           >
@@ -242,14 +242,14 @@ function onKeydown(e: KeyboardEvent) {
                 :class="confidenceBg(c.confidence)"
               >
                 <span :class="confidenceColor(c.confidence)">{{ confidenceLabel(c.confidence) }}</span>
-                <span class="ml-0.5 text-stone-400">({{ (c.confidence * 100).toFixed(0) }}%)</span>
+                <span class="ml-0.5 text-on-surface-variant">({{ (c.confidence * 100).toFixed(0) }}%)</span>
               </span>
-              <span class="font-medium text-stone-200">{{ c.title }}</span>
-              <span class="text-stone-500">·</span>
-              <span class="text-stone-400">{{ c.artist }}</span>
-              <span v-if="c.year" class="text-stone-500">· {{ c.year }}</span>
+              <span class="font-medium text-on-surface">{{ c.title }}</span>
+              <span class="text-on-surface-variant">·</span>
+              <span class="text-on-surface-variant">{{ c.artist }}</span>
+              <span v-if="c.year" class="text-on-surface-variant">· {{ c.year }}</span>
             </div>
-            <div v-if="c.album || c.track_number != null" class="mt-0.5 text-xs text-stone-500">
+            <div v-if="c.album || c.track_number != null" class="mt-0.5 text-xs text-on-surface-variant">
               <span v-if="c.album">Album: {{ c.album }}</span>
               <span v-if="c.track_number != null"> · Track {{ c.track_number }}</span>
             </div>
@@ -259,12 +259,12 @@ function onKeydown(e: KeyboardEvent) {
         <!-- Side-by-side diff for selected candidate -->
         <div
           v-if="selectedCandidate"
-          class="mt-4 rounded border border-stone-700 bg-stone-850 p-3"
+          class="mt-4 rounded border border-outline bg-surface p-3"
         >
-          <h3 class="mb-2 text-xs font-semibold text-stone-400">Preview — vs current tags</h3>
+          <h3 class="mb-2 text-xs font-semibold text-on-surface-variant">Preview — vs current tags</h3>
           <table class="w-full text-xs">
             <thead>
-              <tr class="border-b border-stone-700 text-left text-stone-500">
+              <tr class="border-b border-outline text-left text-on-surface-variant">
                 <th class="pb-1 pr-4 font-medium">Field</th>
                 <th class="pb-1 pr-4 font-medium">Current</th>
                 <th class="pb-1 font-medium">Suggested</th>
@@ -281,12 +281,12 @@ function onKeydown(e: KeyboardEvent) {
                   { label: 'Track #', cur: currentTrack?.track_number ?? '', sug: selectedCandidate.track_number ?? '' },
                 ]"
                 :key="row.label"
-                class="border-b border-stone-700/50"
+                class="border-b border-outline/50"
                 :class="diffClass(row.cur, row.sug)"
               >
-                <td class="py-1 pr-4 text-stone-400">{{ row.label }}</td>
-                <td class="py-1 pr-4 text-stone-300">{{ row.cur || '—' }}</td>
-                <td class="py-1 text-stone-200">{{ row.sug || '—' }}</td>
+                <td class="py-1 pr-4 text-on-surface-variant">{{ row.label }}</td>
+                <td class="py-1 pr-4 text-on-surface">{{ row.cur || '—' }}</td>
+                <td class="py-1 text-on-surface">{{ row.sug || '—' }}</td>
               </tr>
             </tbody>
           </table>
@@ -294,18 +294,18 @@ function onKeydown(e: KeyboardEvent) {
       </div>
 
       <!-- Footer actions -->
-      <div class="flex flex-col gap-2 border-t border-stone-700 px-4 py-3">
+      <div class="flex flex-col gap-2 border-t border-outline px-4 py-3">
         <div class="flex items-center justify-end gap-2">
           <button
             type="button"
-            class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            class="rounded border border-outline px-3 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             @click="emit('close')"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="rounded border border-stone-600 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-600 disabled:opacity-30 disabled:pointer-events-none"
+            class="rounded border border-outline px-3 py-1.5 text-xs text-on-surface hover:bg-surface-variant disabled:opacity-30 disabled:pointer-events-none"
             :disabled="!selectedCandidate"
             @click="applyToForm"
           >
@@ -321,8 +321,8 @@ function onKeydown(e: KeyboardEvent) {
             Save &amp; apply
           </button>
         </div>
-        <p class="text-[10px] leading-tight text-stone-500 text-right">
-          Data from <a href="https://musicbrainz.org" target="_blank" rel="noopener noreferrer" class="underline hover:text-stone-300">MusicBrainz</a>
+        <p class="text-[10px] leading-tight text-on-surface-variant text-right">
+          Data from <a href="https://musicbrainz.org" target="_blank" rel="noopener noreferrer" class="underline hover:text-on-surface">MusicBrainz</a>
           — licensed under CC BY-NC-SA 3.0
         </p>
       </div>

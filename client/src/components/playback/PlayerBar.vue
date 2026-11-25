@@ -6,9 +6,11 @@ import { useSettingsStore } from "../../stores/settings";
 import { useCastStore } from "../../stores/cast";
 import { usePlaylistStore } from "../../stores/playlists";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
+import { navigate } from "../../state/navigation";
+import { albumIdentityKey } from "@shared/utils/albumIdentity";
+import { albumArtistOf } from "../../composables/useAlbums";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
 import StarRating from "../shared/StarRating.vue";
-import VolumeControl from "./VolumeControl.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
 import { needsTranscode } from "@shared/formats";
@@ -28,6 +30,7 @@ import {
 
 const emit = defineEmits<{
   (e: "expand"): void;
+  (e: "openQueue"): void;
 }>();
 
 const store = useCatalogStore();
@@ -41,7 +44,6 @@ const {
   shuffle,
   repeat,
   playbarShowAlbumInMarquee,
-  playbarDisableMarquee,
   volume,
 } = storeToRefs(settingsStore);
 
@@ -133,7 +135,6 @@ const titlePopover = ref<{ text: string; x: number; y: number } | null>(null);
 let titlePopoverHideTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function showTitlePopover(text: string, e: MouseEvent) {
-  if (!playbarDisableMarquee.value) return;
   if (titlePopoverHideTimeout) clearTimeout(titlePopoverHideTimeout);
   titlePopoverHideTimeout = null;
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -141,7 +142,6 @@ function showTitlePopover(text: string, e: MouseEvent) {
 }
 
 function scheduleHideTitlePopover() {
-  if (!playbarDisableMarquee.value) return;
   titlePopoverHideTimeout = setTimeout(() => {
     titlePopover.value = null;
     titlePopoverHideTimeout = null;
@@ -161,6 +161,8 @@ function hideTitlePopover() {
 
 const playlistStore = usePlaylistStore();
 const { playlists } = storeToRefs(playlistStore);
+/** Smart playlists are computed, not stored — never offer them as add targets. */
+const menuPlaylists = computed(() => playlists.value.filter((p) => !p.smart_rules));
 const { tryAddToPlaylist } = usePlaylistAdd();
 
 const contextMenu = ref<{ x: number; y: number } | null>(null);
@@ -173,8 +175,8 @@ const playlistSubmenuFlipUp = computed(() => {
   const rect = playlistBtnContainerRef.value.getBoundingClientRect();
   return rect.bottom + 220 > window.innerHeight;
 });
-const playlistsAlreadyIn = computed(() => playlists.value.filter((p) => trackPlaylistIds.value.has(p.id)));
-const playlistsNotYetIn = computed(() => playlists.value.filter((p) => !trackPlaylistIds.value.has(p.id)));
+const playlistsAlreadyIn = computed(() => menuPlaylists.value.filter((p) => trackPlaylistIds.value.has(p.id)));
+const playlistsNotYetIn = computed(() => menuPlaylists.value.filter((p) => !trackPlaylistIds.value.has(p.id)));
 
 watch(playlistSubmenuOpen, async (open) => {
   if (!open) { trackPlaylistIds.value = new Set(); return; }
@@ -223,6 +225,21 @@ function viewSong() {
   closeContextMenu();
 }
 
+function viewAlbum() {
+  const track = singleTrack.value;
+  if (!track) return;
+  closeContextMenu();
+  navigate({ name: "album", key: albumIdentityKey(track.album, albumArtistOf(track)) });
+}
+
+function viewArtist() {
+  const track = singleTrack.value;
+  if (!track) return;
+  const name = albumArtistOf(track);
+  closeContextMenu();
+  if (name && name !== "Unknown Artist") navigate({ name: "artist", key: name });
+}
+
 
 async function setRating(rating: number | null) {
   const track = singleTrack.value;
@@ -254,13 +271,6 @@ async function addToPlaylist(playlistId: number) {
   const playlist = playlists.value.find((p) => p.id === playlistId);
   closeContextMenu();
   await tryAddToPlaylist(playlistId, [track.id], playlist?.name ?? "");
-}
-
-function formatTime(secs: number): string {
-  if (!Number.isFinite(secs) || secs < 0) return "0:00";
-  const m = Math.floor(secs / 60);
-  const s = Math.floor(secs % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 let positionSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -389,11 +399,6 @@ function seekTo(secs: number) {
 // el.currentTime assignments per click on WKWebView.
 let seekHadInput = false;
 
-function onSeekInput(e: Event) {
-  seekHadInput = true;
-  currentTime.value = parseFloat((e.target as HTMLInputElement).value);
-}
-
 const PROGRESS_THUMB_HALF = 6;
 
 function onProgressBarClick(e: MouseEvent) {
@@ -486,11 +491,6 @@ function recomputeMarquee() {
     }
   });
 }
-
-watch(playbarDisableMarquee, () => {
-  hideTitlePopover();
-  recomputeMarquee();
-});
 
 function revokeUrl(url: string | null) {
   if (!url) return;
@@ -826,12 +826,6 @@ function playPrevious() {
   store.toggleSelection(target.id);
 }
 
-function restart() {
-  seekTo(0);
-  const el = audioRef.value;
-  if (el && isPlaying.value) el.play().catch(() => {});
-}
-
 function onGlobalKeydown(e: KeyboardEvent) {
   if (e.key !== "Enter" || !singleTrack.value) return;
   const target = e.target as HTMLElement;
@@ -894,8 +888,27 @@ onUnmounted(() => {
 <template>
   <div
     v-if="singleTrack"
-    class="flex shrink-0 flex-col items-center gap-2 px-3 pb-1"
+    class="player-bar grid min-h-[72px] shrink-0 items-center gap-3 px-4 py-2"
+    style="grid-template-columns: 1fr auto 1fr"
   >
+    <!-- Progress as a thin rounded line on the panel's bottom border, in the accent color (click/drag to seek) -->
+    <div
+      class="absolute inset-x-4 bottom-0 h-[3px] cursor-pointer overflow-hidden rounded-full"
+      role="slider"
+      aria-label="Seek"
+      :aria-valuenow="Math.round(progressPercent)"
+      @click="onProgressBarClick"
+      @mousedown="onSeekMouseDown"
+      @mousemove="onProgressBarClick"
+      @mouseup="onSeekMouseUp"
+      @mouseleave="onSeekMouseUp"
+    >
+      <div class="absolute inset-0" :style="{ background: 'color-mix(in srgb, var(--p-on) 22%, transparent)' }" />
+      <div
+        class="absolute inset-y-0 left-0 rounded-r-full"
+        :style="{ width: progressPercent + '%', background: 'color-mix(in srgb, var(--primary) 65%, white)' }"
+      />
+    </div>
     <audio
       :key="audioElementKey"
       ref="audioRef"
@@ -910,132 +923,58 @@ onUnmounted(() => {
       @durationchange="onDurationChange"
       @error="isPlaying = false"
     />
-    <div class="flex min-w-0 w-full items-center gap-3">
-      <div class="flex w-64 shrink-0 items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-stone-600/50 cursor-context-menu" @contextmenu="onAlbumArtContextMenu">
-        <TrackAlbumArt v-if="singleTrack" :path="singleTrack.path" size="medium" />
-        <div class="min-w-0 flex-1 flex flex-col gap-0.5">
-          <!-- Title row -->
+
+    <!-- Left: now playing widget -->
+    <div class="flex min-w-0 items-center gap-3">
+      <div
+        class="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-1 py-0.5 transition-colors hover:bg-white/10"
+        title="Maximize player"
+        @click="emit('expand')"
+        @contextmenu.prevent="onAlbumArtContextMenu"
+      >
+        <TrackAlbumArt :path="singleTrack.path" :size-px="64" />
+        <div class="min-w-0 flex flex-col gap-0.5">
           <div
             ref="titleMarqueeRef"
-            class="text-xs font-semibold leading-tight"
-            :class="playbarDisableMarquee ? 'truncate' : 'metadata-marquee w-48'"
+            class="marq w-44 text-[13px] font-semibold leading-tight"
+            :class="{ go: shouldScrollTitle }"
+            :style="{ '--marq-dur': Math.max(4, titleMarqueeDistance / 12) + 's', '--marq-box': '176px' }"
           >
-            <template v-if="playbarDisableMarquee">
-              <span
-                class="text-stone-100"
-                @mouseenter="showTitlePopover(marqueeTitle, $event)"
-                @mouseleave="scheduleHideTitlePopover"
-              >
-                {{ marqueeTitle }}
-              </span>
-            </template>
-            <template v-else>
-              <template v-if="!shouldScrollTitle">
-                <span class="text-stone-100">{{ marqueeTitle }}</span>
-              </template>
-              <div
-                v-else
-                class="metadata-marquee-inner"
-                :style="{ '--marquee-distance': titleMarqueeDistance + 'px' }"
-              >
-                <span class="text-stone-100">{{ marqueeTitle }}</span>
-              </div>
-            </template>
+            <span
+              class="marq-in"
+              :style="{ color: 'var(--p-on)' }"
+              @mouseenter="showTitlePopover(marqueeTitle, $event)"
+              @mouseleave="scheduleHideTitlePopover"
+            >
+              {{ marqueeTitle }}
+            </span>
           </div>
-          <!-- Artist row -->
           <div
             v-if="marqueeArtist"
             ref="artistMarqueeRef"
-            class="text-xs leading-tight"
-            :class="playbarDisableMarquee ? 'truncate' : 'metadata-marquee w-48'"
+            class="marq w-44 text-xs leading-tight"
+            :class="{ go: shouldScrollArtist }"
+            :style="{ '--marq-dur': Math.max(4, artistMarqueeDistance / 12) + 's', '--marq-box': '176px' }"
           >
-            <template v-if="playbarDisableMarquee">
-              <span
-                class="text-stone-400"
-                @mouseenter="showTitlePopover(marqueeArtist, $event)"
-                @mouseleave="scheduleHideTitlePopover"
-              >
-                {{ marqueeArtist }}
-              </span>
-            </template>
-            <template v-else>
-              <template v-if="!shouldScrollArtist">
-                <span class="text-stone-400">{{ marqueeArtist }}</span>
-              </template>
-              <div
-                v-else
-                class="metadata-marquee-inner"
-                :style="{ '--marquee-distance': artistMarqueeDistance + 'px' }"
-              >
-                <span class="text-stone-400">{{ marqueeArtist }}</span>
-              </div>
-            </template>
+            <span
+              class="marq-in"
+              :style="{ color: 'var(--p-dim)' }"
+              @mouseenter="showTitlePopover(marqueeArtist, $event)"
+              @mouseleave="scheduleHideTitlePopover"
+            >
+              {{ marqueeArtist }}
+            </span>
           </div>
         </div>
       </div>
-      <div class="flex min-w-0 flex-1 items-center gap-3">
-        <div class="flex shrink-0 items-center gap-0.5">
-          <button
-            type="button"
-            class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
-            aria-label="Previous track"
-            @click="playPrevious"
-            :disabled="!canPlayPrevious"
-          >
-            <FeatherIcon name="skip-back" class="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-            aria-label="Restart from beginning"
-            @click="restart"
-          >
-            <FeatherIcon name="square" class="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            class="player-play-btn flex items-center justify-center rounded bg-[#5b7c32] p-1.5 text-stone-50 hover:bg-[#6d8f3d]"
-            :aria-label="isPlaying ? 'Pause' : 'Play'"
-            @click="togglePlay"
-          >
-            <FeatherIcon v-if="!isPlaying" name="play" class="h-4 w-4" />
-            <FeatherIcon v-else name="pause" class="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-40"
-            aria-label="Next track"
-            @click="playNext"
-            :disabled="!singleTrack || !getNextTrack()"
-          >
-            <FeatherIcon name="skip-forward" class="h-4 w-4" />
-          </button>
-        </div>
-        <div class="flex min-w-0 flex-1 items-center gap-2">
-          <span class="shrink-0 w-8 text-right text-xs text-stone-500 tabular-nums">{{ formatTime(currentTime) }}</span>
-          <input
-            type="range"
-            min="0"
-            :max="displayDuration > 0 ? displayDuration : 0.01"
-            step="0.1"
-            :value="currentTime"
-            class="player-progress-slider h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-stone-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
-            :style="{ '--progress-percent': progressPercent + '%' }"
-            aria-label="Seek"
-            @click="onProgressBarClick"
-            @input="onSeekInput"
-            @mousedown="onSeekMouseDown"
-            @mouseup="onSeekMouseUp"
-            @mouseleave="onSeekMouseUp"
-          />
-          <span class="shrink-0 w-8 text-left text-xs text-stone-500 tabular-nums">{{ formatTime(displayDuration) }}</span>
-        </div>
-      </div>
-      <div class="flex shrink-0 items-center gap-2">
+    </div>
+
+    <!-- Center: transport -->
+    <div class="flex h-12 items-center gap-1">
         <button
           type="button"
-          class="flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
-          :class="shuffle ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
+          class="pb-btn !h-8 !w-8"
+          :class="{ 'pb-toggle-on': shuffle }"
           aria-label="Shuffle next track"
           :aria-pressed="shuffle"
           @click="settingsStore.setShuffle(!shuffle)"
@@ -1044,42 +983,86 @@ onUnmounted(() => {
         </button>
         <button
           type="button"
-          class="relative flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
-          :class="repeat !== 'none' ? 'shuffle-active-bg text-stone-50' : 'text-stone-400'"
+          class="pb-btn !h-8 !w-8"
+          aria-label="Previous track"
+          :disabled="!canPlayPrevious"
+          @click="playPrevious"
+        >
+          <FeatherIcon name="skip-back" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="pb-btn pb-play"
+          :aria-label="isPlaying ? 'Pause' : 'Play'"
+          @click="togglePlay"
+        >
+          <FeatherIcon v-if="!isPlaying" name="play" class="ml-0.5 h-5 w-5" />
+          <FeatherIcon v-else name="pause" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="pb-btn !h-8 !w-8"
+          aria-label="Next track"
+          :disabled="!singleTrack || !getNextTrack()"
+          @click="playNext"
+        >
+          <FeatherIcon name="skip-forward" class="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          class="pb-btn relative !h-8 !w-8"
+          :class="{ 'pb-toggle-on': repeat !== 'none' }"
           :aria-label="repeat === 'none' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'"
           @click="settingsStore.setRepeat(repeat === 'none' ? 'all' : repeat === 'all' ? 'one' : 'none')"
         >
           <FeatherIcon name="repeat" class="h-4 w-4" />
           <span v-if="repeat === 'one'" class="absolute bottom-0.5 right-0.5 text-[8px] font-bold leading-none">1</span>
         </button>
+    </div>
+
+    <!-- Right: icon row (favorite, queue, cast, expand) -->
+    <div class="flex h-12 items-center justify-end gap-1.5">
         <button
           type="button"
-          class="flex shrink-0 items-center justify-center rounded p-1.5 hover:bg-stone-600 hover:text-stone-200"
-          :class="isFavorite ? 'text-primary' : 'text-stone-400'"
+          class="pb-btn !h-8 !w-8"
           :aria-label="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
           :aria-pressed="isFavorite"
           title="Favorite"
           @click="toggleFavorite"
         >
-          <FeatherIcon name="heart" class="h-4 w-4" />
+          <FeatherIcon
+            :name="isFavorite ? 'heart-fill' : 'heart'"
+            class="h-4 w-4"
+            :style="isFavorite ? { color: 'var(--p-strong)' } : {}"
+          />
         </button>
-        <VolumeControl mode="metadata" />
-        <CastButton />
         <button
           type="button"
-          class="flex items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-100"
+          class="pb-btn !h-8 !w-8"
+          aria-label="Queue"
+          title="Queue"
+          @click="emit('openQueue')"
+        >
+          <FeatherIcon name="layers" class="h-4 w-4" />
+        </button>
+        <div class="player-bar-cast [&_button]:!text-[var(--p-on)] [&_button:hover]:!bg-white/10">
+          <CastButton />
+        </div>
+        <button
+          type="button"
+          class="pb-btn !h-8 !w-8"
           aria-label="Expand player"
           title="Expand player"
           @click="emit('expand')"
         >
           <FeatherIcon name="maximize-2" class="h-4 w-4" />
         </button>
-      </div>
     </div>
+
     <Teleport to="body">
       <div
         v-if="titlePopover"
-        class="fixed z-[250] max-w-[420px] whitespace-pre-line rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+        class="fixed z-[250] max-w-[420px] whitespace-pre-line glass-strong rounded-2xl px-3 py-2 text-xs text-on-surface shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
         :style="{ left: titlePopover.x + 'px', top: titlePopover.y + 'px', transform: 'translate(-50%, -100%)' }"
         @mouseenter="cancelHideTitlePopover"
         @mouseleave="hideTitlePopover"
@@ -1091,39 +1074,56 @@ onUnmounted(() => {
       <div
         v-if="contextMenu"
         ref="contextMenuRef"
-        class="fixed z-[301] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+        class="fixed z-[301] min-w-[160px] glass-strong rounded-2xl py-1 shadow-xl"
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px', transform: 'translateY(-100%)' }"
         @click.stop
       >
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
           @click="viewSong"
         >
-          <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-stone-400" />
+          <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-on-surface-variant" />
           View song
         </button>
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
           @click="addToQueue"
         >
-          <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
+          <FeatherIcon name="layers" class="h-4 w-4 shrink-0 text-on-surface-variant" />
           Add to queue
         </button>
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
           @click="toggleFavorite"
         >
           <FeatherIcon
-            name="heart"
+            :name="isFavorite ? 'heart-fill' : 'heart'"
             class="h-4 w-4 shrink-0"
-            :class="isFavorite ? 'text-primary' : 'text-stone-400'"
+            :class="isFavorite ? 'text-primary' : 'text-on-surface-variant'"
           />
           {{ isFavorite ? "Remove from favorites" : "Add to favorites" }}
         </button>
-        <div class="my-1 border-t border-stone-700" />
+        <div class="my-1 border-t border-outline" />
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
+          @click="viewAlbum"
+        >
+          <FeatherIcon name="disc" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+          View album
+        </button>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
+          @click="viewArtist"
+        >
+          <FeatherIcon name="user" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+          View artist
+        </button>
+        <div class="my-1 border-t border-outline" />
         <div
           ref="playlistBtnContainerRef"
           class="relative"
@@ -1132,62 +1132,59 @@ onUnmounted(() => {
         >
           <button
             type="button"
-            class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+            class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
             @click="playlistSubmenuOpen = !playlistSubmenuOpen"
           >
             <span class="flex items-center gap-2">
-              <FeatherIcon name="plus" class="h-4 w-4 shrink-0 text-stone-400" />
+              <FeatherIcon name="playlist-add" class="h-4 w-4 shrink-0 text-on-surface-variant" />
               Add to playlist
             </span>
-            <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+            <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
           </button>
-          <!-- Transparent bridge covering the gap between button and submenu -->
           <div class="absolute right-0 top-0 h-full w-2 translate-x-full" />
           <div
-            v-if="playlistSubmenuOpen && playlists.length"
-            class="absolute left-full z-[310] min-w-[160px] max-w-[220px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+            v-if="playlistSubmenuOpen && menuPlaylists.length"
+            class="absolute left-full z-[310] min-w-[160px] max-w-[220px] glass-strong rounded-2xl py-1 shadow-xl"
             :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
             style="margin-left: 2px"
           >
-            <!-- Playlists the track is already in -->
             <template v-if="playlistsAlreadyIn.length">
               <button
                 v-for="pl in playlistsAlreadyIn"
                 :key="pl.id"
                 type="button"
-                class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+                class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
                 @click="addToPlaylist(pl.id)"
               >
                 <PlaylistIcon v-if="pl.icon" :icon="pl.icon" class="h-3.5 w-3.5 shrink-0" />
-                <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+                <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
                 <span class="min-w-0 flex-1 truncate">{{ pl.name }}</span>
                 <FeatherIcon name="check" class="h-3.5 w-3.5 shrink-0 text-primary" />
               </button>
-              <div v-if="playlistsNotYetIn.length" class="my-1 border-t border-stone-700" />
+              <div v-if="playlistsNotYetIn.length" class="my-1 border-t border-outline" />
             </template>
-            <!-- Playlists not yet containing the track -->
             <button
               v-for="pl in playlistsNotYetIn"
               :key="pl.id"
               type="button"
-              class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+              class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
               @click="addToPlaylist(pl.id)"
             >
               <PlaylistIcon v-if="pl.icon" :icon="pl.icon" class="h-3.5 w-3.5 shrink-0" />
-              <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+              <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
               <span class="min-w-0 truncate">{{ pl.name }}</span>
             </button>
           </div>
           <div
-            v-else-if="playlistSubmenuOpen && !playlists.length"
-            class="absolute left-full z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
+            v-else-if="playlistSubmenuOpen && !menuPlaylists.length"
+            class="absolute left-full z-[310] min-w-[160px] glass-strong rounded-2xl px-3 py-2 shadow-xl text-xs text-on-surface-variant"
             :class="playlistSubmenuFlipUp ? 'bottom-0' : 'top-0'"
             style="margin-left: 2px"
           >
             No playlists yet.
           </div>
         </div>
-        <div class="my-1 border-t border-stone-700" />
+        <div class="my-1 border-t border-outline" />
         <div class="flex items-center justify-center px-3 py-2">
           <StarRating
             :model-value="singleTrack?.rating ?? null"
@@ -1200,62 +1197,36 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.player-volume-slider,
 .player-progress-slider {
-  accent-color: #5b7c32;
-}
-.player-volume-slider::-webkit-slider-thumb,
-.player-progress-slider::-webkit-slider-thumb {
-  background: #5b7c32;
-}
-.player-progress-slider {
+  accent-color: var(--p-strong, #5b7c32);
   background: linear-gradient(
     to right,
-    #5b7c32 0%,
-    #5b7c32 var(--progress-percent, 0%),
-    rgb(87 83 78) var(--progress-percent, 0%),
-    rgb(87 83 78) 100%
+    var(--p-strong, #5b7c32) 0%,
+    var(--p-strong, #5b7c32) var(--progress-percent, 0%),
+    color-mix(in srgb, var(--p-on, #fff) 25%, transparent) var(--progress-percent, 0%),
+    color-mix(in srgb, var(--p-on, #fff) 25%, transparent) 100%
   ) !important;
   border-radius: 9999px;
+}
+.player-progress-slider::-webkit-slider-thumb {
+  background: var(--p-strong, #5b7c32);
 }
 .player-progress-slider::-webkit-slider-runnable-track {
   background: linear-gradient(
     to right,
-    #5b7c32 0%,
-    #5b7c32 var(--progress-percent, 0%),
-    rgb(87 83 78) var(--progress-percent, 0%),
-    rgb(87 83 78) 100%
+    var(--p-strong, #5b7c32) 0%,
+    var(--p-strong, #5b7c32) var(--progress-percent, 0%),
+    color-mix(in srgb, var(--p-on, #fff) 25%, transparent) var(--progress-percent, 0%),
+    color-mix(in srgb, var(--p-on, #fff) 25%, transparent) 100%
   );
   border-radius: 9999px;
 }
 .player-progress-slider::-moz-range-progress {
-  background: #5b7c32;
+  background: var(--p-strong, #5b7c32);
   border-radius: 9999px;
 }
 .player-progress-slider::-moz-range-track {
-  background: rgb(87 83 78);
+  background: color-mix(in srgb, var(--p-on, #fff) 25%, transparent);
   border-radius: 9999px;
 }
-.metadata-marquee {
-  position: relative;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.metadata-marquee-inner {
-  display: inline-block;
-  will-change: transform;
-  animation: metadata-marquee-bounce 4s ease-in-out infinite alternate;
-}
-@keyframes metadata-marquee-bounce {
-  0%,
-  15% {
-    transform: translateX(0);
-  }
-  85%,
-  100% {
-    transform: translateX(calc(-1 * var(--marquee-distance)));
-  }
-}
 </style>
-
-

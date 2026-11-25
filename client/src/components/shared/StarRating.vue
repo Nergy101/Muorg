@@ -45,7 +45,7 @@ function select(star: number) {
         :class="
           (hovered !== null ? star <= hovered : star <= (modelValue ?? 0))
             ? (partial ? 'fill-transparent text-amber-400' : 'fill-amber-400 text-amber-400')
-            : 'fill-transparent text-stone-500'
+            : 'fill-transparent text-on-surface-variant'
         "
         stroke="currentColor"
         stroke-width="1.5"

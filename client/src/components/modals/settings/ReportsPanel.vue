@@ -28,41 +28,41 @@ const missingMetadataFieldOptions: {
 <template>
             <div class="space-y-3">
               <p
-                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+                class="flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
               >
                 <FeatherIcon
                   name="bar-chart-2"
-                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                 />
                 Reports
               </p>
 
               <div class="settings-section">
-                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500">
+                <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant">
                   <input
                     type="checkbox"
                     :checked="settingsStore.hideReportsSection"
-                    class="rounded border-stone-600"
+                    class="rounded border-outline"
                     @change="(e) => settingsStore.setHideReportsSection((e.target as HTMLInputElement).checked)"
                   />
                   Hide reports section in sidebar
                 </label>
-                <p class="mt-0.5 text-xs text-stone-500">
+                <p class="mt-0.5 text-xs text-on-surface-variant">
                   When enabled, the reports block (Missing metadata, Duplicates, Missing album cover) is hidden from the main sidebar layout.
                 </p>
               </div>
 
               <div class="settings-section">
                 <p
-                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                  class="mb-1 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                 >
                   <FeatherIcon
                     name="list"
-                    class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                    class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                   />
                   Missing metadata fields
                 </p>
-                <p class="mb-1 text-xs text-stone-500">
+                <p class="mb-1 text-xs text-on-surface-variant">
                   Choose which fields must be present for a track to be
                   considered "complete". Tracks missing any of these fields will
                   appear in the "Missing metadata" report.
@@ -71,12 +71,12 @@ const missingMetadataFieldOptions: {
                   <label
                     v-for="opt in missingMetadataFieldOptions"
                     :key="opt.value"
-                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="missingMetadataFields.includes(opt.value)"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) => {
                           const checked = (e.target as HTMLInputElement)

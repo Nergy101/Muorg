@@ -1,5 +1,8 @@
 <template>
-  <div class="album-view-root absolute inset-0 flex flex-col overflow-hidden bg-background">
+  <div
+    class="album-view-root absolute inset-0 flex flex-col bg-background"
+    :class="sidebarCollapsed ? 'overflow-visible' : 'overflow-hidden'"
+  >
     <template v-if="!item">
       <div class="content-col flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
         <div class="w-40 shrink-0 sm:w-48">
@@ -17,8 +20,15 @@
     <template v-else>
       <!-- Same cover-derived backdrop as the maximized player, at every
            viewport size. Only when the album actually has art, so coverless
-           albums keep the plain theme background. -->
-      <CoverBackdrop v-if="backdropActive" :cover-url="coverUrl" variant="album" />
+           albums keep the plain theme background. When the nav is collapsed
+           into a top bar, the backdrop extends 100px up underneath it
+           so the art also covers the top-bar's glass background. -->
+      <CoverBackdrop
+        v-if="backdropActive"
+        :cover-url="coverUrl"
+        variant="album"
+        :class="sidebarCollapsed ? '-top-[100px]' : ''"
+      />
 
       <!-- z-20 so the header's dropdown menu paints above the track list
            scroller (z-10) and its row hover backgrounds. -->
@@ -266,6 +276,7 @@ import { useSelectionStore } from "../stores/selection";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useIsDesktop } from "../composables/useIsDesktop";
 import { useIsPwa } from "../composables/useIsPwa";
+import { sidebarCollapsed } from "../composables/sidebarCollapsed";
 import { provideVisibleIds } from "../composables/useSelectableList";
 import { rawMainColor, relativeLuminance, useDominantColor, useMostCommonColor } from "../composables/useDominantColor";
 import { showToast } from "../composables/useToast";
@@ -384,6 +395,9 @@ watch(lightBackdrop, (v) => document.documentElement.classList.toggle("album-vie
 onActivated(() => document.documentElement.classList.toggle("album-view-light", lightBackdrop.value));
 onDeactivated(() => document.documentElement.classList.remove("album-view-light"));
 onUnmounted(() => document.documentElement.classList.remove("album-view-light"));
+
+// The top-nav intentionally stays the default (muorg-green) themed glass on
+// the album view — no album-accent tinting there.
 const accentRgb = computed(() =>
   coverUrl.value != null ? rawMainColor(glowRgb.value) : null,
 );

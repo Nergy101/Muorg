@@ -111,7 +111,7 @@ onUnmounted(() => {
   <div class="flex items-center gap-2">
     <button
       type="button"
-      :class="props.mode === 'playscreen' ? 'flex shrink-0 items-center justify-center rounded p-2 text-stone-400 hover:bg-stone-700 hover:text-stone-200' : 'flex shrink-0 items-center justify-center rounded p-1.5 text-stone-400 hover:bg-stone-600 hover:text-stone-200'"
+      :class="props.mode === 'playscreen' ? 'flex shrink-0 items-center justify-center rounded p-2 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface' : 'flex shrink-0 items-center justify-center rounded p-1.5 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface'"
       :aria-label="displayVolume === 0 ? 'Unmute' : 'Mute'"
       :title="displayVolume === 0 ? 'Unmute' : 'Mute'"
       @click="toggleMute"
@@ -124,7 +124,7 @@ onUnmounted(() => {
       max="1"
       step="0.05"
       :value="displayVolume"
-      class="player-volume-slider h-1.5 cursor-pointer appearance-none rounded-full bg-stone-600 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
+      class="player-volume-slider h-1.5 cursor-pointer appearance-none rounded-full bg-surface-variant [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full"
       :class="props.mode === 'playscreen' ? 'w-32' : 'w-full min-w-0'"
       :style="{ '--volume-percent': displayVolume * 100 + '%' }"
       :title="isCasting ? 'Cast device volume' : 'Volume'"

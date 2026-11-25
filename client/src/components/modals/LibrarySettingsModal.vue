@@ -8,6 +8,7 @@
  */
 import { nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import logoUrl from "../../assets/muorg-logo.svg";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
@@ -15,7 +16,6 @@ import type { MissingMetadataField } from "../../stores/settings";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import ConnectionPanel from "./settings/ConnectionPanel.vue";
 import GeneralPanel from "./settings/GeneralPanel.vue";
-import ThemePanel from "./settings/ThemePanel.vue";
 import PlaybackPanel from "./settings/PlaybackPanel.vue";
 import TablePanel from "./settings/TablePanel.vue";
 import SmartSuggestionsPanel from "./settings/SmartSuggestionsPanel.vue";
@@ -46,10 +46,17 @@ type SettingsTabId =
   | "connection";
 
 const settingsTab = ref<SettingsTabId>("general");
+/** Collapsible sections (web SettingsSection pattern); General starts open. */
+const openSections = ref<Set<SettingsTabId>>(new Set(["general"]));
+function toggleSection(id: SettingsTabId) {
+  const next = new Set(openSections.value);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  openSections.value = next;
+  settingsTab.value = id;
+}
 const settingsTabs: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: "connection", label: "Connection", icon: "wifi" },
   { id: "general", label: "General", icon: "sliders" },
-  { id: "theme", label: "Theme", icon: "sun" },
   { id: "playback", label: "Playback", icon: "play-circle" },
   { id: "table", label: "Layout", icon: "layout" },
   { id: "smart_suggestions", label: "Smart Suggestions", icon: "zap" },
@@ -93,7 +100,11 @@ watch(
 // Another view can ask for a specific tab (the Reports sidebar does).
 watch(openSettingsAtTab, (tab) => {
   if (!tab) return;
-  settingsTab.value = tab as SettingsTabId;
+  const id = tab as SettingsTabId;
+  settingsTab.value = id;
+  const next = new Set(openSections.value);
+  next.add(id);
+  openSections.value = next;
   settingsStore.setOpenSettingsAtTab(null);
 });
 </script>
@@ -103,7 +114,7 @@ watch(openSettingsAtTab, (tab) => {
     <div
       v-if="props.open"
       ref="settingsModalRef"
-      class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+      class="fixed inset-0 z-[300] flex items-center justify-center bg-background/70 p-4 outline-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-modal-title"
@@ -112,25 +123,25 @@ watch(openSettingsAtTab, (tab) => {
       @click.self="close"
     >
       <div
-        class="settings-modal flex h-[85vh] min-h-[450px] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-stone-600 bg-stone-800 shadow-xl"
+        class="settings-modal flex h-[85vh] min-h-[450px] w-full max-w-5xl flex-col overflow-hidden glass-strong rounded-2xl shadow-xl"
         @click.stop
       >
         <div
-          class="flex shrink-0 items-center justify-between border-b border-stone-700 px-4 py-3"
+          class="flex shrink-0 items-center justify-between border-b border-outline px-4 py-3"
         >
           <h2
             id="settings-modal-title"
-            class="flex items-center gap-2 text-sm font-semibold text-stone-200"
+            class="flex items-center gap-2 text-sm font-semibold text-on-surface"
           >
             <FeatherIcon
               name="settings"
-              class="h-4 w-4 shrink-0 text-stone-400"
+              class="h-4 w-4 shrink-0 text-on-surface-variant"
             />
             Settings
           </h2>
           <button
             type="button"
-            class="icon-btn h-7 w-7 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            class="icon-btn h-7 w-7 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             aria-label="Close"
             @click="close"
           >
@@ -138,41 +149,45 @@ watch(openSettingsAtTab, (tab) => {
           </button>
         </div>
 
-        <div class="flex min-h-0 flex-1">
-          <nav
-            class="settings-tab-nav w-36 shrink-0 border-r border-stone-700 bg-stone-800/90 py-2 flex flex-col gap-1"
-            aria-label="Settings sections"
-          >
-            <template v-for="tab in settingsTabs" :key="tab.id">
-              <div
-                v-if="tab.id === 'general' || tab.id === 'statistics'"
-                class="mx-3 my-2 border-t border-stone-700"
-              />
+        <!-- Web SettingsView pattern: one scrollable column of collapsible section cards -->
+        <div ref="settingsScrollRef" class="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
+          <div class="mx-auto flex max-w-2xl flex-col gap-3">
+            <div class="flex justify-center pb-2 pt-2">
+              <img :src="logoUrl" alt="Muorg" class="h-16 w-16" />
+            </div>
+            <div
+              v-for="tab in settingsTabs"
+              :key="tab.id"
+              class="rounded-xl bg-surface-container/70 ring-1 ring-outline/10"
+            >
               <button
                 type="button"
-                class="settings-tab-btn mx-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors"
-                :class="settingsTab === tab.id ? 'settings-tab-btn--active' : undefined"
-                @click="settingsTab = tab.id"
+                class="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-surface-container"
+                :aria-expanded="openSections.has(tab.id)"
+                @click="toggleSection(tab.id)"
               >
-                <FeatherIcon :name="tab.icon" class="h-3.5 w-3.5 shrink-0" />
-                {{ tab.label }}
+                <FeatherIcon :name="tab.icon" class="h-4 w-4 shrink-0 text-primary" />
+                <span class="min-w-0 flex-1 text-body-lg font-semibold text-on-surface">{{ tab.label }}</span>
+                <FeatherIcon
+                  name="chevron-down"
+                  class="h-4 w-4 shrink-0 text-on-surface-variant transition-transform"
+                  :class="openSections.has(tab.id) ? 'rotate-180' : ''"
+                />
               </button>
-            </template>
-          </nav>
-
-          <div ref="settingsScrollRef" class="min-h-0 min-w-0 flex-1 p-4">
-          <GeneralPanel v-show="settingsTab === 'general'" />
-          <ThemePanel v-show="settingsTab === 'theme'" />
-          <PlaybackPanel v-show="settingsTab === 'playback'" />
-          <TablePanel v-show="settingsTab === 'table'" />
-          <KeyboardPanel v-show="settingsTab === 'keyboard'" />
-          <ReportsPanel v-show="settingsTab === 'reports'" />
-          <ExportsPanel v-show="settingsTab === 'exports'" />
-          <SmartSuggestionsPanel v-show="settingsTab === 'smart_suggestions'" />
-          <SmartTransformPanel v-show="settingsTab === 'smart_transform'" />
-          <StatisticsPanel v-show="settingsTab === 'statistics'" @view-field="handleViewField" />
-          <ConnectionPanel v-show="settingsTab === 'connection'" />
-
+              <div v-show="openSections.has(tab.id)" class="border-t border-outline/15 px-4 py-3">
+                <GeneralPanel v-if="tab.id === 'general'" />
+                
+                <PlaybackPanel v-else-if="tab.id === 'playback'" />
+                <TablePanel v-else-if="tab.id === 'table'" />
+                <KeyboardPanel v-else-if="tab.id === 'keyboard'" />
+                <ReportsPanel v-else-if="tab.id === 'reports'" />
+                <ExportsPanel v-else-if="tab.id === 'exports'" />
+                <SmartSuggestionsPanel v-else-if="tab.id === 'smart_suggestions'" />
+                <SmartTransformPanel v-else-if="tab.id === 'smart_transform'" />
+                <StatisticsPanel v-else-if="tab.id === 'statistics'" @view-field="handleViewField" />
+                <ConnectionPanel v-else-if="tab.id === 'connection'" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -206,8 +221,8 @@ watch(openSettingsAtTab, (tab) => {
 }
 
 /* Make settings text a bit lighter in dark theme for readability */
-:global(html[data-theme="dark"] .settings-modal .text-stone-500),
-:global(html[data-theme="dark"] .settings-modal .text-stone-400) {
+:global(html[data-theme="dark"] .settings-modal .text-on-surface-variant),
+:global(html[data-theme="dark"] .settings-modal .text-on-surface-variant) {
   color: rgb(229 231 235);
 }
 /* Theme-aware settings cards */

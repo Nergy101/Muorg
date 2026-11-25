@@ -5,6 +5,9 @@ import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
 import { usePlaylistAdd } from "../../composables/usePlaylistAdd";
+import { navigate } from "../../state/navigation";
+import { albumIdentityKey } from "@shared/utils/albumIdentity";
+import { albumArtistOf } from "../../composables/useAlbums";
 import type { CatalogTrack } from "../../types";
 import { setTracksDragGhost } from "../../utils/dragGhost";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
@@ -36,6 +39,8 @@ const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
 const { playlists } = storeToRefs(playlistStore);
+/** Smart playlists are computed, not stored — never offer them as add targets. */
+const menuPlaylists = computed(() => playlists.value.filter((p) => !p.smart_rules));
 const { pendingAdd, tryAddToPlaylist, confirmAddAll, confirmAddDeduped, cancelPendingAdd } = usePlaylistAdd();
 const { activePlaylistTrackIds, activePlaylistEntryIds } = storeToRefs(store);
 
@@ -741,6 +746,21 @@ function addToQueueFromContextMenu() {
   }
 }
 
+function viewAlbumFromContextMenu() {
+  const t = contextMenu.value?.tracks[0];
+  if (!t) return;
+  closeContextMenu();
+  navigate({ name: "album", key: albumIdentityKey(t.album, albumArtistOf(t)) });
+}
+
+function viewArtistFromContextMenu() {
+  const t = contextMenu.value?.tracks[0];
+  const name = t ? albumArtistOf(t) : "";
+  if (!name || name === "Unknown Artist") return;
+  closeContextMenu();
+  navigate({ name: "artist", key: name });
+}
+
 /** Q21: true when every track in the context menu is already a favorite. */
 const contextMenuAllFavorite = computed(() => {
   const tracks = contextMenu.value?.tracks ?? [];
@@ -807,10 +827,10 @@ watch(playlistSubmenuOpen, async (open) => {
 
 const isSingleContextTrack = computed(() => contextMenu.value?.tracks.length === 1);
 const playlistsAlreadyIn = computed(() =>
-  isSingleContextTrack.value ? playlists.value.filter((p) => trackPlaylistIds.value.has(p.id)) : []
+  isSingleContextTrack.value ? menuPlaylists.value.filter((p) => trackPlaylistIds.value.has(p.id)) : []
 );
 const playlistsNotYetIn = computed(() =>
-  isSingleContextTrack.value ? playlists.value.filter((p) => !trackPlaylistIds.value.has(p.id)) : playlists.value
+  isSingleContextTrack.value ? menuPlaylists.value.filter((p) => !trackPlaylistIds.value.has(p.id)) : playlists.value
 );
 
 const submenuTopPx = computed(() => {
@@ -898,15 +918,15 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
         <col v-if="tableColPath" :style="{ width: colWidth('path') + 'px' }" />
         <col /><!-- filler: absorbs remaining space -->
       </colgroup>
-      <thead class="sticky top-0 z-10 bg-stone-800">
+      <thead class="sticky top-0 z-10 bg-surface-container">
         <tr>
           <th v-if="multiSelectMode || effectiveGroupBy !== 'none'" class="p-2 whitespace-nowrap" style="width: 32px">
             <div class="flex items-center gap-1.5">
-              <label v-if="multiSelectMode" class="flex cursor-pointer items-center gap-1.5 text-xs text-stone-400">
+              <label v-if="multiSelectMode" class="flex cursor-pointer items-center gap-1.5 text-xs text-on-surface-variant">
                 <input
                   type="checkbox"
                   :checked="multiSelectMode"
-                  class="rounded border-stone-600"
+                  class="rounded border-outline"
                   @change="store.setMultiSelectMode(($event.target as HTMLInputElement).checked)"
                 />
                 Multi<template v-if="selectedTrackIds.length"> ({{ selectedTrackIds.length }})</template>
@@ -914,7 +934,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
               <template v-if="effectiveGroupBy !== 'none'">
                 <button
                   type="button"
-                  class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                  class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
                   title="Expand all groups"
                   @click="expandAllGroups"
                 >
@@ -922,7 +942,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                 </button>
                 <button
                   type="button"
-                  class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                  class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
                   title="Collapse all groups"
                   @click="collapseAllGroups"
                 >
@@ -933,89 +953,89 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
           </th>
           <th v-if="showAlbumArtCol" class="relative p-2">
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('albumArt', $event)"
             />
           </th>
-          <th class="relative p-2 font-medium text-stone-400 overflow-hidden">
-            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('title')">
+          <th class="relative p-2 font-medium text-on-surface-variant overflow-hidden">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-on-surface" @click="toggleSortColumn('title')">
               Title
-              <span v-if="tableSortColumn === 'title'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="tableSortColumn === 'title'" class="text-on-surface">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('title', $event)"
             />
           </th>
-          <th v-if="tableColRating" class="relative p-2 font-medium text-stone-400">
-            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('rating')">
+          <th v-if="tableColRating" class="relative p-2 font-medium text-on-surface-variant">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-on-surface" @click="toggleSortColumn('rating')">
               Rating
-              <span v-if="tableSortColumn === 'rating'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="tableSortColumn === 'rating'" class="text-on-surface">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('rating', $event)"
             />
           </th>
-          <th v-if="showArtistCol" class="relative p-2 font-medium text-stone-400 overflow-hidden">
-            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('artist')">
+          <th v-if="showArtistCol" class="relative p-2 font-medium text-on-surface-variant overflow-hidden">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-on-surface" @click="toggleSortColumn('artist')">
               Artist
-              <span v-if="tableSortColumn === 'artist'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="tableSortColumn === 'artist'" class="text-on-surface">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('artist', $event)"
             />
           </th>
-          <th v-if="showAlbumCol" class="relative p-2 font-medium text-stone-400 overflow-hidden">
-            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('album')">
+          <th v-if="showAlbumCol" class="relative p-2 font-medium text-on-surface-variant overflow-hidden">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-on-surface" @click="toggleSortColumn('album')">
               Album
-              <span v-if="tableSortColumn === 'album'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="tableSortColumn === 'album'" class="text-on-surface">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('album', $event)"
             />
           </th>
-          <th v-if="showYearCol" class="relative p-2 font-medium text-stone-400">
-            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('year')">
+          <th v-if="showYearCol" class="relative p-2 font-medium text-on-surface-variant">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-on-surface" @click="toggleSortColumn('year')">
               Year
-              <span v-if="tableSortColumn === 'year'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="tableSortColumn === 'year'" class="text-on-surface">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('year', $event)"
             />
           </th>
-          <th v-if="tableColDuration" class="relative p-2 font-medium text-stone-400">
-            <button type="button" class="inline-flex items-center gap-1 hover:text-stone-200" @click="toggleSortColumn('duration')">
+          <th v-if="tableColDuration" class="relative p-2 font-medium text-on-surface-variant">
+            <button type="button" class="inline-flex items-center gap-1 hover:text-on-surface" @click="toggleSortColumn('duration')">
               Duration
-              <span v-if="tableSortColumn === 'duration'" class="text-stone-300">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="tableSortColumn === 'duration'" class="text-on-surface">{{ tableSortDirection === 'asc' ? '▲' : '▼' }}</span>
             </button>
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('duration', $event)"
             />
           </th>
-          <th v-if="tableColFormat" class="relative p-2 font-medium text-stone-400">
+          <th v-if="tableColFormat" class="relative p-2 font-medium text-on-surface-variant">
             Format
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('format', $event)"
             />
           </th>
-          <th v-if="tableColPath" class="relative truncate p-2 font-medium text-stone-400">
+          <th v-if="tableColPath" class="relative truncate p-2 font-medium text-on-surface-variant">
             Path
             <span
-              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-stone-600/30 hover:bg-stone-500/70"
+              class="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none bg-surface-variant/30 hover:bg-surface-container/70"
               aria-hidden="true"
               @mousedown="onResizeStart('path', $event)"
             />
@@ -1033,9 +1053,9 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
               v-if="row.type === 'group'"
               :data-row-index="index"
               draggable="true"
-              class="cursor-context-menu font-medium text-stone-400 hover:bg-stone-700/80"
+              class="cursor-context-menu font-medium text-on-surface-variant hover:bg-surface-container/80"
               :class="[
-                focusedRowIndex === index ? 'bg-stone-700/80 table-row-focused' : 'bg-stone-800/80',
+                focusedRowIndex === index ? 'bg-surface-variant/80 table-row-focused' : 'bg-surface-container/80',
                 { 'group-row-with-selection': groupContainsSelection(row.group) },
               ]"
               :style="useVirtualization ? { height: rowHeights[index] + 'px' } : undefined"
@@ -1056,7 +1076,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                 >
                   <span
                     v-if="(effectiveGroupBy === 'album' && groupHeaderAlbumArt) || (effectiveGroupBy === 'artist' && groupHeaderAlbumArtForArtist)"
-                    class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-stone-800"
+                    class="flex shrink-0 items-center justify-center overflow-hidden rounded bg-surface-container"
                     :class="tableDensity === 'spacious' ? 'h-20 w-20' : tableDensity === 'comfortable' ? 'h-12 w-12' : 'h-8 w-8'"
                   >
                     <img
@@ -1067,7 +1087,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                     />
                     <span
                       v-else-if="groupCovers[row.key] === null"
-                      class="inline-flex items-center justify-center rounded-full border border-stone-500 text-stone-400"
+                      class="inline-flex items-center justify-center rounded-full border border-outline text-on-surface-variant"
                       :class="tableDensity === 'spacious' ? 'h-8 w-8 text-lg' : tableDensity === 'comfortable' ? 'h-5 w-5 text-xs' : 'h-4 w-4 text-[0.6rem]'"
                       aria-hidden="true"
                     >
@@ -1075,20 +1095,20 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                     </span>
                     <span
                       v-else
-                      class="inline-block animate-spin rounded-full border-2 border-stone-500 border-t-stone-300"
+                      class="inline-block animate-spin rounded-full border-2 border-outline border-t-outline"
                       :class="tableDensity === 'spacious' ? 'h-8 w-8' : tableDensity === 'comfortable' ? 'h-5 w-5' : 'h-4 w-4'"
                       aria-hidden="true"
                     />
                   </span>
                   <span
-                    class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-900/60 text-stone-400 transition-transform duration-150"
+                    class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-outline bg-background/60 text-on-surface-variant transition-transform duration-150"
                     :class="{ 'rotate-90': isGroupExpanded(row.key) }"
                     aria-hidden="true"
                   >
                     <FeatherIcon name="chevron-right" class="h-2.5 w-2.5" />
                   </span>
-                  {{ row.group.label }}<template v-if="effectiveGroupBy === 'album' && row.group.artist"><span class="ml-1 text-stone-400"> · {{ row.group.artist }}</span></template>
-                  <span v-if="!hideGroupTrackCount" class="ml-1 text-stone-500">({{ row.group.tracks.length }})</span>
+                  {{ row.group.label }}<template v-if="effectiveGroupBy === 'album' && row.group.artist"><span class="ml-1 text-on-surface-variant"> · {{ row.group.artist }}</span></template>
+                  <span v-if="!hideGroupTrackCount" class="ml-1 text-on-surface-variant">({{ row.group.tracks.length }})</span>
                   <StarRating
                     v-if="groupAvgRating(row.group.tracks) !== null"
                     :model-value="groupAvgRating(row.group.tracks)"
@@ -1099,7 +1119,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                   <button
                     v-if="effectiveGroupBy === 'album'"
                     type="button"
-                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-outline text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
                     aria-label="Edit album"
                     title="Edit album"
                     @click.stop="editGroup(row.group)"
@@ -1109,7 +1129,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                   <button
                     v-if="effectiveGroupBy === 'album' && groupCovers[row.key] === null && !hideWikipediaCoverSearch"
                     type="button"
-                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-outline text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
                     aria-label="From Wikipedia"
                     title="From Wikipedia"
                     @click.stop="openGroupCoverFromWikipedia(row.group)"
@@ -1126,9 +1146,9 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
               draggable="true"
               class="cursor-context-menu table-track-row"
               :class="[
-                { 'bg-stone-700/25': isSelected(row.track.id) && focusedRowIndex !== index },
-                { 'bg-stone-600/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === index },
-                { 'bg-stone-800 table-row-focused': !isSelected(row.track.id) && focusedRowIndex === index },
+                { 'bg-outline/25': isSelected(row.track.id) && focusedRowIndex !== index },
+                { 'bg-surface-variant/30 table-row-focused': isSelected(row.track.id) && focusedRowIndex === index },
+                { 'bg-surface-container table-row-focused': !isSelected(row.track.id) && focusedRowIndex === index },
                 { 'table-row-playing': row.track.id === currentPlayingTrackId },
                 { 'group-child-focused': row.groupKey != null && row.groupKey === focusedGroupKey },
                 { 'group-child-album': row.groupKey != null },
@@ -1145,7 +1165,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                   v-if="multiSelectMode"
                   type="checkbox"
                   :checked="isSelected(row.track.id)"
-                  class="rounded border-stone-600"
+                  class="rounded border-outline"
                   @click.stop="focusedRowIndex = index; selectRow(row.track)"
                 />
               </td>
@@ -1157,7 +1177,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                   />
                 </div>
               </td>
-              <td class="p-2 text-stone-200">
+              <td class="p-2 text-on-surface">
                 <div class="flex min-w-0 items-center gap-2">
                   <EqualizerBars
                     v-if="row.track.id === currentPlayingTrackId"
@@ -1174,18 +1194,18 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
                   @update:model-value="(r) => store.setRating([row.track.path], r)"
                 />
               </td>
-              <td v-if="showArtistCol" class="p-2 text-stone-200">
+              <td v-if="showArtistCol" class="p-2 text-on-surface">
                 <MarqueeCell :text="row.track.artist ?? '—'" />
               </td>
-              <td v-if="showAlbumCol" class="p-2 text-stone-200">
+              <td v-if="showAlbumCol" class="p-2 text-on-surface">
                 <MarqueeCell :text="row.track.album ?? '—'" />
               </td>
-              <td v-if="showYearCol" class="p-2 text-stone-300">{{ row.track.year ?? "—" }}</td>
-              <td v-if="tableColDuration" class="p-2 text-stone-300">{{ formatDuration(row.track.duration_secs) }}</td>
-              <td v-if="tableColFormat" class="p-2 text-stone-400">{{ row.track.format }}</td>
-              <td v-if="tableColPath" class="min-w-0 p-2 text-stone-500">
+              <td v-if="showYearCol" class="p-2 text-on-surface">{{ row.track.year ?? "—" }}</td>
+              <td v-if="tableColDuration" class="p-2 text-on-surface">{{ formatDuration(row.track.duration_secs) }}</td>
+              <td v-if="tableColFormat" class="p-2 text-on-surface-variant">{{ row.track.format }}</td>
+              <td v-if="tableColPath" class="min-w-0 p-2 text-on-surface-variant">
                 <div class="flex min-w-0 items-center gap-1">
-                  <button type="button" class="shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300" aria-label="Copy path" title="Copy path" @click.stop="copyPathToClipboard(row.track.path)">
+                  <button type="button" class="shrink-0 rounded p-0.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface" aria-label="Copy path" title="Copy path" @click.stop="copyPathToClipboard(row.track.path)">
                     <FeatherIcon name="clipboard" class="h-3.5 w-3.5" />
                   </button>
                   <span class="min-w-0 truncate cursor-default" :title="row.track.path">{{ row.track.path }}</span>
@@ -1198,7 +1218,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
             <td :colspan="tableColCount" :style="{ height: bottomSpacerHeight + 'px' }"></td>
           </tr>
         </template>
-        <tr v-else class="text-stone-500">
+        <tr v-else class="text-on-surface-variant">
           <td :colspan="tableColCount" class="p-6 text-center">
             {{ store.searchQuery.trim() ? "No tracks match the search." : "No tracks to show. Add or unhide a folder to show MP3/FLAC/WAV files." }}
           </td>
@@ -1210,33 +1230,50 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
     <div
       v-if="contextMenu"
       ref="contextMenuRef"
-      class="fixed z-[300] min-w-[180px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+      class="fixed z-[300] min-w-[180px] rounded-lg border border-outline bg-surface-container py-1 shadow-xl"
       :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
       @click.stop
     >
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
         @click="addToQueueFromContextMenu"
       >
-        <FeatherIcon name="clock" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="layers" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Add to queue
       </button>
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
         @click="toggleFavoriteFromContextMenu"
       >
         <FeatherIcon
-          name="heart"
+          :name="contextMenuAllFavorite ? 'heart-fill' : 'heart'"
           class="h-4 w-4 shrink-0"
-          :class="contextMenuAllFavorite ? 'text-primary' : 'text-stone-400'"
+          :class="contextMenuAllFavorite ? 'text-primary' : 'text-on-surface-variant'"
         />
         {{ contextMenuAllFavorite ? "Remove from favorites" : "Add to favorites" }}
       </button>
+      <div class="my-1 border-t border-outline" />
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
+        @click="viewAlbumFromContextMenu"
+      >
+        <FeatherIcon name="disc" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+        View album
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
+        @click="viewArtistFromContextMenu"
+      >
+        <FeatherIcon name="user" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+        View artist
+      </button>
 
       <!-- Add to playlist section -->
-      <div class="my-1 border-t border-stone-700" />
+      <div class="my-1 border-t border-outline" />
       <div
         ref="playlistBtnContainerRef"
         class="relative"
@@ -1245,21 +1282,21 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
       >
         <button
           type="button"
-          class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+          class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
           @click="playlistSubmenuOpen = !playlistSubmenuOpen"
         >
           <span class="flex items-center gap-2">
-            <FeatherIcon name="list" class="h-4 w-4 shrink-0 text-stone-400" />
+            <FeatherIcon name="playlist-add" class="h-4 w-4 shrink-0 text-on-surface-variant" />
             Add to playlist
           </span>
-          <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+          <FeatherIcon name="chevron-right" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
         </button>
         <!-- Transparent bridge covering the gap between button and submenu -->
         <div class="absolute right-0 top-0 h-full w-2 translate-x-full" />
         <!-- Playlist submenu -->
         <div
-          v-if="playlistSubmenuOpen && playlists.length"
-          class="absolute left-full z-[310] min-w-[160px] max-w-[220px] overflow-y-auto rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+          v-if="playlistSubmenuOpen && menuPlaylists.length"
+          class="absolute left-full z-[310] min-w-[160px] max-w-[220px] overflow-y-auto rounded-lg border border-outline bg-surface-container py-1 shadow-xl"
           :style="{ top: submenuTopPx + 'px', maxHeight: 'min(320px, 70vh)', marginLeft: '2px' }"
         >
           <!-- Playlists the track is already in (single-track only) -->
@@ -1268,32 +1305,32 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
               v-for="pl in playlistsAlreadyIn"
               :key="pl.id"
               type="button"
-              class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+              class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
               @click="addToPlaylistFromContextMenu(pl.id)"
             >
               <PlaylistIcon v-if="pl.icon" :icon="pl.icon" class="h-3.5 w-3.5 shrink-0" />
-              <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+              <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
               <span class="min-w-0 flex-1 truncate">{{ pl.name }}</span>
               <FeatherIcon name="check" class="h-3.5 w-3.5 shrink-0 text-primary" />
             </button>
-            <div v-if="playlistsNotYetIn.length" class="my-1 border-t border-stone-700" />
+            <div v-if="playlistsNotYetIn.length" class="my-1 border-t border-outline" />
           </template>
           <!-- Playlists not yet containing the track -->
           <button
             v-for="pl in playlistsNotYetIn"
             :key="pl.id"
             type="button"
-            class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+            class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
             @click="addToPlaylistFromContextMenu(pl.id)"
           >
             <PlaylistIcon v-if="pl.icon" :icon="pl.icon" class="h-3.5 w-3.5 shrink-0" />
-            <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+            <FeatherIcon v-else name="list" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
             <span class="min-w-0 truncate">{{ pl.name }}</span>
           </button>
         </div>
         <div
-          v-else-if="playlistSubmenuOpen && !playlists.length"
-          class="absolute left-full z-[310] min-w-[160px] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 shadow-xl text-xs text-stone-500"
+          v-else-if="playlistSubmenuOpen && !menuPlaylists.length"
+          class="absolute left-full z-[310] min-w-[160px] rounded-lg border border-outline bg-surface-container px-3 py-2 shadow-xl text-xs text-on-surface-variant"
           :style="{ top: submenuTopPx + 'px', marginLeft: '2px' }"
         >
           No playlists yet.
@@ -1301,22 +1338,22 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
       </div>
 
       <!-- Copy path -->
-      <div class="my-1 border-t border-stone-700" />
+      <div class="my-1 border-t border-outline" />
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-container hover:text-on-primary"
         @click="copyPathToClipboard(contextMenu.tracks[0]?.path ?? ''); closeContextMenu()"
       >
-        <FeatherIcon name="clipboard" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="clipboard" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Copy path
       </button>
 
       <!-- Remove from playlist (when viewing a playlist: single track or full album) -->
       <template v-if="store.activePlaylistId != null && contextMenu.tracks.length">
-        <div class="my-1 border-t border-stone-700" />
+        <div class="my-1 border-t border-outline" />
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-surface-container hover:text-red-300"
           @click="removeFromPlaylist"
         >
           <FeatherIcon name="trash-2" class="h-4 w-4 shrink-0" />
@@ -1325,7 +1362,7 @@ defineExpose({ scrollToTrackId, expandAllGroups, collapseAllGroups, openContextM
       </template>
 
       <!-- Rating section (last) -->
-      <div class="my-1 border-t border-stone-700" />
+      <div class="my-1 border-t border-outline" />
       <div class="flex items-center justify-center px-3 py-2">
         <StarRating
           :model-value="contextMenuRating"

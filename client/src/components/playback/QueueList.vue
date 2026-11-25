@@ -6,7 +6,19 @@ import { usePlaylistStore } from "../../stores/playlists";
 import type { CatalogTrack } from "../../types";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
 import TrackAlbumArt from "../shared/TrackAlbumArt.vue";
+import StarRating from "../shared/StarRating.vue";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
+import { navigate } from "../../state/navigation";
+import { albumIdentityKey } from "@shared/utils/albumIdentity";
+import { albumArtistOf } from "../../composables/useAlbums";
+
+function goArtist(t: CatalogTrack) {
+  const name = albumArtistOf(t);
+  if (name && name !== "Unknown Artist") navigate({ name: "artist", key: name });
+}
+function goAlbum(t: CatalogTrack) {
+  navigate({ name: "album", key: albumIdentityKey(t.album, albumArtistOf(t)) });
+}
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
@@ -307,16 +319,12 @@ watch(contextMenu, (menu) => {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col overflow-hidden border-l border-stone-700">
-    <div class="flex shrink-0 flex-col gap-1.5 border-b border-stone-700 px-3 py-2">
-      <div class="flex items-center justify-between gap-2">
-        <div class="min-w-0 flex-1">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-stone-400">Queue</h3>
-        </div>
-        <div class="flex items-center gap-1">
+  <div class="flex h-full min-h-0 flex-col overflow-hidden">
+    <div class="flex shrink-0 items-center justify-end gap-1.5 border-b border-outline/40 px-3 py-2">
+      <div class="flex items-center gap-1">
           <button
             type="button"
-            class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-stone-300"
+            class="rounded border border-outline px-2 py-1 text-xs text-on-surface hover:bg-surface-variant hover:text-on-surface disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-on-surface"
             :disabled="!queueTracks.length"
             title="Save queue as playlist"
             @click="startSaveAsPlaylist"
@@ -326,13 +334,12 @@ watch(contextMenu, (menu) => {
           </button>
           <button
             type="button"
-            class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-stone-300"
+            class="rounded border border-outline px-2 py-1 text-xs text-on-surface hover:bg-surface-variant hover:text-on-surface disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-on-surface"
             :disabled="!queueTracks.length"
             @click="store.clearQueue()"
           >
             Clear
           </button>
-        </div>
       </div>
       <div v-if="saveAsPlaylistMode" class="flex items-center gap-1">
         <input
@@ -340,13 +347,13 @@ watch(contextMenu, (menu) => {
           v-model="saveAsPlaylistName"
           type="text"
           placeholder="Playlist name…"
-          class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-900 px-2 py-1 text-xs text-stone-200 placeholder-stone-500"
+          class="min-w-0 flex-1 rounded border border-outline bg-surface px-2 py-1 text-xs text-on-surface placeholder-on-surface-variant"
           @keydown.enter="confirmSaveAsPlaylist"
           @keydown.esc="cancelSaveAsPlaylist"
         />
         <button
           type="button"
-          class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100 disabled:opacity-50"
+          class="rounded border border-outline px-2 py-1 text-xs text-on-surface hover:bg-surface-variant hover:text-on-surface disabled:opacity-50"
           :disabled="!saveAsPlaylistName.trim() || saveAsPlaylistSaving"
           @click="confirmSaveAsPlaylist"
         >
@@ -354,7 +361,7 @@ watch(contextMenu, (menu) => {
         </button>
         <button
           type="button"
-          class="rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-700"
+          class="rounded border border-outline px-2 py-1 text-xs text-on-surface-variant hover:bg-surface-variant"
           @click="cancelSaveAsPlaylist"
         >
           Cancel
@@ -391,15 +398,46 @@ watch(contextMenu, (menu) => {
             @contextmenu.prevent="openContextMenu($event, row.track, row.index)"
             @mousedown.prevent="onRowPointerDown($event, row.index)"
           >
-            <TrackAlbumArt :path="row.track.path" class="queue-item__art shrink-0" />
             <span class="queue-item__num">{{ row.index + 1 }}</span>
+            <TrackAlbumArt :path="row.track.path" class="queue-item__art shrink-0" />
             <span class="queue-item__title" :title="row.track.title ?? row.track.path">{{ row.track.title ?? "—" }}</span>
-            <span class="queue-item__artist" :title="row.track.artist ?? ''">{{ row.track.artist ?? "—" }}</span>
+            <button
+              type="button"
+              class="queue-item__link"
+              :title="row.track.artist ?? ''"
+              @click.stop="goArtist(row.track)"
+            >
+              <FeatherIcon name="user" class="h-3 w-3" />
+              <span class="truncate">{{ row.track.artist ?? "—" }}</span>
+            </button>
+            <button
+              v-if="row.track.album"
+              type="button"
+              class="queue-item__link"
+              :title="row.track.album"
+              @click.stop="goAlbum(row.track)"
+            >
+              <FeatherIcon name="disc" class="h-3 w-3" />
+              <span class="truncate">{{ row.track.album }}</span>
+            </button>
+            <span class="shrink-0 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">{{ row.track.format }}</span>
             <span class="queue-item__dur">{{ formatDuration(row.track.duration_secs) }}</span>
+            <span class="shrink-0" @click.stop @mousedown.stop>
+              <StarRating :model-value="row.track.rating ?? null" @update:model-value="(r) => store.setRating([row.track.path], r)" />
+            </span>
+            <button
+              type="button"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+              aria-label="More actions"
+              @click.stop="openContextMenu($event, row.track, row.index)"
+              @mousedown.stop
+            >
+              <FeatherIcon name="more-horizontal" class="h-3.5 w-3.5" />
+            </button>
           </div>
         </template>
       </TransitionGroup>
-      <p v-else class="p-4 text-center text-sm text-stone-500">
+      <p v-else class="p-4 text-center text-sm text-on-surface-variant">
         Queue is empty. Right‑click a track or album and choose “Add to queue”.
       </p>
     </div>
@@ -408,24 +446,24 @@ watch(contextMenu, (menu) => {
     <div
       v-if="contextMenu"
       ref="contextMenuRef"
-      class="fixed z-[300] min-w-[140px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+      class="fixed z-[300] min-w-[140px] glass-strong rounded-2xl py-1 shadow-xl"
       :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
       @click.stop
     >
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="playNow"
       >
-        <FeatherIcon name="play" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="play" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Play Now
       </button>
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="removeFromQueue"
       >
-        <FeatherIcon name="trash-2" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="trash-2" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Remove
       </button>
     </div>
@@ -474,8 +512,9 @@ watch(contextMenu, (menu) => {
   border: none;
 }
 .queue-item__art {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 6px;
   flex-shrink: 0;
 }
 .queue-item__num {

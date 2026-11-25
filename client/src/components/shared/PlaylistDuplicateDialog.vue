@@ -24,33 +24,33 @@ const allAreDupes = computed(() => newCount.value === 0);
       @mousedown.self="emit('cancel')"
     >
       <div
-        class="w-[400px] rounded-xl border border-stone-600 bg-stone-800 p-5 shadow-2xl"
+        class="w-[400px] glass-strong rounded-2xl p-5 shadow-2xl"
         @click.stop
       >
         <!-- Header -->
         <div class="mb-3 flex items-center gap-2">
           <FeatherIcon name="alert-circle" class="h-4 w-4 shrink-0 text-amber-400" />
-          <h3 class="text-sm font-semibold text-stone-100">
+          <h3 class="text-sm font-semibold text-on-surface">
             {{ isSingleAdd ? "Already in playlist" : "Duplicate tracks" }}
           </h3>
         </div>
 
         <!-- Body -->
-        <p class="mb-5 text-sm leading-relaxed text-stone-300">
+        <p class="mb-5 text-sm leading-relaxed text-on-surface">
           <template v-if="isSingleAdd">
             This track is already in
-            <span class="font-medium text-stone-100">"{{ pending.playlistName }}"</span>.
+            <span class="font-medium text-on-surface">"{{ pending.playlistName }}"</span>.
             Add it again?
           </template>
           <template v-else-if="allAreDupes">
             All {{ dupeCount }} tracks are already in
-            <span class="font-medium text-stone-100">"{{ pending.playlistName }}"</span>.
+            <span class="font-medium text-on-surface">"{{ pending.playlistName }}"</span>.
             Add them again anyway?
           </template>
           <template v-else>
-            <span class="font-medium text-stone-100">{{ dupeCount }} {{ dupeCount === 1 ? "track" : "tracks" }}</span>
+            <span class="font-medium text-on-surface">{{ dupeCount }} {{ dupeCount === 1 ? "track" : "tracks" }}</span>
             {{ dupeCount === 1 ? "is" : "are" }} already in
-            <span class="font-medium text-stone-100">"{{ pending.playlistName }}"</span>.
+            <span class="font-medium text-on-surface">"{{ pending.playlistName }}"</span>.
             {{ newCount }} new {{ newCount === 1 ? "track" : "tracks" }} would be added.
           </template>
         </p>
@@ -59,7 +59,7 @@ const allAreDupes = computed(() => newCount.value === 0);
         <div class="flex items-center justify-end gap-2">
           <button
             type="button"
-            class="rounded px-3 py-1.5 text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            class="rounded px-3 py-1.5 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             @click="emit('cancel')"
           >
             Cancel
@@ -69,7 +69,7 @@ const allAreDupes = computed(() => newCount.value === 0);
           <button
             v-if="!isSingleAdd && !allAreDupes"
             type="button"
-            class="rounded border border-stone-600 bg-stone-700/60 px-3 py-1.5 text-sm text-stone-200 hover:bg-stone-600"
+            class="rounded border border-outline bg-surface-variant/60 px-3 py-1.5 text-sm text-on-surface hover:bg-surface-variant"
             @click="emit('confirm-deduped')"
           >
             Add {{ newCount }} new only
@@ -78,7 +78,7 @@ const allAreDupes = computed(() => newCount.value === 0);
           <!-- "Add all" / "Add again" -->
           <button
             type="button"
-            class="rounded bg-stone-600 px-3 py-1.5 text-sm text-stone-100 hover:bg-stone-500"
+            class="rounded bg-surface-variant px-3 py-1.5 text-sm text-on-surface hover:bg-surface-container"
             @click="emit('confirm-all')"
           >
             {{ isSingleAdd ? "Add again" : allAreDupes ? "Add all anyway" : "Add all" }}

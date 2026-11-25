@@ -5,13 +5,9 @@ description: Download names, install steps and update behaviour for the Muorg de
 
 Every Muorg component is published from the same GitHub repository. This page is the complete download and update reference; for the fastest path to a working setup see the [Quick Start](/docs/quick-start).
 
-## Desktop app (Legacy)
+## Desktop app
 
-:::warning Legacy
-The desktop app is **legacy** — it still works and receives fixes, but new development focuses on the web and Android clients against a self-hosted server. For new setups, see the [Quick Start](/docs/quick-start).
-:::
-
-Download from the [latest release](https://github.com/Nergy101/Muorg/releases/latest). Assets are named after the version, e.g. `muorg-4.3.0-macos.dmg`.
+The desktop app is released **separately** from the server and web images, under its own `desktop-v<version>` tag, so a desktop release never waits on (or triggers) a Docker rebuild. Download from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v). Assets are named after the version, e.g. `muorg-5.0.0-macos.dmg`.
 
 | Platform | File | Install |
 |----------|------|---------|
@@ -94,7 +90,7 @@ The image is a static site served by nginx on port `80`. It has **no build-time 
 | Server image | `ghcr.io/nergy101/muorg-server` | `<version>`, `latest` |
 | Web image | `ghcr.io/nergy101/muorg-web` | `<version>`, `latest` |
 | Docs image | `ghcr.io/nergy101/muorg-docs` | `<version>`, `latest` |
-| Desktop installers | `muorg-<version>-<platform>.<ext>` | GitHub release `v<version>` |
+| Desktop installers | `muorg-<version>-<platform>.<ext>` | GitHub release `desktop-v<version>` |
 | Android APK | `muorg-<version>.apk` | GitHub release `android-v<version>` |
 
 Keep clients and server on matching versions — see [Version Compatibility](/docs/compatibility).

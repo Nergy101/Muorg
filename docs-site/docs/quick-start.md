@@ -1,12 +1,12 @@
 ---
 title: Quick Start
-description: Get Muorg running in a few minutes — self-host muorg-server and use the web or Android client, or run the legacy desktop app locally.
+description: Get Muorg running in a few minutes — run the desktop app locally, or self-host muorg-server and use the web or Android client.
 ---
 
 Pick the path that matches what you want:
 
-- **[Self-host](#self-host)** — run muorg-server once, then reach the same library from the browser and phone. **Recommended.**
-- **[Run locally](#run-locally)** — music files stay on your machine via the legacy desktop app, or on your phone via the Android app's local folders. Nothing to configure, no network.
+- **[Run locally](#run-locally)** — music files stay on your machine via the desktop app, or on your phone via the Android app's local folders. Nothing to configure, no network.
+- **[Self-host](#self-host)** — run muorg-server once, then reach the same library from the desktop app, the browser and your phone.
 
 ---
 
@@ -67,11 +67,7 @@ That's it — the same library, playlists, ratings and play counts on every devi
 The Android app can also run fully offline: pick **Local Library** on the welcome screen and point it at folders on the device. See [Android App](/docs/android/).
 :::
 
-:::warning Legacy
-The desktop app is **legacy** — it is no longer the focus of development. For new setups, [self-host](#self-host) and use the web or Android client instead.
-:::
-
-1. **Download the desktop app** for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
+1. **Download the desktop app** for your platform from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v):
 
    | Platform | File |
    |----------|------|
@@ -83,9 +79,9 @@ The desktop app is **legacy** — it is no longer the focus of development. For 
 
 2. **Launch Muorg** and add a music folder when prompted. Muorg scans it recursively for MP3, FLAC and WAV files.
 
-3. **Browse** the library as a track table (default) or an album grid.
+3. **Browse** — Home for recommendations and mixes, or the Library as album cards, artist cards or track rows.
 
-4. **Clean up** — select a track to open the metadata editor in the bottom panel. Turn on *backup before write* in Settings and every tag write keeps a copy of the original first, so mistakes are recoverable.
+4. **Clean up** — open a track and use the metadata editor. Turn on *backup before write* in Settings and every tag write keeps a copy of the original first, so mistakes are recoverable.
 
 :::tip Android without a server
 The Android app can also run fully offline: pick **Local Library** on the welcome screen and point it at folders on the device. See [Android App](/docs/android/).
@@ -97,5 +93,5 @@ The Android app can also run fully offline: pick **Local Library** on the welcom
 
 - [Server configuration reference](/docs/server/configuration) — every option, including S3-compatible cloud storage.
 - [Docker deployment](/docs/server/docker) — volumes, ports, upgrades and reverse proxies.
-- [Web App](/docs/web-client/) · [Android App](/docs/android/) · [Desktop App (legacy)](/docs/desktop/)
+- [Web App](/docs/web-client/) · [Android App](/docs/android/) · [Desktop App](/docs/desktop/)
 - [FAQ & Troubleshooting](/docs/faq) if something did not go to plan.

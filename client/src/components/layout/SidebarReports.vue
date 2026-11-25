@@ -79,7 +79,7 @@ async function handleRefreshReports() {
 <template>
   <div>
     <div class="mb-1 flex items-center justify-between">
-      <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Reports</p>
+      <p class="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Reports</p>
       <span
         class="inline-flex"
         @mouseenter="showTooltip('Refresh reports', $event)"
@@ -87,7 +87,7 @@ async function handleRefreshReports() {
       >
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-50"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-50"
           aria-label="Refresh reports"
           :disabled="loading"
           @click="handleRefreshReports"
@@ -100,62 +100,62 @@ async function handleRefreshReports() {
       <button
         type="button"
         class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
-        :class="reportFilter === 'missing_metadata' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+        :class="reportFilter === 'missing_metadata' ? 'bg-surface-variant text-on-surface' : 'text-on-surface hover:bg-surface-container/70'"
         @click="openMissingMetadataReport"
       >
         <span class="flex items-center gap-1.5">
           <FeatherIcon name="file-text" class="h-3.5 w-3.5 shrink-0 text-amber-300" />
           <span>Missing metadata</span>
         </span>
-        <span class="text-[0.7rem] text-stone-400">{{ missingMetadataCount }}</span>
+        <span class="text-[0.7rem] text-on-surface-variant">{{ missingMetadataCount }}</span>
       </button>
       <button
         type="button"
         class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
-        :class="reportFilter === 'duplicates' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+        :class="reportFilter === 'duplicates' ? 'bg-surface-variant text-on-surface' : 'text-on-surface hover:bg-surface-container/70'"
         @click="openDuplicateReport"
       >
         <span class="flex items-center gap-1.5">
           <FeatherIcon name="copy" class="h-3.5 w-3.5 shrink-0 text-red-300" />
           <span>Duplicates</span>
         </span>
-        <span class="text-[0.7rem] text-stone-400">{{ duplicateCount }}</span>
+        <span class="text-[0.7rem] text-on-surface-variant">{{ duplicateCount }}</span>
       </button>
       <button
         type="button"
         class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
-        :class="reportFilter === 'missing_album_cover' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+        :class="reportFilter === 'missing_album_cover' ? 'bg-surface-variant text-on-surface' : 'text-on-surface hover:bg-surface-container/70'"
         @click="openMissingAlbumCoverReport"
       >
         <span class="flex items-center gap-1.5">
-          <FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0 text-stone-400" />
+          <FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
           <span>Missing album cover</span>
         </span>
-        <span class="text-[0.7rem] text-stone-400">{{ missingAlbumCoverCount }}</span>
+        <span class="text-[0.7rem] text-on-surface-variant">{{ missingAlbumCoverCount }}</span>
       </button>
       <button
         type="button"
         class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
-        :class="reportFilter === 'recently_played' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+        :class="reportFilter === 'recently_played' ? 'bg-surface-variant text-on-surface' : 'text-on-surface hover:bg-surface-container/70'"
         @click="openRecentlyPlayedReport"
       >
         <span class="flex items-center gap-1.5">
           <FeatherIcon name="clock" class="h-3.5 w-3.5 shrink-0 text-blue-400" />
           <span>Recently played</span>
         </span>
-        <span class="text-[0.7rem] text-stone-400">{{ recentlyPlayedCount }}</span>
+        <span class="text-[0.7rem] text-on-surface-variant">{{ recentlyPlayedCount }}</span>
       </button>
       <button
         type="button"
         class="flex w-full items-center justify-between rounded px-2 py-1 text-left"
-        :class="reportFilter === 'most_played' ? 'bg-stone-700 text-stone-100' : 'text-stone-300 hover:bg-stone-800/70'"
+        :class="reportFilter === 'most_played' ? 'bg-surface-variant text-on-surface' : 'text-on-surface hover:bg-surface-container/70'"
         @click="openMostPlayedReport"
       >
         <span class="flex items-center gap-1.5">
           <FeatherIcon name="trending-up" class="h-3.5 w-3.5 shrink-0 text-green-400" />
           <span>Most played</span>
         </span>
-        <span class="text-[0.7rem] text-stone-400">{{ mostPlayedCount }}</span>
+        <span class="text-[0.7rem] text-on-surface-variant">{{ mostPlayedCount }}</span>
       </button>
     </div>
   </div>

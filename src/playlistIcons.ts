@@ -90,6 +90,14 @@ export const MUSIC_ICON_NAMES: readonly string[] = [
   "list-music",
   "file-music",
   "radio",
+  "music",
+  "music-fill",
+  "library-music",
+  "library-music-fill",
+  "sound-waves",
+  "note-text",
+  "headphone-mute",
+  "checklist-note-fill",
 ];
 
 /** A random music icon in a random palette color, as a stored icon string. */

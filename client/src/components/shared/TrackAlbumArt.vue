@@ -56,7 +56,7 @@ const iconSizeClass = computed(() => {
 
 <template>
   <div
-    class="flex items-center justify-center overflow-hidden rounded bg-stone-900 shrink-0"
+    class="flex items-center justify-center overflow-hidden rounded bg-surface shrink-0"
     :class="sizeClass"
     :style="sizeStyle"
   >
@@ -68,7 +68,7 @@ const iconSizeClass = computed(() => {
     />
     <span
       v-else
-      class="inline-flex items-center justify-center rounded-full border border-stone-500 text-stone-400"
+      class="inline-flex items-center justify-center rounded-full border border-outline text-on-surface-variant"
       :class="iconSizeClass"
       aria-hidden="true"
     >

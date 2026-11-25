@@ -38,6 +38,8 @@ function filterId(mix: Mix): number {
 const saving = ref<number | null>(null);
 
 function openMix(mix: Mix) {
+  // Mixes open as track rows, never as the album-cover grid.
+  settingsStore.setLibraryLayoutMode("table");
   store.setActivePlaylist(
     filterId(mix),
     mix.trackIds.map((trackId) => ({ entryId: -1, trackId })),
@@ -77,12 +79,12 @@ const isBuilding = computed(() => loading.value || loadingMore.value);
 <template>
   <div class="flex flex-col gap-2">
     <div class="flex items-center justify-between px-1">
-      <span class="text-xs font-semibold uppercase tracking-wide text-stone-400">
+      <span class="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
         Mixes
       </span>
       <button
         type="button"
-        class="inline-flex h-6 w-6 items-center justify-center rounded text-stone-400 hover:bg-stone-700 hover:text-stone-200 disabled:opacity-40"
+        class="inline-flex h-6 w-6 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-40"
         :disabled="isBuilding"
         aria-label="Shuffle the mix lineup"
         @click="refresh()"
@@ -91,11 +93,11 @@ const isBuilding = computed(() => loading.value || loadingMore.value);
       </button>
     </div>
 
-    <p v-if="isBuilding" class="px-1 text-xs text-stone-500">
+    <p v-if="isBuilding" class="px-1 text-xs text-on-surface-variant">
       Waiting for the library to finish loading…
     </p>
 
-    <p v-else-if="mixes.length === 0" class="px-1 text-xs text-stone-500">
+    <p v-else-if="mixes.length === 0" class="px-1 text-xs text-on-surface-variant">
       No mixes yet — mixes are built from genre tags, so tag some tracks first.
     </p>
 
@@ -104,8 +106,8 @@ const isBuilding = computed(() => loading.value || loadingMore.value);
         <div
           class="group flex items-center gap-2 rounded px-2 py-1.5 text-sm"
           :class="activePlaylistId === filterId(mix)
-            ? 'bg-stone-700 text-stone-100'
-            : 'text-stone-300 hover:bg-stone-700/60'"
+            ? 'bg-surface-variant text-on-surface'
+            : 'text-on-surface hover:bg-surface-variant/60'"
         >
           <button
             type="button"
@@ -115,7 +117,7 @@ const isBuilding = computed(() => loading.value || loadingMore.value);
           >
             <PlaylistIcon :icon="mix.icon" class="h-4 w-4 shrink-0" />
             <span class="min-w-0 flex-1 truncate">{{ mix.name }}</span>
-            <span class="shrink-0 text-xs tabular-nums text-stone-500">
+            <span class="shrink-0 text-xs tabular-nums text-on-surface-variant">
               {{ mix.trackIds.length }}
             </span>
           </button>
@@ -123,7 +125,7 @@ const isBuilding = computed(() => loading.value || loadingMore.value);
           <div class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             <button
               type="button"
-              class="inline-flex h-5 w-5 items-center justify-center rounded text-stone-400 hover:bg-stone-600 hover:text-stone-100 disabled:opacity-40"
+              class="inline-flex h-5 w-5 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-40"
               :disabled="mix.trackIds.length === 0"
               :aria-label="`Play ${mix.name}`"
               @click.stop="playMix(mix)"
@@ -132,7 +134,7 @@ const isBuilding = computed(() => loading.value || loadingMore.value);
             </button>
             <button
               type="button"
-              class="inline-flex h-5 w-5 items-center justify-center rounded text-stone-400 hover:bg-stone-600 hover:text-stone-100 disabled:opacity-40"
+              class="inline-flex h-5 w-5 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-40"
               :disabled="mix.trackIds.length === 0 || saving != null"
               :aria-label="`Save ${mix.name} as a playlist`"
               @click.stop="saveMix(mix)"

@@ -54,49 +54,49 @@ function formatDuration(secs: number): string {
 
 <template>
   <div class="space-y-4">
-    <p class="text-xs font-semibold uppercase tracking-wide text-stone-500">Library stats</p>
+    <p class="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Library stats</p>
 
     <!-- Totals grid -->
     <div class="grid grid-cols-2 gap-2">
-      <div class="rounded bg-stone-700/60 px-3 py-2 text-center">
-        <div class="text-lg font-semibold tabular-nums text-stone-100">{{ stats.track_count.toLocaleString() }}</div>
-        <div class="text-[10px] text-stone-400">tracks</div>
+      <div class="rounded bg-surface-variant/60 px-3 py-2 text-center">
+        <div class="text-lg font-semibold tabular-nums text-on-surface">{{ stats.track_count.toLocaleString() }}</div>
+        <div class="text-[10px] text-on-surface-variant">tracks</div>
       </div>
-      <div class="rounded bg-stone-700/60 px-3 py-2 text-center">
-        <div class="text-lg font-semibold tabular-nums text-stone-100">{{ stats.artist_count.toLocaleString() }}</div>
-        <div class="text-[10px] text-stone-400">artists</div>
+      <div class="rounded bg-surface-variant/60 px-3 py-2 text-center">
+        <div class="text-lg font-semibold tabular-nums text-on-surface">{{ stats.artist_count.toLocaleString() }}</div>
+        <div class="text-[10px] text-on-surface-variant">artists</div>
       </div>
-      <div class="rounded bg-stone-700/60 px-3 py-2 text-center">
-        <div class="text-lg font-semibold tabular-nums text-stone-100">{{ stats.album_count.toLocaleString() }}</div>
-        <div class="text-[10px] text-stone-400">albums</div>
+      <div class="rounded bg-surface-variant/60 px-3 py-2 text-center">
+        <div class="text-lg font-semibold tabular-nums text-on-surface">{{ stats.album_count.toLocaleString() }}</div>
+        <div class="text-[10px] text-on-surface-variant">albums</div>
       </div>
-      <div class="rounded bg-stone-700/60 px-3 py-2 text-center">
-        <div class="text-base font-semibold tabular-nums text-stone-100">{{ formatDuration(stats.total_duration_secs) }}</div>
-        <div class="text-[10px] text-stone-400">total time</div>
+      <div class="rounded bg-surface-variant/60 px-3 py-2 text-center">
+        <div class="text-base font-semibold tabular-nums text-on-surface">{{ formatDuration(stats.total_duration_secs) }}</div>
+        <div class="text-[10px] text-on-surface-variant">total time</div>
       </div>
     </div>
 
     <template v-if="tracks.length > 0">
       <!-- Genre breakdown -->
       <div>
-        <p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-stone-500">Genre</p>
+        <p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Genre</p>
         <GenrePieChart :tracks="tracks" />
       </div>
 
       <!-- Year histogram -->
       <div>
-        <p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-stone-500">By year</p>
+        <p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">By year</p>
         <YearLineChart :tracks="tracks" />
       </div>
 
       <!-- Rating distribution -->
       <div>
-        <p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-stone-500">Ratings</p>
+        <p class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Ratings</p>
         <RatingChart :tracks="tracks" />
       </div>
     </template>
 
-    <div v-else class="py-6 text-center text-xs text-stone-500">
+    <div v-else class="py-6 text-center text-xs text-on-surface-variant">
       No tracks in library yet.
     </div>
   </div>

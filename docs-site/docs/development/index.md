@@ -66,7 +66,7 @@ pnpm build       # static build → build/
 
 ### Docs versioning
 
-The docs are **unversioned**: `docs/` always describes the latest release. Because every component ships in lockstep from one repo, frozen per-release snapshots rot quickly — a snapshot of v2.33.0 was dropped for exactly that reason. `docusaurus.config.js` therefore sets no `lastVersion`/`versions` config, and `onBrokenLinks: "throw"` keeps the links honest at build time. If a release ever ships a breaking change that users on older versions still need documented, reintroduce versioning deliberately rather than by default.
+The docs are **unversioned**: `docs/` always describes the latest release. Because all components ship from one repo on a shared version line, frozen per-release snapshots rot quickly — a snapshot of v2.33.0 was dropped for exactly that reason. `docusaurus.config.js` therefore sets no `lastVersion`/`versions` config, and `onBrokenLinks: "throw"` keeps the links honest at build time. If a release ever ships a breaking change that users on older versions still need documented, reintroduce versioning deliberately rather than by default.
 
 ### Search
 
@@ -78,4 +78,4 @@ Product screenshots live in `docs-site/static/img/screenshots/`. They are refere
 
 ## Release process
 
-Releases are tagged `v3.x.y` and built by GitHub Actions. See [Release Notes](/docs/releases) for the changelog and [Version Compatibility](/docs/compatibility) for cross-component version rules.
+Releases are built by GitHub Actions on three tag schemes: `v*` for the server, web app and docs images (`scripts/release.sh` → `release.yml`), `desktop-v*` for the desktop app (`scripts/release-desktop.sh` → `release-desktop.yml`, all platforms), and `android-v*` for Android (`scripts/release-android.sh` → `release-android.yml`). See [Release Notes](/docs/releases) for the changelog and [Version Compatibility](/docs/compatibility) for cross-component version rules.

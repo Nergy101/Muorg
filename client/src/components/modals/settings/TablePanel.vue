@@ -96,32 +96,32 @@ function setDefaultGroupsExpanded(value: boolean) {
 <template>
             <div class="space-y-3">
               <p
-                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+                class="flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
               >
                 <FeatherIcon
                   name="layout"
-                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                 />
                 Layout
               </p>
 
               <!-- 1: Main panel -->
               <div class="flex items-center gap-3 pt-1">
-                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Main panel</span>
-                <div class="flex-1 border-t border-stone-700/70"></div>
+                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Main panel</span>
+                <div class="flex-1 border-t border-outline/70"></div>
               </div>
               <div class="space-y-3">
                 <div class="settings-section">
                   <p
-                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                   >
                     <FeatherIcon
                       name="layers"
-                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                      class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                     />
                     Library grouping
                   </p>
-                  <p class="mb-1.5 text-xs font-medium text-stone-500">
+                  <p class="mb-1.5 text-xs font-medium text-on-surface-variant">
                     Default grouping
                   </p>
                   <div class="flex flex-wrap gap-2">
@@ -133,12 +133,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                       :class="
                         defaultGroupBy === opt.value
                           ? 'settings-option-card--active shadow-inner'
-                          : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                          : 'border-outline bg-surface/60 hover:border-outline hover:bg-surface-container'
                       "
                       @click="setDefaultGroupBy(opt.value)"
                     >
                       <div class="min-w-0 flex-1">
-                        <p class="font-medium text-stone-200">
+                        <p class="font-medium text-on-surface">
                           {{ opt.label }}
                           <span
                             v-if="defaultGroupBy === opt.value"
@@ -147,19 +147,19 @@ function setDefaultGroupsExpanded(value: boolean) {
                             Active
                           </span>
                         </p>
-                        <p class="mt-0.5 text-stone-500">
+                        <p class="mt-0.5 text-on-surface-variant">
                           {{ opt.description }}
                         </p>
                       </div>
                     </button>
                   </div>
                   <label
-                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="defaultGroupsExpanded"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           setDefaultGroupsExpanded(
@@ -169,7 +169,7 @@ function setDefaultGroupsExpanded(value: boolean) {
                     />
                     Expand groups by default
                   </label>
-                  <p class="mt-0.5 text-xs text-stone-500">
+                  <p class="mt-0.5 text-xs text-on-surface-variant">
                     Controls how your library is grouped and whether groups
                     start expanded when you open Muorg.
                   </p>
@@ -177,11 +177,11 @@ function setDefaultGroupsExpanded(value: boolean) {
 
                 <div class="settings-section">
                   <p
-                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                   >
                     <FeatherIcon
                       name="grid"
-                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                      class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                     />
                     Table density
                   </p>
@@ -194,12 +194,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                       :class="
                         tableDensity === opt.value
                           ? 'settings-option-card--active shadow-inner'
-                          : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                          : 'border-outline bg-surface/60 hover:border-outline hover:bg-surface-container'
                       "
                       @click="settingsStore.setTableDensity(opt.value)"
                     >
                       <div class="min-w-0 flex-1">
-                        <p class="font-semibold text-stone-100">
+                        <p class="font-semibold text-on-surface">
                           {{ opt.label }}
                           <span
                             v-if="tableDensity === opt.value"
@@ -208,7 +208,7 @@ function setDefaultGroupsExpanded(value: boolean) {
                             Active
                           </span>
                         </p>
-                        <p class="mt-0.5 text-[11px] text-stone-400">
+                        <p class="mt-0.5 text-[11px] text-on-surface-variant">
                           {{ opt.description }}
                         </p>
                       </div>
@@ -218,21 +218,21 @@ function setDefaultGroupsExpanded(value: boolean) {
 
                 <div class="settings-section">
                   <p
-                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                   >
                     <FeatherIcon
                       name="image"
-                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                      class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                     />
                     Group header album art
                   </p>
                   <label
-                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="groupHeaderAlbumArt"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setGroupHeaderAlbumArt(
@@ -243,12 +243,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Show album art in Album group headers
                   </label>
                   <label
-                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="groupHeaderAlbumArtForArtist"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setGroupHeaderAlbumArtForArtist(
@@ -259,12 +259,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Show album art in Artist group headers
                   </label>
                   <label
-                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="splitAlbumHeadersByArtist"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setSplitAlbumHeadersByArtist(
@@ -274,16 +274,16 @@ function setDefaultGroupsExpanded(value: boolean) {
                     />
                     Split album headers by artist
                   </label>
-                  <p class="mt-0.5 text-xs text-stone-500">
+                  <p class="mt-0.5 text-xs text-on-surface-variant">
                     When off, albums with the same name are merged into one group regardless of artist.
                   </p>
                   <label
-                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="hideGroupTrackCount"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setHideGroupTrackCount(
@@ -294,12 +294,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Hide track count in headers
                   </label>
                   <label
-                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="hideAlbumArtColInAlbumGroups"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setHideAlbumArtColInAlbumGroups(
@@ -312,21 +312,21 @@ function setDefaultGroupsExpanded(value: boolean) {
                 </div>
                 <div class="settings-section">
                   <p
-                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                   >
                     <FeatherIcon
                       name="columns"
-                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                      class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                     />
                     Table columns
                   </p>
                   <label
-                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="tableColAlbumArt"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setTableColAlbumArt(
@@ -337,12 +337,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Show album art
                   </label>
                   <label
-                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="tableColRating"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setTableColRating(
@@ -353,12 +353,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Show rating
                   </label>
                   <label
-                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="tableColYear"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setTableColYear(
@@ -369,12 +369,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Show year
                   </label>
                   <label
-                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="tableColDuration"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setTableColDuration(
@@ -385,12 +385,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Show duration
                   </label>
                   <label
-                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="tableColFormat"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setTableColFormat(
@@ -401,12 +401,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                     Show file format
                   </label>
                   <label
-                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="tableColPath"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setTableColPath(
@@ -421,21 +421,21 @@ function setDefaultGroupsExpanded(value: boolean) {
 
               <!-- 2: Bottom panel -->
               <div class="flex items-center gap-3 pt-1">
-                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Bottom panel</span>
-                <div class="flex-1 border-t border-stone-700/70"></div>
+                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Bottom panel</span>
+                <div class="flex-1 border-t border-outline/70"></div>
               </div>
               <div class="space-y-3">
                 <div class="settings-section">
                   <p
-                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                    class="mb-2 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                   >
                     <FeatherIcon
                       name="layout"
-                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                      class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                     />
                     Bottom bar
                   </p>
-                  <p class="mb-2 text-xs text-stone-500">
+                  <p class="mb-2 text-xs text-on-surface-variant">
                     Default tab on startup
                   </p>
                   <div class="flex flex-wrap gap-2">
@@ -447,12 +447,12 @@ function setDefaultGroupsExpanded(value: boolean) {
                       :class="
                         defaultBottomPanel === opt.value
                           ? 'settings-option-card--active shadow-inner'
-                          : 'border-stone-600 bg-stone-900/60 hover:border-stone-400 hover:bg-stone-800'
+                          : 'border-outline bg-surface/60 hover:border-outline hover:bg-surface-container'
                       "
                       @click="settingsStore.setDefaultBottomPanel(opt.value)"
                     >
                       <div class="min-w-0 flex-1">
-                        <p class="font-semibold text-stone-100">
+                        <p class="font-semibold text-on-surface">
                           {{ opt.label }}
                           <span
                             v-if="defaultBottomPanel === opt.value"
@@ -461,7 +461,7 @@ function setDefaultGroupsExpanded(value: boolean) {
                             Active
                           </span>
                         </p>
-                        <p class="mt-0.5 text-[11px] text-stone-400">
+                        <p class="mt-0.5 text-[11px] text-on-surface-variant">
                           {{ opt.description }}
                         </p>
                       </div>
@@ -471,21 +471,21 @@ function setDefaultGroupsExpanded(value: boolean) {
               </div>
               <!-- 3: Side panel -->
               <div class="flex items-center gap-3 pt-1">
-                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Side panel</span>
-                <div class="flex-1 border-t border-stone-700/70"></div>
+                <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Side panel</span>
+                <div class="flex-1 border-t border-outline/70"></div>
               </div>
               <div class="space-y-3">
                 <div class="settings-section">
                   <p
-                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-stone-400"
+                    class="mb-1 flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
                   >
                     <FeatherIcon
                       name="sidebar"
-                      class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                      class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                     />
                     Sidebar
                   </p>
-                  <p class="mb-1 text-xs font-medium text-stone-500">
+                  <p class="mb-1 text-xs font-medium text-on-surface-variant">
                     Default sidebar panel
                   </p>
                   <div class="flex flex-wrap gap-2">
@@ -500,8 +500,8 @@ function setDefaultGroupsExpanded(value: boolean) {
                       class="flex min-w-0 flex-1 basis-[min(100%,10rem)] items-center justify-between rounded-lg border px-3 py-1.5 text-left text-xs transition"
                       :class="
                         settingsStore.sidebarDefaultTab === opt.value
-                          ? 'settings-option-card--active shadow-inner text-stone-100'
-                          : 'border-stone-600 bg-stone-900/60 text-stone-300 hover:border-stone-400 hover:bg-stone-800'
+                          ? 'settings-option-card--active shadow-inner text-on-surface'
+                          : 'border-outline bg-surface/60 text-on-surface hover:border-outline hover:bg-surface-container'
                       "
                       @click="
                         settingsStore.setSidebarDefaultTab(
@@ -510,7 +510,7 @@ function setDefaultGroupsExpanded(value: boolean) {
                       "
                     >
                       <div class="min-w-0 flex-1">
-                        <p class="font-medium text-stone-100">
+                        <p class="font-medium text-on-surface">
                           {{ opt.label }}
                           <span
                             v-if="settingsStore.sidebarDefaultTab === opt.value"
@@ -519,17 +519,17 @@ function setDefaultGroupsExpanded(value: boolean) {
                             Active
                           </span>
                         </p>
-                        <p class="mt-0.5 text-[11px] text-stone-400">{{ opt.desc }}</p>
+                        <p class="mt-0.5 text-[11px] text-on-surface-variant">{{ opt.desc }}</p>
                       </div>
                     </button>
                   </div>
                   <label
-                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="settingsStore.sidebarClosedOnStartup"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setSidebarClosedOnStartup(
@@ -539,17 +539,17 @@ function setDefaultGroupsExpanded(value: boolean) {
                     />
                     Start with sidebar closed
                   </label>
-                  <p class="mt-0.5 text-xs text-stone-500">
+                  <p class="mt-0.5 text-xs text-on-surface-variant">
                     When enabled, the library sidebar is collapsed when you open
                     Muorg.
                   </p>
                   <label
-                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                    class="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                   >
                     <input
                       type="checkbox"
                       :checked="settingsStore.hideReportsSection"
-                      class="rounded border-stone-600"
+                      class="rounded border-outline"
                       @change="
                         (e) =>
                           settingsStore.setHideReportsSection(
@@ -559,7 +559,7 @@ function setDefaultGroupsExpanded(value: boolean) {
                     />
                     Hide reports section in sidebar
                   </label>
-                  <p class="mt-0.5 text-xs text-stone-500">
+                  <p class="mt-0.5 text-xs text-on-surface-variant">
                     When enabled, the reports block (Missing metadata,
                     Duplicates, Missing album cover) is hidden from the main
                     sidebar layout.

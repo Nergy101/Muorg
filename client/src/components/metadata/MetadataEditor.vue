@@ -17,6 +17,7 @@ import WikipediaCoverModal from "./WikipediaCoverModal.vue";
 import TooltipPopover from "../shared/TooltipPopover.vue";
 import type { AutoTagCandidate } from "../../api/catalog";
 import { useTooltipPopover } from "../../composables/useTooltipPopover";
+import { modKeyCombo, modKeyLabel } from "../../utils/platform";
 import { findAlbumCoverUrl } from "@shared/utils/wikipediaCover";
 import {
   bytesToBase64,
@@ -981,91 +982,91 @@ async function applyFromOtherTracks() {
     v-if="selectedTracks.length"
     class="p-3"
   >
-    <p v-if="selectedTracks.length > 1" class="mb-2 text-xs text-stone-500">
+    <p v-if="selectedTracks.length > 1" class="mb-2 text-xs text-on-surface-variant">
       Set these fields for all selected tracks. Shared values are pre-filled; change only what you want to update. Only the fields you edit are written—others (e.g. title) stay as-is per track.
     </p>
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
       <div class="min-w-0 flex-1">
         <div class="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
           <div>
-            <label class="block text-stone-500">Title</label>
+            <label class="block text-on-surface-variant">Title</label>
             <div class="relative mt-0.5">
               <input
                 v-model="title"
                 type="text"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="title ? 'pr-6' : ''"
                 @input="markEdited('title')"
               />
-              <button v-if="title" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear title" @click="clearField('title')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="title" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear title" @click="clearField('title')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">Artist</label>
+            <label class="block text-on-surface-variant">Artist</label>
             <div class="relative mt-0.5">
               <input
                 v-model="artist"
                 type="text"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="artist ? 'pr-6' : ''"
                 @input="markEdited('artist')"
               />
-              <button v-if="artist" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear artist" @click="clearField('artist')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="artist" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear artist" @click="clearField('artist')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">Album</label>
+            <label class="block text-on-surface-variant">Album</label>
             <div class="relative mt-0.5">
               <input
                 v-model="album"
                 type="text"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="album ? 'pr-6' : ''"
                 @input="markEdited('album')"
               />
-              <button v-if="album" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear album" @click="clearField('album')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="album" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear album" @click="clearField('album')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">Year</label>
+            <label class="block text-on-surface-variant">Year</label>
             <div class="relative mt-0.5">
               <input
                 v-model.number="year"
                 type="number"
                 min="1"
                 max="9999"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="year !== '' ? 'pr-6' : ''"
                 @input="markEdited('year')"
               />
-              <button v-if="year !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear year" @click="clearField('year')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="year !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear year" @click="clearField('year')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">Album artist</label>
+            <label class="block text-on-surface-variant">Album artist</label>
             <div class="relative mt-0.5">
               <input
                 v-model="albumArtist"
                 type="text"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="albumArtist ? 'pr-6' : ''"
                 @input="markEdited('albumArtist')"
               />
-              <button v-if="albumArtist" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear album artist" @click="clearField('albumArtist')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="albumArtist" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear album artist" @click="clearField('albumArtist')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">Featuring</label>
+            <label class="block text-on-surface-variant">Featuring</label>
             <div class="relative mt-0.5">
               <input
                 v-model="featuring"
                 type="text"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="featuring ? 'pr-6' : ''"
                 placeholder="Guest / second artist"
                 @input="markEdited('featuring')"
               />
-              <button v-if="featuring" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear featuring" @click="clearField('featuring')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="featuring" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear featuring" @click="clearField('featuring')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <GenreCombobox
@@ -1074,13 +1075,13 @@ async function applyFromOtherTracks() {
             @clear="clearField('genre')"
           />
           <div>
-            <label class="block text-stone-500">Rating</label>
+            <label class="block text-on-surface-variant">Rating</label>
             <div class="mt-1 flex items-center gap-1.5">
               <StarRating :model-value="rating" @update:model-value="setRating" />
               <button
                 v-if="rating !== null"
                 type="button"
-                class="text-[10px] text-stone-500 hover:text-stone-300"
+                class="text-[10px] text-on-surface-variant hover:text-on-surface"
                 title="Clear rating"
                 @click="setRating(null)"
               >
@@ -1089,51 +1090,51 @@ async function applyFromOtherTracks() {
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">Track #</label>
+            <label class="block text-on-surface-variant">Track #</label>
             <div class="relative mt-0.5">
               <input
                 v-model="trackNumberPadded"
                 type="text"
                 inputmode="numeric"
                 pattern="[0-9]*"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="trackNumber !== '' ? 'pr-6' : ''"
                 @input="markEdited('trackNumber')"
               />
-              <button v-if="trackNumber !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear track number" @click="clearField('trackNumber')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="trackNumber !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear track number" @click="clearField('trackNumber')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">Disc #</label>
+            <label class="block text-on-surface-variant">Disc #</label>
             <div class="relative mt-0.5">
               <input
                 v-model.number="discNumber"
                 type="number"
                 min="0"
-                class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-0.5 text-stone-200 text-sm"
+                class="w-full rounded border border-outline bg-surface px-2 py-0.5 text-on-surface text-sm"
                 :class="discNumber !== '' ? 'pr-6' : ''"
                 @input="markEdited('discNumber')"
               />
-              <button v-if="discNumber !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-stone-500 hover:text-stone-300" title="Clear disc number" @click="clearField('discNumber')"><FeatherIcon name="x" class="h-3 w-3" /></button>
+              <button v-if="discNumber !== ''" type="button" tabindex="-1" class="absolute right-1 inset-y-0 my-auto h-fit rounded p-0.5 text-on-surface-variant hover:text-on-surface" title="Clear disc number" @click="clearField('discNumber')"><FeatherIcon name="x" class="h-3 w-3" /></button>
             </div>
           </div>
           <div>
-            <label class="block text-stone-500">ReplayGain Track (dB)</label>
+            <label class="block text-on-surface-variant">ReplayGain Track (dB)</label>
             <input
               :value="replayGainMeta?.replaygain_track_gain_db ?? ''"
               type="text"
               readonly
-              class="mt-0.5 w-full rounded border border-stone-700 bg-stone-900/40 px-2 py-0.5 text-stone-400 text-sm"
+              class="mt-0.5 w-full rounded border border-outline bg-surface/40 px-2 py-0.5 text-on-surface-variant text-sm"
               placeholder="—"
             />
           </div>
           <div>
-            <label class="block text-stone-500">ReplayGain Album (dB)</label>
+            <label class="block text-on-surface-variant">ReplayGain Album (dB)</label>
             <input
               :value="replayGainMeta?.replaygain_album_gain_db ?? ''"
               type="text"
               readonly
-              class="mt-0.5 w-full rounded border border-stone-700 bg-stone-900/40 px-2 py-0.5 text-stone-400 text-sm"
+              class="mt-0.5 w-full rounded border border-outline bg-surface/40 px-2 py-0.5 text-on-surface-variant text-sm"
               placeholder="—"
             />
           </div>
@@ -1141,7 +1142,7 @@ async function applyFromOtherTracks() {
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            class="accent-btn inline-flex items-center gap-1.5 rounded border border-stone-600 px-3 py-1.5 text-sm text-white hover:opacity-90"
+            class="accent-btn inline-flex items-center gap-1.5 rounded border border-outline px-3 py-1.5 text-sm text-white hover:opacity-90"
             style="background-color: #5b7c32"
             :disabled="saving"
             @click="save"
@@ -1157,7 +1158,7 @@ async function applyFromOtherTracks() {
           </button>
           <span
             class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs"
-            :class="settingsStore.backupBeforeWrite ? 'text-emerald-400' : 'text-stone-500'"
+            :class="settingsStore.backupBeforeWrite ? 'text-emerald-400' : 'text-on-surface-variant'"
             :title="settingsStore.backupBeforeWrite ? 'Backups enabled — file copies are created before each save' : 'Backups disabled — enable in Library Settings'"
           >
             <FeatherIcon :name="settingsStore.backupBeforeWrite ? 'lock' : 'unlock'" class="h-3 w-3" />
@@ -1165,7 +1166,7 @@ async function applyFromOtherTracks() {
           </span>
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-50 disabled:pointer-events-none"
+            class="inline-flex items-center gap-1.5 rounded border border-outline px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-50 disabled:pointer-events-none"
             title="Discard unsaved changes"
             :disabled="saving || !hasFormChanges"
             @click="discard"
@@ -1175,8 +1176,8 @@ async function applyFromOtherTracks() {
           </button>
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-30 disabled:pointer-events-none"
-            title="Undo (Ctrl+Z)"
+            class="inline-flex items-center gap-1.5 rounded border border-outline px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-30 disabled:pointer-events-none"
+            :title="`Undo (${modKeyCombo('Z')})`"
             :disabled="saving || !canUndo"
             @click="store.undo()"
           >
@@ -1185,8 +1186,8 @@ async function applyFromOtherTracks() {
           </button>
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-30 disabled:pointer-events-none"
-            title="Redo (Ctrl+Shift+Z)"
+            class="inline-flex items-center gap-1.5 rounded border border-outline px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-30 disabled:pointer-events-none"
+            :title="`Redo (${modKeyLabel()}+Shift+Z)`"
             :disabled="saving || !canRedo"
             @click="store.redo()"
           >
@@ -1196,7 +1197,7 @@ async function applyFromOtherTracks() {
           <button
             v-if="selectedTracks.length === 1 && latestBackup && backupWouldChangeMetadata"
             type="button"
-            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200 disabled:opacity-50"
+            class="inline-flex items-center gap-1.5 rounded border border-outline px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface disabled:opacity-50"
             :disabled="saving"
             @mouseenter="showRestoreBackupPreview($event)"
             @mouseleave="scheduleHideTooltip"
@@ -1208,7 +1209,7 @@ async function applyFromOtherTracks() {
           <button
             v-if="store.sessionBackupCount > 0"
             type="button"
-            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            class="inline-flex items-center gap-1.5 rounded border border-outline px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             title="Open backup folder — session has {{ store.sessionBackupCount }} backup{{ store.sessionBackupCount === 1 ? '' : 's' }} available via undo"
             @click="openBackupFolder"
           >
@@ -1218,7 +1219,7 @@ async function applyFromOtherTracks() {
           <button
             v-if="selectedTracks.length === 1"
             type="button"
-            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            class="inline-flex items-center gap-1.5 rounded border border-outline px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             title="Open backup folder in file manager"
             @click="openBackupFolder"
           >
@@ -1226,10 +1227,10 @@ async function applyFromOtherTracks() {
             Backups folder
           </button>
           <template v-if="pathFormatTemplates.some(t => t.trim()) && selectedTracks.length">
-            <span class="ml-1 border-l border-stone-600 pl-2" aria-hidden="true" />
+            <span class="ml-1 border-l border-outline pl-2" aria-hidden="true" />
             <button
               type="button"
-              class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              class="inline-flex items-center gap-1.5 rounded border border-outline px-2 py-1 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               @click="applyFromPath"
               @mouseenter="showTooltip(applyFromPathPopoverText, $event, 'above')"
               @mouseleave="scheduleHideTooltip"
@@ -1238,7 +1239,7 @@ async function applyFromOtherTracks() {
               Apply from path
             </button>
             <span
-              class="flex shrink-0 cursor-help rounded p-0.5 text-stone-500 hover:text-stone-300"
+              class="flex shrink-0 cursor-help rounded p-0.5 text-on-surface-variant hover:text-on-surface"
               aria-label="Show resolved values from path"
               @mouseenter="showTooltip(applyFromPathPopoverText, $event, 'above')"
               @mouseleave="scheduleHideTooltip"
@@ -1252,7 +1253,7 @@ async function applyFromOtherTracks() {
             >
               <button
                 type="button"
-                class="flex shrink-0 rounded p-0.5 text-stone-500 hover:bg-stone-600 hover:text-stone-300"
+                class="flex shrink-0 rounded p-0.5 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                 aria-label="Open path format settings"
                 @click="settingsStore.setOpenSettingsAtTab('smart_suggestions')"
               >
@@ -1262,13 +1263,13 @@ async function applyFromOtherTracks() {
           </template>
           <span
             v-if="selectedTracks.length === 1"
-            class="ml-1 border-l border-stone-600 pl-2"
+            class="ml-1 border-l border-outline pl-2"
             aria-hidden="true"
           />
           <button
             v-if="selectedTracks.length === 1"
             type="button"
-            class="inline-flex items-center gap-1.5 rounded border border-stone-600 px-2 py-1 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            class="inline-flex items-center gap-1.5 rounded border border-outline px-2 py-1 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             title="Search MusicBrainz for matching metadata"
             @click="showAutoTag = true"
           >
@@ -1277,9 +1278,9 @@ async function applyFromOtherTracks() {
           </button>
         </div>
       </div>
-      <div class="shrink-0 border-t border-stone-700 pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+      <div class="shrink-0 border-t border-outline pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
         <div class="flex flex-col items-start gap-1">
-          <label v-if="!displayCover" class="text-stone-500">Album cover</label>
+          <label v-if="!displayCover" class="text-on-surface-variant">Album cover</label>
           <input
             ref="fileInputRef"
             type="file"
@@ -1290,7 +1291,7 @@ async function applyFromOtherTracks() {
           <div v-if="!displayCover" class="flex items-center gap-1.5">
             <button
               type="button"
-              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-outline text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               aria-label="Add image"
               title="Add image"
               @click="fileInputRef?.click()"
@@ -1300,7 +1301,7 @@ async function applyFromOtherTracks() {
             <button
               v-if="!hideWikipediaCoverSearch"
               type="button"
-              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-outline text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               aria-label="From Wikipedia"
               title="From Wikipedia"
               @click="openFromWikipedia"
@@ -1316,7 +1317,7 @@ async function applyFromOtherTracks() {
           >
             <p
               v-if="coverDimensions || coverSizeBytes != null"
-              class="text-xs text-stone-500"
+              class="text-xs text-on-surface-variant"
             >
               <span v-if="coverDimensions">{{ coverDimensions.width }}×{{ coverDimensions.height }} px</span>
               <span v-if="coverDimensions && coverSizeBytes != null"> · </span>
@@ -1333,19 +1334,19 @@ async function applyFromOtherTracks() {
               <img
                 :src="displayCover"
                 alt="Album cover"
-                class="h-28 w-28 rounded object-cover border border-stone-600 shadow-md"
+                class="h-28 w-28 rounded object-cover border border-outline shadow-md"
               />
               <div
-                class="magnify absolute inset-0 flex items-center justify-center rounded bg-stone-900/60 opacity-0 transition-opacity group-hover:opacity-100"
+                class="magnify absolute inset-0 flex items-center justify-center rounded bg-surface/60 opacity-0 transition-opacity group-hover:opacity-100"
                 aria-hidden="true"
               >
-                <FeatherIcon name="zoom-in" class="h-8 w-8 text-stone-300" />
+                <FeatherIcon name="zoom-in" class="h-8 w-8 text-on-surface" />
               </div>
             </div>
             <div class="mt-1 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-outline text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                 aria-label="Choose image"
                 title="Choose image"
                 @click="fileInputRef?.click()"
@@ -1355,7 +1356,7 @@ async function applyFromOtherTracks() {
               <button
                 v-if="selectedTracks.length === 1 || multiSelectionSharedCover"
                 type="button"
-                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-stone-600 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-outline text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                 aria-label="Remove album cover"
                 title="Remove album cover"
                 @click="clearCover"
@@ -1367,7 +1368,7 @@ async function applyFromOtherTracks() {
               <template v-if="!applyToAlbumConfirm">
                 <button
                   type="button"
-                  class="inline-flex items-center gap-1 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                  class="inline-flex items-center gap-1 rounded border border-outline px-2 py-0.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                   @click="applyToAlbumConfirm = true"
                 >
                   <FeatherIcon name="layers" class="h-3 w-3 shrink-0" />
@@ -1375,11 +1376,11 @@ async function applyFromOtherTracks() {
                 </button>
               </template>
               <template v-else>
-                <p class="mb-1 text-xs text-stone-400">Apply to {{ albumTracksForApply.length }} tracks?</p>
+                <p class="mb-1 text-xs text-on-surface-variant">Apply to {{ albumTracksForApply.length }} tracks?</p>
                 <div class="flex items-center gap-1.5">
                   <button
                     type="button"
-                    class="rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-200 hover:bg-stone-600 disabled:opacity-50"
+                    class="rounded border border-outline px-2 py-0.5 text-xs text-on-surface hover:bg-surface-variant disabled:opacity-50"
                     :disabled="saving"
                     @click="applyToWholeAlbum"
                   >
@@ -1387,7 +1388,7 @@ async function applyFromOtherTracks() {
                   </button>
                   <button
                     type="button"
-                    class="rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-400 hover:bg-stone-600"
+                    class="rounded border border-outline px-2 py-0.5 text-xs text-on-surface-variant hover:bg-surface-variant"
                     @click="applyToAlbumConfirm = false"
                   >
                     Cancel
@@ -1404,7 +1405,7 @@ async function applyFromOtherTracks() {
           </div>
           <div
             v-else
-            class="group relative inline-flex h-28 w-28 items-center justify-center rounded border border-stone-600 bg-stone-900 shadow-md"
+            class="group relative inline-flex h-28 w-28 items-center justify-center rounded border border-outline bg-surface shadow-md"
             :class="coverDragOver ? 'ring-2 ring-inset ring-[#5b7c32]' : undefined"
             role="button"
             tabindex="0"
@@ -1417,20 +1418,20 @@ async function applyFromOtherTracks() {
             @dragleave="onCoverDragLeave"
             @drop="onCoverDrop"
           >
-            <span class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-500 text-stone-400">
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-outline text-on-surface-variant">
               ♪
             </span>
             <div
-              class="pointer-events-none absolute inset-0 flex items-center justify-center rounded bg-stone-900/60 opacity-0 transition-opacity group-hover:opacity-100"
+              class="pointer-events-none absolute inset-0 flex items-center justify-center rounded bg-surface/60 opacity-0 transition-opacity group-hover:opacity-100"
               aria-hidden="true"
             >
-              <FeatherIcon name="upload" class="h-8 w-8 text-stone-300" />
+              <FeatherIcon name="upload" class="h-8 w-8 text-on-surface" />
             </div>
           </div>
           <div v-if="canApplyFromOthers" class="mt-1">
             <button
               type="button"
-              class="inline-flex items-center gap-1 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+              class="inline-flex items-center gap-1 rounded border border-outline px-2 py-0.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               :disabled="saving"
               @click="applyFromOtherTracks"
             >
@@ -1449,7 +1450,7 @@ async function applyFromOtherTracks() {
         v-if="showCoverPopup && displayCover"
         ref="coverPopupRef"
         tabindex="-1"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 p-4 outline-none"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-4 outline-none"
         role="dialog"
         aria-modal="true"
         aria-label="Album cover"
@@ -1487,13 +1488,13 @@ async function applyFromOtherTracks() {
     <!-- Q5: transient undo toast after each metadata write -->
     <div
       v-if="undoToastVisible"
-      class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-stone-600 bg-stone-800 px-4 py-2 text-sm text-stone-200 shadow-xl"
+      class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 glass-strong rounded-2xl px-4 py-2 text-sm text-on-surface shadow-xl"
     >
       <FeatherIcon name="check" class="h-4 w-4 shrink-0 text-emerald-400" />
-      <span>Saved — Ctrl+Z to undo</span>
+      <span>Saved — {{ modKeyCombo("Z") }} to undo</span>
       <button
         type="button"
-        class="ml-1 inline-flex items-center gap-1 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-300 hover:bg-stone-700 hover:text-stone-100"
+        class="ml-1 inline-flex items-center gap-1 rounded border border-outline px-2 py-0.5 text-xs text-on-surface hover:bg-surface-variant hover:text-on-surface"
         @click="undoFromToast"
       >
         <FeatherIcon name="corner-up-left" class="h-3.5 w-3.5 shrink-0" />

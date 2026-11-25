@@ -48,3 +48,9 @@ server/logs/
 server/*.db-shm
 server/*.db-wal
 scripts/.cache/
+
+# Local runtime artifacts
+muorg.db
+muorg.db-shm
+muorg.db-wal
+logs/

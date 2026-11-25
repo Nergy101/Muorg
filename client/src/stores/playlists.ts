@@ -58,7 +58,11 @@ export const usePlaylistStore = defineStore("playlists", {
       this.loading = true;
       this.error = null;
       try {
-        this.playlists = await api.getPlaylists();
+        // The Favorites playlist always shows the gold star, regardless of
+        // what icon is stored in the DB.
+        this.playlists = (await api.getPlaylists()).map((p) =>
+          p.name === FAVORITES_PLAYLIST_NAME ? { ...p, icon: FAVORITES_PLAYLIST_ICON } : p,
+        );
         await this.loadPins();
         await this.hydrateFavorites();
       } catch (e) {
@@ -133,7 +137,9 @@ export const usePlaylistStore = defineStore("playlists", {
       if (existing) return existing;
       const created = await this.createPlaylist(FAVORITES_PLAYLIST_NAME);
       if (!created) return null;
-      await this.setPlaylistIcon(created.id, FAVORITES_PLAYLIST_ICON);
+      // Call the API directly: the setPlaylistIcon action refuses Favorites
+      // (the icon is fixed), but creation must still persist the gold star.
+      await api.setPlaylistIcon(created.id, FAVORITES_PLAYLIST_ICON);
       return { ...created, icon: FAVORITES_PLAYLIST_ICON };
     },
 
@@ -193,6 +199,9 @@ export const usePlaylistStore = defineStore("playlists", {
 
     async setPlaylistIcon(id: number, icon: string | null) {
       if (isMock()) return;
+      // Favorites is server-owned and always keeps the gold star icon.
+      const target = this.playlists.find((p) => p.id === id);
+      if (target && target.name === FAVORITES_PLAYLIST_NAME) return;
       this.error = null;
       try {
         await api.setPlaylistIcon(id, icon);

@@ -4,7 +4,22 @@ sidebar_position: 8
 
 # Release Notes
 
-Muorg ships as tagged GitHub releases (`v4.x.y`). This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
+Muorg ships as tagged GitHub releases: `v*` for the server, web app and docs images, `desktop-v*` for the desktop app, and `android-v*` for Android. This page summarizes the notable changes per release, per component. Full details are on the [GitHub Releases page](https://github.com/Nergy101/Muorg/releases).
+
+## Desktop 5.0.x
+
+The desktop app ships on its own `desktop-v*` tags, published separately from the server and web `v*` releases.
+
+- **desktop-v5.0.0** — Desktop App major redesign. The desktop app gets its own major release and its own release pipeline: desktop builds now ship on **`desktop-v*` tags** via a dedicated workflow (`.github/workflows/release-desktop.yml`, cut with `scripts/release-desktop.sh`), so the ~25-minute Tauri matrix for macOS/Windows/Linux no longer rides along on every server or web `v*` release.
+
+- **Desktop App**: full UI redesign matching the web client — new app shell with a collapsible icon-rail sidebar, integrated top bar with full-width search, and a floating glass mini-player.
+- **Desktop App**: **Home** with recommended albums and genre-based mixes (4-cover mosaics, colored icons, artist marquee); album cards, artist cards (album mosaic) and compact track rows; sort by year/album/artist and genre filters on every library view.
+- **Desktop App**: album and artist detail views with accent-colored actions, clickable artist/album links everywhere, and context menus with View album / View artist.
+- **Desktop App**: maximized player with blurred cover backdrop, glass controls panel, and a collapsible queue side panel; dedicated Queue view.
+- **Desktop App**: **dynamic accent color** derived from the playing album's cover tints the mini-player, maximized player, progress/volume bars and action buttons; fixed accent presets and card-layout (glass overlay vs. text below) / square-corner album art options in Settings → Appearance.
+- **Desktop App**: Statistics page (top tracks/artists/albums per time range, genre and format distribution, tracks per release year) and a rebuilt, collapsible Settings page.
+- **Desktop App**: Favorites playlist always pinned on top with a gold star icon; smart playlists work in the detail view; toasts confirm add-to-playlist.
+- **All components**: version alignment — server, web, desktop and Android all at **5.0.0**.
 
 ## v4.6.3
 

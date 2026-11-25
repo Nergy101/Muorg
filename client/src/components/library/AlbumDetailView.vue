@@ -48,7 +48,7 @@ function onHeaderDragEnd() {
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 <div class="flex shrink-0 items-center justify-center px-4 py-4">
       <div
-        class="inline-flex cursor-grab items-center gap-6 rounded-lg border border-stone-700 px-5 py-4 transition-colors hover:border-stone-500 active:cursor-grabbing"
+        class="inline-flex cursor-grab items-center gap-6 rounded-lg border border-outline px-5 py-4 transition-colors hover:border-on-surface-variant active:cursor-grabbing"
         draggable="true"
         @contextmenu.prevent="onAlbumHeaderContextMenu"
         @dragstart="onHeaderDragStart"
@@ -56,9 +56,9 @@ function onHeaderDragEnd() {
       >
         <TrackAlbumArt :path="coverPath" :size-px="220" />
         <div class="min-w-0">
-          <div class="truncate text-base font-semibold text-stone-100">{{ albumTitle }}</div>
-          <div class="mt-1 truncate text-sm text-stone-300">{{ albumArtist }}</div>
-          <div v-if="albumYear !== null" class="mt-1 text-xs text-stone-400">{{ albumYear }}</div>
+          <div class="truncate text-base font-semibold text-on-surface">{{ albumTitle }}</div>
+          <div class="mt-1 truncate text-sm text-on-surface-variant">{{ albumArtist }}</div>
+          <div v-if="albumYear !== null" class="mt-1 text-xs text-on-surface-variant">{{ albumYear }}</div>
         </div>
       </div>
     </div>

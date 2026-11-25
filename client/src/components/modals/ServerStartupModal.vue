@@ -65,11 +65,11 @@ onUnmounted(() => {
     >
       <div
         v-if="backendMode === 'local' && !localServerReady"
-        class="fixed inset-0 z-[999] flex items-center justify-center bg-stone-900/80 backdrop-blur-sm"
+        class="fixed inset-0 z-[999] flex items-center justify-center bg-surface/80 backdrop-blur-sm"
       >
-        <div class="flex flex-col items-center gap-5 rounded-xl border border-stone-700 bg-stone-800 px-12 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+        <div class="flex flex-col items-center gap-5 glass-strong rounded-2xl px-12 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
           <svg
-            class="h-9 w-9 animate-spin text-stone-400"
+            class="h-9 w-9 animate-spin text-on-surface-variant"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -81,7 +81,7 @@ onUnmounted(() => {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          <p class="text-sm font-medium tracking-wide text-stone-300">
+          <p class="text-sm font-medium tracking-wide text-on-surface">
             Starting local Muorg server…
           </p>
         </div>

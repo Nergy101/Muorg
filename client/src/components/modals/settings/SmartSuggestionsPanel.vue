@@ -79,23 +79,23 @@ function addTemplate() {
 <template>
             <div class="space-y-3">
               <p
-                class="flex items-center gap-2 text-xs font-semibold text-stone-400"
+                class="flex items-center gap-2 text-xs font-semibold text-on-surface-variant"
               >
                 <FeatherIcon
                   name="zap"
-                  class="h-3.5 w-3.5 shrink-0 text-stone-500"
+                  class="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
                 />
                 Smart Suggestions
               </p>
 
               <div class="settings-section space-y-1.5">
                 <label
-                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-stone-500"
+                  class="flex cursor-pointer items-center gap-2 text-xs font-medium text-on-surface-variant"
                 >
                   <input
                     type="checkbox"
                     :checked="hideWikipediaCoverSearch"
-                    class="rounded border-stone-600"
+                    class="rounded border-outline"
                     @change="
                       (e) =>
                         settingsStore.setHideWikipediaCoverSearch(
@@ -105,7 +105,7 @@ function addTemplate() {
                   />
                   Hide Wikipedia album cover search
                 </label>
-                <p class="mt-0.5 text-xs text-stone-500">
+                <p class="mt-0.5 text-xs text-on-surface-variant">
                   When enabled, the "From Wikipedia" (globe) button for album
                   art is hidden in the metadata editor and on album group
                   headers.
@@ -114,8 +114,8 @@ function addTemplate() {
 
               <div class="settings-section space-y-3">
                 <div>
-                  <label class="block text-xs font-medium text-stone-500">Path formats (for metadata suggestions)</label>
-                  <p class="mt-0.5 text-xs text-stone-500">
+                  <label class="block text-xs font-medium text-on-surface-variant">Path formats (for metadata suggestions)</label>
+                  <p class="mt-0.5 text-xs text-on-surface-variant">
                     Add one pattern per folder structure. When applying from path, all patterns are tried and the one that extracts the most fields wins.
                   </p>
 
@@ -129,13 +129,13 @@ function addTemplate() {
                       <input
                         type="text"
                         :value="template"
-                        class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200"
+                        class="min-w-0 flex-1 rounded border border-outline bg-surface px-2 py-1.5 font-mono text-xs text-on-surface"
                         placeholder="e.g. <Artist>/<Album>/<TrackNumber> - <TrackTitle>.<Format>"
                         @input="updateTemplate(i, ($event.target as HTMLInputElement).value)"
                       />
                       <button
                         type="button"
-                        class="shrink-0 rounded p-1 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                        class="shrink-0 rounded p-1 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                         title="Remove pattern"
                         @click="removeTemplate(i)"
                       >
@@ -144,7 +144,7 @@ function addTemplate() {
                     </div>
                     <button
                       type="button"
-                      class="mt-1 flex items-center gap-1 text-xs text-stone-500 hover:text-stone-300"
+                      class="mt-1 flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface"
                       @click="addTemplate"
                     >
                       <FeatherIcon name="plus" class="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@ function addTemplate() {
                   </div>
 
                   <!-- Example patterns to add -->
-                  <p class="mt-3 text-xs font-medium text-stone-500">
+                  <p class="mt-3 text-xs font-medium text-on-surface-variant">
                     Example patterns (click to add):
                   </p>
                   <ul class="mt-0.5 space-y-0.5 text-xs">
@@ -174,7 +174,7 @@ function addTemplate() {
 
               <div class="settings-section space-y-3">
                 <div>
-                  <p class="text-xs font-medium text-stone-500">
+                  <p class="text-xs font-medium text-on-surface-variant">
                     Matching path examples (click to try):
                   </p>
                   <ul class="mt-0.5 space-y-0.5 text-xs">
@@ -193,12 +193,12 @@ function addTemplate() {
                   </ul>
                 </div>
 
-                <div class="mt-2 rounded border border-stone-600 bg-stone-900/70 p-3">
+                <div class="mt-2 rounded border border-outline bg-surface/70 p-3">
                   <div class="flex items-center justify-between gap-2">
-                    <p class="text-xs font-medium text-stone-400">Try your path</p>
+                    <p class="text-xs font-medium text-on-surface-variant">Try your path</p>
                     <button
                       type="button"
-                      class="shrink-0 rounded border border-stone-600 px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+                      class="shrink-0 rounded border border-outline px-2 py-0.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                       title="Restore default example path"
                       @click="settingsStore.setPathFormatExamplePath(DEFAULT_PATH_FORMAT_EXAMPLE_PATH)"
                     >
@@ -208,32 +208,32 @@ function addTemplate() {
                   <input
                     type="text"
                     :value="pathFormatExamplePath"
-                    class="mt-1.5 w-full rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200 placeholder:text-stone-500"
+                    class="mt-1.5 w-full rounded border border-outline bg-surface px-2 py-1.5 font-mono text-xs text-on-surface placeholder-on-surface-variant"
                     placeholder="e.g. /path/to/Artist/Album/01 - Title.flac"
                     @input="(e) => settingsStore.setPathFormatExamplePath((e.target as HTMLInputElement).value)"
                   />
-                  <div v-if="pathFormatTemplates.some(t => t.trim())" class="mt-2 border-t border-stone-700/60 pt-2">
+                  <div v-if="pathFormatTemplates.some(t => t.trim())" class="mt-2 border-t border-outline/60 pt-2">
                     <div v-if="pathFormatExampleExtracted">
-                      <p class="text-[11px] text-stone-500">
+                      <p class="text-[11px] text-on-surface-variant">
                         Matched by:
-                        <span class="font-mono text-stone-400">{{ pathFormatExampleBestPattern }}</span>
+                        <span class="font-mono text-on-surface-variant">{{ pathFormatExampleBestPattern }}</span>
                       </p>
-                      <p class="mt-1.5 text-xs font-medium text-stone-400">Extracted fields</p>
+                      <p class="mt-1.5 text-xs font-medium text-on-surface-variant">Extracted fields</p>
                       <table class="mt-1.5 w-full border-collapse text-xs">
                         <thead>
-                          <tr class="border-b border-stone-600">
-                            <th class="py-1.5 pr-3 text-left font-medium text-stone-500">Field</th>
-                            <th class="py-1.5 text-left font-medium text-stone-500">Value</th>
+                          <tr class="border-b border-outline">
+                            <th class="py-1.5 pr-3 text-left font-medium text-on-surface-variant">Field</th>
+                            <th class="py-1.5 text-left font-medium text-on-surface-variant">Value</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr
                             v-for="(val, key) in pathFormatExampleExtracted"
                             :key="key"
-                            class="border-b border-stone-700/50"
+                            class="border-b border-outline/50"
                           >
-                            <td class="py-1.5 pr-3 font-mono text-stone-400">{{ key }}</td>
-                            <td class="py-1.5 text-stone-300">{{ val || "—" }}</td>
+                            <td class="py-1.5 pr-3 font-mono text-on-surface-variant">{{ key }}</td>
+                            <td class="py-1.5 text-on-surface">{{ val || "—" }}</td>
                           </tr>
                         </tbody>
                       </table>

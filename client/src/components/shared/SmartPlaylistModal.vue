@@ -113,8 +113,8 @@ function confirm() {
       class="fixed inset-0 z-[400] flex items-center justify-center bg-black/60"
       @click.self="emit('cancel')"
     >
-      <div class="w-full max-w-lg rounded-xl border border-stone-600 bg-stone-800 p-5 shadow-2xl">
-        <h2 class="mb-4 text-sm font-semibold text-stone-100">
+      <div class="w-full max-w-lg glass-strong rounded-2xl p-5 shadow-2xl">
+        <h2 class="mb-4 text-sm font-semibold text-on-surface">
           {{ isEditing ? "Edit smart playlist" : "New smart playlist" }}
         </h2>
 
@@ -122,21 +122,21 @@ function confirm() {
         <div class="relative mb-4 flex items-center gap-2">
           <button
             type="button"
-            class="icon-btn h-8 w-8 shrink-0 rounded border border-stone-600 bg-stone-700 text-base leading-none hover:bg-stone-600"
-            :class="showIconPicker ? 'ring-1 ring-stone-400' : ''"
+            class="icon-btn h-8 w-8 shrink-0 rounded border border-outline bg-surface-variant text-base leading-none hover:bg-surface-variant"
+            :class="showIconPicker ? 'ring-1 ring-outline' : ''"
             title="Pick icon"
             @mousedown.prevent
             @click.stop="showIconPicker = !showIconPicker"
           >
             <PlaylistIcon v-if="icon" :icon="icon" class="h-4 w-4" />
-            <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
+            <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-on-surface-variant" />
           </button>
           <input
             v-model="name"
             type="text"
             placeholder="Playlist name…"
             maxlength="128"
-            class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-700 px-3 py-1.5 text-sm text-stone-200 outline-none focus:border-stone-400"
+            class="min-w-0 flex-1 rounded border border-outline bg-surface-variant px-3 py-1.5 text-sm text-on-surface outline-none focus:border-outline"
             @keydown.enter="confirm"
             @keydown.escape="emit('cancel')"
           />
@@ -150,7 +150,7 @@ function confirm() {
 
         <!-- Rules -->
         <div class="mb-3 space-y-2">
-          <div v-if="!rules.length" class="py-2 text-center text-xs text-stone-500">
+          <div v-if="!rules.length" class="py-2 text-center text-xs text-on-surface-variant">
             Add a rule to define which tracks match.
           </div>
           <div
@@ -161,7 +161,7 @@ function confirm() {
             <!-- Field -->
             <select
               v-model="rule.field"
-              class="rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+              class="rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none focus:border-outline"
               @change="rule.op = opsForField(rule.field)[0].value; rule.value = fieldType(rule.field) === 'bool' ? '1' : ''"
             >
               <option v-for="f in FIELDS" :key="f.value" :value="f.value">{{ f.label }}</option>
@@ -170,7 +170,7 @@ function confirm() {
             <!-- Operator -->
             <select
               v-model="rule.op"
-              class="rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+              class="rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none focus:border-outline"
             >
               <option v-for="op in opsForField(rule.field)" :key="op.value" :value="op.value">{{ op.label }}</option>
             </select>
@@ -180,7 +180,7 @@ function confirm() {
               <select
                 v-if="fieldType(rule.field) === 'bool'"
                 v-model="rule.value"
-                class="w-24 rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+                class="w-24 rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none focus:border-outline"
               >
                 <option value="1">True</option>
                 <option value="0">False</option>
@@ -190,12 +190,12 @@ function confirm() {
                 v-model="rule.value"
                 type="number"
                 step="1"
-                class="w-20 rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+                class="w-20 rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none focus:border-outline"
               />
               <select
                 v-else-if="rule.field === 'genre' && props.genres?.length"
                 v-model="rule.value"
-                class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+                class="min-w-0 flex-1 rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none focus:border-outline"
               >
                 <option value="" disabled>Select genre…</option>
                 <option v-for="g in props.genres" :key="g" :value="g">{{ g }}</option>
@@ -204,14 +204,14 @@ function confirm() {
                 v-else
                 v-model="rule.value"
                 type="text"
-                class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+                class="min-w-0 flex-1 rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none focus:border-outline"
               />
             </template>
             <span v-else class="min-w-0 flex-1" />
 
             <button
               type="button"
-              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-red-400"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-red-400"
               @click="removeRule(i)"
             >
               <FeatherIcon name="x" class="h-3.5 w-3.5" />
@@ -222,7 +222,7 @@ function confirm() {
         <!-- Add rule -->
         <button
           type="button"
-          class="mb-5 flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-200"
+          class="mb-5 flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-on-surface"
           @click="addRule"
         >
           <FeatherIcon name="plus" class="h-3.5 w-3.5" />
@@ -233,14 +233,14 @@ function confirm() {
         <div class="flex justify-end gap-2">
           <button
             type="button"
-            class="rounded px-3 py-1.5 text-xs text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            class="rounded px-3 py-1.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             @click="emit('cancel')"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="rounded bg-[#5b7c32] px-3 py-1.5 text-xs text-white hover:bg-[#6a9038] disabled:opacity-50"
+            class="rounded bg-primary px-3 py-1.5 text-xs text-white hover:bg-[#6a9038] disabled:opacity-50"
             :disabled="!canConfirm"
             @click="confirm"
           >

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import logoUrl from "../../assets/muorg-logo.svg";
 import { useCatalogStore } from "../../stores/catalog";
 import { usePlaylistStore } from "../../stores/playlists";
 import { useSettingsStore } from "../../stores/settings";
@@ -9,13 +10,13 @@ import FeatherIcon from "@shared/components/FeatherIcon.vue";
 import StarRating from "../shared/StarRating.vue";
 
 const props = defineProps<{
-  activeTab: "library" | "metadata" | "player" | "queue";
+  activeTab: "library" | "search" | "metadata" | "player" | "queue";
   sidebarCollapsed: boolean;
   showBack?: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: "update:activeTab", value: "library" | "metadata" | "player" | "queue"): void;
+  (e: "update:activeTab", value: "library" | "search" | "metadata" | "player" | "queue"): void;
   (e: "expandSidebar"): void;
   (e: "back"): void;
   (e: "openSettings"): void;
@@ -174,12 +175,6 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 const searchInputRef = ref<HTMLInputElement | null>(null);
 const searchExpandedLocal = ref(false);
-const searchExpanded = computed(() => searchExpandedLocal.value || !!searchQuery.value);
-
-function expandSearch() {
-  searchExpandedLocal.value = true;
-  nextTick(() => searchInputRef.value?.focus());
-}
 
 function onSearchBlur() {
   if (!searchQuery.value) searchExpandedLocal.value = false;
@@ -303,18 +298,18 @@ watch(genreDropdownOpen, (open) => {
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-stone-700 px-4 py-2">
+  <div class="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-outline px-4 py-2">
     <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
       <!-- Active playlist filter tag -->
       <div
         v-if="activePlaylistId !== null"
-        class="flex shrink-0 items-center gap-1 rounded-full border border-stone-600 bg-stone-700 pl-2 pr-1 py-0.5 text-xs text-stone-200"
+        class="flex shrink-0 items-center gap-1 rounded-full border border-outline bg-surface-variant pl-2 pr-1 py-0.5 text-xs text-on-surface"
       >
-        <FeatherIcon name="list" class="h-3 w-3 shrink-0 text-stone-400" />
+        <FeatherIcon name="list" class="h-3 w-3 shrink-0 text-on-surface-variant" />
         <span class="max-w-[140px] truncate">{{ activePlaylist?.name ?? store.activePlaylistName ?? "Playlist" }}</span>
         <button
           type="button"
-          class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+          class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
           aria-label="Clear playlist filter"
           @click="store.clearActivePlaylist()"
         >
@@ -325,7 +320,7 @@ watch(genreDropdownOpen, (open) => {
         <button
           v-if="props.sidebarCollapsed"
           type="button"
-          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-outline bg-surface-container text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
           aria-label="Expand sidebar"
           @click="emit('expandSidebar')"
         >
@@ -336,7 +331,7 @@ watch(genreDropdownOpen, (open) => {
         <button
           v-if="props.showBack"
           type="button"
-          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-outline bg-surface-container text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
           aria-label="Back"
           @click="emit('back')"
         >
@@ -344,47 +339,35 @@ watch(genreDropdownOpen, (open) => {
         </button>
       </Transition>
       <div class="flex shrink-0 items-center">
-        <button
-          type="button"
-          class="inline-flex h-8 w-8 shrink-0 items-center justify-center border border-stone-600 bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
-          :class="searchExpanded ? 'rounded-l border-r-0' : 'rounded'"
-          aria-label="Search"
-          @click="expandSearch"
-        >
-          <FeatherIcon name="search" class="h-4 w-4" />
-        </button>
-        <div
-          class="overflow-hidden transition-[width] duration-200 ease-out"
-          :style="{ width: searchExpanded ? '212px' : '0px' }"
-        >
-          <div class="relative flex items-center">
-            <input
-              ref="searchInputRef"
-              :value="searchQuery"
-              :tabindex="searchExpanded ? 0 : -1"
-              type="text"
-              placeholder="Search title, artist, album…"
-              class="h-8 w-[212px] rounded-r border border-l-0 border-stone-600 bg-stone-800 py-0 pl-2 pr-7 text-sm text-stone-200 placeholder-stone-500"
-              @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
-              @blur="onSearchBlur"
-            />
-            <button
-              v-if="searchQuery"
-              type="button"
-              class="absolute right-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-stone-400 hover:bg-stone-600 hover:text-stone-200"
-              aria-label="Clear search"
-              @mousedown.prevent="store.setSearchQuery('')"
-            >
-              <FeatherIcon name="x" class="h-3.5 w-3.5" />
-            </button>
-          </div>
+        <!-- Web-style glass search pill (always visible, like the web-client's LibrarySearchBar) -->
+        <div class="glass-field flex h-9 w-56 shrink-0 items-center gap-2 rounded-full px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary">
+          <FeatherIcon name="search" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+          <input
+            ref="searchInputRef"
+            :value="searchQuery"
+            type="text"
+            placeholder="Search title, artist, album…"
+            class="min-w-0 flex-1 bg-transparent text-body-md text-on-surface placeholder-on-surface-variant focus:outline-none"
+            @input="store.setSearchQuery(($event.target as HTMLInputElement).value)"
+            @focus="emit('update:activeTab', 'search')"
+            @blur="onSearchBlur"
+          />
+          <button
+            v-if="searchQuery"
+            type="button"
+            class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+            aria-label="Clear search"
+            @mousedown.prevent="store.setSearchQuery('')"
+          >
+            <FeatherIcon name="x" class="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
       <!-- Shuffle all -->
       <button
         type="button"
-        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
-        :class="store.shuffleAllActive ? 'border-primary text-[#5b7c32]' : 'border-stone-600'"
+        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border bg-surface-container text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+        :class="store.shuffleAllActive ? 'border-primary text-primary' : 'border-outline'"
         aria-label="Shuffle all"
         :aria-pressed="store.shuffleAllActive"
         title="Shuffle all"
@@ -393,7 +376,7 @@ watch(genreDropdownOpen, (open) => {
         <FeatherIcon name="shuffle" class="h-4 w-4" />
       </button>
       <!-- Min-rating filter -->
-      <div class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-800 px-2 py-1" :class="filterMinRating !== null ? 'border-amber-600/60' : ''">
+      <div class="flex items-center gap-1.5 rounded border border-outline bg-surface-container px-2 py-1" :class="filterMinRating !== null ? 'border-amber-600/60' : ''">
         <StarRating
           :model-value="filterMinRating"
           @update:model-value="store.setFilterMinRating"
@@ -401,7 +384,7 @@ watch(genreDropdownOpen, (open) => {
         <button
           v-if="filterMinRating !== null"
           type="button"
-          class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+          class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
           aria-label="Clear rating filter"
           @click="store.setFilterMinRating(null)"
         >
@@ -413,38 +396,38 @@ watch(genreDropdownOpen, (open) => {
       <div v-if="allGenres.length > 0" ref="genreDropdownRef" class="relative">
         <button
           type="button"
-          class="flex items-center gap-1.5 rounded border bg-stone-800 px-2 py-1 text-sm hover:border-stone-500 hover:bg-stone-700"
-          :class="filterGenre !== null ? 'border-primary text-[#5b7c32]' : 'border-stone-600 text-stone-200'"
+          class="flex items-center gap-1.5 rounded border bg-surface-container px-2 py-1 text-sm hover:border-outline hover:bg-surface-container"
+          :class="filterGenre !== null ? 'border-primary text-primary' : 'border-outline text-on-surface'"
           @click="toggleGenreDropdown"
         >
           <span>{{ filterGenre ?? "Genre" }}</span>
           <button
             v-if="filterGenre !== null"
             type="button"
-            class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+            class="ml-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
             aria-label="Clear genre filter"
             @click.stop="store.setFilterGenre(null)"
           >
             <FeatherIcon name="x" class="h-3 w-3" />
           </button>
-          <FeatherIcon v-else name="chevron-down" class="h-3.5 w-3.5 text-stone-400 transition-transform" :class="genreDropdownOpen ? 'rotate-180' : ''" />
+          <FeatherIcon v-else name="chevron-down" class="h-3.5 w-3.5 text-on-surface-variant transition-transform" :class="genreDropdownOpen ? 'rotate-180' : ''" />
         </button>
         <div
           v-if="genreDropdownOpen"
-          class="absolute left-0 top-full z-[300] mt-1 max-h-64 min-w-full overflow-x-hidden overflow-y-auto rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+          class="absolute left-0 top-full z-[300] mt-1 max-h-64 min-w-full overflow-x-hidden overflow-y-auto rounded border border-outline bg-surface-container py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
         >
           <button
             v-for="genre in allGenres"
             :key="genre"
             type="button"
-            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-stone-700"
-            :class="filterGenre === genre ? 'text-stone-200' : 'text-stone-400'"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-container"
+            :class="filterGenre === genre ? 'text-on-surface' : 'text-on-surface-variant'"
             @click="selectGenre(genre)"
           >
             <FeatherIcon
               name="check"
               class="h-3.5 w-3.5 shrink-0"
-              :class="filterGenre === genre ? 'text-stone-200' : 'invisible'"
+              :class="filterGenre === genre ? 'text-on-surface' : 'invisible'"
             />
             {{ genre }}
           </button>
@@ -455,29 +438,29 @@ watch(genreDropdownOpen, (open) => {
       <div v-if="libraryLayoutMode === 'table'" ref="groupByDropdownRef" class="relative min-w-max shrink-0">
         <button
           type="button"
-          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
-          :class="groupByDropdownOpen ? 'border-stone-500 bg-stone-700' : ''"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-outline bg-surface-container px-2 py-1 text-sm text-on-surface hover:border-outline hover:bg-surface-container"
+          :class="groupByDropdownOpen ? 'border-outline bg-surface-variant' : ''"
           @click="toggleGroupByDropdown"
         >
           <span class="whitespace-nowrap">{{ groupByLabels[groupByValue] }}</span>
-          <FeatherIcon name="chevron-down" class="h-3.5 w-3.5 text-stone-400 transition-transform" :class="groupByDropdownOpen ? 'rotate-180' : ''" />
+          <FeatherIcon name="chevron-down" class="h-3.5 w-3.5 text-on-surface-variant transition-transform" :class="groupByDropdownOpen ? 'rotate-180' : ''" />
         </button>
         <div
           v-if="groupByDropdownOpen"
-          class="absolute left-0 top-full z-[300] mt-1 min-w-full rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+          class="absolute left-0 top-full z-[300] mt-1 min-w-full rounded border border-outline bg-surface-container py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
         >
           <button
             v-for="(label, val) in groupByLabels"
             :key="val"
             type="button"
-            class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-stone-700"
-            :class="groupByValue === val ? 'text-stone-200' : 'text-stone-400'"
+            class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-surface-container"
+            :class="groupByValue === val ? 'text-on-surface' : 'text-on-surface-variant'"
             @click="selectGroupBy(val as 'none' | 'artist' | 'album')"
           >
             <FeatherIcon
               name="check"
               class="h-3.5 w-3.5 shrink-0"
-              :class="groupByValue === val ? 'text-stone-200' : 'invisible'"
+              :class="groupByValue === val ? 'text-on-surface' : 'invisible'"
             />
             {{ label }}
           </button>
@@ -488,40 +471,40 @@ watch(genreDropdownOpen, (open) => {
       <div v-if="libraryLayoutMode === 'album_grid'" ref="albumGridSortDropdownRef" class="relative min-w-max shrink-0">
         <button
           type="button"
-          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-stone-600 bg-stone-800 px-2 py-1 text-sm text-stone-200 hover:border-stone-500 hover:bg-stone-700"
-          :class="albumGridSortDropdownOpen ? 'border-stone-500 bg-stone-700' : ''"
+          class="flex items-center gap-1.5 whitespace-nowrap rounded border border-outline bg-surface-container px-2 py-1 text-sm text-on-surface hover:border-outline hover:bg-surface-container"
+          :class="albumGridSortDropdownOpen ? 'border-outline bg-surface-variant' : ''"
           @click="toggleAlbumGridSortDropdown"
         >
           <span class="whitespace-nowrap">{{ albumGridSortLabels[albumGridSortBy] }}</span>
-          <FeatherIcon name="chevron-down" class="h-3.5 w-3.5 text-stone-400 transition-transform" :class="albumGridSortDropdownOpen ? 'rotate-180' : ''" />
+          <FeatherIcon name="chevron-down" class="h-3.5 w-3.5 text-on-surface-variant transition-transform" :class="albumGridSortDropdownOpen ? 'rotate-180' : ''" />
         </button>
         <div
           v-if="albumGridSortDropdownOpen"
-          class="absolute left-0 top-full z-[300] mt-1 min-w-full rounded border border-stone-600 bg-stone-800 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+          class="absolute left-0 top-full z-[300] mt-1 min-w-full rounded border border-outline bg-surface-container py-1 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
         >
           <button
             v-for="(label, val) in albumGridSortLabels"
             :key="val"
             type="button"
-            class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-stone-700"
-            :class="albumGridSortBy === val ? 'text-stone-200' : 'text-stone-400'"
+            class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-surface-container"
+            :class="albumGridSortBy === val ? 'text-on-surface' : 'text-on-surface-variant'"
             @click="selectAlbumGridSort(val as 'album' | 'artist' | 'year')"
           >
             <FeatherIcon
               name="check"
               class="h-3.5 w-3.5 shrink-0"
-              :class="albumGridSortBy === val ? 'text-stone-200' : 'invisible'"
+              :class="albumGridSortBy === val ? 'text-on-surface' : 'invisible'"
             />
             {{ label }}
           </button>
         </div>
       </div>
 
-      <div class="flex items-center gap-1 rounded border border-stone-600 bg-stone-800 p-0.5">
+      <div class="flex items-center gap-1 rounded border border-outline bg-surface-container p-0.5">
         <button
           type="button"
           class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
-          :class="libraryLayoutMode === 'table' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
+          :class="libraryLayoutMode === 'table' ? 'bg-primary/[0.15] text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
           aria-label="Table layout"
           @click="settingsStore.setLibraryLayoutMode('table')"
         >
@@ -530,7 +513,7 @@ watch(genreDropdownOpen, (open) => {
         <button
           type="button"
           class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors"
-          :class="libraryLayoutMode === 'album_grid' ? 'bg-stone-600 text-stone-100' : 'text-stone-400 hover:bg-stone-700 hover:text-stone-200'"
+          :class="libraryLayoutMode === 'album_grid' ? 'bg-primary/[0.15] text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
           aria-label="Album grid layout"
           @click="settingsStore.setLibraryLayoutMode('album_grid')"
         >
@@ -542,7 +525,7 @@ watch(genreDropdownOpen, (open) => {
     <div class="flex items-center justify-start gap-1">
       <button
         type="button"
-        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
+        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-surface-container hover:text-on-surface"
         :class="props.activeTab === 'library' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'library')"
       >
@@ -550,7 +533,7 @@ watch(genreDropdownOpen, (open) => {
       </button>
       <button
         type="button"
-        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
+        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-surface-container hover:text-on-surface"
         :class="props.activeTab === 'metadata' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'metadata')"
       >
@@ -558,7 +541,7 @@ watch(genreDropdownOpen, (open) => {
       </button>
       <button
         type="button"
-        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-stone-600 hover:text-stone-200"
+        class="primary-tab rounded px-3 py-1 text-xs font-medium transition-colors hover:bg-surface-container hover:text-on-surface"
         :class="props.activeTab === 'queue' ? 'primary-tab--active' : undefined"
         @click="emit('update:activeTab', 'queue')"
       >
@@ -571,8 +554,8 @@ watch(genreDropdownOpen, (open) => {
       @mouseenter="showTooltip('Version ' + appVersion, $event)"
       @mouseleave="scheduleHideTooltip"
     >
-      <img src="/favicon.svg" alt="" class="h-6 w-6 shrink-0" />
-      <span class="text-sm font-semibold text-stone-200">Muorg</span>
+      <img :src="logoUrl" alt="" class="h-6 w-6 shrink-0" />
+      <span class="text-sm font-semibold text-on-surface">Muorg</span>
       <span
         class="relative z-[220] inline-flex"
         @mouseenter="showTooltip('Key map', $event, 'left')"
@@ -580,7 +563,7 @@ watch(genreDropdownOpen, (open) => {
       >
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
           aria-label="Key map"
           @mousedown.stop="emit('openKeyMap')"
           @click.stop="emit('openKeyMap')"
@@ -590,12 +573,26 @@ watch(genreDropdownOpen, (open) => {
       </span>
       <span
         class="inline-flex"
+        @mouseenter="showTooltip('Search page', $event, 'left')"
+        @mouseleave="scheduleHideTooltip"
+      >
+        <button
+          type="button"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+          aria-label="Search page"
+          @click="emit('update:activeTab', 'search')"
+        >
+          <FeatherIcon name="search" class="h-4 w-4" />
+        </button>
+      </span>
+      <span
+        class="inline-flex"
         @mouseenter="showTooltip('Settings', $event, 'left')"
         @mouseleave="scheduleHideTooltip"
       >
 <button
         type="button"
-        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
         aria-label="Application settings"
         @click="emit('openSettings')"
       >
@@ -608,7 +605,7 @@ watch(genreDropdownOpen, (open) => {
   <Teleport to="body">
     <div
       v-if="tooltipPopover"
-      class="fixed z-[500] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)] whitespace-nowrap"
+      class="fixed z-[500] rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)] whitespace-nowrap"
       :style="tooltipPopover.position === 'left'
         ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translate(-100%, -50%)' }
         : tooltipPopover.position === 'below-left'

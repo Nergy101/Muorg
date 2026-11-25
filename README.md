@@ -14,7 +14,9 @@
 
 ---
 
-A music library organizer with a dense, library-style UI — a web app and an Android app that connect to the same self-hosted server, plus a legacy cross-platform desktop app. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+A music library organizer with a dense, library-style UI — a cross-platform desktop app (macOS, Windows, Linux), a web app and an Android app that connect to the same self-hosted server. Add folders of MP3, FLAC and WAV files, browse and search your catalog, and edit embedded metadata—title, artist, album, year, album art, and more—so your collection stays consistent and findable.
+
+> **Desktop v5.0.0 is here** — a full redesign of the desktop app: a new app shell with collapsible sidebar, Home with recommended albums and mixes, album/artist/playlist views, a glass mini-player and maximized player with a queue side panel, dynamic accent colors derived from album art, statistics, and a rebuilt Settings. Desktop releases now ship on their own `desktop-v*` tags (see [Releases](https://github.com/Nergy101/Muorg/releases)).
 
 <div align="center">
   <img src="assets/orc/orc-empty.svg" alt="Muorg Orc shrugging while holding an empty crate" width="110" />
@@ -53,16 +55,15 @@ Full user and developer documentation — quick start, installation, configurati
 
 ## ⬇️ Download & install
 
-Grab the latest build for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest). The desktop app below is **legacy** — for new setups, self-host the server and use the web or Android client instead (see [Quick Start](https://docs.muorg.nergy.space/docs/quick-start)):
+Grab the latest build for your platform from the [Releases page](https://github.com/Nergy101/Muorg/releases/latest):
 
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | `muorg-*-macos.dmg` |
-| Windows | `muorg-*-windows.msi` |
-| Linux (universal) | `muorg-*-linux.AppImage` |
+| Platform | File | Release |
+|----------|------|---------|
+| macOS (Apple Silicon) | `muorg-*-macos.dmg` | newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v) |
+| Windows | `muorg-*-windows.msi` | newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v) |
+| Linux (universal) | `muorg-*-linux.AppImage` | newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v) |
 
-The Android app ships on its own tags, so it is not on the release above: take
-`muorg-*.apk` from the newest [`android-v*` release](https://github.com/Nergy101/Muorg/releases?q=android-v).
+The server, web app and docs ship on the main [`v*` releases](https://github.com/Nergy101/Muorg/releases?q=v), and the Android app on its own [`android-v*` releases](https://github.com/Nergy101/Muorg/releases?q=android-v) — take `muorg-*.apk` from the newest one.
 
 > **macOS note:** Releases are not signed with an Apple Developer certificate. If macOS says *"Muorg.app is damaged and can't be opened"*, open **System Settings → Privacy & Security**, scroll to the Muorg entry, and click **Open Anyway**.
 
@@ -75,15 +76,15 @@ The Android app ships on its own tags, so it is not on the release above: take
 
 ## ✨ Features
 
+- **🏠 Home** — Recommended albums and genre-based mixes to jump straight back in.
 - **📁 Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3`, `.flac` and `.wav` and builds a persistent SQLite catalog. Rescan or remove folders at any time.
-- **📋 Library view** — Table with album art, title, artist, album, year, duration, and path. Full-text search; group by album or artist; multi-select for bulk actions.
-- **💿 Album view** — Browse your collection as an album grid with cover art. Click an album to see its tracks.
-- **📂 Playlists** — Create, rename, and delete playlists. Add tracks via context menu or drag-and-drop. Export to M3U.
-- **📋 Queue** — Right-click tracks to add to queue. Reorderable list, play-from-queue, and clear. Next/previous follow the queue.
+- **💿 Albums, artists & tracks** — Browse the collection as album cards or artist cards (with a mosaic of their albums), or as compact track rows. Sort by year, album or artist; filter by genre. Full-text search with recent results.
+- **📂 Playlists & mixes** — Create, rename, pin and delete playlists (Favorites always on top, with a gold star). Smart playlists stay current by rule. Export to M3U.
+- **📋 Queue** — Add tracks from any context menu; reorderable queue view with per-track actions. Next/previous follow the queue.
 - **✏️ Metadata editor** — Edit tags (title, artist, album, album artist, year, genre, track/disc number) and embed or clear album art. Bulk-edit multiple tracks at once. **Smart Suggestions**: apply tags from the file path using a configurable template.
-- **▶️ Playback** — Play/pause, previous, next, seek, volume, mute, shuffle, and continuous playback. Maximized player view with large album art and gradient tinted from the cover.
-- **📊 Reports** — Missing metadata, duplicate tracks, and missing album art — click to jump directly to the offending track.
-- **🎨 Theming** — Auto (system), Dark, Light, Orkish, and DOOM. Configurable layout density, column widths, keyboard shortcuts, and more in Settings.
+- **▶️ Playback** — Glass mini-player with seek, volume and marquee titles; a maximized player with large album art, a collapsible queue side panel, and Chromecast. Dynamic accent color derived from the playing album's cover tints the whole player.
+- **📊 Reports & statistics** — Missing metadata, duplicate tracks, and missing album art — click to jump directly to the offending track. Statistics with top tracks/artists/albums, genre and format charts, and tracks per release year.
+- **🎨 Theming** — Auto (system), Dark, Light, Orkish, and DOOM, plus accent-color presets or fully dynamic cover-derived accents. Card layout (glass overlay or text below), rounded or square album art, and more in Settings.
 
 ---
 
@@ -94,26 +95,28 @@ share:
 
 ```
 Muorg/
-├── client/          # Desktop app — legacy (Tauri 2 + Vue 3 + Rust)
+├── client/          # Desktop app (Tauri 2 + Vue 3 + Rust)
 │   └── README.md    # Developer setup, build, and release docs
 ├── web-client/      # Browser-based UI (Vue 3 + Vite, served via nginx)
 ├── android-client/  # Android app (Kotlin + Jetpack Compose + Media3)
 ├── server/          # Standalone REST API (Rust + Axum)
 │   └── README.md    # Docker quick-start and configuration reference
+├── docs-site/       # Documentation site (Docusaurus)
 ├── src/             # Frontend code shared by the desktop and web apps
 │   └── api/         # Generated API client — see api/README.md
 └── scripts/
-    ├── release.sh              # Bump version, tag, and push a new release
-    ├── release-android.sh      # Android-only release (~8 min, not the full 30)
+    ├── release.sh              # Bump version, tag v*, push server/web/docs release
+    ├── release-desktop.sh      # Desktop-only release (desktop-v* tag, all platforms)
+    ├── release-android.sh      # Android-only release (android-v* tag)
     └── generate-api-clients.sh # Regenerate the OpenAPI spec and every client
 ```
 
 | Component | What it does | When you need it |
 |-----------|-------------|-----------------|
-| `client/` | Cross-platform desktop app (**legacy**) | Legacy — kept for existing users; new development targets web / Android / server |
+| `client/` | Cross-platform desktop app (macOS, Windows, Linux) | On your desktop — local library or connected to a server |
 | `web-client/` | Browser UI connecting to muorg-server | When you want web access alongside or instead of the desktop app |
 | `android-client/` | Android app connecting to muorg-server | On a phone or tablet |
-| `server/` | HTTP backend for remote/NAS use | Only for home-server / multi-device setups |
+| `server/` | HTTP backend for remote/NAS use | For home-server / multi-device setups |
 | `src/` | Shared frontend code and the generated API client | When changing anything both the desktop and web apps use |
 
 ### The API contract
@@ -133,9 +136,9 @@ For full developer and configuration details see **[client/README.md](client/REA
 
 ## 🐳 Self-hosting with Docker
 
-### Server only (legacy desktop app in Online mode)
+### Server only (desktop app in Online mode)
 
-Run muorg-server on a NAS or home server and connect to it from the legacy desktop app in **Online** mode.
+Run muorg-server on a NAS or home server and connect to it from the desktop app in **Online** mode.
 
 ```bash
 # 1. Grab the compose file
@@ -210,7 +213,7 @@ See the [server README](server/README.md) for the full configuration reference a
 - [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/) for your OS
 - For the Android app only: JDK 17 and the Android SDK
 
-### Desktop app (legacy)
+### Desktop app
 
 ```bash
 cd client
@@ -221,6 +224,10 @@ pnpm run tauri dev
 
 # Production build (installer for current OS)
 pnpm run tauri build
+
+# Cut a desktop release for all platforms (macOS/Windows/Linux) on a
+# desktop-v* tag — runs .github/workflows/release-desktop.yml
+../scripts/release-desktop.sh 5.0.0
 ```
 
 ### Web app

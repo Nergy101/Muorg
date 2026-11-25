@@ -1,33 +1,44 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import Sidebar from "./components/layout/Sidebar.vue";
-import LibraryTable from "./components/library/LibraryTable.vue";
-import ServerStartupModal from "./components/modals/ServerStartupModal.vue";
+import TopBar from "./components/layout/TopBar.vue";
 import PlayerBar from "./components/playback/PlayerBar.vue";
 import PlayScreenPlayBar from "./components/playback/PlayScreenPlayBar.vue";
-import QueueList from "./components/playback/QueueList.vue";
+import ServerStartupModal from "./components/modals/ServerStartupModal.vue";
+import Toast from "./components/shared/Toast.vue";
 import MetadataEditor from "./components/metadata/MetadataEditor.vue";
-import {
-  getGlowBlobs,
-  getSimpleGlowBlobs,
-  useDominantColor,
-  useEdgeColors,
-  isColorBland,
-  hasOpposingEdgeColors,
-} from "./composables/useDominantColor";
-import type { GlowBlob } from "./composables/useDominantColor";
+import HomeView from "./views/HomeView.vue";
+import AlbumsView from "./views/AlbumsView.vue";
+import ListView from "./views/ListView.vue";
+import ArtistsView from "./views/ArtistsView.vue";
+import ArtistDetailView from "./views/ArtistDetailView.vue";
+import PlaylistsView from "./views/PlaylistsView.vue";
+import PlaylistDetailView from "./views/PlaylistDetailView.vue";
+import MixDetailView from "./views/MixDetailView.vue";
+import QueueView from "./views/QueueView.vue";
+import ReportsView from "./views/ReportsView.vue";
+import StatsView from "./views/StatsView.vue";
+import SettingsView from "./views/SettingsView.vue";
+import AlbumDetailHost from "./views/AlbumDetailHost.vue";
+import SearchView from "./components/library/SearchView.vue";
 import { useCatalogStore } from "./stores/catalog";
 import { useSettingsStore } from "./stores/settings";
 import { useCastEvents } from "./composables/useCastEvents";
+import { useDynamicAccent } from "./composables/useDynamicAccent";
+import { useDominantColor, useMostCommonColor } from "./composables/useDominantColor";
+import { accentHexFromRgb } from "./composables/useDynamicAccent";
+import { currentView, navigate, metadataEditorOpen, sidebarCollapsed } from "./state/navigation";
+import { albumIdentityKey } from "@shared/utils/albumIdentity";
+import { albumArtistOf } from "./composables/useAlbums";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
 
 useCastEvents();
-const { playerGlowIntensity, playerGlowMode, queuePanelWidthFraction, bottomPanelHeightPx, sidebarWidthPx } = storeToRefs(settingsStore);
+// Dynamic accent: recolors the UI (and the frosted player bar) to the playing album.
+useDynamicAccent();
+
 // Persist queue whenever it changes (debounced — write at most once per second)
 let sessionSaveTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleSessionQueueSave() {
@@ -37,113 +48,71 @@ function scheduleSessionQueueSave() {
     settingsStore.setSessionState(
       store.queueTrackIds,
       store.currentPlayingTrackId,
-      settingsStore.sessionCurrentPositionSecs, // preserve last saved position
+      settingsStore.sessionCurrentPositionSecs,
     );
   }, 800);
 }
 watch(() => store.queueTrackIds, scheduleSessionQueueSave, { deep: true });
-const queueBarContainerRef = ref<HTMLElement | null>(null);
-const layoutRef = ref<HTMLElement | null>(null);
-const isDraggingQueueDivider = ref(false);
-const isDraggingPanelDivider = ref(false);
-const isDraggingSidebarDivider = ref(false);
-const sidebarCollapsed = ref(false);
+
+// The 401 handler (main.ts) and other legacy entry points ask for the settings
+// modal; in the redesigned shell that means navigating to the Settings view.
+watch(
+  () => settingsStore.settingsModalOpen,
+  (open) => {
+    if (!open) return;
+    settingsStore.settingsModalOpen = false;
+    navigate({ name: "settings" });
+  },
+);
+
+/** Maximized ("fullscreen") player overlay, opened from the player bar's now-playing widget. */
 const playExpanded = ref(false);
+function expandPlayer() {
+  playExpanded.value = true;
+}
+function minimizePlayer() {
+  playExpanded.value = false;
+}
 
-const expandedCoverUrl = computed(() => {
-  if (!playExpanded.value) return null;
-  const tracks = store.selectedTracks;
-  if (tracks.length !== 1) return null;
-  return store.getCoverDataUrl(tracks[0].path);
-});
-const glowRgb = useDominantColor(expandedCoverUrl);
-const edgeColors = useEdgeColors(expandedCoverUrl);
-const expandedTrack = computed(() =>
-  playExpanded.value && store.selectedTracks.length === 1 ? store.selectedTracks[0] : null,
-);
-const trackKey = computed(
-  () => expandedTrack.value?.path ?? expandedTrack.value?.id ?? "",
-);
-
-/** Edge blur when bland center + vibrant edge colors, or when 2 opposing colors split the cover. */
-const useEdgeBlurMode = computed(() => {
-  const mode = playerGlowMode.value;
-  if (mode === "edge-blur") return true;
-  if (mode === "vivid" || mode === "bland") return false;
-  // dynamic: auto-detect from album art
-  if (!expandedCoverUrl.value || !edgeColors.value?.colors?.length) return false;
-  const blandCenterVibrantEdges =
-    isColorBland(glowRgb.value) && !isColorBland(edgeColors.value.colors[0]);
-  const opposingColors = hasOpposingEdgeColors(edgeColors.value.bySide);
-  return blandCenterVibrantEdges || opposingColors;
+/** Album art for the album page, shown as a translucent backdrop behind the
+ *  whole island (including the integrated topbar). */
+const albumBackdropUrl = computed(() => {
+  const v = currentView.value;
+  if (v.name !== "album" || !v.key) return null;
+  const track = store.tracks.find((t) => albumIdentityKey(t.album, albumArtistOf(t)) === v.key && t.has_cover)
+    ?? store.tracks.find((t) => albumIdentityKey(t.album, albumArtistOf(t)) === v.key);
+  return track ? store.getCoverDataUrl(track.path) : null;
 });
 
-const currentBlobs = computed(() => {
-  const key = String(trackKey.value);
-  if (useEdgeBlurMode.value) return [];
-  const mode = playerGlowMode.value;
-  if (mode === "bland") {
-    const color = edgeColors.value?.colors?.[0] ?? glowRgb.value;
-    return getSimpleGlowBlobs(color, key);
-  }
-  if (mode === "vivid") return getGlowBlobs(glowRgb.value, key);
-  // dynamic
-  if (isColorBland(glowRgb.value)) {
-    const color = edgeColors.value?.colors?.[0] ?? glowRgb.value;
-    return getSimpleGlowBlobs(color, key);
-  }
-  return getGlowBlobs(glowRgb.value, key);
+/** Accent vars for the maximized player, taken from the playing album art. */
+const playingCoverUrl = computed(() => {
+  const id = store.currentPlayingTrackId;
+  if (id == null) return null;
+  const track = store.tracks.find((t) => t.id === id);
+  return track ? store.getCoverDataUrl(track.path) : null;
+});
+const glowRgb = useDominantColor(playingCoverUrl);
+/** Flip the close-chevron to dark when the backdrop art is light. */
+const closeChevronDark = computed(() => {
+  const parts = (glowRgb.value ?? "").split(",").map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return false;
+  const lum = (0.299 * parts[0] + 0.587 * parts[1] + 0.114 * parts[2]) / 255;
+  return lum > 0.6;
 });
 
-/** Opacity multiplier by intensity (off = 0, no blobs shown). */
-const glowOpacityScale = computed(() => {
-  const v = playerGlowIntensity.value;
-  if (v === "off") return 0;
-  if (v === "subdued") return 0.4;
-  if (v === "vibrant") return 1.6;
-  return 1.2;
+/** Album-page backdrop luminance: topbar controls flip to dark on light art. */
+const albumBackdropRgb = useDominantColor(albumBackdropUrl);
+const albumBackdropLight = computed(() => {
+  if (currentView.value.name !== "album") return false;
+  const parts = (albumBackdropRgb.value ?? "").split(",").map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return false;
+  return (0.299 * parts[0] + 0.587 * parts[1] + 0.114 * parts[2]) / 255 > 0.6;
 });
-
-/** Blobs to display, scaled by intensity. */
-const displayCurrentBlobs = computed(() => {
-  const scale = glowOpacityScale.value;
-  if (scale <= 0 || useEdgeBlurMode.value) return [];
-  const blobs = currentBlobs.value;
-  return blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
-});
-
-const displayOutgoingBlobs = computed(() => {
-  const scale = glowOpacityScale.value;
-  if (scale <= 0) return [];
-  const blobs = outgoingBlobs.value;
-  return blobs.map((b) => ({ ...b, opacity: Math.min(1, b.opacity * scale) }));
-});
-
-/** Opacity for edge-blur layer (0.5–0.9 based on intensity). */
-const edgeBlurOpacity = computed(() => {
-  if (playerGlowIntensity.value === "off") return 0;
-  const v = playerGlowIntensity.value;
-  if (v === "subdued") return 0.45;
-  if (v === "vibrant") return 0.85;
-  return 0.65;
-});
-
-const showGlow = computed(() => playerGlowIntensity.value !== "off");
-
-/** Use album color for controls. When opposing edge colors (split design), use first hard edge color. */
-const effectiveAccentRgb = computed(() => {
-  if (hasOpposingEdgeColors(edgeColors.value?.bySide ?? null) && edgeColors.value?.colors?.length) {
-    const first = edgeColors.value.colors[0];
-    if (!isColorBland(first)) return first;
-  }
-  return isColorBland(glowRgb.value) ? undefined : glowRgb.value;
-});
-
-/** Accent CSS vars for maximized player. Vivid album => picked color; bland cover => neutral gray. */
-const NEUTRAL_ACCENT_RGB = "rgb(87 83 78)"; /* stone-600, no hue */
+const modeRgb = useMostCommonColor(playingCoverUrl);
 const expandedAccentStyle = computed(() => {
-  const rgb = effectiveAccentRgb.value;
-  const color = rgb ? `rgb(${rgb})` : NEUTRAL_ACCENT_RGB;
+  // Same accent-picking as the dynamic UI accent (mode color preferred).
+  const hex = accentHexFromRgb(modeRgb.value) ?? accentHexFromRgb(glowRgb.value) ?? "#5b7c32";
+  const color = hex.startsWith("#") ? hex : `rgb(${hex})`;
   return {
     "--player-accent": color,
     "--player-accent-play": color,
@@ -154,264 +123,78 @@ const expandedAccentStyle = computed(() => {
   };
 });
 
-/** Very dark tint for background – from center color (vivid) or blended edge colors (bland). */
-const glowBgColor = computed(() => {
-  if (!showGlow.value) return undefined;
-  if (isColorBland(glowRgb.value) && edgeColors.value?.colors) {
-    const ec = edgeColors.value.colors;
-    const parts = ec.map((s) => s.split(",").map(Number));
-    const valid = parts.filter((p) => p.length === 3);
-    if (valid.length === 0) return undefined;
-    const r = Math.round(valid.reduce((a, p) => a + p[0], 0) / valid.length * 0.06);
-    const g = Math.round(valid.reduce((a, p) => a + p[1], 0) / valid.length * 0.06);
-    const b = Math.round(valid.reduce((a, p) => a + p[2], 0) / valid.length * 0.06);
-    return `rgb(${r},${g},${b})`;
+/** Metadata editor opens as an overlay when a track row asks for it or the
+ *  album page's 3-dots menu requests it. */
+const editorOpen = ref(false);
+watch(metadataEditorOpen, (open) => {
+  if (open) {
+    metadataEditorOpen.value = false;
+    editorOpen.value = true;
   }
-  if (!isColorBland(glowRgb.value)) {
-    const parts = glowRgb.value.split(",").map(Number);
-    if (parts.length !== 3) return undefined;
-    const [r, g, b] = parts;
-    return `rgb(${Math.round(r * 0.08)},${Math.round(g * 0.08)},${Math.round(b * 0.08)})`;
-  }
-  return undefined;
 });
+function openMetadataEditor() {
+  editorOpen.value = true;
+}
+function closeMetadataEditor() {
+  editorOpen.value = false;
+  store.clearSelection();
+}
+const showEditor = computed(() => editorOpen.value && store.selectedTrackIds.length > 0);
 
-/** Previous blobs for transitions. */
-const lastBlobs = ref<GlowBlob[]>([]);
-/** Outgoing layer (crossfade when color changes). */
-const outgoingBlobs = ref<GlowBlob[]>([]);
-/** Outgoing cover URL for edge-blur crossfade (previous album). */
-const outgoingCoverUrl = ref<string | null>(null);
-const outgoingGlowOpacity = ref(0);
-const currentGlowOpacity = ref(1);
-const currentGlowRef = ref<HTMLElement | null>(null);
-const outgoingGlowRef = ref<HTMLElement | null>(null);
-/** When true, crossfading: blob positions snap, only opacity animates. */
-const isCrossfading = ref(false);
-
-const GLOW_TRANSITION_MS = 1800;
-const BLOB_MORPH_MS = 800;
-
-// On track change: morph (same album) or crossfade (different album). Must run before sync watch.
-watch(
-  expandedTrack,
-  (newTrack, oldTrack) => {
-    const newKey = newTrack?.path ?? newTrack?.id ?? null;
-    const oldKey = oldTrack?.path ?? oldTrack?.id ?? null;
-    if (!playExpanded.value || !newKey || !oldKey || newKey === oldKey || !showGlow.value) return;
-    const prevBlobs = lastBlobs.value;
-    const sameAlbum = (newTrack?.album ?? "") === (oldTrack?.album ?? "");
-
-    if (sameAlbum) {
-      // Same album art: blobs just move, no crossfade. Vue updates currentBlobs,
-      // CSS transition on blob positions animates the morph.
-      lastBlobs.value = currentBlobs.value;
-    } else if (oldTrack) {
-      // Different album: crossfade (only opacity, no blob morph)
-      isCrossfading.value = true;
-      outgoingBlobs.value = prevBlobs;
-      outgoingCoverUrl.value = store.getCoverDataUrl(oldTrack.path) ?? null;
-      outgoingGlowOpacity.value = 1;
-      currentGlowOpacity.value = 0;
-      lastBlobs.value = currentBlobs.value;
-      nextTick(() => {
-        const currentEl = currentGlowRef.value;
-        const outgoingEl = outgoingGlowRef.value;
-        if (!currentEl || !outgoingEl) return;
-        const opts: KeyframeAnimationOptions = {
-          duration: GLOW_TRANSITION_MS,
-          fill: "forwards",
-        };
-        currentEl.animate([{ opacity: 0 }, { opacity: 1 }], { ...opts, easing: "ease-in" });
-        outgoingEl.animate([{ opacity: 1 }, { opacity: 0 }], { ...opts, easing: "ease-out" });
-        setTimeout(() => {
-          currentGlowOpacity.value = 1;
-          outgoingGlowOpacity.value = 0;
-          outgoingCoverUrl.value = null;
-          isCrossfading.value = false;
-        }, GLOW_TRANSITION_MS);
-      });
-    }
-  },
-  { flush: "post" },
-);
-
-// Keep lastBlobs in sync (runs after track-change watch so prevBlobs is correct)
-watch(
-  currentBlobs,
-  (blobs) => {
-    lastBlobs.value = blobs;
-  },
-  { immediate: true },
-);
-
-const showEditor = computed(() => store.selectedTrackIds.length > 0);
 const isDropTarget = ref(false);
-const activeTab = ref<"library" | "metadata" | "player" | "queue">(
-  (settingsStore.defaultBottomPanel as "library" | "metadata" | "player" | "queue") ?? "library",
-);
-/** Tab to restore when minimizing the fullscreen player. */
-const activeTabBeforeExpand = ref<"library" | "metadata" | "player" | "queue">("library");
 let unlistenDragDrop: (() => void) | null = null;
-const lastDragWasOnlyImages = ref(false);
 
 function isImagePath(p: string): boolean {
   const ext = p.split(".").pop()?.toLowerCase() ?? "";
   return ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp" || ext === "gif" || ext === "bmp";
 }
 
-function expandPlayer() {
-  activeTabBeforeExpand.value = activeTab.value;
-  playExpanded.value = true;
-  sidebarCollapsed.value = true;
-  activeTab.value = "player";
-}
-
-function minimizePlayer() {
-  playExpanded.value = false;
-  activeTab.value = activeTabBeforeExpand.value;
-}
-
-function onQueueDividerMouseDown() {
-  isDraggingQueueDivider.value = true;
-  document.body.style.cursor = "col-resize";
-  document.body.style.userSelect = "none";
-  document.addEventListener("mousemove", onQueueDividerMouseMove);
-  document.addEventListener("mouseup", onQueueDividerMouseUp);
-}
-
-function onQueueDividerMouseMove(e: MouseEvent) {
-  const el = queueBarContainerRef.value;
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  const queueWidth = rect.right - e.clientX - 4;
-  const fraction = Math.min(0.6, Math.max(0.15, queueWidth / rect.width));
-  settingsStore.setQueuePanelWidthFraction(fraction);
-}
-
-function onQueueDividerMouseUp() {
-  isDraggingQueueDivider.value = false;
-  document.body.style.cursor = "";
-  document.body.style.userSelect = "";
-  document.removeEventListener("mousemove", onQueueDividerMouseMove);
-  document.removeEventListener("mouseup", onQueueDividerMouseUp);
-}
-
-const bottomPanelResizable = computed(() => activeTab.value === "player" || activeTab.value === "queue");
-
-function onPanelDividerMouseDown() {
-  isDraggingPanelDivider.value = true;
-  document.body.style.cursor = "row-resize";
-  document.body.style.userSelect = "none";
-  document.addEventListener("mousemove", onPanelDividerMouseMove);
-  document.addEventListener("mouseup", onPanelDividerMouseUp);
-}
-
-function onPanelDividerMouseMove(e: MouseEvent) {
-  const el = queueBarContainerRef.value;
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  const heightPx = rect.bottom - e.clientY;
-  settingsStore.setBottomPanelHeightPx(heightPx);
-}
-
-function onPanelDividerMouseUp() {
-  isDraggingPanelDivider.value = false;
-  document.body.style.cursor = "";
-  document.body.style.userSelect = "";
-  document.removeEventListener("mousemove", onPanelDividerMouseMove);
-  document.removeEventListener("mouseup", onPanelDividerMouseUp);
-}
-
-function onSidebarDividerMouseDown() {
-  isDraggingSidebarDivider.value = true;
-  document.body.style.cursor = "col-resize";
-  document.body.style.userSelect = "none";
-  document.addEventListener("mousemove", onSidebarDividerMouseMove);
-  document.addEventListener("mouseup", onSidebarDividerMouseUp);
-}
-
-function onSidebarDividerMouseMove(e: MouseEvent) {
-  const el = layoutRef.value;
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  // px-2 = 8px left padding; subtract it to get width within the grid column
-  const newWidth = e.clientX - rect.left - 8;
-  settingsStore.setSidebarWidthPx(newWidth);
-}
-
-function onSidebarDividerMouseUp() {
-  isDraggingSidebarDivider.value = false;
-  document.body.style.cursor = "";
-  document.body.style.userSelect = "";
-  document.removeEventListener("mousemove", onSidebarDividerMouseMove);
-  document.removeEventListener("mouseup", onSidebarDividerMouseUp);
-}
-
 function onGlobalKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement;
   const isEditable =
     target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-
-  if (e.key === "Escape" && playExpanded.value) {
-    if (!isEditable) {
-      e.preventDefault();
-      minimizePlayer();
-    }
+  if (e.key === "Escape" && playExpanded.value && !isEditable) {
+    e.preventDefault();
+    minimizePlayer();
     return;
   }
-
-  if ((e.metaKey || e.ctrlKey) && e.key === "m") {
+  if (e.key === " " && !isEditable) {
     e.preventDefault();
-    if (!isEditable && !playExpanded.value) {
-      expandPlayer();
-    }
-  }
-
-  if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-    e.preventDefault();
-    if (!isEditable) {
-      sidebarCollapsed.value = !sidebarCollapsed.value;
+    // Space toggles play via the player bar's audio element state.
+    const audio = document.querySelector<HTMLAudioElement>("audio[data-muorg-player]");
+    if (audio) {
+      if (audio.paused) void audio.play();
+      else audio.pause();
     }
   }
 }
 
 onMounted(async () => {
-  sidebarCollapsed.value = settingsStore.sidebarClosedOnStartup;
   document.addEventListener("keydown", onGlobalKeydown);
   try {
     unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
-      if (event.payload.type === "enter") {
-        const paths = event.payload.paths ?? [];
-        lastDragWasOnlyImages.value = paths.length > 0 && paths.every(isImagePath);
-        if (!store.isInternalQueueDrag && !lastDragWasOnlyImages.value) isDropTarget.value = true;
-      } else if (event.payload.type === "over") {
-        if (!store.isInternalQueueDrag && !lastDragWasOnlyImages.value) isDropTarget.value = true;
+      if (event.payload.type === "enter" || event.payload.type === "over") {
+        const paths = "paths" in event.payload ? event.payload.paths : [];
+        if (paths.length > 0 && !paths.every(isImagePath)) isDropTarget.value = true;
       } else if (event.payload.type === "leave") {
         isDropTarget.value = false;
-        lastDragWasOnlyImages.value = false;
       } else if (event.payload.type === "drop") {
         isDropTarget.value = false;
-        lastDragWasOnlyImages.value = false;
-        const paths = event.payload.paths ?? [];
+        const paths = "paths" in event.payload ? event.payload.paths : [];
         if (paths.length === 0) return;
         const imagePaths = paths.filter(isImagePath);
-        if (imagePaths.length > 0 && activeTab.value === "metadata" && showEditor.value) {
+        if (imagePaths.length > 0 && showEditor.value) {
           store.setPendingCoverImagePath(imagePaths[0]);
           return;
         }
         (async () => {
           const folders = new Set<string>();
           for (const p of paths) {
-            try {
-              const sep = p.includes("/") ? "/" : "\\";
-              const parts = p.split(sep);
-              parts.pop();
-              const folder = parts.join(sep) || sep;
-              if (folder) folders.add(folder);
-            } catch {
-              // skip invalid paths
-            }
+            const sep = p.includes("/") ? "/" : "\\";
+            const parts = p.split(sep);
+            parts.pop();
+            const folder = parts.join(sep) || sep;
+            if (folder) folders.add(folder);
           }
           for (const folder of folders) {
             try {
@@ -430,184 +213,91 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
-  document.removeEventListener("mousemove", onQueueDividerMouseMove);
-  document.removeEventListener("mouseup", onQueueDividerMouseUp);
-  document.removeEventListener("mousemove", onPanelDividerMouseMove);
-  document.removeEventListener("mouseup", onPanelDividerMouseUp);
-  document.removeEventListener("mousemove", onSidebarDividerMouseMove);
-  document.removeEventListener("mouseup", onSidebarDividerMouseUp);
   unlistenDragDrop?.();
 });
 </script>
 
 <template>
   <div
-    ref="layoutRef"
-    class="relative grid h-screen w-full max-w-[100vw] grid-rows-[minmax(0,1fr)_auto] pt-2 px-2 pb-0 gap-y-2 overflow-hidden"
-    :class="{ 'ring-2 ring-amber-500/80 ring-inset bg-amber-950/20': isDropTarget }"
-    :style="{
-      gridTemplateColumns: sidebarCollapsed ? '0px 0px 1fr' : `${sidebarWidthPx}px 4px 1fr`,
-      transition: isDraggingSidebarDivider ? 'none' : 'grid-template-columns 400ms ease-out',
-    }"
+    class="app-shell"
+    :class="{ 'ring-2 ring-amber-500/80 ring-inset': isDropTarget, 'on-light-backdrop': albumBackdropLight }"
+    :style="{ gridTemplateColumns: sidebarCollapsed ? '64px 1fr' : '248px 1fr' }"
   >
-    <!-- Top row: sidebar island -->
-    <Transition name="sidebar-island">
-      <div
-        v-show="!sidebarCollapsed"
-        class="row-start-1 row-end-2 col-start-1 col-end-2 h-full overflow-hidden island-surface"
-      >
-        <Sidebar @toggle="sidebarCollapsed = !sidebarCollapsed" />
-      </div>
-    </Transition>
-    <!-- Sidebar resize handle -->
-    <div
-      v-show="!sidebarCollapsed"
-      role="separator"
-      aria-orientation="vertical"
-      class="sidebar-divider row-start-1 row-end-2 col-start-2 col-end-3 h-full w-1 cursor-col-resize"
-      @mousedown.prevent="onSidebarDividerMouseDown"
-    />
-    <main
-      class="row-start-1 row-end-2 col-start-3 col-end-4 flex min-w-0 flex-col overflow-hidden transition-colors duration-150 island-surface border border-stone-700/50"
-    >
-      <LibraryTable
-        v-model:active-tab="activeTab"
-        :sidebar-collapsed="sidebarCollapsed"
-        @expand-sidebar="sidebarCollapsed = false"
-        @expand-player="expandPlayer"
-      />
-    </main>
-
-    <!-- Bottom row: metadata / player bar spanning full width (or resizable when Queue tab). Resizable height when Player or Queue tab. -->
-    <div
-      ref="queueBarContainerRef"
-      class="row-start-2 row-end-3 col-start-1 col-end-4 flex shrink-0 min-w-0 flex-col overflow-hidden"
-      :class="activeTab === 'player' || activeTab === 'queue' ? 'bg-stone-900/95' : ''"
-      :style="bottomPanelResizable ? { height: `${bottomPanelHeightPx}px` } : undefined"
-    >
-      <!-- Resize handle at top when Player or Queue tab -->
-      <div
-        v-if="bottomPanelResizable"
-        role="separator"
-        aria-orientation="horizontal"
-        :aria-valuenow="bottomPanelHeightPx"
-        class="panel-height-divider shrink-0 h-1 min-w-0 cursor-row-resize"
-        @mousedown.prevent="onPanelDividerMouseDown"
-      />
-      <!-- Content: flex-col for play, grid for queue, flex-col for library/metadata -->
-      <div
-        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-        :class="activeTab === 'queue' ? 'grid items-stretch' : ''"
-        :style="activeTab === 'queue' ? { gridTemplateColumns: `${1 - queuePanelWidthFraction}fr 4px ${queuePanelWidthFraction}fr` } : undefined"
-      >
-        <!-- Single player slot: shrink-to-content so it always hugs the bottom without its own scrollbar. -->
-        <div
-          class="flex min-w-0 flex-col shrink-0 overflow-hidden"
-          :class="activeTab === 'player' || activeTab === 'queue' ? 'island-surface' : ''"
-        >
-          <PlayerBar
-            :class="activeTab === 'player' || activeTab === 'queue' ? 'sr-only h-0 overflow-hidden' : ''"
-            @expand="expandPlayer"
-          />
-          <PlayScreenPlayBar
-            v-if="(activeTab === 'player' || activeTab === 'queue') && !playExpanded"
-            :panel-height-px="bottomPanelResizable ? bottomPanelHeightPx : undefined"
-            @expand="expandPlayer"
-          />
-        </div>
-        <template v-if="activeTab === 'queue'">
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            :aria-valuenow="Math.round(queuePanelWidthFraction * 100)"
-            class="queue-divider shrink-0 w-1 min-h-0 cursor-col-resize"
-            @mousedown.prevent="onQueueDividerMouseDown"
-          />
-          <div class="flex min-h-0 min-w-0 flex-col overflow-hidden island-surface">
-            <QueueList />
-          </div>
-        </template>
-        <MetadataEditor
-          v-if="showEditor && activeTab === 'metadata'"
-          :key="store.selectedTrackIds.join(',')"
-        />
-      </div>
+    <!-- Sidebar -->
+    <div class="app-sidebar">
+      <Sidebar />
     </div>
 
-    <!-- Full-window player overlay ("focus" mode) -->
+    <!-- Body column: one island — topbar controls at the top inside the main panel -->
+    <div class="app-body">
+      <main class="app-main flex min-h-0 flex-1 flex-col">
+        <!-- Album art backdrop spans the whole island, so the transparent topbar
+             shows the same accent fade translucently over the art -->
+        <div v-if="albumBackdropUrl" class="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+          <img
+            :src="albumBackdropUrl"
+            alt=""
+            class="h-full w-full scale-150 object-cover opacity-80"
+            style="filter: blur(8px) saturate(1.4)"
+          />
+          <div
+            class="absolute inset-0"
+            style="background: linear-gradient(180deg, color-mix(in srgb, var(--background) 25%, transparent) 0%, color-mix(in srgb, var(--background) 55%, transparent) 45%, var(--background) 100%)"
+          />
+        </div>
+        <TopBar />
+        <div class="relative z-[1] flex min-h-0 flex-1 flex-col">
+          <HomeView v-if="currentView.name === 'home'" />
+          <AlbumsView v-else-if="currentView.name === 'albums'" />
+          <ListView v-else-if="currentView.name === 'list'" @open-metadata="openMetadataEditor" />
+          <ArtistsView v-else-if="currentView.name === 'artists'" />
+          <ArtistDetailView v-else-if="currentView.name === 'artist'" :artist="currentView.key ?? ''" />
+          <PlaylistsView v-else-if="currentView.name === 'playlists'" />
+          <PlaylistDetailView v-else-if="currentView.name === 'playlist'" :id="currentView.id ?? 0" />
+          <MixDetailView v-else-if="currentView.name === 'mix'" />
+          <QueueView v-else-if="currentView.name === 'queue'" />
+          <ReportsView v-else-if="currentView.name === 'reports'" />
+          <StatsView v-else-if="currentView.name === 'stats'" />
+          <SettingsView v-else-if="currentView.name === 'settings'" />
+          <AlbumDetailHost v-else-if="currentView.name === 'album'" :album-key="currentView.key ?? ''" />
+          <SearchView
+            v-else-if="currentView.name === 'search'"
+            @back="navigate({ name: 'list' })"
+            @open-album="(key: string) => navigate({ name: 'album', key })"
+          />
+        </div>
+
+        <!-- Frosted accent-glass player bar, floating over the scrolling content -->
+        <PlayerBar @expand="expandPlayer" @open-queue="navigate({ name: 'queue' })" />
+      </main>
+    </div>
+
+    <!-- Maximized player overlay (web-client art-fullscreen look: full-bleed cover backdrop) -->
     <Teleport to="body">
       <div
         v-if="playExpanded"
         id="maximized-player-overlay"
-        class="maximized-player-overlay fixed inset-0 z-[350] flex h-screen w-screen flex-col overflow-visible"
-        data-theme="dark"
-        :style="{ backgroundColor: glowBgColor ?? '#000', colorScheme: 'dark' }"
+        class="fixed inset-0 z-[350] flex h-screen w-screen flex-col overflow-hidden bg-[#0c0a09]"
+        :class="{ 'mpx-close-dark': closeChevronDark }"
+        :style="{ colorScheme: 'dark' }"
       >
-        <!-- Glow: edge-blur (blurred album art) when bland, or procedural blobs when vivid. -->
-        <div
-          v-if="showGlow"
-          ref="currentGlowRef"
-          class="glow-layer pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-visible"
-          :style="{ opacity: currentGlowOpacity, backgroundColor: glowBgColor ?? '#000' }"
-          aria-hidden="true"
-        >
-          <!-- Edge blur: every pixel at the edge bleeds outward via blur -->
-          <template v-if="useEdgeBlurMode && expandedCoverUrl && glowOpacityScale > 0">
-            <div
-              class="edge-blur-art absolute"
-              :style="{
-                backgroundImage: `url(${expandedCoverUrl})`,
-                opacity: edgeBlurOpacity,
-              }"
-            />
-          </template>
-          <template v-else>
-            <div
-              v-for="(blob, i) in displayCurrentBlobs"
-              :key="`current-${i}`"
-              class="glow-blob absolute inset-0 origin-top-left"
-            :style="{
-              background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${blob.opacity.toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.6).toFixed(2)}) 25%, rgba(${blob.rgb},${(blob.opacity * 0.2).toFixed(2)}) 45%, rgba(${blob.rgb},0.04) 70%, transparent 90%)`,
-              transform: `translate(${blob.cx * 100}%, ${blob.cy * 100}%) translate(-50%, -50%) scale(${blob.rx}, ${blob.ry})`,
-              filter: 'blur(24px)',
-              transition: isCrossfading ? 'none' : `transform ${BLOB_MORPH_MS}ms ease-in-out`,
-              willChange: isCrossfading ? 'auto' : 'transform',
-            }"
-            />
-          </template>
-        </div>
-        <div
-          v-if="showGlow"
-          ref="outgoingGlowRef"
-          class="glow-layer pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-visible"
-          :style="{ opacity: outgoingGlowOpacity, backgroundColor: glowBgColor ?? '#000' }"
-          aria-hidden="true"
-        >
-          <!-- Outgoing edge blur only when previous track was in edge-blur mode (had no blobs) -->
-          <template v-if="outgoingCoverUrl && glowOpacityScale > 0 && outgoingBlobs.length === 0">
-            <div
-              class="edge-blur-art absolute"
-              :style="{
-                backgroundImage: `url(${outgoingCoverUrl})`,
-                opacity: edgeBlurOpacity,
-              }"
-            />
-          </template>
-          <template v-else>
-            <div
-              v-for="(blob, i) in displayOutgoingBlobs"
-              :key="`outgoing-${i}`"
-              class="glow-blob absolute inset-0 origin-top-left"
-            :style="{
-              background: `radial-gradient(ellipse at center, rgba(${blob.rgb},${blob.opacity.toFixed(2)}) 0%, rgba(${blob.rgb},${(blob.opacity * 0.6).toFixed(2)}) 25%, rgba(${blob.rgb},${(blob.opacity * 0.2).toFixed(2)}) 45%, rgba(${blob.rgb},0.04) 70%, transparent 90%)`,
-              transform: `translate(${blob.cx * 100}%, ${blob.cy * 100}%) translate(-50%, -50%) scale(${blob.rx}, ${blob.ry})`,
-              filter: 'blur(24px)',
-            }"
-            />
-          </template>
+        <!-- Full-bleed album art backdrop, like the web-client's CoverBackdrop (sharp) -->
+        <div v-if="playingCoverUrl" class="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+          <img
+            :src="playingCoverUrl"
+            alt=""
+            class="h-full w-full scale-105 object-cover opacity-75"
+            style="filter: blur(28px) saturate(1.2) brightness(0.85)"
+          />
+          <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/45" />
         </div>
         <div class="relative z-[1] flex min-h-0 flex-1 flex-col">
-          <PlayScreenPlayBar :hide-expand="true" :expanded-layout="true" :accent-style="expandedAccentStyle" @minimize="minimizePlayer" />
+          <PlayScreenPlayBar
+            :hide-expand="true"
+            :expanded-layout="true"
+            :accent-style="expandedAccentStyle"
+            @minimize="minimizePlayer"
+          />
         </div>
       </div>
     </Teleport>
@@ -615,10 +305,10 @@ onUnmounted(() => {
     <!-- Global drag-and-drop overlay -->
     <div
       v-if="isDropTarget"
-      class="pointer-events-none absolute inset-0 z-40 flex items-center justify-center"
+      class="pointer-events-none fixed inset-0 z-40 flex items-center justify-center"
     >
       <div
-        class="rounded-lg border-2 border-dashed border-amber-500/80 bg-stone-900/90 px-6 py-4 text-center text-sm font-medium text-amber-200 shadow-lg"
+        class="rounded-lg border-2 border-dashed border-amber-500/80 bg-surface/90 px-6 py-4 text-center text-sm font-medium text-amber-200 shadow-lg"
       >
         Drop folder(s) to add to library
       </div>
@@ -626,31 +316,23 @@ onUnmounted(() => {
 
     <div
       v-if="store.loading"
-      class="absolute inset-0 z-50 flex items-center justify-center bg-stone-900/70"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-surface/70"
       aria-live="polite"
       aria-busy="true"
     >
       <div
-        class="h-10 w-10 rounded-full border-2 border-stone-600 border-t-stone-300 animate-spin"
+        class="h-10 w-10 rounded-full border-2 border-outline border-t-outline animate-spin"
         role="status"
         aria-label="Loading"
       />
     </div>
 
-    <!--
-      The first page of the catalog is already on screen at this point; the rest
-      is still streaming in. A corner badge rather than a blocking overlay, so
-      the library stays usable while it fills.
-    -->
     <div
       v-if="store.loadingMore"
-      class="pointer-events-none absolute bottom-24 right-4 z-40 flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/90 px-3 py-1.5 text-xs text-stone-300 shadow-lg"
+      class="pointer-events-none fixed bottom-24 right-4 z-40 flex items-center gap-2 rounded-full border border-outline bg-surface/90 px-3 py-1.5 text-xs text-on-surface shadow-lg"
       aria-live="polite"
     >
-      <div
-        class="h-3 w-3 rounded-full border-2 border-stone-600 border-t-stone-300 animate-spin"
-        role="status"
-      />
+      <div class="h-3 w-3 rounded-full border-2 border-outline border-t-outline animate-spin" role="status" />
       Loading library — {{ store.tracks.length }} of {{ store.totalTracks }}
     </div>
 
@@ -662,14 +344,14 @@ onUnmounted(() => {
         aria-busy="true"
       >
         <div class="flex flex-col items-center gap-4">
-          <div class="h-10 w-10 rounded-full border-2 border-stone-600 border-t-stone-300 animate-spin" role="status" aria-label="Processing" />
-          <div class="text-sm font-medium text-stone-300">
+          <div class="h-10 w-10 rounded-full border-2 border-outline border-t-outline animate-spin" role="status" aria-label="Processing" />
+          <div class="text-sm font-medium text-on-surface">
             {{ store.bulkProgress.current }} / {{ store.bulkProgress.total }}
-            <span class="ml-1.5 text-stone-500">({{ Math.round(store.bulkProgress.current / store.bulkProgress.total * 100) }}%)</span>
+            <span class="ml-1.5 text-on-surface-variant">({{ Math.round(store.bulkProgress.current / store.bulkProgress.total * 100) }}%)</span>
           </div>
           <button
             type="button"
-            class="rounded border border-stone-600 px-3 py-1 text-xs text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            class="rounded border border-outline px-3 py-1 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             @click="store.setBulkCancelled(true)"
           >
             Cancel
@@ -677,20 +359,33 @@ onUnmounted(() => {
         </div>
       </div>
     </Teleport>
+
+    <!-- Metadata editor overlay -->
+    <Teleport to="body">
+      <div
+        v-if="showEditor"
+        class="fixed inset-0 z-[400] flex items-center justify-center bg-black/60"
+        @click.self="closeMetadataEditor"
+      >
+        <div class="flex max-h-[90vh] w-[720px] max-w-[92vw] flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl">
+          <div class="flex items-center justify-between border-b border-outline px-4 py-2">
+            <span class="text-sm font-semibold text-on-surface">Edit metadata</span>
+            <button
+              type="button"
+              class="topbar-pill-btn !h-7 !min-w-7"
+              aria-label="Close"
+              @click="closeMetadataEditor"
+            >
+              ✕
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 overflow-y-auto">
+            <MetadataEditor :key="store.selectedTrackIds.join(',')" />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
   <ServerStartupModal />
+  <Toast />
 </template>
-
-<style scoped>
-.sidebar-island-enter-active {
-  transition: opacity 350ms ease-out, transform 350ms ease-out;
-}
-.sidebar-island-leave-active {
-  transition: opacity 280ms ease-in, transform 280ms ease-in;
-}
-.sidebar-island-enter-from,
-.sidebar-island-leave-to {
-  opacity: 0;
-  transform: translateX(-10px);
-}
-</style>

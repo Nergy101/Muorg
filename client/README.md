@@ -30,16 +30,17 @@ A cross-platform desktop app that organizes your music library with a dense, lib
 
 ---
 
-## ✨ Features
+## ✨ Features (v5 redesign)
 
-- 📁 **Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3`, `.flac` and `.wav` and builds a persistent catalog in SQLite. Rescan or remove folders from the sidebar. **Hide/show folders** in the table (per-root toggle); expand or collapse all groups.
-- 📋 **Library view** — Table with album art, title, artist, album, year, duration, format, and path. Full-text search across title, artist, and album. Group by album or artist (collapsible; album art in group header when all tracks share the same art). **Multi-select** (Ctrl+A) for bulk actions.
-- 📂 **Playlists** — Sidebar has **Folders** and **Playlists** tabs. Create, rename, and delete playlists; add tracks via context menu or drag-and-drop (with duplicate handling). Click a playlist to filter the library to that playlist’s tracks. **Export playlists** to M3U (relative paths; Music Root Folder in Settings → Exports).
-- 📋 **Queue** — Right-click tracks or groups and choose **Add to queue**. Bottom bar has a **Queue** tab (Ctrl+Q) with a reorderable list, play-from-queue, and clear. Next/previous follow the queue when it has items (unless shuffle is on). Queue panel width and bottom panel height are resizable and saved in Settings.
-- ✏️ **Metadata editor** — Edit tags (title, artist, album, album artist, year, genre, track/disc number) and embed or clear album art. **Apply from path** uses the path-format template (Settings → Smart Suggestions) to suggest title, artist, album, track number, etc. **From Wikipedia**: fetch album art from Wikipedia (can be hidden in Smart Suggestions). Save to files; catalog updates automatically. **Bulk edit:** select multiple tracks and change only the fields you edit—other fields stay per-track.
-- ▶️ **Playback** — Player bar: play/pause, previous, next, restart, seek, volume, mute. **Shuffle** and **continuous playback** (Settings → Playback). When the queue is filled and shuffle is off, next/previous use the queue. **Maximized player** (Ctrl+S): full-screen view with large album art, gradient, and glow from artwork. Bottom panel tabs: **Library**, **Metadata**, **Play**, **Queue** (default tab and resizable layout in Settings).
-- 📊 **Reports** — Sidebar: **Missing metadata**, **Duplicates** (same artist+album+title), and **Missing album cover**. Click to open a modal and jump to a track. Configurable “missing” fields and optional album art in Missing metadata report (Settings → Reports). Option to hide the reports section (Settings → Layout).
-- 🎨 **Theming** — Auto (follow system), Dark, Light, Orkish (green tints), and DOOM. **Settings** (sidebar): General (e.g. check for updates), Theme, Playback, Keyboard, Layout (density, columns, default bottom panel, sidebar/reports visibility, column widths, queue/panel size), Reports, Exports, Smart Suggestions. **Key map** (Ctrl+K): shortcuts for search, refresh, panels, queue, select all, navigation, and play.
+- 🏠 **Home** — Recommended albums and genre-based mixes (4-cover mosaics with colored icons) to jump straight back in.
+- 📁 **Library** — Add folders (or drag-and-drop); Muorg scans for `.mp3`, `.flac` and `.wav` and builds a persistent catalog in SQLite. Rescan or remove folders from the sidebar.
+- 💿 **Albums / Artists / Tracks views** — Album cards and artist cards (with an album mosaic), or compact track rows. Sort by year, album or artist; filter by genre; full-text search with recent results. Card layout (glass overlay text vs. text below the card) and rounded/square album art are configurable in Settings → Appearance.
+- 📂 **Playlists & mixes** — Create, rename, pin and delete playlists; **Favorites** always on top with a gold star. Smart playlists stay current by rule. Mixes open as a playlist view. **Export playlists** to M3U (relative paths; Music Root Folder in Settings → Exports).
+- 📋 **Queue** — Add tracks from any context menu (**Add to queue**). Dedicated queue view and a collapsible queue side panel in the maximized player; reorderable, with per-track format, rating and actions. Next/previous follow the queue when it has items (unless shuffle is on).
+- ✏️ **Metadata editor** — Edit tags (title, artist, album, album artist, year, genre, track/disc number) and embed or clear album art. **Apply from path** uses the path-format template (Settings → Smart Transform) to suggest title, artist, album, track number, etc. Save to files; catalog updates automatically. **Bulk edit:** select multiple tracks and change only the fields you edit—other fields stay per-track.
+- ▶️ **Playback** — Glass **mini-player** with seek, volume, marquee title/artist and favorite/rating actions; a **maximized player** with large album art, a collapsible queue side panel, and Chromecast. The **accent color is derived from the playing album's cover** and tints the player, progress bar and controls. Shuffle and continuous playback in Settings → Playback.
+- 📊 **Reports & Statistics** — Missing metadata, duplicates, missing album cover, recently/most played. **Statistics**: top tracks/artists/albums per time range, genre and format distribution, tracks per release year.
+- 🎨 **Theming** — Auto (follow system), Dark, Light, Orkish, and DOOM; accent-color presets or fully dynamic cover-derived accents. **Settings** is organized in collapsible sections: Muorg Info, Appearance (theme, accent, card layout, album art corners), Playback, Library, Export & Rockbox, Smart Transform & Metadata Editing, Offline, Server, Development.
 
 See [plan.md](./plan.md) for the roadmap and priorities.
 
@@ -89,7 +90,7 @@ If macOS says **“Muorg.app is damaged and can’t be opened”** (Gatekeeper q
 
 ### 🐧 Linux
 
-Install or run the build artifact for your distro (e.g. **AppImage** or **.deb** from [releases](https://github.com/your-repo/Muorg/releases)). For an AppImage, make it executable and run it:
+Install or run the build artifact for your distro (e.g. **AppImage** or **.deb** from [releases](https://github.com/Nergy101/Muorg/releases)). For an AppImage, make it executable and run it:
 
 ```bash
 chmod +x Muorg-*.AppImage
@@ -110,25 +111,27 @@ This opens the desktop app with the album **A Kiss for the Whole World** (12 tra
 
 ### 🪟 Windows
 
-Download the **MSI** or **EXE** installer from [releases](https://github.com/your-repo/Muorg/releases), run the installer, then launch Muorg from the Start menu or desktop shortcut.
+Download the **MSI** or **EXE** installer from [releases](https://github.com/Nergy101/Muorg/releases), run the installer, then launch Muorg from the Start menu or desktop shortcut.
 
 ---
 
 ## 📁 Project structure
 
 ```
-muorg/
-├── src-tauri/          # Tauri (Rust) backend
-│   ├── src/
-│   │   ├── metadata/   # MP3/FLAC/WAV read & write
-│   │   ├── catalog/    # Scan, index, SQLite
-│   │   └── commands.rs # Tauri commands (scan, get_tracks, write_metadata, …)
-│   └── ...
-├── src/                # Vue frontend
-│   ├── components/     # LibraryTable, MetadataEditor, AlbumCover, …
-│   ├── composables/    # useCatalog, useSelection, …
-│   ├── stores/         # Pinia stores
-│   └── App.vue
+client/
+├── src-tauri/          # Tauri (Rust) backend + bundled muorg-server sidecar
+│   ├── src/            # sidecar process management, updater, Chromecast
+│   └── binaries/       # muorg-server-<target> sidecar binaries (per platform)
+├── src/                # Vue 3 frontend
+│   ├── views/          # HomeView, AlbumsView, ArtistsView, ArtistDetailView,
+│   │                   # PlaylistsView, PlaylistDetailView, MixDetailView,
+│   │                   # QueueView, ReportsView, StatsView, SettingsView, …
+│   ├── components/     # layout/ (Sidebar, TopBar), library/, playback/ (PlayerBar,
+│   │                   # PlayScreenPlayBar), shared/, metadata/, modals/, stats/
+│   ├── state/          # navigation (view state + history), toast
+│   ├── stores/         # Pinia stores (settings, playlists, playback, …)
+│   ├── composables/    # useDynamicAccent, useAlbums, useMarquee, …
+│   └── App.vue         # app shell: sidebar + topbar + view + mini-player
 ├── plan.md             # Vision, features, technical direction
 ├── agent.md            # Contributor & AI agent guide
 └── README.md
@@ -138,32 +141,38 @@ muorg/
 
 ## 🏷️ Creating a release (GitHub)
 
-Releases are built and published via GitHub Actions.
+Desktop releases are built and published via GitHub Actions in their own
+workflow, `.github/workflows/release-desktop.yml`, so the ~25-minute Tauri
+matrix never rides along on a server- or web-only `v*` release.
 
-### 🔄 Alpha builds (automatic)
+### 🏷️ Desktop releases (tagged `desktop-v*`)
 
-- **Push to `main`** or run the workflow manually (**Actions → Build and Release → Run workflow**).
-- The workflow builds the app for macOS (Apple Silicon + Intel), Windows, and Linux.
-- Version is set to `0.1.0-alpha.<run_number>` (e.g. `0.1.0-alpha.42`). The run number increments with each workflow run.
-- A **prerelease** is created with that version; installers (DMG, MSI/EXE, AppImage/Deb) are attached.
-
-### 🏷️ Stable releases (tagged)
-
-Use the release script in `scripts/` to bump the version in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`, commit, create a `v*` tag, and push:
+Use the desktop release script to bump the version in `client/package.json`,
+`client/src-tauri/tauri.conf.json`, and `client/src-tauri/Cargo.toml`, commit,
+create a `desktop-v*` tag, and push:
 
 ```bash
-./scripts/release.sh 0.2.0
+../scripts/release-desktop.sh 5.0.0
 ```
 
-The **Build and Release** workflow runs on the new tag, builds all platforms, and creates a **full release** (not prerelease) with that version and the installers attached.
+The **Release Desktop** workflow runs on the new tag, builds all platforms
+(macOS Apple Silicon, Windows x64, Linux x64 — each with its own bundled
+`muorg-server` sidecar), and creates a **full release** (not the repo's
+"latest") with the installers attached: `muorg-<version>-macos.dmg`,
+`muorg-<version>-windows.msi`, `muorg-<version>-linux.AppImage`, the macOS
+updater bundle, and an `extras.zip` with signatures and the `.deb`.
+
+You can also trigger the workflow manually (**Actions → Release Desktop → Run
+workflow**) and enter a version — no tag push needed.
 
 ### 📊 Pipeline summary
 
-| Trigger              | Version format           | Release type |
-|----------------------|--------------------------|--------------|
-| Push to `main`       | `0.1.0-alpha.<run_number>` | Prerelease   |
-| Manual run           | same as above            | Prerelease   |
-| Push tag `v*` (e.g. `v0.2.0`) | From tag (e.g. `0.2.0`) | Full release |
+| Trigger | Workflow | Release |
+|---------|----------|---------|
+| Push tag `desktop-v*` (e.g. `desktop-v5.0.0`) | `release-desktop.yml` | Full release `desktop-v5.0.0` with desktop installers |
+| Manual run of `release-desktop.yml` | `release-desktop.yml` | Full release for the entered version |
+| Push tag `v*` | `release.yml` | Server / web / docs Docker images only |
+| Push tag `android-v*` | `release-android.yml` | Android APK |
 
 ### 🔄 Auto-updates
 
@@ -186,9 +195,9 @@ Releases are not signed or notarized with an Apple Developer certificate. After 
 
 **Fix:** Open **System Settings → Privacy & Security**, scroll down to the security message about Muorg, then click **Open Muorg** (or **Open Anyway**). After that, open Muorg from Finder or Spotlight as normal.
 
-### ✅ Pre-merge checks (Build and Lint)
+### ✅ Pre-merge checks (Build)
 
-The **Build and Lint** workflow (`.github/workflows/build.yml`) runs on every push to `main` and on every pull request targeting `main`. It runs in parallel:
+The **Build** workflow (`.github/workflows/build.yml`) runs on every push to `main` and on every pull request targeting `main`. It runs in parallel:
 
 - **Frontend:** `pnpm install --frozen-lockfile`, then `pnpm build` (TypeScript check + Vite build).
 - **Rust:** `cargo check` and `cargo clippy` (with `-D warnings`).

@@ -508,54 +508,56 @@ body {
    sheerer variant of .glass-deep — less dark, more see-through — while keeping
    the same blur. Placed after the glass media query and the .pwa blocks so it
    wins over the denser .glass-deep fills those set at lg / in PWAs. */
+/* The mini player's glass is themed by the PLAYING track (--glass-edge), not
+   by the open album view — the accent wash is strong enough that the album
+   art behind it doesn't dominate the bar. */
 .mini-player-glass {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 8%, var(--surface) 55%, transparent 37%);
+  background: rgb(var(--glass-edge, 255 255 255));
 }
 .pwa .mini-player-glass {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 50%, transparent 38%);
+  background: rgb(var(--glass-edge, 255 255 255));
 }
 
-/* Light album accent (player store toggles .accent-light on <html>): the
-   glass panels washed with --glass-edge turn pale, so all text and controls
-   inside them switch to black. The maximized player's own panel is handled
-   separately with alpha-preserving rules via .controls-on-light, and the
-   mini player (.mini-player-glass) is excluded on purpose: its glass stays
-   dark enough that white text always reads. */
-html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) {
+/* Light playing-track accent (player store toggles .accent-light on <html>):
+   the glass panels washed with --glass-edge turn pale, so all text and
+   controls inside them switch to black — including the mini player, whose
+   glass is now filled with the playing-track accent (0% transparent). The
+   maximized player's own panel is handled separately with alpha-preserving
+   rules via .controls-on-light. */
+html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) {
   color: #000;
 }
-html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) [class*="text-white"],
-html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) [class*="text-on-surface"] {
+html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) [class*="text-white"],
+html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) [class*="text-on-surface"] {
   color: #000;
 }
-html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) [class*="border-white"] {
+html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) [class*="border-white"] {
   border-color: rgb(0 0 0 / 0.12);
 }
 /* Exact class tokens only — a [class*="bg-white"] substring selector would
    also match hover:bg-white/10 and paint resting circles on every button. */
-html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) :is(.bg-white, .bg-white\/25, .bg-white\/10) {
+html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) :is(.bg-white, .bg-white\/25, .bg-white\/10) {
   background-color: rgb(0 0 0 / 0.12);
 }
-/* Volume slider thumb inside those light glass panels (e.g. the sidebar rail)
-   goes black too. The mini player bar is excluded — its controls stay white. */
-html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) input[type="range"]::-webkit-slider-thumb,
-html.accent-light :is(.glass, .glass-deep, .glass-strong):not(.mini-player-glass) input[type="range"]::-moz-range-thumb {
+/* Volume slider thumb inside those light glass panels goes black too. */
+html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) input[type="range"]::-webkit-slider-thumb,
+html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) input[type="range"]::-moz-range-thumb {
   background: #000;
 }
 
 /* Album view with a light cover (AlbumDetailView toggles .album-view-light on
-   <html> only while that view is active): the mini player floats over the
-   light backdrop there, so its text/icons switch to black. On every other
-   view this class is absent and the mini player stays white. */
-html.album-view-light .mini-player-glass {
+   <html> only while that view is active): only the top-nav text goes black
+   there. The mini player's own black/white switch is driven by the playing
+   track's accent via html.accent-light above, since its glass is filled with
+   that accent. */
+
+/* Album view with a light cover: only the top-nav's text goes black; the nav
+   itself stays the default (muorg-green) themed glass. */
+html.album-view-light .shell-collapsed .glass {
   color: #000;
 }
-html.album-view-light .mini-player-glass [class*="text-white"] {
+html.album-view-light .shell-collapsed .glass [class*="text-on-surface"] {
   color: #000;
-}
-html.album-view-light .mini-player-glass input[type="range"]::-webkit-slider-thumb,
-html.album-view-light .mini-player-glass input[type="range"]::-moz-range-thumb {
-  background: #000;
 }
 /* The maximized player's controls panel takes a stronger accent wash in a
    PWA so it reads as colored glass, matching the bottom player above — but

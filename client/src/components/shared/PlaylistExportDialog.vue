@@ -130,30 +130,30 @@ async function doExport() {
       @mousedown.self="emit('close')"
     >
       <div
-        class="w-[460px] rounded-xl border border-stone-600 bg-stone-800 p-5 shadow-2xl"
+        class="w-[460px] glass-strong rounded-2xl p-5 shadow-2xl"
         @click.stop
       >
         <div class="mb-3 flex items-center gap-2">
-          <FeatherIcon name="download" class="h-4 w-4 shrink-0 text-stone-400" />
-          <h3 class="text-sm font-semibold text-stone-100">
+          <FeatherIcon name="download" class="h-4 w-4 shrink-0 text-on-surface-variant" />
+          <h3 class="text-sm font-semibold text-on-surface">
             Export: "{{ playlist.name }}"
           </h3>
         </div>
 
         <div class="space-y-3 text-sm">
           <div>
-            <label class="mb-0.5 block text-xs font-medium text-stone-400">Output folder</label>
+            <label class="mb-0.5 block text-xs font-medium text-on-surface-variant">Output folder</label>
             <div class="flex gap-2">
               <input
                 :value="outputDir"
                 type="text"
                 readonly
                 placeholder="Select a folder…"
-                class="min-w-0 flex-1 rounded border border-stone-600 bg-stone-700/60 px-2.5 py-1.5 text-xs text-stone-300 placeholder:text-stone-500"
+                class="min-w-0 flex-1 rounded border border-outline bg-surface-variant/60 px-2.5 py-1.5 text-xs text-on-surface placeholder-on-surface-variant"
               />
               <button
                 type="button"
-                class="shrink-0 rounded border border-stone-600 px-2.5 py-1.5 text-xs text-stone-300 hover:bg-stone-700"
+                class="shrink-0 rounded border border-outline px-2.5 py-1.5 text-xs text-on-surface hover:bg-surface-variant"
                 @click="browseOutputDir"
               >
                 Browse
@@ -162,20 +162,20 @@ async function doExport() {
           </div>
 
           <div>
-            <label class="mb-0.5 block text-xs font-medium text-stone-400">Music root folder</label>
+            <label class="mb-0.5 block text-xs font-medium text-on-surface-variant">Music root folder</label>
             <input
               v-model="musicRootFolder"
               type="text"
               placeholder="e.g. Music"
-              class="w-full rounded border border-stone-600 bg-stone-800 px-2.5 py-1.5 text-xs text-stone-200 placeholder:text-stone-500 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+              class="w-full rounded border border-outline bg-surface-container px-2.5 py-1.5 text-xs text-on-surface placeholder-on-surface-variant focus:border-outline focus:outline-none focus:ring-1 focus:ring-outline"
             />
           </div>
 
-          <p v-if="pathPreview" class="flex items-start gap-2 text-xs text-stone-500">
+          <p v-if="pathPreview" class="flex items-start gap-2 text-xs text-on-surface-variant">
             <FeatherIcon name="info" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               Paths in the .m3u will look like:
-              <code class="mt-1 block break-all rounded bg-stone-700/80 px-1.5 py-0.5 font-mono text-[11px] text-stone-400">{{ pathPreview }}</code>
+              <code class="mt-1 block break-all rounded bg-surface-variant/80 px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant">{{ pathPreview }}</code>
             </span>
           </p>
 
@@ -187,14 +187,14 @@ async function doExport() {
         <div class="mt-5 flex justify-end gap-2">
           <button
             type="button"
-            class="rounded px-3 py-1.5 text-sm text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+            class="rounded px-3 py-1.5 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             @click="emit('close')"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="rounded bg-stone-600 px-3 py-1.5 text-sm text-stone-100 hover:bg-stone-500 disabled:opacity-50"
+            class="rounded bg-surface-variant px-3 py-1.5 text-sm text-on-surface hover:bg-surface-container disabled:opacity-50"
             :disabled="exporting"
             @click="doExport"
           >

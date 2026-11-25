@@ -142,24 +142,24 @@ async function handleRemoveAll() {
     <button
       v-if="isLocal"
       type="button"
-      class="mb-2 flex w-full items-center gap-2 rounded border border-stone-600 bg-stone-700 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-600"
+      class="mb-2 flex w-full items-center gap-2 rounded border border-outline bg-surface-variant px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant"
       :disabled="loading"
       @click="handleAddFolder"
     >
-      <FeatherIcon name="folder-plus" class="h-4 w-4 shrink-0 text-stone-400" />
+      <FeatherIcon name="folder-plus" class="h-4 w-4 shrink-0 text-on-surface-variant" />
       Add folder
     </button>
 
     <!-- Empty state (Online mode): no folders reachable, prompt to configure connection -->
-    <div v-if="!loading && !roots.length && !isLocal" class="mt-3 rounded-lg border border-stone-700 bg-stone-800/60 px-3 py-4 text-center">
-      <FeatherIcon name="wifi-off" class="mx-auto mb-2 h-5 w-5 text-stone-500" />
-      <p class="text-xs font-medium text-stone-400">No folders loaded</p>
-      <p class="mt-1 text-[11px] text-stone-500 leading-relaxed">
+    <div v-if="!loading && !roots.length && !isLocal" class="mt-3 rounded-lg border border-outline bg-surface-container/60 px-3 py-4 text-center">
+      <FeatherIcon name="wifi-off" class="mx-auto mb-2 h-5 w-5 text-on-surface-variant" />
+      <p class="text-xs font-medium text-on-surface-variant">No folders loaded</p>
+      <p class="mt-1 text-[11px] text-on-surface-variant leading-relaxed">
         Make sure the server is reachable and your connection is configured.
       </p>
       <button
         type="button"
-        class="mt-3 inline-flex items-center gap-1.5 rounded border border-stone-600 bg-stone-700 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-600"
+        class="mt-3 inline-flex items-center gap-1.5 rounded border border-outline bg-surface-variant px-3 py-1.5 text-xs text-on-surface hover:bg-surface-variant"
         @click="settingsStore.openSettings('connection')"
       >
         <FeatherIcon name="settings" class="h-3 w-3" />
@@ -175,7 +175,7 @@ async function handleRemoveAll() {
       >
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-stone-200"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
           :aria-label="allRootsHidden ? 'Show all in table' : 'Hide all from table'"
           @click="allRootsHidden ? handleShowAll() : handleHideAll()"
         >
@@ -190,7 +190,7 @@ async function handleRemoveAll() {
       >
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-stone-200"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
           aria-label="Refresh all folders"
           @click="handleRefreshAll"
         >
@@ -204,7 +204,7 @@ async function handleRemoveAll() {
       >
         <button
           type="button"
-          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-700 hover:text-red-400"
+          class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-red-400"
           aria-label="Remove all folders from library"
           @click="handleRemoveAll"
         >
@@ -217,9 +217,9 @@ async function handleRemoveAll() {
       <li
         v-for="root in sortedRoots"
         :key="root"
-        class="group/parent flex items-center gap-1 rounded border border-stone-700 bg-stone-800/50 px-2 py-1.5"
+        class="group/parent flex items-center gap-1 rounded border border-outline bg-surface-container/50 px-2 py-1.5"
       >
-        <span class="min-w-0 flex-1 truncate text-xs text-stone-300">
+        <span class="min-w-0 flex-1 truncate text-xs text-on-surface">
           {{ root.split(/[/\\]/).pop() || root }}
         </span>
         <template v-if="isLocal">
@@ -230,7 +230,7 @@ async function handleRemoveAll() {
           >
             <button
               type="button"
-              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               :class="{ 'opacity-50': store.isRootHidden(root) }"
               :aria-label="store.isRootHidden(root) ? 'Show folder in table' : 'Hide folder from table'"
               @click="store.toggleRootVisibility(root)"
@@ -241,7 +241,7 @@ async function handleRemoveAll() {
           </span>
         </template>
         <span
-          class="inline-flex h-6 w-6 shrink-0 cursor-help items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-300"
+          class="inline-flex h-6 w-6 shrink-0 cursor-help items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
           aria-label="Show full path and track count"
           @mouseenter="showTooltip(folderInfoTooltip(root), $event, true)"
           @mouseleave="scheduleHideTooltip"
@@ -256,7 +256,7 @@ async function handleRemoveAll() {
           >
             <button
               type="button"
-              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               aria-label="Rescan folder"
               @click="handleRescan(root)"
             >
@@ -270,7 +270,7 @@ async function handleRemoveAll() {
           >
             <button
               type="button"
-              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-red-600 hover:text-white"
+              class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-red-600 hover:text-white"
               aria-label="Remove from library"
               @click="handleRemoveFolder(root)"
             >
@@ -285,8 +285,8 @@ async function handleRemoveAll() {
   <Teleport to="body">
     <div
       v-if="tooltipPopover"
-      class="fixed z-[200] rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-xs text-stone-200 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
-      :class="{ 'max-w-[320px] break-all font-mono text-stone-300 whitespace-pre-line': tooltipPopover.isPath }"
+      class="fixed z-[200] rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]"
+      :class="{ 'max-w-[320px] break-all font-mono text-on-surface whitespace-pre-line': tooltipPopover.isPath }"
       :style="
         tooltipPopover.position === 'right'
           ? { left: tooltipPopover.x + 'px', top: tooltipPopover.y + 'px', transform: 'translateY(-50%)' }

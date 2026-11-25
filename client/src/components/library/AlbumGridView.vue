@@ -2,6 +2,7 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useCatalogStore } from "../../stores/catalog";
+import { useSettingsStore } from "../../stores/settings";
 import AlbumGridCard from "./AlbumGridCard.vue";
 import { albumIdentityKey } from "@shared/utils/albumIdentity";
 import { useOverlayScrollbars } from "../../composables/useOverlayScrollbars";
@@ -39,7 +40,6 @@ const playingAlbumKey = computed(() => {
 
 // ── Virtual scroll constants ──────────────────────────────────────────────────
 const CARD_MIN_WIDTH = 190; // matches minmax(190px, 1fr)
-const CARD_HEIGHT    = 220; // min-h-[220px] on AlbumGridCard
 const GAP            = 12;  // gap-3
 const PAD            = 12;  // p-3
 const OVERSCAN       = 4;   // extra rows rendered above/below viewport
@@ -99,7 +99,20 @@ const colCount = computed(() => {
   return Math.max(1, Math.floor((w + GAP) / (CARD_MIN_WIDTH + GAP)));
 });
 
-const rowHeight = computed(() => CARD_HEIGHT + GAP); // height of one row slot
+/** Actual column width; cards are aspect-square, so a row's height equals it. */
+const colWidth = computed(() => {
+  const w = containerWidth.value - PAD * 2;
+  const cols = colCount.value;
+  if (w <= 0) return CARD_MIN_WIDTH;
+  return (w - (cols - 1) * GAP) / cols;
+});
+
+// Row slot height tracks the real card height so rows never overlap: square
+// cover, plus the caption block when cards render text below the cover.
+const rowHeight = computed(() => {
+  const caption = useSettingsStore().cardStyle === "below" ? 48 : 0;
+  return colWidth.value + caption + GAP;
+});
 
 /** Albums split into rows of colCount. */
 const rows = computed(() => {
@@ -149,7 +162,7 @@ function scrollToAlbum(key: string) {
   if (idx < 0) return;
   const ri  = Math.floor(idx / colCount.value);
   const top = rowTop(ri);
-  container.scrollTop = Math.max(0, top - container.clientHeight / 2 + CARD_HEIGHT / 2);
+  container.scrollTop = Math.max(0, top - container.clientHeight / 2 + colWidth.value / 2);
 }
 
 defineExpose({ scrollToAlbum });
@@ -157,7 +170,7 @@ defineExpose({ scrollToAlbum });
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <div v-if="albums.length === 0" class="flex h-full items-center justify-center text-sm text-stone-400">
+    <div v-if="albums.length === 0" class="flex h-full items-center justify-center text-sm text-on-surface-variant">
       No albums match current filters.
     </div>
     <div

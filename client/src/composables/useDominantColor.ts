@@ -420,3 +420,65 @@ export function buildProceduralGlow(glowRgb: string, seedString: string): string
   );
   return `${layers.join(", ")}, linear-gradient(black, black)`;
 }
+
+/**
+ * Most-common color of the image (mode of quantized buckets), un-darkened.
+ * Better than the saturation-weighted average for covers with small saturated
+ * details (e.g. colored title text): the mode reflects the background, which is
+ * what the web-client uses for accent decisions. Returns "r,g,b".
+ */
+export function useMostCommonColor(imageUrl: Ref<string | null>) {
+  const modeRgb = ref<string>(FALLBACK_RGB);
+
+  watch(
+    imageUrl,
+    (url) => {
+      if (!url || !url.startsWith("data:")) {
+        modeRgb.value = FALLBACK_RGB;
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const size = Math.min(SAMPLE_SIZE, img.width, img.height);
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          ctx.drawImage(img, 0, 0, size, size);
+          const data = ctx.getImageData(0, 0, size, size).data;
+          const buckets = new Map<number, { r: number; g: number; b: number; n: number }>();
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            // Skip near-black (shadows) so the mode is the actual background.
+            if (r + g + b < 90) continue;
+            const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+            const cur = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0 };
+            cur.r += r; cur.g += g; cur.b += b; cur.n += 1;
+            buckets.set(key, cur);
+          }
+          let best: { r: number; g: number; b: number; n: number } | null = null;
+          for (const v of buckets.values()) {
+            if (!best || v.n > best.n) best = v;
+          }
+          if (!best || best.n === 0) {
+            modeRgb.value = FALLBACK_RGB;
+            return;
+          }
+          modeRgb.value = `${Math.round(best.r / best.n)},${Math.round(best.g / best.n)},${Math.round(best.b / best.n)}`;
+        } catch {
+          modeRgb.value = FALLBACK_RGB;
+        }
+      };
+      img.onerror = () => {
+        modeRgb.value = FALLBACK_RGB;
+      };
+      img.src = url;
+    },
+    { immediate: true },
+  );
+
+  return modeRgb;
+}

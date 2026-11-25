@@ -417,14 +417,14 @@ const exportingPlaylist = ref<Playlist | null>(null);
         <!-- Emoji button -->
         <button
           type="button"
-          class="icon-btn h-7 w-7 shrink-0 rounded bg-stone-700 text-base leading-none hover:bg-stone-600"
-          :class="showNewIconPicker ? 'ring-1 ring-stone-400' : ''"
+          class="icon-btn h-7 w-7 shrink-0 rounded bg-surface-variant text-base leading-none hover:bg-surface-variant"
+          :class="showNewIconPicker ? 'ring-1 ring-outline' : ''"
           title="Pick icon"
           @mousedown.prevent
           @click.stop="showNewIconPicker = !showNewIconPicker"
         >
           <PlaylistIcon v-if="newPlaylistIcon" :icon="newPlaylistIcon" class="h-4 w-4" />
-          <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
+          <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-on-surface-variant" />
         </button>
         <!-- Name input -->
         <input
@@ -433,7 +433,7 @@ const exportingPlaylist = ref<Playlist | null>(null);
           type="text"
           placeholder="Playlist name…"
           maxlength="128"
-          class="min-w-0 flex-1 rounded border border-stone-500 bg-stone-700 px-2 py-1 text-xs text-stone-200 outline-none focus:border-stone-400"
+          class="min-w-0 flex-1 rounded border border-outline bg-surface-variant px-2 py-1 text-xs text-on-surface outline-none focus:border-outline"
           @keydown.enter="confirmCreatePlaylist"
           @keydown.escape="cancelCreatePlaylist"
           @blur="confirmCreatePlaylist"
@@ -449,15 +449,15 @@ const exportingPlaylist = ref<Playlist | null>(null);
       <div v-else class="flex gap-1">
         <button
           type="button"
-          class="flex flex-1 items-center gap-2 rounded border border-stone-600 bg-stone-700 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-600"
+          class="flex flex-1 items-center gap-2 rounded border border-outline bg-surface-variant px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant"
           @click="startCreatingPlaylist"
         >
-          <FeatherIcon name="plus" class="h-4 w-4 shrink-0 text-stone-400" />
+          <FeatherIcon name="plus" class="h-4 w-4 shrink-0 text-on-surface-variant" />
           New playlist
         </button>
         <button
           type="button"
-          class="flex shrink-0 items-center justify-center rounded border border-stone-600 bg-stone-700 px-2 py-2 text-stone-400 hover:bg-stone-600 hover:text-yellow-300"
+          class="flex shrink-0 items-center justify-center rounded border border-outline bg-surface-variant px-2 py-2 text-on-surface-variant hover:bg-surface-variant hover:text-yellow-300"
           title="New smart playlist"
           @click="openNewSmartModal"
         >
@@ -468,18 +468,18 @@ const exportingPlaylist = ref<Playlist | null>(null);
 
     <!-- Loading state -->
     <div v-if="playlistsLoading" class="flex items-center justify-center py-12">
-      <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-stone-600 border-t-stone-300" aria-label="Loading playlists" />
+      <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-outline border-t-outline" aria-label="Loading playlists" />
     </div>
 
     <!-- Error state -->
     <div v-else-if="playlistsError" class="flex flex-col items-center gap-3 py-8 text-center">
-      <p class="text-xs text-stone-400">
+      <p class="text-xs text-on-surface-variant">
         Failed to connect to<br />
-        <span class="font-mono text-stone-300">{{ getServerUrl() }}</span>
+        <span class="font-mono text-on-surface">{{ getServerUrl() }}</span>
       </p>
       <button
         type="button"
-        class="flex items-center gap-1.5 rounded border border-stone-600 bg-stone-700 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-600 hover:text-stone-100"
+        class="flex items-center gap-1.5 rounded border border-outline bg-surface-variant px-3 py-1.5 text-xs text-on-surface hover:bg-surface-variant hover:text-on-surface"
         @click="playlistStore.loadPlaylists()"
       >
         <FeatherIcon name="refresh-cw" class="h-3 w-3" />
@@ -498,10 +498,10 @@ const exportingPlaylist = ref<Playlist | null>(null);
           class="playlist-item group/pl relative flex cursor-grab items-center rounded border active:cursor-grabbing"
           :class="[
             playingFromPlaylistId === playlist.id
-              ? 'border-[#5b7c32]/50 bg-[#5b7c32]/20'
+              ? 'border-primary/50 bg-primary/20'
               : activePlaylistId === playlist.id
-                ? 'border-stone-500 bg-stone-700'
-                : 'border-transparent hover:bg-stone-700/50',
+                ? 'border-outline bg-surface-variant'
+                : 'border-transparent hover:bg-surface-variant/50',
             draggedPlaylistId === playlist.id ? 'opacity-40' : '',
           ]"
           :style="dragOverPlaylistId === playlist.id
@@ -520,13 +520,13 @@ const exportingPlaylist = ref<Playlist | null>(null);
                 <!-- Icon button: shows current icon or placeholder, toggles picker -->
                 <button
                   type="button"
-                  class="icon-btn h-6 w-7 shrink-0 rounded bg-stone-700 text-base leading-none hover:bg-stone-600"
-                  :class="showIconPicker ? 'ring-1 ring-stone-400' : ''"
+                  class="icon-btn h-6 w-7 shrink-0 rounded bg-surface-variant text-base leading-none hover:bg-surface-variant"
+                  :class="showIconPicker ? 'ring-1 ring-outline' : ''"
                   title="Pick icon"
                   @click.stop="showIconPicker = !showIconPicker"
                 >
                   <PlaylistIcon v-if="editIcon" :icon="editIcon" class="h-4 w-4" />
-                  <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-stone-400" />
+                  <FeatherIcon v-else name="smile" class="h-3.5 w-3.5 text-on-surface-variant" />
                 </button>
                 <!-- Name input -->
                 <input
@@ -534,14 +534,14 @@ const exportingPlaylist = ref<Playlist | null>(null);
                   v-model="editName"
                   type="text"
                   maxlength="128"
-                  class="min-w-0 flex-1 rounded bg-stone-700 px-2 py-0.5 text-xs text-stone-200 outline-none focus:ring-1 focus:ring-stone-400"
+                  class="min-w-0 flex-1 rounded bg-surface-variant px-2 py-0.5 text-xs text-on-surface outline-none focus:ring-1 focus:ring-outline"
                   @keydown.enter.prevent="confirmEdit(playlist.id)"
                   @keydown.escape.prevent="cancelEdit"
                 />
                 <!-- Confirm -->
                 <button
                   type="button"
-                  class="icon-btn h-6 w-6 shrink-0 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                  class="icon-btn h-6 w-6 shrink-0 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                   @click.stop="confirmEdit(playlist.id)"
                 >
                   <FeatherIcon name="check" class="h-3.5 w-3.5" />
@@ -549,7 +549,7 @@ const exportingPlaylist = ref<Playlist | null>(null);
                 <!-- Cancel -->
                 <button
                   type="button"
-                  class="icon-btn h-6 w-6 shrink-0 text-stone-400 hover:bg-stone-600 hover:text-stone-200"
+                  class="icon-btn h-6 w-6 shrink-0 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
                   @click.stop="cancelEdit"
                 >
                   <FeatherIcon name="x" class="h-3.5 w-3.5" />
@@ -578,25 +578,25 @@ const exportingPlaylist = ref<Playlist | null>(null);
                 v-else-if="playlist.smart_rules"
                 name="zap"
                 class="h-3.5 w-3.5 shrink-0"
-                :class="playingFromPlaylistId === playlist.id ? 'text-[#8ab55a]' : activePlaylistId === playlist.id ? 'text-stone-300' : 'text-stone-500'"
+                :class="playingFromPlaylistId === playlist.id ? 'text-[#8ab55a]' : activePlaylistId === playlist.id ? 'text-on-surface' : 'text-on-surface-variant'"
               />
               <FeatherIcon
                 v-else
                 name="list"
                 class="h-3.5 w-3.5 shrink-0"
-                :class="playingFromPlaylistId === playlist.id ? 'text-[#8ab55a]' : activePlaylistId === playlist.id ? 'text-stone-300' : 'text-stone-500'"
+                :class="playingFromPlaylistId === playlist.id ? 'text-[#8ab55a]' : activePlaylistId === playlist.id ? 'text-on-surface' : 'text-on-surface-variant'"
               />
               <span
                 class="min-w-0 flex-1 truncate text-xs"
-                :class="playingFromPlaylistId === playlist.id ? 'text-[#c8e6a0]' : activePlaylistId === playlist.id ? 'text-stone-100' : 'text-stone-300'"
+                :class="playingFromPlaylistId === playlist.id ? 'text-[#c8e6a0]' : activePlaylistId === playlist.id ? 'text-on-surface' : 'text-on-surface'"
               >
                 {{ playlist.name }}
               </span>
             </button>
             <button
               type="button"
-              class="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-stone-600"
-              :class="playlistStore.isPinned(playlist.id) ? 'text-[#8ab55a] opacity-100' : 'text-stone-500 opacity-0 hover:text-stone-200 group-hover/pl:opacity-100'"
+              class="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-surface-variant"
+              :class="playlistStore.isPinned(playlist.id) ? 'text-[#8ab55a] opacity-100' : 'text-on-surface-variant opacity-0 hover:text-on-surface group-hover/pl:opacity-100'"
               :aria-label="playlistStore.isPinned(playlist.id) ? 'Unpin playlist' : 'Pin playlist'"
               :aria-pressed="playlistStore.isPinned(playlist.id)"
               :title="playlistStore.isPinned(playlist.id) ? 'Unpin playlist' : 'Pin playlist'"
@@ -606,15 +606,15 @@ const exportingPlaylist = ref<Playlist | null>(null);
             </button>
             <button
               type="button"
-              class="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+              class="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
               :class="activePlaylistId === playlist.id ? 'opacity-100' : 'opacity-0 group-hover/pl:opacity-100'"
               aria-label="Shuffle playlist"
               @click.stop="handleShufflePlaylist(playlist.id)"
             >
               <FeatherIcon name="shuffle" class="h-3.5 w-3.5" />
             </button>
-            <span class="mr-2 inline-flex shrink-0 items-center gap-0.5 text-[0.7rem] text-stone-500">
-              <FeatherIcon v-if="playlist.smart_rules" name="zap" class="h-2.5 w-2.5 text-stone-500" />
+            <span class="mr-2 inline-flex shrink-0 items-center gap-0.5 text-[0.7rem] text-on-surface-variant">
+              <FeatherIcon v-if="playlist.smart_rules" name="zap" class="h-2.5 w-2.5 text-on-surface-variant" />
               {{ playlist.track_count }}
             </span>
           </template>
@@ -625,7 +625,7 @@ const exportingPlaylist = ref<Playlist | null>(null);
       <div :style="slotStyle(sortedPlaylists.length)" />
     </div>
 
-    <div v-else class="flex flex-col items-center gap-2 pt-6 text-xs text-stone-500">
+    <div v-else class="flex flex-col items-center gap-2 pt-6 text-xs text-on-surface-variant">
       <FeatherIcon name="list" class="h-5 w-5" />
       <p class="text-center">No playlists yet.</p>
     </div>
@@ -635,48 +635,48 @@ const exportingPlaylist = ref<Playlist | null>(null);
     <div
       v-if="playlistContextMenu"
       ref="playlistContextMenuRef"
-      class="fixed z-[300] min-w-[140px] rounded-lg border border-stone-600 bg-stone-800 py-1 shadow-xl"
+      class="fixed z-[300] min-w-[140px] rounded-lg border border-outline bg-surface-container py-1 shadow-xl"
       :style="{ left: playlistContextMenu.x + 'px', top: playlistContextMenu.y + 'px' }"
       @click.stop
     >
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="handlePlayNowPlaylist(playlistContextMenu.id)"
       >
-        <FeatherIcon name="play" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="play" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Play now
       </button>
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="handleShufflePlaylist(playlistContextMenu.id)"
       >
-        <FeatherIcon name="shuffle" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="shuffle" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Shuffle
       </button>
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="handleTogglePin(playlistContextMenu.id)"
       >
-        <FeatherIcon name="paperclip" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="paperclip" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         {{ playlistStore.isPinned(playlistContextMenu.id) ? 'Unpin playlist' : 'Pin playlist' }}
       </button>
-      <div class="my-1 border-t border-stone-700" />
+      <div class="my-1 border-t border-outline" />
       <button
         v-if="!contextMenuIsFavorites"
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="startEditing(playlistContextMenu.id, playlistContextMenu.name, playlists.find(p => p.id === playlistContextMenu!.id)?.icon ?? null)"
       >
-        <FeatherIcon name="edit-2" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="edit-2" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Edit name
       </button>
       <button
         v-if="playlists.find(p => p.id === playlistContextMenu!.id)?.smart_rules"
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="openEditSmartModal(playlists.find(p => p.id === playlistContextMenu!.id)!)"
       >
         <FeatherIcon name="zap" class="h-4 w-4 shrink-0 text-yellow-500" />
@@ -684,16 +684,16 @@ const exportingPlaylist = ref<Playlist | null>(null);
       </button>
       <button
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-200 hover:bg-stone-700 hover:text-stone-50"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface hover:bg-surface-variant hover:text-on-primary"
         @click="exportingPlaylist = playlists.find(p => p.id === playlistContextMenu!.id) ?? null; closePlaylistContextMenu()"
       >
-        <FeatherIcon name="download" class="h-4 w-4 shrink-0 text-stone-400" />
+        <FeatherIcon name="download" class="h-4 w-4 shrink-0 text-on-surface-variant" />
         Export to M3U
       </button>
       <button
         v-if="!contextMenuIsFavorites"
         type="button"
-        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-stone-700 hover:text-red-300"
+        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-surface-variant hover:text-red-300"
         @click="handleDeletePlaylist(playlistContextMenu.id, playlistContextMenu.name)"
       >
         <FeatherIcon name="trash-2" class="h-4 w-4 shrink-0" />

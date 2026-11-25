@@ -25,41 +25,41 @@ function handleViewField(field: MissingMetadataField) {
 
 <template>
           <div class="space-y-6">
-            <p class="flex items-center gap-2 text-xs font-semibold text-stone-400">
-              <FeatherIcon name="pie-chart" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+            <p class="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
+              <FeatherIcon name="pie-chart" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
               Library Statistics
             </p>
-            <p class="text-xs text-stone-500">
+            <p class="text-xs text-on-surface-variant">
               Insights based on all {{ store.tracks.length }} tracks in your library.
             </p>
 
             <!-- Metadata health -->
-            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
-              <p class="mb-3 text-xs font-semibold text-stone-400">Metadata completeness</p>
+            <div class="rounded-lg border border-outline bg-surface/60 p-4">
+              <p class="mb-3 text-xs font-semibold text-on-surface-variant">Metadata completeness</p>
               <MetadataHealthChart :tracks="store.tracks" @view-field="handleViewField" />
             </div>
 
             <!-- Genre distribution -->
-            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
-              <p class="mb-4 text-xs font-semibold text-stone-400">Genre distribution</p>
+            <div class="rounded-lg border border-outline bg-surface/60 p-4">
+              <p class="mb-4 text-xs font-semibold text-on-surface-variant">Genre distribution</p>
               <GenrePieChart :tracks="store.tracks" />
             </div>
 
             <!-- Top artists -->
-            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
-              <p class="mb-4 text-xs font-semibold text-stone-400">Top artists by track count</p>
+            <div class="rounded-lg border border-outline bg-surface/60 p-4">
+              <p class="mb-4 text-xs font-semibold text-on-surface-variant">Top artists by track count</p>
               <TopArtistsChart :tracks="store.tracks" />
             </div>
 
             <!-- Release year line chart -->
-            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
-              <p class="mb-3 text-xs font-semibold text-stone-400">Tracks per release year</p>
+            <div class="rounded-lg border border-outline bg-surface/60 p-4">
+              <p class="mb-3 text-xs font-semibold text-on-surface-variant">Tracks per release year</p>
               <YearLineChart :tracks="store.tracks" />
             </div>
 
             <!-- User ratings -->
-            <div class="rounded-lg border border-stone-700 bg-stone-900/60 p-4">
-              <p class="mb-3 text-xs font-semibold text-stone-400">User ratings</p>
+            <div class="rounded-lg border border-outline bg-surface/60 p-4">
+              <p class="mb-3 text-xs font-semibold text-on-surface-variant">User ratings</p>
               <RatingChart :tracks="store.tracks" />
             </div>
           </div>

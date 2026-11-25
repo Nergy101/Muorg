@@ -35,7 +35,7 @@ const bars = computed(() => {
 </script>
 
 <template>
-  <div v-if="!tracks.length" class="py-4 text-center text-xs text-stone-500">No tracks.</div>
+  <div v-if="!tracks.length" class="py-4 text-center text-xs text-on-surface-variant">No tracks.</div>
   <div v-else class="flex flex-col gap-3">
     <!-- Bar chart -->
     <div class="flex h-40 items-end gap-1.5">
@@ -49,7 +49,7 @@ const bars = computed(() => {
         <!-- Count label on hover -->
         <span
           class="text-[10px] tabular-nums transition-opacity duration-100"
-          :class="hovered === bar.label ? 'text-stone-300 opacity-100' : 'opacity-0'"
+          :class="hovered === bar.label ? 'text-on-surface opacity-100' : 'opacity-0'"
         >
           {{ bar.count }}
         </span>
@@ -57,7 +57,7 @@ const bars = computed(() => {
         <div class="w-full min-w-0 flex-1 flex items-end">
           <div
             class="w-full rounded-t-sm transition-all duration-200"
-            :class="hovered === bar.label ? 'bg-[#6d9a3a]' : 'bg-[#5b7c32]'"
+            :class="hovered === bar.label ? 'bg-[#6d9a3a]' : 'bg-primary'"
             :style="{ height: bar.heightPct + '%' }"
           />
         </div>
@@ -68,15 +68,15 @@ const bars = computed(() => {
       <div
         v-for="bar in bars"
         :key="bar.label"
-        class="min-w-0 flex-1 text-center text-[9px] leading-tight text-stone-500"
-        :class="{ 'text-stone-300': hovered === bar.label }"
+        class="min-w-0 flex-1 text-center text-[9px] leading-tight text-on-surface-variant"
+        :class="{ 'text-on-surface': hovered === bar.label }"
       >
         {{ bar.label }}
       </div>
     </div>
     <!-- Hovered detail -->
-    <p v-if="hovered" class="text-center text-xs text-stone-400">
-      <span class="font-medium text-stone-200">{{ hovered }}</span>
+    <p v-if="hovered" class="text-center text-xs text-on-surface-variant">
+      <span class="font-medium text-on-surface">{{ hovered }}</span>
       — {{ bars.find((b) => b.label === hovered)?.count }} tracks
       ({{ bars.find((b) => b.label === hovered)?.trackPct }}%)
     </p>

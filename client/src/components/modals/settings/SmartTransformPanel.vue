@@ -130,8 +130,8 @@ watch(transformMatches, () => {
 
 <template>
           <div class="space-y-3 flex flex-col h-full">
-            <p class="flex items-center gap-2 text-xs font-semibold text-stone-400 shrink-0">
-              <FeatherIcon name="shuffle" class="h-3.5 w-3.5 shrink-0 text-stone-500" />
+            <p class="flex items-center gap-2 text-xs font-semibold text-on-surface-variant shrink-0">
+              <FeatherIcon name="shuffle" class="h-3.5 w-3.5 shrink-0 text-on-surface-variant" />
               Smart Transform
             </p>
 
@@ -139,25 +139,25 @@ watch(transformMatches, () => {
             <div class="settings-section shrink-0">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-medium text-stone-500 mb-1">Origin pattern</label>
+                  <label class="block text-xs font-medium text-on-surface-variant mb-1">Origin pattern</label>
                   <input
                     v-model="transformOrigin"
                     type="text"
-                    class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200 placeholder:text-stone-500"
+                    class="w-full rounded border border-outline bg-surface px-2 py-1.5 font-mono text-xs text-on-surface placeholder-on-surface-variant"
                     placeholder="e.g. &lt;Artist&gt;/&lt;Album&gt;/&lt;TrackNumber&gt; - &lt;TrackTitle&gt;.&lt;Format&gt;"
                   />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-stone-500 mb-1">Destination pattern</label>
+                  <label class="block text-xs font-medium text-on-surface-variant mb-1">Destination pattern</label>
                   <input
                     v-model="transformDest"
                     type="text"
-                    class="w-full rounded border border-stone-600 bg-stone-900 px-2 py-1.5 font-mono text-xs text-stone-200 placeholder:text-stone-500"
+                    class="w-full rounded border border-outline bg-surface px-2 py-1.5 font-mono text-xs text-on-surface placeholder-on-surface-variant"
                     placeholder="e.g. &lt;AlbumArtist&gt;/&lt;Year&gt; - &lt;Album&gt;/&lt;TrackNumber&gt; - &lt;TrackTitle&gt;.&lt;Format&gt;"
                   />
                 </div>
               </div>
-              <p class="mt-2 text-xs text-stone-500">
+              <p class="mt-2 text-xs text-on-surface-variant">
                 Tracks whose path matches the Origin pattern are listed below. The path prefix before the matched segments is preserved; only the matched segments are rewritten using the Destination pattern.
               </p>
             </div>
@@ -165,7 +165,7 @@ watch(transformMatches, () => {
             <!-- Match list -->
             <div class="settings-section flex-1 min-h-0 flex flex-col overflow-hidden p-0">
               <!-- Header row -->
-              <div class="flex items-center gap-2 border-b border-stone-700 px-3 py-2 shrink-0">
+              <div class="flex items-center gap-2 border-b border-outline px-3 py-2 shrink-0">
                 <input
                   type="checkbox"
                   :checked="transformAllSelected"
@@ -173,19 +173,19 @@ watch(transformMatches, () => {
                   class="shrink-0"
                   @change="toggleTransformSelectAll"
                 />
-                <span class="flex-1 text-xs font-medium text-stone-500">Origin path</span>
+                <span class="flex-1 text-xs font-medium text-on-surface-variant">Origin path</span>
                 <span class="w-5 shrink-0" />
-                <span class="flex-1 text-xs font-medium text-stone-500">Transformed path</span>
+                <span class="flex-1 text-xs font-medium text-on-surface-variant">Transformed path</span>
               </div>
 
               <!-- No patterns yet -->
               <div v-if="!transformOrigin.trim() || !transformDest.trim()" class="flex-1 flex items-center justify-center">
-                <p class="text-xs text-stone-500">Enter an Origin and Destination pattern to see matching tracks.</p>
+                <p class="text-xs text-on-surface-variant">Enter an Origin and Destination pattern to see matching tracks.</p>
               </div>
 
               <!-- No matches -->
               <div v-else-if="transformMatches.length === 0" class="flex-1 flex items-center justify-center">
-                <p class="text-xs text-stone-500">No tracks match the Origin pattern.</p>
+                <p class="text-xs text-on-surface-variant">No tracks match the Origin pattern.</p>
               </div>
 
               <!-- Match rows -->
@@ -193,8 +193,8 @@ watch(transformMatches, () => {
                 <div
                   v-for="m in transformMatches"
                   :key="m.track.id"
-                  class="flex items-start gap-2 border-b border-stone-700/50 px-3 py-1.5 cursor-pointer hover:bg-stone-700/30"
-                  :class="transformSelectedIds.has(m.track.id) ? 'bg-stone-700/20' : ''"
+                  class="flex items-start gap-2 border-b border-outline/50 px-3 py-1.5 cursor-pointer hover:bg-surface-variant/30"
+                  :class="transformSelectedIds.has(m.track.id) ? 'bg-surface-variant/20' : ''"
                   @click="toggleTransformTrack(m.track.id)"
                 >
                   <input
@@ -202,9 +202,9 @@ watch(transformMatches, () => {
                     :checked="transformSelectedIds.has(m.track.id)"
                     class="mt-0.5 shrink-0 pointer-events-none"
                   />
-                  <span class="flex-1 font-mono text-xs text-stone-400 break-all">{{ m.track.path }}</span>
-                  <FeatherIcon name="arrow-right" class="h-3 w-3 shrink-0 mt-0.5 text-stone-500" />
-                  <span class="flex-1 font-mono text-xs text-stone-300 break-all">{{ m.newPath }}</span>
+                  <span class="flex-1 font-mono text-xs text-on-surface-variant break-all">{{ m.track.path }}</span>
+                  <FeatherIcon name="arrow-right" class="h-3 w-3 shrink-0 mt-0.5 text-on-surface-variant" />
+                  <span class="flex-1 font-mono text-xs text-on-surface break-all">{{ m.newPath }}</span>
                 </div>
               </div>
             </div>
@@ -212,7 +212,7 @@ watch(transformMatches, () => {
             <!-- Bottom bar -->
             <div class="shrink-0 flex items-center justify-between gap-3">
               <p v-if="transformError" class="text-xs text-red-400">{{ transformError }}</p>
-              <p v-else-if="transformMatches.length > 0" class="text-xs text-stone-500">
+              <p v-else-if="transformMatches.length > 0" class="text-xs text-on-surface-variant">
                 {{ transformSelectedIds.size }} of {{ transformMatches.length }} selected
               </p>
               <span v-else />
@@ -232,18 +232,18 @@ watch(transformMatches, () => {
   <Teleport to="body">
     <div
       v-if="collisionDialog"
-      class="fixed inset-0 z-[300] flex items-center justify-center bg-stone-950/70 p-4 outline-none"
+      class="fixed inset-0 z-[300] flex items-center justify-center bg-background/70 p-4 outline-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="transform-collision-title"
       @click.self="cancelCollisionDialog"
     >
-      <div class="w-full max-w-md rounded-lg border border-stone-600 bg-stone-800 shadow-xl" @click.stop>
-        <div class="flex items-center justify-between border-b border-stone-700 px-4 py-3">
-          <h2 id="transform-collision-title" class="text-sm font-semibold text-stone-200">Destinations already taken</h2>
+      <div class="w-full max-w-md glass-strong rounded-2xl shadow-xl" @click.stop>
+        <div class="flex items-center justify-between border-b border-outline px-4 py-3">
+          <h2 id="transform-collision-title" class="text-sm font-semibold text-on-surface">Destinations already taken</h2>
           <button
             type="button"
-            class="rounded p-1.5 text-stone-500 hover:bg-stone-600 hover:text-stone-200"
+            class="rounded p-1.5 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
             aria-label="Cancel"
             @click="cancelCollisionDialog"
           >
@@ -251,7 +251,7 @@ watch(transformMatches, () => {
           </button>
         </div>
         <div class="max-h-[50vh] overflow-y-auto p-4">
-          <p class="text-xs text-stone-400">
+          <p class="text-xs text-on-surface-variant">
             Moving these files would overwrite {{ collisionDialog.length }}
             existing destination{{ collisionDialog.length === 1 ? "" : "s" }}.
             This cannot be undone.
@@ -260,17 +260,17 @@ watch(transformMatches, () => {
             <li
               v-for="c in collisionDialog"
               :key="`${c.id}-${c.new_path}`"
-              class="font-mono text-xs text-stone-300 break-all"
+              class="font-mono text-xs text-on-surface break-all"
             >
               {{ c.new_path }}
-              <span class="text-stone-500">— {{ collisionReasonLabel(c.reason) }}</span>
+              <span class="text-on-surface-variant">— {{ collisionReasonLabel(c.reason) }}</span>
             </li>
           </ul>
         </div>
-        <div class="flex items-center justify-end gap-2 border-t border-stone-700 px-4 py-3">
+        <div class="flex items-center justify-end gap-2 border-t border-outline px-4 py-3">
           <button
             type="button"
-            class="rounded border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-stone-700"
+            class="rounded border border-outline bg-surface-container px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-variant"
             @click="cancelCollisionDialog"
           >
             Cancel
