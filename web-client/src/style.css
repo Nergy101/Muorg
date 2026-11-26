@@ -504,18 +504,20 @@ body {
   background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 12%, var(--surface) 88%);
 }
 
-/* The mini player's bottom bar floats over scrolling content, so it gets a
-   sheerer variant of .glass-deep — less dark, more see-through — while keeping
-   the same blur. Placed after the glass media query and the .pwa blocks so it
+/* The mini player's bottom bar floats over scrolling content, so it keeps the
+   same blur as .glass-deep but gets a SOLID accent fill instead of a sheer
+   wash: mostly the playing track's --glass-edge hue with a touch of surface
+   for depth, so the bar reads as opaque accent-colored glass rather than
+   see-through. Placed after the glass media query and the .pwa blocks so it
    wins over the denser .glass-deep fills those set at lg / in PWAs. */
 /* The mini player's glass is themed by the PLAYING track (--glass-edge), not
-   by the open album view — the accent wash is strong enough that the album
-   art behind it doesn't dominate the bar. */
+   by the open album view — the accent fill is strong enough that the album
+   art behind it doesn't show through the bar. */
 .mini-player-glass {
-  background: rgb(var(--glass-edge, 255 255 255));
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 88%, var(--surface) 12%);
 }
 .pwa .mini-player-glass {
-  background: rgb(var(--glass-edge, 255 255 255));
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 88%, var(--surface) 12%);
 }
 
 /* Light playing-track accent (player store toggles .accent-light on <html>):
@@ -545,6 +547,43 @@ html.accent-light :is(.glass, .glass-deep, .glass-strong, .mini-player-glass) in
   background: #000;
 }
 
+/* Mini player with no playing accent (player store toggles .mini-player-idle
+   on <html> when there is no track or no usable cover color): its glass is an
+   opaque fill of --glass-edge, whose CSS fallback is white — a pure white bar
+   with white text. Fall back to the theme surface instead, with the theme's
+   on-surface text color (dark text in the light theme). */
+html.mini-player-idle .mini-player-glass {
+  background: var(--surface);
+  color: var(--on-surface);
+}
+html.mini-player-idle .mini-player-glass [class*="text-white"],
+html.mini-player-idle .mini-player-glass [class*="text-on-surface"] {
+  color: var(--on-surface);
+}
+
+/* Mini player over a light playing-track accent (player store toggles
+   .mini-player-light at the WCAG crossover, luminance 0.179): the glass is
+   filled with that pale accent, so text and controls inside go black — same
+   treatment as html.accent-light above, but at the lower threshold because
+   this fill is opaque while the other glass washes stay dark. */
+html.mini-player-light .mini-player-glass {
+  color: #000;
+}
+html.mini-player-light .mini-player-glass [class*="text-white"],
+html.mini-player-light .mini-player-glass [class*="text-on-surface"] {
+  color: #000;
+}
+html.mini-player-light .mini-player-glass [class*="border-white"] {
+  border-color: rgb(0 0 0 / 0.12);
+}
+html.mini-player-light .mini-player-glass :is(.bg-white, .bg-white\/25, .bg-white\/10) {
+  background-color: rgb(0 0 0 / 0.12);
+}
+html.mini-player-light .mini-player-glass input[type="range"]::-webkit-slider-thumb,
+html.mini-player-light .mini-player-glass input[type="range"]::-moz-range-thumb {
+  background: #000;
+}
+
 /* Album view with a light cover (AlbumDetailView toggles .album-view-light on
    <html> only while that view is active): only the top-nav text goes black
    there. The mini player's own black/white switch is driven by the playing
@@ -559,13 +598,12 @@ html.album-view-light .shell-collapsed .glass {
 html.album-view-light .shell-collapsed .glass [class*="text-on-surface"] {
   color: #000;
 }
-/* The maximized player's controls panel takes a stronger accent wash in a
-   PWA so it reads as colored glass, matching the bottom player above — but
-   stays just as sheer as the panel's own scoped rule (large transparent
-   share) so the artwork shows through.
+/* The maximized player's controls panel takes a stronger accent fill in a
+   PWA so it reads as solid colored glass, matching the bottom player above —
+   denser and more accent-driven than the panel's own scoped rule.
    (html.pwa keeps this ahead of the panel's own scoped rules.) */
 html.pwa .controls-panel {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, var(--surface) 70%, transparent 6%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 40%, var(--surface) 60%);
   border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 34%, transparent);
   box-shadow:
     0 10px 34px -8px rgba(0, 0, 0, 0.30),
@@ -575,7 +613,7 @@ html.pwa .controls-panel {
    their scoped rules (darker for white text; the .controls-on-light scoped
    overrides still win for black text), kept ahead of them by html.pwa. */
 html.pwa .controls-panel-fs {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 26%, var(--surface) 58%, transparent 16%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 36%, var(--surface) 54%, transparent 10%);
 }
 html.pwa .fs-queue-menu {
   background: color-mix(in srgb, var(--surface) 34%, transparent);

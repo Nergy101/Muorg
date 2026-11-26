@@ -1288,9 +1288,22 @@ export const usePlayerStore = defineStore("player", () => {
     );
     if (isColorBland(rgb)) {
       el.style.removeProperty("--glass-edge");
+      // No usable artwork color (nothing playing, coverless track, gray art):
+      // the mini player's opaque glass must not fall back to the white
+      // --glass-edge default — it switches to the theme surface instead (see
+      // html.mini-player-idle in style.css).
+      el.classList.add("mini-player-idle");
+      el.classList.remove("mini-player-light");
       return;
     }
     el.style.setProperty("--glass-edge", rgb);
+    el.classList.remove("mini-player-idle");
+    // The mini player's glass is an OPAQUE fill of the accent, so its text tone
+    // follows the WCAG crossover (0.179, same as captionToneFor): white text
+    // only on dark accents, black once the accent reads light (see
+    // html.mini-player-light in style.css). The sheer glass washes keep the
+    // higher 0.45 threshold via html.accent-light above.
+    el.classList.toggle("mini-player-light", relativeLuminance(rgb) >= 0.179);
   });
 
   watch([currentTrack, currentCoverUrl], () => {

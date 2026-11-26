@@ -923,40 +923,41 @@ function onViewAlbum(): void {
 </script>
 
 <style scoped>
-/* The controls panel takes a wash of the playing album's accent hue at every
-   viewport — the same treatment the desktop glass rules give the sidenav and
-   mini player (the --glass-edge media query in style.css), applied here
-   unconditionally so the maximized player matches on mobile too. The player
-   store sets --glass-edge from the artwork; the white fallback applies when
-   the art has no usable color. The controls on the panel stay white. The
-   fill is deliberately sheer (a large transparent share) so the blurred
-   artwork shows through the panel instead of sitting under an opaque card. */
+/* The controls panel takes a dense fill of the playing album's accent hue at
+   every viewport — the same treatment the desktop glass rules give the
+   sidenav and mini player (the --glass-edge media query in style.css),
+   applied here unconditionally so the maximized player matches on mobile
+   too. The player store sets --glass-edge from the artwork; the white
+   fallback applies when the art has no usable color. The controls on the
+   panel stay white. The fill is mostly accent with a share of surface and no
+   transparency, so the panel reads as solid accent-colored glass instead of
+   a sheer wash over the blurred artwork. */
 .controls-panel {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 18%, var(--surface) 76%, transparent 6%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 45%, var(--surface) 55%);
   border-color: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 24%, transparent);
   box-shadow:
     0 10px 34px -8px rgba(0, 0, 0, 0.30),
     inset 0 1px 0 0 color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 30%, transparent);
 }
 
-/* White text (dark artwork) gets the darker fill above; black text over
-   light artwork (.controls-on-light) keeps the sheerer fill so the panel
-   stays light enough for the dark glyphs. */
+/* White text (dark artwork) gets the dense fill above; black text over
+   light artwork (.controls-on-light) keeps a lighter, more accent-heavy fill
+   so the panel stays light enough for the dark glyphs. */
 .controls-on-light .controls-panel {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 16%, var(--surface) 58%, transparent 26%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 45%, var(--surface) 40%, transparent 15%);
 }
 
 /* Art-fullscreen bottom bar: it sits on the sharp full-bleed artwork, so it
-   can be sheerer than the normal panel — mostly blur, a whisper of surface
-   tint. A stronger blur keeps the transport legible over the art. */
+   stays a bit sheerer than the normal panel, but still carries a strong
+   accent share. A stronger blur keeps the transport legible over the art. */
 .controls-panel-fs {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 20%, var(--surface) 64%, transparent 16%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 35%, var(--surface) 55%, transparent 10%);
   -webkit-backdrop-filter: blur(40px) saturate(200%);
   backdrop-filter: blur(40px) saturate(200%);
 }
 
 .controls-on-light .controls-panel-fs {
-  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 18%, var(--surface) 40%, transparent 42%);
+  background: color-mix(in srgb, rgb(var(--glass-edge, 255 255 255)) 35%, var(--surface) 35%, transparent 30%);
 }
 
 /* The FS queue dropdown floats over the sharp artwork too — sheer glass. */
