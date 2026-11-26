@@ -1,5 +1,7 @@
 ---
+title: Version Compatibility
 sidebar_position: 10
+description: "- **Android**: the app version and the connected server's version are both shown in Settings → info section (since android-v4.1.0)"
 ---
 
 # Version Compatibility
@@ -17,7 +19,7 @@ Muorg is a multi-component product: the desktop app, web app, and Android app al
 ## Practical guidance
 
 | Scenario | Recommendation |
-|----------|----------------|
+| ---------- | ---------------- |
 | Upgrading clients only | Upgrade the server in the same maintenance window to stay safe |
 | Upgrading the server | Older clients keep working; new client features may not be available until clients are updated |
 | Self-hosted all-in-one (desktop sidecar) | Everything ships together — just update the app |

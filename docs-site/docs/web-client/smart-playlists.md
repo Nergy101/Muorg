@@ -1,5 +1,7 @@
 ---
+title: Smart Playlists
 sidebar_position: 2
+description: "Rule-driven playlists in the web client — build smart playlists from metadata rules."
 ---
 
 # Smart Playlists
@@ -18,11 +20,14 @@ button opens the rules editor.
 
 - Only the **rules** are stored (the `smart_rules` column on the playlist).
   No track list is materialized.
+
 - Membership is **re-derived live**: every time the playlist is fetched, the
   server re-runs the rules against the current library (`SELECT id FROM tracks
   WHERE <rules> ORDER BY artist, album, track_number, title`).
+
 - `GET /api/playlists` returns each smart playlist's **live-resolved track
   count**, so the badge you see in the app is always current.
+
 - Because there is no stored track list, manual operations don't apply:
   smart playlists have no drag-to-reorder, and the "add to playlist" picker
   hides them (adds would be discarded anyway).
@@ -46,7 +51,7 @@ A rule is one JSON object; a playlist's rules are a JSON array of them:
 ### Fields
 
 | Field | Type | Meaning |
-|-------|------|---------|
+| ------- | ------ | --------- |
 | `title` | text | Track title |
 | `artist` | text | Track artist |
 | `album` | text | Album name |
@@ -64,7 +69,7 @@ Text fields compare as strings; numeric fields (`year`, `rating`,
 ### Operators
 
 | Operator | Meaning |
-|----------|---------|
+| ---------- | --------- |
 | `eq` | Equals |
 | `neq` | Not equals |
 | `gt` | Greater than |
@@ -146,7 +151,7 @@ easiest way to get it.
 ## Server API
 
 | Method | Path | Description |
-|--------|------|-------------|
+| -------- | ------ | ------------- |
 | `POST` | `/api/playlists/smart` | Create a smart playlist — body `{ "name": "...", "rules_json": "<rules>" }` |
 | `PATCH` | `/api/playlists/smart/{id}/rules` | Replace the rules — body `{ "rules_json": "<rules>" }` |
 | `GET` | `/api/playlists/smart/{id}/tracks` | Resolve the matching track IDs (re-evaluated live) |

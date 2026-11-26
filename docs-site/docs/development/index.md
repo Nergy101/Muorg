@@ -1,5 +1,7 @@
 ---
+title: Development
 sidebar_position: 1
+description: "Releases are built by GitHub Actions on three tag schemes: `v*` for the server, web app and docs images, `desktop-v*` for the desktop app."
 ---
 
 # Development

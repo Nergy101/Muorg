@@ -1,5 +1,7 @@
 ---
+title: FAQ & Troubleshooting
 sidebar_position: 9
+description: "- [Release Notes](/docs/releases) — what changed in each version"
 ---
 
 import OrcIllustration from "@site/src/components/OrcIllustration";
@@ -74,16 +76,16 @@ The web app is a PWA: the app shell is cached and works offline, but **streaming
 
 If the cached shell looks outdated after a new release, hard-refresh (`Cmd/Ctrl+Shift+R`) or clear site data once.
 
-## Where is the desktop app's library stored?
+## Where is the desktop app's library stored
 
 Local libraries are scanned into the app's data directory; playlists, metadata edits, and the database live there too. Removing a folder from the app does **not** delete your files.
 
-## How do I back up my library?
+## How do I back up my library
 
 - **Server**: the server keeps rolling database backups in `backup_dir` (`backup_retention_count` to control how many). Back up `muorg.db` and the music folders themselves.
 - **Desktop**: keep your music folders safe; playlists can be exported to M3U from the app.
 
-## Does Muorg need an internet connection?
+## Does Muorg need an internet connection
 
 No. Everything runs on your own machines — desktop app, server, web app, and Android app are all self-hosted. The only internet-dependent feature is **MusicBrainz auto-tagging** (optional, used when you explicitly request tag suggestions).
 
@@ -91,7 +93,7 @@ No. Everything runs on your own machines — desktop app, server, web app, and A
 
 Widgets refresh when the app updates playback state. If the widget is stuck, remove and re-add it, or restart the app. The widget needs the app to be connected to a server to show current track info.
 
-## How do smart playlists work?
+## How do smart playlists work
 
 Smart playlists match tracks by rules instead of a stored track list, so they
 update automatically as your library changes. The rules editor lives in the

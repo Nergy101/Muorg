@@ -1,5 +1,7 @@
 ---
+title: Server Docker Deployment
 sidebar_position: 4
+description: "- Persistent data (SQLite database, backups, cover cache) lives in the `muorg-data` volume mounted at `/data`."
 ---
 
 # Server Docker Deployment
@@ -23,8 +25,10 @@ services:
     image: ghcr.io/nergy101/muorg-server:latest
     container_name: muorg-server
     ports:
+
       - "7700:7700"
     volumes:
+
       - ./muorg-server.toml:/app/muorg-server.toml:ro
       - /path/to/music:/music:ro
       - muorg-data:/data
@@ -39,6 +43,7 @@ services:
   muorg-web:
     image: ghcr.io/nergy101/muorg-web:latest
     ports:
+
       - "7800:80"
     restart: unless-stopped
     depends_on:
@@ -55,6 +60,7 @@ The server reads `./muorg-server.toml` from its working directory (`/app` in the
 
 ```yaml
 volumes:
+
   - ./muorg-server.toml:/app/muorg-server.toml:ro
 ```
 
@@ -63,7 +69,7 @@ Start from [`muorg-server.example.toml`](https://github.com/Nergy101/Muorg/blob/
 ## Ports
 
 | Service | Container port | Host port | Purpose |
-|---------|---------------|-----------|---------|
+| --------- | --------------- | ----------- | --------- |
 | muorg-server | 7700 | 7700 | REST API + streaming |
 | muorg-web | 80 | 7800 | Web client (static files) |
 

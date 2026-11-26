@@ -84,41 +84,6 @@
   margin-bottom: 0;
 }
 
-.legacyRow {
-  margin-top: 0.5rem;
-  text-align: center;
-}
-
-.legacyLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 1rem;
-  border-radius: 10px;
-  border: 1px dashed var(--ifm-color-emphasis-300);
-  color: var(--ifm-color-emphasis-700);
-  font-size: 0.88rem;
-  text-align: left;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-
-.legacyLink:hover {
-  text-decoration: none;
-  color: var(--ifm-font-color-base);
-  border-color: var(--ifm-color-primary);
-}
-
-.legacyLink svg {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  color: var(--ifm-color-emphasis-600);
-}
-
-:global([data-theme="dark"]) .legacyLink svg {
-  color: #fff;
-}
-
 .github {
   padding: 2.5rem 0 4rem;
   text-align: center;

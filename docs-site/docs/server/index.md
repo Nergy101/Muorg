@@ -1,5 +1,7 @@
 ---
+title: Server
 sidebar_position: 1
+description: "The muorg-server REST API (Rust + Axum) that serves your library to every client."
 ---
 
 import OrcIllustration from "@site/src/components/OrcIllustration";
@@ -55,7 +57,7 @@ backup_dir = "/data/backups"
 ### `[server]`
 
 | Key | Default | Description |
-|-----|---------|-------------|
+| ----- | --------- | ------------- |
 | `host` | `"127.0.0.1"` | Bind address. Use `0.0.0.0` when running in Docker so clients can reach it. |
 | `port` | `7700` | HTTP port |
 | `api_key` | `"change-me"` | API key for `Authorization: Bearer` auth. **Always change this.** |
@@ -64,7 +66,7 @@ backup_dir = "/data/backups"
 ### `[library]`
 
 | Key | Default | Description |
-|-----|---------|-------------|
+| ----- | --------- | ------------- |
 | `content_paths` | `[]` | Directories to scan for music (sub-folders are recursive) |
 | `scan_on_startup` | `true` | Rescan on startup, or only when triggered via the admin API |
 | `remote_scan_concurrency` | `8` | Parallel tag reads during a scan of cloud remotes |
@@ -72,7 +74,7 @@ backup_dir = "/data/backups"
 ### `[storage]`
 
 | Key | Default | Description |
-|-----|---------|-------------|
+| ----- | --------- | ------------- |
 | `db_path` | `muorg.db` | SQLite database path (keep in the `/data` volume in Docker) |
 | `backup_dir` | `backups` | Where database backups are written |
 | `backup_retention_count` | `5` | How many backups to keep |
@@ -88,7 +90,7 @@ backup_dir = "/data/backups"
 ### `[transcoding]`
 
 | Key | Default | Description |
-|-----|---------|-------------|
+| ----- | --------- | ------------- |
 | `bitrate` | `128` | Output bitrate in kbps (128/160/192/256/320) |
 | `format` | `"mp3"` | Output format (currently only mp3) |
 | `sample_rate` | `44100` | Output sample rate in Hz |
