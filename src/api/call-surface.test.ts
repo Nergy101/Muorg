@@ -93,6 +93,19 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
     "/api/tracks/3/play",
     { device_name: "Living room", duration_secs: 42 },
   ],
+  [
+    "recordPlay (profile)",
+    (a) => a.recordPlay(3, "Living room", 42, 7),
+    "POST",
+    "/api/tracks/3/play",
+    { device_name: "Living room", duration_secs: 42, profile_id: 7 },
+  ],
+  [
+    "getListeningSummary (profiles)",
+    (a) => a.getListeningSummary(7, [7]),
+    "GET",
+    "/api/stats/summary?days=7&profiles=7",
+  ],
   ["restoreFromBackup", (a) => a.restoreFromBackup(3), "POST", "/api/tracks/3/restore"],
   [
     "setRating",
@@ -151,6 +164,12 @@ const CALLS: [string, (a: MuorgApi) => Promise<unknown>, string, string, unknown
     "/api/tracks/3/auto-tag-suggestions",
     { artist: "A" },
   ],
+
+  // Profiles (NER-326)
+  ["listProfiles", (a) => a.listProfiles(), "GET", "/api/profiles"],
+  ["createProfile", (a) => a.createProfile("Sam"), "POST", "/api/profiles", { name: "Sam" }],
+  ["renameProfile", (a) => a.renameProfile(7, "Sam"), "PATCH", "/api/profiles/7", { name: "Sam" }],
+  ["deleteProfile", (a) => a.deleteProfile(7), "DELETE", "/api/profiles/7"],
 
   // Playlists
   ["getPlaylists", (a) => a.getPlaylists(), "GET", "/api/playlists"],

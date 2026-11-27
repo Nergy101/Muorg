@@ -60,6 +60,13 @@ export type TopAlbumStat = AlwaysPresent<Schemas["TopAlbumStat"]>;
 /** Request body for `POST /api/tracks/{id}/play` — really is optional. */
 export type RecordPlayBody = Schemas["RecordPlayBody"];
 
+// ---------------------------------------------------------------- profiles ---
+
+/** One listening profile; profile 1 ("You") is the invisible default (NER-326). */
+export type Profile = AlwaysPresent<Schemas["Profile"]>;
+/** Request body for `POST /api/profiles`. */
+export type ProfileBody = Schemas["ProfileBody"];
+
 // -------------------------------------------------------------- playlists ---
 
 export type Playlist = AlwaysPresent<Schemas["Playlist"]>;

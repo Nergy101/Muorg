@@ -19,6 +19,7 @@ import type {
   CatalogTrack,
   MatchCandidate,
   MetadataUpdate,
+  Profile,
   RecordPlayBody,
   RenameCollision,
   TracksPage,
@@ -32,6 +33,16 @@ export interface StreamTokenInfo {
   flac: boolean;
   /** Server serves original WAV from `/stream/wav/{token}/{id}`. */
   wav: boolean;
+}
+
+/**
+ * NER-326: profile ids to scope stats/history queries to, as the comma-joined
+ * query parameter the server expects. `undefined` (or an empty array) means
+ * "no filter", which for per-profile endpoints is the default profile's own
+ * rollup — the same numbers a single-profile server has always shown.
+ */
+function profilesParam(profiles?: number[]): string | undefined {
+  return profiles && profiles.length > 0 ? profiles.join(",") : undefined;
 }
 
 export function createApi(t: Transport) {
@@ -127,19 +138,19 @@ export function createApi(t: Transport) {
       );
     },
 
-    async getRecentlyPlayed(limit = 50) {
+    async getRecentlyPlayed(limit = 50, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/play-history/recent", {
-          params: { query: { limit } },
+          params: { query: { limit, profiles: profilesParam(profiles) } },
         }),
         "/api/play-history/recent",
       );
     },
 
-    async getMostPlayed(limit = 50, days = 30) {
+    async getMostPlayed(limit = 50, days = 30, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/play-history/top", {
-          params: { query: { limit, days } },
+          params: { query: { limit, days, profiles: profilesParam(profiles) } },
         }),
         "/api/play-history/top",
       );
@@ -151,40 +162,40 @@ export function createApi(t: Transport) {
      * Listening totals over the window: plays, seconds listened, and how many
      * distinct tracks, artists and albums that covered (NER-325).
      */
-    async getListeningSummary(days = 30) {
+    async getListeningSummary(days = 30, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/stats/summary", {
-          params: { query: { days } },
+          params: { query: { days, profiles: profilesParam(profiles) } },
         }),
         "/api/stats/summary",
       );
     },
 
     /** Top tracks inside the window, ranked by seconds listened. */
-    async getTopTracksByTime(limit = 10, days = 30) {
+    async getTopTracksByTime(limit = 10, days = 30, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/stats/top/tracks", {
-          params: { query: { limit, days } },
+          params: { query: { limit, days, profiles: profilesParam(profiles) } },
         }),
         "/api/stats/top/tracks",
       );
     },
 
     /** Top artists inside the window, ranked by seconds listened. */
-    async getTopArtistsByTime(limit = 10, days = 30) {
+    async getTopArtistsByTime(limit = 10, days = 30, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/stats/top/artists", {
-          params: { query: { limit, days } },
+          params: { query: { limit, days, profiles: profilesParam(profiles) } },
         }),
         "/api/stats/top/artists",
       );
     },
 
     /** Top albums inside the window, ranked by seconds listened. */
-    async getTopAlbumsByTime(limit = 10, days = 30) {
+    async getTopAlbumsByTime(limit = 10, days = 30, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/stats/top/albums", {
-          params: { query: { limit, days } },
+          params: { query: { limit, days, profiles: profilesParam(profiles) } },
         }),
         "/api/stats/top/albums",
       );
@@ -194,10 +205,10 @@ export function createApi(t: Transport) {
      * Listening time per week, read from the rollup so pruning play history
      * never eats the graph. Empty weeks included, oldest first.
      */
-    async getListeningTime(weeks = 12) {
+    async getListeningTime(weeks = 12, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/stats/listening-time", {
-          params: { query: { weeks } },
+          params: { query: { weeks, profiles: profilesParam(profiles) } },
         }),
         "/api/stats/listening-time",
       );
@@ -207,10 +218,10 @@ export function createApi(t: Transport) {
      * Plays and listening time per hour of the day, in the server's local
      * timezone. Only hours with plays are returned.
      */
-    async getPlayClock(days = 30) {
+    async getPlayClock(days = 30, profiles?: number[]) {
       return unwrap(
         await client.GET("/api/stats/clock", {
-          params: { query: { days } },
+          params: { query: { days, profiles: profilesParam(profiles) } },
         }),
         "/api/stats/clock",
       );
@@ -279,10 +290,16 @@ export function createApi(t: Transport) {
      * actually listened (NER-325). Omit either to leave it unset — the stats
      * endpoints then estimate from the track's catalog duration.
      */
-    async recordPlay(trackId: number, deviceName?: string, durationSecs?: number) {
+    async recordPlay(
+      trackId: number,
+      deviceName?: string,
+      durationSecs?: number,
+      profileId?: number,
+    ) {
       const body: RecordPlayBody = {};
       if (deviceName != null) body.device_name = deviceName;
       if (durationSecs != null) body.duration_secs = durationSecs;
+      if (profileId != null) body.profile_id = profileId;
       return unwrap(
         await client.POST("/api/tracks/{id}/play", {
           params: { path: { id: trackId } },
@@ -419,6 +436,48 @@ export function createApi(t: Transport) {
         return t.wavStreamUrl(track.id, tokenInfo.token);
       }
       return t.streamUrl(track.id, tokenInfo.token, startSecs);
+    },
+
+    // ------------------------------------------------------------- profiles ---
+
+    /**
+     * All listening profiles, default first. NER-326: with one profile the
+     * feature is invisible; a second profile is what turns it on everywhere.
+     */
+    async listProfiles() {
+      return unwrap(await client.GET("/api/profiles"), "/api/profiles");
+    },
+
+    /** Create a profile; the server trims and enforces 1..=64 characters. */
+    async createProfile(name: string) {
+      return unwrap(
+        await client.POST("/api/profiles", { body: { name } }),
+        "/api/profiles",
+      );
+    },
+
+    /** Rename a profile. The default profile's id is fixed, its name is not. */
+    async renameProfile(id: number, name: string) {
+      return unwrap(
+        await client.PATCH("/api/profiles/{id}", {
+          params: { path: { id } },
+          body: { name },
+        }),
+        "/api/profiles/{id}",
+      );
+    },
+
+    /**
+     * Delete a profile. The server refuses the default or last profile and
+     * moves the profile's play history back to the default profile.
+     */
+    async deleteProfile(id: number) {
+      return unwrap(
+        await client.DELETE("/api/profiles/{id}", {
+          params: { path: { id } },
+        }),
+        "/api/profiles/{id}",
+      );
     },
 
     // ---------------------------------------------------------- playlists ---
