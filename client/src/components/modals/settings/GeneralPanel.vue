@@ -37,9 +37,10 @@ const updateCompleteVersion = ref("");
 
 const GITHUB_RELEASE_BASE = "https://github.com/Nergy101/Muorg/releases";
 
+/** Desktop releases live on desktop-v* tags (not the v* server releases). */
 function releaseTagUrl(version: string) {
   const stripped = version.startsWith("v") ? version.slice(1) : version;
-  return `${GITHUB_RELEASE_BASE}/tag/v${stripped}`;
+  return `${GITHUB_RELEASE_BASE}/tag/desktop-v${stripped}`;
 }
 
 async function checkForUpdates() {

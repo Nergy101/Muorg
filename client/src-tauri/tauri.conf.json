@@ -66,7 +66,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE1MUEzN0Q0QTFGRjEwNzkKUldSNUVQK2gxRGNhcGZWYVBXd2hBZjZOcDlzRkdqUVJISmUwS3FMK2ZiYVh3SXpPeS8rU2MrKzUK",
       "endpoints": [
-        "https://github.com/Nergy101/Muorg/releases/latest/download/latest.json"
+        "https://github.com/Nergy101/Muorg/releases/download/desktop-updater/latest.json"
       ]
     }
   }

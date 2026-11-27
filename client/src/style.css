@@ -1477,20 +1477,20 @@ textarea:focus {
   --volume-fill-end: calc(var(--volume-percent, 0%) - 3px);
   background: linear-gradient(
     to right,
-    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
-    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-fill-end),
+    color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) 0%,
+    color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) var(--volume-fill-end),
     transparent var(--volume-fill-end),
     transparent 100%
   ) !important;
   border: 1px solid rgba(255 255 255 / 0.12);
-  accent-color: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+  accent-color: color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) !important;
 }
 #maximized-player-overlay .mpx-volume-wrap input[type="range"]::-webkit-slider-runnable-track {
   --volume-fill-end: calc(var(--volume-percent, 0%) - 3px);
   background: linear-gradient(
     to right,
-    var(--player-accent-volume, var(--player-accent, #5b7c32)) 0%,
-    var(--player-accent-volume, var(--player-accent, #5b7c32)) var(--volume-fill-end),
+    color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) 0%,
+    color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) var(--volume-fill-end),
     transparent var(--volume-fill-end),
     transparent 100%
   ) !important;
@@ -1504,18 +1504,18 @@ textarea:focus {
   cursor: pointer;
   appearance: none;
   border-radius: 0 50% 50% 0;
-  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+  background: color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) !important;
 }
 #maximized-player-overlay .mpx-volume-wrap input[type="range"]::-moz-range-thumb {
   width: 0.25rem;
   height: 0.5rem;
   cursor: pointer;
   border-radius: 0 50% 50% 0;
-  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+  background: color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) !important;
   border: none;
 }
 #maximized-player-overlay .mpx-volume-wrap input[type="range"]::-moz-range-progress {
-  background: var(--player-accent-volume, var(--player-accent, #5b7c32)) !important;
+  background: color-mix(in srgb, var(--player-accent-volume, var(--player-accent, var(--primary))) 65%, white) !important;
 }
 #maximized-player-overlay .mpx-volume-wrap .h-4.w-4 {
   width: 1rem;
