@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, nextTick } from "vue";
+import { createPinia } from "pinia";
 import ListeningStats from "./ListeningStats.vue";
 import type {
   ClockBucket,
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   getTopTracksByTime: vi.fn(),
   getTopArtistsByTime: vi.fn(),
   getTopAlbumsByTime: vi.fn(),
+  listProfiles: vi.fn(),
 }));
 
 vi.mock("../api/catalog", () => ({ ...mocks }));
@@ -59,6 +61,7 @@ const clock: ClockBucket[] = [
 ];
 
 function resolveAll(): void {
+  mocks.listProfiles.mockResolvedValue([{ id: 1, name: "You", is_default: true }]);
   mocks.getListeningSummary.mockResolvedValue(summary);
   mocks.getTopTracksByTime.mockResolvedValue(tracks);
   mocks.getTopArtistsByTime.mockResolvedValue(artists);
@@ -78,6 +81,7 @@ function render() {
   const root = document.createElement("div");
   document.body.append(root);
   const app = createApp(ListeningStats);
+  app.use(createPinia());
   app.mount(root);
   return {
     root,
@@ -99,8 +103,8 @@ describe("ListeningStats", () => {
     await flush();
     const text = view.root.textContent ?? "";
 
-    expect(mocks.getListeningSummary).toHaveBeenCalledWith(30);
-    expect(mocks.getPlayClock).toHaveBeenCalledWith(30);
+    expect(mocks.getListeningSummary).toHaveBeenCalledWith(30, undefined);
+    expect(mocks.getPlayClock).toHaveBeenCalledWith(30, undefined);
     // Window totals.
     expect(text).toContain("12"); // plays
     expect(text).toContain("1h 5m"); // listening time
@@ -111,7 +115,7 @@ describe("ListeningStats", () => {
     expect(text).toContain("Kind of Blue");
     // Weekly rollup panel is up too.
     expect(text).toContain("Listening time per week");
-    expect(mocks.getListeningTime).toHaveBeenCalledWith(12);
+    expect(mocks.getListeningTime).toHaveBeenCalledWith(12, undefined);
     view.done();
   });
 
@@ -125,8 +129,8 @@ describe("ListeningStats", () => {
     ninety!.click();
     await flush();
 
-    expect(mocks.getListeningSummary).toHaveBeenCalledWith(90);
-    expect(mocks.getTopTracksByTime).toHaveBeenCalledWith(5, 90);
+    expect(mocks.getListeningSummary).toHaveBeenCalledWith(90, undefined);
+    expect(mocks.getTopTracksByTime).toHaveBeenCalledWith(5, 90, undefined);
     // The weekly graph is window-independent and must not refetch.
     expect(mocks.getListeningTime).toHaveBeenCalledTimes(1);
     view.done();

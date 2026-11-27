@@ -40,7 +40,7 @@ function brightnessOf(color: string): number {
   }
   const hex = c.match(/^#([0-9a-fA-F]{6})$/);
   const rgb = c.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
-  let r = 0, g = 0, b = 0;
+  let r: number, g: number, b: number;
   if (hex) {
     const n = parseInt(hex[1], 16);
     r = (n >> 16) & 255; g = (n >> 8) & 255; b = n & 255;
