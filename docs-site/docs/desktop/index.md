@@ -7,10 +7,10 @@ The Muorg desktop client is built with **Tauri 2 + Vue 3** and runs on macOS, Wi
 
 ## Install
 
-Download the installer for your platform from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v) (desktop releases ship on their own tags, separate from the server/web `v*` releases):
+Download the installer for your platform from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop) (desktop releases ship on their own tags, separate from the server/web `v*` releases):
 
 | Platform | File |
-|----------|------|
+| ---------- | ------ |
 | macOS (Apple Silicon) | `muorg-<version>-macos.dmg` |
 | Windows (x64) | `muorg-<version>-windows.msi` |
 | Linux (x64) | `muorg-<version>-linux.AppImage` |
@@ -95,7 +95,7 @@ Add tracks from any context menu (**Add to queue**). The **Queue** view lists th
 The **Reports** section shows live counts and opens a results list you can act on in bulk:
 
 | Report | What it finds |
-|--------|---------------|
+| -------- | --------------- |
 | Missing metadata | Tracks missing any of the fields you selected in Settings |
 | Duplicates | Tracks sharing the same artist + album + title |
 | Missing album cover | Tracks with no embedded artwork |
@@ -117,7 +117,7 @@ The **accent color** is derived from the playing album's cover (most common colo
 ## Keyboard shortcuts
 
 | Shortcut | Action |
-|----------|--------|
+| ---------- | -------- |
 | `Space` | Play / pause |
 | `Escape` | Leave the maximized player |
 | `Cmd/Ctrl+A` | Select all tracks in the current view |

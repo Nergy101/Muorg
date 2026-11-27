@@ -24,6 +24,58 @@ const artistTracks = computed(() =>
 );
 const artistAlbums = useAlbums(computed(() => artistTracks.value));
 
+// ── Sorting (Albums + Tracks headers) ───────────────────────────────────────
+type SortKey = "date" | "alpha" | "plays";
+type SortDir = "asc" | "desc";
+interface SortState { key: SortKey; dir: SortDir; }
+
+/** Click cycles: date asc → date desc → alpha asc → alpha desc → plays asc → plays desc. */
+const SORT_CYCLE: SortState[] = [
+  { key: "date", dir: "asc" },
+  { key: "date", dir: "desc" },
+  { key: "alpha", dir: "asc" },
+  { key: "alpha", dir: "desc" },
+  { key: "plays", dir: "asc" },
+  { key: "plays", dir: "desc" },
+];
+const albumSort = ref<SortState>({ key: "date", dir: "asc" });
+const trackSort = ref<SortState>({ key: "date", dir: "asc" });
+
+function nextSort(s: SortState): SortState {
+  const i = SORT_CYCLE.findIndex((c) => c.key === s.key && c.dir === s.dir);
+  return SORT_CYCLE[(i + 1) % SORT_CYCLE.length];
+}
+
+const SORT_LABELS: Record<SortKey, string> = { date: "Release date", alpha: "Alphabetical", plays: "Most listened" };
+function sortTitle(s: SortState): string {
+  return `${SORT_LABELS[s.key]} (${s.dir === "asc" ? "ascending" : "descending"}) — click to change`;
+}
+
+const trackById = computed(() => new Map(tracks.value.map((t) => [t.id, t])));
+function albumPlayCount(a: (typeof artistAlbums.value)[number]): number {
+  return a.trackIds.reduce((sum, id) => sum + (trackById.value.get(id)?.play_count ?? 0), 0);
+}
+
+const sortedAlbums = computed(() => {
+  const { key, dir } = albumSort.value;
+  const mul = dir === "asc" ? 1 : -1;
+  return [...artistAlbums.value].sort((a, b) => {
+    if (key === "date") return ((a.year ?? 0) - (b.year ?? 0)) * mul || a.album.localeCompare(b.album);
+    if (key === "alpha") return a.album.localeCompare(b.album) * mul;
+    return (albumPlayCount(a) - albumPlayCount(b)) * mul || a.album.localeCompare(b.album);
+  });
+});
+
+const sortedTracks = computed(() => {
+  const { key, dir } = trackSort.value;
+  const mul = dir === "asc" ? 1 : -1;
+  return [...artistTracks.value].sort((a, b) => {
+    if (key === "date") return ((a.year ?? 0) - (b.year ?? 0)) * mul || (a.title ?? "").localeCompare(b.title ?? "");
+    if (key === "alpha") return (a.title ?? "").localeCompare(b.title ?? "") * mul;
+    return ((a.play_count ?? 0) - (b.play_count ?? 0)) * mul || (a.title ?? "").localeCompare(b.title ?? "");
+  });
+});
+
 /** Avatar: 1/2/3/4-album mosaic of the artist's first and last 2 distinct albums. */
 const avatarCovers = computed(() => {
   const distinct = [...new Map(artistAlbums.value.map((a) => [a.key, a])).values()]
@@ -140,10 +192,22 @@ function fmtDuration(secs: number): string {
         </button>
       </div>
 
-      <h2 class="mb-3 text-[15px] font-bold text-on-background">Albums</h2>
+      <div class="mb-3 flex items-center gap-2">
+        <h2 class="text-[15px] font-bold text-on-background">Albums</h2>
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded-full px-2 py-1 text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+          :title="sortTitle(albumSort)"
+          :aria-label="`Sort albums: ${sortTitle(albumSort)}`"
+          @click="albumSort = nextSort(albumSort)"
+        >
+          <FeatherIcon :name="albumSort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" class="h-3.5 w-3.5" />
+          <span class="text-[10px] font-semibold uppercase tracking-wide">{{ SORT_LABELS[albumSort.key] }}</span>
+        </button>
+      </div>
       <div class="shelf-grid mb-6">
         <button
-          v-for="album in artistAlbums"
+          v-for="album in sortedAlbums"
           :key="album.key"
           type="button"
           class="album-card"
@@ -193,11 +257,23 @@ function fmtDuration(secs: number): string {
         <div v-if="albumMenu" class="fixed inset-0 z-[299]" @click="closeAlbumMenu" @contextmenu.prevent="closeAlbumMenu" />
       </Teleport>
 
-      <h2 class="mb-3 text-[15px] font-bold text-on-background">Tracks</h2>
+      <div class="mb-3 flex items-center gap-2">
+        <h2 class="text-[15px] font-bold text-on-background">Tracks</h2>
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded-full px-2 py-1 text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+          :title="sortTitle(trackSort)"
+          :aria-label="`Sort tracks: ${sortTitle(trackSort)}`"
+          @click="trackSort = nextSort(trackSort)"
+        >
+          <FeatherIcon :name="trackSort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" class="h-3.5 w-3.5" />
+          <span class="text-[10px] font-semibold uppercase tracking-wide">{{ SORT_LABELS[trackSort.key] }}</span>
+        </button>
+      </div>
       <!-- Track rows fill the remaining height and scroll -->
       <div class="min-h-0 flex-1 overflow-y-auto rounded-2xl pb-24">
         <button
-          v-for="track in artistTracks"
+          v-for="track in sortedTracks"
           :key="track.id"
           type="button"
           class="group flex w-full items-center gap-2.5 border-b border-outline/10 px-2 py-2 text-left transition-colors last:border-b-0"
