@@ -98,7 +98,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
 # Error Prone (required by Hilt/Dagger generated code with AGP 9.x)
-errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version = "2.52.0" }
+errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version = "2.53.0" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
