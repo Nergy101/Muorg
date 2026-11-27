@@ -94,6 +94,11 @@ CREATE TABLE IF NOT EXISTS track_backups (
     created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_track_backups_track_path ON track_backups(track_path);
+CREATE TABLE IF NOT EXISTS profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS play_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
@@ -106,6 +111,13 @@ CREATE TABLE IF NOT EXISTS play_history_daily (
     day_unix INTEGER PRIMARY KEY,
     plays INTEGER NOT NULL,
     listening_secs INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS play_history_daily_profiles (
+    day_unix INTEGER NOT NULL,
+    profile_id INTEGER NOT NULL DEFAULT 1,
+    plays INTEGER NOT NULL,
+    listening_secs INTEGER NOT NULL,
+    PRIMARY KEY (day_unix, profile_id)
 );
 ";
 
@@ -215,6 +227,30 @@ pub fn init_schema(conn: &rusqlite::Connection) -> Result<(), String> {
     if !schema_has_column(conn, "play_history", "duration_played")? {
         conn.execute("ALTER TABLE play_history ADD COLUMN duration_played INTEGER", [])
             .map_err(|e| e.to_string())?;
+    }
+    // Profiles (NER-326): optional per-person scoping of play history and
+    // listening stats. Profile 1 always exists and is the default; while it is
+    // the only one, clients hide every trace of profiles.
+    conn.execute_batch("INSERT OR IGNORE INTO profiles (id, name, created_at) VALUES (1, 'You', 0)")
+        .map_err(|e| e.to_string())?;
+    if !schema_has_column(conn, "play_history", "profile_id")? {
+        conn.execute(
+            "ALTER TABLE play_history ADD COLUMN profile_id INTEGER NOT NULL DEFAULT 1",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_play_history_profile ON play_history(profile_id);",
+        )
+        .map_err(|e| e.to_string())?;
+        // Seed the per-profile rollup from the aggregate one: every play that
+        // pre-dates profiles belongs to profile 1.
+        conn.execute_batch(
+            "INSERT OR IGNORE INTO play_history_daily_profiles
+                 (day_unix, profile_id, plays, listening_secs)
+             SELECT day_unix, 1, plays, listening_secs FROM play_history_daily;",
+        )
+        .map_err(|e| e.to_string())?;
     }
     // Seed the daily rollup from existing history so the weekly listening
     // graph has a past before the table existed. Going forward, record_play
@@ -1582,6 +1618,20 @@ pub fn record_play_with_duration(
     device_name: Option<&str>,
     duration_secs: Option<i64>,
 ) -> Result<(), String> {
+    record_play_profile(conn, path, device_name, duration_secs, 1)
+}
+
+/// Record a play attributed to a profile (NER-326). Unknown profile ids fall
+/// back to the default profile rather than being rejected, so a client whose
+/// profile list is stale can still record the play.
+pub fn record_play_profile(
+    conn: &rusqlite::Connection,
+    path: &str,
+    device_name: Option<&str>,
+    duration_secs: Option<i64>,
+    profile_id: i64,
+) -> Result<(), String> {
+    let profile_id = if profile_exists(conn, profile_id)? { profile_id } else { 1 };
     let now = now_secs()?;
     // (id, catalog duration) of the track, if it exists.
     let track: Option<(i64, Option<i64>)> = conn
@@ -1604,8 +1654,8 @@ pub fn record_play_with_duration(
             .unwrap_or(0)
             .min(86_400);
         conn.execute(
-            "INSERT INTO play_history (track_id, played_at, device_name, duration_played) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![id, now, device_name, reported],
+            "INSERT INTO play_history (track_id, played_at, device_name, duration_played, profile_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![id, now, device_name, reported, profile_id],
         ).map_err(|e| e.to_string())?;
         // Daily rollup (NER-325): keep one totals row per day so
         // prune_play_history can drop old rows without losing the weekly
@@ -1619,7 +1669,145 @@ pub fn record_play_with_duration(
                 listening_secs = listening_secs + excluded.listening_secs",
             rusqlite::params![day, estimated],
         ).map_err(|e| e.to_string())?;
+        // The same totals per profile (NER-326), so the weekly graph can be
+        // scoped to one profile or a set of them. The aggregate table above
+        // keeps covering the "all profiles" case untouched.
+        conn.execute(
+            "INSERT INTO play_history_daily_profiles (day_unix, profile_id, plays, listening_secs)
+             VALUES (?1, ?2, 1, ?3)
+             ON CONFLICT(day_unix, profile_id) DO UPDATE SET
+                plays = plays + excluded.plays,
+                listening_secs = listening_secs + excluded.listening_secs",
+            rusqlite::params![day, profile_id, estimated],
+        ).map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+// ── Profiles (NER-326) ────────────────────────────────────────────────────
+
+/// One listening profile. Profiles scope play history and listening stats to
+/// a person; the library, playlists and ratings stay shared.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct Profile {
+    pub id: i64,
+    pub name: String,
+    /// True for profile 1, the default that cannot be deleted.
+    pub is_default: bool,
+}
+
+/// Name of the default profile created for every database.
+pub const DEFAULT_PROFILE_NAME: &str = "You";
+
+/// All profiles, default first.
+pub fn list_profiles(conn: &rusqlite::Connection) -> Result<Vec<Profile>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, name FROM profiles ORDER BY id")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(Profile {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                is_default: r.get::<_, i64>(0)? == 1,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+/// Whether a profile with this id exists.
+pub fn profile_exists(conn: &rusqlite::Connection, id: i64) -> Result<bool, String> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM profiles WHERE id = ?1)",
+        [id],
+        |r| r.get::<_, i64>(0),
+    )
+    .map(|n| n != 0)
+    .map_err(|e| e.to_string())
+}
+
+/// Create a profile. The name is trimmed and must be 1..=64 characters.
+pub fn create_profile(conn: &rusqlite::Connection, name: &str) -> Result<Profile, String> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 64 {
+        return Err("Profile name must be 1 to 64 characters".to_string());
+    }
+    let now = now_secs()?;
+    conn.execute(
+        "INSERT INTO profiles (name, created_at) VALUES (?1, ?2)",
+        rusqlite::params![name, now],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(Profile {
+        id: conn.last_insert_rowid(),
+        name: name.to_string(),
+        is_default: false,
+    })
+}
+
+/// Rename a profile. The default profile can be renamed too; only its id is
+/// fixed, because play history rows point at it.
+pub fn rename_profile(conn: &rusqlite::Connection, id: i64, name: &str) -> Result<(), String> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 64 {
+        return Err("Profile name must be 1 to 64 characters".to_string());
+    }
+    if !profile_exists(conn, id)? {
+        return Err(format!("Profile {id} not found"));
+    }
+    conn.execute(
+        "UPDATE profiles SET name = ?1 WHERE id = ?2",
+        rusqlite::params![name, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Delete a profile and move its play history to the default profile. The
+/// default profile itself cannot be deleted, and the last remaining profile
+/// cannot be either — with one profile the feature is off, not broken.
+pub fn delete_profile(conn: &rusqlite::Connection, id: i64) -> Result<(), String> {
+    if id == 1 {
+        return Err("The default profile cannot be deleted".to_string());
+    }
+    if !profile_exists(conn, id)? {
+        return Err(format!("Profile {id} not found"));
+    }
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM profiles", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    if count <= 1 {
+        return Err("The last profile cannot be deleted".to_string());
+    }
+    conn.execute_batch("BEGIN DEFERRED").map_err(|e| e.to_string())?;
+    conn.execute("UPDATE play_history SET profile_id = 1 WHERE profile_id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    // Merge the per-profile daily rollup rows into the default profile's so
+    // the weekly graph keeps its history after the profile is gone.
+    conn.execute(
+        "INSERT INTO play_history_daily_profiles (day_unix, profile_id, plays, listening_secs)
+         SELECT day_unix, 1, plays, listening_secs
+         FROM play_history_daily_profiles WHERE profile_id = ?1
+         ON CONFLICT(day_unix, profile_id) DO UPDATE SET
+            plays = plays + excluded.plays,
+            listening_secs = listening_secs + excluded.listening_secs",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM play_history_daily_profiles WHERE profile_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM profiles WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1662,6 +1850,29 @@ fn window_cutoff(days: i64) -> Result<i64, String> {
     Ok(now_secs()? - days.max(0) * 86_400)
 }
 
+/// SQL fragment that restricts a play-history query to a set of profiles.
+/// Empty when no filter is given — the query then covers all profiles, which
+/// is what every pre-profiles caller expects (NER-326).
+fn profile_in_clause(profiles: Option<&[i64]>) -> String {
+    match profiles {
+        None | Some([]) => String::new(),
+        Some(ids) => format!(
+            " AND ph.profile_id IN ({})",
+            ids.iter().map(|_| "?").collect::<Vec<_>>().join(",")
+        ),
+    }
+}
+
+/// The bound values that pair with [`profile_in_clause`], in placeholder order.
+fn profile_params(profiles: Option<&[i64]>) -> Vec<rusqlite::types::Value> {
+    match profiles {
+        None | Some([]) => Vec::new(),
+        Some(ids) => ids
+            .iter()
+            .map(|&id| rusqlite::types::Value::Integer(id))
+            .collect(),
+    }
+}
 /// Listening totals over a look-back window.
 #[derive(Debug, serde::Serialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
@@ -1684,7 +1895,20 @@ pub fn get_listening_summary(
     conn: &rusqlite::Connection,
     days: i64,
 ) -> Result<ListeningSummary, String> {
+    get_listening_summary_profile(conn, days, None)
+}
+
+/// [`get_listening_summary`] restricted to a set of profiles (NER-326).
+/// `None` or an empty slice covers all profiles.
+pub fn get_listening_summary_profile(
+    conn: &rusqlite::Connection,
+    days: i64,
+    profiles: Option<&[i64]>,
+) -> Result<ListeningSummary, String> {
     let cutoff = window_cutoff(days)?;
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Integer(cutoff)];
+    params.extend(profile_params(profiles));
     conn.query_row(
         &format!(
             "SELECT COUNT(*), \
@@ -1694,10 +1918,11 @@ pub fn get_listening_summary(
                     COUNT(DISTINCT LOWER(TRIM(COALESCE(t.album, ''))) || '|||' || LOWER(TRIM(COALESCE(t.album_artist, '')))) \
              FROM play_history ph \
              JOIN tracks t ON t.id = ph.track_id \
-             WHERE ph.played_at >= ?1",
-            lis = LISTENED_SECS_SQL
+             WHERE ph.played_at >= ?1{profiles}",
+            lis = LISTENED_SECS_SQL,
+            profiles = profile_in_clause(profiles)
         ),
-        [cutoff],
+        rusqlite::params_from_iter(params.iter()),
         |r| {
             Ok(ListeningSummary {
                 days: days.max(0),
@@ -1729,7 +1954,21 @@ pub fn get_top_tracks_by_time(
     limit: i64,
     days: i64,
 ) -> Result<Vec<TopTrackStat>, String> {
+    get_top_tracks_by_time_profile(conn, limit, days, None)
+}
+
+/// [`get_top_tracks_by_time`] restricted to a set of profiles (NER-326).
+pub fn get_top_tracks_by_time_profile(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    days: i64,
+    profiles: Option<&[i64]>,
+) -> Result<Vec<TopTrackStat>, String> {
     let cutoff = window_cutoff(days)?;
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Integer(cutoff)];
+    params.extend(profile_params(profiles));
+    params.push(rusqlite::types::Value::Integer(limit.clamp(1, 500)));
     let mut stmt = conn
         .prepare(&format!(
             "SELECT ph.track_id, \
@@ -1738,15 +1977,16 @@ pub fn get_top_tracks_by_time(
                     COALESCE(SUM({lis}), 0) AS secs \
              FROM play_history ph \
              JOIN tracks t ON t.id = ph.track_id \
-             WHERE ph.played_at >= ?1 \
+             WHERE ph.played_at >= ?1{profiles} \
              GROUP BY ph.track_id \
              ORDER BY secs DESC, plays DESC, MAX(ph.played_at) DESC \
-             LIMIT ?2",
-            lis = LISTENED_SECS_SQL
+             LIMIT ?",
+            lis = LISTENED_SECS_SQL,
+            profiles = profile_in_clause(profiles)
         ))
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| {
             Ok(TopTrackStat {
                 track_id: r.get(0)?,
                 title: r.get(1)?,
@@ -1776,7 +2016,21 @@ pub fn get_top_artists_by_time(
     limit: i64,
     days: i64,
 ) -> Result<Vec<TopArtistStat>, String> {
+    get_top_artists_by_time_profile(conn, limit, days, None)
+}
+
+/// [`get_top_artists_by_time`] restricted to a set of profiles (NER-326).
+pub fn get_top_artists_by_time_profile(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    days: i64,
+    profiles: Option<&[i64]>,
+) -> Result<Vec<TopArtistStat>, String> {
     let cutoff = window_cutoff(days)?;
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Integer(cutoff)];
+    params.extend(profile_params(profiles));
+    params.push(rusqlite::types::Value::Integer(limit.clamp(1, 500)));
     let mut stmt = conn
         .prepare(&format!(
             "SELECT MAX(COALESCE(t.artist, '')) AS artist, \
@@ -1784,15 +2038,16 @@ pub fn get_top_artists_by_time(
                     COALESCE(SUM({lis}), 0) AS secs \
              FROM play_history ph \
              JOIN tracks t ON t.id = ph.track_id \
-             WHERE ph.played_at >= ?1 \
+             WHERE ph.played_at >= ?1{profiles} \
              GROUP BY LOWER(TRIM(COALESCE(t.artist, ''))) \
              ORDER BY secs DESC, plays DESC, MIN(ph.played_at) DESC \
-             LIMIT ?2",
-            lis = LISTENED_SECS_SQL
+             LIMIT ?",
+            lis = LISTENED_SECS_SQL,
+            profiles = profile_in_clause(profiles)
         ))
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| {
             Ok(TopArtistStat {
                 artist: r.get(0)?,
                 plays: r.get(1)?,
@@ -1820,7 +2075,21 @@ pub fn get_top_albums_by_time(
     limit: i64,
     days: i64,
 ) -> Result<Vec<TopAlbumStat>, String> {
+    get_top_albums_by_time_profile(conn, limit, days, None)
+}
+
+/// [`get_top_albums_by_time`] restricted to a set of profiles (NER-326).
+pub fn get_top_albums_by_time_profile(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    days: i64,
+    profiles: Option<&[i64]>,
+) -> Result<Vec<TopAlbumStat>, String> {
     let cutoff = window_cutoff(days)?;
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Integer(cutoff)];
+    params.extend(profile_params(profiles));
+    params.push(rusqlite::types::Value::Integer(limit.clamp(1, 500)));
     let mut stmt = conn
         .prepare(&format!(
             "SELECT MAX(COALESCE(t.album, '')) AS album, \
@@ -1829,15 +2098,16 @@ pub fn get_top_albums_by_time(
                     COALESCE(SUM({lis}), 0) AS secs \
              FROM play_history ph \
              JOIN tracks t ON t.id = ph.track_id \
-             WHERE ph.played_at >= ?1 \
+             WHERE ph.played_at >= ?1{profiles} \
              GROUP BY LOWER(TRIM(COALESCE(t.album, ''))) || '|||' || LOWER(TRIM(COALESCE(t.album_artist, ''))) \
              ORDER BY secs DESC, plays DESC, MIN(ph.played_at) DESC \
-             LIMIT ?2",
-            lis = LISTENED_SECS_SQL
+             LIMIT ?",
+            lis = LISTENED_SECS_SQL,
+            profiles = profile_in_clause(profiles)
         ))
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| {
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| {
             Ok(TopAlbumStat {
                 album: r.get(0)?,
                 album_artist: r.get(1)?,
@@ -1869,19 +2139,44 @@ pub fn get_listening_time_by_week(
     conn: &rusqlite::Connection,
     weeks: i64,
 ) -> Result<Vec<ListeningWeek>, String> {
+    get_listening_time_by_week_profile(conn, weeks, None)
+}
+
+/// [`get_listening_time_by_week`] restricted to a set of profiles (NER-326).
+/// With no filter the aggregate rollup is read, exactly as before; a filter
+/// reads the per-profile rollup so weeks keep totals per person.
+pub fn get_listening_time_by_week_profile(
+    conn: &rusqlite::Connection,
+    weeks: i64,
+    profiles: Option<&[i64]>,
+) -> Result<Vec<ListeningWeek>, String> {
     let weeks = weeks.clamp(1, 104);
     let now = now_secs()?;
     let week_secs: i64 = 7 * 86_400;
     let this_week_start = now - (now % week_secs);
     let window_start = this_week_start - (weeks - 1) * week_secs;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT day_unix, plays, listening_secs FROM play_history_daily WHERE day_unix >= ?1",
-        )
-        .map_err(|e| e.to_string())?;
+    let (sql, params): (String, Vec<rusqlite::types::Value>) = match profiles {
+        None | Some([]) => (
+            "SELECT day_unix, plays, listening_secs FROM play_history_daily WHERE day_unix >= ?1"
+                .to_string(),
+            vec![rusqlite::types::Value::Integer(window_start)],
+        ),
+        Some(ids) => (
+            format!(
+                "SELECT day_unix, plays, listening_secs \
+                 FROM play_history_daily_profiles WHERE day_unix >= ?1 AND profile_id IN ({})",
+                ids.iter().map(|_| "?").collect::<Vec<_>>().join(",")
+            ),
+            std::iter::once(rusqlite::types::Value::Integer(window_start))
+                .chain(ids.iter().map(|&id| rusqlite::types::Value::Integer(id)))
+                .collect(),
+        ),
+    };
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let daily: Vec<(i64, i64, i64)> = stmt
-        .query_map([window_start], |r| {
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, i64>(1)?,
@@ -1926,7 +2221,19 @@ pub struct ClockBucket {
 
 /// How listening is spread over the hours of the day, inside the window.
 pub fn get_play_clock(conn: &rusqlite::Connection, days: i64) -> Result<Vec<ClockBucket>, String> {
+    get_play_clock_profile(conn, days, None)
+}
+
+/// [`get_play_clock`] restricted to a set of profiles (NER-326).
+pub fn get_play_clock_profile(
+    conn: &rusqlite::Connection,
+    days: i64,
+    profiles: Option<&[i64]>,
+) -> Result<Vec<ClockBucket>, String> {
     let cutoff = window_cutoff(days)?;
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Integer(cutoff)];
+    params.extend(profile_params(profiles));
     let mut stmt = conn
         .prepare(&format!(
             "SELECT CAST(strftime('%H', ph.played_at, 'unixepoch', 'localtime') AS INTEGER) AS hour, \
@@ -1934,14 +2241,15 @@ pub fn get_play_clock(conn: &rusqlite::Connection, days: i64) -> Result<Vec<Cloc
                     COALESCE(SUM({lis}), 0) AS secs \
              FROM play_history ph \
              JOIN tracks t ON t.id = ph.track_id \
-             WHERE ph.played_at >= ?1 \
+             WHERE ph.played_at >= ?1{profiles} \
              GROUP BY hour \
              ORDER BY hour",
-            lis = LISTENED_SECS_SQL
+            lis = LISTENED_SECS_SQL,
+            profiles = profile_in_clause(profiles)
         ))
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([cutoff], |r| {
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| {
             Ok(ClockBucket {
                 hour: r.get(0)?,
                 plays: r.get(1)?,
@@ -1956,16 +2264,35 @@ pub fn get_play_clock(conn: &rusqlite::Connection, days: i64) -> Result<Vec<Cloc
 
 /// Last N distinct played tracks, most recent first.
 pub fn load_recently_played(conn: &rusqlite::Connection, limit: i64) -> Result<Vec<CatalogTrack>, String> {
+    load_recently_played_profile(conn, limit, None)
+}
+
+/// [`load_recently_played`] restricted to a set of profiles (NER-326).
+pub fn load_recently_played_profile(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    profiles: Option<&[i64]>,
+) -> Result<Vec<CatalogTrack>, String> {
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Integer(limit.clamp(1, 500))];
+    params.extend(profile_params(profiles));
     let mut stmt = conn
-        .prepare(
-            "SELECT track_id FROM play_history \
+        .prepare(&format!(
+            "SELECT track_id FROM play_history{filter} \
              GROUP BY track_id \
              ORDER BY MAX(played_at) DESC \
              LIMIT ?",
-        )
+            filter = match profiles {
+                None | Some([]) => String::new(),
+                Some(ids) => format!(
+                    " WHERE profile_id IN ({})",
+                    ids.iter().map(|_| "?").collect::<Vec<_>>().join(",")
+                ),
+            }
+        ))
         .map_err(|e| e.to_string())?;
     let ids: Vec<i64> = stmt
-        .query_map([limit.clamp(1, 500)], |r| r.get::<_, i64>(0))
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| r.get::<_, i64>(0))
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
@@ -1975,18 +2302,39 @@ pub fn load_recently_played(conn: &rusqlite::Connection, limit: i64) -> Result<V
 
 /// Most played tracks in the last N days.
 pub fn load_most_played(conn: &rusqlite::Connection, limit: i64, days: i64) -> Result<Vec<CatalogTrack>, String> {
+    load_most_played_profile(conn, limit, days, None)
+}
+
+/// [`load_most_played`] restricted to a set of profiles (NER-326).
+pub fn load_most_played_profile(
+    conn: &rusqlite::Connection,
+    limit: i64,
+    days: i64,
+    profiles: Option<&[i64]>,
+) -> Result<Vec<CatalogTrack>, String> {
     let cutoff = now_secs()? - days.max(0) * 86_400;
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Integer(cutoff)];
+    params.extend(profile_params(profiles));
+    params.push(rusqlite::types::Value::Integer(limit.clamp(1, 500)));
     let mut stmt = conn
-        .prepare(
+        .prepare(&format!(
             "SELECT track_id FROM play_history \
-             WHERE played_at >= ?1 \
+             WHERE played_at >= ?1{profiles} \
              GROUP BY track_id \
              ORDER BY COUNT(*) DESC, MAX(played_at) DESC \
              LIMIT ?",
-        )
+            profiles = match profiles {
+                None | Some([]) => String::new(),
+                Some(ids) => format!(
+                    " AND profile_id IN ({})",
+                    ids.iter().map(|_| "?").collect::<Vec<_>>().join(",")
+                ),
+            }
+        ))
         .map_err(|e| e.to_string())?;
     let ids: Vec<i64> = stmt
-        .query_map(rusqlite::params![cutoff, limit.clamp(1, 500)], |r| r.get::<_, i64>(0))
+        .query_map(rusqlite::params_from_iter(params.iter()), |r| r.get::<_, i64>(0))
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;

@@ -910,6 +910,40 @@
         ],
         "type": "object"
       },
+      "Profile": {
+        "description": "One listening profile. Profiles scope play history and listening stats to\na person; the library, playlists and ratings stay shared.",
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "is_default": {
+            "description": "True for profile 1, the default that cannot be deleted.",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_default"
+        ],
+        "type": "object"
+      },
+      "ProfileBody": {
+        "properties": {
+          "name": {
+            "description": "Display name, 1 to 64 characters. Trimmed server-side.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "RatingBody": {
         "properties": {
           "rating": {
@@ -933,6 +967,14 @@
           },
           "duration_secs": {
             "description": "Optional seconds actually listened (NER-325). When omitted the row\nkeeps no measured time and statistics estimate it from the track's\ncatalog duration.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "profile_id": {
+            "description": "Profile the play is attributed to (NER-326). Omitted or unknown ids\nfall back to the default profile.",
             "format": "int64",
             "type": [
               "integer",
@@ -2406,6 +2448,18 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -2469,6 +2523,18 @@
               "format": "int64",
               "type": [
                 "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
                 "null"
               ]
             }
@@ -3439,6 +3505,243 @@
         ]
       }
     },
+    "/api/profiles": {
+      "get": {
+        "operationId": "list_profiles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Profile"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Profiles, default profile first"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "All listening profiles, default first.",
+        "tags": [
+          "Profiles"
+        ]
+      },
+      "post": {
+        "operationId": "create_profile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Create a profile. Creating the second profile is what turns the feature on\nin clients; one profile is the invisible default.",
+        "tags": [
+          "Profiles"
+        ]
+      }
+    },
+    "/api/profiles/{id}": {
+      "delete": {
+        "operationId": "delete_profile",
+        "parameters": [
+          {
+            "description": "Profile id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Deleted; plays moved to the default profile"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Default or last profile cannot be deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such profile"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Delete a profile. Its play history and rollup rows move to the default\nprofile, so no listening history is lost. The default profile and the\nlast remaining profile cannot be deleted.",
+        "tags": [
+          "Profiles"
+        ]
+      },
+      "patch": {
+        "operationId": "rename_profile",
+        "parameters": [
+          {
+            "description": "Profile id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Renamed"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid name"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No such profile"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Rename a profile. The default profile may be renamed; only its id is fixed,\nbecause play history rows point at it.",
+        "tags": [
+          "Profiles"
+        ]
+      }
+    },
     "/api/roots": {
       "get": {
         "operationId": "get_roots",
@@ -3587,6 +3890,18 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -3641,6 +3956,18 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -3692,6 +4019,18 @@
               "format": "int64",
               "type": [
                 "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
                 "null"
               ]
             }
@@ -3756,6 +4095,18 @@
               "format": "int64",
               "type": [
                 "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
                 "null"
               ]
             }
@@ -3826,6 +4177,18 @@
                 "null"
               ]
             }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -3890,6 +4253,18 @@
               "format": "int64",
               "type": [
                 "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Comma-separated profile ids (NER-326). Absent or empty covers all.",
+            "in": "query",
+            "name": "profiles",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
                 "null"
               ]
             }
@@ -5183,6 +5558,10 @@
     {
       "description": "Regular and rule-driven smart playlists",
       "name": "Playlists"
+    },
+    {
+      "description": "Optional per-person scoping of plays and listening stats",
+      "name": "Profiles"
     },
     {
       "description": "Token issuing and audio delivery",

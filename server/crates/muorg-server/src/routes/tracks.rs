@@ -420,6 +420,9 @@ pub struct RecordPlayBody {
     /// keeps no measured time and statistics estimate it from the track's
     /// catalog duration.
     pub duration_secs: Option<i64>,
+    /// Profile the play is attributed to (NER-326). Omitted or unknown ids
+    /// fall back to the default profile.
+    pub profile_id: Option<i64>,
 }
 
 // POST /api/tracks/:id/play
@@ -448,12 +451,14 @@ pub async fn record_play(
     let record = body.map(|Json(body)| body);
     let device_name = record.as_ref().and_then(|b| b.device_name.clone());
     let duration_secs = record.as_ref().and_then(|b| b.duration_secs);
+    let profile_id = record.as_ref().and_then(|b| b.profile_id).unwrap_or(1);
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    muorg_core::catalog::record_play_with_duration(
+    muorg_core::catalog::record_play_profile(
         &conn,
         &track_path,
         device_name.as_deref(),
         duration_secs,
+        profile_id,
     )?;
     Ok(Json(OkResponse::new()))
 }

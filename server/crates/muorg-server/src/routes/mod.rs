@@ -4,6 +4,7 @@ pub mod dto;
 pub mod library;
 pub mod openapi;
 pub mod playlists;
+pub mod profiles;
 pub mod stats;
 pub mod stream;
 pub mod tracks;

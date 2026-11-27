@@ -86,6 +86,10 @@ pub fn build_router(state: Arc<AppState>, allowed_origins: &[String]) -> Router 
         .route("/api/play-history/top", get(routes::library::get_top_play_history))
         .route("/api/search", get(routes::library::search_tracks))
         .route("/api/stats", get(routes::library::get_stats))
+        .route("/api/profiles",
+            get(routes::profiles::list).post(routes::profiles::create))
+        .route("/api/profiles/{id}",
+            patch(routes::profiles::rename).delete(routes::profiles::remove))
         .route("/api/stats/summary", get(routes::stats::get_listening_summary))
         .route("/api/stats/top/tracks", get(routes::stats::get_top_tracks_time))
         .route("/api/stats/top/artists", get(routes::stats::get_top_artists_time))
