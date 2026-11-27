@@ -7,10 +7,10 @@ Every Muorg component is published from the same GitHub repository. This page is
 
 ## Desktop app
 
-The desktop app is released **separately** from the server and web images, under its own `desktop-v<version>` tag, so a desktop release never waits on (or triggers) a Docker rebuild. Download from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v). Assets are named after the version, e.g. `muorg-5.0.0-macos.dmg`.
+The desktop app is released **separately** from the server and web images, under its own `desktop-v<version>` tag, so a desktop release never waits on (or triggers) a Docker rebuild. Download from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop). Assets are named after the version, e.g. `muorg-5.0.0-macos.dmg`.
 
 | Platform | File | Install |
-|----------|------|---------|
+| ---------- | ------ | --------- |
 | macOS (Apple Silicon) | `muorg-<version>-macos.dmg` | Open the disk image, drag **Muorg** into Applications. |
 | Windows (x64) | `muorg-<version>-windows.msi` | Run the installer. |
 | Linux (x64) | `muorg-<version>-linux.AppImage` | `chmod +x muorg-*.AppImage && ./muorg-*.AppImage` |
@@ -86,7 +86,7 @@ The image is a static site served by nginx on port `80`. It has **no build-time 
 ## Image and version summary
 
 | Artifact | Name | Tags |
-|----------|------|------|
+| ---------- | ------ | ------ |
 | Server image | `ghcr.io/nergy101/muorg-server` | `<version>`, `latest` |
 | Web image | `ghcr.io/nergy101/muorg-web` | `<version>`, `latest` |
 | Docs image | `ghcr.io/nergy101/muorg-docs` | `<version>`, `latest` |

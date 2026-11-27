@@ -1,5 +1,7 @@
 ---
+title: Release Notes
 sidebar_position: 8
+description: Docs are versioned per release — see [Versioned docs](/docs/development#docs-versioning) for when a new docs snapshot is cut.
 ---
 
 # Release Notes

@@ -331,3 +331,19 @@ jobs:
           files: dist/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The app's updater endpoint (tauri.conf.json) is the stable URL
+      # releases/download/desktop-updater/latest.json — /releases/latest/
+      # points at the newest v* (server) release, which has no latest.json.
+      # Each desktop release overwrites the feed's latest.json here.
+      - name: Publish updater feed (desktop-updater release)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view desktop-updater >/dev/null 2>&1; then
+            gh release create desktop-updater \
+              --title "Muorg Desktop updater feed" \
+              --notes "Internal auto-updater feed for the Muorg desktop app. Not an installer — do not download manually." \
+              --prerelease
+          fi
+          gh release upload desktop-updater dist/latest.json --clobber

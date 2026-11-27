@@ -37,9 +37,10 @@ const updateCompleteVersion = ref("");
 
 const GITHUB_RELEASE_BASE = "https://github.com/Nergy101/Muorg/releases";
 
+/** Desktop releases live on desktop-v* tags (not the v* server releases). */
 function releaseTagUrl(version: string) {
   const stripped = version.startsWith("v") ? version.slice(1) : version;
-  return `${GITHUB_RELEASE_BASE}/tag/v${stripped}`;
+  return `${GITHUB_RELEASE_BASE}/tag/desktop-v${stripped}`;
 }
 
 async function checkForUpdates() {
@@ -202,12 +203,23 @@ async function copyPathToClipboard(path: string) {
                 </p>
                 <button
                   type="button"
-                  class="rounded border border-outline bg-surface-container px-3 py-1.5 text-xs text-on-surface hover:bg-surface-variant disabled:opacity-60"
+                  class="btn-outline !py-2 !text-xs"
                   :disabled="updateCheckStatus === 'checking'"
                   @click="checkForUpdates"
                 >
+                  <FeatherIcon name="refresh-cw" class="h-3.5 w-3.5" :class="updateCheckStatus === 'checking' ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'" />
                   <span v-if="updateCheckStatus === 'checking'">Checking…</span>
                   <span v-else>Check for updates</span>
+                </button>
+                <button
+                  type="button"
+                  class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-on-surface-variant underline decoration-dotted underline-offset-2 hover:text-on-surface"
+                  @click="openReleaseUrl('https://github.com/Nergy101/Muorg/releases?q=desktop-v')"
+                  @mouseenter="showLinkTooltip('https://github.com/Nergy101/Muorg/releases?q=desktop-v', $event)"
+                  @mouseleave="hideLinkTooltip"
+                >
+                  <FeatherIcon name="github" class="h-3 w-3 shrink-0" />
+                  All desktop releases on GitHub
                 </button>
                 <div v-if="updateCheckStatus === 'up-to-date'" class="settings-uptodate-notice mt-3 rounded border p-2.5">
                   <p class="text-xs font-medium text-blue-300">Up to date</p>
@@ -242,10 +254,11 @@ async function copyPathToClipboard(path: string) {
                   <div class="mt-2 flex items-center gap-3">
                     <button
                       type="button"
-                      class="settings-action-btn rounded px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                      class="btn-primary !py-2 !text-xs"
                       :disabled="updateDownloadProgress !== null"
                       @click="installUpdate"
                     >
+                      <FeatherIcon name="download" class="h-3.5 w-3.5" />
                       <span v-if="updateDownloadProgress === null"
                         >Download and install</span
                       >
@@ -273,7 +286,7 @@ async function copyPathToClipboard(path: string) {
                 <div class="mt-1 flex gap-2">
                   <button
                     type="button"
-                    class="inline-flex items-center gap-1.5 rounded border border-outline px-2.5 py-1 text-[11px] text-on-surface hover:bg-surface-variant"
+                    class="btn-outline !py-1.5 !text-[11px]"
                     @click="copyPathToClipboard(settingsFilePath)"
                   >
                     <FeatherIcon name="clipboard" class="h-3 w-3 shrink-0" />
@@ -281,9 +294,10 @@ async function copyPathToClipboard(path: string) {
                   </button>
                   <button
                     type="button"
-                    class="rounded border border-outline px-2.5 py-1 text-[11px] text-on-surface hover:bg-surface-variant"
+                    class="btn-outline !py-1.5 !text-[11px]"
                     @click="openReleaseUrl(`file://${settingsFilePath}`)"
                   >
+                    <FeatherIcon name="folder" class="h-3 w-3 shrink-0" />
                     Open in file manager
                   </button>
                 </div>
@@ -305,10 +319,11 @@ async function copyPathToClipboard(path: string) {
                 </p>
                 <button
                   type="button"
-                  class="rounded border border-outline bg-surface-container px-3 py-1.5 text-xs text-on-surface hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60"
+                  class="btn-outline !py-2 !text-xs"
                   :disabled="clearCacheStatus === 'clearing'"
                   @click="clearCache"
                 >
+                  <FeatherIcon name="rotate-ccw" class="h-3.5 w-3.5" :class="clearCacheStatus === 'clearing' ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'" />
                   <span v-if="clearCacheStatus === 'idle'">Clear cache</span>
                   <span v-else-if="clearCacheStatus === 'clearing'"
                     >Clearing…</span
@@ -340,10 +355,11 @@ async function copyPathToClipboard(path: string) {
                 </p>
                 <button
                   type="button"
-                  class="rounded border border-red-900 bg-surface-container px-3 py-1.5 text-xs text-red-300 hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60"
+                  class="btn-outline !py-2 !text-xs !border-red-500/40 !text-red-300 hover:!bg-red-500/10"
                   :disabled="purgeStatus === 'purging'"
                   @click="purgeRemovedTracks"
                 >
+                  <FeatherIcon name="trash-2" class="h-3.5 w-3.5" />
                   <span v-if="purgeStatus === 'idle'">Purge removed tracks</span>
                   <span v-else-if="purgeStatus === 'purging'">Purging…</span>
                   <span v-else-if="purgeStatus === 'done'">Purged</span>
@@ -589,16 +605,17 @@ async function copyPathToClipboard(path: string) {
         <div class="mt-4 flex justify-end gap-2">
           <button
             type="button"
-            class="rounded border border-outline px-3 py-1.5 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
+            class="btn-outline !py-1.5 !text-xs"
             @click="closeUpdateCompleteModal"
           >
             Later
           </button>
           <button
             type="button"
-            class="settings-action-btn rounded px-3 py-1.5 text-sm font-medium"
+            class="btn-primary !py-1.5 !text-xs"
             @click="restartAfterUpdate"
           >
+            <FeatherIcon name="refresh-cw" class="h-3.5 w-3.5" />
             Restart now
           </button>
         </div>
