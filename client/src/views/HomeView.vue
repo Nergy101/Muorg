@@ -90,6 +90,7 @@ const displayedMixes = computed(() => mixes.value.slice(0, cols.value * 2));
 //    with the web/android clients via @shared/composables/useMixes ──────────
 import { useMixes, type Mix } from "@shared/composables/useMixes";
 import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
+import { resolvePlaylistIcon } from "@shared/playlistIcons";
 
 const { mixes, refresh: refreshMixes } = useMixes({
   tracks: () => store.tracks,
@@ -160,6 +161,11 @@ function openMix(mix: Mix) {
 
 function shuffleMix(mix: Mix) {
   shuffleIds(mix.trackIds);
+}
+
+/** The mix's lucide icon color, used to tint the hover Play button. */
+function mixIconColor(mix: Mix): string {
+  return resolvePlaylistIcon(mix.icon).color;
 }
 
 const refreshSpin = ref(false);
@@ -310,7 +316,7 @@ onMounted(() => {
                 </div>
               </div>
             </template>
-            <CardHoverActions :cover-path="mixCoverPaths(mix)[0] ?? ''" @play="playMix(mix)" @shuffle="shuffleMix(mix)" />
+            <CardHoverActions :cover-path="mixCoverPaths(mix)[0] ?? ''" :accent-color="mixIconColor(mix)" @play="playMix(mix)" @shuffle="shuffleMix(mix)" />
           </div>
           <template v-if="mixCardStyle === 'below'">
             <div class="mt-0.5 h-[18px] text-[13px] font-semibold leading-[18px] text-on-surface">

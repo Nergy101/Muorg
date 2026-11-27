@@ -10,7 +10,12 @@ import { accentHexFromRgb } from "../../composables/useDynamicAccent";
  * tinted with the accent color this cover art would give (dominant color),
  * falling back to the theme accent.
  */
-const props = defineProps<{ coverPath?: string }>();
+const props = defineProps<{
+  coverPath?: string;
+  /** Explicit accent color for the Play button (e.g. a mix's lucide icon color).
+   *  When set, it overrides the cover-art-derived color. */
+  accentColor?: string;
+}>();
 const emit = defineEmits<{
   (e: "play"): void;
   (e: "shuffle"): void;
@@ -23,7 +28,7 @@ const dominantRgb = useDominantColor(coverUrl);
 // Mode first (cover background); for light/low-saturation covers the mode is
 // gray, so fall back to the saturation-weighted average which catches the tint.
 const playColor = computed(
-  () => accentHexFromRgb(modeRgb.value) ?? accentHexFromRgb(dominantRgb.value) ?? "var(--primary)",
+  () => props.accentColor ?? accentHexFromRgb(modeRgb.value) ?? accentHexFromRgb(dominantRgb.value) ?? "var(--primary)",
 );
 </script>
 
