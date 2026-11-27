@@ -2273,9 +2273,9 @@ pub fn load_recently_played_profile(
     limit: i64,
     profiles: Option<&[i64]>,
 ) -> Result<Vec<CatalogTrack>, String> {
-    let mut params: Vec<rusqlite::types::Value> =
-        vec![rusqlite::types::Value::Integer(limit.clamp(1, 500))];
-    params.extend(profile_params(profiles));
+    // Placeholder order in the SQL is the WHERE IN (?)s first, LIMIT ? last.
+    let mut params: Vec<rusqlite::types::Value> = profile_params(profiles);
+    params.push(rusqlite::types::Value::Integer(limit.clamp(1, 500)));
     let mut stmt = conn
         .prepare(&format!(
             "SELECT track_id FROM play_history{filter} \

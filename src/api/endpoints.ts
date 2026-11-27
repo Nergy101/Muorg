@@ -19,7 +19,6 @@ import type {
   CatalogTrack,
   MatchCandidate,
   MetadataUpdate,
-  Profile,
   RecordPlayBody,
   RenameCollision,
   TracksPage,
