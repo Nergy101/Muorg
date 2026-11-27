@@ -58,6 +58,10 @@ class AppPreferences @Inject constructor(
         private val KEY_BACKUP_BEFORE_WRITE = booleanPreferencesKey("backup_before_write")
         private val KEY_APPLY_FROM_PATH = booleanPreferencesKey("apply_from_path")
         private val KEY_LAST_TAB = stringPreferencesKey("last_tab")
+        // NER-326: the listening profile chosen per server (profiles are
+        // server-specific). The id only counts when the server matches.
+        private val KEY_ACTIVE_PROFILE_ID = longPreferencesKey("active_profile_id")
+        private val KEY_ACTIVE_PROFILE_SERVER = stringPreferencesKey("active_profile_server")
     }
 
     val serverUrl: Flow<String> = context.dataStore.data
@@ -217,6 +221,22 @@ class AppPreferences @Inject constructor(
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = serverUrl.trimEnd('/')
             prefs[KEY_API_KEY] = apiKey.trim()
+        }
+    }
+
+    /** The stored listening-profile id for the current server, or null (NER-326). */
+    val activeProfileForCurrentServer: Flow<Long?> = context.dataStore.data
+        .map { prefs ->
+            val server = prefs[KEY_ACTIVE_PROFILE_SERVER]
+            val id = prefs[KEY_ACTIVE_PROFILE_ID]
+            if (server != null && id != null && server == prefs[KEY_SERVER_URL]) id else null
+        }
+
+    /** Remembers which profile this device listens as on [serverUrl] (NER-326). */
+    suspend fun saveActiveProfile(serverUrl: String, id: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ACTIVE_PROFILE_SERVER] = serverUrl.trimEnd('/')
+            prefs[KEY_ACTIVE_PROFILE_ID] = id
         }
     }
 

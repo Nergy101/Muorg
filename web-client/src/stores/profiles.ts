@@ -8,9 +8,20 @@ import {
 } from "../api/catalog";
 import type { Profile } from "../types";
 import { loadPref, savePref } from "./prefs";
+import { getServerUrl } from "../api/client";
 
-/** localStorage key for the active profile id. */
-const ACTIVE_PROFILE_KEY = "muorg.activeProfileId";
+/**
+ * Profiles are per library context: every server has its own profile list
+ * (server-side data) and its own "listening as" choice, stored under a key
+ * derived from the server URL. The local sidecar is its own context too.
+ */
+function contextKey(): string {
+  return getServerUrl() || "local";
+}
+
+function activeKey(): string {
+  return `muorg.activeProfileId.${contextKey()}`;
+}
 
 /**
  * NER-326: listening profiles.
@@ -27,7 +38,7 @@ const ACTIVE_PROFILE_KEY = "muorg.activeProfileId";
 export const useProfilesStore = defineStore("profiles", () => {
   const profiles = ref<Profile[]>([]);
   const activeProfileId = ref<number>(
-    loadPref(ACTIVE_PROFILE_KEY, 1 /* the default profile */),
+    loadPref(activeKey(), 1 /* the default profile */),
   );
   const loaded = ref(false);
 
@@ -54,7 +65,7 @@ export const useProfilesStore = defineStore("profiles", () => {
       if (!profiles.value.some((p) => p.id === activeProfileId.value)) {
         // Deleted server-side (or a stale localStorage id) — fall back home.
         activeProfileId.value = profiles.value[0]?.id ?? 1;
-        savePref(ACTIVE_PROFILE_KEY, activeProfileId.value);
+        savePref(activeKey(), activeProfileId.value);
       }
     } catch {
       // Offline or old server without the endpoints: keep a single-profile view.
@@ -63,10 +74,24 @@ export const useProfilesStore = defineStore("profiles", () => {
     }
   }
 
+  /** Re-read the stored choice for the current server (after connecting). */
+  function bindContext(): void {
+    activeProfileId.value = loadPref(activeKey(), 1);
+  }
+
+  /** True when the user already picked a profile for the current server. */
+  function hasStoredChoice(): boolean {
+    try {
+      return localStorage.getItem(activeKey()) != null;
+    } catch {
+      return false;
+    }
+  }
+
   function setActive(id: number): void {
     if (!profiles.value.some((p) => p.id === id)) return;
     activeProfileId.value = id;
-    savePref(ACTIVE_PROFILE_KEY, id);
+    savePref(activeKey(), id);
   }
 
   async function create(name: string): Promise<Profile> {
@@ -94,6 +119,8 @@ export const useProfilesStore = defineStore("profiles", () => {
     enabled,
     activeFilter,
     loaded,
+    bindContext,
+    hasStoredChoice,
     refresh,
     setActive,
     create,

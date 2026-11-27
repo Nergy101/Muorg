@@ -66,6 +66,18 @@
         </div>
       </Teleport>
 
+      <!-- NER-326: the active listening profile is always visible on Home once
+           the server has more than one profile. -->
+      <div
+        v-if="profilesStore.enabled && profilesStore.activeProfile"
+        class="content-col flex items-center gap-2 px-4 pb-1 pt-1 text-body-sm text-on-surface-variant"
+      >
+        <MageIcon name="user" class="h-4 w-4 text-primary" />
+        <span>
+          Listening as <span class="font-medium text-primary">{{ profilesStore.activeProfile.name }}</span>
+        </span>
+      </div>
+
       <EmptyState
         v-if="libraryEmpty"
         class="content-col"

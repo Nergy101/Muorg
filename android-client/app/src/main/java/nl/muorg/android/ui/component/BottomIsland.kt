@@ -132,6 +132,9 @@ fun BottomIsland(
     onTrackMenu: () -> Unit,
     /** Lights the queue glyph while the queue screen is the one on screen. */
     queueActive: Boolean,
+    /** NER-326: "Listening as …" chip shown in the nav island when the server
+     *  has multiple profiles. Null hides it (single-profile view). */
+    profileLabel: String? = null,
     showTabs: Boolean,
     chrome: (@Composable () -> Unit)?,
     chromeExpanded: Boolean,
@@ -170,6 +173,28 @@ fun BottomIsland(
         if (chrome != null && chromeExpanded) {
             HorizontalDivider(thickness = 1.dp, color = outline.copy(alpha = 0.10f))
             chrome()
+        }
+
+        if (profileLabel != null && showTabs) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MageIcon(
+                    name = "user",
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(11.dp),
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = profileLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                )
+            }
         }
 
         if (showTabs) {

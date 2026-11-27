@@ -154,6 +154,8 @@ const settings = useSettingsStore();
 // refresh() flips it on if the server has a second profile. Failure (offline
 // or an old server) leaves the single-profile view, which is the default.
 const profilesStore = useProfilesStore();
+// Re-read the per-server profile choice, then load the server's profiles.
+profilesStore.bindContext();
 void profilesStore.refresh();
 // Desktop transport keys (Space/K, ←/→, J/L, Ctrl+←/→, M).
 useKeyboardShortcuts();

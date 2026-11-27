@@ -13,11 +13,13 @@ import {
 import { useCatalogStore } from "../../../stores/catalog";
 import { usePlaylistStore } from "../../../stores/playlists";
 import { useSettingsStore } from "../../../stores/settings";
+import { useProfilesStore } from "../../../stores/profiles";
 import FeatherIcon from "@shared/components/FeatherIcon.vue";
 
 const store = useCatalogStore();
 const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
+const profilesStore = useProfilesStore();
 
 const connMode = ref<"local" | "online">(getBackendMode());
 const connOnlineUrl = ref(getOnlineServerUrl());
@@ -45,6 +47,14 @@ async function applyAndReload() {
   await playlistStore.loadPlaylists();
   if (playlistStore.error) { connStatus.value = "error"; connError.value = playlistStore.error; return; }
 
+  // NER-326: profiles are server-specific. After connecting to a server with
+  // more than one profile, ask which one to listen as (remembered per server).
+  profilesStore.bindContext();
+  await profilesStore.refresh();
+  if (connMode.value === "online" && profilesStore.enabled && !profilesStore.hasStoredChoice()) {
+    profilePickerVisible.value = true;
+  }
+
   connStatus.value = "ok";
 }
 
@@ -58,6 +68,13 @@ async function switchMode(mode: "local" | "online") {
 
 const refreshStatus = ref<"idle" | "loading" | "ok" | "error">("idle");
 const refreshError = ref("");
+
+// NER-326: connect-time profile choice for servers with multiple profiles.
+const profilePickerVisible = ref(false);
+function chooseProfile(id: number) {
+  profilesStore.setActive(id);
+  profilePickerVisible.value = false;
+}
 
 async function refreshFromServer() {
   refreshStatus.value = "loading";
@@ -136,6 +153,27 @@ async function refreshFromServer() {
                   </button>
                 </div>
                 <p class="mt-1 text-[11px] text-on-surface-variant">Folders list will be read-only in online mode</p>
+              </div>
+            </div>
+
+            <!-- NER-326: this server has multiple listening profiles — pick one.
+                 The choice is stored per server URL. -->
+            <div v-if="profilePickerVisible" class="settings-section space-y-2 rounded-lg border border-primary/40 bg-primary/10 p-3">
+              <p class="text-xs font-semibold text-on-surface">Which profile are you listening as?</p>
+              <p class="text-[11px] text-on-surface-variant">The server has multiple profiles. You can change this later under Listening profiles.</p>
+              <div class="flex flex-col gap-1">
+                <button
+                  v-for="p in profilesStore.profiles"
+                  :key="p.id"
+                  type="button"
+                  class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-surface-variant/60"
+                  :class="p.id === profilesStore.activeProfileId ? 'text-primary' : 'text-on-surface'"
+                  @click="chooseProfile(p.id)"
+                >
+                  <FeatherIcon name="user" class="h-3.5 w-3.5" />
+                  <span class="truncate">{{ p.name }}</span>
+                  <span v-if="p.is_default" class="text-[10px] text-on-surface-variant">(default)</span>
+                </button>
               </div>
             </div>
 

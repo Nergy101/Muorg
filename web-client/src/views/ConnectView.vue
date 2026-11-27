@@ -58,6 +58,29 @@
           </button>
         </form>
 
+        <!-- NER-326: a server with more than one listening profile asks which
+             one to use. The choice is remembered per server URL. -->
+        <div v-if="choosingProfile" class="w-full rounded-xl bg-surface p-4">
+          <p class="mb-1 text-body-md font-medium text-on-surface">Which profile are you listening as?</p>
+          <p class="mb-3 text-body-sm text-on-surface-variant">
+            This server has multiple listening profiles. You can change it later in Settings.
+          </p>
+          <div class="flex flex-col gap-2">
+            <button
+              v-for="p in profilesStore.profiles"
+              :key="p.id"
+              type="button"
+              class="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-body-md transition-colors hover:bg-surface-variant/60"
+              :class="p.id === profilesStore.activeProfileId ? 'text-primary' : 'text-on-surface'"
+              @click="chooseProfile(p.id)"
+            >
+              <MageIcon name="user" class="h-4 w-4" />
+              <span class="truncate">{{ p.name }}</span>
+              <span v-if="p.is_default" class="text-body-sm text-on-surface-variant">(default)</span>
+            </button>
+          </div>
+        </div>
+
         <p class="text-center text-body-sm text-on-surface-variant/70">
           The server URL and API key are saved locally in your browser.
         </p>
@@ -73,6 +96,7 @@
 import { ref } from "vue";
 import MageIcon from "../components/MageIcon.vue";
 import { getServerUrl, getApiKey, setServerUrl, setApiKey, testConnection } from "../api/client";
+import { useProfilesStore } from "../stores/profiles";
 import { router, loadData } from "../router";
 import logoUrl from "../assets/muorg-logo.svg";
 
@@ -81,6 +105,19 @@ const apiKey = ref(getApiKey());
 const showKey = ref(false);
 const busy = ref(false);
 const errorMsg = ref("");
+const choosingProfile = ref(false);
+const profilesStore = useProfilesStore();
+
+async function proceed(): Promise<void> {
+  await loadData();
+  router.replace({ name: "library" });
+}
+
+function chooseProfile(id: number): void {
+  profilesStore.setActive(id);
+  choosingProfile.value = false;
+  void proceed();
+}
 
 async function connect(): Promise<void> {
   errorMsg.value = "";
@@ -95,8 +132,15 @@ async function connect(): Promise<void> {
     await testConnection(u, k);
     setServerUrl(u);
     setApiKey(k);
-    await loadData();
-    router.replace({ name: "library" });
+    // Profiles are server-specific: load this server's list and ask which
+    // one to listen as when there is more than one and no choice was stored.
+    profilesStore.bindContext();
+    await profilesStore.refresh();
+    if (profilesStore.enabled && !profilesStore.hasStoredChoice()) {
+      choosingProfile.value = true;
+      return;
+    }
+    await proceed();
   } catch (e) {
     const message = e instanceof TypeError ? "" : (e as Error).message;
     errorMsg.value = message || "Could not reach server. Check the URL and try again.";

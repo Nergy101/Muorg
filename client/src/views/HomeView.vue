@@ -6,8 +6,10 @@ import { useCatalogStore } from "../stores/catalog";
 import { useAlbums } from "../composables/useAlbums";
 import { navigate, activeMix } from "../state/navigation";
 import { useSettingsStore } from "../stores/settings";
+import { useProfilesStore } from "../stores/profiles";
 
 const settings = useSettingsStore();
+const profilesStore = useProfilesStore();
 const cardStyle = computed(() => settings.cardStyle);
 // Mix cards follow the card layout setting only when enabled; otherwise "below".
 const mixCardStyle = computed(() => (settings.mixCardsFollowLayout ? cardStyle.value : "below"));
@@ -194,7 +196,16 @@ onMounted(() => {
           <FeatherIcon name="play" class="h-4 w-4" /> Play random mix
         </button>
       </div>
-      <div class="flex w-full items-center gap-2 pt-1 sm:w-auto">
+      <div class="flex w-full flex-wrap items-center gap-2 pt-1 sm:w-auto">
+        <!-- NER-326: the active listening profile is always visible on Home. -->
+        <div
+          v-if="profilesStore.enabled && profilesStore.activeProfile"
+          class="stat-chip"
+          :title="'Play history and stats are scoped to this profile — change it in Settings'"
+        >
+          <FeatherIcon name="user" class="h-3.5 w-3.5 text-primary" />
+          <b>Listening as {{ profilesStore.activeProfile.name }}</b>
+        </div>
         <button type="button" class="stat-chip" @click="navigate({ name: 'list' })">
           <b>{{ tracks.length }}</b> tracks
         </button>

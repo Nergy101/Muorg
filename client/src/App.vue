@@ -23,6 +23,7 @@ import AlbumDetailHost from "./views/AlbumDetailHost.vue";
 import SearchView from "./components/library/SearchView.vue";
 import { useCatalogStore } from "./stores/catalog";
 import { useSettingsStore } from "./stores/settings";
+import { useProfilesStore } from "./stores/profiles";
 import { useCastEvents } from "./composables/useCastEvents";
 import { useDynamicAccent } from "./composables/useDynamicAccent";
 import { useDominantColor, useMostCommonColor } from "./composables/useDominantColor";
@@ -34,6 +35,17 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const store = useCatalogStore();
 const settingsStore = useSettingsStore();
+
+// NER-326: listening profiles. Re-read the per-context (local/server) choice
+// and load the current library's profiles; refresh again when the backend
+// mode flips, since local and server each have their own profiles.
+const profilesStore = useProfilesStore();
+profilesStore.bindContext();
+void profilesStore.refresh();
+watch(() => settingsStore.backendMode, () => {
+  profilesStore.bindContext();
+  void profilesStore.refresh();
+});
 
 useCastEvents();
 // Dynamic accent: recolors the UI (and the frosted player bar) to the playing album.
