@@ -10,7 +10,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +44,7 @@ import nl.muorg.android.ui.component.OrcPortrait
 import nl.muorg.android.ui.component.OrcStage
 import nl.muorg.android.ui.component.OrcVariant
 import nl.muorg.android.ui.component.PrimaryButton
+import nl.muorg.android.data.api.schema.Profile
 import nl.muorg.android.ui.icon.MageIcon
 import nl.muorg.android.ui.theme.ErrorRed
 import nl.muorg.android.ui.theme.OnboardingBrand
@@ -53,12 +58,40 @@ fun ConnectScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // NER-326: a multi-profile server asks which profile to listen as.
+    var pendingProfiles by remember { mutableStateOf<List<Profile>?>(null) }
+
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is ConnectEvent.Connected -> onConnected()
+                is ConnectEvent.ProfileChoiceRequired -> pendingProfiles = event.profiles
             }
         }
+    }
+
+    pendingProfiles?.let { profiles ->
+        AlertDialog(
+            onDismissRequest = { /* must choose — no dismiss */ },
+            title = { Text("Which profile are you listening as?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "This server has multiple listening profiles. You can change it later in Settings.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    profiles.forEach { p ->
+                        TextButton(
+                            onClick = { viewModel.chooseProfile(p.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("${p.name}${if (p.isDefault) " (default)" else ""}")
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+        )
     }
 
     var showApiKey by remember { mutableStateOf(false) }

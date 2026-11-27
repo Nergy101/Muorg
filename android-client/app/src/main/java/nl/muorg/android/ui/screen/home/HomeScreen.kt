@@ -58,6 +58,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import nl.muorg.android.R
 import nl.muorg.android.data.repository.Mix
+import nl.muorg.android.ui.screen.settings.ProfilesViewModel
 import nl.muorg.android.ui.component.AlbumCard
 import nl.muorg.android.ui.component.CoverMosaic
 import nl.muorg.android.ui.component.LocalBottomInset
@@ -90,8 +91,12 @@ fun HomeScreen(
     onViewArtist: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
+    // NER-326: the active listening profile, shown on Home once the server
+    // has more than one profile.
+    profilesViewModel: ProfilesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val profilesState by profilesViewModel.uiState.collectAsStateWithLifecycle()
 
     // Local mode's automatic first scan: while it runs, a full-screen loader
     // with the scanner bar replaces the page. It hides itself as soon as the
@@ -124,6 +129,11 @@ fun HomeScreen(
         item(span = { GridItemSpan(maxLineSpan) }) {
             HomeHeader(
                 shuffleEnabled = !state.isOfflineMode,
+                profileLabel = if (profilesState.enabled && profilesState.activeProfile != null) {
+                    "Listening as ${profilesState.activeProfile!!.name}"
+                } else {
+                    null
+                },
                 onLogoTapped = viewModel::onLogoTapped,
                 onShuffleAll = {
                     playerViewModel.startShuffleAll(
@@ -299,6 +309,7 @@ private fun ShelfSkeletonCard(modifier: Modifier = Modifier) {
 @Composable
 private fun HomeHeader(
     shuffleEnabled: Boolean,
+    profileLabel: String?,
     onShuffleAll: () -> Unit,
     onLogoTapped: () -> Unit,
 ) {
@@ -323,6 +334,25 @@ private fun HomeHeader(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.weight(1f))
+        if (profileLabel != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 8.dp),
+            ) {
+                MageIcon(
+                    name = "user",
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = profileLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         GlassSurface(
             material = GlassMaterial.Glass,
             shape = MuorgShapes.pill,

@@ -4,6 +4,11 @@
 //! actually came out of the speakers". Every window is a look-back in days
 //! from now, and every listening figure is seconds — measured when the client
 //! reported it, estimated from the track's catalog duration otherwise.
+//!
+//! Every endpoint also takes an optional `profiles` query parameter (NER-326):
+//! a comma-separated list of profile ids to restrict the numbers to. Absent,
+//! empty or `all` covers every profile, which is what pre-profiles callers
+//! expect.
 
 use axum::{extract::{Query, State}, Json};
 use serde::Deserialize;
@@ -19,6 +24,8 @@ use muorg_core::catalog::{
 pub struct WindowQuery {
     /// Look-back window in days. Default 30.
     pub days: Option<i64>,
+    /// Comma-separated profile ids (NER-326). Absent or empty covers all.
+    pub profiles: Option<String>,
 }
 
 #[derive(Deserialize, Default, utoipa::IntoParams)]
@@ -27,12 +34,42 @@ pub struct TopQuery {
     pub days: Option<i64>,
     /// Rows to return. Default 10.
     pub limit: Option<i64>,
+    /// Comma-separated profile ids (NER-326). Absent or empty covers all.
+    pub profiles: Option<String>,
 }
 
 #[derive(Deserialize, Default, utoipa::IntoParams)]
 pub struct WeeksQuery {
     /// Weeks to cover, oldest bucket first. Default 12.
     pub weeks: Option<i64>,
+    /// Comma-separated profile ids (NER-326). Absent or empty covers all.
+    pub profiles: Option<String>,
+}
+
+/// Parse the `profiles` query parameter into profile ids. `None`, an empty
+/// string and the literal `all` mean "no filter"; anything that is not a
+/// comma-separated list of integers is a bad request rather than a silent
+/// empty result.
+fn parse_profiles(raw: Option<&str>) -> Result<Option<Vec<i64>>, ApiError> {
+    let raw = match raw {
+        None => return Ok(None),
+        Some(r) => r.trim(),
+    };
+    if raw.is_empty() || raw.eq_ignore_ascii_case("all") {
+        return Ok(None);
+    }
+    let mut ids = Vec::new();
+    for part in raw.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        ids.push(
+            part.parse::<i64>()
+                .map_err(|_| ApiError::bad_request(format!("Invalid profile id: {part}")))?,
+        );
+    }
+    Ok(if ids.is_empty() { None } else { Some(ids) })
 }
 
 /// Listening totals for the window: plays, seconds listened, and how many
@@ -52,10 +89,12 @@ pub async fn get_listening_summary(
     State(state): State<Arc<AppState>>,
     Query(params): Query<WindowQuery>,
 ) -> Result<Json<ListeningSummary>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::get_listening_summary(
+    Ok(Json(muorg_core::catalog::get_listening_summary_profile(
         &conn,
         params.days.unwrap_or(30),
+        profiles.as_deref(),
     )?))
 }
 
@@ -75,11 +114,13 @@ pub async fn get_top_tracks_time(
     State(state): State<Arc<AppState>>,
     Query(params): Query<TopQuery>,
 ) -> Result<Json<Vec<TopTrackStat>>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::get_top_tracks_by_time(
+    Ok(Json(muorg_core::catalog::get_top_tracks_by_time_profile(
         &conn,
         params.limit.unwrap_or(10),
         params.days.unwrap_or(30),
+        profiles.as_deref(),
     )?))
 }
 
@@ -99,11 +140,13 @@ pub async fn get_top_artists_time(
     State(state): State<Arc<AppState>>,
     Query(params): Query<TopQuery>,
 ) -> Result<Json<Vec<TopArtistStat>>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::get_top_artists_by_time(
+    Ok(Json(muorg_core::catalog::get_top_artists_by_time_profile(
         &conn,
         params.limit.unwrap_or(10),
         params.days.unwrap_or(30),
+        profiles.as_deref(),
     )?))
 }
 
@@ -123,11 +166,13 @@ pub async fn get_top_albums_time(
     State(state): State<Arc<AppState>>,
     Query(params): Query<TopQuery>,
 ) -> Result<Json<Vec<TopAlbumStat>>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::get_top_albums_by_time(
+    Ok(Json(muorg_core::catalog::get_top_albums_by_time_profile(
         &conn,
         params.limit.unwrap_or(10),
         params.days.unwrap_or(30),
+        profiles.as_deref(),
     )?))
 }
 
@@ -148,10 +193,12 @@ pub async fn get_listening_time(
     State(state): State<Arc<AppState>>,
     Query(params): Query<WeeksQuery>,
 ) -> Result<Json<Vec<ListeningWeek>>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::get_listening_time_by_week(
+    Ok(Json(muorg_core::catalog::get_listening_time_by_week_profile(
         &conn,
         params.weeks.unwrap_or(12),
+        profiles.as_deref(),
     )?))
 }
 
@@ -172,9 +219,11 @@ pub async fn get_play_clock(
     State(state): State<Arc<AppState>>,
     Query(params): Query<WindowQuery>,
 ) -> Result<Json<Vec<ClockBucket>>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::get_play_clock(
+    Ok(Json(muorg_core::catalog::get_play_clock_profile(
         &conn,
         params.days.unwrap_or(30),
+        profiles.as_deref(),
     )?))
 }

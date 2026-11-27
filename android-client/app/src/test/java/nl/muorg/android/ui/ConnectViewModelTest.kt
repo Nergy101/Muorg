@@ -2,6 +2,7 @@ package nl.muorg.android.ui
 
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -9,7 +10,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import nl.muorg.android.MainDispatcherRule
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.Profile
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.ProfileRepository
 import nl.muorg.android.ui.screen.connect.ConnectEvent
 import nl.muorg.android.ui.screen.connect.ConnectViewModel
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -39,10 +42,26 @@ class ConnectViewModelTest {
         return preferences
     }
 
+    /** Single-profile server by default: the connect flow must not ask. */
+    private fun profileRepo(
+        enabled: Boolean = false,
+        storedChoice: Boolean = true,
+        profiles: List<Profile> = emptyList(),
+    ): ProfileRepository {
+        val repo = mockk<ProfileRepository>(relaxed = true)
+        every { repo.enabled } returns kotlinx.coroutines.flow.MutableStateFlow(enabled)
+        every { repo.profiles } returns kotlinx.coroutines.flow.MutableStateFlow(profiles)
+        coEvery { repo.bindContext() } returns Unit
+        coEvery { repo.refresh() } returns Unit
+        coEvery { repo.hasStoredChoice() } returns storedChoice
+        return repo
+    }
+
     private fun viewModel(
         preferences: AppPreferences = prefs(),
         api: MuorgApi = mockk(relaxed = true),
-    ) = ConnectViewModel(preferences, api)
+        profileRepository: ProfileRepository = profileRepo(),
+    ) = ConnectViewModel(preferences, api, profileRepository)
 
     @Test
     fun `pre-fills the form from saved credentials`() = runTest {
@@ -105,6 +124,66 @@ class ConnectViewModelTest {
 
         coVerify { preferences.saveCredentials("http://nas.local:7700", "secret") }
         coVerify(exactly = 0) { preferences.clearCredentials() }
+        assertEquals(listOf(ConnectEvent.Connected), seen)
+        collector.cancel()
+    }
+
+    @Test
+    fun `asks which profile to listen as on a multi-profile server without a stored choice`() = runTest {
+        val profiles = listOf(
+            Profile(id = 1, name = "You", isDefault = true),
+            Profile(id = 2, name = "Partner", isDefault = false),
+        )
+        val repo = profileRepo(enabled = true, storedChoice = false, profiles = profiles)
+        val api = mockk<MuorgApi>()
+        coEvery { api.health() } returns Response.success("Healthy".toResponseBody())
+
+        val vm = viewModel(api = api, profileRepository = repo)
+        advanceUntilIdle()
+
+        val seen = mutableListOf<ConnectEvent>()
+        val collector = launch { vm.events.collect { seen.add(it) } }
+
+        vm.onServerUrlChange("http://nas.local:7700")
+        vm.onApiKeyChange("secret")
+        vm.connect()
+        advanceUntilIdle()
+
+        // Not Connected yet — the picker is up instead.
+        assertEquals(listOf(ConnectEvent.ProfileChoiceRequired(profiles)), seen)
+
+        vm.chooseProfile(2)
+        advanceUntilIdle()
+
+        coVerify { repo.setActive(2) }
+        assertEquals(
+            listOf(ConnectEvent.ProfileChoiceRequired(profiles), ConnectEvent.Connected),
+            seen,
+        )
+        collector.cancel()
+    }
+
+    @Test
+    fun `emits Connected directly when a profile choice was already stored for the server`() = runTest {
+        val repo = profileRepo(
+            enabled = true,
+            storedChoice = true,
+            profiles = listOf(Profile(id = 1, name = "You", isDefault = true), Profile(id = 2, name = "Partner", isDefault = false)),
+        )
+        val api = mockk<MuorgApi>()
+        coEvery { api.health() } returns Response.success("Healthy".toResponseBody())
+
+        val vm = viewModel(api = api, profileRepository = repo)
+        advanceUntilIdle()
+
+        val seen = mutableListOf<ConnectEvent>()
+        val collector = launch { vm.events.collect { seen.add(it) } }
+
+        vm.onServerUrlChange("http://nas.local:7700")
+        vm.onApiKeyChange("secret")
+        vm.connect()
+        advanceUntilIdle()
+
         assertEquals(listOf(ConnectEvent.Connected), seen)
         collector.cancel()
     }

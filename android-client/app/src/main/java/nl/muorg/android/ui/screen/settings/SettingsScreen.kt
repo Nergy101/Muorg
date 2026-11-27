@@ -172,6 +172,11 @@ fun SettingsScreen(
             CollapsibleSection("Server", icon = "server") {
                 ServerSection(uiState, viewModel)
             }
+            // NER-326: profiles are server-specific, so this section only
+            // exists in server mode.
+            CollapsibleSection("Listening profiles", icon = "user") {
+                ProfilesSection()
+            }
         } else {
             CollapsibleSection("Local folders", icon = "library-music") {
                 LocalFoldersSection(

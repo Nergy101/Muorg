@@ -352,6 +352,24 @@ data class PlaylistTrackEntry(
     @SerialName("track_id") val trackId: Long
 )
 
+/**
+ * One listening profile. Profiles scope play history and listening stats to
+ * a person; the library, playlists and ratings stay shared.
+ */
+@Serializable
+data class Profile(
+    val id: Long,
+    /** True for profile 1, the default that cannot be deleted. */
+    @SerialName("is_default") val isDefault: Boolean,
+    val name: String
+)
+
+@Serializable
+data class ProfileBody(
+    /** Display name, 1 to 64 characters. Trimmed server-side. */
+    val name: String
+)
+
 @Serializable
 data class RatingBody(
     val rating: Long? = null
@@ -366,7 +384,12 @@ data class RecordPlayBody(
      * keeps no measured time and statistics estimate it from the track's
      * catalog duration.
      */
-    @SerialName("duration_secs") val durationSecs: Long? = null
+    @SerialName("duration_secs") val durationSecs: Long? = null,
+    /**
+     * Profile the play is attributed to (NER-326). Omitted or unknown ids
+     * fall back to the default profile.
+     */
+    @SerialName("profile_id") val profileId: Long? = null
 )
 
 @Serializable

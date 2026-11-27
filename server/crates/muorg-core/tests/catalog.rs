@@ -1608,3 +1608,168 @@ fn scanning_sets_has_cover_from_the_embedded_picture() {
     assert!(with.has_cover, "the mp3 fixture has embedded art");
     assert!(!without.has_cover, "the flac fixture has none");
 }
+
+// ---------------------------------------------------------------------------
+// Listening profiles (NER-326)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_fresh_database_has_exactly_the_default_profile() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    let profiles = cat::list_profiles(&conn).unwrap();
+    assert_eq!(profiles.len(), 1, "a fresh server is single-profile");
+    assert_eq!(profiles[0].id, 1);
+    assert_eq!(profiles[0].name, "You");
+    assert!(profiles[0].is_default);
+}
+
+#[test]
+fn creating_renaming_and_deleting_profiles() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+
+    let p = cat::create_profile(&conn, "  Partner  ").unwrap();
+    assert_eq!(p.name, "Partner", "the name is trimmed");
+    assert!(!p.is_default);
+    let profiles = cat::list_profiles(&conn).unwrap();
+    assert_eq!(
+        profiles.iter().map(|x| x.name.as_str()).collect::<Vec<_>>(),
+        vec!["You", "Partner"],
+        "the default profile stays first"
+    );
+
+    cat::rename_profile(&conn, p.id, "Sam").unwrap();
+    assert_eq!(cat::list_profiles(&conn).unwrap()[1].name, "Sam");
+
+    // The default profile cannot be deleted; unknown ids are an error.
+    assert!(cat::delete_profile(&conn, 1).is_err());
+    assert!(cat::rename_profile(&conn, 999, "X").is_err());
+
+    cat::delete_profile(&conn, p.id).unwrap();
+    assert_eq!(cat::list_profiles(&conn).unwrap().len(), 1);
+}
+
+#[test]
+fn profile_names_must_be_1_to_64_characters() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    assert!(cat::create_profile(&conn, "").is_err());
+    assert!(cat::create_profile(&conn, "   ").is_err());
+    assert!(cat::create_profile(&conn, &"x".repeat(65)).is_err());
+    assert!(cat::create_profile(&conn, &"x".repeat(64)).is_ok());
+}
+
+#[test]
+fn plays_are_scoped_to_their_profile() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 2);
+    let partner = cat::create_profile(&conn, "Partner").unwrap();
+
+    cat::record_play_profile(&conn, "/music/track0.mp3", None, Some(60), 1).unwrap();
+    cat::record_play_profile(&conn, "/music/track1.mp3", None, Some(60), partner.id).unwrap();
+
+    // Per-profile views only see their own plays.
+    let mine = cat::load_recently_played_profile(&conn, 10, Some(&[1])).unwrap();
+    assert_eq!(titles(&mine), vec!["Track 0".to_string()]);
+    let theirs = cat::load_recently_played_profile(&conn, 10, Some(&[partner.id])).unwrap();
+    assert_eq!(titles(&theirs), vec!["Track 1".to_string()]);
+
+    // No filter (and an empty slice) covers all profiles together.
+    assert_eq!(cat::load_recently_played_profile(&conn, 10, None).unwrap().len(), 2);
+    assert_eq!(
+        cat::load_recently_played_profile(&conn, 10, Some(&[])).unwrap().len(),
+        2
+    );
+
+    // A multi-profile selection is the union, e.g. for stats comparisons.
+    let both = cat::load_recently_played_profile(&conn, 10, Some(&[1, partner.id])).unwrap();
+    assert_eq!(both.len(), 2);
+
+    // The unfiltered entry points keep behaving exactly as before NER-326.
+    assert_eq!(cat::load_recently_played(&conn, 10).unwrap().len(), 2);
+}
+
+#[test]
+fn recording_with_an_unknown_profile_id_falls_back_to_the_default() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 1);
+    // A client with a stale profile list must not lose the play.
+    cat::record_play_profile(&conn, "/music/track0.mp3", None, None, 999).unwrap();
+    let mine = cat::load_recently_played_profile(&conn, 10, Some(&[1])).unwrap();
+    assert_eq!(mine.len(), 1, "the play landed on the default profile");
+}
+
+#[test]
+fn listening_stats_are_scoped_to_the_selected_profiles() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 2);
+    let partner = cat::create_profile(&conn, "Partner").unwrap();
+
+    cat::record_play_profile(&conn, "/music/track0.mp3", None, Some(120), 1).unwrap();
+    cat::record_play_profile(&conn, "/music/track0.mp3", None, Some(120), 1).unwrap();
+    cat::record_play_profile(&conn, "/music/track1.mp3", None, Some(300), partner.id).unwrap();
+
+    let mine = cat::get_listening_summary_profile(&conn, 30, Some(&[1])).unwrap();
+    assert_eq!(mine.plays, 2);
+    assert_eq!(mine.listening_secs, 240);
+    assert_eq!(mine.unique_tracks, 1);
+
+    let theirs = cat::get_listening_summary_profile(&conn, 30, Some(&[partner.id])).unwrap();
+    assert_eq!(theirs.plays, 1);
+    assert_eq!(theirs.listening_secs, 300);
+
+    let all = cat::get_listening_summary_profile(&conn, 30, None).unwrap();
+    assert_eq!(all.plays, 3, "the default view is everyone together");
+    assert_eq!(all.listening_secs, 540);
+
+    // Top lists follow the same scoping.
+    let top =
+        cat::get_top_tracks_by_time_profile(&conn, 10, 30, Some(&[partner.id])).unwrap();
+    assert_eq!(top.len(), 1);
+    assert_eq!(top[0].title, "Track 1");
+}
+
+#[test]
+fn deleting_a_profile_merges_its_history_into_the_default() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 1);
+    let partner = cat::create_profile(&conn, "Partner").unwrap();
+    cat::record_play_profile(&conn, "/music/track0.mp3", None, Some(120), partner.id).unwrap();
+
+    cat::delete_profile(&conn, partner.id).unwrap();
+
+    // The play row survives, now attributed to the default profile, and the
+    // per-profile daily rollup was merged the same way.
+    let mine = cat::get_listening_summary_profile(&conn, 30, Some(&[1])).unwrap();
+    assert_eq!(mine.plays, 1, "the deleted profile's plays moved to profile 1");
+    assert_eq!(mine.listening_secs, 120);
+    let weeks = cat::get_listening_time_by_week_profile(&conn, 12, Some(&[1])).unwrap();
+    assert_eq!(
+        weeks.iter().map(|w| w.listening_secs).sum::<i64>(),
+        120,
+        "the weekly rollup kept the history after the merge"
+    );
+}
+
+#[test]
+fn the_weekly_graph_and_play_clock_follow_the_profile_filter() {
+    let tc = TestCatalog::new();
+    let conn = tc.conn();
+    seed(&conn, "/music", 2);
+    let partner = cat::create_profile(&conn, "Partner").unwrap();
+
+    cat::record_play_profile(&conn, "/music/track0.mp3", None, Some(60), 1).unwrap();
+    cat::record_play_profile(&conn, "/music/track1.mp3", None, Some(60), partner.id).unwrap();
+
+    let mine_weeks = cat::get_listening_time_by_week_profile(&conn, 12, Some(&[1])).unwrap();
+    assert_eq!(mine_weeks.iter().map(|w| w.listening_secs).sum::<i64>(), 60);
+    let clock = cat::get_play_clock_profile(&conn, 30, Some(&[partner.id])).unwrap();
+    assert_eq!(clock.iter().map(|c| c.plays).sum::<i64>(), 1);
+    let all_clock = cat::get_play_clock_profile(&conn, 30, None).unwrap();
+    assert_eq!(all_clock.iter().map(|c| c.plays).sum::<i64>(), 2);
+}

@@ -648,6 +648,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All listening profiles, default first. */
+        get: operations["list_profiles"];
+        put?: never;
+        /**
+         * Create a profile. Creating the second profile is what turns the feature on
+         *     in clients; one profile is the invisible default.
+         */
+        post: operations["create_profile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a profile. Its play history and rollup rows move to the default
+         *     profile, so no listening history is lost. The default profile and the
+         *     last remaining profile cannot be deleted.
+         */
+        delete: operations["delete_profile"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a profile. The default profile may be renamed; only its id is fixed,
+         *     because play history rows point at it.
+         */
+        patch: operations["rename_profile"];
+        trace?: never;
+    };
     "/api/roots": {
         parameters: {
             query?: never;
@@ -1477,6 +1523,21 @@ export interface components {
             /** Format: int64 */
             track_id: number;
         };
+        /**
+         * @description One listening profile. Profiles scope play history and listening stats to
+         *     a person; the library, playlists and ratings stay shared.
+         */
+        Profile: {
+            /** Format: int64 */
+            id: number;
+            /** @description True for profile 1, the default that cannot be deleted. */
+            is_default: boolean;
+            name: string;
+        };
+        ProfileBody: {
+            /** @description Display name, 1 to 64 characters. Trimmed server-side. */
+            name: string;
+        };
         RatingBody: {
             /** Format: int64 */
             rating?: number | null;
@@ -1491,6 +1552,12 @@ export interface components {
              *     catalog duration.
              */
             duration_secs?: number | null;
+            /**
+             * Format: int64
+             * @description Profile the play is attributed to (NER-326). Omitted or unknown ids
+             *     fall back to the default profile.
+             */
+            profile_id?: number | null;
         };
         RemoveFolderBody: {
             root_path: string;
@@ -1708,6 +1775,8 @@ export type SchemaPlaylist = components['schemas']['Playlist'];
 export type SchemaPlaylistPinsBody = components['schemas']['PlaylistPinsBody'];
 export type SchemaPlaylistPinsResponse = components['schemas']['PlaylistPinsResponse'];
 export type SchemaPlaylistTrackEntry = components['schemas']['PlaylistTrackEntry'];
+export type SchemaProfile = components['schemas']['Profile'];
+export type SchemaProfileBody = components['schemas']['ProfileBody'];
 export type SchemaRatingBody = components['schemas']['RatingBody'];
 export type SchemaRecordPlayBody = components['schemas']['RecordPlayBody'];
 export type SchemaRemoveFolderBody = components['schemas']['RemoveFolderBody'];
@@ -2424,6 +2493,8 @@ export interface operations {
                 days?: number | null;
                 /** @description Rows to return. Default 50. */
                 limit?: number | null;
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
             };
             header?: never;
             path?: never;
@@ -2458,6 +2529,8 @@ export interface operations {
                 days?: number | null;
                 /** @description Rows to return. Default 50. */
                 limit?: number | null;
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
             };
             header?: never;
             path?: never;
@@ -3134,6 +3207,181 @@ export interface operations {
             };
         };
     };
+    list_profiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profiles, default profile first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"][];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Invalid name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Profile id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted; plays moved to the default profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Default or last profile cannot be deleted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such profile */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rename_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Profile id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileBody"];
+            };
+        };
+        responses: {
+            /** @description Renamed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Invalid name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such profile */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_roots: {
         parameters: {
             query?: never;
@@ -3238,6 +3486,8 @@ export interface operations {
             query?: {
                 /** @description Look-back window in days. Default 30. */
                 days?: number | null;
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
             };
             header?: never;
             path?: never;
@@ -3268,6 +3518,8 @@ export interface operations {
     get_listening_time: {
         parameters: {
             query?: {
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
                 /** @description Weeks to cover, oldest bucket first. Default 12. */
                 weeks?: number | null;
             };
@@ -3302,6 +3554,8 @@ export interface operations {
             query?: {
                 /** @description Look-back window in days. Default 30. */
                 days?: number | null;
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
             };
             header?: never;
             path?: never;
@@ -3336,6 +3590,8 @@ export interface operations {
                 days?: number | null;
                 /** @description Rows to return. Default 10. */
                 limit?: number | null;
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
             };
             header?: never;
             path?: never;
@@ -3370,6 +3626,8 @@ export interface operations {
                 days?: number | null;
                 /** @description Rows to return. Default 10. */
                 limit?: number | null;
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
             };
             header?: never;
             path?: never;
@@ -3404,6 +3662,8 @@ export interface operations {
                 days?: number | null;
                 /** @description Rows to return. Default 10. */
                 limit?: number | null;
+                /** @description Comma-separated profile ids (NER-326). Absent or empty covers all. */
+                profiles?: string | null;
             };
             header?: never;
             path?: never;

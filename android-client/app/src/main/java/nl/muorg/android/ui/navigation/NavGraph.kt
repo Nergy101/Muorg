@@ -78,6 +78,7 @@ import nl.muorg.android.ui.component.TrackActionsSheet
 import nl.muorg.android.ui.component.rememberDominantColor
 import nl.muorg.android.ui.player.PlayerViewModel
 import nl.muorg.android.ui.screen.library.LibraryScreen
+import nl.muorg.android.ui.screen.settings.ProfilesViewModel
 import nl.muorg.android.ui.theme.MuorgTheme
 import nl.muorg.android.ui.theme.artworkAccent
 import nl.muorg.android.ui.theme.LocalBasePrimary
@@ -270,6 +271,9 @@ fun NavGraph() {
 
     val navViewModel: NavViewModel = hiltViewModel()
     val playerViewModel: PlayerViewModel = hiltViewModel()
+    // NER-326: the active listening profile, shown in the nav island.
+    val profilesViewModel: ProfilesViewModel = hiltViewModel()
+    val profilesState by profilesViewModel.uiState.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
@@ -446,6 +450,11 @@ fun NavGraph() {
                     onOpenQueue = onOpenQueue,
                     onTrackMenu = { miniPlayerSheet = true },
                     queueActive = currentDestination?.route == Screen.Queue.route,
+                    profileLabel = if (profilesState.enabled && profilesState.activeProfile != null) {
+                        "Listening as ${profilesState.activeProfile!!.name}"
+                    } else {
+                        null
+                    },
                     // The tab row stays; only the chrome (search, filters) folds away.
                     showTabs = selectedTab >= 0,
                     // Driven by the destination, not by LibraryScreen's disposal:

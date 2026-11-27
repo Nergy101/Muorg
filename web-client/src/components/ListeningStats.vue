@@ -17,6 +17,7 @@ import type {
   TopArtistStat,
   TopTrackStat,
 } from "../types";
+import { useProfilesStore } from "../stores/profiles";
 
 /**
  * Listening statistics from the server's play history (NER-325): what was
@@ -37,6 +38,31 @@ const days = ref<number>(30);
 const loading = ref(true);
 const error = ref(false);
 
+// NER-326: which profiles feed these charts. Null means "follow the active
+// profile" (the default); an explicit array is the user's own selection, and
+// an empty selection means every profile together ("All"). Invisible unless a
+// second profile exists.
+const profilesStore = useProfilesStore();
+const customSelection = ref<number[] | null>(null);
+const selectedIds = computed<number[]>(() =>
+  customSelection.value ?? profilesStore.activeFilter ?? [],
+);
+const showProfilePicker = computed(() => profilesStore.enabled);
+const allSelected = computed(() => selectedIds.value.length === 0);
+
+function selectAll(): void {
+  customSelection.value = [];
+}
+
+function toggleProfile(id: number): void {
+  const cur = selectedIds.value;
+  const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+  // Toggling everything off is the same as "All" — and returning to follow
+  // mode keeps the charts tracking the active profile afterwards.
+  customSelection.value = next.length === 0 ? null : next;
+}
+
+
 const summary = ref<ListeningSummary | null>(null);
 const weeks = ref<ListeningWeek[]>([]);
 const topTracks = ref<TopTrackStat[]>([]);
@@ -50,15 +76,16 @@ let fetchToken = 0;
 
 async function fetchAll(targetDays: number): Promise<void> {
   const token = ++fetchToken;
+  const filter = selectedIds.value.length ? selectedIds.value : undefined;
   loading.value = true;
   error.value = false;
   try {
     const [s, t, a, al, c] = await Promise.all([
-      getListeningSummary(targetDays),
-      getTopTracksByTime(LIST_SIZE, targetDays),
-      getTopArtistsByTime(LIST_SIZE, targetDays),
-      getTopAlbumsByTime(LIST_SIZE, targetDays),
-      getPlayClock(targetDays),
+      getListeningSummary(targetDays, filter),
+      getTopTracksByTime(LIST_SIZE, targetDays, filter),
+      getTopArtistsByTime(LIST_SIZE, targetDays, filter),
+      getTopAlbumsByTime(LIST_SIZE, targetDays, filter),
+      getPlayClock(targetDays, filter),
     ]);
     if (token !== fetchToken) return;
     summary.value = s;
@@ -82,19 +109,29 @@ async function fetchAll(targetDays: number): Promise<void> {
 
 onMounted(() => {
   void fetchAll(days.value);
+  void fetchWeeks();
+});
+
+async function fetchWeeks(): Promise<void> {
+  const filter = selectedIds.value.length ? selectedIds.value : undefined;
   // The weekly graph reads the rollup and never depends on the window; one
   // fetch is enough. Keep it out of `loading` so a slow week fetch cannot
   // hold the whole panel hostage.
-  void getListeningTime(WEEKS_SHOWN)
+  await getListeningTime(WEEKS_SHOWN, filter)
     .then((w) => {
       weeks.value = w;
     })
     .catch(() => {
       /* the rest of the panel still renders without the weekly graph */
     });
-});
+}
 
 watch(days, (d) => void fetchAll(d));
+// A different profile selection re-scopes every chart, including the weeks.
+watch(selectedIds, () => {
+  void fetchAll(days.value);
+  void fetchWeeks();
+});
 
 /** Seconds listened as `Xh Ym` (or `Ym` under an hour), like the totals row. */
 function fmtDuration(secs: number): string {
@@ -160,6 +197,42 @@ function fmtTimeOfDay(hour: number): string {
           {{ w }}d
         </button>
       </div>
+    </div>
+
+    <!-- NER-326: which profiles feed these charts (only once a second profile
+         exists). Multi-select: pick any combination, or "All" for everyone
+         together. -->
+    <div v-if="showProfilePicker" class="mb-3 flex flex-wrap items-center gap-1">
+      <span class="mr-1 text-label-sm text-on-surface-variant">Profiles:</span>
+      <button
+        type="button"
+        class="rounded-full px-2 py-1 text-label-sm transition-colors"
+        :class="
+          allSelected
+            ? 'bg-primary text-on-primary'
+            : 'text-on-surface-variant hover:bg-surface-variant/60'
+        "
+        :aria-pressed="allSelected"
+        @click="selectAll"
+      >
+        All
+      </button>
+      <button
+        v-for="p in profilesStore.profiles"
+        :key="p.id"
+        type="button"
+        class="max-w-40 rounded-full px-2 py-1 text-label-sm transition-colors"
+        :class="
+          selectedIds.includes(p.id)
+            ? 'bg-primary text-on-primary'
+            : 'text-on-surface-variant hover:bg-surface-variant/60'
+        "
+        :aria-pressed="selectedIds.includes(p.id)"
+        :title="p.name"
+        @click="toggleProfile(p.id)"
+      >
+        <span class="truncate">{{ p.name }}</span>
+      </button>
     </div>
 
     <div v-if="loading && summary === null" class="flex items-center justify-center py-8">

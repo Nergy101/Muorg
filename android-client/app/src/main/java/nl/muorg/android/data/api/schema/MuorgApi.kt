@@ -240,6 +240,7 @@ interface MuorgApi {
     suspend fun getRecentPlayHistory(
         @Query("limit") limit: Long? = null,
         @Query("days") days: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<List<CatalogTrack>>
 
     /** `GET /api/play-history/top` */
@@ -247,6 +248,7 @@ interface MuorgApi {
     suspend fun getTopPlayHistory(
         @Query("limit") limit: Long? = null,
         @Query("days") days: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<List<CatalogTrack>>
 
     /**
@@ -413,6 +415,49 @@ interface MuorgApi {
         @Body body: ReorderBody,
     ): Response<OkResponse>
 
+    /**
+     * All listening profiles, default first.
+     *
+     * `GET /api/profiles`
+     */
+    @GET("api/profiles")
+    suspend fun listProfiles(): Response<List<Profile>>
+
+    /**
+     * Create a profile. Creating the second profile is what turns the feature on
+     * in clients; one profile is the invisible default.
+     *
+     * `POST /api/profiles`
+     */
+    @POST("api/profiles")
+    suspend fun createProfile(
+        @Body body: ProfileBody,
+    ): Response<Profile>
+
+    /**
+     * Rename a profile. The default profile may be renamed; only its id is fixed,
+     * because play history rows point at it.
+     *
+     * `PATCH /api/profiles/{id}`
+     */
+    @PATCH("api/profiles/{id}")
+    suspend fun renameProfile(
+        @Path("id") id: Long,
+        @Body body: ProfileBody,
+    ): Response<OkResponse>
+
+    /**
+     * Delete a profile. Its play history and rollup rows move to the default
+     * profile, so no listening history is lost. The default profile and the
+     * last remaining profile cannot be deleted.
+     *
+     * `DELETE /api/profiles/{id}`
+     */
+    @DELETE("api/profiles/{id}")
+    suspend fun deleteProfile(
+        @Path("id") id: Long,
+    ): Response<OkResponse>
+
     /** `GET /api/roots` */
     @GET("api/roots")
     suspend fun getRoots(): Response<List<String>>
@@ -436,6 +481,7 @@ interface MuorgApi {
     @GET("api/stats/clock")
     suspend fun getPlayClock(
         @Query("days") days: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<List<ClockBucket>>
 
     /**
@@ -447,6 +493,7 @@ interface MuorgApi {
     @GET("api/stats/listening-time")
     suspend fun getListeningTime(
         @Query("weeks") weeks: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<List<ListeningWeek>>
 
     /**
@@ -458,6 +505,7 @@ interface MuorgApi {
     @GET("api/stats/summary")
     suspend fun getListeningSummary(
         @Query("days") days: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<ListeningSummary>
 
     /**
@@ -469,6 +517,7 @@ interface MuorgApi {
     suspend fun getTopAlbumsTime(
         @Query("days") days: Long? = null,
         @Query("limit") limit: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<List<TopAlbumStat>>
 
     /**
@@ -480,6 +529,7 @@ interface MuorgApi {
     suspend fun getTopArtistsTime(
         @Query("days") days: Long? = null,
         @Query("limit") limit: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<List<TopArtistStat>>
 
     /**
@@ -491,6 +541,7 @@ interface MuorgApi {
     suspend fun getTopTracksTime(
         @Query("days") days: Long? = null,
         @Query("limit") limit: Long? = null,
+        @Query("profiles") profiles: String? = null,
     ): Response<List<TopTrackStat>>
 
     /** `GET /api/tracks` */

@@ -35,6 +35,16 @@
       </button>
     </div>
 
+    <!-- NER-326: the active listening profile, right under the brand so it is
+         always in view. Hidden entirely while only the default profile
+         exists; in collapsed mode it stays as a compact chip. -->
+    <div v-if="!collapsed" class="px-5 pb-1 empty:hidden">
+      <ProfileBadge />
+    </div>
+    <div v-else class="flex justify-center px-1 pb-1 empty:hidden">
+      <ProfileBadge />
+    </div>
+
     <!-- Tabs. Queue sits with them as a plain destination: it is not a tab
          (tabIndexForRoute returns -1 for it), so it lights on its own route.
          Collapsed: icon-only row, labels hidden. -->
@@ -227,6 +237,7 @@ import { computed, nextTick, onMounted, ref, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MageIcon from "./MageIcon.vue";
 import PlaylistIcon from "@shared/components/PlaylistIcon.vue";
+import ProfileBadge from "./ProfileBadge.vue";
 import VolumeControl from "./VolumeControl.vue";
 import { sidebarCollapsed as collapsed, collapsedNavTrailing } from "../composables/sidebarCollapsed";
 import { useFsBackdropBlur } from "../composables/useFsBackdropBlur";

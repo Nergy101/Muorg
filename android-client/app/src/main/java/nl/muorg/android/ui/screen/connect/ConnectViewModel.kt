@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nl.muorg.android.data.api.schema.MuorgApi
+import nl.muorg.android.data.api.schema.Profile
 import nl.muorg.android.data.preferences.AppPreferences
+import nl.muorg.android.data.repository.ProfileRepository
 import javax.inject.Inject
 
 data class ConnectUiState(
@@ -25,12 +27,15 @@ data class ConnectUiState(
 
 sealed class ConnectEvent {
     object Connected : ConnectEvent()
+    /** NER-326: the server has multiple profiles and none was chosen yet. */
+    data class ProfileChoiceRequired(val profiles: List<Profile>) : ConnectEvent()
 }
 
 @HiltViewModel
 class ConnectViewModel @Inject constructor(
     private val preferences: AppPreferences,
     private val api: MuorgApi,
+    private val profileRepository: ProfileRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ConnectUiState())
@@ -77,7 +82,17 @@ class ConnectViewModel @Inject constructor(
 
             val result = runCatching { api.health() }
             if (result.isSuccess && result.getOrNull()?.isSuccessful == true) {
-                _events.tryEmit(ConnectEvent.Connected)
+                // NER-326: profiles are server-specific — when this server has
+                // more than one and no choice was stored for it, ask which one
+                // to listen as before entering the app.
+                profileRepository.bindContext()
+                profileRepository.refresh()
+                if (profileRepository.enabled.value && !profileRepository.hasStoredChoice()) {
+                    _uiState.update { it.copy(isLoading = false) }
+                    _events.tryEmit(ConnectEvent.ProfileChoiceRequired(profileRepository.profiles.value))
+                } else {
+                    _events.tryEmit(ConnectEvent.Connected)
+                }
             } else {
                 val errorMsg = result.exceptionOrNull()?.message
                     ?: "Could not reach server. Check the URL and try again."
@@ -90,6 +105,14 @@ class ConnectViewModel @Inject constructor(
                     preferences.saveCredentials(prevUrl, prevKey)
                 }
             }
+        }
+    }
+
+    /** NER-326: the user picked a profile on a multi-profile server. */
+    fun chooseProfile(id: Long) {
+        viewModelScope.launch {
+            profileRepository.setActive(id)
+            _events.tryEmit(ConnectEvent.Connected)
         }
     }
 

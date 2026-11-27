@@ -6,6 +6,7 @@ import { useCatalogStore } from "../../stores/catalog";
 import { useSettingsStore } from "../../stores/settings";
 import { back, forward, canBack, canForward, navigate, currentView, type ViewName } from "../../state/navigation";
 import { modKeyCombo } from "../../utils/platform";
+import ProfileBadge from "./ProfileBadge.vue";
 
 const store = useCatalogStore();
 const settings = useSettingsStore();
@@ -103,6 +104,9 @@ function toggleTheme() {
         <FeatherIcon :name="s.icon" class="h-4 w-4" />
       </button>
     </div>
+
+    <!-- NER-326: active listening profile in the navigation bar. -->
+    <ProfileBadge />
 
     <button type="button" class="topbar-pill-btn" :title="isDark() ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggleTheme">
       <FeatherIcon :name="isDark() ? 'sun' : 'moon'" class="h-4 w-4" />

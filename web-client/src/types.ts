@@ -15,6 +15,7 @@ export type {
   MatchCandidate,
   Playlist,
   PlaylistTrackEntry,
+  Profile,
   TopAlbumStat,
   TopArtistStat,
   TopTrackStat,

@@ -60,6 +60,12 @@
           ref="mobileBarEl"
           class="glass-deep mini-player-glass absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[600px] overflow-hidden rounded-t-3xl md:max-w-[900px] lg:hidden"
         >
+          <!-- NER-326: on mobile there is no rail, so the active-profile chip
+               sits at the top of the bottom island, above the mini player.
+               Absent entirely while only the default profile exists. -->
+          <div v-if="profilesStore.enabled" class="flex justify-center pt-2 empty:hidden">
+            <ProfileBadge />
+          </div>
           <MiniPlayer v-if="showMiniPlayer" />
           <!-- The library search/filter bar lives below the mini player and
                collapses on scroll-down like the tab row, leaving the mini
@@ -115,6 +121,7 @@ import UpdateBanner from "./components/UpdateBanner.vue";
 import BottomNav from "./components/BottomNav.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import MiniPlayer from "./components/MiniPlayer.vue";
+import ProfileBadge from "./components/ProfileBadge.vue";
 import LibrarySearchBar from "./components/LibrarySearchBar.vue";
 import Toast from "./components/Toast.vue";
 import SelectionBar from "./components/SelectionBar.vue";
@@ -124,6 +131,7 @@ import KeyMapModal from "./components/KeyMapModal.vue";
 import AppTooltip from "./components/AppTooltip.vue";
 import { installTooltips } from "./composables/useTooltips";
 import { usePlayerStore } from "./stores/player";
+import { useProfilesStore } from "./stores/profiles";
 import { useSettingsStore } from "./stores/settings";
 import { useSwipeNavigate } from "./composables/useSwipeNavigate";
 import { useIosPwa } from "./composables/useIosPwa";
@@ -142,6 +150,13 @@ const router = useRouter();
 const player = usePlayerStore();
 // Instantiating the store installs the data-theme effect.
 const settings = useSettingsStore();
+// NER-326: listening profiles. The store starts hidden (single-profile view);
+// refresh() flips it on if the server has a second profile. Failure (offline
+// or an old server) leaves the single-profile view, which is the default.
+const profilesStore = useProfilesStore();
+// Re-read the per-server profile choice, then load the server's profiles.
+profilesStore.bindContext();
+void profilesStore.refresh();
 // Desktop transport keys (Space/K, ←/→, J/L, Ctrl+←/→, M).
 useKeyboardShortcuts();
 // Hover/focus descriptions for every control with an accessible name.

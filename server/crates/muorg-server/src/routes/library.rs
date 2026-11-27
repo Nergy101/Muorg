@@ -98,11 +98,45 @@ pub struct HistoryQuery {
     pub days: Option<i64>,
 }
 
+#[derive(Deserialize, Default, utoipa::IntoParams)]
+pub struct PlayHistoryQuery {
+    /// Rows to return. Default 50.
+    pub limit: Option<i64>,
+    /// Look-back window in days. Default 30. Only used by `/api/play-history/top`.
+    pub days: Option<i64>,
+    /// Comma-separated profile ids (NER-326). Absent or empty covers all.
+    pub profiles: Option<String>,
+}
+
+/// Same parsing rules as the stats routes: absent/empty/`all` covers every
+/// profile, and anything else must be a comma-separated list of integers.
+fn parse_profiles(raw: Option<&str>) -> Result<Option<Vec<i64>>, ApiError> {
+    let raw = match raw {
+        None => return Ok(None),
+        Some(r) => r.trim(),
+    };
+    if raw.is_empty() || raw.eq_ignore_ascii_case("all") {
+        return Ok(None);
+    }
+    let mut ids = Vec::new();
+    for part in raw.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        ids.push(
+            part.parse::<i64>()
+                .map_err(|_| ApiError::bad_request(format!("Invalid profile id: {part}")))?,
+        );
+    }
+    Ok(if ids.is_empty() { None } else { Some(ids) })
+}
+
 #[utoipa::path(
     get,
     path = "/api/play-history/recent",
     tag = "Catalog / Play History",
-    params(HistoryQuery),
+    params(PlayHistoryQuery),
     responses(
         (status = 200, description = "Most recently played tracks, newest first", body = Vec<CatalogTrack>),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
@@ -111,12 +145,14 @@ pub struct HistoryQuery {
 )]
 pub async fn get_recent_play_history(
     State(state): State<Arc<AppState>>,
-    Query(params): Query<HistoryQuery>,
+    Query(params): Query<PlayHistoryQuery>,
 ) -> Result<Json<Vec<CatalogTrack>>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::load_recently_played(
+    Ok(Json(muorg_core::catalog::load_recently_played_profile(
         &conn,
         params.limit.unwrap_or(50),
+        profiles.as_deref(),
     )?))
 }
 
@@ -124,7 +160,7 @@ pub async fn get_recent_play_history(
     get,
     path = "/api/play-history/top",
     tag = "Catalog / Play History",
-    params(HistoryQuery),
+    params(PlayHistoryQuery),
     responses(
         (status = 200, description = "Most played tracks within the window", body = Vec<CatalogTrack>),
         (status = 401, description = "Missing or invalid API key", body = ErrorResponse),
@@ -133,13 +169,15 @@ pub async fn get_recent_play_history(
 )]
 pub async fn get_top_play_history(
     State(state): State<Arc<AppState>>,
-    Query(params): Query<HistoryQuery>,
+    Query(params): Query<PlayHistoryQuery>,
 ) -> Result<Json<Vec<CatalogTrack>>, ApiError> {
+    let profiles = parse_profiles(params.profiles.as_deref())?;
     let conn = state.catalog.db.lock().map_err(|e| e.to_string())?;
-    Ok(Json(muorg_core::catalog::load_most_played(
+    Ok(Json(muorg_core::catalog::load_most_played_profile(
         &conn,
         params.limit.unwrap_or(50),
         params.days.unwrap_or(30),
+        profiles.as_deref(),
     )?))
 }
 

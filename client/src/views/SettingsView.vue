@@ -15,6 +15,7 @@ import ExportsPanel from "../components/modals/settings/ExportsPanel.vue";
 import SmartTransformPanel from "../components/modals/settings/SmartTransformPanel.vue";
 import SmartSuggestionsPanel from "../components/modals/settings/SmartSuggestionsPanel.vue";
 import ConnectionPanel from "../components/modals/settings/ConnectionPanel.vue";
+import ProfilesPanel from "../components/modals/settings/ProfilesPanel.vue";
 import KeyboardPanel from "../components/modals/settings/KeyboardPanel.vue";
 import { useSettingsStore, type AccentColor, type CardStyle, type ArtCorners } from "../stores/settings";
 import { useCatalogStore } from "../stores/catalog";
@@ -54,6 +55,7 @@ const SECTIONS = [
   { id: "smart", label: "Smart Transform & Metadata Editing", sub: "Bulk rename, tag writing and path formats", icon: "edit-2" },
   { id: "offline", label: "Offline", sub: "Downloads and cache", icon: "download" },
   { id: "server", label: "Server", sub: "Connection, folders, device and library stats", icon: "server" },
+  { id: "profiles", label: "Listening profiles", sub: "Separate play history and stats per profile", icon: "user" },
   { id: "dev", label: "Development", sub: "Links and diagnostics", icon: "wrench" },
 ] as const;
 
@@ -271,6 +273,7 @@ async function purgeDeleted() {
               <p v-if="cacheMsg" class="mt-2 text-xs text-on-surface-variant">{{ cacheMsg }}</p>
             </div>
             <ConnectionPanel v-else-if="s.id === 'server'" />
+            <ProfilesPanel v-else-if="s.id === 'profiles'" />
             <template v-else-if="s.id === 'dev'">
               <KeyboardPanel />
               <h3 class="mb-2 mt-5 text-[13px] font-bold uppercase tracking-wider text-on-surface-variant">Credits</h3>
