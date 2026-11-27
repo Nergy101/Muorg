@@ -67,10 +67,10 @@ That's it — the same library, playlists, ratings and play counts on every devi
 The Android app can also run fully offline: pick **Local Library** on the welcome screen and point it at folders on the device. See [Android App](/docs/android/).
 :::
 
-1. **Download the desktop app** for your platform from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop-v):
+1. **Download the desktop app** for your platform from the newest [`desktop-v*` release](https://github.com/Nergy101/Muorg/releases?q=desktop):
 
    | Platform | File |
-   |----------|------|
+   | ---------- | ------ |
    | macOS (Apple Silicon) | `muorg-<version>-macos.dmg` |
    | Windows (x64) | `muorg-<version>-windows.msi` |
    | Linux (x64) | `muorg-<version>-linux.AppImage` |
