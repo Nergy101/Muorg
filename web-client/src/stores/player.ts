@@ -15,6 +15,7 @@ import { useCastStore } from "./cast";
 import { useLibraryStore } from "./library";
 import { useOfflineStore, offlineStreamUrl } from "./offline";
 import { usePlaylistStore } from "./playlists";
+import { useProfilesStore } from "./profiles";
 import { useSettingsStore } from "./settings";
 import type { CatalogTrack, RepeatMode } from "../types";
 
@@ -1434,7 +1435,15 @@ export const usePlayerStore = defineStore("player", () => {
     if (playCountedTrackId === t.id) return;
     if (positionSecs.value < PLAY_COUNT_THRESHOLD_SECS) return;
     playCountedTrackId = t.id;
-    void recordPlay(t.id, settings.deviceName);
+    // NER-326: attribute the play to the active profile, but only once the
+    // feature is on (2+ profiles). Single-profile servers keep the exact
+    // same two-argument call as before.
+    const profilesStore = useProfilesStore();
+    if (profilesStore.enabled) {
+      void recordPlay(t.id, settings.deviceName, undefined, profilesStore.activeProfile?.id);
+    } else {
+      void recordPlay(t.id, settings.deviceName);
+    }
   });
 
   // --- Session persistence (queue, modes, position) across reloads ---

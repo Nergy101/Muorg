@@ -334,6 +334,15 @@ title="Library"
 
       </SettingsSection>
 
+      <!-- ─── Listening profiles (NER-326) ──────────────────────────── -->
+      <SettingsSection
+        title="Listening profiles"
+        subtitle="Separate play history and stats per profile"
+        icon="user"
+      >
+      <ProfilesSettingsSection />
+      </SettingsSection>
+
       <!-- ─── Export & Rockbox ───────────────────────────────────────── -->
       <SettingsSection
         title="Export & Rockbox"
@@ -620,6 +629,7 @@ import ServerConfigSection from "../components/settings/ServerConfigSection.vue"
 import ExportSettingsSection from "../components/settings/ExportSettingsSection.vue";
 import PlaybackAudioSettingsSection from "../components/settings/PlaybackAudioSettingsSection.vue";
 import KeyboardSettingsSection from "../components/settings/KeyboardSettingsSection.vue";
+import ProfilesSettingsSection from "../components/settings/ProfilesSettingsSection.vue";
 import { pwaUpdateAvailable, refreshApp } from "../composables/usePwaUpdate";
 import { getServerUrl } from "../api/client";
 import { logout } from "../logout";

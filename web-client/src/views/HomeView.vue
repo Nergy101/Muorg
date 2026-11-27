@@ -270,6 +270,7 @@ import ShelfSkeleton from "../components/ShelfSkeleton.vue";
 import logoUrl from "../assets/muorg-logo.svg";
 import { useLibraryStore } from "../stores/library";
 import { usePlayerStore } from "../stores/player";
+import { useProfilesStore } from "../stores/profiles";
 import { getRecentPlayHistory, getTopPlayHistory } from "../api/catalog";
 import { useScrollMemory } from "../composables/useScrollMemory";
 import { useGridColumns } from "../composables/useGridColumns";
@@ -285,6 +286,9 @@ const lib = useLibraryStore();
 /** Nothing to browse yet: the catalog finished loading and holds no tracks. */
 const libraryEmpty = computed(() => !lib.loading && !lib.loadingMore && !lib.error && lib.tracks.length === 0);
 const player = usePlayerStore();
+// NER-326: home's play-history shelves follow the active listening profile
+// (undefined while the feature is off, so nothing changes by default).
+const profilesStore = useProfilesStore();
 
 const scroller = ref<HTMLElement | null>(null);
 useScrollMemory(scroller);
@@ -374,7 +378,7 @@ const shelves = reactive<Shelf[]>([
     key: "most-played",
     label: "Most Played",
     icon: "chart-up",
-    load: () => getTopPlayHistory(SHELF_POOL, 30),
+    load: () => getTopPlayHistory(SHELF_POOL, 30, profilesStore.activeFilter),
     tracks: [],
     loading: false,
     error: false,
@@ -384,7 +388,7 @@ const shelves = reactive<Shelf[]>([
     key: "recently-played",
     label: "Recently Played",
     icon: "clock",
-    load: () => getRecentPlayHistory(SHELF_POOL),
+    load: () => getRecentPlayHistory(SHELF_POOL, profilesStore.activeFilter),
     tracks: [],
     loading: false,
     error: false,
@@ -507,6 +511,18 @@ onMounted(async () => {
 onActivated(() => {
   for (const shelf of shelves) void loadShelf(shelf, true);
 });
+
+// Switching the active listening profile re-scopes the two play shelves.
+watch(
+  () => profilesStore.activeFilter,
+  () => {
+    for (const shelf of shelves) {
+      if (shelf.key === "most-played" || shelf.key === "recently-played") {
+        void loadShelf(shelf, true);
+      }
+    }
+  },
+);
 
 function isAlbumActive(item: AlbumGridItem): boolean {
   const current = player.currentTrack;

@@ -17,6 +17,7 @@ const getStats = vi.fn();
 const getCoverBlob = vi.fn();
 const getRecentPlayHistory = vi.fn();
 const getMetadata = vi.fn();
+const listProfiles = vi.fn();
 const toastShow = vi.fn();
 
 vi.mock("../api/catalog", () => ({
@@ -27,6 +28,12 @@ vi.mock("../api/catalog", () => ({
   getCoverBlob: (...a: unknown[]) => getCoverBlob(...a),
   getRecentPlayHistory: (...a: unknown[]) => getRecentPlayHistory(...a),
   getMetadata: (...a: unknown[]) => getMetadata(...a),
+  // NER-326: the profiles store reads these through the same module; the
+  // player itself never calls them.
+  listProfiles: (...a: unknown[]) => listProfiles(...a),
+  createProfile: vi.fn(),
+  renameProfile: vi.fn(),
+  deleteProfile: vi.fn(),
 }));
 
 vi.mock("../api/client", () => ({
@@ -109,6 +116,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   issueStreamTokenInfo.mockResolvedValue({ token: "tok", flac: false, wav: false });
   recordPlay.mockResolvedValue(undefined);
+  listProfiles.mockResolvedValue([]);
   getTracks.mockResolvedValue({ tracks: [], total: 0 });
   getStats.mockResolvedValue({
     track_count: 0,
