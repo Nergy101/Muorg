@@ -9,6 +9,8 @@ plugins {
 android {
     namespace = "nl.muorg.android"
     compileSdk = 37
+    // Compose BOM 2026.11.01 (compose 1.13.0) requires compiling against API 37.1+
+    compileSdkMinor = 2
 
     defaultConfig {
         applicationId = "nl.muorg.android"
