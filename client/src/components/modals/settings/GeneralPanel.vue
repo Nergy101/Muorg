@@ -211,6 +211,16 @@ async function copyPathToClipboard(path: string) {
                   <span v-if="updateCheckStatus === 'checking'">Checking…</span>
                   <span v-else>Check for updates</span>
                 </button>
+                <button
+                  type="button"
+                  class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-on-surface-variant underline decoration-dotted underline-offset-2 hover:text-on-surface"
+                  @click="openReleaseUrl('https://github.com/Nergy101/Muorg/releases?q=desktop-v')"
+                  @mouseenter="showLinkTooltip('https://github.com/Nergy101/Muorg/releases?q=desktop-v', $event)"
+                  @mouseleave="hideLinkTooltip"
+                >
+                  <FeatherIcon name="github" class="h-3 w-3 shrink-0" />
+                  All desktop releases on GitHub
+                </button>
                 <div v-if="updateCheckStatus === 'up-to-date'" class="settings-uptodate-notice mt-3 rounded border p-2.5">
                   <p class="text-xs font-medium text-blue-300">Up to date</p>
                   <p class="mt-0.5 text-[11px] text-on-surface-variant">You're running the latest version of Muorg.</p>
